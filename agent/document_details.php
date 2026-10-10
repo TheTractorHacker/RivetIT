@@ -55,6 +55,8 @@ $document_updated_at = nullable_htmlentities($row['document_updated_at']);
 $document_archived_at = nullable_htmlentities($row['document_archived_at']);
 $document_folder_id = intval($row['document_folder_id']);
 $document_client_visible = intval($row['document_client_visible']);
+$document_review_at = nullable_htmlentities($row['document_review_at'] ?? '');
+$document_needs_review = $document_review_at !== '' && strtotime($document_review_at) < strtotime('today');
 
 // Override Tab Title // No Sanitizing needed as this var will opnly be used in the tab title
 $page_title = $row['document_name'];
@@ -121,6 +123,11 @@ $page_title = $row['document_name'];
                         <div class="h4 mb-0"><?= $document_name ?></div>
                         <?php if ($document_description) { ?>
                         <div class="text-light"><?= $document_description ?></div>
+                        <?php } ?>
+                        <?php if ($document_review_at !== '') { ?>
+                        <div class="small <?= $document_needs_review ? 'text-warning' : 'text-light' ?>" data-document-review="1">
+                            <i class="fas fa-fw fa-calendar-check me-1"></i><?= $document_needs_review ? 'Review was due' : 'Review due' ?> <?= date('M d, Y', strtotime($document_review_at)) ?>
+                        </div>
                         <?php } ?>
                     </div>
                     <div class="col">

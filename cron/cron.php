@@ -1259,6 +1259,23 @@ try {
 
 /*
  * ###############################################################################################################
+ *  PLATFORM TASKS
+ *  Every tick: seal any audit rows nobody sealed yet (hash chain) and copy them to the audit sink. Once a day: verify the audit hash chain
+ *  (alert on a break), document review reminders, auto-retire of stale RMM assets (OFF unless switched on), orphaned entity links.
+ *  See src/Platform/Nightly.php.
+ * ###############################################################################################################
+ */
+try {
+    $platform_found = \ITFlow\Platform\Nightly::run($mysqli, dirname(__DIR__));
+    if (count($platform_found) > 1 || (($platform_found['sealed'] ?? 0) !== 0 && ($platform_found['sealed'] ?? 0) !== null)) {
+        echo gmdate('Y-m-d\TH:i:s\Z') . " cron: platform tasks: " . json_encode($platform_found) . "\n";
+    }
+} catch (\Throwable $e) {
+    logApp("Cron", "error", "Platform tasks failed: " . $e->getMessage());
+}
+
+/*
+ * ###############################################################################################################
  *  COMET BACKUP — SESSION KEY REFRESH
  * ###############################################################################################################
  */

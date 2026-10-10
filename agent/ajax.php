@@ -365,6 +365,22 @@ if (isset($_GET['global_search_live'])) {
         if ($rows) { $groups['kb_articles'] = $rows; }
     }
 
+    // Software, networks, services and "linked records" (ITFlow\Links\PlatformSearch, the same code as the full search page and the API).
+    $gs_actor = \ITFlow\Links\LinkActor::fromSession($mysqli);
+    $gs_platform = new \ITFlow\Links\PlatformSearch($mysqli);
+    foreach ([['software', $gs_platform->software($gs_actor, $raw_query, 5)], ['networks', $gs_platform->networks($gs_actor, $raw_query, 5)], ['services', $gs_platform->services($gs_actor, $raw_query, 5)]] as [$gs_key, $gs_rows]) {
+        $rows = [];
+        foreach ($gs_rows as $gs_row) {
+            $rows[] = ['title' => $gs_row['name'], 'subtitle' => trim($gs_row['client_name'] . ($gs_row['detail'] !== '' ? ' · ' . $gs_row['detail'] : ''), ' ·'), 'url' => '/agent/' . $gs_row['url']];
+        }
+        if ($rows) { $groups[$gs_key] = $rows; }
+    }
+    $rows = [];
+    foreach ($gs_platform->linkedRecords($gs_actor, $raw_query, 5) as $gs_row) {
+        $rows[] = ['title' => $gs_row['name'], 'subtitle' => $gs_row['label'] . ' · ' . $gs_row['relation'] . ' ' . $gs_row['linked_to'], 'url' => '/agent/' . $gs_row['url']];
+    }
+    if ($rows) { $groups['linked'] = $rows; }
+
     // Settings - not database rows, so matched against a static PHP index
     // instead of SQL (uses $raw_query, not the SQL-escaped $query - this
     // never touches a database). Admin-only (see searchSettingsIndex()).

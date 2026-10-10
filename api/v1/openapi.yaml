@@ -1067,7 +1067,7 @@ paths:
   /search:
     get:
       tags: [Search]
-      summary: Global search across tickets, clients, assets, contacts, credentials, and KB articles
+      summary: Global search across tickets, clients, assets, software, networks, services, contacts, credentials, KB articles and linked records
       parameters:
         - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
       responses:
@@ -2453,12 +2453,35 @@ components:
       properties:
         signed_name: {type: string}
         signature: {type: string, description: "data:image/png;base64,... (optional)"}
+    SearchRecord:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        detail: {type: string}
+        client_id: {type: integer}
+        client: {type: string}
     SearchResult:
       type: object
       properties:
         tickets: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
         clients: {type: array, items: {$ref: '#/components/schemas/ClientListItem'}}
         assets: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+        software: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        networks: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        services: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        linked:
+          type: array
+          description: Records linked to a record whose name matches (links and the older link tables), each with what it is linked to.
+          items:
+            type: object
+            properties:
+              type: {type: string}
+              id: {type: integer}
+              name: {type: string}
+              client_id: {type: integer}
+              linked_to: {type: string, description: 'e.g. "Asset srv-core"'}
+              relation: {type: string, description: 'e.g. "documents"'}
         contacts:
           type: array
           description: Omitted (empty) if the caller lacks module_client permission.
