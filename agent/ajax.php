@@ -33,6 +33,30 @@ ob_end_clean();
  */
 require_once "../includes/settings_search_index.php";
 
+/*
+ * Relationships "Link item" picker: records of one type the signed-in role may link to, inside the source record's department
+ * (or kept in no department). Read-only GET, scoped by ITFlow\Links\LinkService::search() and LinkActor.
+ */
+if (isset($_GET['relationship_search'])) {
+    header('Content-Type: application/json');
+    $rs_type = (string) ($_GET['type'] ?? '');
+    $rs_actor = \ITFlow\Links\LinkActor::fromSession($mysqli);
+    $rs_client = intval($_GET['client_id'] ?? 0);
+    $rs_results = [];
+    if (\ITFlow\Links\EntityTypes::isType($rs_type) && $rs_actor->canAccessClient($rs_client)) {
+        $rs_ex_type = (string) ($_GET['exclude_type'] ?? '');
+        $rs_ex_id = intval($_GET['exclude_id'] ?? 0);
+        foreach ((new \ITFlow\Links\LinkService($mysqli))->search($rs_actor, $rs_type, trim((string) ($_GET['q'] ?? '')), $rs_client, 25) as $rs_row) {
+            if ($rs_type === $rs_ex_type && $rs_row['id'] === $rs_ex_id) {
+                continue;
+            }
+            $rs_results[] = $rs_row;
+        }
+    }
+    echo json_encode(['ok' => true, 'results' => $rs_results]);
+    exit;
+}
+
 if (isset($_GET['global_search_live'])) {
     header('Content-Type: application/json');
 

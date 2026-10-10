@@ -66,6 +66,7 @@ function itflow_modal_permission_map(): array {
             'domain'            => ['module_support' => 1],
             'certificate'       => ['module_support' => 1],
             'software'          => ['module_support' => 1],
+            'relationships'     => ['module_support|module_assets|module_client|module_kb|module_credential' => 1],   // the card and Link item pop-up; LinkActor checks the type's own module
             'service'           => ['module_support' => 1],
             'network'           => ['module_support' => 1],
             'network_drive'     => ['module_support' => 1],

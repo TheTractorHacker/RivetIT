@@ -346,6 +346,7 @@ switch ($resource) {
         break;
     case 'contacts':      require __DIR__ . '/contacts.php';      break;
     case 'assets':        require __DIR__ . '/assets.php';        break;
+    case 'relationships': require __DIR__ . '/relationships.php'; break;
     case 'projects':      require __DIR__ . '/projects.php';      break;
     case 'contracts':     require __DIR__ . '/contracts.php';     break;
     case 'tasks':         require __DIR__ . '/tasks.php';         break;

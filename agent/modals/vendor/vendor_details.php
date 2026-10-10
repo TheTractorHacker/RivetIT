@@ -91,6 +91,12 @@ ob_start();
         </div>
     </div>
 
+    <?php
+    // Relationships card: this pop-up is the vendor's details view (agent/vendor_details.php is a retired page), so the Link item form is inline.
+    $rel_type = 'vendor'; $rel_id = $vendor_id; $rel_in_modal = true;
+    require __DIR__ . '/../../../includes/relationships_card.php';
+    ?>
+
 </div>
 
 <?php

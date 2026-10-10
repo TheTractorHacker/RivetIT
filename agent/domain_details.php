@@ -326,6 +326,8 @@ if (mysqli_num_rows($sql) == 0) {
         </div>
     </div>
 
+    <?php $rel_type = 'domain'; $rel_id = $domain_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
+
     <?php
 }
 

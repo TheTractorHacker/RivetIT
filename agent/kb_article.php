@@ -385,6 +385,8 @@ $sql_attachments = mysqli_query(
 
 </div>
 
+<?php $rel_type = 'kb_article'; $rel_id = $kb_article_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
+
 <?php /*
     The render layer, loaded from the page rather than from the shared footer
     loop, because only this page and the version-history modal have a render

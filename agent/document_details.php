@@ -440,6 +440,8 @@ $page_title = $row['document_name'];
 
 </div>
 
+<?php $rel_type = 'document'; $rel_id = $document_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
+
 <script src="../js/pretty_content.js"></script>
 
 <?php

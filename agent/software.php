@@ -322,6 +322,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             >
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
+                                        <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/relationships/relationships.php?type=software&id=<?= $software_id ?>">
+                                            <i class="fas fa-fw fa-project-diagram me-2"></i>Relationships
+                                        </a>
                                         <div class="dropdown-divider"></div>
                                         <a class="dropdown-item text-danger confirm-link" href="post.php?archive_software=<?php echo $software_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                             <i class="fas fa-fw fa-archive me-2"></i>Archive and<br><small>Remove Licenses</small></a>
