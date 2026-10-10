@@ -109,6 +109,7 @@ class IntuneAssetMapper {
 
         if ($existing) {
             mysqli_query($m, "UPDATE asset_intune_links SET $link_fields_sql WHERE id=" . intval($existing['id']));
+            $this->syncAssetFields(intval($existing['asset_id']), $manufacturer, $model, \ITFlow\Assets\AssetInventorySync::osLabel($os_name, $os_version), $primary_user_upn);
             return 'updated';
         }
 
@@ -139,7 +140,7 @@ class IntuneAssetMapper {
         // ----- Step 3: Create new RivetIT asset if no match -----
         if (!$asset_id) {
             $asset_type = $this->guessAssetType($os_name);
-            $os_combined_esc = mysqli_real_escape_string($m, trim("$os_name $os_version"));
+            $os_combined_esc = mysqli_real_escape_string($m, \ITFlow\Assets\AssetInventorySync::osLabel($os_name, $os_version));
             mysqli_query($m,
                 "INSERT INTO assets SET
                  asset_type='$asset_type',
@@ -173,7 +174,23 @@ class IntuneAssetMapper {
             mysqli_query($m, "INSERT INTO asset_intune_links SET asset_id=$asset_id, microsoft_integration_id=$intg_id, $link_fields_sql");
         }
 
+        $this->syncAssetFields($asset_id, $manufacturer, $model, \ITFlow\Assets\AssetInventorySync::osLabel($os_name, $os_version), $primary_user_upn);
+
         return $outcome;
+    }
+
+    /**
+     * Make, model and OS onto the asset (never over a human edit), and the device's primary user (UPN) as the asset's contact when exactly
+     * one contact of the asset's department has that address (see ITFlow\Assets\AssetInventorySync). A failure never fails the device.
+     */
+    private function syncAssetFields(int $asset_id, string $manufacturer, string $model, string $os, string $upn): void {
+        try {
+            $sync = new \ITFlow\Assets\AssetInventorySync($this->mysqli);
+            $sync->apply($asset_id, ['make' => $manufacturer, 'model' => $model, 'os' => $os], 'intune');
+            $sync->applyPrimaryUser($asset_id, $upn, null);
+        } catch (\Throwable $e) {
+            error_log('Intune asset sync skipped: ' . $e->getMessage());
+        }
     }
 
     // Converts a Graph ISO8601 timestamp string into a SQL datetime literal

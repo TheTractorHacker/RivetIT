@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace ITFlow\Core\Adapter\Endpoint;
 
 use RivetCore\Database\DatabaseInterface;
+use ITFlow\Assets\AssetInventorySync;
 use RivetCore\Rmm\Contracts\RmmBridgeInterface;
+use RivetCore\Rmm\RmmProtocol;
 
 /**
  * RivetIT's RMM tables for the endpoint agent module: the synthetic `rmm_integrations` row, one `asset_rmm_links` row per linked asset (this
@@ -54,6 +56,8 @@ final class EndpointBridge implements RmmBridgeInterface
                 array_merge([$assetId, $integrationId], $vals)
             );
         }
+        $deviceId = preg_match('/^' . preg_quote(RmmProtocol::AGENT_KEY_PREFIX, '/') . '(\d+)$/', $agentKey, $m) ? (int) $m[1] : null;
+        $this->syncAssetInventory($assetId, (string) $facts['manufacturer'], (string) $facts['model'], (string) $facts['os_name'], (string) $facts['os_version'], '', '', $deviceId);
     }
 
     public function removeLink(int $integrationId, string $agentKey): void
@@ -76,8 +80,37 @@ final class EndpointBridge implements RmmBridgeInterface
             [$health['hostname'], $health['os_version'], (string) $health['manufacturer'], (string) $health['model'], $health['cpu'], $health['ram_gb'], (string) $health['logged_in_user'],
                 $health['cpu_pct'], $health['ram_pct'], $health['disk_pct'], (int) $health['needs_reboot'], $health['last_boot'], (int) $link['id']]
         );
+        $osName = $this->database->fetchOne('SELECT os_name FROM asset_rmm_links WHERE id = ?', [(int) $link['id']]);
+        $this->syncAssetInventory($assetId, (string) $health['manufacturer'], (string) $health['model'], (string) ($osName['os_name'] ?? ''), (string) $health['os_version'], (string) $health['cpu'], (string) $health['ram_gb'], null);
 
         return true;
+    }
+
+    /**
+     * The agent's report written onto the asset itself (model, CPU, RAM, OS, primary adapter) without overwriting a human edit:
+     * see ITFlow\Assets\AssetInventorySync. Never fails the check-in.
+     */
+    private function syncAssetInventory(int $assetId, string $manufacturer, string $model, string $osName, string $osVersion, string $cpu, string $ramGb, ?int $deviceId): void
+    {
+        try {
+            $nic = ['nic_ip' => '', 'nic_mac' => ''];
+            $dev = $deviceId !== null
+                ? $this->database->fetchOne('SELECT inventory_json FROM endpoint_agent_devices WHERE device_id = ?', [$deviceId])
+                : $this->database->fetchOne('SELECT inventory_json FROM endpoint_agent_devices WHERE asset_id = ? AND retired_at IS NULL ORDER BY device_id DESC LIMIT 1', [$assetId]);
+            $inv = !empty($dev['inventory_json']) ? json_decode((string) $dev['inventory_json'], true) : null;
+            if (is_array($inv) && is_array($inv['network'] ?? null)) {
+                $nic = AssetInventorySync::primaryNic($inv['network']);
+            }
+            (new AssetInventorySync($this->mysqli))->apply($assetId, [
+                'make' => $manufacturer,
+                'model' => $model,
+                'os' => AssetInventorySync::osLabel($osName, $osVersion),
+                'cpu' => $cpu,
+                'ram' => AssetInventorySync::ramLabel($ramGb),
+            ] + $nic, 'agent');
+        } catch (\Throwable $e) {
+            error_log('Asset inventory sync skipped: ' . $e->getMessage());
+        }
     }
 
     public function markOffline(int $integrationId, array $agentKeys): int

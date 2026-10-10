@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ITFlow\Core\Adapter\Endpoint;
 
+use ITFlow\Assets\AssetInventorySync;
 use RivetCore\Database\DatabaseInterface;
 use RivetCore\Rmm\Contracts\RmmAssetNamesInterface;
 use RivetCore\Rmm\Contracts\RmmAssetsInterface;
@@ -76,7 +77,23 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
             [$isServer ? 'Server' : 'Laptop', $device['hostname'], (string) ($device['manufacturer'] ?? ''), $device['model'], $device['serial'], 'Windows ' . $device['os_version'], $clientId, $locationId]
         );
 
-        return (int) $res->insertId;
+        $assetId = (int) $res->insertId;
+        // The values just written are the agent's own: remember them so a later report may refresh them (a human edit is still never touched).
+        if ($assetId > 0 && ($mysqli = $this->mysqli()) !== null) {
+            try {
+                (new AssetInventorySync($mysqli))->recordWritten($assetId, ['make' => (string) ($device['manufacturer'] ?? ''), 'model' => (string) ($device['model'] ?? ''), 'os' => 'Windows ' . $device['os_version']]);
+            } catch (\Throwable $e) {
+                error_log('Asset inventory state skipped: ' . $e->getMessage());
+            }
+        }
+
+        return $assetId;
+    }
+
+    /** The edition's mysqli behind the adapter (same connection as the module's transactions); null for an adapter that is not mysqli. */
+    private function mysqli(): ?\mysqli
+    {
+        return $this->database instanceof \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter ? $this->database->connection() : null;
     }
 
     public function fillBlanks(int $assetId, array $facts): void
