@@ -1,0 +1,16 @@
+{
+    "from": "jane@client.example",
+    "subject": "Automatic reply: Re: [TCK-0042] Printer offline",
+    "message_id": "ooo-1@client.example",
+    "thread_candidates": [
+        "out-42@msp.example"
+    ],
+    "classification": {
+        "kind": "auto",
+        "rule": "ooo_subject"
+    },
+    "reply_stripped": false,
+    "reply_text": "",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

@@ -1,0 +1,15 @@
+{
+    "from": "jane@client.example",
+    "subject": "Photos of the problem",
+    "message_id": "big-1@client.example",
+    "thread_candidates": [],
+    "classification": null,
+    "reply_stripped": false,
+    "reply_text": "",
+    "attachments_kept": [
+        "small.txt"
+    ],
+    "attachments_rejected": [
+        "huge.bin"
+    ]
+}

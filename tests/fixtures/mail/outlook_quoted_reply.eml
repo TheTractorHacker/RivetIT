@@ -1,0 +1,30 @@
+Return-Path: <jane@client.example>
+From: Jane Roe <jane@client.example>
+To: support@msp.example
+Subject: RE: [TCK-0042] Printer offline
+Date: Tue, 06 Oct 2026 10:15:00 +0000
+Message-ID: <outlook-1@client.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="ob"
+
+--ob
+Content-Type: text/plain; charset=utf-8
+
+Thanks, that fixed it.
+
+Regards,
+Jane
+
+________________________________
+From: Support <support@msp.example>
+Sent: Tuesday, October 6, 2026 9:30 AM
+To: Jane Roe <jane@client.example>
+Subject: [TCK-0042] Printer offline
+
+Please reboot the printer and tell us what happens.
+
+--ob
+Content-Type: text/html; charset=utf-8
+
+<html><body><div>Thanks, that fixed it.</div><div>Regards,<br>Jane</div><hr style="display:inline-block;width:98%"><div id="divRplyFwdMsg"><b>From:</b> Support<br><b>Sent:</b> Tuesday<br><b>To:</b> Jane</div><div>Please reboot the printer and tell us what happens.</div></body></html>
+--ob--

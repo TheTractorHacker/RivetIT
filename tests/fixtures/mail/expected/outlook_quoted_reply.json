@@ -1,0 +1,11 @@
+{
+    "from": "jane@client.example",
+    "subject": "RE: [TCK-0042] Printer offline",
+    "message_id": "outlook-1@client.example",
+    "thread_candidates": [],
+    "classification": null,
+    "reply_stripped": true,
+    "reply_text": "Thanks, that fixed it.\n\nRegards,\n\nJane",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

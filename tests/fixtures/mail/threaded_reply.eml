@@ -1,0 +1,15 @@
+Return-Path: <jane@client.example>
+From: Jane Roe <jane@client.example>
+To: support@msp.example
+Subject: Re: Printer offline
+Date: Tue, 06 Oct 2026 10:00:00 +0000
+Message-ID: <Reply-77@Client.Example>
+In-Reply-To: <rivet.out42@msp.example>
+References: <orig-42@client.example> <rivet.out42@msp.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+It is still offline after the reboot.
+
+On Tue, Oct 6, 2026 at 9:30 AM Support <support@msp.example> wrote:
+> Please reboot the printer and tell us what happens.

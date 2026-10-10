@@ -1,0 +1,28 @@
+Return-Path: <jane@client.example>
+From: Jane Roe <jane@client.example>
+To: support@msp.example
+Subject: Re: [TCK-0042] Printer offline
+Date: Tue, 06 Oct 2026 10:20:00 +0000
+Message-ID: <CAF+gmail-1@mail.gmail.com>
+In-Reply-To: <rivet.out42@msp.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="gb"
+
+--gb
+Content-Type: text/plain; charset="UTF-8"
+
+Works now, thank you!
+
+On Tue, Oct 6, 2026 at 9:30 AM Support Desk <
+support@msp.example> wrote:
+
+> Please reboot the printer and tell us what happens.
+>
+> --
+> Support
+
+--gb
+Content-Type: text/html; charset="UTF-8"
+
+<div dir="ltr">Works now, thank you!</div><br><div class="gmail_quote"><div dir="ltr" class="gmail_attr">On Tue, Oct 6, 2026 at 9:30 AM Support Desk &lt;<a href="mailto:support@msp.example">support@msp.example</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex">Please reboot the printer and tell us what happens.</blockquote></div>
+--gb--
