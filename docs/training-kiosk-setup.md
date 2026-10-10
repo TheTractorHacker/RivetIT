@@ -48,6 +48,58 @@ This guide covers how to turn an iPad or a Windows PC into a **training device**
   - Admins can **Unlock** a person, **Clear cooldown** on a device and **Clear pause** for everyone. Each of these needs a reason.
 - Trainers always use a training PIN. Issuing a slip for a trainer, or unlocking or unblocking one, needs the Training permission at level Full (or admin) and alerts the admins.
 
+## Choosing how to deploy
+
+Different customers deploy different ways. All of these work side by side.
+
+| Option | How it works | Best for |
+|---|---|---|
+| Set up on the device | An admin signs in on the tablet (**Set up this device**). | One or two devices |
+| Setup code | **Get setup codes** prints a 10-character code per device; someone types it on the device. | A handful of devices, no MDM |
+| Per-device start URL | `https://<site>/kiosk/?d=<token>`, one per device, pushed or typed. | Windows kiosk-mode PCs, one at a time |
+| Per-device URL export | **Training › Devices & PINs › Fleet links**: after creating a link, **Per-device URLs (CSV)** lists one URL per tablet in the department with its serial already filled in. | An MDM that cannot fill in a serial macro |
+| **Fleet link with serial** (recommended for MDM) | One shared URL, `https://<site>/kiosk/?e=<token>&sn=<serial macro>`; the MDM fills in each tablet's serial. | Many iPads or Android tablets |
+| Fleet link, plain | `https://<site>/kiosk/?e=<token>` with no serial. Each tablet enrolls as an unlisted device and waits for approval. | Fallback when the MDM has no serial macro |
+
+## Fleet links (MDM mass deployment)
+
+A **fleet link** is one enrollment link for a whole department's tablets. It works like the endpoint agent's enrollment tokens:
+
+- **Scoped** to one department (a client). Tablets that use it are enrolled for that department, and serials are matched only to that department's Assets.
+- **Expires** (7 to 90 days) and has a **most devices** cap. Each new tablet counts as one use.
+- **Revocable and rotatable.** Revoking stops new tablets only; tablets that already enrolled keep working (revoke those on the Devices tab). **Rotate** revokes the link and gives you a new one with the same settings.
+- Only a hash of the token is stored. The link is shown **once**, when you create or rotate it (Training › Devices & PINs › **Fleet links**; needs the Training kiosk permission at level 3).
+- Every enrollment is audited, and the training ledger records the device.
+
+**What happens on the tablet.** The MDM opens `/kiosk/?e=<token>&sn=<serial>`. The server answers with a bare redirect to `/kiosk/#e=<token>&sn=<serial>` (nginx does this itself where the rule from `docker/nginx.conf` is deployed, so the token and serial stay out of the access log), the page enrolls the tablet and stores the device cookie, and the tablet ends up on the sign-in screen with nothing typed. A Home Screen icon that opens the same URL on every tap is fine: a tablet that is already set up is left alone and uses nothing.
+
+**Approval.** Pick one when you create the link:
+
+- **Require approval** (default). Every tablet lands as *pending* and shows "Waiting for approval". It gets no training data and nobody can sign in until an admin opens **Fleet links › Waiting for approval** and chooses **Approve** (optionally binding an Asset of that department) or **Reject**. If the serial already matched an Asset, the approval screen binds it and names the device after it.
+- **Auto-enroll when the serial matches.** A tablet whose serial matches exactly one active, non-archived device Asset (Tablet, Phone, Mobile Phone, Laptop or Desktop) **of the link's department** that has no training device yet is enrolled at once, named after the asset, and (if the asset is assigned to an eligible person) personal. Anything else (no serial, no match, a match in another department, two assets with the same serial, an asset that already has a device) still waits for approval, with the reason shown.
+
+A serial must be 3 to 64 letters, digits, `.`, `_` or `-`. If the MDM did not expand its macro (the tablet shows "did not fill in this device's serial number"), nothing is created and no use is spent. A serial that already has a pending or active fleet device is refused until an admin revokes that device, so knowing a serial never takes over a working tablet.
+
+### Apple (iPad): MDM Web Clip
+
+1. **Fleet links › New fleet link.** Pick the department, approval mode, how long it works and the most devices.
+2. In the panel that appears (shown once), choose your MDM so the **serial-number macro** is filled in, or type your own. Check the macro name in your MDM's documentation before a large push; common forms are `$SERIALNUMBER` (Jamf Pro), `{{serialnumber}}` (Intune) and `%serialnumber%` (ManageEngine).
+3. Click **Download .mobileconfig** (set the icon name first). The profile is an unsigned managed Web Clip with: the URL `https://<site>/kiosk/?e=<token>&sn=<macro>`, **Full Screen**, **not removable**, and the kiosk icon embedded as base64 (managed Web Clips do not reliably fetch the site's icon). Its PayloadUUIDs are fixed for the link, so pushing it again updates the profile instead of adding a second one.
+4. Upload the profile to your MDM and assign it to the iPads (Jamf: Computers › Configuration Profiles › upload, or build a Web Clip payload and paste the URL template; Intune: Devices › iOS/iPadOS › Configuration profiles › Templates › Custom › upload the file, or a Web clips profile with the template URL; ManageEngine: Profiles › iOS › Web Clip with the template URL).
+5. For no-touch setup, enroll the iPads through **Apple Business Manager / School Manager** (automated device enrollment) so the profile arrives during Setup Assistant.
+6. On first tap of the icon the iPad enrolls (or waits for approval); after that the icon always opens the kiosk. Optional: **Guided Access** or Single App Mode as in the iPad section above.
+
+If the MDM cannot expand a macro inside a Web Clip, use **Per-device URLs (CSV)** and push each URL to its iPad (or paste each into a per-device Web Clip), or use the plain link and approve the tablets.
+
+### Android: Android Enterprise
+
+1. Create the fleet link and copy the **MDM URL template** (choose the macro your MDM uses for the serial number).
+2. Enroll the tablets as **fully managed / dedicated devices** (zero-touch enrollment or a QR code).
+3. Push the URL as a **managed web app / web link** (Managed Google Play web apps) or as a **Chrome managed bookmark / homepage** (Chrome policy `HomepageLocation` and `RestoreOnStartupURLs`), and in dedicated-device (kiosk) mode allow only that app or Chrome.
+4. If your MDM has no serial macro for web links, use the plain link (tablets wait for approval) or **Per-device URLs (CSV)**.
+
+Once a tablet is enrolled it keeps its own device cookie; clearing Chrome's data returns it to the link, which is refused for that serial until an admin revokes the old device entry (a deliberate guard against take-over).
+
 ## iPad
 
 1. Update to **iPadOS 16.4 or later**. Older iPads run everything except YouTube and Vimeo lessons, which ask for an update.

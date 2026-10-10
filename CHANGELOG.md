@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Training kiosk: fleet links for MDM mass deployment (DB 2.6.151)
+
+- **Fleet links** (Training › Devices & PINs › Fleet links; Training kiosk level 3) let you deploy the kiosk to many iPads or Android tablets from an MDM with **one shared URL**, `/kiosk/?e=<token>&sn=<serial macro>`, as an option alongside the existing per-device enrollment, start URLs and setup codes. A link is scoped to one department, expires (7 to 90 days), has a most-devices cap, and can be revoked or rotated; only a hash of the token is stored and the link is shown once, like the endpoint agent's enrollment tokens.
+- **Approval modes:** *require approval* (default; every tablet waits as "pending" and sees "Waiting for approval", with no training data, until an admin approves or rejects it under Fleet links) or *auto-enroll when the serial already matches an active Asset of the link's department*. A serial is matched to Assets inside that department only; no serial, no match, a match in another department, duplicate serials or an asset that already has a device all wait for approval, with the reason shown. A tablet that is already set up is left alone when the link is opened again; a serial that already has a device is refused so a link can't take over a working tablet.
+- The token and serial stay out of access logs like `?d=`: the kiosk (and the nginx rule added to `docker/nginx.conf` and `deploy/templates/nginx-vhost.conf.template`; the live vhost needs the same rule) redirects `/kiosk/?e=...` to the fragment form. Misses are rate-limited (20 a minute), serials are validated (3-64 of letters, digits, `.`, `_`, `-`), and every enrollment, approval, rejection and refusal is audited and written to the training ledger.
+- **MDM helpers:** a copyable URL template with serial-macro placeholders (Jamf, Intune, ManageEngine, generic), a downloadable per-link Apple `.mobileconfig` Web Clip (Full Screen, not removable, kiosk icon embedded, stable PayloadUUIDs), and a CSV of per-device URLs for MDMs that can't fill in a macro.
+- Database 2.6.151: new `training_fleet_links` table; `training_kiosks` gains `kiosk_fleet_id`, `kiosk_fleet_serial`, `kiosk_fleet_note` and the `fleet` enrollment method. New ledger event `kiosk.fleet_pending`. `docs/training-kiosk-setup.md` has the deployment-options table and the Apple and Android Enterprise steps. Tests: `tests/kiosk_fleet_links.php`.
+
 ### Assets: Location dropdown on company-wide Add
 
 - **Add asset** from the company-wide Assets page now shows a **Location** dropdown (active locations, labelled with their department). Before, it only appeared once an asset was opened from inside a department.
