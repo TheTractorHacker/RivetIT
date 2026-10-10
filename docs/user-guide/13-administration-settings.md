@@ -264,7 +264,7 @@ Go to **Maintenance → Backup**.
 1. **Download Backup** builds a fresh zip and sends it to your browser without keeping a copy. **Save to Server** stores it in the server's `backups` folder, named `itflow_<timestamp>_manual.zip`.
 2. Every zip holds `db.sql` (the database), `uploads.zip` (uploaded files), `version.txt` and a small manifest with what a restore onto a different server needs to read encrypted secrets.
 3. For automatic backups, tick **Enable automatic backups via cron**, choose **Daily** or **Weekly (Sunday)**, set **Keep last N backups** (older ones are deleted) and click **Save Schedule**. This needs the scheduler (above). Automatic files end in `_auto.zip`.
-4. Optionally set a **Backup encryption passphrase**. It encrypts only the manifest inside the zip; the rest of the zip is not encrypted, so store backups securely.
+4. Set a **Backup encryption passphrase** (required, at least 16 characters). No backup is built until one is saved. It encrypts the manifest inside the zip, which is where the settings key is kept; the rest of the zip is not encrypted, so store backups securely and keep the passphrase somewhere other than this server.
 5. To also send every backup to S3-compatible storage (AWS S3, MinIO, RustFS), fill in **Remote Storage**: endpoint (blank for AWS), region, bucket, access key, secret key, optional prefix and **Path-style addressing**, then **Save Remote Storage** and **Test Connection**.
 6. Under **Encryption Key Backup**, enter your own password and click **Reveal** to see the master key that decrypts stored credentials after a restore. Keep a copy offline. Revealing it is written to the audit log and raises an in-app notification.
 

@@ -192,33 +192,76 @@ function zip_uploads(string $uploadsPath, string $zipFilePath): void {
     $zip->close();
 }
 
+/** Raised when a backup is requested without a usable backup passphrase. Callers show message(); cron logs it. */
+class BackupPassphraseRequired extends RuntimeException {}
+
+/** Shortest backup passphrase the app accepts (the key that unlocks the settings key and every secret in a restore). */
+const BACKUP_PASSPHRASE_MIN_LENGTH = 16;
+
+/**
+ * The saved backup passphrase if it is usable (set and at least BACKUP_PASSPHRASE_MIN_LENGTH characters), else null.
+ * Reads the decrypted global (admin pages load it through load_global_settings; cron through backup_cron_settings).
+ */
+function backup_passphrase_or_null(): ?string {
+    $p = (string) ($GLOBALS['config_backup_passphrase'] ?? '');
+    return strlen($p) >= BACKUP_PASSPHRASE_MIN_LENGTH ? $p : null;
+}
+
+/** Refuses (throws) when no usable passphrase is configured. Every backup path goes through build_backup(), which calls this. */
+function backup_require_passphrase(): string {
+    $p = backup_passphrase_or_null();
+    if ($p === null) {
+        throw new BackupPassphraseRequired(
+            'A backup passphrase of at least ' . BACKUP_PASSPHRASE_MIN_LENGTH . ' characters is required before any backup can be built. '
+            . 'Set one under Admin > Backup > Backup encryption passphrase, and store it somewhere other than this server.'
+        );
+    }
+    return $p;
+}
+
+/** Short, non-reversible identifier for the settings key, written to manifests so a restore can tell which key a backup needs. */
+function backup_settings_key_fingerprint(string $key): string {
+    return $key === '' ? '' : substr(hash('sha256', 'rivetit-settings-key-fingerprint|v1|' . $key), 0, 16);
+}
+
 /**
  * The one thing db.sql + uploads.zip never carried: config.php's $config_settings_enc_key. Without
  * it, restoring this backup onto a different config.php (a fresh install's own freshly generated
  * key) leaves every SMTP/IMAP password, RMM/webhook secret and the wrapped credentials-vault master
- * key in db.sql undecryptable - the backup has the bytes but isn't actually restorable. Same shape
- * as deploy/backup.sh's own manifest (schema_version, db_name, installation_id, settings_enc_key,
- * backup_timestamp), so deploy/restore.sh's existing key-recovery step can read either tool's file,
- * and the same admin-set passphrase decrypts either.
+ * key in db.sql undecryptable - the backup has the bytes but isn't actually restorable.
+ *
+ * The key is written ONLY inside the passphrase-encrypted manifest (backup-manifest.json.enc). A
+ * manifest that cannot be encrypted (no passphrase passed) carries a key FINGERPRINT only, never the
+ * key itself; a restore from such a manifest needs the operator to supply the key. build_backup()
+ * never takes that path (it refuses to run without a passphrase); it exists for callers and tests.
+ * Same shape as deploy/backup.sh's own manifest (schema_version, db_name, installation_id,
+ * backup_timestamp), so deploy/restore.sh's key-recovery step can read either tool's file, and the
+ * same admin-set passphrase decrypts either.
  *
  * @return array{name: string, path: string} the temp file to add to the zip, and its entry name
- *         (backup-manifest.json, or backup-manifest.json.enc when $passphrase is set)
+ *         (backup-manifest.json.enc, or backup-manifest.json when $passphrase is empty)
  */
 function build_backup_manifest(mysqli $mysqli, string $baseName, ?string $passphrase): array {
     $manifestFile = tempnam(sys_get_temp_dir(), $baseName . '_man_');
     @chmod($manifestFile, 0600);
 
     $dbNameRow = $mysqli->query('SELECT DATABASE() AS db')?->fetch_assoc();
+    $settingsKey = (string) ($GLOBALS['config_settings_enc_key'] ?? '');
+    $encrypted   = $passphrase !== null && $passphrase !== '';
     $data = [
-        'schema_version'   => 1,
-        'db_name'          => $dbNameRow['db'] ?? 'N/A',
-        'installation_id'  => $GLOBALS['installation_id'] ?? 'N/A',
-        'settings_enc_key' => $GLOBALS['config_settings_enc_key'] ?? '',
-        'backup_timestamp' => date('YmdHis'),
+        'schema_version'               => 2,
+        'db_name'                      => $dbNameRow['db'] ?? 'N/A',
+        'installation_id'              => $GLOBALS['installation_id'] ?? 'N/A',
+        'settings_enc_key_fingerprint' => backup_settings_key_fingerprint($settingsKey),
+        'backup_timestamp'             => date('YmdHis'),
     ];
+    // The key itself only ever goes into a manifest that is about to be encrypted.
+    if ($encrypted) {
+        $data['settings_enc_key'] = $settingsKey;
+    }
     file_put_contents($manifestFile, json_encode($data, JSON_PRETTY_PRINT));
 
-    if ($passphrase === null || $passphrase === '') {
+    if (!$encrypted) {
         return ['name' => 'backup-manifest.json', 'path' => $manifestFile];
     }
 
@@ -254,6 +297,8 @@ function build_backup_manifest(mysqli $mysqli, string $baseName, ?string $passph
  * $type: 'manual' or 'auto'
  */
 function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
+    // Refuse before any temp file or dump is created. Throws BackupPassphraseRequired.
+    $passphrase   = backup_require_passphrase();
     $timestamp    = date('YmdHis');
     $baseName     = "itflow_{$timestamp}_{$type}";
     $sqlFile      = tempnam(sys_get_temp_dir(), $baseName . '_sql_');
@@ -283,11 +328,8 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
         $meta .= "Training ledger head: #{$ledgerHead['seq']} {$ledgerHead['hash']}\n";
     }
 
-    $passphrase = ($GLOBALS['config_backup_passphrase'] ?? '') !== '' ? $GLOBALS['config_backup_passphrase'] : null;
     $manifest   = build_backup_manifest($mysqli, $baseName, $passphrase);
-    $meta      .= $passphrase !== null
-        ? "Manifest: {$manifest['name']} (encrypted with the saved backup passphrase)\n"
-        : "Manifest: {$manifest['name']} (plain text - set a backup passphrase in Admin > Backup to encrypt it)\n";
+    $meta      .= "Manifest: {$manifest['name']} (encrypted with the saved backup passphrase)\n";
     file_put_contents($versionFile, $meta);
 
     $final = new ZipArchive();
@@ -413,7 +455,12 @@ function backup_upload_to_s3(string $filePath, string $fileName, bool $manual = 
 if (isset($_GET['backup_download_fresh'])) {
     validateCSRFToken($_GET['csrf_token']);
 
-    $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    try {
+        $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    } catch (BackupPassphraseRequired $e) {
+        flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
+        redirect();
+    }
     register_shutdown_function(function() use ($result) { @unlink($result['path']); });
 
     header('Content-Type: application/zip');
@@ -430,7 +477,12 @@ if (isset($_GET['backup_download_fresh'])) {
 // ── Save backup to server ─────────────────────────────────────────────────────
 if (isset($_GET['backup_save'])) {
     validateCSRFToken($_GET['csrf_token']);
-    $result = build_backup($mysqli, 'manual', $BACKUP_DIR);
+    try {
+        $result = build_backup($mysqli, 'manual', $BACKUP_DIR);
+    } catch (BackupPassphraseRequired $e) {
+        flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
+        redirect();
+    }
     logAction('System', 'Backup Save', "$session_name saved backup {$result['name']} to server");
     $s3_ok = backup_upload_to_s3($result['path'], $result['name']);
     $s3_note = $config_backup_s3_enabled ? ($s3_ok ? ' and uploaded to remote storage' : ' (remote storage upload failed - check Admin > Backup)') : '';
@@ -447,7 +499,12 @@ if (isset($_GET['backup_s3_now'])) {
         flash_alert('Remote storage is not configured - save a bucket under Remote Storage first.', 'error');
         redirect();
     }
-    $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    try {
+        $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
+    } catch (BackupPassphraseRequired $e) {
+        flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
+        redirect();
+    }
     $s3_ok = backup_upload_to_s3($result['path'], $result['name'], true);
     @unlink($result['path']);
     if ($s3_ok) {
@@ -516,7 +573,12 @@ if (isset($_POST['save_backup_settings'])) {
     $set = "config_backup_auto_enabled = $auto, config_backup_frequency = '$freq', config_backup_retain_count = $retain";
     // Blank = keep whatever's already saved (same convention as the S3 secret key below it on this form).
     if (trim($_POST['config_backup_passphrase'] ?? '') !== '') {
-        $passphrase = mysqli_real_escape_string($mysqli, encryptSetting(trim($_POST['config_backup_passphrase'])));
+        $new_passphrase = trim($_POST['config_backup_passphrase']);
+        if (strlen($new_passphrase) < BACKUP_PASSPHRASE_MIN_LENGTH) {
+            flash_alert('The backup passphrase must be at least ' . BACKUP_PASSPHRASE_MIN_LENGTH . ' characters. Nothing was saved.', 'error');
+            redirect();
+        }
+        $passphrase = mysqli_real_escape_string($mysqli, encryptSetting($new_passphrase));
         $set .= ", config_backup_passphrase = '$passphrase'";
     }
     mysqli_query($mysqli, "UPDATE settings SET $set WHERE company_id = 1");
@@ -608,7 +670,13 @@ if (isset($_POST['backup_master_key'])) {
 // ── Cron-triggered auto-backup (called from cron.php) ────────────────────────
 if (isset($_GET['cron_backup']) && php_sapi_name() === 'cli') {
     // Only callable from CLI (cron)
-    $result = build_backup($mysqli, 'auto', $BACKUP_DIR);
+    try {
+        $result = build_backup($mysqli, 'auto', $BACKUP_DIR);
+    } catch (BackupPassphraseRequired $e) {
+        logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
+        fwrite(STDERR, 'Auto-backup refused: ' . $e->getMessage() . "\n");
+        exit(1);
+    }
     prune_backups($BACKUP_DIR, $config_backup_retain_count);
     logApp('Backup', 'info', "Auto-backup completed: {$result['name']}");
     echo "Auto-backup saved: {$result['name']}\n";

@@ -1,5 +1,13 @@
 <?php
 require_once "includes/inc_all_user.php";
+require_once "../../includes/security_policy.php";
+require_once "../../includes/security_sessions.php";
+
+$sec_min_password = secSettingInt('password_min_length');
+$sec_new_codes = $_SESSION['new_recovery_codes'] ?? null;   // shown once, then forgotten
+unset($_SESSION['new_recovery_codes']);
+$sec_codes_left = !empty($session_token) ? secRecoveryCodesRemaining($mysqli, $session_user_id) : 0;
+$sec_sessions = secSessionList($mysqli, $session_user_id);
 
 $sql_api_tokens = mysqli_query($mysqli, "SELECT token_id, token_name, token_fcm_token, token_last_used_at, token_created_at FROM api_tokens WHERE token_user_id = $session_user_id ORDER BY token_created_at DESC");
 $sql_remember_tokens = mysqli_query($mysqli, "SELECT * FROM remember_tokens WHERE remember_token_user_id = $session_user_id ORDER BY remember_token_created_at DESC");
@@ -49,14 +57,14 @@ function tps_local(?string $utc): ?string
                     </div>
                     <input type="password" class="form-control" data-toggle="password"
                            name="new_password" placeholder="Leave blank for no change"
-                           autocomplete="new-password" minlength="8" required>
+                           autocomplete="new-password" minlength="<?= $sec_min_password ?>" required>
                     <div class="input-group-append">
                         <span class="input-group-text" style="cursor:pointer;">
                             <i class="fa fa-fw fa-eye"></i>
                         </span>
                     </div>
                 </div>
-                <small class="text-muted">Minimum 8 characters.</small>
+                <small class="text-muted">Minimum <?= $sec_min_password ?> characters, and not the same as your name or email address.</small>
             </div>
             <button type="submit" name="edit_your_user_password" class="btn btn-primary btn-sm">
                 <i class="fas fa-check me-1"></i>Update Password
@@ -86,6 +94,33 @@ function tps_local(?string $utc): ?string
     <div class="card-body py-2">
         <p class="mb-0 text-muted small">TOTP authentication is active on your account. Use your authenticator app each time you sign in.</p>
     </div>
+
+    <div class="card-body border-top py-2" id="recovery-codes">
+        <h6 class="text-muted mb-2"><i class="fas fa-fw fa-life-ring me-1"></i>Recovery codes
+            <span class="badge <?= $sec_codes_left > 3 ? 'text-bg-secondary' : 'text-bg-warning' ?>"><?= $sec_codes_left ?> left</span></h6>
+        <?php if (is_array($sec_new_codes) && $sec_new_codes) { ?>
+            <div class="alert alert-warning mb-2">
+                <strong>Save these codes now. They are shown only once.</strong>
+                Each code works one time in place of your authenticator code if you lose your phone. Store them somewhere safe, away from this device.
+                <pre class="mb-0 mt-2 user-select-all" style="font-size:1.05rem;"><?= nullable_htmlentities(implode("\n", $sec_new_codes)) ?></pre>
+            </div>
+        <?php } else { ?>
+            <p class="text-muted small mb-2">Single-use codes you can type at sign-in instead of an authenticator code. We only keep a hash of each, so they cannot be shown again; make a new set if you lose them.</p>
+        <?php } ?>
+        <form action="post.php" method="post" autocomplete="off" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="col-auto">
+                <label class="small text-muted mb-1">Current password</label>
+                <input type="password" class="form-control form-control-sm" name="current_password" autocomplete="current-password" required>
+            </div>
+            <div class="col-auto">
+                <button type="submit" name="regenerate_recovery_codes" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-sync-alt me-1"></i>Make new recovery codes
+                </button>
+            </div>
+            <div class="col-12"><small class="text-muted">Making new codes cancels all the old ones.</small></div>
+        </form>
+    </div>
     <?php } ?>
 
     <?php if ($remember_token_count > 0) { ?>
@@ -111,6 +146,46 @@ function tps_local(?string $utc): ?string
         </form>
     </div>
     <?php } ?>
+</div>
+
+<!-- Active sessions -->
+<div class="card card-dark" id="active-sessions">
+    <div class="card-header py-2 d-flex align-items-center">
+        <h3 class="card-title mr-auto"><i class="fas fa-fw fa-laptop me-2"></i>Active sessions</h3>
+        <form action="post.php" method="post" class="mb-0">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <button type="submit" name="sign_out_everywhere" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-sign-out-alt me-1"></i>Sign out everywhere
+            </button>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-borderless table-hover mb-0">
+            <thead class="text-muted small"><tr class="border-bottom"><th class="ps-3">Browser</th><th>IP address</th><th>Signed in</th><th>Last active</th><th></th></tr></thead>
+            <tbody>
+            <?php if (!$sec_sessions) { ?>
+                <tr><td colspan="5" class="text-muted text-center py-3">No tracked sessions yet.</td></tr>
+            <?php } foreach ($sec_sessions as $sx) { ?>
+                <tr>
+                    <td class="ps-3 small"><?= nullable_htmlentities(mb_strimwidth((string) $sx['session_user_agent'], 0, 60, '...')) ?>
+                        <?php if ($sx['is_current']) { ?><span class="badge text-bg-success ms-1">This browser</span><?php } ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities($sx['session_ip']) ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities($sx['session_created_at']) ?></td>
+                    <td class="text-muted small"><?= timeAgo($sx['session_last_seen_at']) ?></td>
+                    <td class="pe-3 text-end">
+                        <?php if (!$sx['is_current']) { ?>
+                        <form action="post.php" method="post" class="mb-0 d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="session_row_id" value="<?= intval($sx['session_row_id']) ?>">
+                            <button type="submit" name="revoke_session" class="btn btn-sm btn-outline-danger"><i class="fas fa-times me-1"></i>Sign out</button>
+                        </form>
+                        <?php } ?>
+                    </td>
+                </tr>
+            <?php } ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <?php

@@ -100,7 +100,15 @@ if (!defined('FROM_POST_HANDLER')) {
 }
 require_once dirname(__DIR__) . '/admin/post/backup.php';
 
-$result = build_backup($mysqli, 'auto', $backup_dir);
+try {
+    $result = build_backup($mysqli, 'auto', $backup_dir);
+} catch (BackupPassphraseRequired $e) {
+    // No usable backup passphrase: refuse loudly instead of writing a backup that cannot protect the settings key.
+    logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
+    appNotify('Backup', 'Automatic backup was NOT taken: set a backup passphrase (16+ characters) in Admin > Backup.', '/admin/backup.php');
+    fwrite(STDERR, gmdate('Y-m-d\TH:i:s\Z') . ' backup_cron: refused - ' . $e->getMessage() . "\n");
+    exit(1);
+}
 prune_backups($backup_dir, $config_backup_retain_count);
 logApp('Backup', 'info', "Auto-backup completed: {$result['name']}");
 appNotify('Backup', "Auto-backup saved: {$result['name']}", '/admin/backup.php');

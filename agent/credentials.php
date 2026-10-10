@@ -543,15 +543,16 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,40) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
                             }
                             $credential_uri_2 = sanitize_url($row['credential_uri_2']);
-                            $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username']));
-                            if (empty($credential_username)) {
-                                $credential_username_display = "-";
-                            } else {
-                                $credential_username_display = "<span class='cred-cell'><span class='cred-text'>$credential_username</span><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy username' data-clipboard-text='$credential_username'><i class='far fa-copy'></i></button></span>";
-                            }
-                            $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password']));
+                            // Nothing is decrypted into this page. Username and password are drawn masked; the eye and copy buttons fetch
+                            // one field on demand from credential_reveal.php, which audits every reveal and copy (includes/vault_reveal.php).
+                            $credential_has_username = !empty($row['credential_username']);
+                            $credential_has_password = !empty($row['credential_password']);
+                            $credential_username_display = $credential_has_username
+                                ? "<span class='cred-cell'><span class='cred-mask js-cred-value' data-masked='1'>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>"
+                                    . "<button class='btn btn-sm cred-btn js-cred-reveal' type='button' title='Show username' aria-label='Show username' data-credential-id='$credential_id' data-field='username'><i class='far fa-eye'></i></button>"
+                                    . "<button class='btn btn-sm cred-btn js-cred-copy' type='button' title='Copy username' aria-label='Copy username' data-credential-id='$credential_id' data-field='username'><i class='far fa-copy'></i></button></span>"
+                                : "-";
                             $credential_otp_secret = nullable_htmlentities($row['credential_otp_secret']);
-                            $credential_id_with_secret = '"' . $row['credential_id'] . '","' . $row['credential_otp_secret'] . '"';
                             if (empty($credential_otp_secret)) {
                                 $otp_display = "-";
                             } else {
@@ -659,11 +660,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </td>
                                 <td class="text-nowrap"><?php echo $credential_username_display; ?></td>
                                 <td class="text-nowrap">
+                                    <?php if ($credential_has_password) { ?>
                                     <span class="cred-cell">
-                                        <span class="cred-mask" aria-hidden="true">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
-                                        <button class="btn btn-sm cred-btn" type="button" aria-label="Show password" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-content="<?php echo $credential_password; ?>"><i class="far fa-eye"></i></button>
-                                        <button class="btn btn-sm cred-btn clipboardjs" type="button" title="Copy password" data-clipboard-text="<?php echo $credential_password; ?>"><i class="far fa-copy"></i></button>
+                                        <span class="cred-mask js-cred-value" data-masked="1">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+                                        <button class="btn btn-sm cred-btn js-cred-reveal" type="button" title="Show password" aria-label="Show password" data-credential-id="<?php echo $credential_id; ?>" data-field="password"><i class="far fa-eye"></i></button>
+                                        <button class="btn btn-sm cred-btn js-cred-copy" type="button" title="Copy password" aria-label="Copy password" data-credential-id="<?php echo $credential_id; ?>" data-field="password"><i class="far fa-copy"></i></button>
                                     </span>
+                                    <?php } else { echo "-"; } ?>
                                 </td>
                                 <td class="text-nowrap"><?php echo $otp_display; ?></td>
                                 <td><?php echo $credential_uri_display; ?></td>
@@ -766,6 +769,29 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 <!-- Include script to get TOTP code via the login ID -->
 <script src="js/credential_show_otp_via_id.js"></script>
+<!-- Reveal / copy a username or password on demand (audited, rate limited, optional password step-up) -->
+<div id="credential-vault-list" hidden data-csrf="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES); ?>" data-reveal-url="credential_reveal.php"></div>
+<div class="modal fade" id="credStepUpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <form id="credStepUpForm" autocomplete="off">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-fw fa-lock me-2"></i>Confirm your password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">It has been a while since you entered your password. Enter it to show or copy this credential.</p>
+                    <input type="password" class="form-control" id="credStepUpPassword" autocomplete="current-password" required>
+                    <div class="text-danger small mt-1" id="credStepUpError" hidden>That password was not right.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="js/credential_vault_list.js"></script>
 <script src="../js/bulk_actions.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 $(function () {

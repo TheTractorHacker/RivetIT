@@ -9,7 +9,7 @@ function ticket_collision_detection() {
     //Send a GET request to ajax.php as ajax.php?ticket_add_view=true&ticket_id=NUMBER
     jQuery.get(
         "ajax.php",
-        {ticket_add_view: 'true', ticket_id: ticket_id},
+        {ticket_add_view: 'true', ticket_id: ticket_id, _bg: '1'},
         function(data) {
             // We don't care about a response
         }
@@ -18,7 +18,7 @@ function ticket_collision_detection() {
     //Send a GET request to ajax.php as ajax.php?ticket_query_views=true&ticket_id=NUMBER
     jQuery.get(
         "ajax.php",
-        {ticket_query_views: 'true', ticket_id: ticket_id},
+        {ticket_query_views: 'true', ticket_id: ticket_id, _bg: '1'},
         function(data) {
             //If we get a response from ajax.php, parse it as JSON
             const ticket_view_data = JSON.parse(data);

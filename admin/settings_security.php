@@ -122,21 +122,21 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
                         <span class="input-group-text">days</span>
                     </div>
                 </div>
-                <small class="form-text text-secondary">The value shown is the one in effect. Anything lower than 30 (including the old stored default of 3) is raised to 30 days when it is read and saved.</small>
+                <small class="form-text text-secondary">The value shown is the one in effect. Anything lower than 30 (including the old stored default of 3) is raised to 30 days when it is read and saved. Administrators and users with vault access must always pass two-factor again unless the setting below allows remember-me to skip it.</small>
             </div>
 
             <div class="form-group">
-                <label>Session Lifetime <small class="text-secondary">(Minutes before re-login is required &mdash; 30-day minimum: 43200 = 30 days, 129600 = 90 days)</small></label>
+                <label>Maximum session length <small class="text-secondary">(Minutes after which a sign-in always ends, however active &mdash; default 20160 = 14 days, up to 129600 = 90 days)</small></label>
                 <div class="input-group">
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-hourglass-half"></i></span>
                     </div>
-                    <input type="number" class="form-control" name="config_login_session_lifetime" min="43200" max="129600" placeholder="Minutes (43200 = 30 days)" value="<?php echo intval($config_login_session_lifetime); ?>">
+                    <input type="number" class="form-control" name="config_login_session_lifetime" min="60" max="129600" placeholder="Minutes (20160 = 14 days)" value="<?php echo intval($config_login_session_lifetime); ?>">
                     <div class="input-group-append">
                         <span class="input-group-text">minutes</span>
                     </div>
                 </div>
-                <small class="form-text text-secondary">The value shown is the one in effect: <?php echo intval($config_login_session_lifetime); ?> minutes (<?php echo round(intval($config_login_session_lifetime) / 1440, 1); ?> days). Lower values, including the old stored default of 480 minutes, are raised to 43200 (30 days); the maximum is 129600 (90 days).</small>
+                <small class="form-text text-secondary">The value shown is the one in effect: <?php echo intval($config_login_session_lifetime); ?> minutes (<?php echo round(intval($config_login_session_lifetime) / 1440, 1); ?> days). The idle timeout below signs a session out sooner when nobody is using it; the maximum is 129600 (90 days).</small>
             </div>
 
             <div class="form-group">
@@ -208,6 +208,91 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
 
             <button type="submit" name="edit_security_settings" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
 
+        </form>
+    </div>
+</div>
+
+<?php
+require_once "../includes/security_policy.php";
+$sp = secSettingsAll($mysqli, true);
+?>
+
+<div class="card">
+    <div class="card-header py-3">
+        <h3 class="card-title"><i class="fas fa-fw fa-user-lock me-2"></i>Sign-in policy</h3>
+    </div>
+    <div class="card-body">
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
+
+            <h5 class="mb-3"><i class="fas fa-fw fa-mobile-alt me-2"></i>Two-factor authentication</h5>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label>Who must use two-factor</label>
+                    <select class="form-control" name="mfa_policy">
+                        <option value="off" <?php if ($sp['mfa_policy'] === 'off') { echo "selected"; } ?>>Nobody (each user can still be required in Users)</option>
+                        <option value="admins" <?php if ($sp['mfa_policy'] === 'admins') { echo "selected"; } ?>>Administrators</option>
+                        <option value="all" <?php if ($sp['mfa_policy'] === 'all') { echo "selected"; } ?>>All agents</option>
+                    </select>
+                    <small class="form-text text-secondary">Accounts that sign in through a company identity provider are not affected.</small>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label>Grace period <small class="text-secondary">(days)</small></label>
+                    <input type="number" class="form-control" name="mfa_grace_days" min="0" max="90" value="<?php echo intval($sp['mfa_grace_days']); ?>">
+                    <small class="form-text text-secondary">A required user without two-factor can still sign in this many days after the policy is switched on (or after the account is created). After that the only page they can open is the one to set it up.</small>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="remember_me_skips_mfa" id="rememberSkipsMfa" value="1" <?php if ($sp['remember_me_skips_mfa'] === '1') { echo "checked"; } ?>>
+                    <label class="form-check-label" for="rememberSkipsMfa">Allow remember-me to skip two-factor for administrators and users with vault access</label>
+                </div>
+                <small class="form-text text-secondary">Off by default: a remember-me cookie never replaces the second factor for those users, and never signs them in without it.</small>
+            </div>
+
+            <hr>
+            <h5 class="mb-3"><i class="fas fa-fw fa-key me-2"></i>Staff passwords</h5>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label>Minimum length</label>
+                    <input type="number" class="form-control" name="password_min_length" min="8" max="128" value="<?php echo intval($sp['password_min_length']); ?>">
+                    <small class="form-text text-secondary">Default 12. A password may not be the same as the person&rsquo;s name or email address.</small>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="d-block">Breached-password check</label>
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" name="password_hibp_check" id="hibpCheck" value="1" <?php if ($sp['password_hibp_check'] === '1') { echo "checked"; } ?>>
+                        <label class="form-check-label" for="hibpCheck">Reject passwords found in public breaches</label>
+                    </div>
+                    <small class="form-text text-secondary">Off by default. Uses the Have I Been Pwned range service: only the first 5 characters of the password&rsquo;s SHA-1 hash leave this server. If the service cannot be reached the password is accepted.</small>
+                </div>
+            </div>
+
+            <hr>
+            <h5 class="mb-3"><i class="fas fa-fw fa-hourglass-half me-2"></i>Sessions</h5>
+            <div class="form-group">
+                <label>Idle timeout <small class="text-secondary">(minutes without activity before a sign-in ends &mdash; default 480 = 8 hours)</small></label>
+                <input type="number" class="form-control" name="session_idle_minutes" min="5" max="129600" value="<?php echo intval($sp['session_idle_minutes']); ?>">
+                <small class="form-text text-secondary">The maximum session length above still applies. Pages that only poll in the background do not count as activity.</small>
+            </div>
+
+            <hr>
+            <h5 class="mb-3"><i class="fas fa-fw fa-lock me-2"></i>Credential vault list</h5>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label>Ask for the password again after <small class="text-secondary">(minutes, 0 = never)</small></label>
+                    <input type="number" class="form-control" name="vault_stepup_minutes" min="0" max="1440" value="<?php echo intval($sp['vault_stepup_minutes']); ?>">
+                    <small class="form-text text-secondary">Showing or copying a username or password from the credential list needs the account password if it was last entered longer ago than this. Default 15.</small>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label>Reveal limit <small class="text-secondary">(per user, per 10 minutes)</small></label>
+                    <input type="number" class="form-control" name="vault_reveal_limit" min="1" max="1000" value="<?php echo intval($sp['vault_reveal_limit']); ?>">
+                    <small class="form-text text-secondary">Past this a user is blocked and the administrators are notified. Every reveal and copy is in the audit log. Default 30.</small>
+                </div>
+            </div>
+
+            <hr>
+            <button type="submit" name="edit_security_policy" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save sign-in policy</button>
         </form>
     </div>
 </div>

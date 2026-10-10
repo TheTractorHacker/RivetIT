@@ -195,6 +195,11 @@ file's comments for the full tradeoffs):
                               if --backup's manifest is encrypted
                               (backup-manifest.json.enc). Works even against
                               a brand-new, never-set-up --app-dir.
+  --settings-key-file=<path>  File holding the original config_settings_enc_key. Only
+                              needed for a backup whose manifest carries no key (the
+                              app's zips since 26.10.30 always encrypt the key inside
+                              the manifest, so --passphrase-file is what recovers it).
+                              Checked against the fingerprint in the manifest.
   --admin-user=<email>        Fallback with no passphrase: an existing,
                               active Administrator account's login email on
                               --app-dir AS IT IS RIGHT NOW (before this
@@ -243,6 +248,7 @@ parse_args() {
             --app-dir=*)              APP_DIR="${arg#*=}" ;;
             --backup=*)                BACKUP_FILE="${arg#*=}" ;;
             --passphrase-file=*)      PASSPHRASE_FILE="${arg#*=}" ;;
+            --settings-key-file=*)    SETTINGS_KEY_FILE="${arg#*=}" ;;
             --admin-user=*)            ADMIN_USER="${arg#*=}" ;;
             --admin-password-file=*)  ADMIN_PASSWORD_FILE="${arg#*=}" ;;
             --confirm-restore)         CONFIRM_RESTORE=1 ;;
@@ -606,6 +612,11 @@ restore_uploads() {
 # --passphrase-file was in fact given, same as before.
 read_manifest_or_skip() {
     if [[ -z "${PASSPHRASE_FILE}" && -f "${EXTRACT_DIR}/backup-manifest.json.enc" ]]; then
+        if [[ -n "${SETTINGS_KEY_FILE}" ]]; then
+            # The encrypted manifest cannot be read, but the operator supplied the key directly: use it (no fingerprint to check against).
+            load_settings_key_file "${SETTINGS_KEY_FILE}" ""
+            return 0
+        fi
         warn "This backup's manifest (backup-manifest.json.enc) is encrypted and no --passphrase-file was given. Skipping manifest-based settings_enc_key recovery — relying on --admin-user instead to recover the credential vault's master key after the restore. Note: --admin-user recovery does NOT restore config_settings_enc_key itself, so SMTP/IMAP passwords and other settings-table secrets encrypted directly with the backup's ORIGINAL config_settings_enc_key will only decrypt if this --app-dir's own key already matches (true for a same-box rollback, not guaranteed otherwise)."
         return 0
     fi

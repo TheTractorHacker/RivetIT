@@ -66,6 +66,7 @@ LOG_FILE="/var/log/itflow-restore.log"
 APP_DIR=""
 BACKUP_FILE=""
 PASSPHRASE_FILE=""
+# SETTINGS_KEY_FILE is declared in lib/common.sh (read_manifest_dir uses it).
 CONFIRM_RESTORE=0
 NO_PRE_RESTORE_BACKUP_CONFIRMED=0
 UNATTENDED=0
@@ -79,6 +80,7 @@ INSTALLATION_ID=""
 SETTINGS_ENC_KEY=""
 EXTRACT_DIR=""
 SQL_FILE=""
+DECRYPTED_WITH=""
 MANIFEST_SETTINGS_ENC_KEY=""
 
 print_help() {
@@ -100,6 +102,12 @@ Required:
                               the target database and uploads/ entirely.
 
 Options:
+  --settings-key-file=<path>  File holding the original config_settings_enc_key
+                              (backup.sh writes <archive>.settings-key next to
+                              each archive; that sidecar is picked up automatically
+                              when it sits next to --backup). Archives made before
+                              the key moved out of the archive still carry it in
+                              their manifest and need no file.
   --no-pre-restore-backup-confirmed
                               Skip taking a safety backup of --app-dir's
                               current state before overwriting it.
@@ -128,6 +136,7 @@ parse_args() {
             --app-dir=*)              APP_DIR="${arg#*=}" ;;
             --backup=*)                BACKUP_FILE="${arg#*=}" ;;
             --passphrase-file=*)      PASSPHRASE_FILE="${arg#*=}" ;;
+            --settings-key-file=*)    SETTINGS_KEY_FILE="${arg#*=}" ;;
             --confirm-restore)         CONFIRM_RESTORE=1 ;;
             --no-pre-restore-backup-confirmed) NO_PRE_RESTORE_BACKUP_CONFIRMED=1 ;;
             --unattended)               UNATTENDED=1 ;;
@@ -211,12 +220,26 @@ decrypt_and_extract() {
     chmod 600 "${combined}"
     register_tmpfile "${combined}"
 
-    if ! openssl enc -d -aes-256-cbc -pbkdf2 \
-        -in "${BACKUP_FILE}" -out "${combined}" \
-        -pass file:"${PASSPHRASE_FILE}"; then
+    # Archives written by this version use 600000 PBKDF2 iterations; archives from before that used OpenSSL's
+    # default (10000). Try the new count first, then the old one. A wrong count or passphrase fails the openssl
+    # padding check (or, rarely, yields garbage that fails gzip -t), so both are checked before accepting a result.
+    local iter_label
+    DECRYPTED_WITH=""
+    for iter_label in 600000 default; do
+        local -a iter_args=()
+        [[ "${iter_label}" == "default" ]] || iter_args=(-iter "${iter_label}")
+        : > "${combined}"
+        if openssl enc -d -aes-256-cbc -pbkdf2 "${iter_args[@]}" \
+            -in "${BACKUP_FILE}" -out "${combined}" \
+            -pass file:"${PASSPHRASE_FILE}" 2>/dev/null && gzip -t "${combined}" 2>/dev/null; then
+            DECRYPTED_WITH="${iter_label}"
+            break
+        fi
+    done
+    if [[ -z "${DECRYPTED_WITH}" ]]; then
         die "Decryption failed. Either --passphrase-file doesn't match the passphrase ${BACKUP_FILE} was encrypted with, or the file is corrupt."
     fi
-    success "Decrypted OK."
+    success "Decrypted OK (PBKDF2 iterations: ${DECRYPTED_WITH})."
 
     EXTRACT_DIR="$(mktemp -d)"
     register_tmpfile "${EXTRACT_DIR}"
@@ -305,6 +328,11 @@ main() {
     info "=== RivetIT restore starting: ${BACKUP_FILE} -> ${APP_DIR} ==="
 
     read_app_config "${APP_DIR}"
+    # The key file backup.sh writes next to the archive is used automatically unless one was named.
+    if [[ -z "${SETTINGS_KEY_FILE}" && -f "${BACKUP_FILE%.tar.gz.enc}.settings-key" ]]; then
+        SETTINGS_KEY_FILE="${BACKUP_FILE%.tar.gz.enc}.settings-key"
+        info "Found the settings-key file next to the archive: ${SETTINGS_KEY_FILE}"
+    fi
     run_pre_restore_backup
     decrypt_and_extract
     read_manifest
@@ -317,4 +345,7 @@ main() {
     info "Reminder: credential vault data decrypts with each user's own password-derived key, not a separate secret in the dump. If the admin password changed after this backup was taken, use Settings -> Backup's 'retrieve master key' option (admin only) if vault access is needed."
 }
 
-main "$@"
+# Run only when executed, not when sourced (tests/backup_passphrase.php sources this file to exercise its functions).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

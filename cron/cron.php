@@ -148,6 +148,10 @@ try {
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 
+// Sign-in sessions list (Account > Security > Active sessions): forget rows that ended or went quiet over 30 days ago
+require_once dirname(__DIR__) . '/includes/security_sessions.php';
+secSessionPurge($mysqli);
+
 // SLA: make every open ticket's pause match its status (waiting-on-customer/employee/vendor statuses flagged "Pauses SLA" stop the
 // clock). Status changes made by any path - kanban, API, automation, a customer reply - are repaired here at the latest.
 try {
@@ -1217,7 +1221,15 @@ if ($config_backup_auto_enabled) {
             define('FROM_POST_HANDLER', true);
         }
         require_once dirname(__DIR__) . '/admin/post/backup.php';
-        $result = build_backup($mysqli, 'auto', $backup_dir);
+        try {
+            $result = build_backup($mysqli, 'auto', $backup_dir);
+        } catch (BackupPassphraseRequired $e) {
+            logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
+            appNotify('Backup', 'Automatic backup was NOT taken: set a backup passphrase (16+ characters) in Admin > Backup.', '/admin/backup.php');
+            echo gmdate('Y-m-d\TH:i:s\Z') . " cron: auto-backup refused (no backup passphrase)\n";
+            $result = null;
+        }
+        if ($result !== null) {
         prune_backups($backup_dir, $config_backup_retain_count);
         logApp('Backup', 'info', "Auto-backup completed: {$result['name']}");
         appNotify('Backup', "Auto-backup saved: {$result['name']}", '/admin/backup.php');
@@ -1225,6 +1237,7 @@ if ($config_backup_auto_enabled) {
         // otherwise-silent cron block is worth a one-liner in the log on the run(s) that
         // actually do something, even on this straight-line, mostly-silent script.
         echo gmdate('Y-m-d\TH:i:s\Z') . " cron: auto-backup built {$result['name']}\n";
+        }
     }
 }
 

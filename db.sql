@@ -2620,6 +2620,21 @@ CREATE TABLE `rmm_sync_log` (
 
 
 --
+-- Table structure for table `security_settings`
+--
+
+DROP TABLE IF EXISTS `security_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `security_settings` (
+  `setting_key` varchar(64) NOT NULL,
+  `setting_value` varchar(255) NOT NULL DEFAULT '',
+  `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `service_assets`
 --
 
@@ -2860,7 +2875,7 @@ CREATE TABLE `settings` (
   `config_login_key_required` tinyint(1) NOT NULL DEFAULT 0,
   `config_login_key_secret` varchar(255) DEFAULT NULL,
   `config_login_remember_me_expire` int(11) NOT NULL DEFAULT 3,
-  `config_login_session_lifetime` int(11) NOT NULL DEFAULT 480,
+  `config_login_session_lifetime` int(11) NOT NULL DEFAULT 20160,
   `config_log_retention` int(11) NOT NULL DEFAULT 90,
   `config_backup_auto_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_backup_frequency` varchar(20) NOT NULL DEFAULT 'daily',
@@ -3053,7 +3068,7 @@ CREATE TABLE `software` (
   `software_version` varchar(200) DEFAULT NULL,
   `software_type` varchar(200) NOT NULL,
   `software_license_type` varchar(200) DEFAULT NULL,
-  `software_key` varchar(200) DEFAULT NULL,
+  `software_key` text DEFAULT NULL,
   `software_seats` int(11) DEFAULT NULL,
   `software_purchase_reference` varchar(200) DEFAULT NULL,
   `software_purchase` date DEFAULT NULL,
@@ -3200,7 +3215,7 @@ DROP TABLE IF EXISTS `software_keys`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `software_keys` (
   `software_key_id` int(11) NOT NULL AUTO_INCREMENT,
-  `software_key` varchar(400) NOT NULL,
+  `software_key` text NOT NULL,
   `software_key_software_id` int(11) NOT NULL,
   PRIMARY KEY (`software_key_id`),
   KEY `software_key_software_id` (`software_key_software_id`),
@@ -5712,6 +5727,25 @@ CREATE TABLE `user_client_permissions` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `user_recovery_codes`
+--
+
+DROP TABLE IF EXISTS `user_recovery_codes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_recovery_codes` (
+  `code_id` int(11) NOT NULL AUTO_INCREMENT,
+  `code_user_id` int(11) NOT NULL,
+  `code_hash` varchar(255) NOT NULL,
+  `code_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `code_used_at` datetime DEFAULT NULL,
+  `code_used_ip` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`code_id`),
+  KEY `idx_recovery_codes_user` (`code_user_id`,`code_used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `user_role_permissions`
 --
 
@@ -5742,6 +5776,29 @@ CREATE TABLE `user_roles` (
   `role_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `role_archived_at` datetime DEFAULT NULL,
   PRIMARY KEY (`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `user_sessions`
+--
+
+DROP TABLE IF EXISTS `user_sessions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_sessions` (
+  `session_row_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `session_user_id` int(11) NOT NULL,
+  `session_hash` char(64) NOT NULL,
+  `session_ip` varchar(64) DEFAULT NULL,
+  `session_user_agent` varchar(255) DEFAULT NULL,
+  `session_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `session_last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `session_revoked_at` datetime DEFAULT NULL,
+  `session_revoked_reason` varchar(40) DEFAULT NULL,
+  PRIMARY KEY (`session_row_id`),
+  UNIQUE KEY `uq_user_sessions_hash` (`session_hash`),
+  KEY `idx_user_sessions_user` (`session_user_id`,`session_revoked_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

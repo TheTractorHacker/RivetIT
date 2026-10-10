@@ -720,13 +720,12 @@ function generateUserSessionKey($site_encryption_master_key)
     // Give the user "their" key as a cookie
     include 'config.php';
 
-    // Match cookie lifetime to the session lifetime so credentials stay decryptable
-    $cookie_expires = time() + ($_SESSION['session_lifetime_seconds'] ?? 28800);
-
+    // The vault-key cookie is a browser-session cookie (expires 0: gone when the browser closes, never outlives the sign-in) and
+    // SameSite=Strict, so a cross-site request can never carry it. The server-side idle / absolute limits still apply on top.
     if ($config_https_only) {
-        setcookie("user_encryption_session_key", "$user_encryption_session_key", ['expires' => $cookie_expires, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'None']);
+        setcookie("user_encryption_session_key", "$user_encryption_session_key", ['expires' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
     } else {
-        setcookie("user_encryption_session_key", $user_encryption_session_key, ['expires' => $cookie_expires, 'path' => '/', 'httponly' => true]);
+        setcookie("user_encryption_session_key", $user_encryption_session_key, ['expires' => 0, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict']);
         $_SESSION['alert_message'] = "Unencrypted connection flag set: Using non-secure cookies.";
     }
 }

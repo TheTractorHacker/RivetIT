@@ -21,6 +21,12 @@ if (isset($_GET['logout'])) {
         unset($_COOKIE['rememberme']);
     }
 
+    // Mark this browser's Active sessions row as ended (the row is kept for the history until the nightly purge).
+    if (!empty($_SESSION['sec_row'])) {
+        $sec_row_id = intval($_SESSION['sec_row']);
+        @mysqli_query($mysqli, "UPDATE user_sessions SET session_revoked_at = NOW(), session_revoked_reason = 'signed_out' WHERE session_row_id = $sec_row_id AND session_revoked_at IS NULL");
+    }
+
     setcookie("PHPSESSID", '', time() - 3600, "/");
     unset($_COOKIE['PHPSESSID']);
 

@@ -166,14 +166,16 @@ sudo deploy/restore.sh --app-dir=/var/www/rivetit.example.com \
 every table in the target database and everything under `uploads/`. By default it takes a fresh safety
 backup of the target's *current* state first and aborts before touching anything if that fails.
 
-**Why the manifest matters:** `config_settings_enc_key` — the key that decrypts every stored SMTP/IMAP
+**Why the settings key matters:** `config_settings_enc_key` — the key that decrypts every stored SMTP/IMAP
 password, RMM/UniFi API key, webhook secret, and the wrapped credential-vault master key — lives only in
-`config.php`, which is deliberately never included in the backup itself (it also has instance-specific
-DB credentials that shouldn't travel with the data). `backup-manifest.json` carries that key separately,
-inside the same encrypted archive, so `restore.sh` can apply it to the new instance's `config.php` after
-import. Without it, a restored instance's SMTP/RMM/webhook integrations would silently stop working — a
-backup taken before this existed has no manifest, and `restore.sh` warns you to re-enter those secrets by
-hand instead of guessing.
+`config.php`, which is deliberately never included in the backup itself. The key must also not travel in the same
+file as the data it unlocks, so `backup.sh` writes it to a separate `backup-<db>-<timestamp>.settings-key` file
+(mode 0600) next to the archive; the archive's `backup-manifest.json` holds only a fingerprint of it. Move that
+file off the server. `restore.sh` finds the file next to the archive (or takes `--settings-key-file`), checks it
+against the fingerprint and applies it to the new instance's `config.php` after import. Archives made before this
+change still hold the key in their manifest and restore as before. The in-app zip refuses to build without a backup
+passphrase (16+ characters) and keeps the key only inside its passphrase-encrypted manifest. Archives are now
+encrypted with 600000 PBKDF2 iterations; `restore.sh` falls back to the old default for older archives.
 
 **Standing up a brand-new server from a backup** in one step: see [§3](#3-bare-metal-deployinstallsh)
 above (`install.sh --restore-from`, which also accepts an in-app `.zip` — see §4.1) or

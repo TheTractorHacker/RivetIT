@@ -244,8 +244,20 @@ The **Help Desk Lead** role in the pictures is an example: Departments Modify, T
 | **Require a login key to access the technician login page?** | When on, agents must open the sign-in page as `/login.php?key=` followed by the secret. Without it, signing in returns to the sign-in page, and the email box says **Department Email**. |
 | **Login key secret value** | The secret for the login key. Letters, digits and underscores, 3 to 99 characters. Turning the switch on with no secret leaves it off. |
 | **2FA Remember Me Expire** | Days that a "trusted device" skips the MFA code. |
-| **Session Lifetime** | Minutes of inactivity before signing in again. From 30 to 43200; 480 is 8 hours. |
+| **Maximum session length** | Minutes after which a sign-in always ends, however active the person is. From 60 to 129600; the default 20160 is 14 days. The idle timeout (below) signs people out sooner. |
 | **Log retention** | Days to keep audit and app log entries. A nightly job deletes older ones. Enter a real number: 0 or blank deletes everything from before today. |
+
+**Sign-in policy** is a second card on the same page, with its own **Save sign-in policy** button:
+
+| Field | What it does |
+|---|---|
+| **Who must use two-factor** | Nobody, administrators, or all agents. A person who is required but has not set up an authenticator app can still sign in for the **Grace period** (days, counted from when the policy was switched on or the account was created). After that the only pages they can open are the ones that set up two-factor. A user's own **Require MFA** setting works the same way with no grace. Accounts that sign in through an identity provider are not affected. |
+| **Allow remember-me to skip two-factor for administrators and users with vault access** | Off by default. With it off, a remember-me cookie never replaces the second factor for those users. |
+| **Minimum length** and **Breached-password check** | Staff passwords must be at least this long (default 12) and may not be the person's name or email address. The optional check refuses passwords found in public breaches. It sends only the first 5 characters of the password's SHA-1 hash to the Have I Been Pwned range service, and accepts the password if the service cannot be reached. |
+| **Idle timeout** | Minutes without activity before a sign-in ends. Default 480 (8 hours). Pages that only poll in the background do not count as activity. |
+| **Ask for the password again after** and **Reveal limit** | The credential list asks for the account password before showing or copying a username or password if it was last entered longer ago than this (default 15 minutes, 0 = never). A person who reveals or copies more than the limit in 10 minutes (default 30) is blocked, and the administrators are notified. Every reveal and copy is in the audit log. |
+
+Each person manages their own recovery codes and signed-in browsers under **Account → Security**. A password change, by the person or by an administrator, signs that user out everywhere and ends their remember-me cookies.
 
 Other protections work without settings. Fifteen failed sign-ins (or wrong MFA codes) from one address in 10 minutes block that address, and the block is written to the audit log. When mail is set up, a person who signs in from a browser and address never seen before is emailed a notice.
 

@@ -10518,3 +10518,72 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.152'");
     }
+
+    // Wave 1 security (DB 2.6.153). One idempotent step:
+    //   - security_settings (policy key/value), user_recovery_codes (hashed, single use), user_sessions (hashed session id, revocable)
+    //   - software.software_key / software_keys.software_key become TEXT (a wrapped license key is longer than the old varchar(200)/(400))
+    //   - session lifetime default 14 days (was a 30-day floor): rows still on the old defaults (480, 43200) move to 20160 minutes
+    //   - re-wrap the secrets that were stored in plaintext (Slack bot token, login key secret, whitelabel key, license keys, the SMTP/OAuth
+    //     columns deferred in 2.6.77, and users.user_token, the TOTP seeds). Only when $config_settings_enc_key is set - never when empty.
+    //     A row that already carries ENC:/ENC2: is left alone, so running this twice changes nothing.
+    // Numbering: runs strictly after the mail-intake step (2.6.152).
+    if ($rivetit_db_version() == '2.6.152') {
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `security_settings` (
+          `setting_key` varchar(64) NOT NULL,
+          `setting_value` varchar(255) NOT NULL DEFAULT '',
+          `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`setting_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `user_recovery_codes` (
+          `code_id` int(11) NOT NULL AUTO_INCREMENT,
+          `code_user_id` int(11) NOT NULL,
+          `code_hash` varchar(255) NOT NULL,
+          `code_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `code_used_at` datetime DEFAULT NULL,
+          `code_used_ip` varchar(45) DEFAULT NULL,
+          PRIMARY KEY (`code_id`),
+          KEY `idx_recovery_codes_user` (`code_user_id`,`code_used_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `user_sessions` (
+          `session_row_id` bigint(20) NOT NULL AUTO_INCREMENT,
+          `session_user_id` int(11) NOT NULL,
+          `session_hash` char(64) NOT NULL,
+          `session_ip` varchar(64) DEFAULT NULL,
+          `session_user_agent` varchar(255) DEFAULT NULL,
+          `session_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `session_last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `session_revoked_at` datetime DEFAULT NULL,
+          `session_revoked_reason` varchar(40) DEFAULT NULL,
+          PRIMARY KEY (`session_row_id`),
+          UNIQUE KEY `uq_user_sessions_hash` (`session_hash`),
+          KEY `idx_user_sessions_user` (`session_user_id`,`session_revoked_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "ALTER TABLE `software` MODIFY COLUMN `software_key` text DEFAULT NULL");
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'software_keys'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `software_keys` MODIFY COLUMN `software_key` text NOT NULL");
+        }
+
+        mysqli_query($mysqli, "ALTER TABLE `settings` MODIFY COLUMN `config_login_session_lifetime` int(11) NOT NULL DEFAULT 20160");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_login_session_lifetime` = 20160 WHERE `config_login_session_lifetime` IN (480, 43200)");
+
+        // Re-wrap the plaintext stragglers. No key, no wrapping: the rows stay readable as they are and the next run with a key does it.
+        require_once dirname(__DIR__) . '/includes/security_crypto.php';
+        if (!secSettingsKeyAvailable()) {
+            echo "Database update 2.6.153: \$config_settings_enc_key is empty, so stored secrets were NOT re-wrapped. Add the key to config.php; the secrets are wrapped the next time they are read or this update is run again.\n";
+        } else {
+            foreach (secStragglerColumns() as $enc_table => $enc_spec) {
+                foreach ($enc_spec[1] as $enc_col) {
+                    $enc_result = secRewrapColumn($mysqli, $enc_table, $enc_spec[0], $enc_col);
+                    if ($enc_result['skipped_too_long'] > 0) {
+                        echo "WARNING: $enc_table.$enc_col: {$enc_result['skipped_too_long']} row(s) left as-is - the encrypted value does not fit the column.\n";
+                    }
+                }
+            }
+        }
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.153'");
+    }

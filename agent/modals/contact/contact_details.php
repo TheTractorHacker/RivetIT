@@ -621,7 +621,7 @@ $has_contact_facts = $contact_email || $contact_phone || $contact_mobile || $loc
                                 $software_name = nullable_htmlentities($row['software_name']);
                                 $software_version = nullable_htmlentities($row['software_version']);
                                 $software_type = nullable_htmlentities($row['software_type']);
-                                $software_key = nullable_htmlentities($row['software_key']);
+                                $software_key = nullable_htmlentities(decryptSetting((string) ($row['software_key'] ?? '')));
                                 $software_seats = nullable_htmlentities($row['software_seats']);
 
                                 $seat_count = 0;
