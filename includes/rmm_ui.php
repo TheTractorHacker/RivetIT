@@ -194,6 +194,38 @@ function rivetRmmUiSeverity(?string $sev): string
     return preg_match('/crit|error|high|fail|severe|alert|emerg/', $s) === 1 ? 'crit' : 'warn';
 }
 
+/** Checks that get a history trend on the device page (the rest show none); two statements each. */
+const RIVET_RMM_UI_TREND_MAX = 20;
+/** Rows of the Software tab's current list per page, and entries of its change log. */
+const RIVET_RMM_UI_SOFTWARE_PER_PAGE = 50;
+const RIVET_RMM_UI_SOFTWARE_HISTORY = 30;
+
+/**
+ * Turn RmmReadModel::checkHistory() into what the trend renderer needs: the status segments of the window as fractions (a status holds from its
+ * point until the next one, the last until now), the availability, the number of status changes and the newest points first.
+ *
+ * @param array<string,mixed> $h checkHistory()
+ * @return array{segments:list<array{status:string,from:float,to:float}>,availability:?float,changes:int,points:list<array{at:string,status:string,detail:string}>,hours:int}
+ */
+function rivetRmmUiTrend(array $h, ?int $now = null): array
+{
+    $now ??= time();
+    $hours = max(1, (int) ($h['hours'] ?? 24));
+    $start = $now - $hours * 3600;
+    $points = array_values((array) ($h['points'] ?? []));
+    $segments = [];
+    foreach ($points as $i => $p) {
+        $from = max($start, strtotime((string) $p['at']) ?: $start);
+        $to = isset($points[$i + 1]) ? (strtotime((string) $points[$i + 1]['at']) ?: $now) : $now;
+        $to = min($now, max($from, $to));
+        if ($to > $from) {
+            $segments[] = ['status' => in_array($p['status'], ['ok', 'warn', 'fail'], true) ? (string) $p['status'] : 'unknown', 'from' => ($from - $start) / ($hours * 3600), 'to' => ($to - $start) / ($hours * 3600)];
+        }
+    }
+
+    return ['segments' => $segments, 'availability' => $h['availability_pct'] ?? null, 'changes' => (int) ($h['changes'] ?? 0), 'points' => array_slice(array_reverse($points), 0, 12), 'hours' => $hours];
+}
+
 // ------------------------------------------------------------------ the asset page's RMM panel
 
 /**
@@ -202,9 +234,10 @@ function rivetRmmUiSeverity(?string $sev): string
  * "missing" and "not yours").
  *
  * @param int|null $deviceId the device id when the caller already knows it (from the asset_rmm_links row); looked up otherwise
+ * @param array{swq?:string,swp?:int,swr?:mixed} $query the Software tab's search text, page and "show removed" flag (the page's GET parameters)
  * @return array<string,mixed>|null
  */
-function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $deviceId = null, ?int $now = null): ?array
+function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $deviceId = null, ?int $now = null, array $query = []): ?array
 {
     if ($userId <= 0 || $assetId <= 0 || !rivetRmmEnabled($mysqli)) {
         return null;
@@ -230,8 +263,10 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'run_script' => $authz->allowed($userId, RmmAbility::JOB_RUN_SCRIPT, $client),
         'remote' => $authz->allowed($userId, RmmAbility::REMOTE_LAUNCH, $client),
         'admin' => $authz->allowed($userId, RmmAbility::ADMIN, $client),
+        'manage' => $authz->allowed($userId, RmmAbility::DEVICE_MANAGE, $client),   // tags
     ];
-    $view = $rmm->readModel()->deviceView($deviceId, false, 15);
+    $read = $rmm->readModel();
+    $view = $read->deviceView($deviceId, false, 15);
     if ($view === null) {
         return null;
     }
@@ -337,6 +372,48 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         $checks[] = $c;
     }
 
+    // ---- per-check history (RivetCore 1.0.0-rc.9): a 24 hour trend per check, from the ring the evaluator keeps. Off (no column, no query) when the retention is 0.
+    $historyDays = (int) ($rmm->settings()->limits()['check_history_days'] ?? 0);
+    $trendHours = max(1, min(24, $historyDays * 24));
+    $trends = [];
+    if ($historyDays > 0 && $state !== 'never') {
+        foreach (array_slice($checks, 0, RIVET_RMM_UI_TREND_MAX) as $c) {
+            $trends[(string) $c['key']] = rivetRmmUiTrend($read->checkHistory($deviceId, (string) $c['key'], $trendHours, 200), $now);
+        }
+    }
+
+    // ---- tags and groups (membership display); tag names for the autocomplete only for a role that may change tags
+    $tags = $read->deviceTags($deviceId);
+    $groups = $read->deviceGroups($deviceId);
+    $tagSuggestions = [];
+    if ($perm['manage']) {
+        $have = array_flip(array_map(static fn (array $t): string => mb_strtolower((string) $t['name']), $tags));
+        foreach ($read->tags($authz->visibleClientIds($userId)) as $t) {
+            if (!isset($have[mb_strtolower((string) $t['name'])])) {
+                $tagSuggestions[] = (string) $t['name'];
+            }
+            if (count($tagSuggestions) >= 200) {
+                break;
+            }
+        }
+    }
+
+    // ---- software inventory (the Software tab): behind the inventory_software switch, so with it off nothing here asks the database anything
+    $software = null;
+    if ($rmm->featureOn('inventory_software')) {
+        $swq = trim(mb_substr((string) ($query['swq'] ?? ''), 0, 100));
+        $swp = max(1, (int) ($query['swp'] ?? 1));
+        $removed = !empty($query['swr']);
+        $per = RIVET_RMM_UI_SOFTWARE_PER_PAGE;
+        $list = $read->softwareFor($deviceId, ['q' => $swq, 'limit' => $per, 'offset' => ($swp - 1) * $per, 'include_removed' => $removed]);
+        $software = ['state' => $read->softwareState($deviceId), 'q' => $swq, 'page' => $swp, 'per_page' => $per, 'pages' => max(1, (int) ceil($list['total'] / $per)),
+            'show_removed' => $removed, 'items' => $list['items'], 'total' => $list['total'],
+            'history' => $read->softwareHistory($deviceId, $swq !== '' ? $swq : null, RIVET_RMM_UI_SOFTWARE_HISTORY, 0)];
+    }
+
+    // ---- network: the current rate against the 24 hour peak from the metrics subsystem
+    $netPeak = $state === 'never' ? null : $read->networkPeak($deviceId, 24);
+
     // ---- state of the strip
     $pending = $dev['link_state'] === 'pending_approval';
     $kind = $state === 'online' ? ($openCrit ? 'crit' : 'ok') : ($state === 'offline' ? 'crit' : 'off');
@@ -390,6 +467,14 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'perm' => $perm,
         'gauges' => array_merge([$gauges[0], $gauges[1]], $disks, $batteryGauge === null ? [] : [$batteryGauge]),
         'net' => ['rx_bps' => rivetRmmUiNum($met['net_rx_bps'] ?? null), 'tx_bps' => rivetRmmUiNum($met['net_tx_bps'] ?? null)],
+        'net_peak' => $netPeak,
+        'tags' => $tags,
+        'groups' => $groups,
+        'tag_suggestions' => $tagSuggestions,
+        'software' => $software,
+        'trends' => $trends,
+        'check_history_on' => $historyDays > 0 && $state !== 'never',
+        'trend_hours' => $trendHours,
         'checks' => $checks,
         'check_counts' => $counts,
         'alerts' => $alerts,
@@ -424,7 +509,9 @@ function rivetRmmUiDeviceIdForAsset(\mysqli $mysqli, int $assetId): ?int
 /**
  * Everything the fleet page shows, as one view-model, or null when the module is off or the user may not view devices.
  *
- * @param array{status?:string,q?:string,ring?:string,client_id?:int,page?:int,per_page?:int} $filters
+ * @param array{status?:string,q?:string,ring?:string,client_id?:int,tag?:string,group?:int,software?:string,osw?:string,osv?:string,page?:int,per_page?:int} $filters
+ *        `tag`, `group` and `software` narrow the device list (RivetCore 1.0.0-rc.9); `osw` and `osv` (a software name and the oldest acceptable version)
+ *        drive the "Outdated software" card and are not device filters
  * @return array<string,mixed>|null
  */
 function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int $now = null): ?array
@@ -453,6 +540,17 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
     }
     if (!empty($filters['client_id'])) {
         $listFilters['client_id'] = (int) $filters['client_id'];
+    }
+    // Phase 1 filters. The software filter and the outdated-software card only exist while the inventory_software switch is on.
+    $inventoryOn = $rmm->featureOn('inventory_software');
+    if (isset($filters['tag']) && is_string($filters['tag']) && trim($filters['tag']) !== '') {
+        $listFilters['tag'] = mb_substr(trim($filters['tag']), 0, 64);
+    }
+    if (!empty($filters['group']) && (int) $filters['group'] > 0) {
+        $listFilters['group'] = (int) $filters['group'];
+    }
+    if ($inventoryOn && isset($filters['software']) && is_string($filters['software']) && trim($filters['software']) !== '') {
+        $listFilters['software'] = mb_substr(trim($filters['software']), 0, 100);
     }
     $list = $read->listDevices($listFilters, $visible, $perPage, ($page - 1) * $perPage);
     $counts = $read->fleetCounts($visible);
@@ -504,6 +602,23 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
 
     $failures = $read->recentFailedJobs(8, rivetRmmPrincipal($userId, ''));
 
+    // Tags and groups for the filters; the outdated-software report when a name and a version were asked for.
+    $tagList = $read->tags($visible);
+    $groupList = $read->groups($visible);
+    $outdatedSw = null;
+    if ($inventoryOn) {
+        $osw = mb_substr(trim((string) ($filters['osw'] ?? '')), 0, 100);
+        $osv = mb_substr(trim((string) ($filters['osv'] ?? '')), 0, 64);
+        $outdatedSw = ['name' => $osw, 'min_version' => $osv, 'asked' => $osw !== '' && $osv !== '', 'items' => [], 'limit' => 50];
+        if ($outdatedSw['asked']) {
+            $outdatedSw['items'] = $read->outdatedSoftware($osw, $osv, $visible, $outdatedSw['limit']);
+            foreach ($outdatedSw['items'] as $r) {
+                $clientIds[(int) $r['client_id']] = true;
+            }
+            $clientNames = rivetRmmUiClientNames($mysqli, array_keys($clientIds));
+        }
+    }
+
     $capacity = null;
     if ($isAdmin) {
         $redis = null;
@@ -532,6 +647,11 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
         'scan_partial' => $scanned >= $scanCap,
         'current_versions' => ['amd64' => $current['amd64']['version'] ?? null, 'arm64' => $current['arm64']['version'] ?? null],
         'failures' => $failures,
+        'inventory_on' => $inventoryOn,
+        'tag_list' => $tagList,
+        'group_list' => $groupList,
+        'outdated_sw' => $outdatedSw,
+        'keep' => $outdatedSw !== null && $outdatedSw['asked'] ? ['osw' => $outdatedSw['name'], 'osv' => $outdatedSw['min_version']] : [],
         'client_names' => $clientNames,
         'open_alerts' => rivetRmmUiOpenAlertCount($mysqli, $rmm, $visible),
         'capacity' => $capacity,

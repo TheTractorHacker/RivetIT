@@ -191,6 +191,30 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 
+<div class="card mb-3" id="inventory">
+    <div class="card-header"><h4 class="card-title mb-0">Software inventory and history</h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Agents of RivetCore 1.0.0-rc.9 or later can report the software installed on a device (registry uninstall entries on Windows; dpkg, rpm, snap and flatpak on Linux). Nothing is collected until this switch is on, and an agent only sends it after the server offers it, so the order of rollout is safe both ways. Switching it off makes agents stop within one check-in. The list shows on each device's asset page (Software tab) and feeds the fleet filters and the outdated-software report.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="form-check form-switch mb-3">
+                <input type="checkbox" class="form-check-input" id="ea_inv_sw" name="inventory_software" value="1" <?= !empty($cfg['features']['inventory_software']) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="ea_inv_sw">Collect installed software (<code>inventory_software</code>)</label>
+                <div class="form-text">Off by default. Takes effect only while the RMM module itself is on.</div>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-4"><label class="form-label" for="ea_chd">Check history retention (days)</label>
+                    <input type="number" class="form-control" id="ea_chd" name="check_history_days" min="0" max="365" value="<?= (int) ($cfg['limits']['check_history_days'] ?? 7) ?>" aria-describedby="ea_chd_h">
+                    <div class="form-text" id="ea_chd_h">How long each check keeps its status trend (the sparkline on the device page). 0 records none. Default 7.</div></div>
+                <div class="col-sm-6 col-lg-4"><label class="form-label" for="ea_shd">Software change history retention (days)</label>
+                    <input type="number" class="form-control" id="ea_shd" name="software_history_days" min="1" max="3650" value="<?= (int) ($cfg['limits']['software_history_days'] ?? 365) ?>" aria-describedby="ea_shd_h">
+                    <div class="form-text" id="ea_shd_h">How long installs, upgrades and removals are kept. Default 365.</div></div>
+            </div>
+            <button type="submit" name="save_inventory_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save software settings</button>
+        </form>
+    </div>
+</div>
+
 <div class="card mb-3" id="binaries">
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
     <div class="card-body">

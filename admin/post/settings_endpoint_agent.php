@@ -67,6 +67,41 @@ if (isset($_POST['save_agent_settings'])) {
     ea_flash_result($ea_admin->saveSettings($ea_who, $in));
 }
 
+// Software inventory switch and the two history limits (RivetCore 1.0.0-rc.9). RmmAdmin validates and audits; only values that changed are written, so an install on
+// the legacy feature defaults (features_json NULL) or the default limits stays that way until an administrator actually changes something here.
+if (isset($_POST['save_inventory_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $cur = $rmm->readModel()->settingsSummary();
+    $in = [];
+    $want = !empty($_POST['inventory_software']);
+    if ($want !== !empty($cur['features']['inventory_software'])) {
+        $features = $cur['features'];
+        $features['inventory_software'] = $want;
+        $in['features_json'] = $features;
+    }
+    $stored = is_string($cur['limits_json'] ?? null) && $cur['limits_json'] !== '' ? json_decode($cur['limits_json'], true) : [];
+    $stored = is_array($stored) ? $stored : [];
+    $changed = false;
+    foreach (['check_history_days' => [0, 365], 'software_history_days' => [1, 3650]] as $k => [$lo, $hi]) {
+        if (!isset($_POST[$k]) || !is_numeric($_POST[$k])) {
+            continue;
+        }
+        $v = max($lo, min($hi, (int) $_POST[$k]));
+        if ($v !== (int) ($cur['limits'][$k] ?? -1)) {
+            $stored[$k] = $v;
+            $changed = true;
+        }
+    }
+    if ($changed) {
+        $in['limits_json'] = $stored;
+    }
+    if ($in === []) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    ea_flash_result($ea_admin->saveSettings($ea_who, $in), 'Software inventory settings saved.');
+}
+
 // ---------------------------------------------------------------- agent binaries and per-department installers
 
 if (isset($_POST['upload_agent_binary'])) {

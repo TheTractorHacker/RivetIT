@@ -6,6 +6,21 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.34] RivetIT — RMM Phase 1: software inventory, tags, groups, check history
+
+Adopts RivetCore **1.0.0-rc.9** (RMM Phase 1). **DB 2.6.158** (one idempotent step gated on 2.6.157 that runs Core migration `0018_rmm_inventory_foundation` through the Core runner:
+eleven new tables, none of the ten `endpoint_agent_*` tables altered; `db.sql` carries them and a fresh import matches a migrated install). **Nothing is switched on by default.**
+
+- **Software tab** on the asset page, behind the new `inventory_software` switch (Administration > Endpoint agent > Software inventory and history): current list with search, publisher, version, install date, "include removed" and a paged list, plus the change log (installed, upgraded, downgraded, removed). A technician can ask a device for a full list. Agents of this Core release announce the capability; nothing is collected until the switch is on, and switching it off stops agents within one check-in. Existing data is kept.
+- **Device tags and groups** in the device strip: add (with the browser's autocomplete from the existing tags) and remove for administrators, read-only chips for others; group membership is shown. Tags show in the fleet list.
+- **Per-check history:** a 24 hour trend per check (an accessible sparkline whose height also encodes the status, availability in words, a history table behind a disclosure).
+- **Network tile** shows receive and send as bars against the real 24 hour peak (EndpointMetricSink now implements the module's metric reader over RivetIT's Metrics tables), replacing the "link speed not reported" empty state.
+- **Fleet page:** filters by tag, group and installed software name, and an **Outdated software** card (name plus oldest acceptable version).
+- **Events:** the nine `rmm.*` events (device enrolled/offline/online, check failed/recovered, job completed/failed, software installed/removed) now go onto the event bus (`EndpointEvents`), so webhooks and Event rules can use them; they are in the event picker.
+- **Administration:** the `inventory_software` switch and the retention limits `check_history_days` and `software_history_days`.
+- Everything is gated by the existing RMM abilities and the module switch; with the module off the new code asks the database nothing.
+- Tests: `tests/rmm_ui.php` (273 checks), the browser smoke (34 checks, desktop and 390 px, light and dark), new conformance cases for the metric reader and the events adapter.
+
 ## [26.10.33] RivetIT — Relationships, search, inventory sync, tamper-evident audit
 
 Wave 2 of the platform plan (items 13, 14, 15, 17 and 18): the relationship layer, search, inventory sync and a tamper-evident audit trail.

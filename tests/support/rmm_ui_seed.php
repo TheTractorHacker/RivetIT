@@ -7,6 +7,7 @@
  */
 
 use RivetCore\Rmm\Authz\RmmPrincipal;
+use RivetCore\Rmm\Software\SoftwareHash;
 
 /**
  * Wipe, seed users and the fleet, switch the module on. Returns ids by name:
@@ -100,4 +101,52 @@ function rmm_ui_seed(bool $mesh = true): array
     }
 
     return $out;
+}
+
+/**
+ * RMM Phase 1 data on top of rmm_ui_seed() (RivetCore 1.0.0-rc.9), written through the real endpoints and the module's own services: the inventory_software
+ * switch on, WIN1's software (63 items so the list pages: a full report, then a delta that upgrades Chrome, removes Firefox and installs Notepad++), two tags and
+ * a group, a status change in WIN1's check history and a 24 hour network peak. Used by the browser smoke seed (tests/browser/rmm_seed.php).
+ */
+function rmm_ui_seed_phase1(array $S): void
+{
+    global $q, $db;
+    require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+    $rmm = rivetRmmModule($db);
+    $admin = new RmmPrincipal(1, 'admin');
+    $features = $rmm->settings()->features();
+    $features['inventory_software'] = true;
+    $r = $rmm->admin()->saveSettings($admin, ['features_json' => $features]);
+    if (!$r->ok) {
+        throw new RuntimeException('could not switch inventory_software on: ' . $r->message);
+    }
+    $line = static fn(string $n, string $v, string $src = 'registry', string $pub = 'Acme Corp'): array => ['name' => $n, 'version' => $v, 'publisher' => $pub, 'source' => $src, 'installed' => '2026-09-01'];
+    $base = [$line('Google Chrome', '120.0.6099.1', 'registry', 'Google LLC'), $line('Mozilla Firefox', '118.0', 'registry', 'Mozilla'), $line('7-Zip', '23.01', 'registry', 'Igor Pavlov'),
+        $line('<script>alert(5)</script>', '1.0', 'registry32', '"><img src=x onerror=alert(6)>')];
+    for ($i = 1; $i <= 59; $i++) {
+        $base[] = $line(sprintf('Vendor Tool %03d', $i), '1.' . $i . '.0');
+    }
+    $caps = ['job:collect', 'software_inventory'];
+    ea_checkin($S['token']['WIN1'], ['capabilities' => $caps]);
+    ea_checkin($S['token']['WIN1'], ['capabilities' => $caps, 'software' => ['mode' => 'full', 'hash' => SoftwareHash::of($base), 'count' => count($base), 'truncated' => false, 'items' => $base]]);
+    $after = array_values(array_filter($base, static fn($i) => $i['name'] !== 'Mozilla Firefox'));
+    $after[0] = $line('Google Chrome', '125.0.6422.1', 'registry', 'Google LLC');
+    $after[] = $line('Notepad++', '8.6', 'registry', 'Notepad++ Team');
+    ea_checkin($S['token']['WIN1'], ['capabilities' => $caps, 'software' => ['mode' => 'delta', 'base_hash' => SoftwareHash::of($base), 'hash' => SoftwareHash::of($after), 'count' => count($after),
+        'truncated' => false, 'items' => [$after[0], end($after)], 'removed' => [['source' => 'registry', 'name' => 'Mozilla Firefox']]]]);
+    // tags, a group
+    foreach (['VIP', 'Servers', 'Kiosk'] as $t) {
+        $rmm->inventory()->createTag($admin, ['name' => $t]);
+    }
+    $rmm->inventory()->tagDevice($admin, $S['dev']['WIN1'], 'VIP');
+    $g = $rmm->inventory()->createGroup($admin, ['name' => 'Finance PCs']);
+    $gid = (int) ($g->data['group']['group_id'] ?? 0);
+    $rmm->inventory()->addGroupDevices($admin, $gid, [$S['dev']['WIN1'], $S['dev']['OFFL']]);
+    // a status change in the history of one check, and a 24 hour network peak above the current rate
+    ea_checkin($S['token']['WIN1'], ['capabilities' => $caps, 'checks' => [['key' => 'svc_eventlog', 'status' => 'fail', 'detail' => 'stopped'], ['key' => 'disk_c', 'status' => 'fail', 'detail' => 'C: is 91% full'], ['key' => 'pending_reboot', 'status' => 'ok', 'detail' => 'no']],
+        'metrics' => ['cpu_pct' => 14.2, 'mem_pct' => 56.1, 'disk' => [['mount' => 'C:', 'used_pct' => 91.0], ['mount' => 'D:', 'used_pct' => 54.3]], 'net_rx_bps' => 8000000.0, 'net_tx_bps' => 2000000.0]]);
+    (new \ITFlow\Core\Adapter\Endpoint\EndpointMetricSink($db))->ingest([
+        ['asset_id' => $S['asset']['WIN1'], 'key' => 'network.rx_bytes_per_s', 'instance' => 'total', 'value' => 2000000.0, 'at' => new DateTimeImmutable('-20 hours', new DateTimeZone('UTC')), 'label' => 'All adapters'],
+        ['asset_id' => $S['asset']['WIN1'], 'key' => 'network.tx_bytes_per_s', 'instance' => 'total', 'value' => 500000.0, 'at' => new DateTimeImmutable('-20 hours', new DateTimeZone('UTC')), 'label' => 'All adapters'],
+    ], (int) $rmm->settings()->get()['integration_id']);
 }

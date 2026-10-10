@@ -175,10 +175,42 @@
         });
     });
 
-    // ---- tab deep links (#rmm-overview, #rmm-inventory, #rmm-jobs)
+    // ---- tags (RivetCore 1.0.0-rc.9): add with the browser's own autocomplete (a datalist of the tags that exist), remove with the x on the chip
+    var tagForm = document.getElementById('rmm-tag-form');
+    if (tagForm) {
+        tagForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var input = document.getElementById('rmm-tag-input');
+            var name = (input.value || '').trim();
+            if (name === '') { say('Type a tag name first.', false); input.focus(); return; }
+            post('tag_add', { tag: name }).then(function (d) {
+                if (d.success) { window.location.reload(); } else { say(d.error || 'The tag was not added.', false); input.focus(); }
+            }).catch(function () { say('Network error.', false); });
+        });
+    }
+    Array.prototype.forEach.call(panel.ownerDocument.querySelectorAll('#rmm-tags .rmm-tag-x'), function (b) {
+        b.addEventListener('click', function () {
+            b.disabled = true;
+            post('tag_remove', { tag_id: b.getAttribute('data-tag-id') }).then(function (d) {
+                if (d.success) { window.location.reload(); } else { b.disabled = false; say(d.error || 'The tag was not removed.', false); }
+            }).catch(function () { b.disabled = false; say('Network error.', false); });
+        });
+    });
+
+    // ---- software: ask the device for a full list at its next check-in
+    ['rmm-act-sw-refresh', 'rmm-sw-refresh'].forEach(function (id) {
+        var b = document.getElementById(id);
+        if (!b) { return; }
+        b.addEventListener('click', function (e) {
+            e.preventDefault();
+            post('software_refresh', {}).then(function (d) { say(d.success ? d.message : (d.error || 'The request was not sent.'), !!d.success); }).catch(function () { say('Network error.', false); });
+        });
+    });
+
+    // ---- tab deep links (#rmm-overview, #rmm-inventory, #rmm-software, #rmm-jobs)
     function showHash() {
         var h = (window.location.hash || '').replace('#', '');
-        var m = /^rmm-(overview|inventory|jobs)$/.exec(h);
+        var m = /^rmm-(overview|inventory|software|jobs)$/.exec(h);
         if (!m || !window.bootstrap) { return; }
         var btn = document.getElementById('rmm-tab-' + m[1]);
         if (btn) { window.bootstrap.Tab.getOrCreateInstance(btn).show(); }

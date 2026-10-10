@@ -57,6 +57,88 @@ function rivetRmmUiOrNoData($v, string $none = 'not reported'): string
     return $v === null || $v === '' ? '<span class="text-muted">' . rmmH($none) . '</span>' : rmmH($v);
 }
 
+/** A tag as a chip: the name is the content, the colour only a swatch on the edge. $removable adds the remove button (a role that may manage tags). */
+function rivetRmmUiTagChip(array $t, bool $removable): string
+{
+    $color = preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($t['color'] ?? '')) === 1 ? (string) $t['color'] : '';
+
+    return '<span class="rmm-tag badge"' . ($color !== '' ? ' style="border-left:4px solid ' . rmmH($color) . ' !important"' : '') . '>' . rmmH($t['name'])
+        . ($removable ? '<button type="button" class="rmm-tag-x" data-tag-id="' . (int) $t['tag_id'] . '" aria-label="Remove tag ' . rmmH($t['name']) . '" title="Remove tag"><i class="fas fa-times" aria-hidden="true"></i></button>' : '') . '</span>';
+}
+
+/**
+ * The tags and groups line of the device strip. Tags are editable for a role with rmm.device.manage (add with autocomplete from the tags that exist,
+ * remove with the x); everyone who may see the device sees them. Group membership is shown, not edited here (groups are managed in the API).
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel()
+ */
+function rivetRmmUiTagsRow(array $vm): string
+{
+    $manage = (bool) $vm['perm']['manage'];
+    if ($vm['tags'] === [] && $vm['groups'] === [] && !$manage) {
+        return '';
+    }
+    $o = '<div class="d-flex flex-wrap align-items-center gap-2 mt-2 small rmm-tags" id="rmm-tags"><span class="text-muted"><i class="fas fa-tags me-1" aria-hidden="true"></i>Device tags</span>';
+    foreach ($vm['tags'] as $t) {
+        $o .= rivetRmmUiTagChip($t, $manage);
+    }
+    if ($vm['tags'] === []) {
+        $o .= '<span class="text-muted" id="rmm-no-tags">none</span>';
+    }
+    if ($manage) {
+        $o .= '<form id="rmm-tag-form" class="d-inline-flex align-items-center gap-1 mb-0" autocomplete="off"><label class="visually-hidden" for="rmm-tag-input">Add a tag to this device</label>'
+            . '<input class="form-control form-control-sm rmm-tag-input" id="rmm-tag-input" name="tag" list="rmm-tag-list" maxlength="60" placeholder="Add a tag">'
+            . '<datalist id="rmm-tag-list">';
+        foreach ($vm['tag_suggestions'] as $name) {
+            $o .= '<option value="' . rmmH($name) . '"></option>';
+        }
+        $o .= '</datalist><button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-plus me-1" aria-hidden="true"></i>Add</button></form>';
+    }
+    if ($vm['groups'] !== []) {
+        $o .= '<span class="text-muted ms-2"><i class="fas fa-layer-group me-1" aria-hidden="true"></i>Groups</span>';
+        foreach ($vm['groups'] as $g) {
+            $o .= '<span class="badge rmm-group">' . rmmH($g['name']) . '</span>';
+        }
+    }
+
+    return $o . '</div>';
+}
+
+/**
+ * The 24 hour trend of one check: a strip of status segments (the height also tells the status: low = passing, middle = warning, full = failing, so it is not
+ * colour alone), the availability in words, and the recorded points as a table behind a disclosure.
+ *
+ * @param array<string,mixed>|null $t rivetRmmUiTrend()
+ */
+function rivetRmmUiTrendCell(string $key, ?array $t, bool $offline): string
+{
+    if ($t === null || $t['segments'] === []) {
+        return '<span class="text-muted small">no history yet</span>';
+    }
+    $h = ['ok' => 4, 'warn' => 9, 'fail' => 14, 'unknown' => 2];
+    $fill = ['ok' => 'var(--tblr-success)', 'warn' => 'var(--tblr-warning)', 'fail' => 'var(--tblr-danger)', 'unknown' => 'var(--if-muted)'];
+    $w = 120;
+    $svg = '';
+    foreach ($t['segments'] as $seg) {
+        $x = round($seg['from'] * $w, 1);
+        $sw = max(1.0, round(($seg['to'] - $seg['from']) * $w, 1));
+        $svg .= '<rect x="' . $x . '" y="' . (16 - $h[$seg['status']]) . '" width="' . $sw . '" height="' . $h[$seg['status']] . '" fill="' . $fill[$seg['status']] . '"/>';
+    }
+    $avail = $t['availability'] === null ? 'availability not known' : rtrim(rtrim(number_format((float) $t['availability'], 2, '.', ''), '0'), '.') . '% passing';
+    $label = 'Last ' . (int) $t['hours'] . ' hours of ' . $key . ': ' . $avail . ', ' . (int) $t['changes'] . ' status change' . ($t['changes'] === 1 ? '' : 's');
+    $rows = '';
+    foreach ($t['points'] as $p) {
+        $k = ['ok' => 'ok', 'warn' => 'warn', 'fail' => 'crit'][$p['status']] ?? 'off';
+        $rows .= '<tr><td class="text-nowrap">' . rivetRmmUiTime($p['at']) . '</td><td>' . rivetRmmUiPill($k, ['ok' => 'Passing', 'warn' => 'Warning', 'fail' => 'Failing'][$p['status']] ?? 'Unknown') . '</td><td class="rmm-wrap">' . rmmH($p['detail']) . '</td></tr>';
+    }
+
+    return '<div class="rmm-trend' . ($offline ? ' rmm-dim' : '') . '"><svg class="rmm-spark" viewBox="0 0 ' . $w . ' 16" width="' . $w . '" height="16" role="img" aria-label="' . rmmH($label) . '" preserveAspectRatio="none">'
+        . '<rect x="0" y="15" width="' . $w . '" height="1" fill="var(--if-border-strong)"/>' . $svg . '</svg>'
+        . '<div class="small text-muted">' . rmmH($avail) . ', ' . (int) $t['changes'] . ' change' . ($t['changes'] === 1 ? '' : 's') . '</div>'
+        . '<details class="small"><summary>History<span class="visually-hidden"> of ' . rmmH($key) . '</span></summary><div class="table-responsive"><table class="table table-sm mb-0">'
+        . '<caption class="visually-hidden">Recorded results of ' . rmmH($key) . ', newest first</caption>' . rivetRmmUiThead(['When', 'Status', 'Detail']) . '<tbody>' . $rows . '</tbody></table></div></details></div>';
+}
+
 // ------------------------------------------------------------------ strip
 
 /** @param array<string,mixed> $vm rivetRmmUiPanel() */
@@ -125,6 +207,9 @@ function rivetRmmUiStrip(array $vm): string
     if ($perm['run_saved'] && $dev && !$never) {
         $more .= '<button type="button" class="dropdown-item" id="rmm-act-collect"><i class="fas fa-sync-alt fa-fw me-2" aria-hidden="true"></i>Collect inventory now</button>';
     }
+    if ($perm['run_saved'] && $dev && !$never && $vm['software'] !== null) {
+        $more .= '<button type="button" class="dropdown-item" id="rmm-act-sw-refresh"><i class="fas fa-cube fa-fw me-2" aria-hidden="true"></i>Refresh software list</button>';
+    }
     if ($perm['admin']) {
         $more .= '<a class="dropdown-item" href="/admin/settings_endpoint_agent.php#devices"><i class="fas fa-cog fa-fw me-2" aria-hidden="true"></i>Open in RMM administration</a>';
     }
@@ -133,6 +218,7 @@ function rivetRmmUiStrip(array $vm): string
             . '<i class="fas fa-ellipsis-v" aria-hidden="true"></i></button><div class="dropdown-menu dropdown-menu-end">' . $more . '</div></div>';
     }
 
+    $tagsRow = rivetRmmUiTagsRow($vm);
     $banners = '';
     foreach ($vm['banners'] as $b) {
         $banners .= '<div class="ifm-banner ifm-banner-' . ($b['kind'] === 'warn' ? 'warn' : 'offline') . ' mt-2 mb-0" role="status"><i class="fas '
@@ -153,7 +239,7 @@ function rivetRmmUiStrip(array $vm): string
         . '<span class="badge text-bg-light border ms-1"><i class="' . $osIcon . ' me-1" aria-hidden="true"></i>' . $platformName . '</span>'
         . ($vm['pending_approval'] ? ' ' . rivetRmmUiPill('warn', 'Waiting for approval') : '') . ($vm['revoked'] ? ' ' . rivetRmmUiPill('crit', 'Revoked') : '')
         . ($vm['retired'] ? ' ' . rivetRmmUiPill('off', 'Retired') : '')
-        . '<div class="text-muted small mt-1">' . $facts . '</div>' . $live . '</div>'
+        . '<div class="text-muted small mt-1">' . $facts . '</div>' . $live . $tagsRow . '</div>'
         . '<div class="d-flex align-items-center flex-wrap rmm-actions" role="group" aria-label="Device actions" style="gap:6px">' . $actions . '</div></div>' . $banners . $reasons . '</div></section>';
 }
 
@@ -177,6 +263,41 @@ function rivetRmmUiStatCard(string $icon, string $tint, string $value, string $l
         . '<div class="ifm-card-meta">' . $meta . '</div></div>';
 }
 
+/**
+ * The network tile: receive and send now, each as a bar against the highest rate of the last 24 hours (RmmReadModel::networkPeak(), fed by the metrics
+ * subsystem). The agent reports no link speed, so the peak is the only honest "full". Without history (no samples yet, no asset) the bars are replaced by a
+ * sentence, never by an empty or full bar.
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel()
+ */
+function rivetRmmUiNetworkTile(array $vm): string
+{
+    $np = $vm['net_peak'];
+    $rx = $vm['net']['rx_bps'];
+    $tx = $vm['net']['tx_bps'];
+    $row = static function (string $label, ?float $bps, ?array $side, bool $history, string $id): string {
+        $peakBytes = is_array($side) ? $side['peak'] : null;
+        $now = $bps === null ? '<span class="text-muted">no data</span>' : rmmH(rivetRmmUiMbit($bps));
+        if (!$history || $peakBytes === null || $peakBytes <= 0) {
+            return '<div class="px-3 pb-2"><div class="d-flex justify-content-between small"><span>' . rmmH($label) . '</span><b>' . $now . '</b></div>'
+                . '<div class="small text-muted" id="' . $id . '-peak">' . ($history && $peakBytes !== null ? 'no traffic recorded in the last 24 hours' : 'no 24 hour history yet') . '</div></div>';
+        }
+        $peakBps = $peakBytes * 8;
+        $pct = $bps === null ? null : min(100.0, $bps / $peakBps * 100);
+        $at = is_array($side) && !empty($side['peak_at']) ? ' at ' . gmdate('H:i', strtotime((string) $side['peak_at']) ?: 0) . ' UTC' : '';
+
+        return '<div class="px-3 pb-2"><div class="d-flex justify-content-between small"><span>' . rmmH($label) . '</span><b>' . $now . '</b></div>'
+            . rivetRmmUiBar($pct, 'info', 6, $label . ' against the 24 hour peak') . '<div class="small text-muted" id="' . $id . '-peak">'
+            . ($pct === null ? 'no current reading; ' : (int) round($pct) . '% of ') . '24 h peak ' . rmmH(rivetRmmUiMbit($peakBps)) . rmmH($at) . '</div></div>';
+    };
+    $history = is_array($np) && $np['history'];
+    $body = $row('Receive', $rx, is_array($np) ? $np['rx'] : null, $history, 'rmm-net-rx') . $row('Send', $tx, is_array($np) ? $np['tx'] : null, $history, 'rmm-net-tx');
+
+    return '<div class="ifm-card' . ($vm['offline'] ? ' rmm-dim' : '') . '" id="rmm-net"><div class="it-stat-card"><div class="it-stat-icon it-tint-info"><i class="fas fa-network-wired" aria-hidden="true"></i></div>'
+        . '<div class="it-stat-body"><div class="it-stat-label fw-semibold">Network</div></div></div>' . $body
+        . '<div class="ifm-card-meta"><span>link speed is not reported, so the bar shows the share of the 24 hour peak</span></div></div>';
+}
+
 function rivetRmmUiLiveHealth(array $vm): string
 {
     if ($vm['state'] === 'never') {
@@ -187,10 +308,7 @@ function rivetRmmUiLiveHealth(array $vm): string
     foreach ($vm['gauges'] as $g) {
         $tiles .= rivetRmmUiGaugeCard($g, $vm['offline'], $stale);
     }
-    $rx = $vm['net']['rx_bps'];
-    $tx = $vm['net']['tx_bps'];
-    $tiles .= rivetRmmUiStatCard('network-wired', 'info', $rx === null ? '<span class="text-muted">no data</span>' : rmmH(rivetRmmUiMbit($rx)), 'Network receive',
-        '<span>send <b>' . rmmH(rivetRmmUiMbit($tx)) . '</b></span><span>link speed not reported</span>');
+    $tiles .= rivetRmmUiNetworkTile($vm);
     $boot = '';
     if (!$vm['offline'] && $vm['uptime_s'] !== null && $vm['last_checkin_at'] !== null) {
         $bootTs = strtotime($vm['last_checkin_at']) - (int) $vm['uptime_s'];
@@ -296,12 +414,13 @@ function rivetRmmUiChecksCard(array $vm): string
             . '<td><div class="ifm-mono">' . rmmH($ch['key']) . '</div><div class="text-muted small">' . rmmH($ch['type']) . (($ch['consecutive_failures'] ?? 0) > 0 ? ' &middot; ' . (int) $ch['consecutive_failures'] . ' failures in a row' : '') . '</div></td>'
             . '<td class="rmm-wrap">' . rmmH($ch['detail']) . '<div class="text-muted small">reported ' . rivetRmmUiTime($ch['last_reported_at']) . '</div></td>'
             . '<td class="text-nowrap small">' . ($changed === null ? '<span class="text-muted">not recorded</span>' : ($ch['status'] === 'ok' ? 'steady for ' : 'since ') . rmmH($changed)) . '</td>'
+            . ($vm['check_history_on'] ? '<td class="rmm-trend-cell">' . rivetRmmUiTrendCell((string) $ch['key'], $vm['trends'][(string) $ch['key']] ?? null, (bool) $vm['offline']) . '</td>' : '')
             . '<td>' . ($ch['alert_id'] ? '<a class="badge text-bg-light border" href="/agent/rmm_alerts.php?status=all&amp;asset_id=' . (int) $vm['asset_id'] . '">alert #' . (int) $ch['alert_id'] . '</a>' : '<span class="text-muted">none</span>') . '</td></tr>';
     }
     if ($vm['checks'] === []) {
         $table = rivetRmmUiEmpty('fas fa-heartbeat', 'No check result yet', $vm['state'] === 'never' ? 'The device has not checked in yet.' : 'No checks are configured, or none has reported since the agent last restarted.');
     } else {
-        $table = '<div class="table-responsive"><table class="table table-hover table-sm mb-0">' . rivetRmmUiThead(['Status', 'Check', 'Last result', 'Last change', 'Alert']) . '<tbody>' . $rows . '</tbody></table></div>';
+        $table = '<div class="table-responsive"><table class="table table-hover table-sm mb-0">' . rivetRmmUiThead($vm['check_history_on'] ? ['Status', 'Check', 'Last result', 'Last change', 'Trend (' . (int) $vm['trend_hours'] . ' h)', 'Alert'] : ['Status', 'Check', 'Last result', 'Last change', 'Alert']) . '<tbody>' . $rows . '</tbody></table></div>';
     }
     $head = ($c['fail'] ? rivetRmmUiPill('crit', $c['fail'] . ' failing') : '') . ($c['warn'] ? rivetRmmUiPill('warn', $c['warn'] . ' warning') : '')
         . ($vm['checks'] !== [] ? rivetRmmUiPill($vm['offline'] ? 'off' : 'ok', $vm['offline'] ? $c['unknown'] . ' unknown while offline' : $c['ok'] . ' passing') : '');
@@ -386,7 +505,9 @@ function rivetRmmUiInventory(array $vm): string
         }
     }
     $softCard = $software !== '' ? rivetRmmUiCard('Installed software', 'cube', $tbl(['Name', 'Version', 'Publisher'], $software, ''), '', '', true)
-        : rivetRmmUiCard('Installed software', 'cube', rivetRmmUiEmpty('fas fa-cube', 'Not collected yet', 'The agent does not report installed software in this release. The list and its change history arrive with the software inventory (Phase 1).'));
+        : rivetRmmUiCard('Installed software', 'cube', $vm['software'] !== null
+            ? rivetRmmUiEmpty('fas fa-cube', 'See the Software tab', 'The installed software list, its search and its change history are on the Software tab.')
+            : rivetRmmUiEmpty('fas fa-cube', 'Software inventory is off', 'An administrator can switch it on under Administration, Endpoint agent, Software inventory and history. Agents send nothing until then.'));
     $svcCard = $services !== '' ? rivetRmmUiCard('Services', 'cogs', $tbl(['Service', 'State', 'Start type'], $services, ''), '', '', true)
         : rivetRmmUiCard('Services', 'cogs', rivetRmmUiEmpty('fas fa-cogs', 'Not collected yet', 'The agent does not report services in this release. The list arrives with the service and process manager (Phase 6).'));
 
@@ -394,6 +515,78 @@ function rivetRmmUiInventory(array $vm): string
         . rivetRmmUiCard('Disks', 'hdd', $tbl(['Volume', 'Filesystem', 'Size', 'Free', 'Used'], $disks, 'No disks reported.'), '', '', true)
         . rivetRmmUiCard('Network adapters', 'network-wired', $tbl(['Adapter', 'MAC', 'Addresses'], $net, 'No network adapters reported.'), '', '', true)
         . '<div class="row"><div class="col-lg-6">' . $softCard . '</div><div class="col-lg-6">' . $svcCard . '</div></div>';
+}
+
+// ------------------------------------------------------------------ software (RivetCore 1.0.0-rc.9, behind the inventory_software switch)
+
+/** URL of the asset page's Software tab with the given search state. */
+function rivetRmmUiSoftwareUrl(array $vm, array $over = []): string
+{
+    $sw = $vm['software'];
+    $q = array_merge(['asset_id' => (int) $vm['asset_id'], 'swq' => $sw['q'], 'swp' => $sw['page'], 'swr' => $sw['show_removed'] ? 1 : 0], $over);
+    $q = array_filter($q, static fn ($v, $k) => $k === 'asset_id' || ($v !== '' && $v !== 0 && !($k === 'swp' && $v === 1)), ARRAY_FILTER_USE_BOTH);
+
+    return '/agent/asset_details.php?' . http_build_query($q) . '#rmm-software';
+}
+
+/**
+ * The Software tab: the current list (search by name, optionally with what was removed), the change log (installed, upgraded, downgraded, removed) and
+ * when the device last reported. All of it is device-supplied text: escaped on output.
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel() with a non-null `software`
+ */
+function rivetRmmUiSoftware(array $vm): string
+{
+    $sw = $vm['software'];
+    $st = $sw['state'];
+    $perm = $vm['perm'];
+    $refresh = $perm['run_saved'] && $vm['usable'] && $vm['state'] !== 'never'
+        ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="rmm-sw-refresh"><i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Ask for a full list</button>' : '';
+    if (!$st['reported']) {
+        $why = $vm['state'] === 'never' ? 'The device has not checked in yet.' : (!$st['capable'] ? 'This agent has not announced software inventory. Agents older than RivetCore 1.0.0-rc.9 cannot report it; update the agent (Administration, Endpoint agent, Agent binaries).'
+            : 'The agent announced software inventory and sends its first list at a coming check-in (at most once an hour).');
+
+        return rivetRmmUiEmpty('fas fa-cube', 'No software list yet', $why, $refresh);
+    }
+    $sum = '<p class="small text-muted mb-2"><b>' . (int) $st['count'] . '</b> installed &middot; last report ' . rivetRmmUiTime($st['reported_at']) . ' &middot; last full list ' . rivetRmmUiTime($st['full_at'])
+        . ($st['resync_requested'] ? ' &middot; ' . rivetRmmUiPill('info', 'full list requested') : '') . ' ' . $refresh . '</p>';
+    $form = '<form class="d-flex flex-wrap align-items-center gap-2 mb-3" method="get" action="/agent/asset_details.php#rmm-software" role="search" aria-label="Search this device\'s software">'
+        . '<input type="hidden" name="asset_id" value="' . (int) $vm['asset_id'] . '"><label class="visually-hidden" for="rmm-sw-q">Search software by name</label>'
+        . '<input class="form-control form-control-sm w-auto" id="rmm-sw-q" name="swq" type="search" maxlength="100" placeholder="Search by name" value="' . rmmH($sw['q']) . '">'
+        . '<div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="rmm-sw-removed" name="swr" value="1"' . ($sw['show_removed'] ? ' checked' : '') . '><label class="form-check-label small" for="rmm-sw-removed">Include removed</label></div>'
+        . '<button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-search me-1" aria-hidden="true"></i>Search</button>'
+        . ($sw['q'] !== '' || $sw['show_removed'] ? '<a class="btn btn-sm btn-outline-secondary" href="' . rmmH(rivetRmmUiSoftwareUrl($vm, ['swq' => '', 'swp' => 1, 'swr' => 0])) . '">Clear</a>' : '') . '</form>';
+    $rows = '';
+    foreach ($sw['items'] as $r) {
+        $gone = $r['removed_at'] !== null;
+        $rows .= '<tr' . ($gone ? ' class="text-muted"' : '') . '><td class="ps-3 rmm-wrap">' . rmmH($r['name']) . ($gone ? ' ' . rivetRmmUiPill('off', 'Removed') : '') . '</td><td class="ifm-mono">' . rmmH($r['version'] === '' ? 'unknown' : $r['version'])
+            . '</td><td class="rmm-wrap">' . rivetRmmUiOrNoData($r['publisher'], 'not reported') . '</td><td>' . rmmH($r['source']) . '</td><td class="text-nowrap">' . rivetRmmUiOrNoData($r['installed_on'], 'not reported')
+            . '</td><td class="text-nowrap">' . ($gone ? 'removed ' . rivetRmmUiTime($r['removed_at']) : 'seen ' . rivetRmmUiTime($r['first_seen_at'])) . '</td></tr>';
+    }
+    $cur = $rows === '' ? '<div class="p-3 text-muted small">' . ($sw['q'] !== '' ? 'No software matches "' . rmmH($sw['q']) . '".' : 'Nothing is listed.') . '</div>'
+        : '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Software installed on this device</caption>'
+            . rivetRmmUiThead(['Name', 'Version', 'Publisher', 'Source', 'Installed', 'First seen / removed']) . '<tbody>' . $rows . '</tbody></table></div>';
+    $pager = '';
+    if ($sw['pages'] > 1) {
+        $pager = '<nav class="d-flex align-items-center justify-content-between p-3 border-top" aria-label="Software pages"><span class="small text-muted">Page ' . (int) $sw['page'] . ' of ' . (int) $sw['pages'] . ', ' . (int) $sw['total'] . ' items</span><div class="btn-group btn-group-sm">'
+            . ($sw['page'] > 1 ? '<a class="btn btn-outline-secondary" href="' . rmmH(rivetRmmUiSoftwareUrl($vm, ['swp' => $sw['page'] - 1])) . '" rel="prev">Previous</a>' : '<span class="btn btn-outline-secondary disabled" aria-disabled="true">Previous</span>')
+            . ($sw['page'] < $sw['pages'] ? '<a class="btn btn-outline-secondary" href="' . rmmH(rivetRmmUiSoftwareUrl($vm, ['swp' => $sw['page'] + 1])) . '" rel="next">Next</a>' : '<span class="btn btn-outline-secondary disabled" aria-disabled="true">Next</span>') . '</div></nav>';
+    } else {
+        $pager = '<div class="px-3 py-2 border-top small text-muted">' . (int) $sw['total'] . ' item' . ($sw['total'] === 1 ? '' : 's') . '</div>';
+    }
+    $kinds = ['installed' => ['info', 'Installed'], 'upgraded' => ['ok', 'Upgraded'], 'downgraded' => ['warn', 'Downgraded'], 'removed' => ['off', 'Removed']];
+    $hist = '';
+    foreach ($sw['history']['items'] as $h) {
+        $k = $kinds[$h['change']] ?? ['off', ucfirst((string) $h['change'])];
+        $ver = $h['old_version'] !== null && $h['new_version'] !== null ? rmmH($h['old_version']) . ' <i class="fas fa-arrow-right text-muted" aria-label="to"></i> ' . rmmH($h['new_version'])
+            : rmmH($h['new_version'] ?? $h['old_version'] ?? '');
+        $hist .= '<tr><td class="ps-3 text-nowrap">' . rivetRmmUiTime($h['at']) . '</td><td>' . rivetRmmUiPill($k[0], $k[1]) . '</td><td class="rmm-wrap">' . rmmH($h['name']) . '</td><td class="ifm-mono">' . $ver . '</td></tr>';
+    }
+    $histBody = $hist === '' ? '<div class="p-3 text-muted small">No change recorded' . ($sw['q'] !== '' ? ' for "' . rmmH($sw['q']) . '"' : '') . '. The first list a device sends is a baseline and is not logged as installs.</div>'
+        : '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Software changes, newest first</caption>' . rivetRmmUiThead(['When', 'Change', 'Software', 'Version']) . '<tbody>' . $hist . '</tbody></table></div>';
+
+    return $sum . $form . rivetRmmUiCard('Installed software', 'cube', $cur . $pager, '', '', true, 'rmm-sw-current')
+        . rivetRmmUiCard('Changes', 'history', $histBody, '', '<span class="small text-muted">latest ' . RIVET_RMM_UI_SOFTWARE_HISTORY . '</span>', true, 'rmm-sw-history');
 }
 
 // ------------------------------------------------------------------ jobs
@@ -500,10 +693,11 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
     return '<div class="card card-dark mb-3" id="rmm-panel" data-device-id="' . (int) $vm['device_id'] . '" data-csrf="' . rmmH($csrf) . '" data-post-url="/agent/post/rmm_agent.php" data-output-url="/agent/rmm_job_output.php" '
         . 'data-platform="' . rmmH($vm['platform']) . '" data-offline="' . ($vm['offline'] ? '1' : '0') . '">'
         . '<div class="card-header p-0 border-bottom-0"><ul class="nav nav-tabs px-3 pt-2 rmm-tabbar" role="tablist" aria-label="RMM device sections">'
-        . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . $tab('jobs', 'tasks', 'Jobs', false) . '</ul></div>'
+        . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . ($vm['software'] !== null ? $tab('software', 'cube', 'Software', false) : '') . $tab('jobs', 'tasks', 'Jobs', false) . '</ul></div>'
         . '<div class="px-3 pt-3"><div id="rmm-msg" class="alert d-none mb-0" role="status" aria-live="polite"></div></div>'
         . '<div class="tab-content"><div class="tab-pane active p-3" id="rmm-pane-overview" role="tabpanel" aria-labelledby="rmm-tab-overview" tabindex="0">' . rivetRmmUiOverview($vm, $performanceHtml, $performanceNote) . '</div>'
         . '<div class="tab-pane p-3" id="rmm-pane-inventory" role="tabpanel" aria-labelledby="rmm-tab-inventory" tabindex="0">' . rivetRmmUiInventory($vm) . '</div>'
+        . ($vm['software'] !== null ? '<div class="tab-pane p-3" id="rmm-pane-software" role="tabpanel" aria-labelledby="rmm-tab-software" tabindex="0">' . rivetRmmUiSoftware($vm) . '</div>' : '')
         . '<div class="tab-pane p-3" id="rmm-pane-jobs" role="tabpanel" aria-labelledby="rmm-tab-jobs" tabindex="0">' . rivetRmmUiJobs($vm, $userNames) . '</div></div></div>'
         . rivetRmmUiDialogs($vm);
 }
@@ -660,8 +854,13 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
     // Device table
     $rows = '';
     foreach ($f['list']['items'] as $d) {
+        $chips = '';
+        foreach (array_slice((array) ($d['tags'] ?? []), 0, 6) as $t) {
+            $chips .= rivetRmmUiTagChip($t, false) . ' ';
+        }
         $rows .= '<tr><td class="ps-3">' . rivetRmmUiStatusPill($d['status']) . ($d['link_state'] === 'pending_approval' ? ' ' . rivetRmmUiPill('warn', 'Approval') : '') . ($d['revoked'] ? ' ' . rivetRmmUiPill('crit', 'Revoked') : '') . '</td>'
-            . '<td class="min-w-0">' . rivetRmmUiDeviceLink($d) . '<div class="text-muted small">' . rmmH($cn((int) $d['client_id'])) . ' &middot; ' . rmmH($d['os_version'] ?: 'OS not reported') . '</div></td>'
+            . '<td class="min-w-0">' . rivetRmmUiDeviceLink($d) . '<div class="text-muted small">' . rmmH($cn((int) $d['client_id'])) . ' &middot; ' . rmmH($d['os_version'] ?: 'OS not reported') . '</div>'
+            . ($chips !== '' ? '<div class="mt-1 rmm-tags">' . $chips . (count((array) $d['tags']) > 6 ? '<span class="small text-muted">+' . (count((array) $d['tags']) - 6) . ' more</span>' : '') . '</div>' : '') . '</td>'
             . '<td class="ifm-mono">' . rmmH($d['agent_version'] ?: 'unknown') . '<div class="text-muted small">' . rmmH($d['ring']) . ' ring</div></td>'
             . '<td class="text-nowrap">' . rivetRmmUiTime($d['last_checkin_at'], $now) . '</td></tr>';
     }
@@ -669,7 +868,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
         $rows = '<tr><td colspan="4" class="p-3 text-muted">No device matches.</td></tr>';
     }
     $qs = static function (array $over) use ($f): string {
-        $q = array_merge($f['filters'], ['page' => $f['page']], $over);
+        $q = array_merge($f['filters'], $f['keep'] ?? [], ['page' => $f['page']], $over);
         $q = array_filter($q, static fn ($v) => $v !== '' && $v !== null && $v !== 1 && $v !== 0);
 
         return '/agent/rmm_fleet.php' . ($q ? '?' . http_build_query($q) : '');
@@ -689,7 +888,28 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
     foreach (['stable', 'pilot'] as $v) {
         $filter .= '<option value="' . $v . '"' . (($f['filters']['ring'] ?? '') === $v ? ' selected' : '') . '>' . ucfirst($v) . '</option>';
     }
-    $filter .= '</select><button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-search me-1" aria-hidden="true"></i>Filter</button>'
+    $filter .= '</select>';
+    if ($f['tag_list'] !== []) {
+        $filter .= '<label class="visually-hidden" for="rmm-f-tag">Tag</label><select class="form-select form-select-sm w-auto" id="rmm-f-tag" name="tag"><option value="">Any tag</option>';
+        foreach ($f['tag_list'] as $t) {
+            $filter .= '<option value="' . rmmH($t['name']) . '"' . (($f['filters']['tag'] ?? '') === (string) $t['name'] ? ' selected' : '') . '>' . rmmH($t['name']) . ' (' . (int) ($t['device_count'] ?? 0) . ')</option>';
+        }
+        $filter .= '</select>';
+    }
+    if ($f['group_list'] !== []) {
+        $filter .= '<label class="visually-hidden" for="rmm-f-group">Group</label><select class="form-select form-select-sm w-auto" id="rmm-f-group" name="group"><option value="">Any group</option>';
+        foreach ($f['group_list'] as $g) {
+            $filter .= '<option value="' . (int) $g['group_id'] . '"' . ((int) ($f['filters']['group'] ?? 0) === (int) $g['group_id'] ? ' selected' : '') . '>' . rmmH($g['name']) . '</option>';
+        }
+        $filter .= '</select>';
+    }
+    if ($f['inventory_on']) {
+        $filter .= '<label class="visually-hidden" for="rmm-f-sw">Has software installed</label><input class="form-control form-control-sm w-auto" id="rmm-f-sw" name="software" type="search" maxlength="100" placeholder="Has software (name)" value="' . rmmH($f['filters']['software'] ?? '') . '">';
+    }
+    foreach ($f['keep'] ?? [] as $k => $v) {
+        $filter .= '<input type="hidden" name="' . rmmH($k) . '" value="' . rmmH($v) . '">';
+    }
+    $filter .= '<button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-search me-1" aria-hidden="true"></i>Filter</button>'
         . ($f['filters'] ? '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_fleet.php">Clear</a>' : '') . '</form>';
     $pager = '';
     if ($f['pages'] > 1) {
@@ -703,6 +923,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
         . '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Agent devices</caption>' . rivetRmmUiThead(['Status', 'Device', 'Agent', 'Last check-in']) . '<tbody>' . $rows . '</tbody></table></div>' . $pager . '</section>';
 
     $capacity = $f['capacity'] !== null ? rivetRmmUiCapacity($f['capacity']) : '';
+    $swCard = $f['outdated_sw'] !== null ? rivetRmmUiOutdatedSoftware($f['outdated_sw'], $cn, $f) : '';
 
     return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-satellite me-2" aria-hidden="true"></i>Agent fleet</h4>'
         . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '')
@@ -715,8 +936,45 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
         . '<div class="row mb-3">' . $kpi . '</div>'
         . '<div class="row"><div class="col-lg-7">' . $healthCard . '</div><div class="col-lg-5">' . $apCard . '</div></div>'
         . '<div class="row"><div class="col-lg-6">' . $offCard . '</div><div class="col-lg-6">' . $fCard . '</div></div>'
-        . $versionsCard . $capacity . $table
+        . $versionsCard . $swCard . $capacity . $table
         . ($installer !== null ? rivetRmmInstallerModal($installer) : '');
+}
+
+/**
+ * The "Outdated software" card of the fleet page: devices running a version of a product older than the one asked for (RmmReadModel::outdatedSoftware()).
+ * It asks nothing until a name and a version are given; the comparison is Core's forgiving version compare, not a package manager's.
+ *
+ * @param array<string,mixed> $o the view-model's outdated_sw
+ * @param callable(int):string $cn client name by id
+ * @param array<string,mixed> $f rivetRmmUiFleet()
+ */
+function rivetRmmUiOutdatedSoftware(array $o, callable $cn, array $f): string
+{
+    $form = '<form class="d-flex flex-wrap align-items-end gap-2" method="get" action="/agent/rmm_fleet.php#rmm-outdated-sw" aria-label="Find outdated software">';
+    foreach ($f['filters'] as $k => $v) {
+        $form .= '<input type="hidden" name="' . rmmH($k) . '" value="' . rmmH($v) . '">';
+    }
+    $form .= '<div><label class="form-label small mb-0" for="rmm-osw">Software name contains</label><input class="form-control form-control-sm" id="rmm-osw" name="osw" maxlength="100" required value="' . rmmH($o['name']) . '" placeholder="e.g. Chrome"></div>'
+        . '<div><label class="form-label small mb-0" for="rmm-osv">Older than version</label><input class="form-control form-control-sm" id="rmm-osv" name="osv" maxlength="64" required value="' . rmmH($o['min_version']) . '" placeholder="e.g. 126.0"></div>'
+        . '<button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-search me-1" aria-hidden="true"></i>Find devices</button>'
+        . ($o['asked'] ? '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_fleet.php' . ($f['filters'] ? '?' . rmmH(http_build_query($f['filters'])) : '') . '">Clear</a>' : '') . '</form>';
+    $rows = '';
+    foreach ($o['items'] as $r) {
+        $rows .= '<tr><td class="ps-3">' . rivetRmmUiDeviceLink($r + ['asset_name' => null]) . '<div class="text-muted small">' . rmmH($cn((int) $r['client_id'])) . '</div></td><td class="rmm-wrap">' . rmmH($r['name'])
+            . '</td><td class="ifm-mono">' . rmmH($r['version'] === '' ? 'unknown' : $r['version']) . '</td><td>' . rmmH($r['source']) . '</td></tr>';
+    }
+    if (!$o['asked']) {
+        $body = '<div class="p-3 text-muted small">Enter a product name and the oldest version you accept. The devices below it are listed here.</div>';
+    } elseif ($rows === '') {
+        $body = '<div class="p-3 text-muted small"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No device runs a version of "' . rmmH($o['name']) . '" older than ' . rmmH($o['min_version']) . '.</div>';
+    } else {
+        $body = '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Devices with outdated software</caption>' . rivetRmmUiThead(['Device', 'Software', 'Version', 'Source']) . '<tbody>' . $rows . '</tbody></table></div>'
+            . (count($o['items']) >= $o['limit'] ? '<div class="px-3 py-2 border-top small text-muted">Showing the first ' . (int) $o['limit'] . ' matches.</div>' : '');
+    }
+    $head = $o['asked'] ? ($o['items'] === [] ? rivetRmmUiPill('ok', 'None outdated') : rivetRmmUiPill('warn', count($o['items']) . ($o['items'] && count($o['items']) >= $o['limit'] ? '+' : '') . ' outdated')) : '';
+
+    return '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-orange)" id="rmm-outdated-sw"><div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px"><h6 class="mb-0 me-auto">'
+        . '<i class="fas fa-cube me-2 text-warning" aria-hidden="true"></i>Outdated software</h6>' . $head . '</div><div class="card-body border-bottom py-2">' . $form . '</div>' . $body . '</section>';
 }
 
 function rivetRmmUiCapacity(array $cap): string

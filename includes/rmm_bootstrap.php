@@ -17,6 +17,7 @@ use ITFlow\Core\Adapter\Endpoint\EndpointAccessPolicy;
 use ITFlow\Core\Adapter\Endpoint\EndpointAssets;
 use ITFlow\Core\Adapter\Endpoint\EndpointAudit;
 use ITFlow\Core\Adapter\Endpoint\EndpointBridge;
+use ITFlow\Core\Adapter\Endpoint\EndpointEvents;
 use ITFlow\Core\Adapter\Endpoint\EndpointMetricSink;
 use ITFlow\Core\Adapter\Endpoint\EndpointModuleState;
 use ITFlow\Core\Adapter\Endpoint\EndpointSecretBox;
@@ -60,6 +61,7 @@ function rivetRmmModule($mysqli = null): RmmModule
     if (defined('EA_BINARY_MAX_BYTES')) {
         $options['max_upload_bytes'] = (int) EA_BINARY_MAX_BYTES;
     }
+    $metrics = new EndpointMetricSink($mysqli);
     $module = new RmmModule(
         $db,
         new \RivetCore\Support\SystemClock(),
@@ -68,12 +70,13 @@ function rivetRmmModule($mysqli = null): RmmModule
         new EndpointBridge($db, $mysqli),
         new EndpointSecretBox(),
         new EndpointAudit(),
-        new EndpointMetricSink($mysqli),
+        $metrics,   // sink and reader (RmmMetricReaderInterface): the network bar reads the 24 hour peak from here
         new EndpointModuleState(),
         $options,
         null,
         new EndpointAccessPolicy($db),
         rivetWebhookUrlPolicy($mysqli),
+        new EndpointEvents($mysqli),   // RivetCore 1.0.0-rc.9: rmm.* events onto the event bus (webhooks, event rules)
     );
     $built[$key] = [$mysqli, $module];
 

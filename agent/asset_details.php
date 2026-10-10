@@ -300,7 +300,8 @@ if (isset($_GET['asset_id'])) {
         $rmm_agent_ui = null;
         if ($config_module_enable_rmm && lookupUserPermission('module_rmm') >= 1) {
             require_once dirname(__DIR__) . '/includes/rmm_ui_render.php';
-            $rmm_agent_ui = rivetRmmUiPanel($mysqli, $asset_id, (int) $session_user_id);
+            $rmm_agent_ui = rivetRmmUiPanel($mysqli, $asset_id, (int) $session_user_id, null, null, [   // the Software tab's search state
+                'swq' => is_string($_GET['swq'] ?? null) ? $_GET['swq'] : '', 'swp' => (int) ($_GET['swp'] ?? 1), 'swr' => !empty($_GET['swr'])]);
             if ($rmm_agent_ui !== null) {
                 $rmm_ui_scripts = true;   // includes/footer.php links js/rmm_panel.js only when this is set
             }

@@ -33,6 +33,7 @@ $out = static function (ActionResult $r): void {
     $body = ['success' => $r->ok, 'code' => $r->code];
     $body[$r->ok ? 'message' : 'error'] = $r->message;
     foreach (['job_id', 'url', 'session_id'] as $k) { if (isset($r->data[$k])) { $body[$k] = $r->data[$k]; } }
+    if (isset($r->data['tag']) && is_array($r->data['tag'])) { $body['tag'] = ['tag_id' => (int) ($r->data['tag']['tag_id'] ?? 0), 'name' => (string) ($r->data['tag']['name'] ?? '')]; }
     echo json_encode($body);
     exit;
 };
@@ -58,6 +59,14 @@ switch ($action) {
         $out($tech->cancelJob($who, $device_id, (string) ($_POST['job_id'] ?? '')));
     case 'remote':
         $out($tech->launchRemote($who, $device_id, !empty($_POST['force']), (string) ($_SERVER['REMOTE_ADDR'] ?? ''), (string) ($_SERVER['HTTP_USER_AGENT'] ?? '')));
+    // RivetCore 1.0.0-rc.9 (RMM Phase 1): tags and the software refresh. InventoryActions authorizes each one itself (rmm.device.manage for tags, rmm.job.run_saved
+    // for the refresh) with the same client scope as the REST API.
+    case 'tag_add':
+        $out($rmm->inventory()->tagDevice($who, $device_id, trim((string) ($_POST['tag'] ?? ''))));
+    case 'tag_remove':
+        $out($rmm->inventory()->untagDevice($who, $device_id, intval($_POST['tag_id'] ?? 0)));
+    case 'software_refresh':
+        $out($rmm->inventory()->refreshSoftware($who, $device_id));
     case 'set_mesh_node':
         $out($tech->setMeshNode($who, $device_id, (string) ($_POST['mesh_node_id'] ?? '')));
 }

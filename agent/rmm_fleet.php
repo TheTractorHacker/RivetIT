@@ -24,6 +24,12 @@ $rmm_filters = [
     'q' => trim((string) ($_GET['q'] ?? '')),
     'ring' => (string) ($_GET['ring'] ?? ''),
     'page' => (int) ($_GET['page'] ?? 1),
+    // RivetCore 1.0.0-rc.9 filters (tag name, group id, software name) and the Outdated software card's question (name, oldest acceptable version)
+    'tag' => is_string($_GET['tag'] ?? null) ? trim($_GET['tag']) : '',
+    'group' => (int) ($_GET['group'] ?? 0),
+    'software' => is_string($_GET['software'] ?? null) ? trim($_GET['software']) : '',
+    'osw' => is_string($_GET['osw'] ?? null) ? trim($_GET['osw']) : '',
+    'osv' => is_string($_GET['osv'] ?? null) ? trim($_GET['osv']) : '',
 ];
 if (!in_array($rmm_filters['status'], ['online', 'offline', 'stale', 'never', 'pending_approval', 'linked', 'rejected'], true)) {
     $rmm_filters['status'] = '';

@@ -10825,3 +10825,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.157'");
     }
+
+    if ($rivetit_db_version() == '2.6.157') {
+        // DB 2.6.158: RivetCore 1.0.0-rc.9 Migration0018InventoryFoundation (RMM Phase 1): eleven new tables (rmm_device_state, rmm_device_software,
+        // rmm_software_history, rmm_tags, rmm_device_tags, rmm_groups, rmm_group_devices, rmm_group_tags, endpoint_agent_check_history, rmm_metric_latest,
+        // rmm_metric_hourly), all CREATE TABLE IF NOT EXISTS; none of the ten endpoint_agent_* tables is altered. Core owns the DDL, so this step only
+        // runs the Core runner (idempotent: it skips applied ids). Nothing is switched on: the software inventory stays off until an administrator
+        // enables the `inventory_software` switch, and agents send nothing until the server offers it. Skipped (version NOT advanced, so it retries)
+        // until a package that ships the migration is installed. Run it before, or right after, the new code is live: until the tables exist a
+        // check-in that carries checks answers 500 and the agent retries by itself.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0018InventoryFoundation::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.158'");
+        }
+    }

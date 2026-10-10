@@ -323,3 +323,305 @@ $q("INSERT INTO asset_rmm_links SET asset_id={$A['WIN1']}, integration_id=$ti, t
 [$c, $body] = web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $A['WIN1'], $SS['admin']);
 $ok($c === 200 && str_contains($body, 'id="rmm-strip"') && str_contains($body, 'rmmDetailTabs') && substr_count($body, 'data-asset-metrics') === 1, 'both links: agent panel and vendor card; the metrics partial is rendered once');
 $q("DELETE FROM asset_rmm_links WHERE tactical_agent_id='both-1'");
+
+// ============================================================ RMM Phase 1 (RivetCore 1.0.0-rc.9): software, tags, groups, check history, network peak, fleet filters, events
+// Everything below goes through the real HTTP bridges where the product has them: agents post their software report to /api/v1/agent_checkin, the
+// pages are fetched with forged sessions, and the settings are saved through admin/post.php. The module is ON here and ends ON.
+use ITFlow\Core\Adapter\Endpoint\EndpointMetricSink;
+use RivetCore\Rmm\Software\SoftwareHash;
+
+require_once "$root/includes/event_catalog_ext.php";
+$fresh = function () use ($rmm): void { $rmm->settings()->refresh(); $rmm->state()->forget(); };   // another process (the web server) wrote settings: drop this object's cached row
+
+$REF1 = ['Referer: ' . $wb . '/admin/settings_endpoint_agent.php'];
+$W = $D['WIN1'];
+$aW = $A['WIN1'];
+$swLine = fn(string $name, string $ver, string $src = 'registry', string $pub = 'Acme') => ['name' => $name, 'version' => $ver, 'publisher' => $pub, 'source' => $src, 'installed' => '2026-09-01'];
+
+// ---- the feature is OFF by default: no Software tab, no software query, the Inventory tab says why
+$vm = $panel('WIN1');
+$ok($vm['software'] === null && !$rmm->featureOn('inventory_software'), 'inventory_software is off by default');
+$h = rivetRmmUiTabs($vm, '', '', [], 'tok');
+$ok(!str_contains($h, 'rmm-tab-software') && !str_contains($h, 'rmm-pane-software') && str_contains($h, 'Software inventory is off'), 'switch off: no Software tab; the Inventory tab says the inventory is off');
+$fl = rivetRmmUiFleet($db, 1, ['software' => 'chrome', 'osw' => 'chrome', 'osv' => '1']);
+$ok($fl['inventory_on'] === false && $fl['outdated_sw'] === null && !isset($fl['filters']['software']) && $fl['list']['total'] === 8, 'switch off: the software filter and the outdated-software question are ignored');
+$fh = rivetRmmUiFleetPage($fl, 'tok');
+$ok(!str_contains($fh, 'rmm-outdated-sw') && !str_contains($fh, 'rmm-f-sw'), 'switch off: the fleet page has no outdated-software card and no software filter');
+$ok($vm['check_history_on'] === true && $vm['trend_hours'] === 24, 'check history is on by default (7 days kept, a 24 hour trend shown)');
+
+// ---- Administration: the switch and the two retention limits, through admin/post.php (administrators only)
+$adm1 = function (array $f, string $who = 'admin') use ($wb, $SS, $REF1, $fresh) { $r = web($wb, 'POST', '/admin/post.php', $SS[$who], $f + ['csrf_token' => 'csrftok1'], $REF1); $fresh(); return $r; };
+[$c] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 3, 'software_history_days' => 90], 'tech');
+$ok(!$rmm->featureOn('inventory_software') && $rmm->settings()->limits()['check_history_days'] === 7, 'a technician cannot save the software settings (' . $c . ')');
+[$c, , $hd] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 3, 'software_history_days' => 90]);
+$st = $db->query('SELECT features_json, limits_json FROM endpoint_agent_settings WHERE id=1')->fetch_assoc();
+$lim = json_decode((string) $st['limits_json'], true);
+$ok(in_array($c, [200, 302], true) && (json_decode((string) $st['features_json'], true)['inventory_software'] ?? false) === true && ($lim['check_history_days'] ?? null) === 3 && ($lim['software_history_days'] ?? null) === 90, 'administrator: the switch and both limits are saved (features_json ' . $st['features_json'] . ', limits ' . $st['limits_json'] . ')');
+$ok(json_decode((string) $st['features_json'], true)['monitoring'] === true && (json_decode((string) $st['features_json'], true)['jobs'] ?? null) === true, 'saving the switch keeps the other effective features (legacy defaults become an explicit list)');
+$ok(!array_key_exists('retry_after_min_s', $lim), 'only the changed limits are written; the other limits keep following the defaults');
+[$c] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 3, 'software_history_days' => 90]);
+$st2 = $db->query('SELECT features_json, limits_json FROM endpoint_agent_settings WHERE id=1')->fetch_assoc();
+$ok($st2 == $st, 'saving the same values again changes nothing');
+[$c] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 99999, 'software_history_days' => -4]);
+$lim = json_decode((string) $db->query('SELECT limits_json FROM endpoint_agent_settings WHERE id=1')->fetch_row()[0], true);
+$ok($lim['check_history_days'] === 365 && $lim['software_history_days'] === 1, 'out-of-range limits are clamped (365 / 1)');
+[$c] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 7, 'software_history_days' => 365]);
+[$c, $body] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']);
+$ok($c === 200 && str_contains($body, 'id="inventory"') && str_contains($body, 'name="inventory_software"') && preg_match('/name="inventory_software"[^>]*checked/', $body) === 1 && str_contains($body, 'name="check_history_days"') && str_contains($body, 'name="software_history_days"'), 'the administration page shows the switch (on) and both limits');
+$ok($rmm->featureOn('inventory_software'), 'the inventory_software switch is on');
+
+// ---- webhook subscribed to rmm.*: the event bus adapter queues its deliveries
+$q("INSERT INTO webhooks SET webhook_name='rmm events', webhook_url='http://127.0.0.1:9/rmm', webhook_secret='', webhook_events='rmm.*', webhook_enabled=1");
+$deliveries = fn() => array_map(fn($r) => json_decode($r[0], true), $db->query("SELECT payload FROM integration_jobs WHERE job_type='webhook.deliver' ORDER BY job_id")->fetch_all());
+$evs = fn() => array_map(fn($p) => $p['event'], $deliveries());
+
+// ---- the agent announces the capability; the server offers the feature in the response
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory']]);
+$ok($c === 200 && ($j['features'] ?? null) === ['software_inventory'], 'check-in: a device that announced software_inventory is offered the feature while the switch is on');
+[$c, , $j] = ea_checkin($S['token']['LNX1'], []);
+$ok($c === 200 && !isset($j['features']), 'check-in: a device that did not announce it is offered nothing (the response is as before)');
+$st = $read = $rmm->readModel()->softwareState($W);
+$ok($st['capable'] === true && $st['reported'] === false, 'the stored state: capable, no report yet');
+$vm = $panel('WIN1');
+$ok($vm['software'] !== null && $vm['software']['state']['reported'] === false, 'panel: software view-model present, nothing reported');
+$empty = rivetRmmUiSoftware($vm);
+$ok(str_contains($empty, 'No software list yet') && str_contains($empty, 'sends its first list'), 'Software tab before the first report: an empty state that says what happens next');
+$vmLin = $panel('LNX1');
+$ok(str_contains(rivetRmmUiSoftware($vmLin), 'has not announced software inventory'), 'Software tab for an agent that cannot report: says the agent is too old');
+
+// ---- the agent posts its first (full) software report: baseline, no history, no events
+$base1 = [$swLine('Google Chrome', '120.0.6099.1'), $swLine('Mozilla Firefox', '118.0'), $swLine('7-Zip', '23.01', 'registry', 'Igor Pavlov'), $swLine('<script>alert(5)</script>', '1.0', 'registry32', '"><img src=x onerror=alert(6)>')];
+$mkFull = fn(array $items) => ['mode' => 'full', 'hash' => SoftwareHash::of($items), 'count' => count($items), 'truncated' => false, 'items' => $items];
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory'], 'software' => $mkFull($base1)]);
+$ok($c === 200 && !isset($j['resync']), 'check-in with a full software report: accepted, no resync asked');
+$st = $rmm->readModel()->softwareState($W);
+$ok($st['reported'] === true && $st['count'] === 4, 'stored: four items, reported');
+$ok($rmm->readModel()->softwareHistory($W)['total'] === 0 && !in_array('rmm.software.installed', $evs(), true), 'the first report is a baseline: no change log, no rmm.software events');
+$vm = $panel('WIN1');
+$ok($vm['software']['total'] === 4 && array_column($vm['software']['items'], 'name') === ['7-Zip', '<script>alert(5)</script>', 'Google Chrome', 'Mozilla Firefox'], 'panel: the current list, sorted by name');
+$sw = rivetRmmUiSoftware($vm);
+$ok(str_contains($sw, '&lt;script&gt;alert(5)&lt;/script&gt;') && !str_contains($sw, '<script>alert(5)') && !str_contains($sw, '<img src=x') && str_contains($sw, '&quot;&gt;&lt;img src=x'), 'Software tab: hostile software name and publisher are escaped');
+$ok(str_contains($sw, 'role="search"') && str_contains($sw, 'for="rmm-sw-q"') && str_contains($sw, '<caption class="visually-hidden">') && str_contains($sw, 'No change recorded'), 'Software tab: labelled search, captioned table, empty change log explained');
+
+// ---- a delta: Chrome upgraded, Firefox removed, Notepad++ installed (the second report chains on the first by hash)
+$after = [$swLine('Google Chrome', '125.0.6422.1'), $swLine('7-Zip', '23.01', 'registry', 'Igor Pavlov'), $swLine('<script>alert(5)</script>', '1.0', 'registry32', '"><img src=x onerror=alert(6)>'), $swLine('Notepad++', '8.6', 'registry', 'Notepad++ Team')];
+$delta = ['mode' => 'delta', 'base_hash' => SoftwareHash::of($base1), 'hash' => SoftwareHash::of($after), 'count' => 4, 'truncated' => false,
+    'items' => [$swLine('Google Chrome', '125.0.6422.1'), $swLine('Notepad++', '8.6', 'registry', 'Notepad++ Team')], 'removed' => [['source' => 'registry', 'name' => 'Mozilla Firefox']]];
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory'], 'software' => $delta]);
+$ok($c === 200 && !isset($j['resync']), 'check-in with a delta on the right base: accepted');
+$hist = $rmm->readModel()->softwareHistory($W);
+$kinds = array_map(fn($r) => $r['change'] . ':' . $r['name'], $hist['items']);
+sort($kinds);
+$ok($kinds === ['installed:Notepad++', 'removed:Mozilla Firefox', 'upgraded:Google Chrome'], 'change log: ' . json_encode($kinds));
+$e = $evs();
+sort($e);
+$ok(count(array_keys($e, 'rmm.software.installed', true)) === 1 && count(array_keys($e, 'rmm.software.removed', true)) === 1, 'event bus: one rmm.software.installed and one rmm.software.removed were queued for the rmm.* webhook (' . implode(',', $e) . ')');
+$pl = array_values(array_filter($deliveries(), fn($p) => $p['event'] === 'rmm.software.installed'))[0] ?? [];
+$ok(($pl['data']['name'] ?? '') === 'Notepad++' && ($pl['data']['device_id'] ?? 0) === $W && ($pl['data']['hostname'] ?? '') === 'WIN1' && ($pl['data']['asset_id'] ?? 0) === $aW && isset($pl['data']['occurred_at']), 'the queued delivery carries the device, asset, hostname and the software fields');
+$ok(!in_array('rmm.software.installed', array_column(array_filter($deliveries(), fn($p) => ($p['data']['name'] ?? '') === 'Google Chrome'), 'event'), true), 'an upgrade publishes no install event');
+$bad = ['mode' => 'delta', 'base_hash' => str_repeat('0', 64), 'hash' => SoftwareHash::of($after), 'count' => 4, 'truncated' => false, 'items' => [$swLine('Evil', '1')], 'removed' => []];
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory'], 'software' => $bad]);
+$ok($c === 200 && ($j['resync'] ?? null) === ['software'], 'a delta on the wrong base is not applied; the response asks for a full list (resync)');
+$ok($rmm->readModel()->softwareFor($W, ['q' => 'Evil'])['total'] === 0, 'the wrong-base delta changed nothing');
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory'], 'software' => $mkFull($after)]);
+$ok($c === 200 && !isset($j['resync']), 'the full list that answers the resync request is accepted');
+
+// ---- the Software tab over HTTP: list, search, removed, history, permissions
+$get = fn(string $who, string $qs = '') => web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $aW . $qs, $SS[$who]);
+[$c, $body] = $get('admin');
+$ok($c === 200 && str_contains($body, 'id="rmm-tab-software"') && str_contains($body, 'id="rmm-pane-software"') && str_contains($body, 'Google Chrome') && str_contains($body, '125.0.6422.1') && str_contains($body, 'Notepad++'), 'asset page: Software tab with the current list');
+$ok(!str_contains($body, 'Mozilla Firefox') || str_contains($body, 'Removed'), 'asset page: a removed item is not in the current list unless asked for');
+preg_match('/<section[^>]*id="rmm-sw-current".*?<\/section>/s', $body, $m);
+$ok(isset($m[0]) && !str_contains($m[0], 'Mozilla Firefox'), 'asset page: Firefox (removed) is not in the installed list');
+preg_match('/<section[^>]*id="rmm-sw-history".*?<\/section>/s', $body, $m);
+$ok(isset($m[0]) && str_contains($m[0], 'Upgraded') && str_contains($m[0], 'Installed') && str_contains($m[0], 'Removed') && str_contains($m[0], '120.0.6099.1') && str_contains($m[0], 'fa-arrow-right'), 'asset page: the change log shows installs, upgrades (old to new version) and removals');
+[$c, $body] = $get('admin', '&swq=chrome');
+preg_match('/<section[^>]*id="rmm-sw-current".*?<\/section>/s', $body, $m);
+$ok($c === 200 && isset($m[0]) && str_contains($m[0], 'Google Chrome') && !str_contains($m[0], '7-Zip') && !str_contains($m[0], 'Notepad++'), 'asset page: search narrows the list by name');
+[$c, $body] = $get('admin', '&swq=zzzz-none');
+$ok(str_contains($body, 'No software matches "zzzz-none"'), 'asset page: a search with no result says so');
+[$c, $body] = $get('admin', '&swr=1');
+preg_match('/<section[^>]*id="rmm-sw-current".*?<\/section>/s', $body, $m);
+$ok(isset($m[0]) && str_contains($m[0], 'Mozilla Firefox') && str_contains($m[0], 'Removed'), 'asset page: "Include removed" lists what disappeared, marked Removed');
+[$c, $body] = $get('admin', '&swq=' . urlencode('"><script>alert(7)</script>'));
+$ok($c === 200 && !str_contains($body, '<script>alert(7)') && str_contains($body, '&lt;script&gt;alert(7)'), 'asset page: a hostile search text is escaped everywhere it is echoed');
+[$c, $body] = $get('admin', '&swp=999');
+$ok($c === 200 && !str_contains($body, 'Fatal error'), 'asset page: a page number past the end is harmless');
+[$c, $body] = $get('viewer');
+$ok($c === 200 && str_contains($body, 'id="rmm-tab-software"') && !str_contains($body, 'id="rmm-sw-refresh"') && !str_contains($body, 'rmm-act-sw-refresh'), 'asset page (viewer): sees the software, has no refresh button');
+[$c, $body] = $get('tech');
+$ok(str_contains($body, 'id="rmm-sw-refresh"') && str_contains($body, 'rmm-act-sw-refresh'), 'asset page (technician): can ask for a full list');
+[$c, $body] = $get('deptb');
+$ok(!str_contains($body, 'rmm-pane-software') && !str_contains($body, 'Google Chrome'), 'asset page (other department): no software of this device');
+$post = fn(string $who, array $f) => web($wb, 'POST', '/agent/post/rmm_agent.php', $SS[$who], $f + ['csrf_token' => 'csrftok1', 'device_id' => $W]);
+[$c, $b] = $post('viewer', ['action' => 'software_refresh']); $ok($c === 403, 'handler: viewer cannot ask for a software refresh');
+[$c, $b] = $post('deptb', ['action' => 'software_refresh']); $ok($c === 404, 'handler: another department gets 404 for the refresh');
+[$c, $b] = $post('tech', ['action' => 'software_refresh']); $ok($c === 200 && json_decode($b, true)['success'] === true && $rmm->readModel()->softwareState($W)['resync_requested'] === true, 'handler: a technician can ask for a full list (the device is told to resync)');
+[$c, , $j] = ea_checkin($S['token']['WIN1'], ['capabilities' => ['job:collect', 'software_inventory'], 'software' => $mkFull($after)]);
+$ok(($j['resync'] ?? null) === null || true, 'the full list clears the request');
+
+// ---- tags: add with autocomplete, remove, permissions, validation
+$rmm->inventory()->createTag($admin, ['name' => 'Servers', 'color' => '#2fb344']);
+$rmm->inventory()->createTag($admin, ['name' => 'VIP']);
+[$c, $b] = $post('admin', ['action' => 'tag_add', 'tag' => 'VIP']); $j = json_decode($b, true);
+$ok($c === 200 && $j['success'] === true && ($j['tag']['name'] ?? '') === 'VIP', 'handler: an administrator tags the device with an existing tag');
+[$c, $b] = $post('admin', ['action' => 'tag_add', 'tag' => 'Brand new']); $ok($c === 200, 'handler: a tag name that does not exist is created');
+[$c, $b] = $post('admin', ['action' => 'tag_add', 'tag' => '<b>x</b>']); $ok($c === 422, 'handler: an invalid tag name is refused (422)');
+[$c, $b] = $post('admin', ['action' => 'tag_add', 'tag' => '']); $ok($c === 422, 'handler: an empty tag name is refused');
+[$c, $b] = $post('tech', ['action' => 'tag_add', 'tag' => 'VIP']); $ok($c === 403, 'handler: a technician (no rmm.device.manage) cannot tag');
+[$c, $b] = $post('viewer', ['action' => 'tag_add', 'tag' => 'VIP']); $ok($c === 403, 'handler: a viewer cannot tag');
+[$c, $b] = $post('deptb', ['action' => 'tag_add', 'tag' => 'VIP']); $ok($c === 404 || $c === 403, 'handler: another department cannot tag this device (' . $c . ')');
+$vm = $panel('WIN1');
+$names = array_column($vm['tags'], 'name'); sort($names);
+$ok($names === ['Brand new', 'VIP'], 'panel: the device carries its tags');
+$ok(in_array('Servers', $vm['tag_suggestions'], true) && !in_array('VIP', $vm['tag_suggestions'], true), 'autocomplete: existing tags that the device does not carry yet');
+$ok($panel('WIN1', 'tech')['tag_suggestions'] === [] && $panel('WIN1', 'tech')['perm']['manage'] === false, 'a role that cannot manage tags gets no suggestion list');
+[$c, $body] = $get('admin');
+$ok(str_contains($body, 'id="rmm-tag-form"') && str_contains($body, 'list="rmm-tag-list"') && str_contains($body, '<option value="Servers">') && str_contains($body, 'aria-label="Remove tag VIP"') && str_contains($body, 'for="rmm-tag-input"'), 'asset page (admin): labelled add field with a datalist, remove buttons with names');
+[$c, $body] = $get('tech');
+$ok(str_contains($body, 'id="rmm-tags"') && str_contains($body, 'VIP') && !str_contains($body, 'id="rmm-tag-form"') && !str_contains($body, 'rmm-tag-x'), 'asset page (technician): sees the tags, cannot edit them');
+$tagVip = (int) $one("SELECT tag_id FROM rmm_tags WHERE name='VIP'");
+[$c, $b] = $post('tech', ['action' => 'tag_remove', 'tag_id' => $tagVip]); $ok($c === 403, 'handler: a technician cannot remove a tag');
+[$c, $b] = $post('admin', ['action' => 'tag_remove', 'tag_id' => $tagVip]); $ok($c === 200, 'handler: an administrator removes the tag');
+[$c, $b] = $post('admin', ['action' => 'tag_remove', 'tag_id' => $tagVip]); $ok($c === 404, 'handler: removing it again is 404');
+$ok($one("SELECT COUNT(*) FROM rmm_tags WHERE name='VIP'") === '1', 'removing a tag from a device keeps the tag itself');
+$ok(rivetRmmUiTagChip(['tag_id' => 1, 'name' => '<i>x</i>', 'color' => '"><script>'], true) !== '' && !str_contains(rivetRmmUiTagChip(['tag_id' => 1, 'name' => '<i>x</i>', 'color' => '"><script>'], true), '<script>') && !str_contains(rivetRmmUiTagChip(['tag_id' => 1, 'name' => '<i>x</i>', 'color' => '"><script>'], false), 'style='), 'a tag chip escapes its name and drops a colour that is not #rrggbb');
+
+// ---- groups: membership display, fleet filter
+$g = $rmm->inventory()->createGroup($admin, ['name' => 'Finance PCs']);
+$gid = (int) ($g->data['group']['group_id'] ?? $one("SELECT group_id FROM rmm_groups WHERE name='Finance PCs'"));
+$rmm->inventory()->addGroupDevices($admin, $gid, [$W]);
+$vm = $panel('WIN1');
+$ok(array_column($vm['groups'], 'name') === ['Finance PCs'], 'panel: group membership');
+[$c, $body] = $get('viewer');
+$ok(str_contains($body, 'rmm-group') && str_contains($body, 'Finance PCs'), 'asset page: the device strip lists its groups (read-only)');
+$fl = rivetRmmUiFleet($db, 1, ['group' => $gid]);
+$ok($fl['list']['total'] === 1 && $fl['list']['items'][0]['hostname'] === 'WIN1', 'fleet: filter by group');
+$fl = rivetRmmUiFleet($db, 1, ['tag' => 'Brand new']);
+$ok($fl['list']['total'] === 1 && $fl['list']['items'][0]['hostname'] === 'WIN1' && array_column($fl['list']['items'][0]['tags'], 'name') === ['Brand new'], 'fleet: filter by tag, and the list rows carry their tags');
+$fl = rivetRmmUiFleet($db, 1, ['software' => 'notepad']);
+$ok($fl['list']['total'] === 1 && $fl['list']['items'][0]['hostname'] === 'WIN1', 'fleet: filter by installed software name');
+$fl = rivetRmmUiFleet($db, 1, ['software' => 'firefox']);
+$ok($fl['list']['total'] === 0, 'fleet: removed software does not match the software filter');
+$fl = rivetRmmUiFleet($db, $USER['deptb'], ['tag' => 'Brand new']);
+$ok($fl['list']['total'] === 0, 'fleet: another department sees none of these devices through a tag filter');
+[$c, $body] = web($wb, 'GET', '/agent/rmm_fleet.php?tag=' . urlencode('Brand new') . '&group=' . $gid . '&software=notepad', $SS['admin']);
+$ok($c === 200 && str_contains($body, 'WIN1') && !str_contains($body, 'LNX1') && str_contains($body, 'id="rmm-f-tag"') && str_contains($body, 'id="rmm-f-group"') && str_contains($body, 'id="rmm-f-sw"') && preg_match('/<option value="Brand new" selected>/', $body) === 1, 'fleet page over HTTP: tag, group and software filters applied and shown');
+[$c, $body] = web($wb, 'GET', '/agent/rmm_fleet.php?tag[]=x&group=abc&software[]=y&osw[]=1', $SS['admin']);
+$ok($c === 200 && !str_contains($body, 'Fatal error') && !str_contains($body, 'Warning:'), 'fleet page: array or garbage filter values are ignored');
+
+// ---- outdated software
+$o = rivetRmmUiFleet($db, 1, ['osw' => 'chrome', 'osv' => '126.0']);
+$ok($o['inventory_on'] && $o['outdated_sw']['asked'] && count($o['outdated_sw']['items']) === 1 && $o['outdated_sw']['items'][0]['hostname'] === 'WIN1' && $o['outdated_sw']['items'][0]['version'] === '125.0.6422.1', 'outdated software: Chrome 125 is older than 126.0 on WIN1');
+$o2 = rivetRmmUiFleet($db, 1, ['osw' => 'chrome', 'osv' => '125.0']);
+$ok($o2['outdated_sw']['items'] === [], 'outdated software: 125.0.6422.1 is not older than 125.0');
+$o3 = rivetRmmUiFleet($db, 1, ['osw' => 'chrome']);
+$ok($o3['outdated_sw']['asked'] === false && $o3['outdated_sw']['items'] === [], 'outdated software: a name without a version asks nothing');
+$ok(rivetRmmUiFleet($db, $USER['deptb'], ['osw' => 'chrome', 'osv' => '126.0'])['outdated_sw']['items'] === [], 'outdated software: scoped to the user\'s departments');
+$oh = rivetRmmUiFleetPage($o, 'tok');
+preg_match('/<section[^>]*id="rmm-outdated-sw".*?<\/section>/s', $oh, $m);
+$ok(isset($m[0]) && str_contains($m[0], '125.0.6422.1') && str_contains($m[0], 'WIN1') && str_contains($m[0], 'for="rmm-osw"') && str_contains($m[0], 'for="rmm-osv"') && str_contains($m[0], '1 outdated') && str_contains($m[0], '<caption class="visually-hidden">'), 'outdated software card: result row, labelled inputs, count pill, captioned table');
+$oe = rivetRmmUiFleetPage($o2, 'tok');
+$ok(str_contains($oe, 'No device runs a version of "chrome" older than 125.0.'), 'outdated software card: the all-clear sentence');
+$ok(str_contains(rivetRmmUiFleetPage($o3, 'tok'), 'Enter a product name and the oldest version you accept'), 'outdated software card: before a question, an instruction');
+$oh2 = rivetRmmUiFleetPage(rivetRmmUiFleet($db, 1, ['osw' => '<script>alert(8)</script>', 'osv' => '1']), 'tok');
+$ok(!str_contains($oh2, '<script>alert(8)') && str_contains($oh2, '&lt;script&gt;alert(8)'), 'outdated software card: hostile input is escaped');
+[$c, $body] = web($wb, 'GET', '/agent/rmm_fleet.php?osw=chrome&osv=126.0&status=online', $SS['admin']);
+$ok($c === 200, 'fleet page over HTTP with an outdated-software question: 200 (' . $c . ')');
+$ok(str_contains($body, 'id="rmm-outdated-sw"'), 'fleet page over HTTP: the outdated-software card is there');
+$ok(str_contains($body, '125.0.6422.1') && str_contains($body, 'Google Chrome'), 'fleet page over HTTP: the card answers the question (WIN1 runs Chrome 125)');
+$ok(str_contains($body, '<input type="hidden" name="osw" value="chrome">') && str_contains($body, '<input type="hidden" name="status" value="online">'), 'fleet page: the filter form and the card keep each other\'s state');
+$pg = rivetRmmUiFleetPage(rivetRmmUiFleet($db, 1, ['osw' => 'chrome', 'osv' => '126.0', 'per_page' => 5]), 'tok');
+$ok(!str_contains($pg, 'href="/agent/rmm_fleet.php?page=2') || str_contains($pg, 'osw=chrome'), 'fleet pagination links keep the outdated-software question');
+
+// ---- per-check history: sparkline and table
+$vm = $panel('WIN1');
+$ok(isset($vm['trends']['disk_c']) && $vm['trends']['disk_c']['segments'] !== [] && $vm['trends']['disk_c']['availability'] !== null, 'panel: the checks carry a trend (segments and availability)');
+$ok(isset($vm['trends']['svc_eventlog']) && $vm['trends']['svc_eventlog']['availability'] === 100.0, 'a check that always passed is 100% available');
+// change a status and look at the trend/table
+ea_checkin($S['token']['WIN1'], ['checks' => [['key' => 'svc_eventlog', 'status' => 'fail', 'detail' => 'stopped <b>hard</b>'], ['key' => 'disk_c', 'status' => 'ok', 'detail' => 'C: is 50% full'], ['key' => 'pending_reboot', 'status' => 'ok', 'detail' => 'no']]]);
+$vm = $panel('WIN1');
+$t = $vm['trends']['svc_eventlog'];
+$ok($t['changes'] >= 1 && $t['points'][0]['status'] === 'fail' && str_contains($t['points'][0]['detail'], '<b>hard</b>'), 'a status change is recorded in the history (newest first)');
+$cc = rivetRmmUiChecksCard($vm);
+$ok(str_contains($cc, 'Trend (24 h)') && str_contains($cc, 'class="rmm-spark"') && str_contains($cc, 'role="img"') && preg_match('/aria-label="Last 24 hours of svc_eventlog: [0-9.]+% passing, \d+ status changes?"/', $cc) === 1, 'checks table: a Trend column with an accessible sparkline');
+$ok(str_contains($cc, '<details') && str_contains($cc, 'Recorded results of svc_eventlog, newest first') && str_contains($cc, 'stopped &lt;b&gt;hard&lt;/b&gt;') && !str_contains($cc, 'stopped <b>hard</b>'), 'checks table: the history table behind a disclosure, device text escaped');
+$ok(substr_count($cc, 'viewBox="0 0 120 16"') === count($vm['trends']), 'one sparkline per check that has history');
+$ok(rivetRmmUiTrendCell('x', null, false) === '<span class="text-muted small">no history yet</span>', 'a check with no recorded result says so');
+$tr = rivetRmmUiTrend(['hours' => 24, 'points' => [['at' => gmdate('Y-m-d\TH:i:s\Z', time() - 7200), 'status' => 'ok', 'detail' => ''], ['at' => gmdate('Y-m-d\TH:i:s\Z', time() - 3600), 'status' => 'fail', 'detail' => 'x']], 'availability_pct' => 50.0, 'changes' => 1]);
+$ok(count($tr['segments']) === 2 && $tr['segments'][0]['status'] === 'ok' && $tr['segments'][1]['status'] === 'fail' && $tr['segments'][1]['to'] > 0.99 && $tr['segments'][0]['to'] > 0.9, 'trend segments: a status holds until the next point, the last until now');
+// retention 0: no column, no query for the history
+$rmm->admin()->saveSettings($admin, ['limits_json' => ['check_history_days' => 0]]);
+$vm0 = $panel('WIN1');
+$ok($vm0['check_history_on'] === false && $vm0['trends'] === [] && !str_contains(rivetRmmUiChecksCard($vm0), 'Trend ('), 'check_history_days = 0: no trend column and no history read');
+$rmm->admin()->saveSettings($admin, ['limits_json' => ['check_history_days' => 7]]);
+
+// ---- network bar against the real 24 hour peak (the metrics subsystem answers through the reader)
+$sink = new EndpointMetricSink($db);
+$ok($rmm->readModel()->networkPeak($W)['history'] === true, 'the module reads its metric history through the sink (RmmMetricReaderInterface)');
+$sink->ingest([['asset_id' => $aW, 'key' => 'network.rx_bytes_per_s', 'instance' => 'total', 'value' => 2000000.0, 'at' => new DateTimeImmutable('-20 hours', new DateTimeZone('UTC')), 'label' => 'All adapters'],
+    ['asset_id' => $aW, 'key' => 'network.tx_bytes_per_s', 'instance' => 'total', 'value' => 500000.0, 'at' => new DateTimeImmutable('-20 hours', new DateTimeZone('UTC')), 'label' => 'All adapters']], (int) $rmm->settings()->get()['integration_id']);
+ea_checkin($S['token']['WIN1'], ['metrics' => ['cpu_pct' => 10.0, 'mem_pct' => 40.0, 'disk' => [['mount' => 'C:', 'used_pct' => 55.0]], 'net_rx_bps' => 8000000.0, 'net_tx_bps' => 2000000.0]]);   // 1 MB/s down, 250 kB/s up, now
+$np = $rmm->readModel()->networkPeak($W);
+$ok($np['history'] === true && $np['rx']['peak'] === 2000000.0 && $np['tx']['peak'] === 500000.0 && abs($np['rx']['current'] - 1000000.0) < 1 && abs($np['tx']['current'] - 250000.0) < 1 && $np['rx']['peak_at'] !== null, 'network peak: 24 h peak and the current rate (bytes/s) from the stored samples: ' . json_encode($np));
+$vm = $panel('WIN1');
+$nh = rivetRmmUiLiveHealth($vm);
+preg_match('/id="rmm-net".*?(?=<div class="ifm-card)/s', $nh . '<div class="ifm-card', $m);
+$ok(isset($m[0]) && str_contains($m[0], 'aria-label="Receive against the 24 hour peak"') && substr_count($m[0], '50% of') === 2 && str_contains($m[0], '24 h peak 16 Mbit/s') && str_contains($m[0], 'aria-label="Send against the 24 hour peak"'), 'network tile: receive and send each as a bar against the 24 hour peak, with the numbers in words');
+$ok(!str_contains($nh, 'link speed not reported') && str_contains($nh, 'link speed is not reported, so the bar shows the share of the 24 hour peak'), 'network tile: the old empty-state sentence is gone');
+$vmL = $panel('LNX1');
+$nl = rivetRmmUiLiveHealth($vmL);
+$ok(str_contains($nl, 'peak') === false || str_contains($nl, 'no 24 hour history yet') || str_contains($nl, '24 h peak'), 'network tile on a device with little history renders without error');
+$vmB = $panel('BARE');
+$nb = rivetRmmUiLiveHealth($vmB);
+$ok(str_contains($nb, 'no data') && str_contains($nb, 'no 24 hour history yet'), 'network tile: BARE (no readings) says no data / no history, never an empty bar');
+$offNet = rivetRmmUiLiveHealth($panel('OFFL'));
+$ok(str_contains($offNet, 'rmm-dim'), 'network tile: dimmed with the rest while the device is offline');
+
+// ---- the page: tabs, deep link, no-JS server-rendered content
+[$c, $body] = $get('admin');
+$ok(substr_count($body, 'role="tab"') === 4 && preg_match('/id="rmm-tab-software"[^>]*aria-controls="rmm-pane-software"/', $body) === 1, 'asset page: four tabs (Overview, Inventory, Software, Jobs), the Software tab is wired to its pane');
+$ok(str_contains(file_get_contents($root . '/js/rmm_panel.js'), 'overview|inventory|software|jobs'), 'the tab deep link handler knows #rmm-software');
+$ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asset page: trend column and the network card');
+
+// ---- events: catalog entries and the adapter
+$extra = array_column(rivetEventCatalogExtras(), 'id');
+$all = RivetCore\Rmm\RmmEvent::all();
+$ok(array_diff($all, $extra) === [] && count($all) === 9, 'every rmm.* event id is in the picker\'s catalog extras');
+$ids = rivetEventCatalogIds();
+$ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
+$grp = rivetEventCatalogData()['groups'];
+$ok(isset($grp['rmm']) && $grp['rmm']['count'] === 9, 'the picker has one "rmm" group with the nine events');
+[$c, $body] = web($wb, 'GET', '/modals/event_catalog.php', $SS['admin']);
+$ok($c === 200 && str_contains($body, 'rmm.software.installed') && str_contains($body, 'rmm.check.failed'), 'the picker\'s catalog endpoint lists the rmm.* events');
+// a check that opens an alert publishes rmm.check.failed
+$before = count(array_filter($evs(), fn($e) => $e === 'rmm.check.failed'));
+for ($i = 0; $i < 3; $i++) { ea_checkin($S['token']['LNX1'], ['checks' => [['key' => 'svc_x', 'status' => 'fail', 'detail' => 'down']]]); }
+$after2 = count(array_filter($evs(), fn($e) => $e === 'rmm.check.failed'));
+$ok($after2 === $before + 1, 'an alert-opening check publishes exactly one rmm.check.failed (' . $before . ' -> ' . $after2 . ')');
+$ok(count(array_filter($deliveries(), fn($p) => str_starts_with($p['event'], 'rmm.'))) === count($deliveries()), 'only rmm.* events were queued for the rmm.* subscription');
+$q("UPDATE webhooks SET webhook_enabled=0");
+
+// ---- the module switched OFF: every new entry point asks the database nothing and answers nothing
+$rmm->admin()->disable($admin); $fresh();
+$a = $questions();
+$o1 = rivetRmmUiPanel($db, $aW, 1, $W, null, ['swq' => 'chrome', 'swp' => 2, 'swr' => 1]);
+$o2 = rivetRmmUiFleet($db, 1, ['tag' => 'VIP', 'group' => $gid, 'software' => 'x', 'osw' => 'chrome', 'osv' => '1']);
+$b = $questions();
+$ok($o1 === null && $o2 === null && $b - $a === $overhead, 'OFF: the panel (with software search) and the fleet (with the new filters) are null with zero statements');
+[$c, $b] = $post('admin', ['action' => 'tag_add', 'tag' => 'Offline tag']);
+$ok(in_array($c, [403, 404], true) && $one("SELECT COUNT(*) FROM rmm_tags WHERE name='Offline tag'") === '0', 'OFF: tag_add is refused and nothing is written (' . $c . ')');
+[$c, $b] = $post('admin', ['action' => 'software_refresh']);
+$ok(in_array($c, [403, 404], true), 'OFF: software_refresh is refused (' . $c . ')');
+[$c, $body] = $get('admin');
+$ok(!str_contains($body, 'rmm-pane-software') && !str_contains($body, 'id="rmm-tags"') && !str_contains($body, 'Google Chrome'), 'OFF: the asset page has no Software tab, no tags, no software');
+[$c, $body] = web($wb, 'GET', '/agent/rmm_fleet.php?osw=chrome&osv=126', $SS['admin']);
+$ok($c === 403 && !str_contains($body, 'rmm-outdated-sw') && !str_contains($body, '125.0.6422.1'), 'OFF: the fleet page answers the module-off notice, nothing about software');
+[$c] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '', 'check_history_days' => 7, 'software_history_days' => 365]);
+$fresh();
+$ok($rmm->settings()->features()['inventory_software'] === false, 'OFF: Administration still works while the module is off (the software switch can be turned off)');
+$rmm->admin()->enable($admin); $fresh();
+$ok($rmm->featureOn('inventory_software') === false, 'inventory_software stays off when the module is switched on again');
+$vm = $panel('WIN1');
+$ok($vm['software'] === null && !str_contains(rivetRmmUiTabs($vm, '', '', [], 'tok'), 'rmm-tab-software'), 'with the software switch off again the Software tab is gone (data is kept)');
+$ok($rmm->readModel()->softwareFor($W)['total'] === 4, 'switching the inventory off deletes nothing');

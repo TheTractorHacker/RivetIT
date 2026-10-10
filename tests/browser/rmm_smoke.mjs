@@ -112,8 +112,11 @@ await T('keyboard: the tab strip is a tablist and arrow keys move between tabs',
   await p.waitFor(`document.getElementById('rmm-tab-inventory').getAttribute('aria-selected') === 'true'`, { label: 'Inventory tab selected after ArrowRight' });
   assert(await p.visible('#rmm-pane-inventory'), 'inventory pane not shown');
   await p.press('ArrowRight');
+  await p.waitFor(`document.getElementById('rmm-tab-software').getAttribute('aria-selected') === 'true'`, { label: 'Software tab selected' });
+  assert(await p.visible('#rmm-pane-software'), 'software pane not shown');
+  await p.press('ArrowRight');
   await p.waitFor(`document.getElementById('rmm-tab-jobs').getAttribute('aria-selected') === 'true'`, { label: 'Jobs tab selected' });
-  await p.press('ArrowLeft'); await p.press('ArrowLeft');
+  await p.press('ArrowLeft'); await p.press('ArrowLeft'); await p.press('ArrowLeft');
   await p.waitFor(`document.getElementById('rmm-tab-overview').getAttribute('aria-selected') === 'true'`, { label: 'back to Overview' });
 });
 await T('tab deep link: #rmm-jobs opens the Jobs tab', async () => {
@@ -121,12 +124,12 @@ await T('tab deep link: #rmm-jobs opens the Jobs tab', async () => {
   await p.waitFor(`document.getElementById('rmm-tab-jobs').getAttribute('aria-selected') === 'true'`, { label: 'Jobs tab from the hash' });
   assert(await p.visible('#rmm-pane-jobs'), 'jobs pane hidden');
 });
-await T('inventory tab: hardware, OS, disks (with used bars), adapters; software and services are honest empty states', async () => {
+await T('inventory tab: hardware, OS, disks (with used bars), adapters; software points to its tab, services are an honest empty state', async () => {
   await go(asset('WIN1') + '#rmm-inventory');
   await p.waitSel('#rmm-pane-inventory table');
   const t = await p.eval(`document.getElementById('rmm-pane-inventory').innerText`);
   for (const s of ['Intel i7-1355U', 'Windows 11 23H2', 'C:', 'NTFS', 'Ethernet', 'aa:bb:cc:dd:ee:01', 'ACME\\alex']) assert(t.includes(s), 'inventory lacks ' + s);
-  assert(/Not collected yet/.test(t) && /Phase 1/.test(t) && /Phase 6/.test(t), 'software/services empty states missing');
+  assert(/See the Software tab/.test(t) && /Not collected yet/.test(t) && /Phase 6/.test(t), 'software (points to the Software tab) / services empty states missing');
   assert((await p.eval(`document.querySelectorAll('#rmm-pane-inventory .progress[role=progressbar]').length`)) >= 2, 'disk used bars missing');
   await shot('asset-inventory-desktop-light');
 });
@@ -391,6 +394,170 @@ await T("department page: 'Download agent installer' in the actions menu opens t
   await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
 });
 
+
+// ------------------------------------------------------------------------------------------------ RMM Phase 1 (RivetCore 1.0.0-rc.9)
+const unlabeled = (scope) => p.eval(`[...document.querySelectorAll(${JSON.stringify(scope)} + ' input:not([type=hidden]):not([type=checkbox]), ' + ${JSON.stringify(scope)} + ' select, ' + ${JSON.stringify(scope)} + ' textarea')].filter(e=>{
+  const id=e.id;const byFor=id&&document.querySelector('label[for="'+id+'"]');return !(byFor||e.getAttribute('aria-label')||e.closest('label'))}).map(e=>e.name||e.id)`);
+await T('software tab: list, paging, search, removed items and the change log (desktop, light)', async () => {
+  await go(asset('WIN1') + '#rmm-software');
+  await trapDialogs();
+  await p.waitSel('#rmm-pane-software table');
+  await p.waitFor(`document.getElementById('rmm-tab-software').getAttribute('aria-selected') === 'true'`, { label: 'Software tab from the hash' });
+  const cur = await p.eval(`document.getElementById('rmm-sw-current').innerText`);
+  assert(/7-Zip/.test(cur) && /Vendor Tool 001/.test(cur), 'current list: ' + cur.slice(0, 200));
+  assert(!/Mozilla Firefox/.test(cur), 'a removed item is in the current list');
+  assert(/<script>alert\(5\)<\/script>/.test(cur), 'the hostile name should be visible as text');
+  assert((await p.eval(`document.querySelectorAll('#rmm-pane-software script, #rmm-pane-software img[src="x"], #rmm-pane-software [onerror]').length`)) === 0, 'markup injected through a software name');
+  assert(/Page 1 of 2/.test(cur), 'paging text: ' + cur.slice(-120));
+  const hist = await p.eval(`document.getElementById('rmm-sw-history').innerText`);
+  assert(/Upgraded/.test(hist) && /Installed/.test(hist) && /Removed/.test(hist) && /120\.0\.6099\.1/.test(hist) && /125\.0\.6422\.1/.test(hist), 'change log: ' + hist.slice(0, 300));
+  assert((await unlabeled('#rmm-pane-software')).length === 0, 'unlabelled controls in the Software tab: ' + (await unlabeled('#rmm-pane-software')).join(','));
+  await shot('asset-software-desktop-light');
+  // next page: the link keeps the tab (fragment) and the page number
+  await p.clickNav('#rmm-sw-current a[rel=next]');
+  assert(/swp=2/.test(await p.url()) && /#rmm-software$/.test(await p.url()), 'next page url: ' + (await p.url()));
+  await p.waitFor(`document.getElementById('rmm-tab-software').getAttribute('aria-selected') === 'true'`, { label: 'still on the Software tab after paging' });
+  assert(/Page 2 of 2/.test(await p.eval(`document.getElementById('rmm-sw-current').innerText`)), 'page 2 text');
+  // search through the real form
+  await go(asset('WIN1') + '#rmm-software');
+  await p.waitSel('#rmm-sw-q');
+  await p.type('#rmm-sw-q', 'chrome');
+  await p.clickNav('#rmm-pane-software form[role=search] button[type=submit]');
+  assert(/swq=chrome/.test(await p.url()), 'search url: ' + (await p.url()));
+  await p.waitFor(`document.getElementById('rmm-tab-software').getAttribute('aria-selected') === 'true'`, { label: 'Software tab after a search (fragment kept by the form)' });
+  const found = await p.eval(`[...document.querySelectorAll('#rmm-sw-current tbody tr')].map(r=>r.innerText)`);
+  assert(found.length === 1 && /Google Chrome/.test(found[0]) && /125\.0\.6422\.1/.test(found[0]), 'search rows: ' + JSON.stringify(found));
+  // include removed
+  await go(asset('WIN1') + '&swq=firefox&swr=1#rmm-software');
+  await p.waitSel('#rmm-sw-current tbody tr');
+  const rem = await p.eval(`document.getElementById('rmm-sw-current').innerText`);
+  assert(/Mozilla Firefox/.test(rem) && /Removed/.test(rem), 'removed item not listed with the checkbox: ' + rem.slice(0, 200));
+  assert((await p.eval(`document.getElementById('rmm-sw-removed').checked`)), 'the checkbox does not reflect the state');
+  // ask for a full list: an in-page message, never window.confirm
+  await go(asset('WIN1') + '#rmm-software');
+  await trapDialogs();
+  await p.waitSel('#rmm-sw-refresh');
+  await p.click('#rmm-sw-refresh');
+  await p.waitFor(`/full software list/.test(document.getElementById('rmm-msg').innerText)`, { label: 'refresh confirmation message' });
+  assert((await p.eval(`document.getElementById('rmm-msg').classList.contains('alert-success')`)), 'refresh message is not a success');
+  assert((await p.eval('window.__dialogs')) === 0, 'window.confirm/alert was used');
+});
+await T('software tab: a device that never reported says so and offers the next step', async () => {
+  await go(asset('LNX1') + '#rmm-software');
+  await p.waitSel('#rmm-pane-software');
+  const t = await p.eval(`document.getElementById('rmm-pane-software').innerText`);
+  assert(/No software list yet/.test(t) && /has not announced software inventory/.test(t), 'LNX1 software tab: ' + t.slice(0, 200));
+});
+await T('tags and groups: add with autocomplete, validation, remove, groups shown (desktop, light)', async () => {
+  await go(asset('WIN1'));
+  await trapDialogs();
+  await p.waitSel('#rmm-tags');
+  let t = await p.eval(`document.getElementById('rmm-tags').innerText`);
+  assert(/VIP/.test(t) && /Finance PCs/.test(t), 'tags / groups line: ' + t);
+  assert((await p.eval(`!!document.querySelector('label[for=rmm-tag-input]')`)), 'the tag field has no label');
+  const opts = await p.eval(`[...document.querySelectorAll('#rmm-tag-list option')].map(o=>o.value)`);
+  assert(opts.includes('Servers') && opts.includes('Kiosk') && !opts.includes('VIP'), 'autocomplete options: ' + opts.join(','));
+  assert((await p.eval(`document.getElementById('rmm-tag-input').getAttribute('list')`)) === 'rmm-tag-list', 'input is not tied to the datalist');
+  // an invalid name: the server's reason appears in the page message
+  await p.type('#rmm-tag-input', '<b>bad</b>');
+  await p.press('Enter');
+  await p.waitFor(`/letters, digits/.test(document.getElementById('rmm-msg').innerText)`, { label: 'validation message' });
+  assert((await p.eval(`document.getElementById('rmm-msg').classList.contains('alert-danger')`)), 'validation message is not an error');
+  // a valid one, with the keyboard only
+  await p.focus('#rmm-tag-input');
+  await p.type('#rmm-tag-input', 'Servers');
+  await shot('asset-tags-desktop-light');
+  await p.press('Enter');
+  await p.waitFor(`/Servers/.test((document.getElementById('rmm-tags')||{innerText:''}).innerText) && !!document.querySelector('button[aria-label="Remove tag Servers"]')`, { timeout: 20000, label: 'tag added after reload' });
+  // remove it again
+  await p.click('button[aria-label="Remove tag Servers"]');
+  await p.waitFor(`!document.querySelector('button[aria-label="Remove tag Servers"]') && !!document.getElementById('rmm-tags')`, { timeout: 20000, label: 'tag removed after reload' });
+  assert(!/Servers/.test(await p.eval(`document.getElementById('rmm-tags').innerText`)), 'the tag is still there');
+}, { allowHttp: [/\/agent\/post\/rmm_agent\.php/] });   // the invalid name is answered 422 on purpose
+await T('checks table: a trend sparkline with an accessible name and a history table per check', async () => {
+  await go(asset('WIN1'));
+  await p.waitSel('#rmm-checks table');
+  assert(/Trend \(24 h\)/i.test(await p.eval(`document.getElementById('rmm-checks').innerText`)), 'no Trend column');
+  const labels = await p.eval(`[...document.querySelectorAll('#rmm-checks svg.rmm-spark[role=img]')].map(s=>s.getAttribute('aria-label'))`);
+  assert(labels.length >= 3 && labels.every((l) => /^Last 24 hours of \S+: ([0-9.]+% passing|availability not known), \d+ status changes?$/.test(l)), 'sparkline labels: ' + JSON.stringify(labels));
+  assert(labels.some((l) => /svc_eventlog/.test(l) && /1 status change$/.test(l)), 'svc_eventlog should have one recorded change: ' + JSON.stringify(labels));
+  await p.eval(`document.querySelector('#rmm-checks details summary').click(); true`);
+  await p.waitFor(`document.querySelector('#rmm-checks details[open] table caption')`, { label: 'history table opened' });
+  const tbl = await p.eval(`document.querySelector('#rmm-checks details[open]').innerText`);
+  assert(/Failing|Passing/.test(tbl), 'history table: ' + tbl.slice(0, 200));
+  await shot('asset-checks-trend-desktop-light');
+});
+await T('network tile: receive and send against the 24 hour peak', async () => {
+  await go(asset('WIN1'));
+  await p.waitSel('#rmm-net');
+  const t = await p.eval(`document.getElementById('rmm-net').innerText`);
+  assert(/24 h peak 16 Mbit\/s/.test(t) && /24 h peak 4 Mbit\/s/.test(t) && /50% of/.test(t), 'network tile: ' + t);
+  assert((await p.eval(`document.querySelectorAll('#rmm-net .progress[role=progressbar][aria-label]').length`)) === 2, 'two labelled bars');
+  assert(!/link speed not reported/.test(t), 'the old empty-state text is back');
+  await go(asset('LNX1'));
+  await p.waitSel('#rmm-net');
+  assert(/no 24 hour history yet|24 h peak/.test(await p.eval(`document.getElementById('rmm-net').innerText`)), 'LNX1 network tile has no honest text');
+});
+await T('fleet page: tag, group and software filters; outdated software card (desktop, light)', async () => {
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-f-tag');
+  assert((await unlabeled('#rmm-devices')).length === 0 && (await unlabeled('#rmm-outdated-sw')).length === 0, 'unlabelled filter controls');
+  await p.eval(`(()=>{const s=document.getElementById('rmm-f-tag');s.value='VIP';})()`);
+  await p.clickNav('#rmm-devices form button[type=submit]');
+  assert(/tag=VIP/.test(await p.url()), 'tag url: ' + (await p.url()));
+  let rows = await p.eval(`[...document.querySelectorAll('#rmm-devices tbody tr')].map(r=>r.innerText)`);
+  assert(rows.length === 1 && /WIN1/.test(rows[0]) && /VIP/.test(rows[0]), 'tag filter rows: ' + JSON.stringify(rows));
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-f-group');
+  await p.eval(`(()=>{const s=document.getElementById('rmm-f-group');const o=[...s.options].find(x=>/Finance PCs/.test(x.text));s.value=o.value;})()`);
+  await p.clickNav('#rmm-devices form button[type=submit]');
+  rows = await p.eval(`[...document.querySelectorAll('#rmm-devices tbody tr')].map(r=>r.innerText)`);
+  assert(rows.length === 2 && rows.some((r) => /WIN1/.test(r)) && rows.some((r) => /OFFL/.test(r)), 'group filter rows: ' + JSON.stringify(rows));
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-f-sw');
+  await p.type('#rmm-f-sw', 'notepad');
+  await p.clickNav('#rmm-devices form button[type=submit]');
+  rows = await p.eval(`[...document.querySelectorAll('#rmm-devices tbody tr')].map(r=>r.innerText)`);
+  assert(rows.length === 1 && /WIN1/.test(rows[0]), 'software filter rows: ' + JSON.stringify(rows));
+  // outdated software through its own form
+  await go('/agent/rmm_fleet.php');
+  await p.waitSel('#rmm-outdated-sw');
+  assert(/Enter a product name/.test(await p.eval(`document.getElementById('rmm-outdated-sw').innerText`)), 'instruction before a question');
+  await p.type('#rmm-osw', 'chrome');
+  await p.type('#rmm-osv', '126.0');
+  await p.clickNav('#rmm-outdated-sw form button[type=submit]');
+  assert(/osw=chrome/.test(await p.url()) && /osv=126\.0/.test(await p.url()), 'outdated url: ' + (await p.url()));
+  const card = await p.eval(`document.getElementById('rmm-outdated-sw').innerText`);
+  assert(/WIN1/.test(card) && /125\.0\.6422\.1/.test(card) && /1 outdated/.test(card), 'outdated card: ' + card.slice(0, 300));
+  await shot('fleet-outdated-desktop-light');
+  await p.type('#rmm-osv', '125.0');
+  await p.clickNav('#rmm-outdated-sw form button[type=submit]');
+  assert(/No device runs a version of "chrome" older than 125\.0\./.test(await p.eval(`document.getElementById('rmm-outdated-sw').innerText`)), 'all-clear sentence');
+});
+await T('administration: software inventory switch and retention limits save and show again', async () => {
+  await go('/admin/settings_endpoint_agent.php');
+  await p.waitSel('#inventory');
+  assert((await p.eval(`document.getElementById('ea_inv_sw').checked`)), 'the software switch should be on (the seed turned it on)');
+  assert((await unlabeled('#inventory')).length === 0, 'unlabelled controls in the card');
+  assert(await p.eval(`!!document.querySelector('#ea_chd[aria-describedby]') && !!document.querySelector('#ea_shd[aria-describedby]')`), 'limits have descriptions');
+  await p.type('#ea_chd', '5');
+  await p.type('#ea_shd', '120');
+  await p.clickNav('#inventory button[name=save_inventory_settings]');
+  await p.waitSel('#inventory');
+  assert((await p.eval(`document.getElementById('ea_chd').value`)) === '5' && (await p.eval(`document.getElementById('ea_shd').value`)) === '120', 'saved values not shown again');
+  assert(/saved/i.test(await bodyText()), 'no confirmation message');
+  await shot('admin-inventory-desktop-light');
+  await p.type('#ea_chd', '7');
+  await p.type('#ea_shd', '365');
+  await p.clickNav('#inventory button[name=save_inventory_settings]');
+  assert((await p.eval(`document.getElementById('ea_chd').value`)) === '7', 'restore failed');
+});
+await T('event picker offers the rmm.* events (Webhooks and Event rules)', async () => {
+  await go('/modals/event_catalog.php');
+  const t = await p.eval(`document.body.innerText`);
+  for (const id of ['rmm.device.enrolled', 'rmm.device.offline', 'rmm.device.online', 'rmm.check.failed', 'rmm.check.recovered', 'rmm.job.completed', 'rmm.job.failed', 'rmm.software.installed', 'rmm.software.removed']) assert(t.includes(id), 'catalog lacks ' + id);
+});
+
 // ------------------------------------------------------------------------------------------------ phone width
 await T('phone width (390 px): asset page has no horizontal scroll; tabs scroll inside their container', async () => {
   await p.setViewport(MOBILE_W, 800, true);
@@ -406,6 +573,14 @@ await T('phone width (390 px): asset page has no horizontal scroll; tabs scroll 
   await go(asset('WIN1') + '#rmm-jobs'); await p.waitSel('#rmm-pane-jobs table'); await sleep(300);
   await noOverflow('asset jobs');
   await shot('asset-jobs-phone-light');
+  await go(asset('WIN1') + '#rmm-software'); await p.waitSel('#rmm-pane-software table'); await sleep(300);
+  await noOverflow('asset software');
+  await shot('asset-software-phone-light');
+  await go(asset('WIN1')); await p.waitSel('#rmm-checks table'); await sleep(300);
+  await noOverflow('asset checks with trends and tags');
+  assert(await p.visible('#rmm-tags'), 'tags line hidden on a phone');
+  assert((await p.eval(`document.querySelector('#rmm-tag-input').getBoundingClientRect().right <= document.documentElement.clientWidth`)), 'the tag field runs off the screen');
+  await shot('asset-checks-phone-light');
   // the visible reasons for disabled actions exist on a narrow screen (a tooltip cannot be hovered)
   await go(asset('NEVER')); await p.waitSel('#rmm-strip');
   assert(await p.visible('.rmm-reasons'), 'reason text for disabled buttons is not visible on a phone');
@@ -436,6 +611,11 @@ await T('phone width (390 px): fleet page has no horizontal scroll', async () =>
   await sleep(400);
   await noOverflow('fleet');
   await shot('fleet-phone-light');
+  await go('/agent/rmm_fleet.php?osw=chrome&osv=126.0&tag=VIP'); await p.waitSel('#rmm-outdated-sw table'); await sleep(300);
+  await noOverflow('fleet with the outdated software card and a tag filter');
+  await shot('fleet-outdated-phone-light');
+  await go('/admin/settings_endpoint_agent.php#inventory'); await p.waitSel('#inventory'); await sleep(300);
+  await noOverflow('administration software card');
 });
 
 // ------------------------------------------------------------------------------------------------ dark mode
@@ -452,6 +632,12 @@ await T('dark mode: asset panel and fleet page (desktop and phone)', async () =>
   await shot('asset-overview-desktop-dark');
   await go(asset('WIN1') + '#rmm-jobs'); await p.waitSel('#rmm-pane-jobs table'); await shot('asset-jobs-desktop-dark');
   await go(asset('WIN1') + '#rmm-inventory'); await p.waitSel('#rmm-pane-inventory table'); await shot('asset-inventory-desktop-dark');
+  await go(asset('WIN1') + '#rmm-software'); await p.waitSel('#rmm-pane-software table'); await sleep(300); await shot('asset-software-desktop-dark');
+  const chip = await p.eval(`getComputedStyle(document.querySelector('#rmm-tags .rmm-tag')).color`);
+  const [cr, cg, cb] = chip.match(/\d+/g).map(Number);
+  assert(cr + cg + cb > 3 * 120, 'tag chip text is not light in dark mode: ' + chip);
+  await go(asset('WIN1')); await p.waitSel('#rmm-net'); await sleep(300); await shot('asset-network-trend-desktop-dark');
+  await go('/agent/rmm_fleet.php?osw=chrome&osv=126.0'); await p.waitSel('#rmm-outdated-sw table'); await sleep(300); await shot('fleet-outdated-desktop-dark');
   await go('/agent/rmm_fleet.php'); await p.waitSel('#rmm-devices table'); await sleep(300); await shot('fleet-desktop-dark');
   await openInstaller();
   const bg = await p.eval(`getComputedStyle(document.querySelector('#rmmInstallerModal .modal-content')).backgroundColor`);
@@ -466,6 +652,7 @@ await T('dark mode: asset panel and fleet page (desktop and phone)', async () =>
   await openInstaller(); await modalFits('dark phone'); await shot('installer-dialog-phone-dark');
   await p.press('Escape'); await p.waitFor(`!document.querySelector('#rmmInstallerModal.show')`, { label: 'closed' });
   await go(asset('WIN1')); await p.waitSel('#rmm-strip'); await sleep(500); await noOverflow('asset dark phone'); await shot('asset-overview-phone-dark');
+  await go(asset('WIN1') + '#rmm-software'); await p.waitSel('#rmm-pane-software table'); await sleep(300); await noOverflow('asset software dark phone'); await shot('asset-software-phone-dark');
   await go('/agent/rmm_fleet.php'); await p.waitSel('#rmm-devices table'); await sleep(300); await noOverflow('fleet dark phone'); await shot('fleet-phone-dark');
   await p.setViewport(1366, 900);
   await setTheme(0);
