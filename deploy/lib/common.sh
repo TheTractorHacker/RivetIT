@@ -214,6 +214,10 @@ read_app_config() {
 # tools recover settings_enc_key the same way instead of drifting apart.
 
 MANIFEST_SETTINGS_ENC_KEY=""
+MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT=""
+# Optional: file holding the original config_settings_enc_key (written by backup.sh next to each archive as
+# <archive>.settings-key). Set by restore.sh / restore_admin_zip.sh from --settings-key-file or the archive's sidecar.
+SETTINGS_KEY_FILE=""
 MANIFEST_INSTALLATION_ID=""
 MANIFEST_DB_NAME=""
 MANIFEST_BACKUP_TIMESTAMP=""
@@ -240,6 +244,7 @@ MANIFEST_BACKUP_TIMESTAMP=""
 read_manifest_dir() {
     local dir="$1" passphrase_file="${2:-}"
     MANIFEST_SETTINGS_ENC_KEY=""
+    MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT=""
     MANIFEST_INSTALLATION_ID=""
     MANIFEST_DB_NAME=""
     MANIFEST_BACKUP_TIMESTAMP=""
@@ -274,6 +279,7 @@ read_manifest_dir() {
         echo ($data["installation_id"] ?? "") . "\n";
         echo ($data["db_name"] ?? "") . "\n";
         echo ($data["backup_timestamp"] ?? "") . "\n";
+        echo ($data["settings_enc_key_fingerprint"] ?? "") . "\n";
     ' -- "${manifest_file}")"; then
         warn "Found ${manifest_file##*/} but failed to parse it as JSON; proceeding as if it were absent (secrets will need to be re-entered manually — see the warning above)."
         return 0
@@ -285,12 +291,46 @@ read_manifest_dir() {
     MANIFEST_INSTALLATION_ID="${m_lines[1]:-}"
     MANIFEST_DB_NAME="${m_lines[2]:-}"
     MANIFEST_BACKUP_TIMESTAMP="${m_lines[3]:-}"
+    MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT="${m_lines[4]:-}"
 
     if [[ -z "${MANIFEST_SETTINGS_ENC_KEY}" ]]; then
-        warn "${manifest_file##*/} is present but has no usable settings_enc_key; proceeding as if it were absent."
+        # Manifests written since the key moved out of the archive hold a fingerprint only. The operator supplies the key.
+        if [[ -n "${SETTINGS_KEY_FILE}" ]]; then
+            load_settings_key_file "${SETTINGS_KEY_FILE}" "${MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT}"
+            return 0
+        fi
+        if [[ -n "${MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT}" ]]; then
+            warn "${manifest_file##*/} does not contain the settings-encryption key (key fingerprint ${MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT}). Supply it with --settings-key-file=<path> (the <archive>.settings-key file backup.sh wrote, or a file holding the original config.php's \$config_settings_enc_key). Without it SMTP/IMAP passwords, RMM/webhook secrets and the credential vault will not decrypt after this restore unless this config.php already has that key."
+        else
+            warn "${manifest_file##*/} is present but has no usable settings_enc_key; proceeding as if it were absent."
+        fi
         return 0
     fi
     success "Found this backup's settings-encryption key in its manifest (installation_id=${MANIFEST_INSTALLATION_ID:-N/A}, taken ${MANIFEST_BACKUP_TIMESTAMP:-N/A}) — will apply it to config.php after import."
+}
+
+# load_settings_key_file(path, [fingerprint]): reads the original config_settings_enc_key from `path`
+# (the last line that is not a # comment; backup.sh writes <archive>.settings-key this way) into
+# MANIFEST_SETTINGS_ENC_KEY. When the manifest gave a fingerprint, the key must match it or this dies:
+# applying the wrong key would make every stored secret unreadable.
+load_settings_key_file() {
+    local path="$1" want_fp="${2:-}"
+    [[ -f "${path}" ]] || die "--settings-key-file '${path}' does not exist."
+    local perm
+    perm="$(stat -c '%a' "${path}")"
+    if [[ "${perm}" =~ [0-7][0-7][1-7]$ || "${perm}" =~ [0-7][1-7][0-7]$ ]]; then
+        warn "${path} has permissions ${perm}; it holds a secret and should be 600."
+    fi
+    local key
+    key="$(grep -v '^[[:space:]]*#' "${path}" | grep -v '^[[:space:]]*$' | tail -n 1 | tr -d '[:space:]')"
+    [[ "${key}" =~ ^[0-9a-fA-F]{32,128}$ ]] || die "${path} does not contain a hex settings-encryption key."
+    if [[ -n "${want_fp}" ]]; then
+        local got_fp
+        got_fp="$(php -r 'echo substr(hash("sha256", "rivetit-settings-key-fingerprint|v1|" . $argv[1]), 0, 16);' -- "${key}")"
+        [[ "${got_fp}" == "${want_fp}" ]] || die "The key in ${path} (fingerprint ${got_fp}) does not match this backup (fingerprint ${want_fp}). Refusing to apply it."
+    fi
+    MANIFEST_SETTINGS_ENC_KEY="${key}"
+    success "Settings-encryption key read from ${path}$( [[ -n "${want_fp}" ]] && printf ' (fingerprint matches the backup)' ) - will apply it to config.php after import."
 }
 
 # apply_settings_enc_key(config_file, key): rewrites config.php's

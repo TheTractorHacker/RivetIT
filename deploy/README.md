@@ -281,6 +281,30 @@ lives on the same disk as the backup provides no real protection if that disk is
 ransomwared — you'd be encrypting a backup against a threat model where the key is guaranteed to be
 right next to it.
 
+### Archive key derivation and the settings-key file
+
+`backup.sh` encrypts each archive with `openssl enc -aes-256-cbc -pbkdf2 -iter 600000` (OpenSSL's own default
+is only 10000 iterations). `restore.sh` tries 600000 first and falls back to the old default, so archives made
+by earlier versions still restore with no flag.
+
+The archive **no longer contains `config_settings_enc_key`**. That key unlocks every stored SMTP/IMAP password,
+RMM/webhook secret and the wrapped credential-vault master key in the dump, so it must not sit in the same file as
+the data it unlocks. Each run now writes it to a separate file next to the archive:
+
+```
+backup-<db>-<timestamp>.tar.gz.enc          the encrypted archive (database + uploads + manifest with a key fingerprint)
+backup-<db>-<timestamp>.settings-key        the settings key, mode 0600 root:root, one line plus # comments
+```
+
+Copy the `.settings-key` file **off the server**, and keep it apart from both the archive and the passphrase: the dump,
+the settings key and the passphrase should never share one file or one disk copy. Delete the server's copy once it is
+stored elsewhere (old key files are pruned with their archives by `--retention-days`).
+
+To restore, `restore.sh` uses `<archive>.settings-key` automatically when it sits next to `--backup`, or you name
+it with `--settings-key-file=<path>`. The key is checked against the fingerprint stored in the archive's manifest and
+the restore stops if they differ. An archive written before this change still carries the key in its manifest and
+restores exactly as before.
+
 ### Enabling the scheduled timer
 
 ```bash
@@ -298,11 +322,14 @@ decrypts normally; there is also an in-app "retrieve master key" option (Setting
 for the rare case a full DR situation needs it. A restore that changes the admin password will need that
 step.
 
-The application also has its own independent, manual, on-demand backup feature reachable from inside the
+The application also has its own independent backup feature reachable from inside the
 app (Settings → Backup → "Download Backup" / "Save to Server", `admin/backup.php`) that produces the same
-kind of database-dump-plus-uploads-zip on demand — useful before a risky change, but it is **not**
-encrypted and **not** scheduled, so it does not replace `deploy/backup.sh` + the systemd timer for actual
-disaster-recovery purposes. It has its own restore paths too — from the browser, the `/setup` wizard's
+kind of database-dump-plus-uploads-zip — useful before a risky change. **It refuses to build a backup until a
+backup passphrase of at least 16 characters is saved** (Admin → Backup → Backup encryption passphrase); the zip's
+`backup-manifest.json.enc` is encrypted with that passphrase and is the only place the settings key is written.
+The `db.sql` and `uploads.zip` inside the zip are not themselves encrypted and the in-app schedule is
+cron-driven, so it does not replace `deploy/backup.sh` + the systemd timer for actual disaster-recovery
+purposes. It has its own restore paths too — from the browser, the `/setup` wizard's
 "Restore from Backup" option (reachable from the Welcome screen, or the `?restore` Utilities link) accepts
 a zip from that feature; from the command line, `restore_admin_zip.sh` (below) does the same thing with a
 required safety backup, `--admin-user`/`--passphrase-file` master-key recovery, and unattended/cron
@@ -328,8 +355,8 @@ backup of the target's *current* state first (via `backup.sh` itself) and aborts
 if that fails; pass `--no-pre-restore-backup-confirmed` only when the target has nothing worth keeping
 (e.g. it was just created and never used).
 
-If the archive has a `backup-manifest.json` (every backup taken since this feature shipped), `restore.sh`
-also applies its `settings_enc_key` to the target's `config.php` after import — without this, SMTP/IMAP
+If the archive's manifest holds the key (archives from before the key file existed) or you supply the key
+file (see above), `restore.sh` also applies the `settings_enc_key` to the target's `config.php` after import — without this, SMTP/IMAP
 passwords, RMM/UniFi API keys, webhook secrets, and the wrapped credential-vault master key would decrypt
 to garbage under a *different* instance's own randomly-generated key. A pre-existing backup taken before
 this shipped has no manifest; `restore.sh` warns loudly and leaves those secrets for you to re-enter by
@@ -393,9 +420,10 @@ equivalent for at all:
   guaranteed across two independently-set-up boxes. It never recovers `config_settings_enc_key` itself
   (SMTP/IMAP passwords, RMM/webhook secrets) — use `--passphrase-file` for that.
 
-Neither flag needed at all if that specific backup's manifest was never encrypted (no backup passphrase
-was set when it was taken) — the script reads it plain and recovers what it can from `config_settings_enc_key`
-alone. Pass `--no-pre-restore-backup-confirmed` to skip the automatic pre-restore safety backup, same as
+A zip from before the in-app passphrase became mandatory may have a plain `backup-manifest.json` that still
+contains the key; the script reads it with no flag. A plain manifest written by this version holds only a key
+fingerprint: pass `--settings-key-file=<path>` with a file holding the original `config_settings_enc_key` (checked
+against the fingerprint). Pass `--no-pre-restore-backup-confirmed` to skip the automatic pre-restore safety backup, same as
 `restore.sh`.
 
 Full flag reference, exact steps performed and in what order, and what each master-key-recovery mode can

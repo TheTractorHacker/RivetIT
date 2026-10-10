@@ -6,8 +6,8 @@ set -euo pipefail
 # Dumps one instance's database (mysqldump), its uploads/ directory
 # (user-uploaded contracts/documents/tickets/etc — the content that isn't
 # reproducible by re-cloning the git repo), and a small backup-manifest.json
-# (installation_id + config_settings_enc_key, needed to restore onto a fresh
-# instance — see the comment above the manifest write in do_backup() below),
+# (installation_id + a fingerprint of config_settings_enc_key; the key itself is
+# written to a SEPARATE 0600 file next to the archive, see do_backup() below),
 # bundles all of it into one archive, encrypts it, and enforces a retention
 # window on old encrypted backups. See deploy/restore.sh for the matching
 # restore path.
@@ -145,6 +145,33 @@ setup_logging() {
     exec > >(tee -a "${LOG_FILE}") 2>&1
 }
 
+# PBKDF2 iterations for the archive passphrase (OpenSSL's own default is 10000).
+BACKUP_PBKDF2_ITER=600000
+
+# write_settings_key_file(path): writes the instance's config_settings_enc_key to a
+# separate file, mode 0600 root:root, created without ever being group/world
+# readable. Empty key (config.php without one) writes nothing and warns.
+write_settings_key_file() {
+    local path="$1"
+    if [[ -z "${SETTINGS_ENC_KEY}" ]]; then
+        warn "config.php has no \$config_settings_enc_key; no settings-key file written."
+        return 0
+    fi
+    ( umask 077; : > "${path}" )
+    chmod 600 "${path}"
+    # backup.sh itself always runs as root (require_root); the guard only lets tests source and exercise this function.
+    if [[ "${EUID}" -eq 0 ]]; then chown root:root "${path}"; fi
+    php -r '
+        $fp = substr(hash("sha256", "rivetit-settings-key-fingerprint|v1|" . $argv[1]), 0, 16);
+        file_put_contents($argv[3],
+            "# RivetIT settings-encryption key for " . $argv[2] . "\n" .
+            "# fingerprint: " . $fp . "\n" .
+            "# Keep this file OFF the server, apart from the archive and from the backup passphrase.\n" .
+            $argv[1] . "\n");
+    ' -- "${SETTINGS_ENC_KEY}" "$(basename "${path}" .settings-key).tar.gz.enc" "${path}"
+    success "Settings-encryption key written to ${path} (0600). Move it off this server; it is deliberately NOT inside the archive."
+}
+
 # cleanup_old_backups(): enforces --retention-days on this script's OWN
 # output (backup-*.enc) in --dest. When --dest is left at its default
 # (<app-dir>/backups), that directory is shared with the app's own built-in
@@ -165,6 +192,8 @@ cleanup_old_backups() {
     else
         info "No backups older than ${RETENTION_DAYS} day(s) to delete."
     fi
+    # The settings-key files that belong to those archives age out with them.
+    find "${DEST}" -maxdepth 1 -type f -name 'backup-*.settings-key' -mtime "+${RETENTION_DAYS}" -delete
 }
 
 do_backup() {
@@ -178,6 +207,7 @@ do_backup() {
     local sql_file="${DEST}/backup-${DB_NAME}-${timestamp}.sql"
     local combined="${DEST}/backup-${DB_NAME}-${timestamp}.tar.gz"
     local encrypted="${combined}.enc"
+    local keyfile="${DEST}/backup-${DB_NAME}-${timestamp}.settings-key"
 
     # Pre-create both intermediates chmod 600 BEFORE anything writes to
     # them. A plain `mysqldump > file` / `tar -czf file ...` creates the
@@ -215,25 +245,26 @@ EOF
     success "Database dump complete ($(du -h "${sql_file}" | awk '{print $1}'))."
 
     # backup-manifest.json travels inside the encrypted archive alongside the
-    # dump so deploy/restore.sh can recover config_settings_enc_key on a
-    # brand-new box — that key never appears in the SQL dump itself (it lives
-    # only in config.php, which this script does not back up), so without
-    # this manifest a restore onto a fresh instance would decrypt every
-    # SMTP/IMAP password, RMM/webhook secret, and the wrapped credential-vault
-    # master key to garbage. The whole archive is openssl-encrypted end to
-    # end below, same as the SQL dump itself, so this is no less protected
-    # than the data it travels with.
+    # dump. It carries a FINGERPRINT of config_settings_enc_key, not the key:
+    # that key lives only in config.php (which this script does not back up)
+    # and it unlocks every SMTP/IMAP password, RMM/webhook secret and the
+    # wrapped credential-vault master key in the dump, so it must not travel
+    # in the same file as the data it unlocks. The key itself is written to a
+    # separate 0600 root-only file next to the archive (see below); copy that
+    # file OFF this server, apart from the archive and from the passphrase.
+    # deploy/restore.sh takes it back with --settings-key-file (or finds it
+    # next to the archive) and checks it against the manifest fingerprint.
     local manifest_file="${DEST}/backup-manifest.json"
     : > "${manifest_file}"
     chmod 600 "${manifest_file}"
     register_tmpfile "${manifest_file}"
     php -r '
         $data = [
-            "schema_version"    => 1,
-            "db_name"           => $argv[1],
-            "installation_id"   => $argv[2],
-            "settings_enc_key"  => $argv[3],
-            "backup_timestamp"  => $argv[4],
+            "schema_version"               => 2,
+            "db_name"                      => $argv[1],
+            "installation_id"              => $argv[2],
+            "settings_enc_key_fingerprint" => $argv[3] === "" ? "" : substr(hash("sha256", "rivetit-settings-key-fingerprint|v1|" . $argv[3]), 0, 16),
+            "backup_timestamp"             => $argv[4],
         ];
         file_put_contents($argv[5], json_encode($data, JSON_PRETTY_PRINT));
     ' -- "${DB_NAME}" "${INSTALLATION_ID}" "${SETTINGS_ENC_KEY}" "${timestamp}" "${manifest_file}"
@@ -251,7 +282,10 @@ EOF
     success "Archive bundled ($(du -h "${combined}" | awk '{print $1}'))."
 
     info "Encrypting archive..."
-    if ! openssl enc -aes-256-cbc -pbkdf2 -salt \
+    # -iter 600000: PBKDF2 work factor for the passphrase (the OpenSSL default is
+    # 10000). deploy/restore.sh tries this count first and falls back to the old
+    # default, so archives written by earlier versions still restore.
+    if ! openssl enc -aes-256-cbc -pbkdf2 -iter "${BACKUP_PBKDF2_ITER}" -salt \
         -in "${combined}" -out "${encrypted}" \
         -pass file:"${PASSPHRASE_FILE}"; then
         rm -f "${encrypted}"
@@ -264,6 +298,8 @@ EOF
     # the script dies partway through a later step.
     chmod 600 "${encrypted}"
     chown root:root "${encrypted}"
+
+    write_settings_key_file "${keyfile}"
 
     end_ts="$(date +%s)"
     duration=$(( end_ts - start_ts ))
@@ -297,4 +333,7 @@ main() {
     do_backup
 }
 
-main "$@"
+# Run only when executed, not when sourced (tests/backup_passphrase.php sources this file to exercise its functions).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

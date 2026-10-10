@@ -138,7 +138,7 @@ If you are moving RivetIT to a new server, you can restore a backup instead of c
 
 The restore **replaces everything**. It drops every table in the database and empties the `uploads` folder before loading the backup, so only use it on an empty or disposable database. The uploaded files are checked as they are unpacked: files that look like scripts or executables are rejected and the restore stops with a list of the ones it refused. A `.zip` from the app's own backup screen is what this form expects. The encrypted `backup-*.tar.gz.enc` files made by the server's disaster-recovery timer are restored with `deploy/restore.sh` on the command line instead (see [Deployment](../DEPLOYMENT.md#42-deploybackupsh-the-actual-dr-mechanism)).
 
-> **Stored secrets may need re-entering.** Mail, integration and webhook passwords are encrypted with a key that lives in `config.php` on the old server, not in the database. The backup carries a copy of that key in its `backup-manifest.json`, but the browser restore does not apply it. A fresh install has its own new key, so those saved passwords may no longer decrypt. Re-enter them under Administration → Settings after a restore (mail under **Mail**, integrations and webhooks under their own settings pages; see [Administration: settings](13-administration-settings.md)).
+> **Stored secrets may need re-entering.** Mail, integration and webhook passwords are encrypted with a key that lives in `config.php` on the old server, not in the database. The backup carries a copy of that key in its passphrase-encrypted `backup-manifest.json.enc`; enter the backup passphrase on the restore form and the key is applied. For a backup without the key, paste the original key into the restore form's *Original settings key* field. A fresh install has its own new key, so those saved passwords may no longer decrypt. Re-enter them under Administration → Settings after a restore (mail under **Mail**, integrations and webhooks under their own settings pages; see [Administration: settings](13-administration-settings.md)).
 
 ## Reference
 
@@ -157,7 +157,7 @@ The restore **replaces everything**. It drops every table in the database and em
 
 - Open the installer using the final address people will use. RivetIT stores that host name as its base address, and links in emails are built from it.
 - Use a strong, unique password for the first administrator, and add a second administrator soon so you are not locked out if one account has a problem.
-- Keep `config.php` private and include it in your server backups. It holds the key that protects stored mail, integration and webhook passwords. The app's own `.zip` backup does not contain `config.php`; it carries only a copy of that key in its manifest, which is readable unless you set a **Backup encryption passphrase** (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
+- Keep `config.php` private and include it in your server backups. It holds the key that protects stored mail, integration and webhook passwords. The app's own `.zip` backup does not contain `config.php`; it carries only a copy of that key in its manifest, which is always encrypted with the **Backup encryption passphrase** you must set before the app will build a backup (see [Back up RivetIT](13-administration-settings.md#back-up-rivetit)).
 - If the installer is reachable after you finish, it is not a security problem: it only redirects to the sign-in page once `config.php` says setup is complete.
 
 ## Related guides

@@ -652,7 +652,7 @@ if (!function_exists('applyManifestSettingsEncKey')) {
      *   'no_key'          - manifest read fine but had no usable settings_enc_key
      *   'no_config_line'  - config.php has no $config_settings_enc_key line to replace
      */
-    function applyManifestSettingsEncKey(string $tempDir, ?string $passphrase, string $configPath): array {
+    function applyManifestSettingsEncKey(string $tempDir, ?string $passphrase, string $configPath, ?string $suppliedKey = null): array {
         $plain = $tempDir . '/backup-manifest.json';
         $enc   = $tempDir . '/backup-manifest.json.enc';
         $manifestFile = null;
@@ -691,7 +691,22 @@ if (!function_exists('applyManifestSettingsEncKey')) {
 
         $key = is_array($data) ? (string) ($data['settings_enc_key'] ?? '') : '';
         if ($key === '') {
-            return ['status' => 'no_key', 'message' => "This backup's manifest has no usable settings-encryption key. config_settings_enc_key was left as-is."];
+            // A manifest written since 26.10.30 carries only a fingerprint when it is not encrypted; the operator supplies the key
+            // (kept from the original config.php or from the separate key file next to a deploy/backup.sh archive).
+            $fingerprint = is_array($data) ? (string) ($data['settings_enc_key_fingerprint'] ?? '') : '';
+            $suppliedKey = $suppliedKey === null ? '' : trim($suppliedKey);
+            if ($suppliedKey !== '') {
+                if (!preg_match('/^[0-9a-fA-F]{32,128}$/', $suppliedKey)) {
+                    return ['status' => 'bad_supplied_key', 'message' => 'The settings-encryption key you entered is not a hex string (the value of $config_settings_enc_key in the original config.php). config_settings_enc_key was left as-is.'];
+                }
+                if ($fingerprint !== '' && !hash_equals($fingerprint, substr(hash('sha256', 'rivetit-settings-key-fingerprint|v1|' . $suppliedKey), 0, 16))) {
+                    return ['status' => 'key_mismatch', 'message' => "The settings-encryption key you entered does not match this backup (its fingerprint is $fingerprint). config_settings_enc_key was left as-is."];
+                }
+                $key = $suppliedKey;
+            } else {
+                $need = $fingerprint !== '' ? " It needs the key with fingerprint $fingerprint." : '';
+                return ['status' => 'no_key', 'message' => "This backup's manifest does not contain the settings-encryption key.$need Enter the original \$config_settings_enc_key to keep SMTP/IMAP passwords, RMM/webhook secrets and the credential vault readable; until then config_settings_enc_key was left as-is."];
+            }
         }
 
         $configContents = @file_get_contents($configPath);

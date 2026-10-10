@@ -385,7 +385,8 @@ if (isset($_POST['restore'])) {
     $manifestResult = applyManifestSettingsEncKey(
         $tempDir,
         trim($_POST['backup_passphrase'] ?? '') !== '' ? trim($_POST['backup_passphrase']) : null,
-        $configPath
+        $configPath,
+        trim($_POST['settings_enc_key'] ?? '') !== '' ? trim($_POST['settings_enc_key']) : null
     );
 
     // ---------- 6) Optional: version info ----------
@@ -1348,6 +1349,13 @@ if (isset($_POST['add_telemetry'])) {
                                         its manifest (<code>backup-manifest.json.enc</code>) is encrypted with it — enter it here so this restore can
                                         recover <code>settings_enc_key</code> and keep SMTP/IMAP passwords, RMM/webhook secrets and the credential vault
                                         decrypting correctly. Not needed when restoring straight back onto this backup's own original config.php.</small></p>
+                                    </div>
+                                    <div class="form-group mt-3">
+                                        <label>Original settings key <span class="text-muted">(only for a backup whose manifest has no key)</span></label>
+                                        <input type="text" class="form-control font-monospace" name="settings_enc_key"
+                                               autocomplete="off" spellcheck="false" placeholder="the old config.php's $config_settings_enc_key value">
+                                        <p class="text-muted mt-1 mb-0"><small>Backups always encrypt the key inside the manifest. Only an old-format or hand-made
+                                        backup needs this. It is checked against the fingerprint stored in the backup before it is used.</small></p>
                                     </div>
                                     <p class="text-muted mt-2 mb-0"><small>Large restores may take several minutes. Do not close this page.</small></p>
                                     <hr>
