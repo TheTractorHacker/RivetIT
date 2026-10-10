@@ -14,6 +14,7 @@ $document_description = nullable_htmlentities($row['document_description']);
 $document_content = nullable_htmlentities($row['document_content']);
 $document_folder_id = intval($row['document_folder_id']);
 $document_client_visible = intval($row['document_client_visible']);
+$document_review_at = nullable_htmlentities($row['document_review_at'] ?? '');
 $client_id = intval($row['document_client_id']);
 
 enforceClientAccess();
@@ -50,6 +51,17 @@ ob_start();
                 </div>
                 <input type="text" class="form-control" name="description" value="<?php echo $document_description; ?>" placeholder="Short summary of the document">
             </div>
+        </div>
+
+        <label>Review date</label>
+        <div class="form-group">
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-calendar-check"></i></span>
+                </div>
+                <input type="date" class="form-control" name="review_at" max="2999-12-31" value="<?php echo $document_review_at; ?>">
+            </div>
+            <small class="text-muted">Optional. A reminder is sent to the team when this date arrives.</small>
         </div>
 
     </div>

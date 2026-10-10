@@ -179,6 +179,15 @@ foreach ($rows as $row) {
     ];
 }
 
+// Software, networks, services and linked records (ITFlow\Links\PlatformSearch: the same code as the web search), additive keys.
+$platform_actor  = \ITFlow\Links\LinkActor::forUser($mysqli, intval($uid), $api_key_client_id ?: null);
+$platform_search = new \ITFlow\Links\PlatformSearch($mysqli);
+$platform_map = static fn (array $rows): array => array_map(static fn ($r) => ['id' => $r['id'], 'name' => $r['name'], 'detail' => $r['detail'], 'client_id' => $r['client_id'], 'client' => $r['client_name']], $rows);
+$software = $platform_map($platform_search->software($platform_actor, $q_raw, 5));
+$networks = $platform_map($platform_search->networks($platform_actor, $q_raw, 5));
+$services = $platform_map($platform_search->services($platform_actor, $q_raw, 5));
+$linked   = array_map(static fn ($r) => ['type' => $r['type'], 'id' => $r['id'], 'name' => $r['name'], 'client_id' => $r['client_id'], 'linked_to' => $r['linked_to'], 'relation' => $r['relation']], $platform_search->linkedRecords($platform_actor, $q_raw, 10));
+
 api_response(200, [
     'tickets'     => $tickets,
     'clients'     => $clients,
@@ -186,4 +195,8 @@ api_response(200, [
     'contacts'    => $contacts,
     'credentials' => $credentials,
     'articles'    => $articles,
+    'software'    => $software,
+    'networks'    => $networks,
+    'services'    => $services,
+    'linked'      => $linked,
 ]);

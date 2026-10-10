@@ -54,10 +54,17 @@ if (isset($_GET['query'])) {
         ORDER BY contact_id DESC LIMIT 5"
     );
 
+    // Platform search (ITFlow\Links\PlatformSearch): software, networks, services, vendor roles and linked records.
+    $gs_actor = \ITFlow\Links\LinkActor::fromSession($mysqli);
+    $gs_platform = new \ITFlow\Links\PlatformSearch($mysqli);
+    // A query that is a role word ("reseller") also finds the vendors that hold that role on an asset or software title.
+    $gs_role_vendor_ids = $gs_platform->vendorIdsWithRole($query);
+    $vendor_role_clause = $gs_role_vendor_ids ? ' OR vendor_id IN (' . implode(',', $gs_role_vendor_ids) . ')' : '';
+
     $sql_vendors = !($gs_support) ? null : mysqli_query($mysqli, "SELECT * FROM vendors
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
-            AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%')
+            AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%'$vendor_role_clause)
             $access_permission_query
         ORDER BY vendor_id DESC LIMIT 5"
     );
@@ -171,6 +178,11 @@ if (isset($_GET['query'])) {
             ORDER BY kb_article_updated_at DESC LIMIT 5"
         );
     }
+
+    $gs_software = $gs_support ? $gs_platform->software($gs_actor, $_GET['query'], 5) : [];
+    $gs_networks = $gs_support ? $gs_platform->networks($gs_actor, $_GET['query'], 5) : [];
+    $gs_services = $gs_support ? $gs_platform->services($gs_actor, $_GET['query'], 5) : [];
+    $gs_linked = $gs_platform->linkedRecords($gs_actor, $_GET['query'], 10);
 
     // Settings - not database rows, matched against a static PHP index (see
     // includes/settings_search_index.php), admin-only.
@@ -306,13 +318,21 @@ if (isset($_GET['query'])) {
                                 <th>Name</th>
                                 <th>Description</th>
                                 <th>Phone</th>
+                                <th>Roles</th>
                                 <th>Department</th>
                             </tr>
                             </thead>
                             <tbody>
                             <?php
 
-                            while ($row = mysqli_fetch_assoc($sql_vendors)) {
+                            $gs_vendor_rows = [];
+                            while ($row = mysqli_fetch_assoc($sql_vendors)) { $gs_vendor_rows[] = $row; }
+                            $gs_vendor_roles = $gs_platform->vendorRoleSummary(array_map(static fn ($r) => (int) $r['vendor_id'], $gs_vendor_rows));
+                            foreach ($gs_vendor_rows as $row) {
+                                $vendor_roles_display = '';
+                                foreach ($gs_vendor_roles[(int) $row['vendor_id']] ?? [] as $gs_role => $gs_n) {
+                                    if ($gs_n > 0) { $vendor_roles_display .= '<span class="badge text-bg-light border me-1">' . nullable_htmlentities($gs_role) . ' ' . intval($gs_n) . '</span>'; }
+                                }
                                 $vendor_name = nullable_htmlentities($row['vendor_name']);
                                 $vendor_description = nullable_htmlentities($row['vendor_description']);
                                 $vendor_phone_country_code = nullable_htmlentities($row['vendor_phone_country_code']);
@@ -325,6 +345,7 @@ if (isset($_GET['query'])) {
                                     <td><a href="vendors.php?q=<?php echo $q ?>"><?php echo $vendor_name; ?></a></td>
                                     <td><?php echo $vendor_description; ?></td>
                                     <td><?php echo $vendor_phone; ?></td>
+                                    <td data-gs-vendor-roles="1"><?php echo $vendor_roles_display; ?></td>
                                     <td><a href="vendors.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
                                 </tr>
 
@@ -959,6 +980,78 @@ if (isset($_GET['query'])) {
                             ?>
                                 <tr>
                                     <td><a href="kb_article.php?id=<?php echo $kb_article_id; ?>"><?php echo $kb_article_title; ?></a></td>
+                                </tr>
+                            <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        <?php } ?>
+
+        <?php
+        $gs_h = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+        $gs_sections = [
+            ['Software', 'fa-cube', $gs_software, 'gs-software'],
+            ['Networks', 'fa-network-wired', $gs_networks, 'gs-networks'],
+            ['Services', 'fa-concierge-bell', $gs_services, 'gs-services'],
+        ];
+        foreach ($gs_sections as [$gs_title, $gs_icon, $gs_rows, $gs_id]) {
+            if (!$gs_rows) { continue; } ?>
+
+            <!-- <?php echo $gs_title; ?> -->
+            <div class="col-sm-6" id="<?php echo $gs_id; ?>">
+                <div class="card card-dark mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title"><i class="fas fa-fw <?php echo $gs_icon; ?> me-2"></i><?php echo $gs_title; ?></h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped table-borderless">
+                            <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Details</th>
+                                <th>Department</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($gs_rows as $gs_row) { ?>
+                                <tr>
+                                    <td><a href="<?php echo $gs_h($gs_row['url']); ?>"><?php echo $gs_h($gs_row['name']); ?></a></td>
+                                    <td><?php echo $gs_h($gs_row['detail']); ?></td>
+                                    <td><?php echo $gs_h($gs_row['client_name']); ?></td>
+                                </tr>
+                            <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        <?php } ?>
+
+        <?php if ($gs_linked) { ?>
+
+            <!-- Linked records -->
+            <div class="col-sm-6" id="gs-linked">
+                <div class="card card-dark mb-3">
+                    <div class="card-header">
+                        <h6 class="card-title"><i class="fas fa-fw fa-project-diagram me-2"></i>Linked records</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped table-borderless">
+                            <thead>
+                            <tr>
+                                <th>Record</th>
+                                <th>Linked to</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($gs_linked as $gs_row) { ?>
+                                <tr>
+                                    <td><i class="fas fa-fw <?php echo $gs_h($gs_row['icon']); ?> me-1 text-muted"></i><span class="text-muted small me-1"><?php echo $gs_h($gs_row['label']); ?></span><a href="<?php echo $gs_h($gs_row['url']); ?>"><?php echo $gs_h($gs_row['name']); ?></a></td>
+                                    <td class="text-muted"><?php echo $gs_h($gs_row['relation']); ?> <?php echo $gs_h($gs_row['linked_to']); ?></td>
                                 </tr>
                             <?php } ?>
                             </tbody>

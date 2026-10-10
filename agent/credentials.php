@@ -716,6 +716,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                     data-modal-url="modals/credential/credential_edit.php?id=<?= $credential_id ?>">
                                                     <i class="fas fa-fw fa-edit me-2"></i>Edit
                                                 </a>
+                                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/relationships/relationships.php?type=credential&id=<?= $credential_id ?>">
+                                                    <i class="fas fa-fw fa-project-diagram me-2"></i>Relationships
+                                                </a>
                                                 <?php if (lookupUserPermission("module_credential") >= 2) { ?>
                                                 <a class="dropdown-item ajax-modal" href="#"
                                                     data-modal-url="modals/credential/credential_move.php?id=<?= $credential_id ?>">

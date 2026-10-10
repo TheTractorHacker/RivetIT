@@ -33,6 +33,7 @@ if (isset($_POST['add_software_from_template'])) {
     mysqli_query($mysqli,"INSERT INTO software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_license_type = '$license_type', software_notes = '$notes', software_vendor_id = $vendor, software_client_id = $client_id");
 
     $software_id = mysqli_insert_id($mysqli);
+    (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('software', intval($software_id));
 
     logAction("Software", "Create", "$session_name created software $name using template", $client_id, $software_id);
 
@@ -80,6 +81,7 @@ if (isset($_POST['add_software'])) {
     mysqli_query($mysqli,"INSERT INTO software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_key = '$key', software_license_type = '$license_type', software_seats = $seats, software_purchase_reference = '$purchase_reference', software_purchase = $purchase, software_expire = $expire, software_notes = '$notes', software_vendor_id = $vendor, software_client_id = $client_id");
 
     $software_id = mysqli_insert_id($mysqli);
+    (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('software', intval($software_id));
 
     $alert_extended = "";
 
@@ -144,7 +146,9 @@ if (isset($_POST['edit_software'])) {
 
     enforceClientAccess();
 
+    $old_primary_vendor = intval(getFieldById('software', $software_id, 'software_vendor_id'));
     mysqli_query($mysqli,"UPDATE software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_key = '$key', software_license_type = '$license_type', software_seats = $seats, software_purchase_reference = '$purchase_reference', software_purchase = $purchase, software_expire = $expire, software_notes = '$notes', software_vendor_id = $vendor WHERE software_id = $software_id");
+    (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('software', $software_id, $old_primary_vendor);
 
 
     // Update Asset Licenses

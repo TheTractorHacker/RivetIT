@@ -461,6 +461,129 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
+    <?php
+    // Client mapping queue, stale-asset settings and review queue (src/Integrations/ClientMap.php, src/Assets/StaleAssets.php)
+    $rmm_map = new \ITFlow\Integrations\ClientMap($mysqli);
+    $rmm_map_pending = $rmm_map->rows('pending');
+    $rmm_map_mapped  = array_merge($rmm_map->rows('mapped'), $rmm_map->rows('ignored'));
+    $rmm_stale = new \ITFlow\Assets\StaleAssets($mysqli);
+    $rmm_stale_queue = $rmm_stale->pending();
+    $rmm_clients_list = [];
+    mysqli_data_seek($sql_rmm_clients, 0);
+    while ($rc = mysqli_fetch_assoc($sql_rmm_clients)) { $rmm_clients_list[] = ['id' => intval($rc['client_id']), 'name' => $rc['client_name']]; }
+    ?>
+
+    <div class="card mb-3" id="client-mapping">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-link me-2"></i>Client mapping</h3>
+            <?php if ($rmm_map_pending): ?><span class="badge text-bg-warning"><?= count($rmm_map_pending) ?> need mapping</span><?php else: ?><span class="badge text-bg-success">Nothing waiting</span><?php endif; ?>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">An RMM names its own clients or groups. A name that matches a department exactly is used as before. A name that matches nothing is no longer skipped silently: it waits here until you map it to a department or ignore it, and the next sync uses your answer.</p>
+            <?php if ($rmm_map_pending): ?>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle mb-0" data-mapping-queue="1">
+                    <thead class="text-muted small"><tr><th>RMM client / group</th><th>Integration</th><th>Seen</th><th>Example device</th><th style="min-width:260px">Map to</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($rmm_map_pending as $mp): ?>
+                        <tr>
+                            <td class="fw-bold"><?= nullable_htmlentities($mp['external_name']) ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($mp['integration_name'] ?? ('#' . $mp['integration_id'])) ?></td>
+                            <td class="text-muted small"><?= intval($mp['seen_count']) ?>x, last <?= nullable_htmlentities($mp['last_seen_at']) ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($mp['sample_host'] ?? '') ?></td>
+                            <td colspan="2">
+                                <form action="post.php" method="post" class="d-flex gap-2 align-items-center">
+                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                    <input type="hidden" name="map_id" value="<?= intval($mp['map_id']) ?>">
+                                    <select name="client_id" class="form-select form-select-sm" required>
+                                        <option value="">Choose a department...</option>
+                                        <?php foreach ($rmm_clients_list as $rc): ?><option value="<?= $rc['id'] ?>"><?= nullable_htmlentities($rc['name']) ?></option><?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" name="map_integration_client" class="btn btn-sm btn-primary text-nowrap"><i class="fas fa-check me-1"></i>Map</button>
+                                    <button type="submit" name="ignore_integration_client" class="btn btn-sm btn-outline-secondary text-nowrap" formnovalidate>Ignore</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+            <?php if ($rmm_map_mapped): ?>
+            <h6 class="text-muted text-uppercase small mb-2">Saved answers</h6>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <tbody>
+                    <?php foreach ($rmm_map_mapped as $mm): ?>
+                        <tr>
+                            <td class="fw-bold"><?= nullable_htmlentities($mm['external_name']) ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($mm['integration_name'] ?? ('#' . $mm['integration_id'])) ?></td>
+                            <td><?= $mm['map_status'] === 'mapped' ? '<i class="fas fa-arrow-right text-muted me-1"></i>' . nullable_htmlentities($mm['client_name'] ?? '') : '<span class="badge text-bg-secondary">Ignored</span>' ?></td>
+                            <td class="text-end">
+                                <form action="post.php" method="post" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                    <input type="hidden" name="map_id" value="<?= intval($mm['map_id']) ?>">
+                                    <button type="submit" name="reopen_integration_client" class="btn btn-xs btn-outline-secondary">Ask again</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php elseif (!$rmm_map_pending): ?>
+                <p class="text-muted small mb-0">No client names have needed mapping.</p>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card mb-3" id="stale-assets">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-archive me-2"></i>Stale assets</h3>
+            <?php if ($rmm_stale_queue): ?><span class="badge text-bg-warning"><?= count($rmm_stale_queue) ?> to review</span><?php endif; ?>
+        </div>
+        <div class="card-body">
+            <form action="post.php" method="post" class="row g-2 align-items-center mb-3">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="col-auto">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="stale_asset_retire_enabled" name="stale_asset_retire_enabled" value="1" <?= \ITFlow\Platform\PlatformSettings::bool($mysqli, 'stale_asset_retire_enabled') ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="stale_asset_retire_enabled">Retire assets whose RMM agent has been silent for</label>
+                    </div>
+                </div>
+                <div class="col-auto"><input type="number" class="form-control form-control-sm" style="width:6rem" name="stale_asset_retire_days" min="7" max="3650" value="<?= \ITFlow\Platform\PlatformSettings::int($mysqli, 'stale_asset_retire_days', 7, 3650) ?>"></div>
+                <div class="col-auto">days</div>
+                <div class="col-auto"><button type="submit" name="save_stale_asset_settings" class="btn btn-sm btn-primary"><i class="fas fa-check me-1"></i>Save</button></div>
+                <div class="col-12 text-muted small">Off by default. A retired asset is archived, not deleted, and appears below for review. A device that reports in again is restored automatically.</div>
+            </form>
+            <?php if ($rmm_stale_queue): ?>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" data-stale-queue="1">
+                    <thead class="text-muted small"><tr><th>Asset</th><th>Department</th><th>Last seen</th><th>Retired</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($rmm_stale_queue as $sq): ?>
+                        <tr>
+                            <td class="fw-bold"><?= nullable_htmlentities($sq['asset_name']) ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($sq['client_name'] ?? '') ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($sq['last_seen']) ?></td>
+                            <td class="text-muted small"><?= nullable_htmlentities($sq['created_at']) ?></td>
+                            <td class="text-end text-nowrap">
+                                <form action="post.php" method="post" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                    <input type="hidden" name="queue_id" value="<?= intval($sq['queue_id']) ?>">
+                                    <button type="submit" name="restore_retired_asset" class="btn btn-xs btn-outline-primary">Restore</button>
+                                    <button type="submit" name="confirm_retired_asset" class="btn btn-xs btn-outline-secondary">Confirm</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-header py-2">
             <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Sync Log</h3>

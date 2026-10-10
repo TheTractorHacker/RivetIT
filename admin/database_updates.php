@@ -10724,6 +10724,104 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
           KEY `idx_mcp_oauth_tokens_grant` (`grant_id`),
           KEY `idx_mcp_oauth_tokens_expires` (`expires_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.156'");
+    }
+
+    if ($rivetit_db_version() == '2.6.156') {
+        // Platform wave 2 (gap analysis items 13, 14, 15, 17, 18). One idempotent step: CREATE TABLE IF NOT EXISTS and ADD COLUMN IF NOT EXISTS.
+        //  entity_links (+ asset_vendors / software_vendors with a role), platform_settings (small key/value table; a table, not settings columns,
+        //  because settings is close to the row-size limit), asset_sync_state (last value each sync wrote, so human edits are never overwritten),
+        //  integration_client_map (RMM client name -> client, with the needs-mapping queue), asset_retire_queue (stale-asset review queue),
+        //  assets.asset_cpu / asset_ram, documents.document_review_at (+ reminded marker), audit_events.prev_hash / row_hash (hash chain).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entity_links` (
+          `link_id` int(11) NOT NULL AUTO_INCREMENT,
+          `client_id` int(11) NOT NULL DEFAULT 0,
+          `src_type` varchar(30) NOT NULL,
+          `src_id` int(11) NOT NULL,
+          `dst_type` varchar(30) NOT NULL,
+          `dst_id` int(11) NOT NULL,
+          `link_type` enum('depends_on','runs_on','supported_by','documented_by','related') NOT NULL DEFAULT 'related',
+          `note` varchar(500) DEFAULT NULL,
+          `created_by` int(11) NOT NULL DEFAULT 0,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`link_id`),
+          UNIQUE KEY `uniq_entity_link` (`src_type`,`src_id`,`dst_type`,`dst_id`,`link_type`),
+          KEY `idx_entity_links_dst` (`dst_type`,`dst_id`),
+          KEY `idx_entity_links_client` (`client_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_vendors` (
+          `asset_id` int(11) NOT NULL,
+          `vendor_id` int(11) NOT NULL,
+          `vendor_role` enum('support','reseller','manufacturer') NOT NULL DEFAULT 'support',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`asset_id`,`vendor_id`,`vendor_role`),
+          KEY `idx_asset_vendors_vendor` (`vendor_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `software_vendors` (
+          `software_id` int(11) NOT NULL,
+          `vendor_id` int(11) NOT NULL,
+          `vendor_role` enum('support','reseller','manufacturer') NOT NULL DEFAULT 'support',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`software_id`,`vendor_id`,`vendor_role`),
+          KEY `idx_software_vendors_vendor` (`vendor_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `platform_settings` (
+          `setting_key` varchar(60) NOT NULL,
+          `setting_value` text DEFAULT NULL,
+          `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`setting_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_sync_state` (
+          `asset_id` int(11) NOT NULL,
+          `state_json` text DEFAULT NULL,
+          `state_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`asset_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_client_map` (
+          `map_id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `external_name` varchar(200) NOT NULL,
+          `client_id` int(11) DEFAULT NULL,
+          `map_status` enum('mapped','pending','ignored') NOT NULL DEFAULT 'pending',
+          `sample_host` varchar(200) DEFAULT NULL,
+          `seen_count` int(11) NOT NULL DEFAULT 1,
+          `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `decided_by` int(11) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`map_id`),
+          UNIQUE KEY `uniq_integration_external` (`integration_id`,`external_name`),
+          KEY `idx_integration_client_map_status` (`map_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_retire_queue` (
+          `queue_id` int(11) NOT NULL AUTO_INCREMENT,
+          `asset_id` int(11) NOT NULL,
+          `client_id` int(11) NOT NULL DEFAULT 0,
+          `prev_status` varchar(200) DEFAULT NULL,
+          `last_seen` datetime DEFAULT NULL,
+          `stale_days` int(11) NOT NULL DEFAULT 0,
+          `queue_status` enum('pending','confirmed','restored') NOT NULL DEFAULT 'pending',
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `decided_at` datetime DEFAULT NULL,
+          `decided_by` int(11) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`queue_id`),
+          KEY `idx_asset_retire_queue_asset` (`asset_id`,`queue_status`),
+          KEY `idx_asset_retire_queue_status` (`queue_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "ALTER TABLE `assets`
+            ADD COLUMN IF NOT EXISTS `asset_cpu` varchar(300) DEFAULT NULL AFTER `asset_os`,
+            ADD COLUMN IF NOT EXISTS `asset_ram` varchar(50) DEFAULT NULL AFTER `asset_cpu`");
+        mysqli_query($mysqli, "ALTER TABLE `documents`
+            ADD COLUMN IF NOT EXISTS `document_review_at` date DEFAULT NULL AFTER `document_accessed_at`,
+            ADD COLUMN IF NOT EXISTS `document_review_reminded_at` date DEFAULT NULL AFTER `document_review_at`,
+            ADD KEY IF NOT EXISTS `idx_documents_review` (`document_review_at`)");
+        mysqli_query($mysqli, "ALTER TABLE `audit_events`
+            ADD COLUMN IF NOT EXISTS `prev_hash` char(64) DEFAULT NULL AFTER `request_id`,
+            ADD COLUMN IF NOT EXISTS `row_hash` char(64) DEFAULT NULL AFTER `prev_hash`");
+
+        // The existing single vendor stays the primary (assets.asset_vendor_id / software.software_vendor_id); it is mirrored as role "support".
+        mysqli_query($mysqli, "INSERT IGNORE INTO `asset_vendors` (`asset_id`, `vendor_id`, `vendor_role`) SELECT `asset_id`, `asset_vendor_id`, 'support' FROM `assets` WHERE `asset_vendor_id` > 0");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `software_vendors` (`software_id`, `vendor_id`, `vendor_role`) SELECT `software_id`, `software_vendor_id`, 'support' FROM `software` WHERE `software_vendor_id` > 0");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.157'");
     }

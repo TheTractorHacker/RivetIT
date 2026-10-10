@@ -24,6 +24,10 @@ if (isset($_POST['add_document'])) {
 
     $document_id = mysqli_insert_id($mysqli);
 
+    if ($review_at_sql !== null) {
+        mysqli_query($mysqli, "UPDATE documents SET document_review_at = $review_at_sql, document_updated_at = document_updated_at WHERE document_id = $document_id");
+    }
+
     $processed_content = mysqli_escape_string(
         $mysqli,
         saveBase64Images(
@@ -227,6 +231,18 @@ if (isset($_POST['edit_document'])) {
             document_updated_by  = $session_user_id
          WHERE document_id = $document_id"
     );
+
+    // A changed review date is a new schedule: the reminder fires again for it.
+    if ($review_at_sql !== null) {
+        mysqli_query(
+            $mysqli,
+            "UPDATE documents SET
+                document_review_reminded_at = IF(document_review_at <=> $review_at_sql, document_review_reminded_at, NULL),
+                document_review_at = $review_at_sql,
+                document_updated_at = document_updated_at
+             WHERE document_id = $document_id"
+        );
+    }
 
     logAction(
         "Document",

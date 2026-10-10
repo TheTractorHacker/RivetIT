@@ -377,6 +377,8 @@ CREATE TABLE `assets` (
   `asset_serial` varchar(200) DEFAULT NULL,
   `asset_pin` varchar(50) DEFAULT NULL,
   `asset_os` varchar(200) DEFAULT NULL,
+  `asset_cpu` varchar(300) DEFAULT NULL,
+  `asset_ram` varchar(50) DEFAULT NULL,
   `asset_uri` varchar(500) DEFAULT NULL,
   `asset_uri_2` varchar(500) DEFAULT NULL,
   `asset_uri_client` varchar(500) DEFAULT NULL,
@@ -423,6 +425,8 @@ CREATE TABLE `audit_events` (
   `ip_address` varchar(64) DEFAULT NULL,
   `user_agent` varchar(255) DEFAULT NULL,
   `request_id` varchar(64) DEFAULT NULL,
+  `prev_hash` char(64) DEFAULT NULL,
+  `row_hash` char(64) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`audit_id`),
   KEY `idx_audit_events_type_created` (`event_type`,`created_at`),
@@ -1338,11 +1342,14 @@ CREATE TABLE `documents` (
   `document_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `document_archived_at` datetime DEFAULT NULL,
   `document_accessed_at` datetime DEFAULT NULL,
+  `document_review_at` date DEFAULT NULL,
+  `document_review_reminded_at` date DEFAULT NULL,
   `document_folder_id` int(11) NOT NULL DEFAULT 0,
   `document_created_by` int(11) NOT NULL DEFAULT 0,
   `document_updated_by` int(11) NOT NULL DEFAULT 0,
   `document_client_id` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`document_id`),
+  KEY `idx_documents_review` (`document_review_at`),
   FULLTEXT KEY `document_content_raw` (`document_content_raw`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -8524,4 +8531,86 @@ CREATE TABLE IF NOT EXISTS `mcp_oauth_tokens` (
   PRIMARY KEY (`token_hash`),
   KEY `idx_mcp_oauth_tokens_grant` (`grant_id`),
   KEY `idx_mcp_oauth_tokens_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Platform relationships, inventory sync state, client mapping, audit chain: DB 2.6.157
+CREATE TABLE IF NOT EXISTS `entity_links` (
+  `link_id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `src_type` varchar(30) NOT NULL,
+  `src_id` int(11) NOT NULL,
+  `dst_type` varchar(30) NOT NULL,
+  `dst_id` int(11) NOT NULL,
+  `link_type` enum('depends_on','runs_on','supported_by','documented_by','related') NOT NULL DEFAULT 'related',
+  `note` varchar(500) DEFAULT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`link_id`),
+  UNIQUE KEY `uniq_entity_link` (`src_type`,`src_id`,`dst_type`,`dst_id`,`link_type`),
+  KEY `idx_entity_links_dst` (`dst_type`,`dst_id`),
+  KEY `idx_entity_links_client` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `asset_vendors` (
+  `asset_id` int(11) NOT NULL,
+  `vendor_id` int(11) NOT NULL,
+  `vendor_role` enum('support','reseller','manufacturer') NOT NULL DEFAULT 'support',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`asset_id`,`vendor_id`,`vendor_role`),
+  KEY `idx_asset_vendors_vendor` (`vendor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `software_vendors` (
+  `software_id` int(11) NOT NULL,
+  `vendor_id` int(11) NOT NULL,
+  `vendor_role` enum('support','reseller','manufacturer') NOT NULL DEFAULT 'support',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`software_id`,`vendor_id`,`vendor_role`),
+  KEY `idx_software_vendors_vendor` (`vendor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `platform_settings` (
+  `setting_key` varchar(60) NOT NULL,
+  `setting_value` text DEFAULT NULL,
+  `setting_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `asset_sync_state` (
+  `asset_id` int(11) NOT NULL,
+  `state_json` text DEFAULT NULL,
+  `state_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`asset_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `integration_client_map` (
+  `map_id` int(11) NOT NULL AUTO_INCREMENT,
+  `integration_id` int(11) NOT NULL,
+  `external_name` varchar(200) NOT NULL,
+  `client_id` int(11) DEFAULT NULL,
+  `map_status` enum('mapped','pending','ignored') NOT NULL DEFAULT 'pending',
+  `sample_host` varchar(200) DEFAULT NULL,
+  `seen_count` int(11) NOT NULL DEFAULT 1,
+  `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `decided_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`map_id`),
+  UNIQUE KEY `uniq_integration_external` (`integration_id`,`external_name`),
+  KEY `idx_integration_client_map_status` (`map_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `asset_retire_queue` (
+  `queue_id` int(11) NOT NULL AUTO_INCREMENT,
+  `asset_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `prev_status` varchar(200) DEFAULT NULL,
+  `last_seen` datetime DEFAULT NULL,
+  `stale_days` int(11) NOT NULL DEFAULT 0,
+  `queue_status` enum('pending','confirmed','restored') NOT NULL DEFAULT 'pending',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `decided_at` datetime DEFAULT NULL,
+  `decided_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`queue_id`),
+  KEY `idx_asset_retire_queue_asset` (`asset_id`,`queue_status`),
+  KEY `idx_asset_retire_queue_status` (`queue_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

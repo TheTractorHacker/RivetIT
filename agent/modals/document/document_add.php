@@ -56,6 +56,15 @@ ob_start();
                 <input type="text" class="form-control" name="description" placeholder="Short summary of the document">
             </div>
         </div>
+        <div class="form-group">
+            <label>Review date <span class="text-muted">(optional)</span></label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-calendar-check"></i></span>
+                </div>
+                <input type="date" class="form-control" name="review_at" max="2999-12-31">
+            </div>
+        </div>
     </div>
     <div class="modal-footer">
         <button type="submit" name="add_document" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Create</button>

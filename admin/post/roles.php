@@ -8,6 +8,45 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 require_once __DIR__ . '/../modals/role/role_lib.php';
 
+/**
+ * A role's access levels as module name => level, for the audit trail's before/after of a permission change.
+ *
+ * @return array<string,int>
+ */
+function itflow_role_levels_snapshot(mysqli $mysqli, int $role_id): array {
+    $levels = [];
+    $res = mysqli_query($mysqli, "SELECT m.module_name, p.user_role_permission_level AS lvl FROM user_role_permissions p JOIN modules m ON m.module_id = p.module_id WHERE p.user_role_id = $role_id");
+    while ($res && ($r = mysqli_fetch_assoc($res))) {
+        $levels[$r['module_name']] = intval($r['lvl']);
+    }
+    ksort($levels);
+    return $levels;
+}
+
+/** Writes the structured audit event for a role's permission or admin-flag change (nothing when nothing changed). */
+function itflow_audit_role_change(string $event, int $role_id, string $role_name, array $before, array $after, ?bool $was_admin, bool $is_admin): void {
+    global $session_user_id;
+    $changes = [];
+    foreach (array_unique(array_merge(array_keys($before), array_keys($after))) as $module) {
+        $from = intval($before[$module] ?? 0);
+        $to = intval($after[$module] ?? 0);
+        if ($from !== $to) {
+            $changes[] = ['module' => $module, 'from' => $from, 'to' => $to];
+        }
+    }
+    $admin_changed = $was_admin !== null && $was_admin !== $is_admin;
+    if (!$changes && !$admin_changed) {
+        return;
+    }
+    try {
+        \ITFlow\Audit\AuditService::record($event, intval($session_user_id) ?: null, 'role', $role_id, $event === 'role.created' ? 'create' : 'update',
+            "Role $role_name: " . count($changes) . ' permission change(s)' . ($admin_changed ? ($is_admin ? ', administrator access GRANTED' : ', administrator access REMOVED') : ''),
+            ['role_id' => $role_id, 'role_name' => $role_name, 'admin_before' => $was_admin, 'admin_after' => $is_admin, 'changes' => $changes]);
+    } catch (\Throwable $e) {
+        // auditing never breaks the action
+    }
+}
+
 if (isset($_POST['add_role'])) {
 
     validateCSRFToken($_POST['csrf_token'] ?? null);
@@ -28,6 +67,7 @@ if (isset($_POST['add_role'])) {
     }
 
     logAction("User Role", "Create", "$session_name created user role $name", 0, $role_id);
+    itflow_audit_role_change('role.created', intval($role_id), $name, [], itflow_role_levels_snapshot($mysqli, intval($role_id)), null, $admin === 1);
 
     flash_alert("User Role <strong>$name</strong> created");
 
@@ -52,6 +92,8 @@ if (isset($_POST['edit_role'])) {
         redirect();
     }
 
+    $levels_before = itflow_role_levels_snapshot($mysqli, $role_id);
+
     mysqli_query($mysqli, "UPDATE user_roles SET role_name = '$name', role_description = '$description', role_is_admin = $admin WHERE role_id = $role_id");
 
     // Update role access levels
@@ -61,6 +103,7 @@ if (isset($_POST['edit_role'])) {
     }
 
     logAction("User Role", "Edit", "$session_name edited user role $name", 0, $role_id);
+    itflow_audit_role_change('role.permissions_changed', $role_id, $name, $levels_before, itflow_role_levels_snapshot($mysqli, $role_id), $was_admin, $admin === 1);
 
     flash_alert("User Role <strong>$name</strong> edited");
 

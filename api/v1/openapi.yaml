@@ -35,6 +35,7 @@ tags:
   - name: Clients
   - name: Contacts
   - name: Assets
+  - name: Relationships
   - name: Projects
   - name: Contracts
   - name: Credentials
@@ -743,6 +744,66 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AssetDetail'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /relationships:
+    get:
+      tags: [Relationships]
+      summary: Links of one record (outgoing, referenced by, and what depends on it)
+      description: >
+        Returns the explicit links (entity_links) and read-only derived rows from the older link tables (asset documents, software
+        licences, service assets, ...) for one record, plus a transitive "impact" list (what depends on it, up to three levels, cycle
+        safe). Results are limited to records the caller's role and department access allow.
+      parameters:
+        - {name: type, in: query, required: true, schema: {type: string, enum: [asset, software, vendor, document, kb_article, service, network, domain, certificate, credential, contact, location, ticket]}}
+        - {name: id, in: query, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: Relationships of the record
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelationshipView'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Relationships]
+      summary: Link two records
+      description: Needs change access to the source record's module and view access to the target's. Both records must be in the same department unless one is kept in no department (a global vendor or KB article).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RelationshipCreate'}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link_id: {type: integer}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: Already linked that way
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: Different departments, or a record linked to itself
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+  /relationships/{id}:
+    delete:
+      tags: [Relationships]
+      summary: Remove a link (derived rows cannot be removed here)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /projects:
     get:
       tags: [Projects]
@@ -1006,7 +1067,7 @@ paths:
   /search:
     get:
       tags: [Search]
-      summary: Global search across tickets, clients, assets, contacts, credentials, and KB articles
+      summary: Global search across tickets, clients, assets, software, networks, services, contacts, credentials, KB articles and linked records
       parameters:
         - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
       responses:
@@ -1858,6 +1919,52 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
   schemas:
+    RelationshipCreate:
+      type: object
+      required: [src_type, src_id, dst_type, dst_id]
+      properties:
+        src_type: {type: string, enum: [asset, software, vendor, document, kb_article, service, network, domain, certificate, credential, contact, location, ticket]}
+        src_id: {type: integer}
+        dst_type: {type: string, enum: [asset, software, vendor, document, kb_article, service, network, domain, certificate, credential, contact, location, ticket]}
+        dst_id: {type: integer}
+        link_type: {type: string, enum: [depends_on, runs_on, supported_by, documented_by, related], default: related}
+        note: {type: string, maxLength: 500}
+    RelationshipRef:
+      type: object
+      properties:
+        type: {type: string}
+        id: {type: integer}
+        name: {type: string}
+        client_id: {type: integer}
+        archived: {type: boolean}
+    RelationshipLink:
+      type: object
+      properties:
+        link_id: {type: integer, nullable: true, description: Null for derived rows}
+        derived: {type: boolean}
+        source: {type: string}
+        link_type: {type: string}
+        note: {type: string, nullable: true}
+        created_at: {type: string, nullable: true}
+        to: {$ref: '#/components/schemas/RelationshipRef'}
+        from: {$ref: '#/components/schemas/RelationshipRef'}
+    RelationshipView:
+      type: object
+      properties:
+        record: {$ref: '#/components/schemas/RelationshipRef'}
+        outgoing: {type: array, items: {$ref: '#/components/schemas/RelationshipLink'}}
+        referenced_by: {type: array, items: {$ref: '#/components/schemas/RelationshipLink'}}
+        impact:
+          type: array
+          items:
+            type: object
+            properties:
+              type: {type: string}
+              id: {type: integer}
+              name: {type: string}
+              client_id: {type: integer}
+              depth: {type: integer, minimum: 1, maximum: 3}
+              via: {type: string}
     Error:
       type: object
       properties:
@@ -2346,12 +2453,35 @@ components:
       properties:
         signed_name: {type: string}
         signature: {type: string, description: "data:image/png;base64,... (optional)"}
+    SearchRecord:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        detail: {type: string}
+        client_id: {type: integer}
+        client: {type: string}
     SearchResult:
       type: object
       properties:
         tickets: {type: array, items: {$ref: '#/components/schemas/TicketListItem'}}
         clients: {type: array, items: {$ref: '#/components/schemas/ClientListItem'}}
         assets: {type: array, items: {$ref: '#/components/schemas/AssetListItem'}}
+        software: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        networks: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        services: {type: array, items: {$ref: '#/components/schemas/SearchRecord'}}
+        linked:
+          type: array
+          description: Records linked to a record whose name matches (links and the older link tables), each with what it is linked to.
+          items:
+            type: object
+            properties:
+              type: {type: string}
+              id: {type: integer}
+              name: {type: string}
+              client_id: {type: integer}
+              linked_to: {type: string, description: 'e.g. "Asset srv-core"'}
+              relation: {type: string, description: 'e.g. "documents"'}
         contacts:
           type: array
           description: Omitted (empty) if the caller lacks module_client permission.

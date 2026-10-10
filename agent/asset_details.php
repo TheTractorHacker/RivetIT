@@ -1958,6 +1958,8 @@ if (isset($_GET['asset_id'])) {
 
         </div><!-- /#asset-details-content -->
 
+        <?php $rel_type = 'asset'; $rel_id = $asset_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
+
         <?php
 
         // The share pop-up lists the department's contacts with their emails (People data) and only shares

@@ -197,6 +197,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             data-modal-url="modals/service/service_edit.php?id=<?= $service_id ?>">
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
+                                        <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/relationships/relationships.php?type=service&id=<?= $service_id ?>">
+                                            <i class="fas fa-fw fa-project-diagram me-2"></i>Relationships
+                                        </a>
                                         <?php if (lookupUserPermission("module_support") >= 3) { ?>
                                             <div class="dropdown-divider"></div>
                                             <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_service=<?php echo $service_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">

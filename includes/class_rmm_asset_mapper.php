@@ -17,6 +17,7 @@ class RmmAssetMapper {
     private int $integration_id;
     private int $triggered_by;
     private $rmmClient;
+    private ?\ITFlow\Integrations\ClientMap $clientMap = null;
 
     public function __construct($mysqli, int $integration_id, int $triggered_by = 0, $rmmClient = null) {
         $this->mysqli         = $mysqli;
@@ -303,6 +304,7 @@ class RmmAssetMapper {
                 $manufacturer, $model, $cpu, $ram_gb, $logged_user, $mesh_node_id, $raw_json, $health_sql);
             $this->syncInterfaces(intval($existing['asset_id']), $wmi_detail);
             $this->backfillClientId(intval($existing['asset_id']), intval($existing['asset_client_id']), $resolved_client_id);
+            $this->syncAssetFacts(intval($existing['asset_id']), $agent, $wmi_detail);
             return 'updated';
         }
 
@@ -359,7 +361,7 @@ class RmmAssetMapper {
             $asset_type = $this->guessAssetType($os_name);
             $h  = mysqli_real_escape_string($m, $hostname);
             $s  = mysqli_real_escape_string($m, $serial);
-            $o  = mysqli_real_escape_string($m, trim("$os_name $os_version"));
+            $o  = mysqli_real_escape_string($m, \ITFlow\Assets\AssetInventorySync::osLabel($os_name, $os_version));
             $mk = mysqli_real_escape_string($m, $manufacturer);
             $client_set = $resolved_client_id ? "asset_client_id=$resolved_client_id," : '';
             mysqli_query($m,
@@ -437,8 +439,43 @@ class RmmAssetMapper {
         }
 
         $this->syncInterfaces($asset_id, $wmi_detail);
+        $this->syncAssetFacts($asset_id, $agent, $wmi_detail);
 
         return $outcome;
+    }
+
+    /**
+     * Writes what the vendor RMM reports (make, model, OS, CPU, RAM, primary adapter) onto the asset's own fields. A field a person has
+     * edited is never overwritten; see ITFlow\Assets\AssetInventorySync. A failure here never fails the device's sync.
+     */
+    private function syncAssetFacts(int $asset_id, array $agent, array $wmi_detail): void {
+        try {
+            $str = function ($v): string {
+                if (is_array($v)) return implode(', ', array_filter(array_map('strval', $v)));
+                return is_bool($v) ? ($v ? '1' : '0') : (string) ($v ?? '');
+            };
+            $os_name = $str($agent['operating_system'] ?? '');
+            $os_ver  = $str($agent['os_version'] ?? $agent['os_build_number'] ?? '');
+            $facts = [
+                'make'  => $str($agent['manufacturer'] ?? $agent['make_model'] ?? ''),
+                'model' => $str($agent['model'] ?? ''),
+                'os'    => \ITFlow\Assets\AssetInventorySync::osLabel($os_name, $os_ver),
+                'cpu'   => $str($agent['cpu'] ?? $agent['cpu_model'] ?? ''),
+                'ram'   => \ITFlow\Assets\AssetInventorySync::ramLabel($str($agent['ram'] ?? $agent['total_ram'] ?? '')),
+            ];
+            $nics = [];
+            foreach (($wmi_detail['network_config'] ?? []) as $entry) {
+                $nic = (is_array($entry) && isset($entry[0]) && is_array($entry[0])) ? $entry[0] : $entry;
+                if (!is_array($nic) || empty($nic['IPAddress'])) continue;
+                $nics[] = ['name' => (string) ($nic['Description'] ?? $nic['Caption'] ?? ''), 'mac' => (string) ($nic['MACAddress'] ?? ''), 'ips' => array_map('strval', (array) $nic['IPAddress'])];
+            }
+            if (!$nics && !empty($agent['local_ips'])) {
+                $nics[] = ['name' => '', 'mac' => '', 'ips' => array_map('trim', is_array($agent['local_ips']) ? array_map('strval', $agent['local_ips']) : explode(',', (string) $agent['local_ips']))];
+            }
+            (new \ITFlow\Assets\AssetInventorySync($this->mysqli))->apply($asset_id, $facts + \ITFlow\Assets\AssetInventorySync::primaryNic($nics), 'rmm');
+        } catch (\Throwable $e) {
+            error_log('RMM asset inventory sync skipped: ' . $e->getMessage());
+        }
     }
 
     private function updateLink(int $link_id, ?string $old_status, string $status, string $last_seen_val,
@@ -693,24 +730,31 @@ class RmmAssetMapper {
         }
     }
 
-    // Maps the RMM-side client/group name to an existing RivetIT client by
-    // exact (case-insensitive) name match. Returns 0 if no match is found.
+    // Maps the RMM-side client/group name to a RivetIT client: a saved per-integration mapping first (Administration > Integrations > RMM),
+    // then the exact (case-insensitive) name match, then the "needs mapping" queue (ITFlow\Integrations\ClientMap) instead of skipping the
+    // device silently. Returns 0 when there is no department yet.
     private function resolveClientId(array $agent): int {
-        $m    = $this->mysqli;
         $name = trim((string) ($agent['client_name'] ?? $agent['group_name'] ?? ''));
         if ($name === '') {
             // Single-tenant integrations (e.g. Sophos Central without a
             // Partner/Organization credential) have no per-device client/
-            // group name to match against — fall back to the integration's
+            // group name to match against - fall back to the integration's
             // configured default client instead of skipping the device.
             return $this->getIntegrationDefaultClientId();
         }
 
-        $esc = mysqli_real_escape_string($m, $name);
-        $row = mysqli_fetch_assoc(mysqli_query($m,
-            "SELECT client_id FROM clients WHERE LOWER(client_name)=LOWER('$esc') AND client_archived_at IS NULL LIMIT 1"
-        ));
-        return $row ? intval($row['client_id']) : 0;
+        try {
+            $this->clientMap ??= new \ITFlow\Integrations\ClientMap($this->mysqli);
+            $resolved = $this->clientMap->resolve($this->integration_id, $name, (string) ($agent['hostname'] ?? ''));
+            return $resolved['client_id'];
+        } catch (\Throwable $e) {
+            // The mapping table is not there yet (code updated, database not): the exact-name match the syncs always used.
+            $esc = mysqli_real_escape_string($this->mysqli, $name);
+            $row = mysqli_fetch_assoc(mysqli_query($this->mysqli,
+                "SELECT client_id FROM clients WHERE LOWER(client_name)=LOWER('$esc') AND client_archived_at IS NULL LIMIT 1"
+            ));
+            return $row ? intval($row['client_id']) : 0;
+        }
     }
 
     private function getIntegrationDefaultClientId(): int {

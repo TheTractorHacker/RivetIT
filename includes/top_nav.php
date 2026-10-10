@@ -242,13 +242,17 @@ ob_start();
         credentials: { label: 'Credentials', icon: 'fa-key' },
         vendors: { label: 'Vendors', icon: 'fa-building' },
         domains: { label: 'Domains', icon: 'fa-globe' },
+        software: { label: 'Software', icon: 'fa-cube' },
+        networks: { label: 'Networks', icon: 'fa-network-wired' },
+        services: { label: 'Services', icon: 'fa-concierge-bell' },
+        linked: { label: 'Linked records', icon: 'fa-project-diagram' },
         documents: { label: 'Documents', icon: 'fa-file-alt' },
         recurring_tickets: { label: 'Recurring Tickets', icon: 'fa-sync' },
         products: { label: 'Products', icon: 'fa-box' },
         settings: { label: 'Settings', icon: 'fa-cog' }
     };
     var GROUP_ORDER = ['clients', 'contacts', 'tickets', 'quotes', 'invoices', 'assets',
-        'kb_articles', 'credentials', 'vendors', 'domains', 'documents', 'recurring_tickets',
+        'kb_articles', 'credentials', 'vendors', 'domains', 'software', 'networks', 'services', 'linked', 'documents', 'recurring_tickets',
         'products', 'settings'];
 
     function closePanel() {

@@ -15,4 +15,13 @@ $result = mysqli_query($mysqli,
     "DELETE FROM api_tokens WHERE token_id = $token_id AND token_user_id = $session_user_id"
 );
 
-echo json_encode(['ok' => mysqli_affected_rows($mysqli) > 0]);
+$revoked = mysqli_affected_rows($mysqli) > 0;
+if ($revoked) {
+    try {
+        \ITFlow\Audit\AuditService::record('api_token.revoke', intval($session_user_id) ?: null, 'api_token', $token_id, 'revoke', 'Revoked one of their own API tokens', ['token_id' => $token_id]);
+    } catch (\Throwable $e) {
+        // auditing never breaks the action
+    }
+}
+
+echo json_encode(['ok' => $revoked]);

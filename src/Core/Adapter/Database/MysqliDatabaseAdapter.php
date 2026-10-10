@@ -20,6 +20,12 @@ final class MysqliDatabaseAdapter implements DatabaseInterface
     {
     }
 
+    /** The connection this adapter runs on, for edition code that must write on the same one (same transaction). */
+    public function connection(): \mysqli
+    {
+        return $this->mysqli;
+    }
+
     public function fetchOne(string $sql, array $params = []): ?array
     {
         [$rows] = $this->run($sql, $params);
