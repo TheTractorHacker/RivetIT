@@ -1,0 +1,14 @@
+# RivetIT - nightly restore drill timer, pairs with itflow-restore-drill.service (see that file).
+
+[Unit]
+Description=Run the RivetIT restore drill for encrypted backups daily (${APP_DIR})
+Documentation=https://github.com/TheTractorHacker/RivetIT
+
+[Timer]
+# An hour after itflow-backup.timer (02:30), so it drills the backup that was just made.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

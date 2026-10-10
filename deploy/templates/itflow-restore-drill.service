@@ -1,0 +1,20 @@
+# RivetIT - restore drill for the root-only encrypted archives (deploy/backup.sh output), pairs with itflow-restore-drill.timer.
+#
+# The nightly drill in cron/restore_drill.php (www-data) can only read the in-app zips; backup-*.tar.gz.enc is root:root 600 on
+# purpose. This unit runs deploy/restore_drill.sh as root: it decrypts the newest archive into a private temp directory, hands it to
+# the PHP drill (restore into a scratch database drill_<date>_enc with the scoped drill_% account, verify, drop it) and shreds the
+# decrypted copy. Prerequisite: the drill account (docs/RECOVERY_RUNBOOK.md, "Restore drill setup") and the passphrase file used by
+# itflow-backup.service. Render ${APP_DIR} the same way as itflow-backup.service. deploy/install.sh --install-backup-timers does it.
+
+[Unit]
+Description=RivetIT restore drill for encrypted backups (${APP_DIR})
+Documentation=https://github.com/TheTractorHacker/RivetIT
+After=mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/env bash ${APP_DIR}/deploy/restore_drill.sh --app-dir=${APP_DIR} --passphrase-file=/etc/itflow/backup-passphrase
+# Exit 2 = drill account not set up yet; 1 = the restore failed. Both are meant to show as a failed unit.
+SuccessExitStatus=0

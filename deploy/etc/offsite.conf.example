@@ -1,0 +1,41 @@
+# RivetIT - off-site copy for deploy/backup.sh.
+#
+# Install as /etc/itflow/offsite.conf (root:root, mode 600). While that file exists, deploy/backup.sh copies every encrypted archive
+# and its .sha256 checksum file to the destination below after the local backup succeeds, and applies retention there too. Pass
+# --no-offsite to skip it for one run.
+#
+# The file is READ as KEY=VALUE lines, never executed. Put NO secrets in it: each method reads its credentials from its own file.
+# The archives are already encrypted with the backup passphrase, so the destination never holds anything readable.
+#
+#   install -d -m 700 /etc/itflow
+#   install -m 600 -o root -g root deploy/etc/offsite.conf.example /etc/itflow/offsite.conf    # then edit
+#
+# How long off-site copies are kept (days). Default: the same as --retention-days (14). Keep this longer than the local window:
+# the local disk is the copy most likely to die with the server.
+OFFSITE_RETENTION_DAYS=30
+
+# One of: rclone | s3 | sftp | local
+OFFSITE_METHOD=rclone
+
+# ---- rclone (Backblaze B2, Wasabi, S3-compatible, Google Drive, OneDrive, ...). Configure the remote with `rclone config`, as root.
+OFFSITE_RCLONE_REMOTE=b2:my-rivetit-backups/mwa
+#OFFSITE_RCLONE_CONFIG=/etc/itflow/rclone.conf
+
+# ---- s3: the aws CLI (apt install awscli). Credentials in a root-only file in the usual AWS format.
+#OFFSITE_METHOD=s3
+#OFFSITE_S3_URI=s3://my-rivetit-backups/mwa/
+#OFFSITE_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+#OFFSITE_S3_CREDENTIALS_FILE=/etc/itflow/aws-credentials
+#OFFSITE_S3_PROFILE=default
+
+# ---- sftp: a dedicated key (ssh-keygen -t ed25519 -f /etc/itflow/offsite_ed25519 -N ''), host key pinned in a known_hosts file.
+#OFFSITE_METHOD=sftp
+#OFFSITE_SFTP_TARGET=backup@nas.example.com:/srv/rivetit/mwa
+#OFFSITE_SFTP_KEY=/etc/itflow/offsite_ed25519
+#OFFSITE_SFTP_PORT=22
+#OFFSITE_SFTP_KNOWN_HOSTS=/etc/itflow/offsite_known_hosts
+
+# ---- local: a directory on another disk or a mounted share (NFS/SMB/USB). Make sure it is really mounted, or the copy lands on
+# the same disk you are trying to get away from.
+#OFFSITE_METHOD=local
+#OFFSITE_LOCAL_DIR=/mnt/nas/rivetit/mwa

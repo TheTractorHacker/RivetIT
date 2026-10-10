@@ -111,6 +111,7 @@ COMPANY_EMAIL=""
 WEBSITE=""
 RESTORE_FROM=""
 RESTORE_PASSPHRASE_FILE=""
+INSTALL_BACKUP_TIMERS=0
 # Network path in front of the app. Empty = not given on the command line (asked, or defaulted below).
 LOCAL_PROXIES=""
 BEHIND_CLOUDFLARE=""
@@ -154,6 +155,15 @@ Deployment options:
                             serve a self-signed cert directly and leave real
                             TLS for you to configure later (e.g. no public
                             DNS yet). Implies --email is not required.
+  --install-backup-timers    Also install systemd timers for the encrypted
+                            backup (deploy/backup.sh, 02:30) and its restore
+                            drill (deploy/restore_drill.sh, 03:30), creating
+                            /etc/itflow/backup-passphrase if it does not exist
+                            (COPY IT OFFLINE: without it the archives cannot be
+                            opened). Off by default. Off-site copies switch on
+                            by creating /etc/itflow/offsite.conf from
+                            deploy/etc/offsite.conf.example. See
+                            docs/RECOVERY_RUNBOOK.md.
   --skip-firewall            Do not touch ufw.
   --skip-fail2ban             Do not touch fail2ban.
   --skip-dependencies         Do not install nginx, PHP, MariaDB, Redis, or
@@ -252,6 +262,7 @@ parse_args() {
             --skip-fail2ban)     SKIP_FAIL2BAN=1 ;;
             --skip-dependencies) SKIP_DEPENDENCIES=1 ;;
             --skip-tls)          SKIP_TLS=1 ;;
+            --install-backup-timers) INSTALL_BACKUP_TIMERS=1 ;;
             --non-interactive)   NON_INTERACTIVE=1 ;;
             --email=*)           CERTBOT_EMAIL="${arg#*=}" ;;
             --admin-name=*)      ADMIN_NAME="${arg#*=}" ;;
@@ -1037,6 +1048,8 @@ EOF
     ensure_cron_job "${cron_file}" "${APP_DIR}" mail_queue.php '*/5 * * * *' "${mail_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" ticket_email_parser.php '*/5 * * * *' "${parser_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" backup_cron.php '7 * * * *' "${backup_log}"
+    # Nightly restore drill of the newest in-app backup zip. Does nothing until an admin enables it (Admin > Backup > Restore drill).
+    ensure_cron_job "${cron_file}" "${APP_DIR}" restore_drill.php '45 3 * * *' "${backup_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" metrics_collect.php '*/5 * * * *' "${metrics_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" outlook_schedule_sync.php '*/15 * * * *' "${sync_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" domain_refresher.php '0 3 * * *' "${refresh_log}"
@@ -1050,6 +1063,49 @@ EOF
     chmod 644 "${cron_file}"
     chown root:root "${cron_file}"
     success "Installed system cron entry: ${cron_file} (log: ${cron_log})"
+}
+
+# ---------------------------------------------------------------------------
+# Backup + restore-drill systemd timers (opt-in: --install-backup-timers)
+# ---------------------------------------------------------------------------
+# Renders deploy/templates/itflow-backup.{service,timer} and itflow-restore-drill.{service,timer} for THIS instance under a name
+# that carries the domain (two instances on one box need distinct unit names), generates the passphrase file if there is none, and
+# enables the timers. Skipped when a backup unit for this app directory already exists (an older hand-installed itflow-backup.*),
+# so a box is never backed up twice. The off-site copy is NOT set up here: it switches on when /etc/itflow/offsite.conf exists.
+install_backup_timers() {
+    if [[ "${INSTALL_BACKUP_TIMERS}" -ne 1 ]]; then
+        info "Skipping backup timers (pass --install-backup-timers to install them; see docs/RECOVERY_RUNBOOK.md)."
+        return 0
+    fi
+    local safe_name unit_dir="/etc/systemd/system" tpl="${SCRIPT_DIR}/templates" pass_file="/etc/itflow/backup-passphrase" f
+    safe_name="$(printf '%s' "${DOMAIN}" | tr -c 'a-zA-Z0-9' '-')"
+
+    for f in "${unit_dir}"/itflow-backup*.service "${unit_dir}"/rivetit-backup*.service; do
+        [[ -f "${f}" ]] || continue
+        if grep -Fq -- "--app-dir=${APP_DIR}" "${f}"; then
+            warn "A backup unit for ${APP_DIR} already exists (${f}); leaving the backup timers as they are."
+            return 0
+        fi
+    done
+
+    install -d -m 700 -o root -g root /etc/itflow
+    if [[ ! -f "${pass_file}" ]]; then
+        openssl rand -base64 48 > "${pass_file}"
+        chmod 600 "${pass_file}"; chown root:root "${pass_file}"
+        warn "Created ${pass_file}. COPY IT TO AN OFFLINE PLACE NOW (password manager vault + a printed sealed copy): every encrypted backup is unreadable without it."
+    fi
+
+    local unit
+    for unit in backup restore-drill; do
+        sed "s|\${APP_DIR}|${APP_DIR}|g" "${tpl}/itflow-${unit}.service" > "${unit_dir}/rivetit-${unit}-${safe_name}.service"
+        sed "s|\${APP_DIR}|${APP_DIR}|g" "${tpl}/itflow-${unit}.timer"   > "${unit_dir}/rivetit-${unit}-${safe_name}.timer"
+        chmod 644 "${unit_dir}/rivetit-${unit}-${safe_name}.service" "${unit_dir}/rivetit-${unit}-${safe_name}.timer"
+        # A timer fires the service of the same name.
+    done
+    systemctl daemon-reload
+    systemctl enable --now "rivetit-backup-${safe_name}.timer" "rivetit-restore-drill-${safe_name}.timer"
+    success "Installed backup timers: rivetit-backup-${safe_name}.timer (02:30) and rivetit-restore-drill-${safe_name}.timer (03:30)."
+    info "Next: create /etc/itflow/offsite.conf for an off-site copy, and the drill_% database account for the restore drill (docs/RECOVERY_RUNBOOK.md)."
 }
 
 install_cron_manager_helper() {
@@ -1400,6 +1456,7 @@ main() {
     configure_fail2ban
 
     install_cron_entry
+    install_backup_timers
     install_cron_manager_helper
     local fresh_app=0
     [[ -f "${APP_DIR}/config.php" ]] || fresh_app=1

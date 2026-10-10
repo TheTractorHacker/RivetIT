@@ -57,10 +57,18 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 LOG_FILE="/var/log/itflow-backup.log"
 
+# Recovery additions: checksum file, status report to the app, optional off-site copy (see lib/backup_extras.sh).
+# shellcheck source=./lib/backup_extras.sh
+source "${SCRIPT_DIR}/lib/backup_extras.sh"
+
 APP_DIR=""
 RETENTION_DAYS=14
 DEST=""
 PASSPHRASE_FILE=""
+OFFSITE_ENABLED=0
+OFFSITE_DISABLED=0
+OFFSITE_CONFIG="/etc/itflow/offsite.conf"
+OFFSITE_RETENTION_OVERRIDE=""
 
 print_help() {
     cat <<'EOF'
@@ -81,6 +89,16 @@ Options:
                               from --dest. Default: 14.
   --dest=<dir>                Directory encrypted backups are written to.
                               Default: <app-dir>/backups.
+  --offsite[=<config>]        Also copy each archive (and its .sha256 checksum
+                              file) off this machine and apply retention there
+                              too. <config> defaults to /etc/itflow/offsite.conf
+                              (template: deploy/etc/offsite.conf.example; rclone,
+                              S3, SFTP or a mounted directory).
+  --no-offsite                Skip the off-site copy even if /etc/itflow/offsite.conf
+                              exists (without --offsite/--no-offsite, that file's
+                              presence turns the off-site copy on).
+  --offsite-retention-days=<N>  Retention for the off-site copies (default: the
+                              config's OFFSITE_RETENTION_DAYS, else --retention-days).
   --help                      Show this help and exit.
 
 Must be run as root. Every run's outcome (success + file size + duration,
@@ -96,6 +114,10 @@ parse_args() {
             --retention-days=*)   RETENTION_DAYS="${arg#*=}" ;;
             --dest=*)              DEST="${arg#*=}" ;;
             --passphrase-file=*)  PASSPHRASE_FILE="${arg#*=}" ;;
+            --offsite)            OFFSITE_ENABLED=1 ;;
+            --no-offsite)         OFFSITE_DISABLED=1 ;;
+            --offsite=*)          OFFSITE_ENABLED=1; OFFSITE_CONFIG="${arg#*=}" ;;
+            --offsite-retention-days=*) OFFSITE_RETENTION_OVERRIDE="${arg#*=}" ;;
             --help|-h)
                 print_help
                 exit 0
@@ -128,6 +150,12 @@ validate_args() {
     if [[ -z "${DEST}" ]]; then
         DEST="${APP_DIR}/backups"
     fi
+
+    # The default off-site config being present is the opt-in, so an existing systemd unit needs no edit: drop the file in place.
+    if [[ "${OFFSITE_ENABLED}" -eq 0 && "${OFFSITE_DISABLED}" -eq 0 && -f "${OFFSITE_CONFIG}" ]]; then
+        OFFSITE_ENABLED=1
+    fi
+    [[ "${OFFSITE_DISABLED}" -eq 1 ]] && OFFSITE_ENABLED=0
 }
 
 setup_logging() {
@@ -238,8 +266,14 @@ EOF
         file_put_contents($argv[5], json_encode($data, JSON_PRETTY_PRINT));
     ' -- "${DB_NAME}" "${INSTALLATION_ID}" "${SETTINGS_ENC_KEY}" "${timestamp}" "${manifest_file}"
 
+    # Table snapshot for the restore drill (names + counts only); the backup is complete without it.
+    local snapshot_file="${DEST}/table-snapshot.json"
+    register_tmpfile "${snapshot_file}"
+    local -a snapshot_member=()
+    if backup_make_snapshot "${snapshot_file}"; then snapshot_member=("$(basename "${snapshot_file}")"); fi
+
     info "Bundling the database dump with ${APP_DIR}/uploads into ${combined}..."
-    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")" "$(basename "${manifest_file}")")
+    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")" "$(basename "${manifest_file}")" "${snapshot_member[@]}")
     if [[ -d "${APP_DIR}/uploads" ]]; then
         tar_members+=(-C "${APP_DIR}" uploads)
     else
@@ -270,6 +304,7 @@ EOF
     local size_human
     size_human="$(du -h "${encrypted}" | awk '{print $1}')"
 
+    BACKUP_RESULT_FILE="${encrypted}"
     success "Backup complete: ${encrypted} (${size_human}, ${duration}s)"
     log "BACKUP OK database=${DB_NAME} file=${encrypted} size=${size_human} duration=${duration}s"
 
@@ -294,7 +329,9 @@ main() {
     # keeps normal `set -e` propagation intact for the whole function, and
     # do_backup's own die() calls already log a specific, actionable message
     # for every failure that matters before this script exits non-zero.
+    register_exit_hook backup_exit_hook
     do_backup
+    backup_post_steps
 }
 
 main "$@"
