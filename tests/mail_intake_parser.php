@@ -32,7 +32,7 @@ foreach ($fixtures as $file) {
     $name = basename($file, '.eml');
     $norm = MessageNormalizer::fromWebklex(\Webklex\PHPIMAP\Message::fromString(file_get_contents($file)));
     $prep = InboundPreparer::prepare($norm, $limits);
-    $cls = AutoReplyDetector::classify($norm['headers'], $norm['subject'], array_map(fn ($a) => $a['mime'], $norm['attachments']));
+    $cls = AutoReplyDetector::classify($norm['headers'], $norm['subject'], array_map(fn ($a) => $a['content_type'], $norm['attachments']));
     $reply = QuotedTextStripper::stripReply($norm['html'], $norm['text']);
     $summary = [
         'from' => $norm['from_email'],
@@ -56,7 +56,7 @@ foreach ($fixtures as $file) {
 
 // ---- explicit expectations on top of the goldens (so a regenerated golden cannot silently bless a regression) --------
 $load = fn (string $f) => MessageNormalizer::fromWebklex(\Webklex\PHPIMAP\Message::fromString(file_get_contents("$root/tests/fixtures/mail/$f.eml")));
-$cls = function (string $f) use ($load) { $m = $load($f); return AutoReplyDetector::classify($m['headers'], $m['subject'], array_map(fn ($a) => $a['mime'], $m['attachments'])); };
+$cls = function (string $f) use ($load) { $m = $load($f); return AutoReplyDetector::classify($m['headers'], $m['subject'], array_map(fn ($a) => $a['content_type'], $m['attachments'])); };
 
 $ok(($cls('autoresponder')['rule'] ?? '') === 'auto_submitted', 'autoresponder -> Auto-Submitted rule');
 $ok(($cls('ooo')['rule'] ?? '') === 'ooo_subject', 'out-of-office with no auto headers -> subject rule');
@@ -82,6 +82,10 @@ $ok(strpos($p['body'], 'Attachments not imported') !== false && strpos($p['body'
 $p = InboundPreparer::prepare($load('oversized_attachment'), ['max_file_bytes' => 100000, 'max_message_bytes' => 5000]);
 $ok(array_column($p['attachments'], 'name') === ['small.txt'] && count($p['rejected']) === 1, 'per-message total limit refuses the attachment that would exceed it');
 
+$d = $load('dsn');
+$ok(array_column($d['attachments'], 'content_type') === ['message/delivery-status', 'message/rfc822'] && $d['attachments'][0]['mime'] === 'text/plain', 'DSN parts: declared content type kept (Webklex getMimeType() would say text/plain)');
+$dp = InboundPreparer::prepare($d, $limits);
+$ok(strpos((string) $dp['raw_parts'][0]['content'], 'Final-Recipient: rfc822; bob@gone.example') !== false && strpos((string) $dp['raw_parts'][1]['content'], 'Subject: [TCK-0042]') !== false, 'DSN parts: delivery-status and embedded-message bodies reach the bounce parser');
 $poison = $load('poison');
 $ok($poison['message_id'] === '' && is_string($poison['subject']), 'poison fixture: parser survives, no Message-ID -> fallback key');
 

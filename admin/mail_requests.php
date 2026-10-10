@@ -45,7 +45,10 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                     <td>
                         <?= $mr_from_name ? "$mr_from_name " : '' ?><span class="text-muted">&lt;<?= $mr_from_email ?>&gt;</span>
                     </td>
-                    <td><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?></td>
+                    <td><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?>
+                        <?php if (($row['mail_request_reason'] ?? '') === 'rate_limited') { ?><span class="badge text-bg-danger ms-1" title="The sender exceeded the hourly message cap">Rate limited</span>
+                        <?php } elseif (($row['mail_request_reason'] ?? '') === 'sender_mismatch') { ?><span class="badge text-bg-warning ms-1" title="Reply to a ticket by someone who is not its contact">Not the ticket contact</span><?php } ?>
+                    </td>
                     <td><?= $mr_mailbox_name ?: '<span class="text-muted">Unknown</span>' ?></td>
                     <td><?= $mr_received_at ?></td>
                     <td>

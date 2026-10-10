@@ -571,3 +571,53 @@ if (isset($_POST['add_verified_mailbox'])) {
     flash_alert("Mailbox <strong>$name</strong> ($email) added and connected. Edit it to rename it or set a default department.");
     redirect("mailbox.php");
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Mail intake reliability: settings, quarantined-message actions, health reset. (Page: admin/mailbox.php, docs/MAIL_INTAKE.md)
+// ---------------------------------------------------------------------------------------------------------------------
+
+if (isset($_POST['save_mail_intake_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+
+    $changed = [];
+    foreach (array_keys(\ITFlow\Mail\MailSettings::DEFAULTS) as $setting_key) {
+        // A checkbox is absent when unchecked; every other field is always submitted.
+        if ($setting_key === 'clamav_enabled') {
+            $posted = isset($_POST['clamav_enabled']) ? '1' : '0';
+        } elseif (isset($_POST[$setting_key])) {
+            $posted = (string) $_POST[$setting_key];
+        } else {
+            continue;
+        }
+        try {
+            $stored = \ITFlow\Mail\MailSettings::set($mysqli, $setting_key, $posted);
+            $changed[] = "$setting_key=" . ($setting_key === 'alert_email' ? '(set)' : $stored);
+        } catch (\InvalidArgumentException $e) {
+            flash_alert(nullable_htmlentities($e->getMessage()), 'error');
+            redirect("mailbox.php");
+        }
+    }
+
+    logAction("Mailbox", "Edit", "$session_name changed the mail intake settings (" . implode(', ', $changed) . ")", 0, 0);
+
+    flash_alert("Mail intake settings saved");
+    redirect("mailbox.php");
+}
+
+if (isset($_GET['reset_intake_attempts']) || isset($_GET['dismiss_intake'])) {
+    validateCSRFToken($_GET['csrf_token']);
+
+    $intake_store = new \ITFlow\Mail\IntakeStore($mysqli);
+    if (isset($_GET['reset_intake_attempts'])) {
+        $intake_id = intval($_GET['reset_intake_attempts']);
+        $intake_store->release($intake_id);
+        logAction("Mailbox", "Edit", "$session_name reset the attempt counter of quarantined message #$intake_id", 0, $intake_id);
+        flash_alert("Attempt counter reset. Move the message back to the Inbox as unread and it will be tried again.");
+    } else {
+        $intake_id = intval($_GET['dismiss_intake']);
+        $intake_store->discard($intake_id);
+        logAction("Mailbox", "Delete", "$session_name dismissed quarantined message #$intake_id", 0, $intake_id);
+        flash_alert("Quarantine entry dismissed", 'error');
+    }
+    redirect("mailbox.php");
+}
