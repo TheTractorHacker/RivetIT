@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.30] RivetIT — Security hardening, mail intake reliability, backup alerts and restore drill
+
 Wave 1 of the platform plan: mail intake reliability, security hardening and recovery. Three database steps run as one chain after 2.6.151
 (training kiosk fleet links): **2.6.152** mail intake, **2.6.153** security (gated on 2.6.152), **2.6.154** recovery (gated on 2.6.153).
 `db.sql` carries all three; a fresh import and an install migrated from 2.6.150 end with identical schemas.
