@@ -159,7 +159,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     </a>
 
                                     <!-- Show force resend if all retries have failed -->
-                                    <?php if ($email_status == 2 && $email_attempts > 3) { ?>
+                                    <?php if ($email_status == 2 && $email_attempts >= \ITFlow\Mail\MailQueuePolicy::MAX_ATTEMPTS) { ?>
                                         <a class="btn btn-sm btn-success" href="post.php?send_failed_mail=<?php echo $email_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-paper-plane"></i></a>
                                     <?php } ?>
 

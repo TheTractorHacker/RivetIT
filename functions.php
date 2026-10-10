@@ -3422,6 +3422,20 @@ function addToMailQueue($data) {
         $body = strval($email['body']);
         $cal_str = isset($email['cal_str']) ? strval($email['cal_str']) : '';
 
+        // Every queued message gets its own Message-ID (stored, and sent as the Message-ID header by cron/mail_queue.php) so a
+        // customer's reply, which carries it in In-Reply-To/References, threads back to the ticket without relying on the subject.
+        // email_ticket_id comes from the caller, else from the [PREFIX123] token in the subject. email_auto marks machine-generated
+        // mail (Auto-Submitted / X-Auto-Response-Suppress headers); everything this queue carries is, unless a caller says otherwise.
+        $message_id = \ITFlow\Mail\MessageId::generate($from);
+        $ticket_id = isset($email['ticket_id']) ? intval($email['ticket_id']) : 0;
+        if ($ticket_id === 0 && !empty($GLOBALS['config_ticket_prefix']) && preg_match('/\[' . preg_quote($GLOBALS['config_ticket_prefix'], '/') . '(\d+)\]/', $subject, $tm)) {
+            $tn = intval($tm[1]);
+            $trow = mysqli_fetch_row(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_number = $tn LIMIT 1"));
+            $ticket_id = $trow ? intval($trow[0]) : 0;
+        }
+        $ticket_id_param = $ticket_id > 0 ? $ticket_id : null;
+        $auto = array_key_exists('auto', $email) ? ($email['auto'] ? 1 : 0) : 1;
+
         // Bound parameters (not raw string interpolation) since email bodies
         // routinely contain unescaped HTML attribute quotes (e.g. <a href='...'>)
         // and names/subjects routinely contain apostrophes (e.g. "O'Brien") -
@@ -3431,18 +3445,18 @@ function addToMailQueue($data) {
         if (isset($email['queued_at']) && !empty($email['queued_at'])) {
             $queued_at = sanitizeInput($email['queued_at']);
             $stmt = mysqli_prepare($mysqli, "INSERT INTO email_queue
-                (email_recipient, email_recipient_name, email_from, email_from_name, email_subject, email_content, email_queued_at, email_cal_str)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt, 'ssssssss', $recipient, $recipient_name, $from, $from_name, $subject, $body, $queued_at, $cal_str);
+                (email_recipient, email_recipient_name, email_from, email_from_name, email_subject, email_content, email_queued_at, email_cal_str, email_message_id, email_ticket_id, email_auto)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, 'sssssssssii', $recipient, $recipient_name, $from, $from_name, $subject, $body, $queued_at, $cal_str, $message_id, $ticket_id_param, $auto);
         } else {
             // No explicit queued_at - use the DB server's own clock (CURRENT_TIMESTAMP(),
             // a literal SQL function call, not user data - safe to inline) rather than
             // PHP's, since the two can run in different timezones and a PHP-side
             // timestamp risks silently delaying delivery until the DB clock catches up.
             $stmt = mysqli_prepare($mysqli, "INSERT INTO email_queue
-                (email_recipient, email_recipient_name, email_from, email_from_name, email_subject, email_content, email_queued_at, email_cal_str)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(), ?)");
-            mysqli_stmt_bind_param($stmt, 'sssssss', $recipient, $recipient_name, $from, $from_name, $subject, $body, $cal_str);
+                (email_recipient, email_recipient_name, email_from, email_from_name, email_subject, email_content, email_queued_at, email_cal_str, email_message_id, email_ticket_id, email_auto)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(), ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, 'ssssssssii', $recipient, $recipient_name, $from, $from_name, $subject, $body, $cal_str, $message_id, $ticket_id_param, $auto);
         }
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
@@ -4652,7 +4666,7 @@ function getAvgResolutionTimeHours($mysqli, int $year, string $extra_where = '')
     return floatval($row['avg_h'] ?? 0);
 }
 
-function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message, $attachments, $original_message_file, $ccs, $mailbox_id = null) {
+function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message, $attachments, $original_message_file, $ccs, $mailbox_id = null, $mail_message_id = null) {
     global $mysqli, $config_app_name, $config_ticket_prefix, $config_ticket_client_general_notifications, $config_ticket_new_ticket_notification_email, $config_base_url, $config_ticket_from_name, $config_ticket_from_email, $config_ticket_default_billable;
     $company = getCompanyNameAndPhone();
     $company_name = $company['name'];
@@ -4710,7 +4724,12 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
     $ticket_status = resolveTicketCreationStatus($resolved_assigned_to);
     $category_id = resolveTicketCategory(0);
 
-    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$ticket_prefix_esc', ticket_number = $ticket_number, ticket_source = 'Email', ticket_subject = '$subject_esc', ticket_details = '$message_esc', ticket_priority = 'Low', ticket_status = $ticket_status, ticket_category = $category_id, ticket_billable = $config_ticket_default_billable, ticket_created_by = 0, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_mailbox_id = $ticket_mailbox_id_sql, ticket_assigned_to = $resolved_assigned_to");
+    // Inbound Message-ID (normalised, see ITFlow\Mail\MessageId): lets a later reply thread to this ticket by In-Reply-To/References
+    // and lets the poller skip a redelivered copy of the same message.
+    $mail_message_id_norm = \ITFlow\Mail\MessageId::normalize($mail_message_id);
+    $mail_message_id_sql = $mail_message_id_norm !== '' ? "'" . mysqli_real_escape_string($mysqli, $mail_message_id_norm) . "'" : 'NULL';
+
+    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_mail_message_id = $mail_message_id_sql, ticket_prefix = '$ticket_prefix_esc', ticket_number = $ticket_number, ticket_source = 'Email', ticket_subject = '$subject_esc', ticket_details = '$message_esc', ticket_priority = 'Low', ticket_status = $ticket_status, ticket_category = $category_id, ticket_billable = $config_ticket_default_billable, ticket_created_by = 0, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_mailbox_id = $ticket_mailbox_id_sql, ticket_assigned_to = $resolved_assigned_to");
     $id = mysqli_insert_id($mysqli);
 
     // Logging
@@ -4784,7 +4803,8 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             'recipient' => $contact_email,
             'recipient_name' => $contact_name,
             'subject' => $subject_email,
-            'body' => mysqli_real_escape_string($mysqli, $body)
+            'body' => mysqli_real_escape_string($mysqli, $body),
+            'ticket_id' => $id
         ];
     }
 
@@ -4822,7 +4842,9 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
     return $id;
 }
 
-function addReply($from_email, $date, $subject, $ticket_number, $message, $attachments, $mailbox_id = null, $from_name = null, $ccs = [], $original_message_file = '') {
+// $mail_message_id is the inbound Message-ID; $meta['outcome'] reports what happened ('reply_added', 'ticket_closed',
+// 'mail_request') because the return value only says whether the message was handled and may be moved out of the inbox.
+function addReply($from_email, $date, $subject, $ticket_number, $message, $attachments, $mailbox_id = null, $from_name = null, $ccs = [], $original_message_file = '', $mail_message_id = null, array &$meta = []) {
     global $mysqli, $config_app_name, $config_ticket_prefix, $config_base_url, $config_ticket_from_name, $config_ticket_from_email;
     $company = getCompanyNameAndPhone();
     $company_name = $company['name'];
@@ -4914,11 +4936,13 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                     'recipient' => $from_email,
                     'recipient_name' => $from_email,
                     'subject' => $email_subject,
-                    'body' => mysqli_real_escape_string($mysqli, $email_body)
+                    'body' => mysqli_real_escape_string($mysqli, $email_body),
+                    'ticket_id' => $ticket_id
                 ]
             ];
 
             addToMailQueue($data);
+            $meta['outcome'] = 'ticket_closed';
             return true;
         }
 
@@ -4935,7 +4959,17 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                 // putting a guessed [PREFIX-N] in their subject. Never insert their content
                 // straight into the ticket - queue it for manual review like an unmatched
                 // sender, the same as a message that didn't match any ticket at all.
-                createMailRequestFromInbound(
+                //
+                // The same message must queue at most once: the poller used to leave it unread (return false), re-fetch it every
+                // run and add another mail_requests row each time. Now it is deduplicated by Message-ID and reported as handled
+                // so it is moved out of the inbox.
+                $mr_message_id = \ITFlow\Mail\MessageId::normalize($mail_message_id);
+                if ($mr_message_id !== '' && (new \ITFlow\Mail\IntakeStore($mysqli))->isImported($mr_message_id)) {
+                    $meta['outcome'] = 'mail_request';
+                    $meta['request_id'] = 0;
+                    return true;
+                }
+                $meta['request_id'] = createMailRequestFromInbound(
                     intval($mailbox_id),
                     $from_email,
                     $from_name ?: $from_email,
@@ -4944,13 +4978,18 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                     $date,
                     $message,
                     $attachments,
-                    $original_message_file ?: ''
+                    $original_message_file ?: '',
+                    $mail_message_id,
+                    'sender_mismatch'
                 );
-                return false;
+                $meta['outcome'] = 'mail_request';
+                return true;
             }
         }
 
-        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$message_esc', ticket_reply_type = '$ticket_reply_type', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $ticket_reply_contact, ticket_reply_ticket_id = $ticket_id");
+        $reply_mid_norm = \ITFlow\Mail\MessageId::normalize($mail_message_id);
+        $reply_mid_sql = $reply_mid_norm !== '' ? "'" . mysqli_real_escape_string($mysqli, $reply_mid_norm) . "'" : 'NULL';
+        mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$message_esc', ticket_reply_mail_message_id = $reply_mid_sql, ticket_reply_type = '$ticket_reply_type', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $ticket_reply_contact, ticket_reply_ticket_id = $ticket_id");
         $reply_id = mysqli_insert_id($mysqli);
 
         // New client email reply invalidates any cached AI summary for this ticket
@@ -5002,7 +5041,8 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                         'recipient' => $tech_email,
                         'recipient_name' => $tech_name,
                         'subject' => mysqli_real_escape_string($mysqli, $email_subject),
-                        'body' => mysqli_real_escape_string($mysqli, $email_body)
+                        'body' => mysqli_real_escape_string($mysqli, $email_body),
+                        'ticket_id' => $ticket_id
                     ]
                 ];
                 addToMailQueue($data);
@@ -5013,6 +5053,8 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
 
         logAction("Ticket", "Edit", "Email parser: Department contact $from_email_esc updated ticket $config_ticket_prefix$ticket_number_esc ($subject)", $client_id, $ticket_id);
         customAction('ticket_reply_client', $ticket_id);
+        $meta['outcome'] = 'reply_added';
+        $meta['ticket_id'] = $ticket_id;
         return true;
     } else {
         return false;
@@ -5032,7 +5074,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
 // Called from processInboundMessage() step 5 instead of addTicket(). Always succeeds
 // (returns the new mail_request_id) so the poller marks the source message read/moved -
 // otherwise it gets re-fetched and re-queued every single cron run.
-function createMailRequestFromInbound(int $mailbox_id, string $from_email, string $from_name, string $subject, array $ccs, string $received_at, string $message_body, array $attachments, string $original_message_file): int {
+function createMailRequestFromInbound(int $mailbox_id, string $from_email, string $from_name, string $subject, array $ccs, string $received_at, string $message_body, array $attachments, string $original_message_file, ?string $mail_message_id = null, ?string $reason = null): int {
     global $mysqli;
 
     $from_email_esc = mysqli_real_escape_string($mysqli, $from_email);
@@ -5042,8 +5084,13 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
     $ccs_esc = mysqli_real_escape_string($mysqli, implode(',', $ccs));
     $received_at_esc = mysqli_real_escape_string($mysqli, $received_at);
     $eml_esc = mysqli_real_escape_string($mysqli, $original_message_file);
+    $mr_mid = \ITFlow\Mail\MessageId::normalize($mail_message_id);
+    $mr_mid_sql = $mr_mid !== '' ? "'" . mysqli_real_escape_string($mysqli, $mr_mid) . "'" : 'NULL';
+    $mr_reason_sql = $reason !== null && $reason !== '' ? "'" . mysqli_real_escape_string($mysqli, substr($reason, 0, 30)) . "'" : 'NULL';
 
     mysqli_query($mysqli, "INSERT INTO mail_requests SET
+        mail_request_message_id = $mr_mid_sql,
+        mail_request_reason = $mr_reason_sql,
         mail_request_mailbox_id = " . intval($mailbox_id) . ",
         mail_request_from_email = '$from_email_esc',
         mail_request_from_name = '$from_name_esc',
@@ -5087,8 +5134,10 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
         ");
     }
 
-    logAction("Mail Request", "Create", "Email parser: unknown sender $from_email_esc queued as a request ($subject_esc)", 0, $mail_request_id);
-    appNotify("Ticket", "Email parser: unknown sender $from_email_esc sent an email - review it on the Requests page", "/admin/mail_requests.php", 0);
+    logAction("Mail Request", "Create", "Email parser: " . ($reason === 'rate_limited' ? "sender $from_email_esc over the hourly message cap" : "unknown sender $from_email_esc") . " queued as a request ($subject_esc)", 0, $mail_request_id);
+    if ($reason !== 'rate_limited') { // a flood is announced once, by the rate-limit alert, not once per message
+        appNotify("Ticket", "Email parser: " . ($reason === 'sender_mismatch' ? "$from_email_esc replied to a ticket they are not the contact of" : "unknown sender $from_email_esc sent an email") . " - review it on the Requests page", "/admin/mail_requests.php", 0);
+    }
 
     return $mail_request_id;
 }
@@ -5155,7 +5204,7 @@ function convertMailRequestToTicket(int $mail_request_id, int $client_id): ?int 
         }
     }
 
-    $ticket_id = addTicket($contact_id, $contact_name, $contact_email, $client_id, $received_at, $subject, $message_body, $attachments, $eml_filename, $ccs, $mailbox_id);
+    $ticket_id = addTicket($contact_id, $contact_name, $contact_email, $client_id, $received_at, $subject, $message_body, $attachments, $eml_filename, $ccs, $mailbox_id, $req['mail_request_message_id'] ?? null);
 
     mysqli_query($mysqli, "UPDATE mail_requests SET mail_request_archived_at = NOW(), mail_request_converted_ticket_id = " . intval($ticket_id) . " WHERE mail_request_id = $mail_request_id");
 

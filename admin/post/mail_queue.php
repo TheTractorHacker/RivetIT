@@ -8,7 +8,7 @@ if (isset($_GET['send_failed_mail'])) {
 
     $email_id = intval($_GET['send_failed_mail']);
 
-    mysqli_query($mysqli,"UPDATE email_queue SET email_status = 0, email_attempts = 3 WHERE email_id = $email_id");
+    mysqli_query($mysqli,"UPDATE email_queue SET email_status = 0, email_attempts = 0, email_alerted_at = NULL WHERE email_id = $email_id");
 
     logAction("Email", "Send", "$session_name attempted to force send email id: $email_id in the mail queue", 0, $email_id);
 
