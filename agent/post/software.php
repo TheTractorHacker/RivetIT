@@ -55,7 +55,9 @@ if (isset($_POST['add_software'])) {
     $type = sanitizeInput($_POST['type']);
     $license_type = sanitizeInput($_POST['license_type']);
     $notes = sanitizeInput($_POST['notes']);
-    $key = sanitizeInput($_POST['key']);
+    // The license key is stored wrapped (encryptSetting), like every other stored secret.
+    require_once __DIR__ . '/../../includes/security_crypto.php';
+    $key = mysqli_real_escape_string($mysqli, secWrapIfPlain(trim(strip_tags((string) ($_POST['key'] ?? '')))));
     $seats = intval($_POST['seats']);
     $purchase_reference = sanitizeInput($_POST['purchase_reference']);
     $purchase = sanitizeInput($_POST['purchase']);
@@ -118,7 +120,9 @@ if (isset($_POST['edit_software'])) {
     $type = sanitizeInput($_POST['type']);
     $license_type = sanitizeInput($_POST['license_type']);
     $notes = sanitizeInput($_POST['notes']);
-    $key = sanitizeInput($_POST['key']);
+    // The license key is stored wrapped (encryptSetting), like every other stored secret.
+    require_once __DIR__ . '/../../includes/security_crypto.php';
+    $key = mysqli_real_escape_string($mysqli, secWrapIfPlain(trim(strip_tags((string) ($_POST['key'] ?? '')))));
     $seats = intval($_POST['seats']);
     $purchase_reference = sanitizeInput($_POST['purchase_reference']);
     $purchase = sanitizeInput($_POST['purchase']);
@@ -290,7 +294,7 @@ if (isset($_POST['export_software_csv'])) {
                 $assigned_to_contacts .= $contact_row['contact_name'] . ", ";
             }
 
-            $lineData = array($row['software_name'], $row['software_version'], $row['software_description'], $row['software_type'], $row['software_license_type'], $row['software_seats'], $row['software_key'], $assigned_to_assets, $assigned_to_contacts, $row['software_purchase'], $row['software_expire'], $row['software_notes']);
+            $lineData = array($row['software_name'], $row['software_version'], $row['software_description'], $row['software_type'], $row['software_license_type'], $row['software_seats'], decryptSetting((string) ($row['software_key'] ?? '')), $assigned_to_assets, $assigned_to_contacts, $row['software_purchase'], $row['software_expire'], $row['software_notes']);
             fputcsv($f, $lineData, $delimiter, $enclosure, $escape);
         }
 

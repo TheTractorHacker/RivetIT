@@ -1515,7 +1515,7 @@ if (isset($_GET['asset_id'])) {
                                     $software_version = nullable_htmlentities($row['software_version']);
                                     $software_type = nullable_htmlentities($row['software_type']);
                                     $software_license_type = nullable_htmlentities($row['software_license_type']);
-                                    $software_key = nullable_htmlentities($row['software_key']);
+                                    $software_key = nullable_htmlentities(decryptSetting((string) ($row['software_key'] ?? '')));
                                     $software_seats = nullable_htmlentities($row['software_seats']);
                                     $software_purchase = nullable_htmlentities($row['software_purchase']);
                                     $software_expire = nullable_htmlentities($row['software_expire']);
