@@ -135,6 +135,10 @@ mysqli_query($mysqli, "DELETE FROM email_queue WHERE email_queued_at < CURDATE()
 // Clean-up old remember me tokens
 mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_created_at < CURDATE() - INTERVAL $config_login_remember_me_expire DAY");
 
+// Sign-in sessions list (Account > Security > Active sessions): forget rows that ended or went quiet over 30 days ago
+require_once dirname(__DIR__) . '/includes/security_sessions.php';
+secSessionPurge($mysqli);
+
 // SLA: make every open ticket's pause match its status (waiting-on-customer/employee/vendor statuses flagged "Pauses SLA" stop the
 // clock). Status changes made by any path - kanban, API, automation, a customer reply - are repaired here at the latest.
 try {
