@@ -219,7 +219,9 @@ if ($user) {
 // Cost must match real user hashes (this install's PASSWORD_DEFAULT resolves to bcrypt
 // cost 12, not the commonly-assumed 10) or the dummy comparison itself becomes a smaller
 // but still measurable timing oracle between valid and invalid usernames.
-$dummy_hash = '$2y$12$mCEDSkd7cWaDz5Quq.mMlOg6GgQ1yX6yubN/yr07IPX0tMnq8X0tC';
+// New and rehashed staff passwords are Argon2id (64 MiB, t=3), so the dummy for an unknown user is an Argon2id hash of the same cost.
+// An account still on its old bcrypt hash moves to Argon2id at its next successful sign-in.
+$dummy_hash = '$argon2id$v=19$m=65536,t=3,p=1$N1VaRC5XUEdVbnU5Z2UubA$C4R2R3xEKv6O2YVS6Sq6jZL+L90lDoCQBl+nigKL/t8';
 $hash_to_check = $user ? $user['user_password'] : $dummy_hash;
 $password_ok = password_verify($password, $hash_to_check);
 
@@ -240,14 +242,22 @@ if (!$user || !$password_ok) {
 // The failure counter is NOT reset by a correct password alone: with 2FA enabled the second factor must pass first,
 // otherwise the TOTP code could be brute-forced with no counting, logging or lockout (pentest IT-2).
 $uid = intval($user['user_id']);
-$totp_secret = $user['user_token'] ?? '';
+require_once __DIR__ . '/../../includes/security_crypto.php';
+require_once __DIR__ . '/../../includes/security_policy.php';
+$totp_secret = secUserTotpSecret($user['user_token'] ?? '');   // wrapped or legacy plaintext
 if (!empty($totp_secret)) {
     if (empty($totp)) {
         api_response(200, ['requires_2fa' => true]);
     }
+    // A single-use recovery code (xxxxx-xxxxx) is accepted in place of the six digit code.
+    $totp_via_recovery = secLooksLikeRecoveryCode($totp) && !ctype_digit($totp) && secRecoveryCodeConsume($mysqli, $uid, $totp, (string) getIP());
+    if ($totp_via_recovery) {
+        logAction('Login', 'MFA Recovery Code', "{$user['user_name']} used a MFA recovery code on mobile API login", 0, $uid);
+        \ITFlow\Audit\AuditService::record('auth.recovery_code_used', $uid, 'user', $uid, 'success', "{$user['user_name']} used a MFA recovery code (mobile API)");
+    }
     // Single use and +/-1 step (30 s either side), like the web login: an observed code cannot be replayed, and the
     // default +/-3 step window is not used on this unauthenticated endpoint.
-    if (!TokenAuth6238::verifyOnce($totp_secret, $totp, 1)) {
+    if (!$totp_via_recovery && !TokenAuth6238::verifyOnce($totp_secret, $totp, 1)) {
         mysqli_query($mysqli,
             "UPDATE users SET
                 user_failed_login_count = user_failed_login_count + 1,
@@ -258,6 +268,10 @@ if (!empty($totp_secret)) {
         api_error(401, 'Invalid 2FA code');
     }
 }
+
+// A stored hash that is out of date (bcrypt, or weaker Argon2 parameters) is replaced now that the password is known to be right.
+secPasswordRehashIfNeeded($mysqli, $uid, $password, (string) $user['user_password']);
+secUserTotpRewrap($mysqli, $uid, $user['user_token'] ?? null);
 
 // ── Reset failure counter on success (password and, when enabled, 2FA both passed) ─────
 mysqli_query($mysqli, "UPDATE users SET user_failed_login_count = 0 WHERE user_id = $uid");

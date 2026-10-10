@@ -9,6 +9,13 @@ require_once "load_company_settings.php";
 require_once "load_global_settings.php";
 require_once "detect_device_type.php";
 
+// MFA enforcement (Admin > Settings > Security > Sign-in policy, or a user's own "require MFA" flag): an agent who must have two-factor,
+// has not set it up and is out of the grace period can only reach the account pages needed to enrol. In grace, a one-time notice
+// names the deadline. Department (portal) logins are handled by client/includes/check_login.php.
+if (($session_user_type ?? 0) === 1) {
+    secMfaGate($mysqli, intval($session_user_id), itflow_request_script());
+}
+
 // Roles audit P0: a module-only (limited) login - no Departments, Tickets/assets/docs or Assets - may reach
 // only its own modules' pages, its account and its notifications (includes/module_access.php). Everyone
 // else is 'allow' here and keeps each page's own checks. Runs at the top level of every agent/admin
