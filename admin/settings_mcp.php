@@ -121,7 +121,7 @@ $csrf = $_SESSION['csrf_token'];
 
 <?php if ($oauth['builtin']) { ?>
 <div class="card mb-3">
-    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-plug-circle-check me-2"></i>Active connections <span class="badge bg-secondary"><?= count($oauth_grants) ?></span></h4></div>
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-plug me-2"></i>Active connections <span class="badge bg-secondary"><?= count($oauth_grants) ?></span></h4></div>
     <div class="card-body">
         <?php if (!$oauth_grants) { ?>
             <p class="text-muted mb-0">Nobody has connected an AI tool yet. When someone approves one, it appears here and you can end it at any time.</p>
