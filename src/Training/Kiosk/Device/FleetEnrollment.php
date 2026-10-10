@@ -108,7 +108,7 @@ final class FleetEnrollment
                     $note = 'matched';
                 } elseif (count($hits) > 1) {
                     $note = 'ambiguous';
-                } elseif (Db::one($db, 'SELECT asset_id FROM assets WHERE TRIM(asset_serial) = ? AND asset_archived_at IS NULL LIMIT 1', 's', [$sn]) !== null) {
+                } elseif (Db::one($db, 'SELECT asset_id FROM assets WHERE TRIM(asset_serial) = ? AND asset_client_id <> ? AND asset_archived_at IS NULL LIMIT 1', 'si', [$sn, $clientId]) !== null) {
                     $note = 'other_department';
                 }
             }
