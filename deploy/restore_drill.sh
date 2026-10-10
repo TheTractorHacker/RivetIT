@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-APP_DIR=""; PASSPHRASE_FILE=""; BACKUP_FILE=""; DEST=""; PHP_BIN="php"
+APP_DIR=""; PASSPHRASE_FILE=""; BACKUP_FILE=""; DEST=""; PHP_BIN="php"; KEY_FILE=""
 LOG_FILE="${DRILL_LOG_FILE:-/var/log/itflow-restore-drill.log}"
 
 print_help() {
@@ -37,6 +37,9 @@ Required:
 Options:
   --backup=<file>            Drill this archive instead of the newest in --dest.
   --dest=<dir>               Where the archives are. Default: <app-dir>/backups.
+  --settings-key-file=<file> The backup-<db>-<ts>.settings-key file backup.sh wrote for this archive. Default: the file with the
+                             same name next to the archive, if present. The drill checks that it matches the archive's manifest
+                             fingerprint; without it the drill compares the manifest with this installation's current key.
   --php=<bin>                PHP CLI to use. Default: php.
 The scoped drill_% database account must be set up first: see docs/RECOVERY_RUNBOOK.md.
 HELP
@@ -49,6 +52,7 @@ for arg in "$@"; do
         --backup=*)          BACKUP_FILE="${arg#*=}" ;;
         --dest=*)            DEST="${arg#*=}" ;;
         --php=*)             PHP_BIN="${arg#*=}" ;;
+        --settings-key-file=*) KEY_FILE="${arg#*=}" ;;
         --help|-h)           print_help; exit 0 ;;
         *)                   print_help; die "Unknown option: ${arg}" ;;
     esac
@@ -91,9 +95,10 @@ fi
 # 3. decrypt + unpack into a private directory (shredded by the shared EXIT trap)
 WORK="$(mktemp -d)"; chmod 700 "${WORK}"; register_tmpfile "${WORK}"
 COMBINED="${WORK}/combined.tar.gz"
-# Same cipher as deploy/backup.sh / restore.sh. Newer archives may carry a raised PBKDF2 iteration count, so try the known sets in order.
+# Same cipher as deploy/backup.sh / restore.sh: current archives use -iter 600000, archives from before that use openssl's default,
+# so try the known sets in that order.
 decrypted=0
-for extra in "" "-iter 600000"; do
+for extra in "-iter 600000" ""; do
     # shellcheck disable=SC2086
     if openssl enc -d -aes-256-cbc -pbkdf2 ${extra} -in "${BACKUP_FILE}" -out "${COMBINED}" -pass file:"${PASSPHRASE_FILE}" 2>/dev/null \
         && tar -tzf "${COMBINED}" >/dev/null 2>&1; then
@@ -107,8 +112,15 @@ shred -u "${COMBINED}" 2>/dev/null || rm -f "${COMBINED}"
 success "Decrypted and unpacked."
 
 # 4. the drill itself (PHP does the restore into the scratch database and every check)
+# The settings key travels apart from the archive (backup-<db>-<ts>.settings-key, see backup.sh); use it when it is next to the archive.
+[[ -n "${KEY_FILE}" ]] || { cand="${BACKUP_FILE%.tar.gz.enc}.settings-key"; [[ -f "${cand}" ]] && KEY_FILE="${cand}"; }
+KEY_ARGS=()
+if [[ -n "${KEY_FILE}" ]]; then
+    [[ -f "${KEY_FILE}" ]] || die "--settings-key-file '${KEY_FILE}' does not exist."
+    KEY_ARGS=(--settings-key-file="${KEY_FILE}")
+fi
 set +e
-"${PHP_BIN}" "${APP_DIR}/cron/restore_drill.php" --trigger=script --extracted-dir="${UNPACKED}" --source-name="${NAME}" --source-mtime="${MTIME}"
+"${PHP_BIN}" "${APP_DIR}/cron/restore_drill.php" --trigger=script --extracted-dir="${UNPACKED}" --source-name="${NAME}" --source-mtime="${MTIME}" "${KEY_ARGS[@]}"
 rc=$?
 set -e
 exit "${rc}"

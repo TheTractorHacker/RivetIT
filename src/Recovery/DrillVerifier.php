@@ -210,6 +210,46 @@ final class DrillVerifier
         return self::check('secret', 'Sample secret decrypts', self::PASS, 'a stored secret' . ($column ? " ($column)" : '') . ' decrypted with the current key');
     }
 
+    /**
+     * The settings-key manifest of the backup against the key that is available to this run.
+     *
+     * $m: ['state' => 'none'|'undecryptable'|'ok', 'fingerprint' => ?string, 'key' => ?string] read from the archive's manifest
+     *     (state "undecryptable" = the manifest is encrypted and the passphrase available to this run did not open it).
+     * $suppliedKey: key from a deploy/backup.sh .settings-key file (null when none was supplied). $liveKey: this installation's key.
+     * $fp: fingerprint function (backup_settings_key_fingerprint).
+     */
+    public static function checkKey(array $m, ?string $suppliedKey, string $liveKey, callable $fp): array
+    {
+        $label = 'Settings key for this backup';
+        $state = $m['state'] ?? 'none';
+        if ($state === 'none') {
+            return self::check('key', $label, self::SKIP, 'this archive carries no key manifest');
+        }
+        if ($state === 'undecryptable') {
+            return self::check('key', $label, self::FAIL, 'the key manifest could not be opened with the backup passphrase available to this run - a restore needs the right passphrase; check it against your escrow copy');
+        }
+        $backupFp = (string) ($m['fingerprint'] ?? '');
+        if (($m['key'] ?? '') !== '') {
+            $backupFp = $fp((string) $m['key']);
+        }
+        if ($backupFp === '') {
+            return self::check('key', $label, self::SKIP, 'the backup was taken without a settings key');
+        }
+        if ($suppliedKey !== null && $suppliedKey !== '') {
+            return hash_equals($backupFp, $fp($suppliedKey))
+                ? self::check('key', $label, self::PASS, 'the supplied settings-key file matches this archive (fingerprint ' . $backupFp . ')')
+                : self::check('key', $label, self::FAIL, 'the supplied settings-key file does NOT match this archive (fingerprint ' . $backupFp . ') - this backup could not be restored with it');
+        }
+        if ($liveKey === '') {
+            return self::check('key', $label, self::WARN, 'no settings key available to compare (fingerprint ' . $backupFp . ')');
+        }
+        if (hash_equals($backupFp, $fp($liveKey))) {
+            return self::check('key', $label, self::PASS, ($m['key'] ?? '') !== '' ? 'the key stored in the encrypted manifest matches the current settings key' : 'the current settings key matches the archive fingerprint');
+        }
+
+        return self::check('key', $label, self::WARN, 'the archive was made with a different settings key than this installation uses now (key rotated or restored elsewhere); keep the matching key');
+    }
+
     public static function checkUploads(?int $entries, int $sampled, int $badSamples, bool $liveHasFiles): array
     {
         if ($entries === null) {

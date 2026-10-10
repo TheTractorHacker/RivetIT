@@ -14,7 +14,7 @@
  *   php cron/restore_drill.php                      nightly run; does nothing while the drill is switched off
  *   php cron/restore_drill.php --force              run now even if switched off (the "Run drill now" button uses this)
  *   php cron/restore_drill.php --trigger=script --fail="<reason>" --source-name=<file>      record that an archive was unusable (checksum / decrypt)
- *   php cron/restore_drill.php --trigger=script --extracted-dir=<dir> --source-name=<backup-*.tar.gz.enc> [--source-mtime=<epoch>]
+ *   php cron/restore_drill.php --trigger=script --extracted-dir=<dir> --source-name=<backup-*.tar.gz.enc> [--source-mtime=<epoch>] [--settings-key-file=<file>]
  *                                                   verify an already decrypted+unpacked deploy/backup.sh archive
  *                                                   (called by deploy/restore_drill.sh as root)
  *
@@ -33,7 +33,12 @@ require_once "../includes/inc_set_timezone.php";
 require_once "../functions.php";
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-$opts = getopt('', ['force', 'trigger::', 'extracted-dir::', 'source-name::', 'source-mtime::', 'fail::']);
+require_once dirname(__DIR__) . '/includes/backup_cron_settings.php';
+// The saved backup passphrase opens the encrypted key manifest inside in-app zips (the drill compares its key with the current one).
+$settingsRow = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM settings WHERE company_id = 1")) ?: [];
+rivetit_load_backup_cron_settings($settingsRow);
+
+$opts = getopt('', ['force', 'trigger::', 'extracted-dir::', 'source-name::', 'source-mtime::', 'fail::', 'settings-key-file::']);
 $force = array_key_exists('force', $opts);
 $trigger = in_array($opts['trigger'] ?? 'cron', ['cron', 'manual', 'script'], true) ? $opts['trigger'] ?? 'cron' : 'cron';
 $stamp = fn () => gmdate('Y-m-d\TH:i:s\Z');
@@ -49,6 +54,16 @@ if (!empty($opts['extracted-dir'])) {
     $drillOpts['source_name'] = (string) ($opts['source-name'] ?? 'backup.enc');
     if (isset($opts['source-mtime'])) {
         $drillOpts['source_mtime'] = (int) $opts['source-mtime'];
+    }
+}
+
+if (!empty($opts['settings-key-file']) && is_readable((string) $opts['settings-key-file'])) {
+    // deploy/backup.sh writes the key to backup-<db>-<ts>.settings-key: '#' comment lines, then the key on its own line.
+    foreach ((array) file((string) $opts['settings-key-file'], FILE_IGNORE_NEW_LINES) as $line) {
+        if ($line !== '' && $line[0] !== '#') {
+            $drillOpts['settings_key'] = $line;
+            break;
+        }
     }
 }
 

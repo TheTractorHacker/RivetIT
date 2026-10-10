@@ -62,6 +62,11 @@ $ok(V::checkLedger(null, $h, ['ok' => false, 'breaks' => [['kind' => 'chain', 's
 $ok(V::checkLedger(null, $h, ['ok' => false, 'breaks' => [], 'checked' => 9])['status'] === 'warn', 'an unfinished walk warns');
 $ok(V::checkLedger(null, null, null)['status'] === 'skip', 'no ledger skips');
 $ok(V::checkSecret(true, 'smtp-pass', 'config_smtp_password')['status'] === 'pass' && V::checkSecret(true, '', 'c')['status'] === 'fail' && V::checkSecret(false, null)['status'] === 'skip', 'secret decrypt pass / fail / skip');
+$fpk = fn (string $k) => RestoreDrill::keyFingerprint($k);
+$ok(V::checkKey(['state' => 'none'], null, 'k', $fpk)['status'] === 'skip' && V::checkKey(['state' => 'undecryptable'], null, 'k', $fpk)['status'] === 'fail', 'key check: no manifest skips, an unopenable manifest fails');
+$ok(V::checkKey(['state' => 'ok', 'key' => 'k', 'fingerprint' => $fpk('k')], null, 'k', $fpk)['status'] === 'pass' && V::checkKey(['state' => 'ok', 'key' => 'k', 'fingerprint' => $fpk('k')], null, 'other', $fpk)['status'] === 'warn', 'key check: key inside the manifest vs the current key (pass / warn)');
+$ok(V::checkKey(['state' => 'ok', 'fingerprint' => $fpk('k')], 'k', 'other', $fpk)['status'] === 'pass' && V::checkKey(['state' => 'ok', 'fingerprint' => $fpk('k')], 'x', 'k', $fpk)['status'] === 'fail' && V::checkKey(['state' => 'ok', 'fingerprint' => $fpk('k')], null, 'k', $fpk)['status'] === 'pass', 'key check: fingerprint-only manifest, supplied key file decides (pass / fail), else the current key');
+$ok(RestoreDrill::keyFingerprint('abc') === substr(hash('sha256', 'rivetit-settings-key-fingerprint|v1|abc'), 0, 16) && RestoreDrill::keyFingerprint('') === '', 'key fingerprint formula matches backup.sh and backup_settings_key_fingerprint()');
 $ok(V::checkUploads(10, 5, 0, true)['status'] === 'pass' && V::checkUploads(10, 5, 1, true)['status'] === 'fail' && V::checkUploads(null, 0, 0, true)['status'] === 'fail'
     && V::checkUploads(0, 0, 0, true)['status'] === 'warn' && V::checkUploads(0, 0, 0, false)['status'] === 'pass', 'uploads check rules');
 $mk = fn (string ...$s) => array_map(fn ($x) => ['status' => $x, 'label' => $x, 'detail' => ''], $s);
@@ -206,7 +211,7 @@ if (!$drillUser) { echo "SKIP  drill end-to-end (no RIVETIT_TEST_DRILL_USER)\n";
 $reset();
 define('FROM_POST_HANDLER', true);
 $_SERVER['DOCUMENT_ROOT'] = $tmpRoot;
-$GLOBALS['installation_id'] = 'test-install'; $GLOBALS['config_settings_enc_key'] = 'test-key'; $GLOBALS['config_backup_passphrase'] = '';
+$GLOBALS['installation_id'] = 'test-install'; $GLOBALS['config_settings_enc_key'] = 'test-key'; $GLOBALS['config_backup_passphrase'] = 'drill-test-passphrase-0123456789';   // build_backup() refuses without a 16+ character passphrase (Wave 1 security)
 $appRoot = realpath(__DIR__ . '/..');
 define('CURRENT_DATABASE_VERSION', (string) $one("SELECT config_current_database_version FROM settings WHERE company_id = 1"));
 chdir($appRoot . '/admin');
@@ -227,7 +232,7 @@ $zip = new ZipArchive(); $zip->open($res['path']);
 $snap = json_decode((string) $zip->getFromName(TableSnapshot::ENTRY), true);
 $names = []; for ($i = 0; $i < $zip->numFiles; $i++) { $names[] = $zip->getNameIndex($i); }
 $zip->close();
-$ok(in_array('db.sql', $names) && in_array('uploads.zip', $names) && in_array('version.txt', $names) && in_array('backup-manifest.json', $names), 'the backup keeps its existing entries');
+$ok(in_array('db.sql', $names) && in_array('uploads.zip', $names) && in_array('version.txt', $names) && in_array('backup-manifest.json.enc', $names) && !in_array('backup-manifest.json', $names), 'the backup keeps its existing entries (the key manifest is encrypted with the backup passphrase)');
 $ok(($snap['core_counts']['clients'] ?? null) === 40 && isset($snap['tables']['settings']) && ($snap['snapshot_version'] ?? 0) === 1, 'the backup carries a table snapshot with exact core counts');
 $ok(!str_contains(json_encode($snap), 'test-key') && !str_contains(json_encode($snap), $secretPlain), 'the snapshot holds no secrets');
 
@@ -249,6 +254,12 @@ $row = $mysqli->query("SELECT * FROM restore_drill_log ORDER BY drill_id DESC LI
 $ok($row['drill_status'] === 'pass' && $row['drill_backup_file'] === $res['name'] && $row['drill_restore_seconds'] > 0 && $row['drill_cleanup_ok'] === '1' && $row['drill_scratch_db'] === 'drill_' . date('Ymd')
     && count(json_decode($row['drill_checks'], true)['checks']) >= 8, 'restore_drill_log has the result (file, seconds, scratch db name, checks)');
 $ok($GLOBALS['notified'] === [], 'a passing drill raises no alert');
+$ok($st($r['checks'], 'key') === 'pass', 'DRILL opens the encrypted key manifest with the saved passphrase and finds the current settings key in it');
+$rk = (new RestoreDrill($mysqli, $appRoot, ['passphrase' => 'not-the-passphrase-at-all'] + $dopts))->run();
+$ok($rk['status'] === 'fail' && $st($rk['checks'], 'key') === 'fail', 'DRILL fails when the saved backup passphrase no longer opens the key manifest');
+$rk = (new RestoreDrill($mysqli, $appRoot, ['live_settings_key' => 'a-rotated-key'] + $dopts))->run();
+$ok($rk['status'] === 'warn' && $st($rk['checks'], 'key') === 'warn', 'DRILL warns (not fails) when the backup was made with a different settings key than the one in use now');
+$GLOBALS['notified'] = []; $GLOBALS['events'] = []; $GLOBALS['mailed'] = [];
 
 // ledger anchor: bump the live head AFTER the backup was taken -> still the backup's own head restored, so a pass; then tamper the db.sql head instead
 // (a) tampered db.sql: change the SQL text but keep version.txt -> checksum + (maybe) rows fail
@@ -329,9 +340,14 @@ $ok($one("SELECT COUNT(*) FROM clients") === '40' && $one("SELECT COUNT(*) FROM 
 // deploy/backup.sh style directory source (decrypted tar unpacked by deploy/restore_drill.sh)
 $dir = $tmpRoot . '/unpacked'; mkdir($dir . '/uploads/sub', 0700, true);
 $z = new ZipArchive(); $z->open($res['path']); file_put_contents($dir . '/backup-test-20261009T000000Z.sql', $z->getFromName('db.sql')); file_put_contents($dir . '/table-snapshot.json', $z->getFromName('table-snapshot.json')); $z->close();
-file_put_contents($dir . '/uploads/sub/a.txt', 'hello'); file_put_contents($dir . '/backup-manifest.json', '{}');
+file_put_contents($dir . '/uploads/sub/a.txt', 'hello');
+file_put_contents($dir . '/backup-manifest.json', json_encode(['schema_version' => 2, 'settings_enc_key_fingerprint' => \ITFlow\Recovery\RestoreDrill::keyFingerprint('test-key')]));   // deploy/backup.sh: fingerprint only, never the key
 $r = (new RestoreDrill($mysqli, $appRoot, ['extracted_dir' => $dir, 'source_name' => 'backup-test-20261009T000000Z.tar.gz.enc'] + $dopts))->run();
 $ok($r['status'] === 'pass' && $r['backup_kind'] === 'enc' && $r['backup_file'] === 'backup-test-20261009T000000Z.tar.gz.enc' && $st($r['checks'], 'row_counts') === 'pass' && $drillDbs() === [], 'DRILL on an unpacked deploy/backup.sh archive passes and is logged as kind enc');
+$r = (new RestoreDrill($mysqli, $appRoot, ['extracted_dir' => $dir, 'source_name' => 'backup-test-20261009T000000Z.tar.gz.enc', 'settings_key' => 'test-key'] + $dopts))->run();
+$ok($r['status'] === 'pass' && $st($r['checks'], 'key') === 'pass', 'a .settings-key file that matches the archive fingerprint passes the key check');
+$r = (new RestoreDrill($mysqli, $appRoot, ['extracted_dir' => $dir, 'source_name' => 'backup-test-20261009T000000Z.tar.gz.enc', 'settings_key' => 'some-other-key'] + $dopts))->run();
+$ok($r['status'] === 'fail' && $st($r['checks'], 'key') === 'fail', 'a .settings-key file that does NOT match the archive fingerprint fails the drill');
 
 // -- Compliance check "restore tested in last 35 days"
 $cat = new \ITFlow\Compliance\ComplianceCatalog($mysqli, $appRoot, []);

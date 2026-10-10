@@ -72,14 +72,20 @@ $ok($col('mailboxes', 'mailbox_last_success_at') && $col('mailboxes', 'mailbox_c
 $ok((int) $one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('mail_intake_state','mail_intake_settings','mail_alerts')") === 3, 'schema: intake tables exist');
 
 $src = file_get_contents("$root/admin/database_updates.php");
-$block = substr($src, strpos($src, "if (\$rivetit_db_version() == '2.6.151')"));
-$ok(strpos($block, "== '2.6.151'") !== false && strpos($block, "'2.6.152'") !== false, 'migration block is gated on 2.6.151 and sets 2.6.152');
+// Only the intake block (brace-aware): later blocks (security 2.6.153, recovery 2.6.154) follow it in the file.
+$start = strpos($src, "if (\$rivetit_db_version() == '2.6.151')");
+$depth = 0; $end = $start;
+for ($i = strpos($src, '{', $start), $n = strlen($src); $i < $n; $i++) {
+    if ($src[$i] === '{') { $depth++; } elseif ($src[$i] === '}' && --$depth === 0) { $end = $i + 1; break; }
+}
+$block = substr($src, $start, $end - $start);
+$ok(strpos($block, "== '2.6.151'") !== false && strpos($block, "'2.6.152'") !== false && strpos($block, "'2.6.153'") === false, 'migration block is gated on 2.6.151 and sets 2.6.152');
 $q("UPDATE settings SET config_current_database_version = '2.6.151' WHERE company_id = 1");
 $rivetit_db_version = static function () use ($mysqli): string { return (string) mysqli_fetch_row(mysqli_query($mysqli, "SELECT config_current_database_version FROM settings WHERE company_id=1"))[0]; };
 $before = (int) $one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()");
 eval($block); // second run over an already-migrated schema must be a no-op
 $ok($rivetit_db_version() === '2.6.152' && (int) $one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE()") === $before, 'migration is idempotent (re-run changes nothing, ends at 2.6.152)');
-$ok(trim(substr(file_get_contents("$root/includes/database_version.php"), -40)) !== '' && strpos(file_get_contents("$root/includes/database_version.php"), '"2.6.152"') !== false, 'LATEST_DATABASE_VERSION is 2.6.152');
+$ok(trim(substr(file_get_contents("$root/includes/database_version.php"), -40)) !== '' && preg_match('/"(\d+\.\d+\.\d+)"/', (string) file_get_contents("$root/includes/database_version.php"), $lv) && version_compare($lv[1], '2.6.152', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.152');
 
 // ---- MailSettings ----------------------------------------------------------------------------------------------------
 $ok(MailSettings::int($db, 'rate_cap_per_hour') === 20 && MailSettings::int($db, 'poison_max_attempts') === 3 && MailSettings::int($db, 'max_attachment_mb') === 25

@@ -126,9 +126,9 @@ $resetVersion = function (string $v) use ($q) { $q("UPDATE settings SET config_c
 $q("UPDATE settings SET " . implode(',', $set) . " WHERE company_id=1");
 $q("UPDATE software SET software_key='LICENSE-CCCC' WHERE software_id=$swId");
 $q("UPDATE users SET user_token='$seed' WHERE user_id=$u1");
-$resetVersion('2.6.151');
+$resetVersion('2.6.152');
 [$c, $out] = sec_sh($cli);
-$ok($c === 0 && (string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === '2.6.153', 'the updater ran the 2.6.153 step from 2.6.151');
+$ok($c === 0 && version_compare((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1"), '2.6.153', '>='), 'the updater ran the 2.6.153 step from 2.6.152 (later steps follow)');
 $row = $rows("SELECT * FROM settings WHERE company_id=1")[0];
 $allWrapped = true; foreach ($plain as $c2 => $v) { $allWrapped = $allWrapped && secIsWrapped($row[$c2]) && decryptSetting($row[$c2]) === $v; }
 $ok($allWrapped, 'DB update 2.6.153 wrapped every straggler settings column');
@@ -136,7 +136,7 @@ $ok(decryptSetting($one("SELECT software_key FROM software WHERE software_id=$sw
 $ok(secUserTotpSecret($one("SELECT user_token FROM users WHERE user_id=$u1")) === $seed && secIsWrapped($one("SELECT user_token FROM users WHERE user_id=$u1")), 'DB update 2.6.153 wrapped the TOTP seed');
 $snap = $rows("SELECT config_slack_bot_token, config_login_key_secret, config_smtp_password FROM settings WHERE company_id=1")[0];
 $snapUser = $one("SELECT user_token FROM users WHERE user_id=$u1");
-$resetVersion('2.6.151');
+$resetVersion('2.6.152');
 sec_sh($cli);
 $ok($rows("SELECT config_slack_bot_token, config_login_key_secret, config_smtp_password FROM settings WHERE company_id=1")[0] === $snap && $one("SELECT user_token FROM users WHERE user_id=$u1") === $snapUser, 'running the step again leaves wrapped rows byte-identical (idempotent)');
 $ok((int) $one("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('security_settings','user_recovery_codes','user_sessions')") === 3, 'the step created security_settings, user_recovery_codes and user_sessions');
@@ -145,7 +145,7 @@ $ok((int) $one("SELECT config_login_session_lifetime FROM settings WHERE company
 // the step with no key: data untouched, version still advances, a notice is printed
 $q("UPDATE settings SET config_slack_bot_token='xoxb-nokey-token' WHERE company_id=1");
 $q("UPDATE users SET user_token='$seed' WHERE user_id=$u1");
-$resetVersion('2.6.151');
+$resetVersion('2.6.152');
 $cfgPath = "$root/config.php";
 $cfgOrig = file_get_contents($cfgPath);
 file_put_contents($cfgPath, $cfgOrig . "\n\$config_settings_enc_key = '';\n");
@@ -153,6 +153,11 @@ file_put_contents($cfgPath, $cfgOrig . "\n\$config_settings_enc_key = '';\n");
 file_put_contents($cfgPath, $cfgOrig);
 $ok($c === 0 && str_contains($out, 'NOT re-wrapped'), 'with an empty key the step prints that it did not re-wrap');
 $ok($one("SELECT config_slack_bot_token FROM settings WHERE company_id=1") === 'xoxb-nokey-token' && $one("SELECT user_token FROM users WHERE user_id=$u1") === $seed, 'with an empty key the stored secrets are untouched');
+
+// the mail queue cron stores refreshed OAuth tokens wrapped (it used to write them in plaintext)
+$mq = (string) file_get_contents("$root/cron/mail_queue.php");
+$a = (int) strpos($mq, 'function persistMailOauthTokens'); $fn = substr($mq, $a, (int) strpos($mq, 'function refreshMailOauthAccessToken') - $a);
+$ok(substr_count($fn, 'encryptSetting($') === 2 && !preg_match('/mysqli_real_escape_string\(\$mysqli, \$(access|refresh)_token\)/', $fn), 'cron/mail_queue.php persistMailOauthTokens() wraps both the access and the refresh token');
 
 // cleanup
 $q("DELETE FROM software WHERE software_name='sec-crypto'");

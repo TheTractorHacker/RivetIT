@@ -262,6 +262,8 @@ final class RestoreDrill
 
         $checks[] = $this->ledgerCheck($facts['parsed'], $restoredTables);
         $checks[] = $this->secretCheck($restoredTables);
+        $checks[] = DrillVerifier::checkKey($facts['manifest'] ?? ['state' => 'none'], $this->opts['settings_key'] ?? null,
+            (string) ($this->opts['live_settings_key'] ?? ($GLOBALS['config_settings_enc_key'] ?? '')), [self::class, 'keyFingerprint']);
         $checks[] = $facts['uploads_check'];
 
         $result['checks'] = $checks;
@@ -326,8 +328,12 @@ final class RestoreDrill
         $parsed = DrillVerifier::parseVersionTxt($version);
         $snapshot = isset($names[TableSnapshot::ENTRY]) ? json_decode((string) $zip->getFromName(TableSnapshot::ENTRY), true) : null;
         $note = 'opened ' . basename($path) . ' (' . count($names) . ' entries)';
-        $hasManifest = isset($names['backup-manifest.json']) || isset($names['backup-manifest.json.enc']);
-        if (!$hasManifest) {
+        $manifest = ['state' => 'none', 'fingerprint' => null, 'key' => null];
+        if (isset($names['backup-manifest.json.enc'])) {
+            $manifest = $this->readManifest((string) $zip->getFromName('backup-manifest.json.enc'), true);
+        } elseif (isset($names['backup-manifest.json'])) {
+            $manifest = $this->readManifest((string) $zip->getFromName('backup-manifest.json'), false);
+        } else {
             $note .= '; no key manifest inside';
         }
 
@@ -351,7 +357,7 @@ final class RestoreDrill
         $zip->close();
 
         return ['sql_file' => $sqlFile, 'sql_bytes' => $sqlBytes, 'sha_db' => $shaDb, 'sha_uploads' => $shaUp, 'parsed' => $parsed,
-            'snapshot' => is_array($snapshot) ? $snapshot : [], 'archive_note' => $note, 'uploads_check' => $uploadsCheck];
+            'snapshot' => is_array($snapshot) ? $snapshot : [], 'archive_note' => $note, 'uploads_check' => $uploadsCheck, 'manifest' => $manifest];
     }
 
     /** deploy/backup.sh archive, already decrypted and unpacked by deploy/restore_drill.sh: backup-*.sql, optional table-snapshot.json, uploads/. */
@@ -385,11 +391,70 @@ final class RestoreDrill
             }
         }
         $parsed = DrillVerifier::parseVersionTxt('');
+        $manifestFile = $dir . '/backup-manifest.json';
+        $manifest = is_file($manifestFile) ? $this->readManifest((string) file_get_contents($manifestFile), false) : ['state' => 'none', 'fingerprint' => null, 'key' => null];
         $parsed['sha_db'] = null;   // the .enc is checked against its .sha256 file by deploy/restore_drill.sh before decrypting
 
         return ['sql_file' => $sqlFile, 'sql_bytes' => (int) filesize($sqlFile), 'sha_db' => $sha, 'sha_uploads' => null, 'parsed' => $parsed,
             'snapshot' => is_array($snapshot) ? $snapshot : [], 'archive_note' => 'decrypted and unpacked ' . ($result['backup_file'] ?? 'archive'),
-            'uploads_check' => DrillVerifier::checkUploads($count, count($sample), $bad, $this->liveHasUploads())];
+            'uploads_check' => DrillVerifier::checkUploads($count, count($sample), $bad, $this->liveHasUploads()), 'manifest' => $manifest];
+    }
+
+    /** Same value as backup_settings_key_fingerprint() (admin/post/backup.php) and deploy/backup.sh. */
+    public static function keyFingerprint(string $key): string
+    {
+        return $key === '' ? '' : substr(hash('sha256', 'rivetit-settings-key-fingerprint|v1|' . $key), 0, 16);
+    }
+
+    /**
+     * Read a backup manifest. A passphrase-encrypted one (in-app zips, openssl enc -aes-256-cbc -pbkdf2) is opened with the backup
+     * passphrase available to this run (opts "passphrase", else $config_backup_passphrase). Never throws: the verdict goes into the
+     * state ("ok", "undecryptable" or "none"). The key itself is only held in memory for the comparison.
+     *
+     * @return array{state:string,fingerprint:?string,key:?string}
+     */
+    private function readManifest(string $bytes, bool $encrypted): array
+    {
+        $none = ['state' => 'none', 'fingerprint' => null, 'key' => null];
+        if ($encrypted) {
+            $pass = (string) ($this->opts['passphrase'] ?? ($GLOBALS['config_backup_passphrase'] ?? ''));
+            $bytes = $pass === '' ? '' : $this->openManifest($bytes, $pass);
+            if ($bytes === '') {
+                return ['state' => 'undecryptable', 'fingerprint' => null, 'key' => null];
+            }
+        }
+        $j = json_decode($bytes, true);
+        if (!is_array($j)) {
+            return $encrypted ? ['state' => 'undecryptable', 'fingerprint' => null, 'key' => null] : $none;
+        }
+
+        return ['state' => 'ok', 'fingerprint' => isset($j['settings_enc_key_fingerprint']) ? (string) $j['settings_enc_key_fingerprint'] : null,
+            'key' => isset($j['settings_enc_key']) ? (string) $j['settings_enc_key'] : null];
+    }
+
+    private function openManifest(string $bytes, string $pass): string
+    {
+        $in = $this->work . '/manifest.enc';
+        $pf = $this->work . '/manifest.pass';
+        $out = $this->work . '/manifest.out';
+        file_put_contents($in, $bytes);
+        file_put_contents($pf, $pass);
+        @chmod($pf, 0600);
+        $plain = '';
+        foreach (['', '-iter 600000'] as $iter) {   // in-app manifests use the openssl default; deploy/backup.sh archives use 600000
+            $cmd = 'openssl enc -d -aes-256-cbc -pbkdf2 ' . $iter . ' -in ' . escapeshellarg($in) . ' -out ' . escapeshellarg($out) . ' -pass file:' . escapeshellarg($pf) . ' 2>/dev/null';
+            exec($cmd, $o, $rc);
+            $try = $rc === 0 && is_file($out) ? (string) file_get_contents($out) : '';
+            if ($try !== '' && is_array(json_decode($try, true))) {
+                $plain = $try;
+                break;
+            }
+        }
+        foreach ([$in, $pf, $out] as $f) {
+            @unlink($f);
+        }
+
+        return $plain;
     }
 
     private function uploadsCheck(string $upFile): array

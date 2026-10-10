@@ -150,14 +150,20 @@ function httpFormPost(string $url, array $fields): array {
 function persistMailOauthTokens(string $access_token, string $expires_at, ?string $refresh_token = null): void {
     global $mysqli;
 
-    $access_token_esc = mysqli_real_escape_string($mysqli, $access_token);
-    $expires_at_esc = mysqli_real_escape_string($mysqli, $expires_at);
-
-    $refresh_sql = '';
-    if (!empty($refresh_token)) {
-        $refresh_token_esc = mysqli_real_escape_string($mysqli, $refresh_token);
-        $refresh_sql = ", config_mail_oauth_refresh_token = '{$refresh_token_esc}'";
+    // Stored wrapped like every other path that writes these columns (admin/post/settings_mail.php). encryptSetting() refuses to
+    // run without $config_settings_enc_key; in that case nothing is stored (never plaintext) and the next send refreshes again.
+    try {
+        $access_token_esc = mysqli_real_escape_string($mysqli, encryptSetting($access_token));
+        $refresh_sql = '';
+        if (!empty($refresh_token)) {
+            $refresh_token_esc = mysqli_real_escape_string($mysqli, encryptSetting($refresh_token));
+            $refresh_sql = ", config_mail_oauth_refresh_token = '{$refresh_token_esc}'";
+        }
+    } catch (RuntimeException $e) {
+        error_log('mail_queue: OAuth tokens not persisted: ' . $e->getMessage());
+        return;
     }
+    $expires_at_esc = mysqli_real_escape_string($mysqli, $expires_at);
 
     mysqli_query($mysqli, "UPDATE settings SET config_mail_oauth_access_token = '{$access_token_esc}', config_mail_oauth_access_token_expires_at = '{$expires_at_esc}'{$refresh_sql} WHERE company_id = 1");
 }

@@ -46,7 +46,7 @@ webhook or event rule (Admin > Webhooks / Event rules, group "Recovery").
 | Database | yes (`db.sql`) | yes | One consistent snapshot. |
 | `uploads/` | yes (`uploads.zip`) | yes (`uploads/`) | Includes training media. |
 | `config.php` | **no** | **no** | Holds DB credentials and the settings key (KEK). Keep a copy in escrow (section 8). |
-| Settings key (`$config_settings_enc_key`) | manifest (see note) | manifest | Without it, every stored secret (SMTP/IMAP, RMM, webhooks, vault master key, TOTP) is unreadable. The security work is moving this out of the manifest: if your version stores only a fingerprint there, escrow is the only copy. |
+| Settings key (`$config_settings_enc_key`) | only inside the passphrase-encrypted `backup-manifest.json.enc` | **no**: a separate `backup-<db>-<timestamp>.settings-key` file next to the archive (0600; move it off the server); the archive manifest holds a fingerprint only | Without it, every stored secret (SMTP/IMAP, RMM, webhooks, vault master key, TOTP) is unreadable. For `backup.sh` archives the `.settings-key` file or your escrow copy is the only copy. The restore drill checks it against the archive (*Settings key for this backup*). |
 | Backup passphrase | no | no | Never inside what it protects. Escrow. |
 | Endpoint-agent binaries | no (`uploads/` only has what was uploaded there) | no | Re-publish (section 6, step 7). |
 | `backups/rmm-state/` | no (excluded) | no | A cache of the RMM switch; regenerated (step 8). |
@@ -208,7 +208,7 @@ Backups are only as recoverable as the keys that open them, and the keys must **
 
 | Secret | Why it is needed | Where it lives | Escrow |
 |---|---|---|---|
-| Settings key (`$config_settings_enc_key`, in `config.php`) | Opens every stored secret: SMTP/IMAP, RMM, webhooks, TOTP, and the vault master key wrap | `config.php` (the security work is moving it to a root-owned key file outside the web root) | Offline copy, never in the backup archive itself |
+| Settings key (`$config_settings_enc_key`, in `config.php`) | Opens every stored secret: SMTP/IMAP, RMM, webhooks, TOTP, and the vault master key wrap | `config.php` | Offline copy; `deploy/backup.sh` also writes it to a separate `.settings-key` file, never into the archive |
 | `config.php` | DB credentials, `installation_id`, the settings key | server only | Offline copy of the file or its non-default values |
 | Backup passphrase (`/etc/itflow/backup-passphrase`, and the one set on Admin > Backup) | Opens `backup-*.enc` and the manifest | root-only file; saved encrypted in settings | Offline; rotate when staff change |
 | Drill DB account | Runs the restore drill | `recovery_settings` (encrypted) | Not critical: recreate with the GRANT in section 4 |
