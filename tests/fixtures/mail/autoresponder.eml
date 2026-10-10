@@ -1,0 +1,12 @@
+Return-Path: <helpdesk@client.example>
+From: Helpdesk <helpdesk@client.example>
+To: support@msp.example
+Subject: Thanks for contacting us
+Date: Tue, 06 Oct 2026 09:00:00 +0000
+Message-ID: <auto-1@client.example>
+Auto-Submitted: auto-replied
+Precedence: auto_reply
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+We received your message and will respond within 2 business days. This is an automated message.

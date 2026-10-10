@@ -35,6 +35,20 @@ require_once "../includes/load_global_settings.php";
 // Multi-mailbox support: Webklex\PHPIMAP is used per-mailbox inside pollMailbox().
 use Webklex\PHPIMAP\ClientManager;
 
+// The parsing, dedupe, threading and health logic lives in src/Mail (unit-tested against .eml fixtures without a mailbox,
+// see tests/mail_intake_parser.php); this script wires it to IMAP / Microsoft Graph and the ticket functions.
+require_once "../vendor/autoload.php";
+use ITFlow\Mail\ClamScanner;
+use ITFlow\Mail\InboundPreparer;
+use ITFlow\Mail\InboundRouter;
+use ITFlow\Mail\IntakeStore;
+use ITFlow\Mail\MailHealth;
+use ITFlow\Mail\MailSettings;
+use ITFlow\Mail\MessageId;
+use ITFlow\Mail\MessageNormalizer;
+use ITFlow\Mail\QuotedTextStripper;
+use ITFlow\Mail\RawHeaders;
+
 $config_ticket_prefix = sanitizeInput($config_ticket_prefix);
 $config_ticket_from_name = sanitizeInput($config_ticket_from_name);
 // NOTE: unknown-sender parsing is now a per-mailbox setting (mailbox_parse_unknown_senders),
@@ -119,6 +133,8 @@ function getGoogleAccessToken(string $username, array $mailbox): ?string {
     // Need to refresh?
     if (empty($config_mail_oauth_client_id) || empty($config_mail_oauth_client_secret) || empty($refresh_token)) {
         // Nothing we can do
+        logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Google OAuth token refresh skipped - client_id/client_secret/refresh_token not fully configured in Admin > Settings > Mail.");
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Google Workspace', 'client id, client secret or refresh token is missing');
         return null;
     }
 
@@ -132,10 +148,23 @@ function getGoogleAccessToken(string $username, array $mailbox): ?string {
         ]
     );
 
-    if (!$resp['ok']) return null;
+    if (!$resp['ok']) {
+        // Surface Google's actual reason (e.g. invalid_grant: token revoked/expired, invalid_client) like the Microsoft path
+        // does, and raise the (de-duplicated) admin alert - a silent null used to hide exactly what needed fixing.
+        $err_json = json_decode($resp['body'] ?? '', true);
+        $err_detail = is_array($err_json) ? trim(($err_json['error'] ?? '') . ' ' . ($err_json['error_description'] ?? '')) : ($resp['err'] ?: (string) $resp['body']);
+        $err_detail = substr(trim((string) $err_detail) !== '' ? (string) $err_detail : 'no detail returned', 0, 500);
+        logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Google OAuth token refresh failed (HTTP {$resp['code']}): " . $err_detail);
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Google Workspace', "HTTP {$resp['code']} $err_detail");
+        return null;
+    }
 
     $json = json_decode($resp['body'], true);
-    if (!is_array($json) || empty($json['access_token'])) return null;
+    if (!is_array($json) || empty($json['access_token'])) {
+        logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Google OAuth token refresh returned no access_token despite HTTP {$resp['code']}.");
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Google Workspace', "token endpoint returned no access_token (HTTP {$resp['code']})");
+        return null;
+    }
 
     // Calculate new expiry
     $new_access_token = $json['access_token'];
@@ -176,6 +205,7 @@ function getMicrosoftAccessToken(string $username, array $mailbox): ?string {
 
     if (empty($config_mail_oauth_client_id) || empty($config_mail_oauth_client_secret) || empty($refresh_token) || empty($config_mail_oauth_tenant_id)) {
         logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Microsoft OAuth token refresh skipped - client_id/client_secret/tenant_id/refresh_token not fully configured in Admin > Settings > Mail.");
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Microsoft 365', 'client id, client secret, tenant id or refresh token is missing');
         return null;
     }
 
@@ -197,12 +227,14 @@ function getMicrosoftAccessToken(string $username, array $mailbox): ?string {
         $err_json = json_decode($resp['body'] ?? '', true);
         $err_detail = is_array($err_json) ? ($err_json['error_description'] ?? $err_json['error'] ?? $resp['body']) : $resp['body'];
         logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Microsoft OAuth token refresh failed (HTTP {$resp['code']}): " . substr((string) $err_detail, 0, 500));
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Microsoft 365', "HTTP {$resp['code']} " . substr((string) $err_detail, 0, 300));
         return null;
     }
 
     $json = json_decode($resp['body'], true);
     if (!is_array($json) || empty($json['access_token'])) {
         logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: Microsoft OAuth token refresh returned no access_token despite HTTP {$resp['code']}.");
+        MailHealth::oauthFailure($mysqli, $mailbox_id, 'Microsoft 365', "token endpoint returned no access_token (HTTP {$resp['code']})");
         return null;
     }
 
@@ -225,11 +257,20 @@ function getMicrosoftAccessToken(string $username, array $mailbox): ?string {
  * Shared classification logic (protocol-agnostic)
  *
  * Given a normalized, already-extracted message (works the same whether it
- * came from Webklex/IMAP or Microsoft Graph), decides whether it's a reply
- * to an existing ticket, a new ticket for a known contact/domain, or an
- * unknown-sender/NDR case - and calls addTicket()/addReply() accordingly.
+ * came from Webklex/IMAP or Microsoft Graph), decides what it is, in this order:
+ *   0. duplicate Message-ID           -> skipped (already imported)
+ *   1. machine-generated mail         -> auto-reply / OOO / list / our own mail looping back: logged as "suppressed",
+ *                                        never a ticket or a reply; a bounce (DSN) only notifies an admin
+ *   2. per-sender hourly cap          -> quarantined as a mail request (reason "rate limited")
+ *   3. In-Reply-To / References       -> reply to the ticket owning that Message-ID (inbound or one we sent)
+ *   4. [PREFIX-123] subject token     -> reply to that ticket
+ *   5. fuzzy subject, known contact / domain, unknown sender (mail request)
+ * and calls addTicket()/addReply() accordingly.
  * Returns whether the message was handled (true) or should stay unread/
  * flagged for manual review (false).
+ *
+ * $intake (optional): ['norm' => MessageNormalizer array, 'prep' => InboundPreparer array]. The Message-ID, headers and
+ * quote stripping come from it; without it the function behaves as before (no dedupe, threading or stripping).
  * ------------------------------------------------------------------ */
 function processInboundMessage(
     int $mailbox_id,
@@ -244,7 +285,8 @@ function processInboundMessage(
     string $message_body_text,
     array $attachments,
     array $raw_parts,
-    string $original_message_file
+    string $original_message_file,
+    array $intake = []
 ): bool {
     global $mysqli, $config_ticket_prefix;
 
@@ -257,19 +299,90 @@ function processInboundMessage(
     $mail_log_ticket_id = null;
     $mail_log_mail_request_id = null;
 
+    $norm = $intake['norm'] ?? null;
+    $prep = $intake['prep'] ?? null;
+    $mail_message_id = (string) ($norm['message_id'] ?? '');
+
     $from_domain = explode("@", $from_email);
     $from_domain = sanitizeInput(end($from_domain));
 
-    // 1. Reply to existing ticket with the number in subject
-    if (preg_match("/\[$config_ticket_prefix(\d+)\]/", $subject, $ticket_number_matches)) {
-        $ticket_number = intval($ticket_number_matches[1]);
-        $email_processed = addReply($from_email, $date, $subject, $ticket_number, $message_body, $attachments, $mailbox_id, $from_name, $ccs, $original_message_file);
-        if ($email_processed) {
-            $mail_log_outcome = 'reply_added';
-            $mail_log_detail = "Matched ticket #$ticket_number by subject tag";
-            $tid_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_number = " . intval($ticket_number) . " LIMIT 1"));
-            $mail_log_ticket_id = $tid_row ? intval($tid_row['ticket_id']) : null;
+    // Body used when the message is a reply: quoted history removed (text part preferred), never emptied.
+    $reply_body = $message_body;
+    if ($norm !== null && $prep !== null) {
+        $stripped = QuotedTextStripper::stripReply((string) $prep['body_html'], (string) $norm['text']);
+        if ($stripped['stripped']) {
+            $reply_body = $stripped['body'] . (string) $prep['note'];
         }
+    }
+
+    // Runs addReply() for a ticket number and records the outcome for the mail log. Returns whether the message was handled.
+    $reply_to = function (int $ticket_number, string $detail) use (&$mail_log_outcome, &$mail_log_detail, &$mail_log_ticket_id, &$mail_log_mail_request_id, $from_email, $date, $subject, $reply_body, $attachments, $mailbox_id, $from_name, $ccs, $original_message_file, $mail_message_id, $mysqli): bool {
+        $meta = [];
+        $handled = addReply($from_email, $date, $subject, $ticket_number, $reply_body, $attachments, $mailbox_id, $from_name, $ccs, $original_message_file, $mail_message_id, $meta);
+        if (!$handled) {
+            return false;
+        }
+        $tid_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_number = " . intval($ticket_number) . " LIMIT 1"));
+        $mail_log_ticket_id = $tid_row ? intval($tid_row['ticket_id']) : null;
+        switch ($meta['outcome'] ?? 'reply_added') {
+            case 'mail_request':
+                $mail_log_outcome = 'mail_request';
+                $mail_log_detail = "Sender is not a contact of ticket #$ticket_number - queued for review";
+                $mail_log_mail_request_id = !empty($meta['request_id']) ? intval($meta['request_id']) : null;
+                $mail_log_ticket_id = null;
+                break;
+            case 'ticket_closed':
+                $mail_log_outcome = 'reply_added';
+                $mail_log_detail = "Ticket #$ticket_number is closed - sender told to open a new ticket ($detail)";
+                break;
+            default:
+                $mail_log_outcome = 'reply_added';
+                $mail_log_detail = $detail;
+        }
+        return true;
+    };
+
+    // 0-3. Duplicate / machine-generated / rate cap / Message-ID threading
+    if ($norm !== null) {
+        $store = new IntakeStore($mysqli);
+        $route = InboundRouter::preRoute($store, $norm, ['rate_cap' => MailSettings::int($mysqli, 'rate_cap_per_hour')]);
+
+        switch ($route['action']) {
+            case 'duplicate':
+                logMailEvent($mailbox_id, $from_email, $from_name, $subject, 'duplicate', $route['detail'], null, null);
+                return true; // already imported: the redelivered copy just gets moved out of the inbox
+
+            case 'suppressed':
+                logMailEvent($mailbox_id, $from_email, $from_name, $subject, 'suppressed', "Auto-generated mail ({$route['rule']}): {$route['detail']}", null, null);
+                return true;
+
+            case 'dsn':
+                $mail_log_detail = handleInboundNdr($raw_parts, $subject, $message_body_text, $from_email, $mailbox_id);
+                logMailEvent($mailbox_id, $from_email, $from_name, $subject, 'ndr', $mail_log_detail, null, null);
+                return true;
+
+            case 'rate_limited':
+                $quarantine_id = null;
+                if ($store->quarantinedForSender($from_email) < 50) { // bound the quarantine itself
+                    $quarantine_id = createMailRequestFromInbound($mailbox_id, $from_email, $from_name, $subject, $ccs, $date, substr($message_body, 0, 20000), [], $original_message_file, $mail_message_id, 'rate_limited');
+                }
+                MailHealth::alert($mysqli, 'ratelimit:' . sha1(strtolower($from_email)), 'Sender rate limit reached', "$from_email sent {$route['count']} messages in the last hour (cap " . MailSettings::int($mysqli, 'rate_cap_per_hour') . "). Further mail from this sender is held under Mail requests (reason: rate limited) until an admin reviews it - possible mail loop or flood.", '/admin/mail_requests.php');
+                logMailEvent($mailbox_id, $from_email, $from_name, $subject, 'rate_limited', $route['detail'], null, $quarantine_id);
+                return true;
+
+            case 'thread':
+                $tn_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_number FROM tickets WHERE ticket_id = " . intval($route['ticket_id']) . " LIMIT 1"));
+                if ($tn_row && $reply_to(intval($tn_row['ticket_number']), $route['detail'])) {
+                    $email_processed = true;
+                }
+                break;
+        }
+    }
+
+    // 1. Reply to existing ticket with the number in subject
+    if (!$email_processed && preg_match("/\[$config_ticket_prefix(\d+)\]/", $subject, $ticket_number_matches)) {
+        $ticket_number = intval($ticket_number_matches[1]);
+        $email_processed = $reply_to($ticket_number, "Matched ticket #$ticket_number by subject tag");
     }
 
     // 2. Fuzzy duplicate check using a known contact/domain and similar_text subject
@@ -314,12 +427,7 @@ function processInboundMessage(
 
                 if ($percent >= 95) {
                     // Treat as a reply/duplicate
-                    $email_processed = addReply($from_email, $date, $subject, $ticket_number, $message_body, $attachments, $mailbox_id, $from_name, $ccs, $original_message_file);
-                    if ($email_processed) {
-                        $mail_log_outcome = 'reply_added';
-                        $mail_log_detail = "Matched ticket #$ticket_number by fuzzy subject match ({$percent}%)";
-                        $mail_log_ticket_id = intval($rowt['ticket_id']);
-                    }
+                    $email_processed = $reply_to($ticket_number, "Matched ticket #$ticket_number by fuzzy subject match ({$percent}%)");
                     break;
                 }
             }
@@ -338,7 +446,7 @@ function processInboundMessage(
             $contact_email = sanitizeInput($rowc['contact_email']);
             $client_id     = intval($rowc['contact_client_id']);
 
-            $email_processed = addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message_body, $attachments, $original_message_file, $ccs, $mailbox_id);
+            $email_processed = addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message_body, $attachments, $original_message_file, $ccs, $mailbox_id, $mail_message_id);
             if ($email_processed) {
                 $mail_log_outcome = 'ticket_created';
                 $mail_log_detail = 'New ticket from known contact';
@@ -365,7 +473,7 @@ function processInboundMessage(
             logAction("Contact", "Create", "Email parser: created contact " . $contact_name, $client_id, $contact_id);
             customAction('contact_create', $contact_id);
 
-            $email_processed = addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message_body, $attachments, $original_message_file, $ccs, $mailbox_id);
+            $email_processed = addTicket($contact_id, $contact_name, $contact_email, $client_id, $date, $subject, $message_body, $attachments, $original_message_file, $ccs, $mailbox_id, $mail_message_id);
             if ($email_processed) {
                 $mail_log_outcome = 'ticket_created';
                 $mail_log_detail = 'New ticket from known domain (new contact created)';
@@ -381,7 +489,7 @@ function processInboundMessage(
         if (!preg_match($bad_from_pattern, $from_email)) {
             // Queue for review instead of ticketing immediately - see admin/mail_requests.php.
             // The mailbox's default client (if any) is applied later, at convert time.
-            $new_mail_request_id = createMailRequestFromInbound($mailbox_id, $from_email, $from_name, $subject, $ccs, $date, $message_body, $attachments, $original_message_file);
+            $new_mail_request_id = createMailRequestFromInbound($mailbox_id, $from_email, $from_name, $subject, $ccs, $date, $message_body, $attachments, $original_message_file, $mail_message_id, 'unknown_sender');
             $email_processed = (bool) $new_mail_request_id;
             if ($email_processed) {
                 $mail_log_outcome = 'mail_request';
@@ -391,102 +499,10 @@ function processInboundMessage(
 
         } else {
 
-            // Probably an NDR message without a ticket ref in the subject
-
-            $failed_recipient  = null;
-            $diagnostic_code   = null;
-            $status_code       = null;
-            $original_subject  = null;
-            $original_to       = null;
-
-            // DSN info shows up as regular attachment/part entries, not the visible body
-            foreach ($raw_parts as $attachment) {
-
-                $ctype = strtolower($attachment['content_type'] ?? '');
-                $body  = $attachment['content'] ?? '';
-
-                // 1. Delivery status block
-                if (strpos($ctype, 'delivery-status') !== false) {
-
-                    if (preg_match('/Final-Recipient:\s*rfc822;\s*(.+)/i', $body, $m)) {
-                        $failed_recipient = sanitizeInput(trim($m[1]));
-                    }
-
-                    if (preg_match('/Diagnostic-Code:\s*(.+)/i', $body, $m)) {
-                        $diagnostic_code = sanitizeInput(trim($m[1]));
-                    }
-
-                    if (preg_match('/Status:\s*([0-9\.]+)/i', $body, $m)) {
-                        $status_code = sanitizeInput(trim($m[1]));
-                    }
-                }
-
-                // 2. Original message headers
-                if (strpos($ctype, 'message/rfc822') !== false) {
-
-                    if (preg_match('/^To:\s*(.+)$/mi', $body, $m)) {
-                        $original_to = sanitizeInput(trim($m[1]));
-                    }
-
-                    if (preg_match('/^Subject:\s*(.+)$/mi', $body, $m)) {
-                        $original_subject = sanitizeInput(trim($m[1]));
-                    }
-                }
-            }
-
-            // 3. Fallback: extract diagnostic from human-readable text/plain
-            if (!$diagnostic_code) {
-                $text = $message_body_text ?? '';
-
-                // Exim puts diagnostics on an indented line
-                if (preg_match('/\n\s{2,}(.+)/', $text, $m)) {
-                    $diagnostic_code = sanitizeInput(trim($m[1]));
-                }
-            }
-
-            // Fallbacks
-            $failed_recipient = $failed_recipient ?: 'unknown recipient';
-            $diagnostic_code  = $diagnostic_code ?: 'unknown diagnostic code';
-            $status_code      = $status_code ?: 'unknown status code';
-            $original_subject = $original_subject ?: $subject;
-
-            appNotify(
-                "Ticket",
-                "Email parser NDR: Message to $failed_recipient bounced. Subject: $original_subject Diagnostics: $status_code / $diagnostic_code - check ITFlow folder manually to see email",
-                "",
-                0
-            );
-
-            // If the original subject has a ticket, add the NDR there too
-            if (preg_match("/\[$config_ticket_prefix(\d+)\]/", $original_subject, $ticket_number_matches)) {
-
-                $ticket_number = intval($ticket_number_matches[1]);
-
-                // Craft a clean bounce message
-                $reply_body = "Email delivery failed.\n".
-                    "Recipient: $failed_recipient\n".
-                    "Status: $status_code\n".
-                    "Diagnostic: $diagnostic_code\n";
-
-                // No attachments
-                addReply(
-                    $from_email,
-                    $date,
-                    $original_subject,
-                    $ticket_number,
-                    $reply_body,
-                    [],
-                    $mailbox_id,
-                    $from_name,
-                    $ccs,
-                    $original_message_file
-                );
-
-            }
-
+            // Probably an NDR message that carried no machine-readable DSN part
+            $mail_log_detail = handleInboundNdr($raw_parts, $subject, $message_body_text, $from_email, $mailbox_id);
             $email_processed = true;
             $mail_log_outcome = 'ndr';
-            $mail_log_detail = "Bounce for $failed_recipient - $status_code / $diagnostic_code";
         }
     }
 
@@ -499,6 +515,158 @@ function processInboundMessage(
     logMailEvent($mailbox_id, $from_email, $from_name, $subject, $mail_log_outcome, $mail_log_detail, $mail_log_ticket_id, $mail_log_mail_request_id);
 
     return $email_processed;
+}
+
+/**
+ * A bounce (NDR / DSN): work out who it failed for and why, tell the admins, and leave a system note on the ticket the
+ * original message belonged to. Never creates a ticket and never sends anything. Returns the detail line for the mail log.
+ */
+function handleInboundNdr(array $raw_parts, string $subject, string $message_body_text, string $from_email, int $mailbox_id): string {
+    global $mysqli, $config_ticket_prefix;
+
+    $failed_recipient  = null;
+    $diagnostic_code   = null;
+    $status_code       = null;
+    $original_subject  = null;
+
+    // DSN info shows up as regular attachment/part entries, not the visible body
+    foreach ($raw_parts as $attachment) {
+
+        $ctype = strtolower($attachment['content_type'] ?? '');
+        $body  = (string) ($attachment['content'] ?? '');
+
+        // 1. Delivery status block
+        if (strpos($ctype, 'delivery-status') !== false) {
+
+            if (preg_match('/Final-Recipient:\s*rfc822;\s*(.+)/i', $body, $m)) {
+                $failed_recipient = sanitizeInput(trim($m[1]));
+            }
+
+            if (preg_match('/Diagnostic-Code:\s*(.+)/i', $body, $m)) {
+                $diagnostic_code = sanitizeInput(trim($m[1]));
+            }
+
+            if (preg_match('/Status:\s*([0-9\.]+)/i', $body, $m)) {
+                $status_code = sanitizeInput(trim($m[1]));
+            }
+        }
+
+        // 2. Original message headers
+        if (strpos($ctype, 'message/rfc822') !== false || strpos($ctype, 'text/rfc822-headers') !== false) {
+
+            if (preg_match('/^Subject:\s*(.+)$/mi', $body, $m)) {
+                $original_subject = sanitizeInput(trim($m[1]));
+            }
+        }
+    }
+
+    // 3. Fallback: extract diagnostic from human-readable text/plain
+    if (!$diagnostic_code) {
+        // Exim puts diagnostics on an indented line
+        if (preg_match('/\n\s{2,}(.+)/', $message_body_text, $m)) {
+            $diagnostic_code = sanitizeInput(trim($m[1]));
+        }
+    }
+
+    // Fallbacks
+    $failed_recipient = $failed_recipient ?: 'unknown recipient';
+    $diagnostic_code  = $diagnostic_code ?: 'unknown diagnostic code';
+    $status_code      = $status_code ?: 'unknown status code';
+    $original_subject = $original_subject ?: $subject;
+
+    appNotify(
+        "Ticket",
+        "Email parser NDR: Message to $failed_recipient bounced. Subject: $original_subject Diagnostics: $status_code / $diagnostic_code - check the mailbox's processed folder to see the email",
+        "",
+        0
+    );
+
+    // If the original subject has a ticket, leave a system note there (not a client reply: the sender is a mail server)
+    if (preg_match("/\[$config_ticket_prefix(\d+)\]/", $original_subject, $ticket_number_matches)) {
+        $ticket_number = intval($ticket_number_matches[1]);
+        $t = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_id FROM tickets WHERE ticket_number = $ticket_number LIMIT 1"));
+        if ($t) {
+            $note = mysqli_real_escape_string($mysqli, "Email delivery failed.<br>Recipient: $failed_recipient<br>Status: $status_code<br>Diagnostic: $diagnostic_code");
+            mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = '$note', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = 0, ticket_reply_ticket_id = " . intval($t['ticket_id']));
+        }
+    }
+
+    return "Bounce for $failed_recipient - $status_code / $diagnostic_code";
+}
+
+/** ------------------------------------------------------------------
+ * Intake limits and poison-message handling (shared by the IMAP and Graph paths)
+ * ------------------------------------------------------------------ */
+
+// Attachment size limits, inline-image cap and the optional ClamAV hook, from Admin > Mailboxes > Intake settings.
+function mailIntakeLimits(): array {
+    global $mysqli;
+
+    $scan = null;
+    if (MailSettings::int($mysqli, 'clamav_enabled') === 1) {
+        if (ClamScanner::binary() !== null) {
+            $scan = static fn (string $content): ?string => ClamScanner::scan($content);
+        } else {
+            static $warned = false;
+            if (!$warned) {
+                $warned = true;
+                logApp("Cron-Email-Parser", "warning", "Virus scanning is switched on but clamdscan is not installed; attachments are not being scanned.");
+            }
+        }
+    }
+
+    return [
+        'max_file_bytes'    => MailSettings::int($mysqli, 'max_attachment_mb') * 1048576,
+        'max_message_bytes' => MailSettings::int($mysqli, 'max_message_attachments_mb') * 1048576,
+        'inline_max_bytes'  => MailSettings::int($mysqli, 'inline_cid_max_kb') * 1024,
+        'scan'              => $scan,
+    ];
+}
+
+// Normalise + prepare one fetched message, give it a stand-in Message-ID when it has none, and run processInboundMessage().
+// Returns whether it was handled. Throws on a genuine failure (the caller counts it toward quarantine).
+function intakeHandleNormalized(int $mailbox_id, int $default_client_id, int $parse_unknown, array $norm, string $original_message_file): bool {
+    $subject = sanitizeInput($norm['subject']);
+    $from_email = sanitizeInput($norm['from_email']);
+    $from_name = sanitizeInput($norm['from_name']);
+    $date = sanitizeInput($norm['date']);
+
+    $prep = InboundPreparer::prepare($norm, mailIntakeLimits());
+    if ($norm['message_id'] === '') {
+        $norm['message_id'] = MessageId::synthetic($from_email, $date, $subject, (string) $norm['text'] . (string) $norm['html']);
+    }
+
+    return processInboundMessage(
+        $mailbox_id,
+        $default_client_id,
+        $parse_unknown,
+        $from_email,
+        $from_name,
+        $subject,
+        $norm['ccs'],
+        $date,
+        $prep['body'],
+        $prep['body_text'],
+        $prep['attachments'],
+        $prep['raw_parts'],
+        $original_message_file,
+        ['norm' => $norm, 'prep' => $prep]
+    );
+}
+
+// Records a failed attempt for a message (exception, or "could not be placed"). Returns true when this attempt tipped
+// it into quarantine, so the caller sets it aside exactly once and tells the admins.
+function intakeRecordFailure(int $mailbox_id, string $key, ?string $message_id, ?string $from, ?string $subject, string $error): bool {
+    global $mysqli;
+
+    $store = new IntakeStore($mysqli);
+    $max = max(1, MailSettings::int($mysqli, 'poison_max_attempts'));
+    $r = $store->recordFailure($mailbox_id, $key, $message_id, $from, $subject, $error, $max);
+    if ($r['quarantined']) {
+        logMailEvent($mailbox_id, $from, null, $subject, 'quarantined', "Failed {$r['attempts']} times - set aside. Last error: " . substr($error, 0, 300), null, null);
+        MailHealth::alert($mysqli, 'quarantine:' . $mailbox_id . ':' . substr($key, 0, 12), 'Message set aside after repeated failures', "A message from " . ($from ?: 'unknown sender') . " (\"" . substr((string) $subject, 0, 80) . "\") failed {$r['attempts']} times and was set aside: " . substr($error, 0, 200) . ". See Admin > Mailboxes > Quarantined mail.");
+    }
+    return $r['quarantined'];
 }
 
 /** ------------------------------------------------------------------
@@ -587,6 +755,13 @@ function pollMailboxImap(array $mailbox): array {
         $targetFolder = $client->getFolderByPath($targetFolderPath);
     }
 
+    // Messages that fail repeatedly are moved here (and listed under Admin > Mailboxes > Quarantined mail) instead of
+    // being fetched again on every run forever.
+    $quarantinePath = 'ITFlow-Quarantine';
+    $quarantineFolderReady = false;
+
+    $store = new IntakeStore($mysqli);
+
     // Fetch unseen messages
     $messages = $inbox->messages()->leaveUnread()->unseen()->get();
 
@@ -597,105 +772,75 @@ function pollMailboxImap(array $mailbox): array {
     // Process messages
     foreach ($messages as $message) {
         $email_processed = false;
+        $original_message_file = null;
+        $key = null;
+        $norm = null;
+        $counted = false; // a thrown failure is counted once, in the catch below
 
-        // Save original message as .eml (getRawMessage() doesn't seem to work properly)
-        mkdirMissing('../uploads/tmp/');
-        $original_message_file = "processed-eml-" . randomString(200) . ".eml";
-        $raw_message = (string)$message->getHeader()->raw . "\r\n\r\n" . ($message->getRawBody() ?? $message->getHTMLBody() ?? $message->getTextBody());
-        file_put_contents("../uploads/tmp/{$original_message_file}", $raw_message);
+        try {
+            // Identity of this message for the attempt counter: its Message-ID, else folder UID.
+            $hdr = RawHeaders::parse((string) $message->getHeader()->raw);
+            $hdr_mid = MessageId::normalize(RawHeaders::first($hdr, 'message-id'));
+            $uid = method_exists($message, 'getUid') ? (string) $message->getUid() : '';
+            $key = IntakeStore::messageKey($mailbox_id, $hdr_mid, 'uid:' . $uid . '|' . (string) $message->getSubject());
 
-        // From
-        $from_col    = $message->getFrom();
-        $from_first  = ($from_col && $from_col->count()) ? $from_col->first() : null;
-        $from_email = sanitizeInput($from_first->mail ?? 'itflow-guest@example.com');
-        $from_name  = sanitizeInput($from_first->personal ?? 'Unknown');
-
-        // Subject
-        $subject = sanitizeInput((string)$message->getSubject() ?: 'No Subject');
-
-        // CC
-        $ccs = array();
-        $cc_attr = $message->header->cc;
-        $cc_list = $cc_attr->toArray();
-        foreach ($cc_list as $cc_addr) {
-            if ($cc_addr instanceof \Webklex\PHPIMAP\Address) {
-                $ccs[] = $cc_addr->mail;
-            }
-        }
-
-        // Date (string)
-        $dateAttr = $message->getDate();                  // Attribute
-        $dateRaw  = $dateAttr ? (string)$dateAttr : '';   // e.g. "Tue, 10 Sep 2025 13:22:05 +0000"
-        $ts       = $dateRaw ? strtotime($dateRaw) : false;
-        $date     = sanitizeInput($ts !== false ? date('Y-m-d H:i:s', $ts) : date('Y-m-d H:i:s'));
-
-        // Body (prefer HTML)
-        $message_body_html = $message->getHTMLBody();
-        $message_body_text = $message->getTextBody();
-        $message_body_raw  = $message->getRawBody();
-
-        if (!empty($message_body_html)) {
-            $message_body = $message_body_html;
-        } elseif (!empty($message_body_text)) {
-            $message_body = nl2br(htmlspecialchars($message_body_text));
-        } else {
-            // Final fallback
-            $message_body = nl2br(htmlspecialchars($message_body_raw));
-        }
-
-        // Handle attachments (inline vs regular), and keep every part around
-        // (including DSN sub-parts) for NDR sniffing in processInboundMessage().
-        $attachments = [];
-        $raw_parts = [];
-        foreach ($message->getAttachments() as $att) {
-            $attrs   = $att->getAttributes(); // v6.2: canonical source
-            $dispo   = strtolower((string)($attrs['disposition'] ?? ''));
-            $cid     = $attrs['id'] ?? null;            // Content-ID
-            $content = $attrs['content'] ?? null;       // binary
-            $mime    = $att->getMimeType();
-            $name    = $att->getName() ?: 'attachment';
-
-            $raw_parts[] = ['name' => $name, 'content' => $content, 'content_type' => $mime];
-
-            $is_inline = false;
-            if ($dispo === 'inline' && $cid && $content !== null) {
-                $cid_trim  = trim($cid, '<>');
-                $dataUri   = "data:$mime;base64,".base64_encode($content);
-                $message_body = str_replace(["cid:$cid_trim", "cid:$cid"], $dataUri, $message_body);
-                $is_inline = true;
+            if ($store->isQuarantined($mailbox_id, $key)) {
+                // Already set aside (e.g. the move failed last time): keep it out of the unseen set.
+                try { $message->setFlag('Seen'); } catch (\Throwable $e) { /* ignore */ }
+                continue;
             }
 
-            if (!$is_inline && $content !== null) {
-                $attachments[] = ['name' => $name, 'content' => $content];
+            // Save original message as .eml (getRawMessage() doesn't seem to work properly)
+            mkdirMissing('../uploads/tmp/');
+            $original_message_file = "processed-eml-" . randomString(200) . ".eml";
+            $raw_message = (string)$message->getHeader()->raw . "\r\n\r\n" . ($message->getRawBody() ?? $message->getHTMLBody() ?? $message->getTextBody());
+            file_put_contents("../uploads/tmp/{$original_message_file}", $raw_message);
+
+            $norm = MessageNormalizer::fromWebklex($message);
+            if ($norm['message_id'] === '' && $hdr_mid !== '') {
+                $norm['message_id'] = $hdr_mid;
+            }
+            if (empty($norm['html']) && empty($norm['text'])) {
+                // Final fallback, as before: the raw body
+                $norm['text'] = (string) $message->getRawBody();
+            }
+
+            $email_processed = intakeHandleNormalized($mailbox_id, $mailbox_default_client_id, $mailbox_parse_unknown_senders, $norm, $original_message_file);
+        } catch (\Throwable $e) {
+            $email_processed = false;
+            $failure = get_class($e) . ': ' . $e->getMessage();
+            logApp("Cron-Email-Parser", "error", "Mailbox #{$mailbox_id}: message processing failed: " . substr($failure, 0, 500));
+            if ($key !== null) {
+                $counted = true;
+                if (intakeRecordFailure($mailbox_id, $key, $norm['message_id'] ?? null, $norm['from_email'] ?? null, $norm['subject'] ?? null, $failure)) {
+                    // Set it aside: move to the quarantine folder, falling back to marking it read + flagged in place.
+                    try {
+                        if (!$quarantineFolderReady) {
+                            try { $client->getFolderByPath($quarantinePath); } catch (\Throwable $e2) { $client->createFolder($quarantinePath); }
+                            $quarantineFolderReady = true;
+                        }
+                        $message->setFlag('Seen');
+                        $message->move($quarantinePath);
+                    } catch (\Throwable $e3) {
+                        logApp("Cron-Email-Parser", "warning", "Could not move quarantined message to [$quarantinePath]: " . $e3->getMessage());
+                        try { $message->setFlag('Flagged'); $message->setFlag('Seen'); } catch (\Throwable $e4) { /* ignore */ }
+                    }
+                    $unprocessed_count++;
+                    if ($original_message_file !== null) { @unlink("../uploads/tmp/{$original_message_file}"); }
+                    continue;
+                }
             }
         }
-
-        $email_processed = processInboundMessage(
-            $mailbox_id,
-            $mailbox_default_client_id,
-            $mailbox_parse_unknown_senders,
-            $from_email,
-            $from_name,
-            $subject,
-            $ccs,
-            $date,
-            $message_body,
-            (string)($message_body_text ?? ''),
-            $attachments,
-            $raw_parts,
-            $original_message_file
-        );
 
         // Flag/move based on processing result
         if ($email_processed) {
+            if ($key !== null) { $store->clear($mailbox_id, $key); }
             $processed_count++; // increment first so a move failure doesn't hide the success
             try {
                 $message->setFlag('Seen');
                 // Move using the Folder object (top-level "ITFlow")
                 $message->move($targetFolderPath);
-                // optional: logApp("Cron-Email-Parser", "info", "Moved message to ITFlow");
             } catch (\Throwable $e) {
-                // >>> Put the extra logging RIGHT HERE
                 $subj = (string)$message->getSubject();
                 $uid  = method_exists($message, 'getUid') ? $message->getUid() : 'n/a';
                 $path = (is_object($targetFolder) && property_exists($targetFolder, 'path')) ? (string)$targetFolder->path : $targetFolderPath;
@@ -707,16 +852,26 @@ function pollMailboxImap(array $mailbox): array {
             }
         } else {
             $unprocessed_count++;
+            // Could not be placed (or threw): count the attempt. After the configured number of attempts the message is
+            // marked read (flag kept) so it stops being fetched and logged on every run, and it is listed for admins.
+            $tipped = false;
+            if ($key !== null && $norm !== null && !$counted) {
+                $tipped = intakeRecordFailure($mailbox_id, $key, $norm['message_id'] ?? null, $norm['from_email'] ?? null, $norm['subject'] ?? null, 'Not handled: no ticket, contact or domain matched, or processing failed');
+            }
             try {
                 $message->setFlag('Flagged');
-                $message->unsetFlag('Seen');
+                if ($tipped) {
+                    $message->setFlag('Seen');
+                } else {
+                    $message->unsetFlag('Seen');
+                }
             } catch (\Throwable $e) {
                 logApp("Cron-Email-Parser", "warning", "Flag update failed: ".$e->getMessage());
             }
         }
 
         // Cleanup temp .eml if still present (e.g., reply path)
-        if (isset($original_message_file)) {
+        if ($original_message_file !== null) {
             $tmp_path = "../uploads/tmp/{$original_message_file}";
             if (file_exists($tmp_path)) { @unlink($tmp_path); }
         }
@@ -758,8 +913,10 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
 
     $processed_count = 0;
     $unprocessed_count = 0;
+    $store = new IntakeStore($GLOBALS['mysqli']);
+    $quarantine_id = null;
 
-    $select = 'id,subject,from,ccRecipients,receivedDateTime,hasAttachments,body';
+    $select = 'id,internetMessageId,subject,from,ccRecipients,receivedDateTime,hasAttachments,body';
     $url = $graph_base . "/mailFolders/inbox/messages?" . http_build_query([
         '$filter' => 'isRead eq false',
         '$top'    => 25,
@@ -776,16 +933,34 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
         }
 
         foreach (($resp['json']['value'] ?? []) as $msg) {
+            $graph_id = (string) ($msg['id'] ?? '');
+            $key = IntakeStore::messageKey($mailbox_id, $msg['internetMessageId'] ?? null, 'graph:' . $graph_id);
             try {
-                $handled = graphProcessOneMessage($graph_base, $access_token, $msg, $folder_id, $mailbox_id, $mailbox_default_client_id, $mailbox_parse_unknown_senders);
+                if ($store->isQuarantined($mailbox_id, $key)) {
+                    microsoftGraphRequest('PATCH', $graph_base . "/messages/" . rawurlencode($graph_id), $access_token, ['isRead' => true]);
+                    continue;
+                }
+                $handled = graphProcessOneMessage($graph_base, $access_token, $msg, $folder_id, $mailbox_id, $mailbox_default_client_id, $mailbox_parse_unknown_senders, $key);
                 if ($handled) {
+                    $store->clear($mailbox_id, $key);
                     $processed_count++;
                 } else {
                     $unprocessed_count++;
                 }
             } catch (\Throwable $e) {
                 $unprocessed_count++;
-                logApp("Cron-Email-Parser", "warning", "Graph message " . ($msg['id'] ?? '?') . " failed: " . $e->getMessage());
+                $failure = get_class($e) . ': ' . $e->getMessage();
+                logApp("Cron-Email-Parser", "warning", "Graph message " . ($graph_id ?: '?') . " failed: " . substr($failure, 0, 500));
+                $from_addr = $msg['from']['emailAddress']['address'] ?? null;
+                if (intakeRecordFailure($mailbox_id, $key, $msg['internetMessageId'] ?? null, $from_addr, $msg['subject'] ?? null, $failure)) {
+                    try {
+                        $quarantine_id = $quarantine_id ?? graphFindOrCreateItflowFolder($graph_base, $access_token, 'ITFlow-Quarantine');
+                        microsoftGraphRequest('PATCH', $graph_base . "/messages/" . rawurlencode($graph_id), $access_token, ['isRead' => true]);
+                        microsoftGraphRequest('POST', $graph_base . "/messages/" . rawurlencode($graph_id) . "/move", $access_token, ['destinationId' => $quarantine_id]);
+                    } catch (\Throwable $e2) {
+                        logApp("Cron-Email-Parser", "warning", "Could not move quarantined Graph message: " . $e2->getMessage());
+                    }
+                }
             }
         }
 
@@ -795,12 +970,12 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
     return ['processed' => $processed_count, 'unprocessed' => $unprocessed_count];
 }
 
-// Finds (or creates) the top-level "ITFlow" mail folder, matching the sibling-of-Inbox
-// folder Webklex creates for Standard IMAP / Google mailboxes. Returns the folder's Graph id.
-// The folder keeps its pre-RivetIT name on purpose (see $targetFolderPath in the IMAP path).
-function graphFindOrCreateItflowFolder(string $graph_base, string $access_token): string {
+// Finds (or creates) a top-level mail folder by name - "ITFlow" (processed mail) or "ITFlow-Quarantine" - matching the
+// sibling-of-Inbox folders Webklex creates for Standard IMAP / Google mailboxes. Returns the folder's Graph id.
+// "ITFlow" keeps its pre-RivetIT name on purpose (see $targetFolderPath in the IMAP path).
+function graphFindOrCreateItflowFolder(string $graph_base, string $access_token, string $name = 'ITFlow'): string {
     $list_url = $graph_base . "/mailFolders?" . http_build_query([
-        '$filter' => "displayName eq 'ITFlow'",
+        '$filter' => "displayName eq '" . str_replace("'", "''", $name) . "'",
         '$select' => 'id',
     ]);
 
@@ -809,42 +984,23 @@ function graphFindOrCreateItflowFolder(string $graph_base, string $access_token)
         return $resp['json']['value'][0]['id'];
     }
 
-    $create = microsoftGraphRequest('POST', $graph_base . "/mailFolders", $access_token, ['displayName' => 'ITFlow']);
+    $create = microsoftGraphRequest('POST', $graph_base . "/mailFolders", $access_token, ['displayName' => $name]);
     if ($create['ok'] && !empty($create['json']['id'])) {
         return $create['json']['id'];
     }
 
-    throw new \RuntimeException("Microsoft Graph: could not find or create the ITFlow mail folder.");
+    throw new \RuntimeException("Microsoft Graph: could not find or create the $name mail folder.");
 }
 
 // Fetches, normalizes, classifies, and marks read/moves (or flags) a single Graph message.
 // Returns whether it was handled (mirrors the IMAP path's $email_processed).
-function graphProcessOneMessage(string $graph_base, string $access_token, array $msg, string $folder_id, int $mailbox_id, int $mailbox_default_client_id, int $mailbox_parse_unknown_senders): bool {
+function graphProcessOneMessage(string $graph_base, string $access_token, array $msg, string $folder_id, int $mailbox_id, int $mailbox_default_client_id, int $mailbox_parse_unknown_senders, string $key = ''): bool {
+    global $mysqli;
+
     $message_id = $msg['id'];
 
-    $from_email = sanitizeInput($msg['from']['emailAddress']['address'] ?? 'itflow-guest@example.com');
-    $from_name  = sanitizeInput($msg['from']['emailAddress']['name'] ?? 'Unknown');
-
-    $subject = sanitizeInput(!empty($msg['subject']) ? $msg['subject'] : 'No Subject');
-
-    $ccs = [];
-    foreach (($msg['ccRecipients'] ?? []) as $cc) {
-        if (!empty($cc['emailAddress']['address'])) {
-            $ccs[] = $cc['emailAddress']['address'];
-        }
-    }
-
-    $ts = !empty($msg['receivedDateTime']) ? strtotime($msg['receivedDateTime']) : false;
-    $date = sanitizeInput($ts !== false ? date('Y-m-d H:i:s', $ts) : date('Y-m-d H:i:s'));
-
-    // Graph returns HTML body content by default (contentType 'html' unless the message is plain text)
-    $message_body = $msg['body']['content'] ?? '';
-    if (($msg['body']['contentType'] ?? 'html') !== 'html') {
-        $message_body = nl2br(htmlspecialchars($message_body));
-    }
-    $message_body_text = trim(html_entity_decode(strip_tags($msg['body']['content'] ?? ''), ENT_QUOTES));
-
-    // Raw .eml (used as the "Original-parsed-email.eml" ticket attachment, same as IMAP path)
+    // Raw .eml (used as the "Original-parsed-email.eml" ticket attachment, same as IMAP path). Its header block also carries
+    // Message-ID / In-Reply-To / Auto-Submitted, which the Graph JSON does not expose reliably.
     mkdirMissing('../uploads/tmp/');
     $original_message_file = "processed-eml-" . randomString(200) . ".eml";
     $eml = graphFetchRaw($graph_base . "/messages/" . rawurlencode($message_id) . '/$value', $access_token);
@@ -853,62 +1009,36 @@ function graphProcessOneMessage(string $graph_base, string $access_token, array 
     }
     file_put_contents("../uploads/tmp/{$original_message_file}", $eml);
 
-    // Attachments (inline vs regular), same split as the IMAP path
-    $attachments = [];
-    $raw_parts = [];
+    $graph_attachments = [];
     if (!empty($msg['hasAttachments'])) {
         $att_resp = microsoftGraphRequest('GET', $graph_base . "/messages/" . rawurlencode($message_id) . "/attachments", $access_token);
         if ($att_resp['ok']) {
-            foreach (($att_resp['json']['value'] ?? []) as $att) {
-                // Skip item/reference attachments (forwarded messages, OneDrive links) - no raw bytes to read.
-                if (($att['@odata.type'] ?? '') !== '#microsoft.graph.fileAttachment' || !isset($att['contentBytes'])) {
-                    continue;
-                }
-
-                $name = $att['name'] ?? 'attachment';
-                $content_type = $att['contentType'] ?? 'application/octet-stream';
-                $content = base64_decode($att['contentBytes']);
-
-                $raw_parts[] = ['name' => $name, 'content' => $content, 'content_type' => $content_type];
-
-                $is_inline = !empty($att['isInline']);
-                if ($is_inline && !empty($att['contentId'])) {
-                    $cid = trim($att['contentId'], '<>');
-                    $dataUri = "data:$content_type;base64," . $att['contentBytes'];
-                    $message_body = str_replace("cid:$cid", $dataUri, $message_body);
-                } elseif (!$is_inline) {
-                    $attachments[] = ['name' => $name, 'content' => $content];
-                }
-            }
+            $graph_attachments = $att_resp['json']['value'] ?? [];
         }
     }
 
-    $email_processed = processInboundMessage(
-        $mailbox_id,
-        $mailbox_default_client_id,
-        $mailbox_parse_unknown_senders,
-        $from_email,
-        $from_name,
-        $subject,
-        $ccs,
-        $date,
-        $message_body,
-        $message_body_text,
-        $attachments,
-        $raw_parts,
-        $original_message_file
-    );
+    $norm = MessageNormalizer::fromGraph($msg, $eml, $graph_attachments);
+
+    try {
+        $email_processed = intakeHandleNormalized($mailbox_id, $mailbox_default_client_id, $mailbox_parse_unknown_senders, $norm, $original_message_file);
+    } finally {
+        // Cleanup temp .eml if still present (addTicket() renames/moves it away on success; replies don't)
+        $tmp_path = "../uploads/tmp/{$original_message_file}";
+        if (file_exists($tmp_path)) { @unlink($tmp_path); }
+    }
 
     if ($email_processed) {
         microsoftGraphRequest('PATCH', $graph_base . "/messages/" . rawurlencode($message_id), $access_token, ['isRead' => true]);
         microsoftGraphRequest('POST', $graph_base . "/messages/" . rawurlencode($message_id) . "/move", $access_token, ['destinationId' => $folder_id]);
     } else {
-        microsoftGraphRequest('PATCH', $graph_base . "/messages/" . rawurlencode($message_id), $access_token, ['flag' => ['flagStatus' => 'flagged']]);
+        // Could not be placed: count the attempt; after the configured number it is marked read (flag kept) and listed for admins.
+        $tipped = $key !== '' && intakeRecordFailure($mailbox_id, $key, $norm['message_id'], $norm['from_email'], $norm['subject'], 'Not handled: no ticket, contact or domain matched, or processing failed');
+        $patch = ['flag' => ['flagStatus' => 'flagged']];
+        if ($tipped) {
+            $patch['isRead'] = true;
+        }
+        microsoftGraphRequest('PATCH', $graph_base . "/messages/" . rawurlencode($message_id), $access_token, $patch);
     }
-
-    // Cleanup temp .eml if still present (addTicket() renames/moves it away on success; replies don't)
-    $tmp_path = "../uploads/tmp/{$original_message_file}";
-    if (file_exists($tmp_path)) { @unlink($tmp_path); }
 
     return $email_processed;
 }
@@ -966,12 +1096,21 @@ foreach ($mailboxes as $mailbox) {
         $total_processed += $result['processed'] ?? 0;
         $total_unprocessed += $result['unprocessed'] ?? 0;
 
-        mysqli_query($mysqli, "UPDATE mailboxes SET mailbox_last_polled_at = NOW() WHERE mailbox_id = $mailbox_id");
+        // Health shown on Admin > Mailboxes: last polled / last success / consecutive failures.
+        MailHealth::recordPollSuccess($mysqli, $mailbox_id);
     } catch (\Throwable $e) {
         $err_message = "Mailbox #$mailbox_id ($mailbox_label) failed: " . $e->getMessage();
         error_log("Cron-Email-Parser: " . $err_message);
         logApp("Cron-Email-Parser", "error", $err_message);
+        MailHealth::recordPollFailure($mysqli, $mailbox_id, $e->getMessage());
     }
+}
+
+// Standing mail checks (mailbox unreachable N times, poller silent, exhausted outbound retries). Never allowed to break polling.
+try {
+    MailHealth::runChecks($mysqli, true);
+} catch (\Throwable $e) {
+    logApp("Cron-Email-Parser", "warning", "Mail health check failed: " . $e->getMessage());
 }
 
 // Execution timing (optional)

@@ -1,0 +1,13 @@
+{
+    "from": "jane@client.example",
+    "subject": "Re: Printer offline",
+    "message_id": "reply-77@client.example",
+    "thread_candidates": [
+        "rivet.out42@msp.example"
+    ],
+    "classification": null,
+    "reply_stripped": false,
+    "reply_text": "",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

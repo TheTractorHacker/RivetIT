@@ -1,0 +1,13 @@
+{
+    "from": "jane@client.example",
+    "subject": "Re: [TCK-0042] Printer offline",
+    "message_id": "caf+gmail-1@mail.gmail.com",
+    "thread_candidates": [
+        "rivet.out42@msp.example"
+    ],
+    "classification": null,
+    "reply_stripped": true,
+    "reply_text": "Works now, thank you!",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

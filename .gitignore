@@ -1,6 +1,7 @@
 node_modules
 config.php
 config/
+!plugins/vendor/webklex/php-imap/src/config/
 .beta_db_pw
 keystore_base64.txt
 .claude/

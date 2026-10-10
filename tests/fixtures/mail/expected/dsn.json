@@ -1,0 +1,17 @@
+{
+    "from": "MAILER-DAEMON@mx.example",
+    "subject": "Undelivered Mail Returned to Sender",
+    "message_id": "dsn-1@mx.example",
+    "thread_candidates": [],
+    "classification": {
+        "kind": "dsn",
+        "rule": "dsn"
+    },
+    "reply_stripped": false,
+    "reply_text": "",
+    "attachments_kept": [
+        "5f0a0302",
+        "2a1ce687"
+    ],
+    "attachments_rejected": []
+}

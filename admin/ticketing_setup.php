@@ -16,7 +16,7 @@ renderAdminDirectory('Ticketing', 'Set up ticket handling, mail intake, and serv
         'title' => 'Email intake', 'icon' => 'fa-inbox',
         'description' => 'Manage incoming support mail.',
         'items' => [
-            ['Mailboxes', 'Connect inboxes used for support.', 'mailbox.php', 'fa-inbox'],
+            ['Mailboxes', 'Connect inboxes used for support.' . (($mail_attention = \ITFlow\Mail\MailHealth::summary($mysqli)['attention']) > 0 ? " $mail_attention item(s) need attention." : ''), 'mailbox.php', 'fa-inbox'],
             ['Mail requests', 'Review messages awaiting a ticket.', 'mail_requests.php', 'fa-envelope-open-text'],
         ],
     ],

@@ -1,0 +1,10 @@
+From: =?UTF-8?B?ÿþ?= <bad@@client.example>
+Subject: =?UTF-8?Q?broken
+Content-Type: multipart/mixed; boundary="zz"
+
+--zz
+Content-Type: text/plain; charset=nonexistent-charset
+Content-Transfer-Encoding: base64
+
+!!!not base64!!!
+--zz

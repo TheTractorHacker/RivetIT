@@ -1,0 +1,14 @@
+{
+    "from": "helpdesk@client.example",
+    "subject": "Thanks for contacting us",
+    "message_id": "auto-1@client.example",
+    "thread_candidates": [],
+    "classification": {
+        "kind": "auto",
+        "rule": "auto_submitted"
+    },
+    "reply_stripped": false,
+    "reply_text": "",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

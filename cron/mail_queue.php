@@ -15,6 +15,7 @@ require_once dirname(__DIR__) . '/includes/redis_guards.php';
 rivetCronGuard('mail_queue', 300);
 
 require_once "../plugins/vendor/autoload.php";
+require_once "../vendor/autoload.php"; // ITFlow\Mail\*
 
 // PHP Mailer Libs
 require_once "../plugins/PHPMailer/src/Exception.php";
@@ -26,6 +27,11 @@ require_once "../plugins/PHPMailer/src/OAuth.php";
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\OAuthTokenProvider;
+use ITFlow\Mail\AutoReplyDetector;
+use ITFlow\Mail\MailHealth;
+use ITFlow\Mail\MailQueuePolicy;
+use ITFlow\Mail\MailSettings;
+use ITFlow\Mail\MessageId;
 
 if (!defined('GOOGLE_OAUTH_TOKEN_URL')) {
     define('GOOGLE_OAUTH_TOKEN_URL', 'https://oauth2.googleapis.com/token');
@@ -238,7 +244,9 @@ function sendQueueEmail(
     string $oauth_tenant_id,
     string $oauth_refresh_token,
     string $oauth_access_token,
-    string $oauth_access_token_expires_at
+    string $oauth_access_token_expires_at,
+    string $message_id = '',
+    bool   $auto = true
 ) {
     // Sensible defaults for OAuth providers if fields were left blank
     if ($provider === 'google_oauth') {
@@ -304,6 +312,19 @@ function sendQueueEmail(
     $mail->Subject = $subject;
     $mail->Body = $html_body;
 
+    // Our own Message-ID (stored on the queue row), so replies thread by In-Reply-To/References.
+    if ($message_id !== '') {
+        $mail->MessageID = MessageId::bracket($message_id);
+    }
+
+    // Machine-generated mail must never be answered by another robot (RFC 3834). X-RivetIT-Auto lets this system recognise
+    // its own mail if it comes back to a monitored mailbox and drop it instead of opening a ticket.
+    if ($auto) {
+        $mail->addCustomHeader('Auto-Submitted', 'auto-generated');
+        $mail->addCustomHeader('X-Auto-Response-Suppress', 'All');
+        $mail->addCustomHeader(AutoReplyDetector::LOOP_HEADER, '1');
+    }
+
     if (!empty($ics_str)) {
         $mail->addStringAttachment($ics_str, 'Scheduled_ticket.ics', 'base64', 'text/calendar');
     }
@@ -313,157 +334,156 @@ function sendQueueEmail(
 }
 
 /** =======================================================================
+ *  Reaper: rows stuck in status 1 (sending) for more than 10 minutes - a killed or crashed
+ *  run - go back to status 0 so they are sent instead of sitting there forever.
+ * ======================================================================= */
+$reaped = MailQueuePolicy::reapStuck($mysqli);
+if ($reaped > 0) {
+    logApp("Cron-Mail-Queue", "warning", "Reset $reaped email(s) stuck in 'sending' for over " . MailQueuePolicy::STUCK_MINUTES . " minutes back to the queue.");
+}
+
+// Outbound rate limit (setting "outbound_rate_per_min", default 120): leftover rows wait for the next minute's run.
+$send_budget = MailQueuePolicy::sendBudget($mysqli, MailSettings::int($mysqli, 'outbound_rate_per_min'));
+$send_throttled = false;
+
+/**
+ * Send one queue row and record the outcome. $row['email_attempts'] is the number of attempts already made.
+ * Returns true when the row consumed send budget (it was handed to the mailer, successfully or not).
+ */
+function deliverQueueRow(array $row): bool {
+    global $mysqli, $argv, $config_smtp_provider, $config_smtp_host, $config_smtp_port, $config_smtp_encryption,
+           $config_smtp_username, $config_smtp_password, $config_mail_oauth_client_id, $config_mail_oauth_client_secret,
+           $config_mail_oauth_tenant_id, $config_mail_oauth_refresh_token, $config_mail_oauth_access_token,
+           $config_mail_oauth_access_token_expires_at;
+
+    $email_id             = (int)$row['email_id'];
+    $email_from           = $row['email_from'];
+    $email_recipient      = $row['email_recipient'];
+    $email_attempts       = (int)$row['email_attempts'] + 1;
+    $email_subject_logging = sanitizeInput($row['email_subject']);
+    $email_to_logging      = sanitizeInput($email_recipient);
+
+    // Check sender
+    if (!filter_var($email_from, FILTER_VALIDATE_EMAIL)) {
+        $email_from_logging = sanitizeInput($email_from);
+        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = " . MailQueuePolicy::PERMANENT . " WHERE email_id = $email_id");
+        logApp("Cron-Mail-Queue", "Error", "Failed to send email #$email_id due to invalid sender address: $email_from_logging - check configuration in settings.");
+        appNotify("Mail", "Failed to send email #$email_id due to invalid sender address", "/admin/logs.php");
+        return false;
+    }
+
+    mysqli_query($mysqli, "UPDATE email_queue SET email_status = 1, email_started_at = NOW() WHERE email_id = $email_id");
+
+    // Basic recipient syntax check
+    if (!filter_var($email_recipient, FILTER_VALIDATE_EMAIL)) {
+        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = " . MailQueuePolicy::PERMANENT . " WHERE email_id = $email_id");
+        logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_to_logging due to invalid recipient address. Email subject was: $email_subject_logging");
+        appNotify("Mail", "Failed to send email #$email_id to $email_to_logging due to invalid recipient address: Email subject was: $email_subject_logging", "/admin/logs.php");
+        return false;
+    }
+
+    // More intelligent recipient MX check (if not disabled with --no-mx-validation)
+    $domain = sanitizeInput(substr($email_recipient, strpos($email_recipient, '@') + 1));
+    if (!in_array('--no-mx-validation', $argv ?? []) && !checkdnsrr($domain, 'MX')) {
+        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = " . MailQueuePolicy::PERMANENT . " WHERE email_id = $email_id");
+        logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_to_logging due to invalid recipient domain (no MX). Email subject was: $email_subject_logging");
+        appNotify("Mail", "Failed to send email #$email_id to $email_to_logging due to invalid recipient domain (no MX): Email subject was: $email_subject_logging", "/admin/logs.php");
+        return false;
+    }
+
+    // Rows queued before the Message-ID column existed (or inserted directly) get theirs now, and keep it across retries.
+    $message_id = (string)($row['email_message_id'] ?? '');
+    if ($message_id === '') {
+        $message_id = MessageId::generate((string)$email_from);
+        $mid_esc = mysqli_real_escape_string($mysqli, $message_id);
+        mysqli_query($mysqli, "UPDATE email_queue SET email_message_id = '$mid_esc' WHERE email_id = $email_id");
+    }
+
+    try {
+        sendQueueEmail(
+            ($config_smtp_provider ?: 'standard_smtp'),
+            $config_smtp_host,
+            (int)$config_smtp_port,
+            (string)$config_smtp_encryption,
+            (string)$config_smtp_username,
+            (string)$config_smtp_password,
+            (string)$email_from,
+            (string)$row['email_from_name'],
+            (string)$email_recipient,
+            (string)$row['email_recipient_name'],
+            (string)$row['email_subject'],
+            (string)$row['email_content'],
+            (string)$row['email_cal_str'],
+            (string)$config_mail_oauth_client_id,
+            (string)$config_mail_oauth_client_secret,
+            (string)$config_mail_oauth_tenant_id,
+            (string)$config_mail_oauth_refresh_token,
+            (string)$config_mail_oauth_access_token,
+            (string)$config_mail_oauth_access_token_expires_at,
+            $message_id,
+            !empty($row['email_auto'])
+        );
+
+        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 3, email_sent_at = NOW(), email_started_at = NULL, email_attempts = $email_attempts WHERE email_id = $email_id");
+    } catch (\Throwable $e) {
+        // email_failed_at starts the back-off clock (5, 15, 60, 240 minutes - MailQueuePolicy::BACKOFF_MINUTES).
+        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_failed_at = NOW(), email_started_at = NULL, email_attempts = $email_attempts WHERE email_id = $email_id");
+
+        $err = substr("Mailer Error: " . $e->getMessage(), 0, 100) . "...";
+        $next = MailQueuePolicy::backoffMinutes($email_attempts);
+        $outcome = $next === null ? "no retries left (see the Outbound email gave up alert)" : "retry in $next min";
+        logApp("Cron-Mail-Queue", "Error", "Failed to send email #$email_id (attempt $email_attempts) to $email_to_logging regarding $email_subject_logging. $err $outcome");
+    }
+    return true;
+}
+
+/** =======================================================================
  *  SEND: status = 0 (Queued)
  * ======================================================================= */
-$sql_queue = mysqli_query($mysqli, "SELECT * FROM email_queue WHERE email_status = 0 AND email_queued_at <= NOW()");
+$sql_queue = mysqli_query($mysqli, "SELECT * FROM email_queue WHERE email_status = 0 AND email_queued_at <= NOW() ORDER BY email_id");
 
 if (mysqli_num_rows($sql_queue) > 0) {
     while ($rowq = mysqli_fetch_assoc($sql_queue)) {
-        $email_id             = (int)$rowq['email_id'];
-        $email_from           = $rowq['email_from'];
-        $email_from_name      = $rowq['email_from_name'];
-        $email_recipient      = $rowq['email_recipient'];
-        $email_recipient_name = $rowq['email_recipient_name'];
-        $email_subject        = $rowq['email_subject'];
-        $email_content        = $rowq['email_content'];
-        $email_ics_str        = $rowq['email_cal_str'];
-
-        // Check sender
-        if (!filter_var($email_from, FILTER_VALIDATE_EMAIL)) {
-            $email_from_logging = sanitizeInput($rowq['email_from']);
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = 99 WHERE email_id = $email_id");
-            logApp("Cron-Mail-Queue", "Error", "Failed to send email #$email_id due to invalid sender address: $email_from_logging - check configuration in settings.");
-            appNotify("Mail", "Failed to send email #$email_id due to invalid sender address", "/admin/logs.php");
-            continue;
+        if ($send_budget <= 0) {
+            $send_throttled = true;
+            break;
         }
-
-        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 1 WHERE email_id = $email_id");
-
-        // Basic recipient syntax check
-        if (!filter_var($email_recipient, FILTER_VALIDATE_EMAIL)) {
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = 99 WHERE email_id = $email_id");
-            $email_to_logging = sanitizeInput($email_recipient);
-            $email_subject_logging = sanitizeInput($rowq['email_subject']);
-            logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_to_logging due to invalid recipient address. Email subject was: $email_subject_logging");
-            appNotify("Mail", "Failed to send email #$email_id to $email_to_logging due to invalid recipient address: Email subject was: $email_subject_logging", "/admin/logs.php");
-            continue;
-        }
-
-        // More intelligent recipient MX check (if not disabled with --no-mx-validation)
-        $domain = sanitizeInput(substr($email_recipient, strpos($email_recipient, '@') + 1));
-        if (!in_array('--no-mx-validation', $argv) && !checkdnsrr($domain, 'MX')) {
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = 99 WHERE email_id = $email_id");
-            $email_to_logging = sanitizeInput($email_recipient);
-            $email_subject_logging = sanitizeInput($rowq['email_subject']);
-            logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_to_logging due to invalid recipient domain (no MX). Email subject was: $email_subject_logging");
-            appNotify("Mail", "Failed to send email #$email_id to $email_to_logging due to invalid recipient domain (no MX): Email subject was: $email_subject_logging", "/admin/logs.php");
-            continue;
-        }
-
-        try {
-            sendQueueEmail(
-                ($config_smtp_provider ?: 'standard_smtp'),
-                $config_smtp_host,
-                (int)$config_smtp_port,
-                (string)$config_smtp_encryption,
-                (string)$config_smtp_username,
-                (string)$config_smtp_password,
-                (string)$email_from,
-                (string)$email_from_name,
-                (string)$email_recipient,
-                (string)$email_recipient_name,
-                (string)$email_subject,
-                (string)$email_content,
-                (string)$email_ics_str,
-                (string)$config_mail_oauth_client_id,
-                (string)$config_mail_oauth_client_secret,
-                (string)$config_mail_oauth_tenant_id,
-                (string)$config_mail_oauth_refresh_token,
-                (string)$config_mail_oauth_access_token,
-                (string)$config_mail_oauth_access_token_expires_at
-            );
-
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 3, email_sent_at = NOW(), email_attempts = 1 WHERE email_id = $email_id");
-
-        } catch (Exception $e) {
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_failed_at = NOW(), email_attempts = 1 WHERE email_id = $email_id");
-
-            $email_recipient_logging = sanitizeInput($rowq['email_recipient']);
-            $email_subject_logging   = sanitizeInput($rowq['email_subject']);
-            $err = substr("Mailer Error: " . $e->getMessage(), 0, 100) . "...";
-
-            logApp("Cron-Mail-Queue", "Error", "Failed to send email: $email_id to $email_recipient_logging regarding $email_subject_logging. $err");
+        if (deliverQueueRow($rowq)) {
+            $send_budget--;
         }
     }
 }
 
 /** =======================================================================
- *  RETRIES: status = 2 (Failed), attempts < 4, wait 30 min
- *  NOTE: Backoff is `email_failed_at <= NOW() - INTERVAL 30 MINUTE`
+ *  RETRIES: status = 2 (Failed) with retries left. Exponential back-off by attempt count:
+ *  after failure 1 wait 5 min, 2 -> 15, 3 -> 60, 4 -> 240; after the 5th failure the row is
+ *  exhausted: it is not retried and MailHealth raises the "Outbound email gave up" alert.
  * =======================================================================
  */
-$sql_failed_queue = mysqli_query(
-    $mysqli,
-    "SELECT * FROM email_queue
-     WHERE email_status = 2
-       AND email_attempts < 4
-       AND email_failed_at <= NOW() - INTERVAL 30 MINUTE"
-);
-
-if (mysqli_num_rows($sql_failed_queue) > 0) {
-    while ($rowf = mysqli_fetch_assoc($sql_failed_queue)) {
-        $email_id             = (int)$rowf['email_id'];
-        $email_from           = $rowf['email_from'];
-        $email_from_name      = $rowf['email_from_name'];
-        $email_recipient      = $rowf['email_recipient'];
-        $email_recipient_name = $rowf['email_recipient_name'];
-        $email_subject        = $rowf['email_subject'];
-        $email_content        = $rowf['email_content'];
-        $email_ics_str        = $rowf['email_cal_str'];
-        $email_attempts       = (int)$rowf['email_attempts'] + 1;
-
-        mysqli_query($mysqli, "UPDATE email_queue SET email_status = 1 WHERE email_id = $email_id");
-
-        if (!filter_var($email_recipient, FILTER_VALIDATE_EMAIL)) {
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_attempts = $email_attempts WHERE email_id = $email_id");
-            continue;
-        }
-
-        try {
-            sendQueueEmail(
-                ($config_smtp_provider ?: 'standard_smtp'),
-                $config_smtp_host,
-                (int)$config_smtp_port,
-                (string)$config_smtp_encryption,
-                (string)$config_smtp_username,
-                (string)$config_smtp_password,
-                (string)$email_from,
-                (string)$email_from_name,
-                (string)$email_recipient,
-                (string)$email_recipient_name,
-                (string)$email_subject,
-                (string)$email_content,
-                (string)$email_ics_str,
-                (string)$config_mail_oauth_client_id,
-                (string)$config_mail_oauth_client_secret,
-                (string)$config_mail_oauth_tenant_id,
-                (string)$config_mail_oauth_refresh_token,
-                (string)$config_mail_oauth_access_token,
-                (string)$config_mail_oauth_access_token_expires_at
-            );
-
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 3, email_sent_at = NOW(), email_attempts = $email_attempts WHERE email_id = $email_id");
-
-        } catch (Exception $e) {
-            mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_failed_at = NOW(), email_attempts = $email_attempts WHERE email_id = $email_id");
-
-            $email_recipient_logging = sanitizeInput($rowf['email_recipient']);
-            $email_subject_logging   = sanitizeInput($rowf['email_subject']);
-            $err = substr("Mailer Error: " . $e->getMessage(), 0, 100) . "...";
-
-            logApp("Cron-Mail-Queue", "Error", "Failed to re-send email #$email_id to $email_recipient_logging regarding $email_subject_logging. $err");
+if (!$send_throttled) {
+    $sql_failed_queue = mysqli_query($mysqli, "SELECT * FROM email_queue WHERE " . MailQueuePolicy::retryDueSql() . " ORDER BY email_failed_at");
+    if ($sql_failed_queue && mysqli_num_rows($sql_failed_queue) > 0) {
+        while ($rowf = mysqli_fetch_assoc($sql_failed_queue)) {
+            if ($send_budget <= 0) {
+                $send_throttled = true;
+                break;
+            }
+            if (deliverQueueRow($rowf)) {
+                $send_budget--;
+            }
         }
     }
+}
+
+if ($send_throttled) {
+    logApp("Cron-Mail-Queue", "info", "Outbound rate limit (" . MailSettings::int($mysqli, 'outbound_rate_per_min') . "/min) reached; remaining email stays queued for the next run.");
+}
+
+// Standing mail checks (exhausted retries, mailbox health). Never allowed to break sending.
+try {
+    MailHealth::runChecks($mysqli, intval($row['config_ticket_email_parse'] ?? 0) === 1);
+} catch (\Throwable $e) {
+    logApp("Cron-Mail-Queue", "warning", "Mail health check failed: " . $e->getMessage());
 }
 
 /** =======================================================================

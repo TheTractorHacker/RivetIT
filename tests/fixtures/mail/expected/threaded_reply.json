@@ -1,0 +1,14 @@
+{
+    "from": "jane@client.example",
+    "subject": "Re: Printer offline",
+    "message_id": "reply-77@client.example",
+    "thread_candidates": [
+        "rivet.out42@msp.example",
+        "orig-42@client.example"
+    ],
+    "classification": null,
+    "reply_stripped": true,
+    "reply_text": "It is still offline after the reboot.",
+    "attachments_kept": [],
+    "attachments_rejected": []
+}

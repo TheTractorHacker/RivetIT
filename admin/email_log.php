@@ -12,6 +12,10 @@ $outcome_labels = [
     'mail_request'   => ['label' => 'Queued as Request', 'badge' => 'text-bg-primary'],
     'ndr'            => ['label' => 'Bounce (NDR)',   'badge' => 'text-bg-warning'],
     'ignored'        => ['label' => 'Ignored',        'badge' => 'text-bg-secondary'],
+    'suppressed'     => ['label' => 'Suppressed (auto-reply)', 'badge' => 'text-bg-dark'],
+    'duplicate'      => ['label' => 'Duplicate (skipped)',     'badge' => 'text-bg-secondary'],
+    'rate_limited'   => ['label' => 'Rate limited',            'badge' => 'text-bg-danger'],
+    'quarantined'    => ['label' => 'Quarantined',             'badge' => 'text-bg-danger'],
 ];
 
 // Outcome Filter
