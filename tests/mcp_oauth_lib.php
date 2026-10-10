@@ -121,9 +121,18 @@ function oa_jar(): string
     return $f;
 }
 
+/** Delete throwaway-Redis rate-limit counters (login, OAuth) so a test is not throttled by its own earlier requests. */
+function oa_reset_limits(string $pattern = '*rl:*'): void
+{
+    static $redis = null;
+    $redis ??= new Predis\Client(['scheme' => 'tcp', 'host' => getenv('RIVETIT_REDIS_HOST') ?: '127.0.0.1', 'port' => (int) (getenv('RIVETIT_REDIS_PORT') ?: 6391)]);
+    foreach ($redis->keys($pattern) as $k) { $redis->del([$k]); }
+}
+
 /** Sign in through the real /login.php form. Returns true when the session is authenticated for an agent page. */
 function oa_login(string $jar, string $email, string $password): bool
 {
+    oa_reset_limits('*rl:login:*');
     oa_http('GET', '/login.php', ['jar' => $jar]);
     $r = oa_http('POST', '/login.php', ['jar' => $jar, 'form' => ['email' => $email, 'password' => $password, 'login' => '1']]);
     return in_array($r['code'], [301, 302, 303], true);

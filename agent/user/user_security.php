@@ -9,6 +9,10 @@ unset($_SESSION['new_recovery_codes']);
 $sec_codes_left = !empty($session_token) ? secRecoveryCodesRemaining($mysqli, $session_user_id) : 0;
 $sec_sessions = secSessionList($mysqli, $session_user_id);
 
+// AI tools this person has connected to Remote MCP (built-in sign-in); empty and hidden when none and the feature is off.
+$mcp_oauth = \ITFlow\Mcp\OAuth\OAuthConfig::load($mysqli);
+$mcp_connections = $mcp_oauth['schema_ready'] ? (new \ITFlow\Mcp\OAuth\OAuthStore($mysqli))->activeGrants((int) $session_user_id) : [];
+
 $sql_api_tokens = mysqli_query($mysqli, "SELECT token_id, token_name, token_fcm_token, token_last_used_at, token_created_at FROM api_tokens WHERE token_user_id = $session_user_id ORDER BY token_created_at DESC");
 $sql_remember_tokens = mysqli_query($mysqli, "SELECT * FROM remember_tokens WHERE remember_token_user_id = $session_user_id ORDER BY remember_token_created_at DESC");
 $remember_token_count = mysqli_num_rows($sql_remember_tokens);
@@ -187,6 +191,40 @@ function tps_local(?string $utc): ?string
         </table>
     </div>
 </div>
+
+<?php if ($mcp_connections || $mcp_oauth['active']) { ?>
+<!-- Connected AI tools (Remote MCP built-in sign-in) -->
+<div class="card card-dark" id="connected-ai-tools">
+    <div class="card-header py-2 d-flex align-items-center">
+        <h3 class="card-title mr-auto"><i class="fas fa-fw fa-plug me-2"></i>Connected AI tools</h3>
+    </div>
+    <div class="card-body p-0">
+        <p class="text-muted small px-3 pt-3 mb-2">Apps you allowed to read RivetIT as you (read-only, limited to what your role can see). Remove one to cut it off immediately.</p>
+        <table class="table table-sm table-borderless table-hover mb-0">
+            <thead class="text-muted small"><tr class="border-bottom"><th class="ps-3">App</th><th>Approved</th><th>Last used</th><th>Ends</th><th></th></tr></thead>
+            <tbody>
+            <?php if (!$mcp_connections) { ?>
+                <tr><td colspan="5" class="text-muted text-center py-3">No AI tools are connected.</td></tr>
+            <?php } foreach ($mcp_connections as $mc) { ?>
+                <tr>
+                    <td class="ps-3 small"><?= nullable_htmlentities($mc['client_name']) ?> <span class="text-muted"><code><?= nullable_htmlentities($mc['scope']) ?></code></span></td>
+                    <td class="text-muted small"><?= nullable_htmlentities($mc['created_at']) ?></td>
+                    <td class="text-muted small"><?= $mc['last_used_at'] ? timeAgo($mc['last_used_at']) : 'Never' ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities(substr((string) $mc['expires_at'], 0, 10)) ?></td>
+                    <td class="pe-3 text-end">
+                        <form action="post.php" method="post" class="mb-0 d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="mcp_grant_id" value="<?= intval($mc['grant_id']) ?>">
+                            <button type="submit" name="revoke_mcp_connection" class="btn btn-sm btn-outline-danger"><i class="fas fa-times me-1"></i>Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php } ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php } ?>
 
 <?php
 /* Passkeys can only open the credential vault when a canonical vault key exists.

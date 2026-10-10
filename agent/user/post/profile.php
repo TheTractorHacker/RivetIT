@@ -439,6 +439,19 @@ if (isset($_POST['revoke_session'])) {
     redirect('user_security.php');
 }
 
+// Connected AI tools (Remote MCP built-in sign-in): remove one of your own connections
+if (isset($_POST['revoke_mcp_connection'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $oauth_service = new \ITFlow\Mcp\OAuth\OAuthService($mysqli, \ITFlow\Mcp\OAuth\OAuthConfig::issuer($config_base_url), \ITFlow\Mcp\OAuth\OAuthConfig::resource($config_base_url));
+    if ($oauth_service->revokeForUser(intval($_POST['mcp_grant_id'] ?? 0), (int) $session_user_id)) {
+        logAction("User Account", "Edit", "$session_name removed a connected AI tool");
+        flash_alert('Connection removed. The app lost access immediately.');
+    }
+    redirect('user_security.php');
+}
+
 // Active sessions: sign out everywhere, this browser included
 if (isset($_POST['sign_out_everywhere'])) {
 

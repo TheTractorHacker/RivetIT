@@ -7,6 +7,8 @@ use ITFlow\Audit\AuditService;
 use ITFlow\Mcp\McpConfig;
 use ITFlow\Mcp\McpDiagnostics;
 use ITFlow\Mcp\McpIdentityLinks;
+use ITFlow\Mcp\OAuth\OAuthConfig;
+use ITFlow\Mcp\OAuth\OAuthService;
 
 if (isset($_POST['save_mcp_settings']) || isset($_POST['run_mcp_checks'])) {
     validateCSRFToken($_POST['csrf_token']);
@@ -24,7 +26,9 @@ if (isset($_POST['save_mcp_settings']) || isset($_POST['run_mcp_checks'])) {
         flash_alert('Enter an https:// issuer address and an audience without spaces.', 'error');
         redirect();
     }
-    if ($enabled && (!McpConfig::issuerValid($issuer) || !McpConfig::audienceValid($audience))) {
+    // With the built-in sign-in on, RivetIT is its own issuer: the external issuer and audience are not needed.
+    $builtin_on = OAuthConfig::load($mysqli)['builtin'];
+    if ($enabled && !$builtin_on && (!McpConfig::issuerValid($issuer) || !McpConfig::audienceValid($audience))) {
         flash_alert('Enter both the issuer and the audience before turning Remote MCP on.', 'error');
         redirect();
     }
@@ -73,5 +77,74 @@ if (isset($_POST['unlink_mcp_agent'])) {
     logAction('User', 'Edit', "$session_name unlinked the Remote MCP identity of user #$userId", 0, $userId);
     AuditService::record('mcp.identity_unlinked', (int) $session_user_id, 'user', $userId, 'unlink', "Remote MCP identity unlinked from user #$userId");
     flash_alert('Agent unlinked. Their MCP access has stopped.');
+    redirect();
+}
+
+/* ---- built-in OAuth server (docs/REMOTE_MCP.md) ---- */
+
+if (isset($_POST['save_mcp_oauth_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    if (!OAuthConfig::load($mysqli)['schema_ready']) {
+        flash_alert('Run the database update first.', 'error');
+        redirect();
+    }
+    $builtin = isset($_POST['mcp_oauth_builtin']) ? '1' : '0';
+    $registration = isset($_POST['mcp_oauth_registration']) ? '1' : '0';
+    OAuthConfig::set($mysqli, 'builtin_enabled', $builtin);
+    OAuthConfig::set($mysqli, 'registration_enabled', $registration);
+    logAction('Settings', 'Edit', "$session_name edited Remote MCP built-in sign-in (" . ($builtin ? 'on' : 'off') . ', self-registration ' . ($registration ? 'on' : 'off') . ')');
+    AuditService::record('mcp.oauth_settings_changed', (int) $session_user_id, 'settings', 'mcp_oauth', 'update', 'Remote MCP built-in sign-in settings changed', ['builtin' => $builtin === '1', 'registration' => $registration === '1']);
+    flash_alert('Built-in sign-in settings saved.');
+    redirect();
+}
+
+if (isset($_POST['add_mcp_oauth_client'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $uris = preg_split('/\R/', (string) ($_POST['redirect_uris'] ?? '')) ?: [];
+    $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
+    [$ok, $result] = $service->registerManual(trim((string) ($_POST['client_name'] ?? '')), $uris, trim((string) ($_POST['client_id'] ?? '')) ?: null, (int) $session_user_id);
+    if ($ok) {
+        logAction('Settings', 'Edit', "$session_name added a Remote MCP app");
+        flash_alert('App added. Its client ID is ' . htmlspecialchars($result, ENT_QUOTES) . '.');
+    } else {
+        flash_alert($result, 'error');
+    }
+    redirect();
+}
+
+if (isset($_POST['toggle_mcp_oauth_client'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $store = new \ITFlow\Mcp\OAuth\OAuthStore($mysqli);
+    $client = $store->client((string) ($_POST['client_id'] ?? ''));
+    if ($client) {
+        $disable = $client['disabled_at'] === null;
+        $store->setClientDisabled($client['client_id'], $disable);
+        logAction('Settings', 'Edit', "$session_name " . ($disable ? 'disabled' : 'enabled') . ' a Remote MCP app');
+        AuditService::record('mcp.oauth_client_' . ($disable ? 'disabled' : 'enabled'), (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'update', 'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" ' . ($disable ? 'disabled' : 'enabled'));
+        flash_alert($disable ? 'App disabled. Its connections stopped working.' : 'App enabled.');
+    }
+    redirect();
+}
+
+if (isset($_POST['delete_mcp_oauth_client'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $store = new \ITFlow\Mcp\OAuth\OAuthStore($mysqli);
+    $client = $store->client((string) ($_POST['client_id'] ?? ''));
+    if ($client) {
+        $store->deleteClient($client['client_id']);
+        logAction('Settings', 'Delete', "$session_name deleted a Remote MCP app");
+        AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'delete', 'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" deleted with all its connections');
+        flash_alert('App deleted.');
+    }
+    redirect();
+}
+
+if (isset($_POST['revoke_mcp_oauth_grant'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
+    if ($service->revokeByAdmin(intval($_POST['grant_id'] ?? 0), (int) $session_user_id)) {
+        logAction('Settings', 'Edit', "$session_name revoked a Remote MCP connection");
+        flash_alert('Connection revoked. The app lost access immediately.');
+    }
     redirect();
 }

@@ -21,7 +21,7 @@ if (!$oauth['registration']) {
 
 try {
     $ip = OAuthHttp::clientIp();
-    if (!OAuthHttp::allow('oauth:register:ip:' . $ip, OAuthConfig::REGISTER_PER_IP_HOUR, 3600)
+    if (!OAuthHttp::allow('oauth:register:ip:' . $ip, OAuthConfig::REGISTER_REQUESTS_PER_IP_HOUR, 3600)
         || !OAuthHttp::allow('oauth:register:all', 60, 3600)) {
         OAuthHttp::tooMany();
     }

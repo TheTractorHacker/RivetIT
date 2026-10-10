@@ -22,7 +22,8 @@ final class OAuthConfig
     public const GRANT_DAYS = 180;            // absolute life of a consent; after that the user approves again
     public const MAX_CLIENTS = 500;           // dynamically registered clients kept at once
     public const MAX_REDIRECT_URIS = 5;
-    public const REGISTER_PER_IP_HOUR = 10;
+    public const REGISTER_PER_IP_HOUR = 10;       // successful registrations per address per hour (database count)
+    public const REGISTER_REQUESTS_PER_IP_HOUR = 30;   // registration requests of any outcome per address per hour (Redis)
 
     public static function issuer(string $baseUrl): string
     {

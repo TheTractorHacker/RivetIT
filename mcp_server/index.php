@@ -27,13 +27,16 @@ $builtin = $oauth_state['active'];
 $issuer = $builtin ? ITFlow\Mcp\OAuth\OAuthConfig::issuer($config_base_url) : $mcp_config['issuer'];
 $audience = $builtin ? ITFlow\Mcp\OAuth\OAuthConfig::resource($config_base_url) : $mcp_config['audience'];
 $host = parse_url('https://' . $config_base_url, PHP_URL_HOST);
+$path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+if (!$builtin && $path === '/.well-known/oauth-authorization-server') {
+    http_response_code(404);   // RivetIT is not an authorization server unless the built-in sign-in is on
+    exit;
+}
 if (!is_string($host) || !preg_match('/^[A-Za-z0-9.-]+$/D', $host)
     || (!$builtin && !$mcp_config['configured'])) {
     http_response_code(503);
     exit;
 }
-
-$path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
 if ($builtin && $path === '/.well-known/oauth-authorization-server') {
     // RFC 8414 metadata; built from the configured base URL, never from the Host header.
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
@@ -85,9 +88,9 @@ if ($builtin) {
         $discovery, new GuzzleHttp\Client(['timeout' => 5, 'allow_redirects' => false]),
         cache: $cache,
     );
-    $validator = new Mcp\Server\Transport\Http\OAuth\JwtTokenValidator(
+    $validator = new ITFlow\Mcp\FailClosedTokenValidator(new Mcp\Server\Transport\Http\OAuth\JwtTokenValidator(
         issuer: $issuer, audience: $audience, jwksProvider: $jwks, algorithms: ['RS256'],
-    );
+    ));
 }
 $middleware = [
     new Mcp\Server\Transport\Http\Middleware\CorsMiddleware(),
