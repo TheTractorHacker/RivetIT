@@ -407,8 +407,10 @@ final class FleetLinks
             $asset = null;
             $personal = null;
             if ($assetId !== null) {
-                $asset = Db::one($db, 'SELECT asset_id, asset_name, asset_type, asset_serial, asset_archived_at, asset_contact_id FROM assets WHERE asset_id = ? FOR UPDATE', 'i', [$assetId]);
-                if ($asset === null || $asset['asset_archived_at'] !== null) {
+                $asset = Db::one($db, 'SELECT asset_id, asset_client_id, asset_name, asset_type, asset_serial, asset_archived_at, asset_contact_id FROM assets WHERE asset_id = ? FOR UPDATE', 'i', [$assetId]);
+                // Department check BEFORE anything is revoked or resolved: the asset must belong to the device's own department and be in the caller's scope.
+                if ($asset === null || $asset['asset_archived_at'] !== null
+                    || (int) $asset['asset_client_id'] !== (int) $k['kiosk_default_client_id'] || !$this->inScope((int) $asset['asset_client_id'])) {
                     throw ApiException::notFound('That asset was not found.');
                 }
                 if (!in_array((string) $asset['asset_type'], KioskSettings::ASSET_TYPES, true)) {

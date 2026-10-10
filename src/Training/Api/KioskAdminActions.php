@@ -14,6 +14,7 @@ use ITFlow\Training\Kiosk\Core\KioskSettings;
 use ITFlow\Training\Kiosk\Core\KTime;
 use ITFlow\Training\Kiosk\Device\DeviceEnrollment;
 use ITFlow\Training\Kiosk\Device\DeviceLifecycle;
+use ITFlow\Training\Kiosk\Device\FleetLinks;
 use ITFlow\Training\Kiosk\Pin\PinAdmin;
 use ITFlow\Training\Kiosk\Pin\Seam;
 use ITFlow\Training\Kiosk\Pin\TrainerPinAdmin;
@@ -59,7 +60,7 @@ final class KioskAdminActions
             LEFT JOIN contacts pc ON pc.contact_id = k.kiosk_personal_contact_id
             LEFT JOIN users u ON u.user_id = k.kiosk_enrolled_by
             LEFT JOIN clients cl ON cl.client_id = k.kiosk_default_client_id
-            WHERE k.kiosk_hidden_at_utc IS NULL AND (k.kiosk_enroll_method IS NULL OR k.kiosk_enroll_method <> 'portal') AND (k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?)
+            WHERE k.kiosk_hidden_at_utc IS NULL AND (k.kiosk_enroll_method IS NULL OR k.kiosk_enroll_method <> 'portal') AND NOT (k.kiosk_enroll_method = 'fleet' AND k.kiosk_status = 'pending') AND (k.kiosk_status IN ('active','pending') OR k.kiosk_revoked_at_utc >= ?)
             ORDER BY FIELD(k.kiosk_status, 'active', 'pending', 'revoked'), k.kiosk_label, k.kiosk_id", 's', [KTime::plus(-30 * 86400)]);
         $open = [];
         foreach (Db::all($db, 'SELECT ksess_kiosk_id, ksess_role FROM training_kiosk_sessions WHERE ksess_open_guard = 1') as $s) {
@@ -112,6 +113,7 @@ final class KioskAdminActions
             'enroll_pause_until' => KTime::isFuture($ks->enrollPauseUntilUtc) ? self::iso($ks->enrollPauseUntilUtc) : null,
             'odoo_pin_enabled' => $ks->odooPinEnabled,
             'kiosk_level' => Access::kioskLevel(),
+            'fleet_pending' => Access::kioskLevel() >= 3 ? (new FleetLinks($c))->pendingCount() : 0,
         ];
     }
 
@@ -271,6 +273,83 @@ final class KioskAdminActions
         if ((new PinAdmin($c, self::keys()))->clearPause($reason)) {
             self::audit($c, 'training.kiosk_cooldown_cleared', 'settings', 1, 'clear_pause', 'Cleared the system-wide training sign-in pause', ['reason' => $reason]);
         }
+        return [];
+    }
+
+    // ------------------------------------------------------------------ fleet links (2.6.151, issue #43)
+
+    /** GET fleet_list (kiosk 3): the links in the user's scope and the fleet devices waiting for approval. Never a token. */
+    public static function fleetList(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $f = new FleetLinks($c);
+        return ['links' => $f->listLinks(), 'pending' => $f->pending(), 'can_assets' => Access::canAssets()];
+    }
+
+    /**
+     * POST fleet_create {label, client_id, approval: require|auto_match, days (1-90), max_uses} (kiosk 3). The plain `token`
+     * and its `url` come back once, here.
+     */
+    public static function fleetCreate(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $days = (int) $a->int('days', true, 1, FleetLinks::MAX_DAYS);
+        $r = (new FleetLinks($c))->create((string) $a->str('label', FleetLinks::LABEL_MAX), (int) $a->int('client_id', true, 1),
+            (string) $a->enum('approval', FleetLinks::APPROVALS), KTime::plus($days * 86400), (int) $a->int('max_uses', true, 1, FleetLinks::MAX_USES_CAP));
+        return ['fleet_id' => $r['fleet_id'], 'token' => $r['token'], 'url' => $r['url']];
+    }
+
+    /** POST fleet_revoke {fleet_id, reason?} (kiosk 3): no new enrollments; devices already enrolled keep working. */
+    public static function fleetRevoke(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $reason = trim((string) ($a->str('reason', self::REASON_MAX, false, true) ?? ''));
+        (new FleetLinks($c))->revoke((int) $a->int('fleet_id', true, 1), $reason === '' ? 'Revoked by an administrator' : $reason);
+        return [];
+    }
+
+    /** POST fleet_rotate {fleet_id} (kiosk 3): revokes the link and returns a new one (token and url, once). */
+    public static function fleetRotate(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $r = (new FleetLinks($c))->rotate((int) $a->int('fleet_id', true, 1));
+        return ['fleet_id' => $r['fleet_id'], 'token' => $r['token'], 'url' => $r['url']];
+    }
+
+    /** POST fleet_mobileconfig {fleet_id, token, placeholder, name} (kiosk 3) => {filename, content}: the Apple Web Clip profile. */
+    public static function fleetMobileconfig(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        return (new FleetLinks($c))->mobileconfig((int) $a->int('fleet_id', true, 1), $a->input['token'] ?? null,
+            (string) $a->str('placeholder', 40), (string) $a->str('name', 40));
+    }
+
+    /** POST fleet_export {fleet_id, token} (kiosk 3, Assets view) => {rows:[{name, serial, type, url}]}: per-device URLs for the department's tablets. */
+    public static function fleetExport(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        if (!Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);
+        }
+        return ['rows' => (new FleetLinks($c))->exportRows((int) $a->int('fleet_id', true, 1), $a->input['token'] ?? null)];
+    }
+
+    /** POST fleet_approve {kiosk_id, label?, asset_id?} (kiosk 3). */
+    public static function fleetApprove(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        $assetId = $a->has('asset_id') && $a->input['asset_id'] !== '' && $a->input['asset_id'] !== null && (int) $a->input['asset_id'] > 0 ? (int) $a->int('asset_id', true, 1) : null;
+        if ($assetId !== null && !Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);
+        }
+        return (new FleetLinks($c))->approve((int) $a->int('kiosk_id', true, 1), $assetId, (string) ($a->str('label', FleetLinks::LABEL_MAX, false, true) ?? ''));
+    }
+
+    /** POST fleet_reject {kiosk_id} (kiosk 3). */
+    public static function fleetReject(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        (new FleetLinks($c))->reject((int) $a->int('kiosk_id', true, 1));
         return [];
     }
 

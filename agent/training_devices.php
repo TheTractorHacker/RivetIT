@@ -47,7 +47,8 @@ $tr_data = [
 render_page_header(
     'Devices & PINs',
     'Training iPads and PCs, and the PINs people use on them.',
-    $tr_klevel >= 3 ? '<a class="btn btn-outline-primary me-2" href="/agent/training_device_bulk.php"><i class="fas fa-print me-2"></i>Get setup codes</a>'
+    $tr_klevel >= 3 ? '<a class="btn btn-outline-primary me-2" href="/agent/training_device_fleet.php"><i class="fas fa-link me-2"></i>Fleet links</a>'
+        . '<a class="btn btn-outline-primary me-2" href="/agent/training_device_bulk.php"><i class="fas fa-print me-2"></i>Get setup codes</a>'
         . '<a class="btn btn-primary" href="/agent/training_device_setup.php"><i class="fas fa-plus me-2"></i>Set up a device</a>' : '',
     [['label' => 'Training', 'url' => '/agent/training_courses.php'], ['label' => 'Devices & PINs']]
 );
@@ -57,6 +58,13 @@ render_page_header(
 <?php } else { ?>
 <div id="tr-devices-root">
     <div id="tr-pause-banner"></div>
+<?php $tr_fleet_wait = $tr_klevel >= 3 ? (new \ITFlow\Training\Kiosk\Device\FleetLinks($tr_ctx))->pendingCount() : 0; if ($tr_fleet_wait > 0) { ?>
+    <div class="alert alert-warning d-flex align-items-center gap-2" role="status">
+        <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+        <span class="me-auto"><?= (int) $tr_fleet_wait ?> tablet<?= $tr_fleet_wait === 1 ? ' is' : 's are' ?> waiting for approval from a fleet link.</span>
+        <a class="btn btn-sm btn-warning" href="/agent/training_device_fleet.php">Review</a>
+    </div>
+<?php } ?>
     <ul class="nav nav-tabs mb-3" role="tablist">
         <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'devices' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-devices" type="button" role="tab" aria-controls="tr-tab-devices" aria-selected="<?= $tr_tab === 'devices' ? 'true' : 'false' ?>" data-tab="devices"><i class="fas fa-tablet-alt me-2" aria-hidden="true"></i>Devices</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'people' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-people" type="button" role="tab" aria-controls="tr-tab-people" aria-selected="<?= $tr_tab === 'people' ? 'true' : 'false' ?>" data-tab="people"><i class="fas fa-key me-2" aria-hidden="true"></i>People &amp; PINs</button></li>
