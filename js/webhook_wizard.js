@@ -831,7 +831,14 @@
     window.addEventListener('beforeunload', function (e) { if (dirty && !saving) { e.preventDefault(); e.returnValue = ''; } });
 
     var sw = $('[data-wz-switch]');
-    if (sw) { sw.addEventListener('change', function () { location.href = sw.getAttribute('data-wz-switch') + encodeURIComponent(sw.value); }); }
+    if (sw) {
+      sw.addEventListener('change', function () {
+        // only follow a relative path: never a scheme (javascript:, data:) or a protocol-relative URL
+        var base = sw.getAttribute('data-wz-switch') || '';
+        if (/^\s*([a-z][a-z0-9+.-]*:|\/\/|\\)/i.test(base)) { return; }
+        location.href = base + encodeURIComponent(sw.value);
+      });
+    }
 
     // the enable switch saves at once
     var tog = $('[data-wz-toggle-live]');
