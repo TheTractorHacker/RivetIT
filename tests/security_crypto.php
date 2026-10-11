@@ -91,10 +91,13 @@ $q("UPDATE software SET software_key='$long' WHERE software_id=$swId");
 secRewrapColumn($db, 'software', 'software_id', 'software_key');
 $ok(decryptSetting($one("SELECT software_key FROM software WHERE software_id=$swId")) === $long, 'a 400 character license key wraps and reads back whole');
 
-// a varchar column too small for the wrapped value: skipped, not truncated
-$q("UPDATE settings SET config_login_key_secret='" . str_repeat('s', 200) . "' WHERE company_id=1");   // varchar(255): wrapped is ~ 5+4*ceil(228/3)=309 chars
-$r = secRewrapColumn($db, 'settings', 'company_id', 'config_login_key_secret');
-$ok($r['skipped_too_long'] === 1 && $one("SELECT config_login_key_secret FROM settings WHERE company_id=1") === str_repeat('s', 200), 'a value whose wrapped form would not fit is left untouched, not truncated');
+// a varchar column too small for the wrapped value: skipped, not truncated (the settings columns are TEXT since DB update 2.6.160, so a scratch table stands in)
+$q("DROP TABLE IF EXISTS sec_narrow_tmp");
+$q("CREATE TABLE sec_narrow_tmp (id int NOT NULL, v varchar(255) DEFAULT NULL, PRIMARY KEY (id))");
+$q("INSERT INTO sec_narrow_tmp VALUES (1, '" . str_repeat('s', 200) . "')");   // wrapped is ~ 5+4*ceil(228/3)=309 chars
+$r = secRewrapColumn($db, 'sec_narrow_tmp', 'id', 'v');
+$ok($r['skipped_too_long'] === 1 && $one("SELECT v FROM sec_narrow_tmp WHERE id=1") === str_repeat('s', 200), 'a value whose wrapped form would not fit is left untouched, not truncated');
+$q("DROP TABLE sec_narrow_tmp");
 $q("UPDATE settings SET config_login_key_secret='" . $esc(encryptSetting('MYSECRET')) . "' WHERE company_id=1");
 
 // ------------------------------------------------------------------ no key, no wrapping

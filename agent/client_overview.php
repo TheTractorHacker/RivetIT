@@ -607,8 +607,8 @@ if ($has_fav_assets || $has_fav_creds):
                     $credential_name       = nullable_htmlentities($row['credential_name']);
                     $credential_description= nullable_htmlentities($row['credential_description']);
                     $credential_uri        = sanitize_url($row['credential_uri']);
-                    $credential_username_raw = decryptCredentialEntry($row['credential_username']);
-                    $credential_password_raw = decryptCredentialEntry($row['credential_password']);
+                    $credential_username_raw = decryptCredentialEntry($row['credential_username'], $row['credential_id'] ?? null, 'username');
+                    $credential_password_raw = decryptCredentialEntry($row['credential_password'], $row['credential_id'] ?? null, 'password');
                     $vault_locked           = ($credential_username_raw === null || $credential_password_raw === null);
                     $credential_username   = $vault_locked ? '' : nullable_htmlentities($credential_username_raw);
                     $credential_password   = $vault_locked ? '' : nullable_htmlentities($credential_password_raw);

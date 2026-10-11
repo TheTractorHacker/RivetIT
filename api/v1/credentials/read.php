@@ -56,8 +56,8 @@ if ($sql && mysqli_num_rows($sql) > 0) {
 
     $row = array();
     while ($row = mysqli_fetch_assoc($sql)) {
-        $row['credential_username'] = apiDecryptCredentialEntry($row['credential_username'], $api_key_decrypt_hash, $api_key_decrypt_password);
-        $row['credential_password'] = apiDecryptCredentialEntry($row['credential_password'], $api_key_decrypt_hash, $api_key_decrypt_password);
+        $row['credential_username'] = apiDecryptCredentialEntry($row['credential_username'], $api_key_decrypt_hash, $api_key_decrypt_password, $row['credential_id'] ?? null, 'username');
+        $row['credential_password'] = apiDecryptCredentialEntry($row['credential_password'], $api_key_decrypt_hash, $api_key_decrypt_password, $row['credential_id'] ?? null, 'password');
         $return_arr['data'][] = $row;
     }
 

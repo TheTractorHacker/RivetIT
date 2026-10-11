@@ -264,6 +264,10 @@ final class RestoreDrill
         $checks[] = $this->secretCheck($restoredTables);
         $checks[] = DrillVerifier::checkKey($facts['manifest'] ?? ['state' => 'none'], $this->opts['settings_key'] ?? null,
             (string) ($this->opts['live_settings_key'] ?? ($GLOBALS['config_settings_enc_key'] ?? '')), [self::class, 'keyFingerprint']);
+        $ringCheck = $this->keyRingCheck($facts['manifest'] ?? []);
+        if ($ringCheck !== null) {
+            $checks[] = $ringCheck;
+        }
         $checks[] = $facts['uploads_check'];
 
         $result['checks'] = $checks;
@@ -429,7 +433,8 @@ final class RestoreDrill
         }
 
         return ['state' => 'ok', 'fingerprint' => isset($j['settings_enc_key_fingerprint']) ? (string) $j['settings_enc_key_fingerprint'] : null,
-            'key' => isset($j['settings_enc_key']) ? (string) $j['settings_enc_key'] : null];
+            'key' => isset($j['settings_enc_key']) ? (string) $j['settings_enc_key'] : null,
+            'keyring' => isset($j['keyring']) && is_array($j['keyring']) ? array_map('strval', $j['keyring']) : null];
     }
 
     private function openManifest(string $bytes, string $pass): string
@@ -635,6 +640,29 @@ final class RestoreDrill
         }
     }
 
+    /**
+     * A v3 backup's manifest names its keys by kid and fingerprint (never the keys). The key file available to this run must hold every one of
+     * them, or the v3 secrets in the archive cannot be opened. Null when the manifest has no key ring (older archives, legacy-only installs).
+     */
+    private function keyRingCheck(array $manifest): ?array
+    {
+        $want = $manifest['keyring'] ?? null;
+        if (!is_array($want) || $want === [] || !class_exists(\ITFlow\Crypto\KeyStore::class)) {
+            return null;
+        }
+        $ring = \ITFlow\Crypto\KeyStore::load()->ring;
+        $missing = [];
+        foreach ($want as $kid => $fp) {
+            if (!$ring->has((string) $kid) || !hash_equals((string) $fp, $ring->fingerprint((string) $kid))) {
+                $missing[] = (string) $kid;
+            }
+        }
+
+        return $missing === []
+            ? DrillVerifier::check('keyring', 'Key file for this backup', DrillVerifier::PASS, 'the key file holds every key the backup names (' . implode(', ', array_keys($want)) . ')')
+            : DrillVerifier::check('keyring', 'Key file for this backup', DrillVerifier::WARN, 'the key file here lacks or differs on key(s) ' . implode(', ', $missing) . ' that the backup names: restore the matching key file from your offline copy, or v3 secrets in this backup will not open');
+    }
+
     private function secretCheck(array $restoredTables): array
     {
         $decrypt = $this->opts['decrypt'] ?? (function_exists('decryptSetting') ? 'decryptSetting' : null);
@@ -643,8 +671,10 @@ final class RestoreDrill
         }
         $row = $this->d->query('SELECT * FROM settings ORDER BY company_id LIMIT 1')?->fetch_assoc() ?: [];
         foreach ($row as $col => $val) {
-            if (is_string($val) && (str_starts_with($val, 'ENC2:') || str_starts_with($val, 'ENC:'))) {
-                return DrillVerifier::checkSecret(true, (string) $decrypt($val), (string) $col);
+            if (is_string($val) && (str_starts_with($val, 'ENC2:') || str_starts_with($val, 'ENC:') || str_starts_with($val, 'v3:'))) {
+                // The vault key has a context of its own (ITFlow\Crypto\SettingsCrypto); every other settings column shares the generic one.
+                $args = ($col === 'config_vault_canonical_key' && $decrypt === 'decryptSetting') ? [$val, 'settings.vault_canonical_key'] : [$val];
+                return DrillVerifier::checkSecret(true, (string) $decrypt(...$args), (string) $col);
             }
         }
 

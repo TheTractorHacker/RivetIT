@@ -6,6 +6,29 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.35] RivetIT — Encryption on the RivetCore envelope: key file, rotation, rewrap tool, vault v3 (off)
+
+Adopts RivetCore **1.0.0-rc.10** `RivetCore\Crypto` (ADR-011) for stored secrets. **DB 2.6.160** (one idempotent step gated on 2.6.159: widens the encrypted columns so
+the new envelope fits, adds `settings.config_vault_v3_enabled` (0), `config_vault_dek_wrap`, `config_vault_v3_prepared_at` and `api_tokens.token_enc_dek`; no stored value
+changes). **Nothing changes on an existing install until an administrator creates the key file**; the credential vault stays on the legacy format until its flag is switched on.
+Read [docs/KEY_MANAGEMENT.md](docs/KEY_MANAGEMENT.md) before deploying; take a database dump first.
+
+- **Stage 1, settings.** `encryptSetting()` / `decryptSetting()` (same signatures, an optional context) go through `SettingsVault`. With a key file (`/etc/rivetit/keys.json`, `root:www-data` 0640, or
+  `$config_keyfile`) new values are `v3:<kid>:...` (AES-256-GCM, context bound as AAD); `ENC2:`, `ENC:` and cleartext keep reading and move to v3 lazily (settings row) and by the rewrap tool. The legacy
+  `$config_settings_enc_key` becomes kid `k1` (`scripts/keys_cli.php generate`), so existing values, the backup fingerprint and every key derived from `config.php` carry over. Failure handling is as before:
+  a value that cannot be opened reads as empty (logged once, never the value), a write with no key throws `RuntimeException`; a broken key file is an error, never a silent fallback. Fresh installs
+  (`setup`, `setup_cli.php`) create the key file when they can, and say how when they cannot. Flags: `$config_crypto_v3_settings`, `$config_crypto_v3_totp` (default: on when the key file exists; `false` reverses a stage).
+- **Stage 2, two-factor seeds.** `users.user_token` seeds are v3 of the `totp` purpose bound to the user (`secUserTotpStore($seed, $userId)`); cleartext and settings-form seeds are wrapped on the next successful sign-in.
+- **Stage 3, tooling.** `scripts/keys_cli.php` (status, generate, fingerprint, add-key, set-active, retire), `scripts/rewrap_cli.php` (one `RewrapSource` per encrypted column, Core's `Rewrapper`: dry run, resumable
+  state file, compare-and-set, never truncates a too-narrow column, one `crypto.rewrap` audit row per column and run), and **Administration > Security > Encryption keys** (kids, fingerprints, age, values per key, rewrap
+  status, 12-month rotation warning, rewrap / add key / make active / retire; admin only, CSRF, audited, no key material shown).
+- **Stage 4, credential vault v3 (flag `config_vault_v3_enabled`, default off, `scripts/vault_v3_cli.php`).** Fields sealed with the vault data key (AAD `credential:<id>:<field>`), per-user `vw3:` Argon2id wraps created at the next
+  password login, password change rewraps the data key, writes finalised to v3, the mobile token wraps the data key, share links unchanged, `rewrap_cli.php --vault` converts legacy fields (refuses when the canonical key opens none of a sample).
+  With the flag off the legacy functions run exactly as before. **Not enabled anywhere by this release.**
+- **Stage 5, recovery.** The backup manifest keeps the fingerprint formula and adds the key ring by kid and fingerprint (no key material); `deploy/restore.sh` / `restore_admin_zip.sh` accept `--key-file`; the restore drill opens v3 samples and
+  reports "Key file for this backup". The key file is never in an archive: escrow it separately.
+- Tests: `tests/crypto_settings.php`, `crypto_rewrap.php`, `crypto_vault.php`, `tests/core/CryptoRewrapSourceConformanceTest.php` (Core's `RewrapSourceConformanceTestCase`), the v3 drill section of `recovery_integration.php`; `security_login_http.php` seeds TOTP seeds through the new API.
+
 ## [26.10.34] RivetIT — RMM Phase 1: software inventory, tags, groups, check history
 
 Adopts RivetCore **1.0.0-rc.9** (RMM Phase 1). **DB 2.6.158** (one idempotent step gated on 2.6.157 that runs Core migration `0018_rmm_inventory_foundation` through the Core runner:

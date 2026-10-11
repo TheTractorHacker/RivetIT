@@ -225,3 +225,7 @@ Guidance:
 4. **Rotate on departure.** When someone who knew the passphrase leaves, change it (and re-encrypt or retire old archives by your retention window).
 5. **Write down the fingerprint** (first 8 characters of the SHA-256 of the settings key) beside the escrowed key so a wrong copy is noticed
    immediately, not during a disaster.
+
+## Core crypto key file (v3 secrets)
+
+Once `/etc/rivetit/keys.json` exists, stored secrets are v3 and **the archive does not contain that file** (the manifest names its keys by id and fingerprint only). Keep an offline copy apart from the database dump and the backup passphrase. On restore pass it with `--key-file=<copy>` (`deploy/restore.sh`, `deploy/restore_admin_zip.sh`); the drill reports "Key file for this backup" and fails to open the v3 sample secret without it. See [KEY_MANAGEMENT.md](KEY_MANAGEMENT.md).

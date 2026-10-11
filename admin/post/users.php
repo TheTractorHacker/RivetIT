@@ -249,7 +249,7 @@ if (isset($_POST['edit_user'])) {
 
     if (!empty($new_password)) {
         $new_password = secPasswordHash($new_password);
-        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']));
+        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']), $user_id);
         mysqli_query($mysqli, "UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $user_id");
         // An administrator-set password signs that user out everywhere and ends their remember-me cookies
         // (the administrator's own session is kept when they changed their own password here).
@@ -427,7 +427,7 @@ if (isset($_POST['restore_user'])) {
 
     if (!empty($new_password)) {
         $new_password = secPasswordHash($new_password);
-        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']));
+        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['new_password']), $user_id);
         mysqli_query($mysqli, "UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $user_id");
         secSessionsOnPasswordChange($mysqli, $user_id, null);
         //Extended Logging
@@ -523,7 +523,7 @@ if (isset($_POST['ir_reset_user_password'])) {
         $user_id = intval($row['user_id']);
         $user_email = sanitizeInput($row['user_email']);
         $new_password = randomString();
-        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($new_password));
+        $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($new_password), $user_id);
 
         echo $user_email . " -- " . $new_password; // Show
         $new_password = secPasswordHash($new_password);

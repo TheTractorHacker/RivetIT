@@ -817,13 +817,13 @@ if (isset($_GET['contact_id'])) {
                                     $credential_uri_display = "$credential_uri<button class='btn btn-sm clipboardjs' data-clipboard-text='$credential_uri'><i class='far fa-copy text-secondary'></i></button><a href='$credential_uri' target='_blank'><i class='fa fa-external-link-alt text-secondary'></i></a>";
                                 }
                                 $credential_uri_2 = nullable_htmlentities($row['credential_uri_2']);
-                                $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username']));
+                                $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username'], ($row['credentials_credential_id'] ?? $row['credential_id'] ?? null), 'username'));
                                 if (empty($credential_username)) {
                                     $credential_username_display = "-";
                                 } else {
                                     $credential_username_display = "$credential_username<button class='btn btn-sm clipboardjs' data-clipboard-text='$credential_username'><i class='far fa-copy text-secondary'></i></button>";
                                 }
-                                $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password']));
+                                $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password'], ($row['credentials_credential_id'] ?? $row['credential_id'] ?? null), 'password'));
                                 $credential_otp_secret = nullable_htmlentities($row['credential_otp_secret']);
                                 $credential_id_with_secret = '"' . $row['credential_id'] . '","' . $row['credential_otp_secret'] . '"';
                                 if (empty($credential_otp_secret)) {

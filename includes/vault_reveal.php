@@ -152,7 +152,7 @@ if (!function_exists('vaultReveal')) {
 
         // Decrypt. A locked vault (no vault key in this session) is reported, never turned into an empty value.
         $stored = $field === 'username' ? $row['credential_username'] : $row['credential_password'];
-        $plain  = decryptCredentialEntry($stored);
+        $plain  = decryptCredentialEntry($stored, $credId, $field);
         if ($plain === null) {
             return ['status' => 409, 'body' => ['ok' => false, 'error' => 'vault_locked']];
         }

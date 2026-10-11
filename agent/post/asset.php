@@ -66,6 +66,7 @@ if (isset($_POST['add_asset'])) {
         mysqli_query($mysqli,"INSERT INTO credentials SET credential_name = '$name', credential_username = '$username', credential_password = '$password', credential_asset_id = $asset_id, credential_client_id = $client_id");
 
         $credential_id = mysqli_insert_id($mysqli);
+        \ITFlow\Crypto\VaultV3::finalizeCredential($mysqli, $credential_id);
 
         logAction("Credential", "Create", "$session_name created login credential for asset $asset_name", $client_id, $credential_id);
 

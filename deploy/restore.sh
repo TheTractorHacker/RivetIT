@@ -102,6 +102,9 @@ Required:
                               the target database and uploads/ entirely.
 
 Options:
+  --key-file=<path>           Offline copy of the Core crypto key file (keys.json). Installed at
+                              --key-file-dest (default /etc/rivetit/keys.json), 0640. The archive never
+                              contains it: keep it apart from the dump and the passphrase.
   --settings-key-file=<path>  File holding the original config_settings_enc_key
                               (backup.sh writes <archive>.settings-key next to
                               each archive; that sidecar is picked up automatically
@@ -137,6 +140,8 @@ parse_args() {
             --backup=*)                BACKUP_FILE="${arg#*=}" ;;
             --passphrase-file=*)      PASSPHRASE_FILE="${arg#*=}" ;;
             --settings-key-file=*)    SETTINGS_KEY_FILE="${arg#*=}" ;;
+            --key-file=*)             KEY_FILE_RESTORE="${arg#*=}" ;;
+            --key-file-dest=*)        KEY_FILE_DEST="${arg#*=}" ;;
             --confirm-restore)         CONFIRM_RESTORE=1 ;;
             --no-pre-restore-backup-confirmed) NO_PRE_RESTORE_BACKUP_CONFIRMED=1 ;;
             --unattended)               UNATTENDED=1 ;;
@@ -339,6 +344,11 @@ main() {
     import_database
     restore_uploads
     apply_settings_enc_key "${APP_DIR}/config.php" "${MANIFEST_SETTINGS_ENC_KEY}"
+    if [[ -n "${KEY_FILE_RESTORE}" ]]; then
+        install_key_file "${KEY_FILE_RESTORE}" "${KEY_FILE_DEST}"
+    else
+        warn "No --key-file given: if this install used the Core key file (/etc/rivetit/keys.json), put the offline copy back, or v3 secrets stay unreadable."
+    fi
 
     success "=== Restore complete: ${APP_DIR} now reflects ${BACKUP_FILE} ==="
     log "RESTORE OK app_dir=${APP_DIR} backup=${BACKUP_FILE} database=${DB_NAME}"

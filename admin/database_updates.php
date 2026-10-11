@@ -10866,3 +10866,23 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.159'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.159') {
+        // DB 2.6.160: RivetCore\Crypto adoption (ADR-011, docs/KEY_MANAGEMENT.md). Nothing is switched on and no stored value is changed.
+        //  - every column that holds an encryptSetting() value is widened so a v3 envelope (`v3:<kid>:base64`, about 20 bytes longer than ENC2)
+        //    always fits: nullable varchar -> TEXT, NOT NULL varchar -> varchar(512); the vault columns (credentials, versions, restore staging)
+        //    are widened for the v3 field format; the user wrap and API key wrap columns for the longer `vw3:` form. Nothing is narrowed.
+        //  - settings.config_vault_v3_enabled (0 = the credential vault keeps the legacy format; an administrator flips it after the rewrap,
+        //    never this update), settings.config_vault_dek_wrap (the vault data key wrapped by the key file: the recovery copy) and
+        //    config_vault_v3_prepared_at.
+        //  - api_tokens.token_enc_dek: the mobile token's wrap of the vault data key (like token_enc_master_key, derived from the raw token).
+        // Idempotent: columns are added with IF NOT EXISTS and a column that is wide enough is not touched.
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_vault_v3_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_vault_dek_wrap` text DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `config_vault_v3_prepared_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `api_tokens` ADD COLUMN IF NOT EXISTS `token_enc_dek` text DEFAULT NULL AFTER `token_enc_master_iv`");
+        \ITFlow\Crypto\SchemaWidening::run($mysqli);
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.160'");
+    }

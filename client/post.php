@@ -738,7 +738,7 @@ if (isset($_POST['enable_portal_mfa'])) {
 
         // Stored wrapped (encryptSetting), like every other TOTP seed (includes/security_crypto.php)
         require_once __DIR__ . '/../includes/security_crypto.php';
-        $secret_sql = mysqli_real_escape_string($mysqli, secUserTotpStore($secret));
+        $secret_sql = mysqli_real_escape_string($mysqli, secUserTotpStore($secret, (int) $session_user_id));
         mysqli_query($mysqli, "UPDATE users SET user_token = '$secret_sql' WHERE user_id = $session_user_id AND user_type = 2");
         mysqli_query($mysqli, "DELETE FROM remember_tokens WHERE remember_token_user_id = $session_user_id");
         unset($_SESSION['portal_mfa_secret']);

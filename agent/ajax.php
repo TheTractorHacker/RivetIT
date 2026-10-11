@@ -584,7 +584,7 @@ if (isset($_GET['share_generate_link'])) {
         // Sharing decrypts the credential, so it needs vault access, not just module_support
         enforceUserPermission('module_credential');
 
-        $credential = mysqli_query($mysqli, "SELECT credential_name, credential_username, credential_password, credential_otp_secret FROM credentials WHERE credential_id = $item_id AND credential_client_id = $client_id LIMIT 1");
+        $credential = mysqli_query($mysqli, "SELECT credential_id, credential_name, credential_username, credential_password, credential_otp_secret FROM credentials WHERE credential_id = $item_id AND credential_client_id = $client_id LIMIT 1");
         $row = mysqli_fetch_assoc($credential);
 
         $item_name = sanitizeInput($row['credential_name']);
@@ -592,17 +592,17 @@ if (isset($_GET['share_generate_link'])) {
         // Decrypt & re-encrypt username/password for sharing
         $credential_encryption_key = randomString();
 
-        $credential_username_cleartext = decryptCredentialEntry($row['credential_username']);
+        $credential_username_cleartext = decryptCredentialEntry($row['credential_username'], $row['credential_id'] ?? null, 'username');
         $iv = randomString();
         $username_ciphertext = openssl_encrypt($credential_username_cleartext, 'aes-128-cbc', $credential_encryption_key, 0, $iv);
         $item_encrypted_username = $iv . $username_ciphertext;
 
-        $credential_password_cleartext = decryptCredentialEntry($row['credential_password']);
+        $credential_password_cleartext = decryptCredentialEntry($row['credential_password'], $row['credential_id'] ?? null, 'password');
         $iv = randomString();
         $password_ciphertext = openssl_encrypt($credential_password_cleartext, 'aes-128-cbc', $credential_encryption_key, 0, $iv);
         $item_encrypted_credential = $iv . $password_ciphertext;
 
-        $otp_plain = decryptOtpSecret($row['credential_otp_secret'] ?? '');
+        $otp_plain = decryptOtpSecret($row['credential_otp_secret'] ?? '', $row['credential_id'] ?? null);
         $item_encrypted_otp = '';
         if (!empty($otp_plain)) {
             $iv_otp = randomString();
@@ -1130,7 +1130,7 @@ if (isset($_GET['get_totp_token_via_id'])) {
     $sql = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT credential_name, credential_otp_secret, credential_client_id FROM credentials WHERE credential_id = $credential_id"));
     $name = sanitizeInput($sql['credential_name']);
     $totp_secret_raw = $sql['credential_otp_secret'];
-    $totp_secret = decryptOtpSecret($totp_secret_raw);
+    $totp_secret = decryptOtpSecret($totp_secret_raw, $credential_id);
     $client_id = intval($sql['credential_client_id']);
 
     enforceClientAccess();

@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['portal_mfa_login'])) 
               <div class='alert alert-danger'>
                 Incorrect username or password.
               </div>";
-        } elseif (strlen($pm_code) === 6 && ctype_digit($pm_code) && TokenAuth6238::verifyOnce(secUserTotpSecret($pm_row['user_token']), $pm_code)) {
+        } elseif (strlen($pm_code) === 6 && ctype_digit($pm_code) && TokenAuth6238::verifyOnce(secUserTotpSecret($pm_row['user_token'], $pm_user_id), $pm_code)) {
             portalCompleteLogin(
                 $pm_user_id,
                 intval($pm_row['contact_client_id']),
@@ -473,7 +473,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         $agent_master_key = null;
                         $agent_cipher = $agentRow['user_specific_encryption_ciphertext'] ?? null;
                         if (!empty($agent_cipher)) {
-                            $agent_master_key = decryptUserSpecificKey($agent_cipher, $password);
+                            $agent_master_key = vaultLoginMasterKey($mysqli, intval($agentRow['user_id']), $agent_cipher, $password);
                         }
 
                         $_SESSION['pending_dual_login'] = [
@@ -522,7 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                     }
 
                     $user_name                  = sanitizeInput($selectedRow['user_name']);
-                    $token                      = secUserTotpSecret($selectedRow['user_token'] ?? null);   // wrapped or legacy plaintext
+                    $token                      = secUserTotpSecret($selectedRow['user_token'] ?? null, $user_id);   // wrapped or legacy plaintext
                     $force_mfa                  = intval($selectedRow['user_config_force_mfa']);
                     $user_encryption_ciphertext = $selectedRow['user_specific_encryption_ciphertext'];
 
@@ -685,7 +685,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         } else {
                             // Step 1: initial login (password available in this request)
                             if (!empty($user_encryption_ciphertext)) {
-                                $site_encryption_master_key = decryptUserSpecificKey($user_encryption_ciphertext, $password);
+                                $site_encryption_master_key = vaultLoginMasterKey($mysqli, $user_id, $user_encryption_ciphertext, $password);
                             }
 
                             // The password-wrapped ciphertext exists but didn't yield a
@@ -755,7 +755,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                             }
                         } else {
                             if (!empty($user_encryption_ciphertext)) {
-                                $agent_master_key = decryptUserSpecificKey($user_encryption_ciphertext, $password);
+                                $agent_master_key = vaultLoginMasterKey($mysqli, $user_id, $user_encryption_ciphertext, $password);
                             }
 
                             // See matching branch above: recover the real master key from

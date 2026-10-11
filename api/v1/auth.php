@@ -154,6 +154,12 @@ if (isset($body['passkey_response'], $body['challenge_token'])) {
              VALUES ($uid, '$esc_hash', '$esc_device', '$esc_enc_key', '$esc_enc_iv', NOW())"
         );
 
+    // Credential vault v3 (flag off: no-op): the token also carries the data key, wrapped with a key derived from the raw token.
+    if (\ITFlow\Crypto\VaultV3::enabled($mysqli) && ($vault_dek = \ITFlow\Crypto\VaultV3::instanceDek($mysqli)) !== null) {
+        $esc_tok_dek = mysqli_real_escape_string($mysqli, \ITFlow\Crypto\VaultV3::wrapForToken($vault_dek, $raw_token));
+        mysqli_query($mysqli, "UPDATE api_tokens SET token_enc_dek = '$esc_tok_dek' WHERE token_hash = '$esc_hash'");
+    }
+    
         logAction('Login', 'Success', "{$userRow['user_name']} logged in via passkey (mobile API)");
 
         api_response(200, [
@@ -244,7 +250,7 @@ if (!$user || !$password_ok) {
 $uid = intval($user['user_id']);
 require_once __DIR__ . '/../../includes/security_crypto.php';
 require_once __DIR__ . '/../../includes/security_policy.php';
-$totp_secret = secUserTotpSecret($user['user_token'] ?? '');   // wrapped or legacy plaintext
+$totp_secret = secUserTotpSecret($user['user_token'] ?? '', $uid);   // wrapped or legacy plaintext
 if (!empty($totp_secret)) {
     if (empty($totp)) {
         api_response(200, ['requires_2fa' => true]);
@@ -284,7 +290,7 @@ $esc_device = mysqli_real_escape_string($mysqli, substr($device, 0, 100));
 
 // Derive and store master encryption key. The 'itflow_enc' salt predates the RivetIT name and must never
 // change: every issued token's wrapped vault key (credentials.php) is derived with it.
-$master_key  = decryptUserSpecificKey($user['user_specific_encryption_ciphertext'] ?? '', $password);
+$master_key  = vaultLoginMasterKey($mysqli, $uid, $user['user_specific_encryption_ciphertext'] ?? '', $password);
 $enc_key     = substr(hash('sha256', $raw_token . 'itflow_enc', true), 0, 16);
 $enc_iv      = random_bytes(16);
 $enc_key_str = openssl_encrypt($master_key ?: '', 'aes-128-cbc', $enc_key, 0, $enc_iv);
@@ -296,6 +302,12 @@ mysqli_query($mysqli,
      (token_user_id, token_hash, token_name, token_enc_master_key, token_enc_master_iv, token_created_at)
      VALUES ($uid, '$esc_hash', '$esc_device', '$esc_enc_key', '$esc_enc_iv', NOW())"
 );
+
+// Credential vault v3 (flag off: no-op): the token also carries the data key, wrapped with a key derived from the raw token.
+if (\ITFlow\Crypto\VaultV3::enabled($mysqli) && ($vault_dek = \ITFlow\Crypto\VaultV3::instanceDek($mysqli)) !== null) {
+    $esc_tok_dek = mysqli_real_escape_string($mysqli, \ITFlow\Crypto\VaultV3::wrapForToken($vault_dek, $raw_token));
+    mysqli_query($mysqli, "UPDATE api_tokens SET token_enc_dek = '$esc_tok_dek' WHERE token_hash = '$esc_hash'");
+}
 
 api_response(200, [
     'token' => $raw_token,
