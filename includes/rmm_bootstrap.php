@@ -72,12 +72,13 @@ function rivetRmmModule($mysqli = null): RmmModule
     // RivetCore 1.0.0-rc.11 (RMM Phase 6): file transfers are stored here (a folder private to the web user, outside the web root: backups/ is denied by every web server
     // template). Without a folder transfers answer 409 not_configured. The folder is created on first use (mode 0700) when it does not exist.
     $options['transfer_dir'] = defined('EA_TRANSFER_DIR') ? (string) EA_TRANSFER_DIR : $root . '/backups/endpoint-transfer';
-    // RivetCore 1.0.0-rc.11 (scale S8): with Redis switched on the per-client token buckets (off unless a limit is set) and the read-path cache live in Redis instead of the
-    // database. Both fail open when Redis is down (a miss, an admitted request). Without Redis Core uses its own tables.
-    if (function_exists('rivetRedisGuardsOn') && rivetRedisGuardsOn()) {
-        $provider = rivetRedisProvider();
+    // RivetCore 1.0.0-rc.11 (scale S8): when Redis answers, the per-client token buckets (off unless a limit is set) and the read-path cache (fleet counters, the capacity panel, the
+    // active releases) live in Redis, shared by every web worker and by the cron; both fail open when Redis goes away. Without Redis Core uses its own tables. The decision is made
+    // per process from one connection attempt that the rate limiter makes anyway (EndpointRedisProvider loads redis_functions.php itself, so a CLI process agrees with the web).
+    $provider = new \ITFlow\Core\Adapter\Endpoint\EndpointRedisProvider();
+    if ($provider->client() !== null) {
         $options['redis'] = $provider;
-        $options['cache'] = new \RivetCore\Mcp\RedisMetadataCache($provider, rivetRedisKeyPrefix() . 'rmm_cache:');
+        $options['cache'] = new \RivetCore\Mcp\RedisMetadataCache($provider, 'rivetit:rmm_cache:');
     }
     $metrics = new EndpointMetricSink($mysqli);
     $sink = $metrics;

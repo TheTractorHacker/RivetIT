@@ -5,6 +5,8 @@
  * 30 MiB download only works if the file is streamed, not buffered.
  */
 require __DIR__ . '/endpoint_agent_lib.php';
+// RivetCore 1.0.0-rc.11: the active releases are cached on a shared (Redis) cache; a writer that changes endpoint_agent_releases itself must say so (UpdateService::releasesChanged)
+$relChanged = function () use ($db) { rivetRmmModule($db)->updates()->releasesChanged(); };
 use ITFlow\EndpointAgent\Binaries; use ITFlow\EndpointAgent\Config; use ITFlow\EndpointAgent\Enrollment; use ITFlow\EndpointAgent\Installer;
 use ITFlow\EndpointAgent\InstallerStamp as S; use ITFlow\EndpointAgent\Updates;
 
@@ -134,7 +136,7 @@ $ok($code === 0 && (int) $one("SELECT is_current FROM endpoint_agent_binaries WH
 [$code, $out] = $cli([$put('arm2.exe', fakePe(0xAA64, 7000)), '--version', '2.0.1', '--arch', 'amd64']); $ok($code === 1, 'CLI refuses the wrong machine type');
 [$code, $out] = $cli([$put('x.exe', fakePe(0x8664, 7000, 'z')), '--version', 'abc', '--arch', 'amd64']); $ok($code === 1, 'CLI refuses a bad version');
 [$code, $out] = $cli([]); $ok($code === 1 && strpos($out, 'Usage') !== false, 'CLI prints usage');
-$q("DELETE FROM endpoint_agent_releases"); $admin(['binary_action' => 'make_current', 'binary_id' => (int) $one("SELECT binary_id FROM endpoint_agent_binaries WHERE version='1.1.0'")]);
+$q("DELETE FROM endpoint_agent_releases"); $relChanged(); $admin(['binary_action' => 'make_current', 'binary_id' => (int) $one("SELECT binary_id FROM endpoint_agent_binaries WHERE version='1.1.0'")]);
 
 // ============================================================ admin installer download
 $cur = Binaries::current('amd64'); $curBytes = file_get_contents("$binDir/{$cur['storage_name']}");
@@ -302,7 +304,7 @@ $q("DELETE FROM endpoint_agent_enroll_attempts");
 // ============================================================ hosted self-update
 $flush = function () { exec('redis-cli -p ' . (int) getenv('RIVETIT_REDIS_PORT') . ' flushall 2>&1'); };
 $flush();
-$q("DELETE FROM endpoint_agent_releases");
+$q("DELETE FROM endpoint_agent_releases"); $relChanged();
 $tokE = ea_token(1, 24, 50);
 [$c, , $je] = ea_enroll($tokE, ea_dev(['agent_version' => '1.0.0', 'arch' => 'amd64'])); $DEV = $je['device_token']; $DID = $je['device_id'];
 [$c, , $ja] = ea_enroll($tokE, ea_dev(['agent_version' => '1.0.0', 'arch' => 'arm64'])); $DEVARM = $ja['device_token'];
@@ -327,13 +329,13 @@ foreach (['../../config.php', '1.1.0/../../x', 'config.php', '', '1.1.0%00'] as 
 foreach (['../x', 'amd64/../../config.php', 'x86'] as $ba) { [$c, , , $b] = http('GET', '/api/v1/agent_update?arch=' . rawurlencode($ba) . '&version=1.1.0', $DEV); $ok(in_array($c, [404, 422], true) && strpos($b, '$database') === false, "arch=$ba refused ($c)"); }
 [$c] = http('GET', '/api/v1/agent_update?version=1.1.0', $DEV); $ok($c === 422, 'missing arch -> 422');
 [$c] = http('POST', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV, []); $ok($c === 405, 'POST -> 405');
-$q("UPDATE endpoint_agent_releases SET rollout_pct=0"); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'rollout 0% -> not offered, not downloadable');
-$q("UPDATE endpoint_agent_releases SET rollout_pct=100, active=0"); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'inactive release -> 404');
-$q("UPDATE endpoint_agent_releases SET active=1"); $q("UPDATE endpoint_agent_binaries SET active=0 WHERE binary_id=" . (int) $b110['binary_id']);
+$q("UPDATE endpoint_agent_releases SET rollout_pct=0"); $relChanged(); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'rollout 0% -> not offered, not downloadable');
+$q("UPDATE endpoint_agent_releases SET rollout_pct=100, active=0"); $relChanged(); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'inactive release -> 404');
+$q("UPDATE endpoint_agent_releases SET active=1"); $relChanged(); $q("UPDATE endpoint_agent_binaries SET active=0 WHERE binary_id=" . (int) $b110['binary_id']);
 [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'a deactivated binary is not served even if its release row is still active');
 $q("UPDATE endpoint_agent_binaries SET active=1 WHERE binary_id=" . (int) $b110['binary_id']);
-$q("UPDATE endpoint_agent_releases SET sha256='" . str_repeat('9', 64) . "'"); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'a release whose SHA-256 differs from the stored binary is refused');
-$q("UPDATE endpoint_agent_releases SET sha256='{$b110['sha256']}'");
+$q("UPDATE endpoint_agent_releases SET sha256='" . str_repeat('9', 64) . "'"); $relChanged(); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 404, 'a release whose SHA-256 differs from the stored binary is refused');
+$q("UPDATE endpoint_agent_releases SET sha256='{$b110['sha256']}'"); $relChanged();
 file_put_contents("$binDir/{$b110['storage_name']}", $b110Bytes . 'Z'); [$c, , , $b] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 503 && strlen($b) < 200, 'a tampered stored file is refused before any byte is sent');
 file_put_contents("$binDir/{$b110['storage_name']}", $b110Bytes);
 $q("UPDATE endpoint_agent_binaries SET storage_name='../../config.php' WHERE binary_id=" . (int) $b110['binary_id']); [$c, , , $b] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV);
@@ -341,11 +343,11 @@ $ok($c >= 400 && strpos($b, '$database') === false && strpos($b, 'password') ===
 $q("UPDATE endpoint_agent_binaries SET storage_name='{$b110['storage_name']}' WHERE binary_id=" . (int) $b110['binary_id']);
 \ITFlow\EndpointAgent\Devices::revoke((int) $DID, 'test', 1); [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.1.0', $DEV); $ok($c === 401, 'a revoked device cannot download');
 // an external https release keeps working
-$q("DELETE FROM endpoint_agent_releases");
+$q("DELETE FROM endpoint_agent_releases"); $relChanged();
 Config::set(['service_url' => $base]);
 $tokX = ea_token(1, 24, 5); [, , $jx] = ea_enroll($tokX, ea_dev(['agent_version' => '1.0.0', 'arch' => 'amd64']));
 $ok(Updates::addRelease('1.5.0', 'https://127.0.0.1/downloads/agent.exe', str_repeat('a', 64), '0.0.0', 'stable', 100, '', 1) === null, 'external https release still publishes');
 [, , $cx] = ea_checkin($jx['device_token']); $ok(($cx['update']['url'] ?? '') === 'https://127.0.0.1/downloads/agent.exe' && $cx['update']['version'] === '1.5.0', 'an external release keeps its own URL in the manifest');
 [$c] = http('GET', '/api/v1/agent_update?arch=amd64&version=1.5.0', $jx['device_token']); $ok($c === 404, 'the hosted download endpoint does not serve an externally hosted release');
-$q("DELETE FROM endpoint_agent_releases");
+$q("DELETE FROM endpoint_agent_releases"); $relChanged();
 $ok((int) $one("SELECT COUNT(*) FROM endpoint_agent_releases") === 0, 'cleanup');
