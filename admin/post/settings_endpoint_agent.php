@@ -396,3 +396,497 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh'])) {
     $rmm->syncState();   // the remote sub-switch follows mesh_enabled
     ea_flash_result($r);
 }
+
+// ================================================================================================================================================================
+// RivetCore 1.0.0-rc.11: remote tools, file transfer, log collection, scale settings, partitioning and the external metric store. Core validates, authorizes and
+// audits (RemoteActions::updateSettings, RmmSettings::update through RmmAdmin::saveSettings); this file only reads the form, shows Core's refusal text in the card
+// it belongs to (an aria-live region, kept after the redirect) and keeps what the person typed when something was refused. Only values that changed are written.
+// ================================================================================================================================================================
+
+require_once dirname(__DIR__, 2) . '/includes/rmm_scale_admin.php';
+
+use RivetCore\Rmm\Authz\RmmAbility;
+
+/** Go back to a card on the settings page. */
+function ea_scale_back(string $anchor): void
+{
+    redirect('settings_endpoint_agent.php#' . $anchor);
+}
+
+/** Lines of a textarea: trimmed, empty ones dropped. @return list<string> */
+function ea_scale_lines($v): array
+{
+    $out = [];
+    foreach (preg_split('/\R/', is_string($v) ? $v : '') ?: [] as $l) {
+        $l = trim($l);
+        if ($l !== '') {
+            $out[] = $l;
+        }
+    }
+
+    return $out;
+}
+
+/** A whole number from the form, or null (and an error in $errors) when it is not one. Nothing is clamped: Core's range message is what the person should see. */
+function ea_scale_whole(string $key, string $label, array &$errors, ?int $default = null): ?int
+{
+    $v = $_POST[$key] ?? null;
+    if ($v === null || (is_string($v) && trim($v) === '')) {
+        return $default;
+    }
+    if (is_string($v) && preg_match('/^\s*-?\d{1,12}\s*$/', $v) === 1) {
+        return (int) trim($v);
+    }
+    $errors[] = $label . ' must be a whole number.';
+
+    return null;
+}
+
+/** A number-plus-unit field (name and name_unit) as a whole number of base units, or null with an error. @param array<string,int> $units */
+function ea_scale_unit_whole(string $key, string $label, array $units, array &$errors): ?int
+{
+    $v = $_POST[$key] ?? null;
+    if (!is_string($v) || trim($v) === '') {
+        return null;
+    }
+    $unit = (string) ($_POST[$key . '_unit'] ?? '');
+    if (!isset($units[$unit]) || preg_match('/^\s*\d{1,9}(\.\d{1,3})?\s*$/', $v) !== 1) {
+        $errors[] = $label . ' must be a number (for example 50) with a unit.';
+
+        return null;
+    }
+
+    return (int) round((float) trim($v) * $units[$unit]);
+}
+
+/** The administrator check every write below makes on the server (Core repeats it for its own operations). */
+function ea_scale_require_admin($rmm, int $userId, string $anchor): void
+{
+    $denied = $rmm->authorizer()->check($userId, RmmAbility::ADMIN, 0, false);
+    if ($denied !== null) {
+        rivetRmmScaleMsg($anchor, 'error', $denied);
+        ea_scale_back($anchor);
+    }
+}
+
+/** The limits an administrator stored (without the defaults), as the array RmmSettings::update() takes back. @return array<string,int> */
+function ea_scale_stored_limits($rmm): array
+{
+    $raw = $rmm->settings()->get(true)['limits_json'] ?? null;
+    $d = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+
+    return is_array($d) ? $d : [];
+}
+
+// ---------------------------------------------------------------- Remote tools
+
+if (isset($_POST['save_remote_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'remote-tools');
+    $rmm->settings()->refresh();
+    $msgs = [];
+    $want = !empty($_POST['feature_remote_tools']);
+    if ($want !== $rmm->settings()->features()['remote_tools']) {
+        $r = $rmm->remoteActions()->updateSettings($ea_who, ['features' => ['remote_tools' => $want]]);
+        if (!$r->ok) {
+            rivetRmmScaleMsg('remote-tools', 'error', $r->message);
+            ea_scale_back('remote-tools');
+        }
+        $msgs[] = 'Remote tools switched ' . ($want ? 'on.' : 'off.');
+    }
+    $lvl3 = !empty($_POST['remote_manage_lvl3']) ? 1 : 0;
+    $beforeRow = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_remote_manage_lvl3 AS v FROM settings WHERE company_id = 1')) ?: ['v' => 0];
+    if ((int) $beforeRow['v'] !== $lvl3) {
+        mysqli_query($mysqli, "UPDATE settings SET config_rmm_remote_manage_lvl3 = $lvl3 WHERE company_id = 1");
+        rivetRmmForgetAccess();
+        logAction('RMM', 'Settings Changed', "$session_name changed the remote tools setting (level 3 script users with remote access may use them: " . ($lvl3 ? 'yes' : 'no') . ')');
+        $msgs[] = 'Level 3 setting saved.';
+    }
+    $rmm->syncState();
+    rivetRmmScaleMsg('remote-tools', $msgs === [] ? 'info' : 'success', $msgs === [] ? 'No change to save.' : implode(' ', $msgs));
+    ea_scale_back('remote-tools');
+}
+
+// ---------------------------------------------------------------- File transfer
+
+if (isset($_POST['save_filetransfer_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'file-transfer');
+    $rmm->settings()->refresh();
+    $rs = $rmm->remoteSettings();
+    $rs->refresh();
+    $errors = [];
+    $in = [];
+    $old = ['allow_linux' => (string) ($_POST['allow_linux'] ?? ''), 'allow_windows' => (string) ($_POST['allow_windows'] ?? ''), 'feature_filetransfer' => !empty($_POST['feature_filetransfer']) ? 1 : 0,
+        'transfer_max_bytes' => $_POST['transfer_max_bytes'] ?? '', 'transfer_max_bytes_unit' => $_POST['transfer_max_bytes_unit'] ?? '', 'transfer_ttl_s' => $_POST['transfer_ttl_s'] ?? '', 'transfer_ttl_s_unit' => $_POST['transfer_ttl_s_unit'] ?? '',
+        'transfer_store_max_bytes' => $_POST['transfer_store_max_bytes'] ?? '', 'transfer_store_max_bytes_unit' => $_POST['transfer_store_max_bytes_unit'] ?? ''];
+    $want = !empty($_POST['feature_filetransfer']);
+    if ($want !== $rmm->settings()->features()['filetransfer']) {
+        $in['features'] = ['filetransfer' => $want];
+        if ($want) {
+            $in['accept_filetransfer_risk'] = !empty($_POST['accept_filetransfer_risk']);
+        }
+    }
+    $allow = ['linux' => ea_scale_lines($_POST['allow_linux'] ?? ''), 'windows' => ea_scale_lines($_POST['allow_windows'] ?? '')];
+    if ($allow !== $rs->allowRoots()) {
+        $in['transfer_allow'] = $allow;
+    }
+    $limits = [];
+    $bytes = ['KB' => 1024, 'MB' => 1048576, 'GB' => 1073741824];
+    foreach (['transfer_max_bytes' => ['The largest file', $bytes], 'transfer_ttl_s' => ['How long a transfer is kept', ['minutes' => 60, 'hours' => 3600, 'days' => 86400]],
+        'transfer_store_max_bytes' => ['The space for stored transfers', $bytes]] as $k => [$label, $units]) {
+        $v = ea_scale_unit_whole($k, $label, $units, $errors);
+        if ($v !== null && $v !== $rs->limits()[$k]) {
+            $limits[$k] = $v;
+        }
+    }
+    if ($limits !== []) {
+        $in['limits'] = $limits;
+    }
+    if ($errors !== []) {
+        rivetRmmScaleMsg('file-transfer', 'error', implode(' ', $errors), $old);
+        ea_scale_back('file-transfer');
+    }
+    if ($in === []) {
+        rivetRmmScaleMsg('file-transfer', 'info', 'No change to save.');
+        ea_scale_back('file-transfer');
+    }
+    $r = $rmm->remoteActions()->updateSettings($ea_who, $in);
+    $rmm->syncState();
+    if (!$r->ok) {
+        rivetRmmScaleMsg('file-transfer', 'error', $r->message, $old);
+    } else {
+        $bits = [];
+        if (isset($in['features'])) {
+            $bits[] = 'File transfer switched ' . ($want ? 'on' : 'off');
+        }
+        if (isset($in['transfer_allow'])) {
+            $bits[] = 'allowed folders saved';
+        }
+        if (isset($in['limits'])) {
+            $bits[] = 'limits saved';
+        }
+        rivetRmmScaleMsg('file-transfer', 'success', ucfirst(implode(', ', $bits)) . '.');
+    }
+    ea_scale_back('file-transfer');
+}
+
+if (isset($_POST['create_transfer_folder'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'file-transfer');
+    $r = rivetRmmTransferDirCreate();
+    logAction('RMM', 'Settings Changed', "$session_name asked to create the file transfer folder: " . ($r['ok'] ? ($r['created'] ? 'created' : 'already there') : 'refused'));
+    rivetRmmScaleMsg('file-transfer', $r['ok'] ? 'success' : 'error', $r['message']);
+    ea_scale_back('file-transfer');
+}
+
+// ---------------------------------------------------------------- Log collection
+
+if (isset($_POST['save_logs_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'log-collection');
+    $rmm->settings()->refresh();
+    $rs = $rmm->remoteSettings();
+    $rs->refresh();
+    $errors = [];
+    $in = [];
+    $win = [];
+    $lin = [];
+    $winRows = [];
+    $linRows = [];
+    foreach (is_array($_POST['log_win'] ?? null) ? $_POST['log_win'] : [] as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $ch = trim((string) ($row['channel'] ?? ''));
+        $levels = array_values(array_filter(array_map('strval', is_array($row['levels'] ?? null) ? $row['levels'] : [])));
+        $ids = [];
+        foreach (preg_split('/[\s,;]+/', (string) ($row['event_ids'] ?? '')) ?: [] as $t) {
+            if ($t !== '') {
+                $ids[] = ctype_digit($t) && strlen($t) < 8 ? (int) $t : $t;
+            }
+        }
+        $contains = ea_scale_lines($row['contains'] ?? '');
+        $winRows[] = ['channel' => $ch, 'levels' => $levels, 'event_ids' => (string) ($row['event_ids'] ?? ''), 'contains' => (string) ($row['contains'] ?? '')];
+        if ($ch === '') {
+            continue;
+        }
+        $win[] = ['kind' => 'eventlog', 'channel' => $ch, 'levels' => $levels === [] ? ['critical', 'error', 'warning'] : $levels, 'event_ids' => $ids, 'contains' => $contains];
+    }
+    foreach (is_array($_POST['log_lin'] ?? null) ? $_POST['log_lin'] : [] as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $units = preg_split('/[\s,;]+/', trim((string) ($row['units'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $idents = preg_split('/[\s,;]+/', trim((string) ($row['identifiers'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $contains = ea_scale_lines($row['contains'] ?? '');
+        $min = (string) ($row['min_level'] ?? 'warning');
+        $linRows[] = ['units' => (string) ($row['units'] ?? ''), 'identifiers' => (string) ($row['identifiers'] ?? ''), 'min_level' => $min, 'contains' => (string) ($row['contains'] ?? ''), 'keep' => !empty($row['keep']) ? 1 : 0];
+        if ($units === [] && $idents === [] && $contains === [] && empty($row['keep'])) {
+            continue;
+        }
+        $lin[] = ['kind' => 'journal', 'units' => $units, 'identifiers' => $idents, 'min_level' => $min, 'contains' => $contains];
+    }
+    $old = ['feature_logs' => !empty($_POST['feature_logs']) ? 1 : 0, 'win' => $winRows, 'lin' => $linRows];
+    foreach (['logs_retention_days', 'logs_device_max_rows', 'logs_fleet_max_rows', 'logs_rate_per_min', 'logs_interval_s'] as $k) {
+        $old[$k] = $_POST[$k] ?? '';
+    }
+    $want = !empty($_POST['feature_logs']);
+    if ($want !== $rmm->settings()->features()['logs']) {
+        $in['features'] = ['logs' => $want];
+        if ($want) {
+            $in['accept_logs_storage'] = !empty($_POST['accept_logs_storage']);
+        }
+    }
+    $sources = ['linux' => $lin, 'windows' => $win];
+    $curSources = ['linux' => $rs->logSources('linux'), 'windows' => $rs->logSources('windows')];
+    if (json_encode($sources) !== json_encode($curSources)) {
+        $in['logs_collect'] = $sources;
+    }
+    $limits = [];
+    $labels = ['logs_retention_days' => 'Keep entries for (days)', 'logs_device_max_rows' => 'Entries kept per device', 'logs_fleet_max_rows' => 'Entries kept for the whole fleet',
+        'logs_rate_per_min' => 'Entries one device may send per minute', 'logs_interval_s' => 'How often a device sends (seconds)'];
+    foreach ($labels as $k => $label) {
+        $v = ea_scale_whole($k, $label, $errors);
+        if ($v !== null && $v !== $rs->limits()[$k]) {
+            $limits[$k] = $v;
+        }
+    }
+    if ($limits !== []) {
+        $in['limits'] = $limits;
+    }
+    if ($errors !== []) {
+        rivetRmmScaleMsg('log-collection', 'error', implode(' ', $errors), $old);
+        ea_scale_back('log-collection');
+    }
+    if ($in === []) {
+        rivetRmmScaleMsg('log-collection', 'info', 'No change to save.');
+        ea_scale_back('log-collection');
+    }
+    $r = $rmm->remoteActions()->updateSettings($ea_who, $in);
+    $rmm->syncState();
+    if (!$r->ok) {
+        rivetRmmScaleMsg('log-collection', 'error', $r->message, $old);
+    } else {
+        $bits = [];
+        if (isset($in['features'])) {
+            $bits[] = 'Log collection switched ' . ($want ? 'on' : 'off');
+        }
+        if (isset($in['logs_collect'])) {
+            $bits[] = 'sources saved';
+        }
+        if (isset($in['limits'])) {
+            $bits[] = 'limits saved';
+        }
+        rivetRmmScaleMsg('log-collection', 'success', ucfirst(implode(', ', $bits)) . '.');
+    }
+    ea_scale_back('log-collection');
+}
+
+// ---------------------------------------------------------------- Scale settings (cache, ingest, herd control, check touch, partition shape)
+
+if (isset($_POST['save_scale_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'scale');
+    $rmm->settings()->refresh();
+    $cur = $rmm->settings()->limits();
+    $errors = [];
+    $want = [];
+    $labels = ['cache_fresh_s' => 'Cache fresh time', 'cache_stale_s' => 'Cache extra stale time', 'ingest_max_running' => 'Most ingest jobs running at once', 'ingest_batch' => 'Ingest jobs per worker pass',
+        'check_touch_s' => 'Check "last seen" refresh', 'partition_span_days' => 'Days per partition', 'partition_ahead' => 'Partitions created ahead',
+        'warm_start_pct' => 'Warm start share', 'warm_quiet_s' => 'Warm start quiet gap', 'warm_start_s' => 'Warm start length', 'client_bucket_burst' => 'Department burst', 'client_bucket_per_min' => 'Department check-ins per minute'];
+    $old = [];
+    foreach ($labels as $k => $label) {
+        $old[$k] = $_POST[$k] ?? '';
+        $v = ea_scale_whole($k, $label, $errors);
+        if ($v !== null) {
+            $want[$k] = $v;
+        }
+    }
+    $old['warm_on'] = !empty($_POST['warm_on']) ? 1 : 0;
+    $old['bucket_on'] = !empty($_POST['bucket_on']) ? 1 : 0;
+    if (isset($_POST['warm_on']) || isset($_POST['herd_form'])) {
+        if (!$old['warm_on']) {
+            $want['warm_start_s'] = 0;
+            unset($want['warm_start_pct'], $want['warm_quiet_s']);
+        } elseif (($want['warm_start_s'] ?? 0) <= 0) {
+            $want['warm_start_s'] = 600;
+        }
+        if (!$old['bucket_on']) {
+            $want['client_bucket_burst'] = 0;
+            $want['client_bucket_per_min'] = 0;
+        } else {
+            $sg = rivetRmmScaleBucketSuggestion($mysqli, (int) ($rmm->settings()->get()['check_in_interval_s'] ?? 300));
+            if (($want['client_bucket_per_min'] ?? 0) <= 0) {
+                $want['client_bucket_per_min'] = $sg['per_min'];
+            }
+            if (($want['client_bucket_burst'] ?? 0) <= 0) {
+                $want['client_bucket_burst'] = $sg['burst'];
+            }
+        }
+    }
+    if ($errors !== []) {
+        rivetRmmScaleMsg('scale', 'error', implode(' ', $errors), $old);
+        ea_scale_back('scale');
+    }
+    $changed = array_filter($want, static fn ($v, $k) => ($cur[$k] ?? null) !== $v, ARRAY_FILTER_USE_BOTH);
+    if ($changed === []) {
+        rivetRmmScaleMsg('scale', 'info', 'No change to save.');
+        ea_scale_back('scale');
+    }
+    $r = $ea_admin->saveSettings($ea_who, ['limits_json' => array_merge(ea_scale_stored_limits($rmm), $changed)]);
+    if (!$r->ok) {
+        rivetRmmScaleMsg('scale', 'error', $r->message, $old);
+        ea_scale_back('scale');
+    }
+    $rmm->syncState();
+    logAction('RMM', 'Settings Changed', "$session_name changed the RMM scale settings (" . implode(', ', array_map(static fn ($k, $v) => "$k=$v", array_keys($changed), $changed)) . ')');
+    rivetRmmScaleMsg('scale', 'success', 'Scale settings saved (' . count($changed) . ' value' . (count($changed) === 1 ? '' : 's') . ' changed).');
+    ea_scale_back('scale');
+}
+
+// ---------------------------------------------------------------- Partitioning
+
+if (isset($_POST['partition_probe'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'partitioning');
+    $probe = $rmm->partitions()->probe();   // really creates, partitions and drops a one-column scratch table; nothing else is touched
+    $w = rivetRmmScaleProbeWords($probe);
+    rivetRmmScaleMsg('partitioning', $w['can'] || !empty($w['history']['partitioned']) ? 'success' : 'warning', $w['summary']);
+    ea_scale_back('partitioning');
+}
+
+if (isset($_POST['partition_enable'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'partitioning');
+    if (empty($_POST['confirm_partition'])) {
+        rivetRmmScaleMsg('partitioning', 'error', 'Tick the box to confirm that you understand the table is copied once and writers wait while it is. Nothing was changed.');
+        ea_scale_back('partitioning');
+    }
+    $probe = $rmm->partitions()->probe();   // always asked again: the answer on the screen may be old
+    $w = rivetRmmScaleProbeWords($probe);
+    if (!empty($w['history']['partitioned'])) {
+        rivetRmmScaleMsg('partitioning', 'info', 'The check-history table is already partitioned.');
+        ea_scale_back('partitioning');
+    }
+    if (!$w['can']) {
+        rivetRmmScaleMsg('partitioning', 'error', 'Not enabled. ' . $w['summary']);
+        ea_scale_back('partitioning');
+    }
+    @set_time_limit(0);
+    ignore_user_abort(true);
+    $lim = $rmm->settings()->limits();
+    $c = $rmm->partitions()->convert('endpoint_agent_check_history', (int) $lim['partition_span_days'], (int) $lim['partition_ahead']);
+    if (!$c['ok']) {
+        logAction('RMM', 'Settings Changed', "$session_name tried to enable table partitioning: failed");
+        rivetRmmScaleMsg('partitioning', 'error', 'The table could not be converted: ' . $c['message'] . ' Nothing was switched on.');
+        ea_scale_back('partitioning');
+    }
+    $rmm->partitions()->probe();   // so the answer kept for the page says "already done" instead of the one from before the copy
+    $r = $ea_admin->saveSettings($ea_who, ['limits_json' => array_merge(ea_scale_stored_limits($rmm), ['partitioning' => 1])]);
+    logAction('RMM', 'Settings Changed', "$session_name enabled table partitioning for the endpoint agent check history (" . $c['message'] . ')');
+    rivetRmmScaleMsg('partitioning', $r->ok ? 'success' : 'warning', 'Partitioning is on. ' . $c['message'] . ($r->ok ? '' : ' The setting itself was not saved: ' . $r->message));
+    ea_scale_back('partitioning');
+}
+
+if (isset($_POST['partition_disable'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'partitioning');
+    $r = $ea_admin->saveSettings($ea_who, ['limits_json' => array_merge(ea_scale_stored_limits($rmm), ['partitioning' => 0])]);
+    logAction('RMM', 'Settings Changed', "$session_name turned off automatic table partitioning");
+    rivetRmmScaleMsg('partitioning', $r->ok ? 'success' : 'error', $r->ok ? 'Automatic partitioning is off. Tables that are already partitioned stay partitioned and keep being maintained; see the note below to convert one back.' : $r->message);
+    ea_scale_back('partitioning');
+}
+
+// ---------------------------------------------------------------- External metric store
+
+if (isset($_POST['save_extstore'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'ext-store');
+    $flags = rivetRmmExtStoreFlags($mysqli);
+    $enabled = !empty($_POST['extstore_enabled']);
+    $new = [];
+    $errors = [];
+    foreach (['write_url' => ['write', 'write address'], 'read_url' => ['read', 'read address']] as $f => [$flag, $label]) {
+        $v = trim((string) ($_POST['extstore_' . $f] ?? ''));
+        if (!empty($_POST['extstore_clear_' . $f])) {
+            $new[$f] = null;
+        } elseif ($v !== '') {
+            $why = rivetRmmExtStoreUrlProblem($mysqli, $v);
+            if ($why !== null) {
+                $errors[] = 'The ' . $label . ' is not accepted: ' . $why;
+            } else {
+                $new[$f] = $v;
+            }
+        }
+    }
+    $tok = (string) ($_POST['extstore_token'] ?? '');
+    if (!empty($_POST['extstore_clear_token'])) {
+        $new['token'] = null;
+    } elseif ($tok !== '') {
+        if (strlen($tok) > 500 || preg_match('/[\x00-\x1f\x7f]/', $tok) === 1) {
+            $errors[] = 'The token is too long or contains control characters.';
+        } else {
+            $new['token'] = $tok;
+        }
+    }
+    $hasWrite = array_key_exists('write_url', $new) ? $new['write_url'] !== null : $flags['write'];
+    if ($enabled && !$hasWrite && $errors === []) {
+        $errors[] = 'The external store needs a write address before it can be switched on.';
+    }
+    if ($errors !== []) {
+        rivetRmmScaleMsg('ext-store', 'error', implode(' ', $errors));
+        ea_scale_back('ext-store');
+    }
+    $sets = ['config_rmm_extstore_enabled = ' . ($enabled ? 1 : 0)];
+    foreach (['write_url' => 'config_rmm_extstore_write_url', 'read_url' => 'config_rmm_extstore_read_url', 'token' => 'config_rmm_extstore_token'] as $f => $col) {
+        if (array_key_exists($f, $new)) {
+            $sets[] = "$col = " . ($new[$f] === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, encryptSetting($new[$f])) . "'");
+        }
+    }
+    $changed = $enabled !== $flags['enabled'] || count($sets) > 1;
+    if (!$changed) {
+        rivetRmmScaleMsg('ext-store', 'info', 'No change to save.');
+        ea_scale_back('ext-store');
+    }
+    mysqli_query($mysqli, 'UPDATE settings SET ' . implode(', ', $sets) . ' WHERE company_id = 1');
+    $what = [];
+    foreach (['write_url' => 'write address', 'read_url' => 'read address', 'token' => 'token'] as $f => $label) {
+        if (array_key_exists($f, $new)) {
+            $what[] = $label . ($new[$f] === null ? ' removed' : ' replaced');
+        }
+    }
+    logAction('RMM', 'Settings Changed', "$session_name changed the external metric store settings (" . ($enabled ? 'on' : 'off') . ($what ? '; ' . implode(', ', $what) : '') . '; values are not logged)');
+    rivetRmmScaleMsg('ext-store', 'success', 'External metric store settings saved (' . ($enabled ? 'switched on' : 'switched off') . '). Run "Test connection" to check them.');
+    ea_scale_back('ext-store');
+}
+
+if (isset($_POST['test_extstore'])) {
+    $json = stripos((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') !== false;
+    $okToken = is_string($_POST['csrf_token'] ?? null) && hash_equals($_POST['csrf_token'], (string) $_SESSION['csrf_token']);
+    $denied = $okToken ? $rmm->authorizer()->check((int) $session_user_id, RmmAbility::ADMIN, 0, false) : 'The page security token is no longer valid. Reload the page and try again.';
+    if ($denied !== null) {
+        if ($json) {
+            http_response_code($okToken ? 403 : 400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'status' => 'denied', 'message' => $denied]);
+            exit;
+        }
+        $okToken ? ea_scale_require_admin($rmm, (int) $session_user_id, 'ext-store') : validateCSRFToken('');
+    }
+    // What is typed is tested; what is left empty falls back to the saved value (which is never sent to the browser).
+    $saved = rivetRmmExtStoreStored($mysqli);
+    $w = trim((string) ($_POST['extstore_write_url'] ?? ''));
+    $rd = trim((string) ($_POST['extstore_read_url'] ?? ''));
+    $tk = (string) ($_POST['extstore_token'] ?? '');
+    $res = rivetRmmExtStoreTest($mysqli, $w !== '' ? $w : $saved['write'], $rd !== '' ? $rd : ($w !== '' ? '' : $saved['read']), $tk !== '' ? $tk : $saved['token']);
+    logAction('RMM', 'Settings Changed', "$session_name tested the external metric store connection: " . $res['status']);
+    if ($json) {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        echo json_encode($res);
+        exit;
+    }
+    rivetRmmScaleMsg('ext-store', $res['ok'] ? 'success' : 'error', $res['message']);
+    ea_scale_back('ext-store');
+}

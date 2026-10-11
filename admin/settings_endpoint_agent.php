@@ -2,6 +2,7 @@
 require_once "includes/inc_all_admin.php";
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+require_once dirname(__DIR__) . '/includes/rmm_scale_cards.php';   // RivetCore 1.0.0-rc.11 cards (remote tools, file transfer, logs, scale, partitioning, external store)
 
 use RivetCore\Rmm\Binaries\BinaryStore;
 
@@ -294,6 +295,71 @@ $autoLimits = (array) $cfg['limits'];
         </form>
     </div>
 </div>
+
+<?php
+// RivetCore 1.0.0-rc.11 (RMM Phases 6 and 8 and the scale work): the data for the cards below is read here, the cards are printed by rivetRmmUiScaleCards() (includes/rmm_scale_cards.php).
+// Each part is off by default and is guarded so this page still loads on a database that has not been updated yet.
+$rmm_scale_scripts = true;
+$scaleCtx = ['csrf' => $csrf, 'module_on' => $moduleOn, 'features' => (array) $cfg['features'], 'msg' => [], 'old' => []];
+foreach (['remote-tools', 'file-transfer', 'log-collection', 'scale', 'partitioning', 'ext-store'] as $__card) {
+    [$scaleCtx['msg'][$__card], $scaleCtx['old'][$__card]] = rivetRmmScaleTake($__card);
+}
+$scaleCtx['rs'] = $rmm->remoteSettings()->summary();
+$__lvl3 = @mysqli_fetch_row(@mysqli_query($mysqli, 'SELECT config_rmm_remote_manage_lvl3 FROM settings WHERE company_id = 1'));
+$scaleCtx['lvl3'] = (int) ($__lvl3[0] ?? 0) === 1;
+$scaleCtx['caps'] = ['total' => null, 'services' => 0, 'processes' => 0, 'logs' => 0];
+try {
+    $__cap = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS n, COALESCE(SUM(s.capabilities_json LIKE '%\"remote:services\"%'), 0) AS a, COALESCE(SUM(s.capabilities_json LIKE '%\"remote:processes\"%'), 0) AS b,
+        COALESCE(SUM(s.capabilities_json LIKE '%\"logs:collect\"%'), 0) AS c FROM endpoint_agent_devices d LEFT JOIN rmm_device_state s ON s.device_id = d.device_id WHERE d.revoked_at IS NULL AND d.retired_at IS NULL"));
+    if ($__cap) {
+        $scaleCtx['caps'] = ['total' => (int) $__cap['n'], 'services' => (int) $__cap['a'], 'processes' => (int) $__cap['b'], 'logs' => (int) $__cap['c']];
+    }
+} catch (\Throwable) {
+    // table not there yet
+}
+$scaleCtx['transfer'] = rivetRmmTransferDirStatus((int) $scaleCtx['rs']['limits']['transfer_store_max_bytes']);
+$__lim = $rmm->settings()->limits();
+$scaleCtx['scale'] = ['limits' => $__lim, 'ingest_mode' => (string) ($rmm->settings()->get()['ingest_mode'] ?? 'sync'), 'cache_shared' => $rmm->cache()->shared(),
+    'bucket_suggestion' => rivetRmmScaleBucketSuggestion($mysqli, (int) ($rmm->settings()->get()['check_in_interval_s'] ?? 300))];
+// Partitioning: the last probe (kept by Core), the partitions that exist now, and the size of RivetIT's own metric tables (information_schema estimates).
+$__probe = null;
+$__probeAt = null;
+try {
+    $__ps = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT detail, updated_at FROM rmm_storage_state WHERE name = 'partition_probe'"));
+    $__d = $__ps && is_string($__ps['detail']) ? json_decode($__ps['detail'], true) : null;
+    if (is_array($__d)) {
+        $__probe = $__d;
+        $__probeAt = str_replace('T', ' ', rtrim((string) ($__d['at'] ?? $__ps['updated_at']), 'Z'));
+    }
+} catch (\Throwable) {
+    $__probe = null;
+}
+$__own = ['device_metric_samples' => 0, 'device_metric_rollups' => 0];
+try {
+    $__r = mysqli_query($mysqli, "SELECT TABLE_NAME AS t, COALESCE(TABLE_ROWS, 0) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('device_metric_samples', 'device_metric_rollups')");
+    while ($__r && ($__row = mysqli_fetch_assoc($__r))) {
+        $__own[$__row['t']] = (int) $__row['n'];
+    }
+} catch (\Throwable) {
+}
+$scaleCtx['partition'] = ['words' => $__probe === null ? null : rivetRmmScaleProbeWords($__probe), 'probe_at' => $__probeAt, 'own_rows' => $__own, 'history_partitions' => []];
+try {
+    $scaleCtx['partition']['history_partitions'] = $rmm->partitions()->partitions('endpoint_agent_check_history');
+} catch (\Throwable) {
+}
+$__flags = rivetRmmExtStoreFlags($mysqli);
+$__buf = ['batches' => 0, 'points' => 0, 'oldest' => null, 'max_attempts' => 0, 'last_error' => null];
+if ($__flags['enabled']) {
+    try {
+        $__b = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT COUNT(*) AS n, COALESCE(SUM(points), 0) AS p, MIN(created_at) AS o, COALESCE(MAX(attempts), 0) AS a FROM rmm_metric_outbox'));
+        $__e = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT last_error FROM rmm_metric_outbox WHERE last_error IS NOT NULL AND last_error <> '' ORDER BY attempts DESC, outbox_id DESC LIMIT 1"));
+        $__buf = ['batches' => (int) ($__b['n'] ?? 0), 'points' => (int) ($__b['p'] ?? 0), 'oldest' => $__b['o'] ?? null, 'max_attempts' => (int) ($__b['a'] ?? 0), 'last_error' => $__e['last_error'] ?? null];
+    } catch (\Throwable) {
+    }
+}
+$scaleCtx['ext'] = ['flags' => $__flags, 'buffer' => $__buf];
+echo rivetRmmUiScaleCards($scaleCtx);
+?>
 
 <div class="card mb-3" id="binaries">
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
