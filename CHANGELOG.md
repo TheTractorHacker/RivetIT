@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.37] RivetIT — RMM secret box opens v3: values
+
+- **Fix:** after the settings stage moved secrets to the Core envelope (`v3:` values, written once the key file exists and the re-encrypt tool has run), the RMM adapter's `EndpointSecretBox::decrypt()` only accepted `ENC2:`/`ENC:` and answered "not available" for the RMM signing key and the Mesh login key. Installs that created the key file and ran `scripts/rewrap_cli.php` on 26.10.35/36 must update; until then job signing and Mesh login fail closed. Found on the beta site's first rewrap.
+
 ## [26.10.36] RivetIT — RMM Phase 2 and 3: policies, script library, schedules, approvals, custom fields, alerting
 
 Adopts the rest of RivetCore **1.0.0-rc.10** (RMM Phase 2 and 3, on top of the crypto adoption of 26.10.35). **DB 2.6.159** (one idempotent step gated on 2.6.158 that runs Core migrations `0019_rmm_policies_and_scripts` and `0020_rmm_alerting_maturity` through the Core runner: nineteen new tables, nothing existing altered, and two settings columns, `config_rmm_approve_scripts_lvl3` and `config_rmm_escalation_contact`). The chain is 2.6.158 -> 2.6.159 -> 2.6.160 (crypto); `db.sql` carries the new tables and a fresh import matches a migrated install. **Nothing is switched on by default**: Administration > Endpoint agent > "Policies, scripts and alerting" has the three sub-switches (`policies`, `scripts`, `alerting`), each with a plain-language cost note. Deploy order: database dump, `composer install` (rc.10 is already pinned by 26.10.35), `php scripts/update_cli.php --update_db`; the key-file steps of docs/KEY_MANAGEMENT.md are a separate decision.
