@@ -127,6 +127,10 @@ function rivetRmmExternalStoreConfig($mysqli = null): ?array
 {
     $raw = $GLOBALS['config_rmm_extstore_raw'] ?? false;
     $on = $GLOBALS['config_rmm_extstore_enabled'] ?? null;
+    $state = RmmStateFile::read(rivetRmmStateDir());
+    if ($state !== null && !$state['enabled']) {
+        return null;   // the module is off: nothing is ingested, so no store is wired and no statement is spent finding out
+    }
     if ($on === null || ($on === 1 && !is_array($raw))) {
         $raw = null;
         $mysqli ??= $GLOBALS['mysqli'] ?? null;
