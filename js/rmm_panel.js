@@ -210,7 +210,7 @@
     // ---- tab deep links (#rmm-overview, #rmm-inventory, #rmm-software, #rmm-jobs)
     function showHash() {
         var h = (window.location.hash || '').replace('#', '');
-        var m = /^rmm-(overview|inventory|software|jobs|policy|alerting)$/.exec(h);
+        var m = /^rmm-(overview|inventory|software|jobs|policy|alerting|remote|logs)$/.exec(h);
         if (!m || !window.bootstrap) { return; }
         var btn = document.getElementById('rmm-tab-' + m[1]);
         if (btn) { window.bootstrap.Tab.getOrCreateInstance(btn).show(); }

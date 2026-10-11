@@ -581,7 +581,7 @@ $ok(str_contains($offNet, 'rmm-dim'), 'network tile: dimmed with the rest while 
 // ---- the page: tabs, deep link, no-JS server-rendered content
 [$c, $body] = $get('admin');
 $ok(substr_count($body, 'role="tab"') === 4 && preg_match('/id="rmm-tab-software"[^>]*aria-controls="rmm-pane-software"/', $body) === 1, 'asset page: four tabs (Overview, Inventory, Software, Jobs), the Software tab is wired to its pane');
-$ok(str_contains(file_get_contents($root . '/js/rmm_panel.js'), 'overview|inventory|software|jobs|policy|alerting'), 'the tab deep link handler knows #rmm-software');
+$ok(str_contains(file_get_contents($root . '/js/rmm_panel.js'), 'overview|inventory|software|jobs|policy|alerting|remote|logs'), 'the tab deep link handler knows #rmm-software');
 $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asset page: trend column and the network card');
 
 // ---- events: catalog entries and the adapter
