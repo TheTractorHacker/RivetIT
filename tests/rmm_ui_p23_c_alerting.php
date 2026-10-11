@@ -359,6 +359,71 @@ $feat['alerting'] = true;
 $rmm->admin()->saveSettings($admin, ['features_json' => $feat]);
 $fresh();
 
+// ============================================================ RivetCore 1.0.0-rc.14 regression: check params are arrays inside the module
+// An install that never edited its checks has no checks_json and gets the built-in list (pending_reboot has empty params). With rc.13 that list carried a
+// \stdClass and the thresholds part of the Alerting tab logged "Cannot use object of type stdClass as array" and showed nothing. Real-shaped data: the
+// device is enrolled and reports the four checks of the real agent through the real check-in endpoint, the tab is requested over HTTP.
+$rc14Log = tempnam(sys_get_temp_dir(), 'rc14err');
+$rc14Prev = ini_set('error_log', $rc14Log);
+$rc14Srv = static fn (): string => (string) @file_get_contents($web['log']);
+$rc14SrvBefore = strlen($rc14Srv());
+$ok($rmm->settings()->update(['checks_json' => '']) === [], 'rc.14: the stored check list is cleared (the built-in list applies, as on an install that never edited its checks)');
+$fresh();
+$rc14Def = $rmm->settings()->checks();
+$ok(array_column($rc14Def, 'key') === ['disk_c', 'pending_reboot', 'svc_eventlog'] && is_array($rc14Def[1]['params']) && $rc14Def[1]['params'] === [], 'rc.14: the built-in list gives pending_reboot an empty ARRAY of params, not an object');
+$q("INSERT INTO assets SET asset_type='Laptop', asset_name='RC14A', asset_make='Dell', asset_serial='SER-RC14A', asset_client_id=1, asset_status='Active'");
+$rc14Asset = (int) $db->insert_id;
+[$c, , $j] = ea_enroll($S['enroll']['A'], ea_dev(['serial' => 'SER-RC14A', 'hostname' => 'RC14A']));
+$rc14Dev = (int) ($j['device_id'] ?? 0);
+$ok($c === 201 && $rc14Dev > 0, 'rc.14: RC14A enrolled through the real endpoint');
+[$c] = ea_checkin((string) ($j['device_token'] ?? ''), ['checks' => [
+    ['key' => 'disk_c', 'status' => 'ok', 'detail' => 'C: is 41% full'],
+    ['key' => 'pending_reboot', 'status' => 'ok', 'detail' => 'no'],
+    ['key' => 'svc_eventlog', 'status' => 'ok', 'detail' => 'running'],
+    ['key' => 'agent_update', 'status' => 'ok', 'detail' => 'agent is current'],
+]]);
+$ok($c === 200, 'rc.14: the four checks of the real agent are accepted by the check-in (' . $c . ')');
+foreach (['disk_c', 'pending_reboot', 'svc_eventlog'] as $k) {
+    $t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$rc14Dev, 'checks', $k, 'thresholds']);
+    $ok($t['ok'] === true && ($t['data']['check_key'] ?? '') === $k && array_key_exists('defined', $t['data']) && $t['data']['defined'] === null, "rc.14: GET checks/$k/thresholds answers ok for a built-in check that declares none");
+}
+$t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$rc14Dev, 'checks', 'agent_update', 'thresholds']);
+$ok($t['ok'] === false && !str_contains(json_encode($t), 'stdClass'), 'rc.14: a reported check that is not in the list is a plain refusal, not an exception');
+$al = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$rc14Dev, 'alerting']);
+$ok($al['ok'] === true && count($al['data']['checks'] ?? []) >= 3, 'rc.14: device alerting state lists the reported checks');
+[$c, $body] = web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $rc14Asset, $SS['admin']);
+$ok($c === 200 && str_contains($body, 'id="rmm-pane-alerting"') && str_contains($body, 'Checks and alerting') && str_contains($body, 'Thresholds'), 'rc.14: the asset page Alerting tab renders for a device on the built-in checks');
+foreach (['disk_c', 'pending_reboot', 'svc_eventlog'] as $k) {
+    $ok(str_contains($body, '<code class="rmm-mono">' . $k . '</code>'), "rc.14: the thresholds part lists $k");
+}
+$ok(!str_contains($body, 'Fatal error') && !str_contains($body, 'Uncaught'), 'rc.14: no PHP error text in the page');
+// the same device with a stored list that holds both shapes of empty params ({} and []) next to a check that has thresholds: the editor renders for the one that has them
+$rc14Checks = $rc14Def;
+$rc14Checks[] = ['key' => 'rc14_cpu', 'type' => 'cpu', 'interval_s' => 60, 'params' => ['thresholds' => ['warn' => ['op' => 'gt', 'value' => 80], 'crit' => ['op' => 'gt', 'value' => 95], 'for_samples' => 1]]];
+$rc14Checks[] = ['key' => 'rc14_plain', 'type' => 'cpu', 'interval_s' => 60, 'params' => new stdClass()];
+$ok($rmm->settings()->update(['checks_json' => json_encode($rc14Checks)]) === [], 'rc.14: a stored list with {} and [] params and one thresholds check is accepted');
+$fresh();
+ea_checkin((string) ($j['device_token'] ?? ''), ['checks' => [['key' => 'rc14_cpu', 'status' => 'ok', 'detail' => 'load 10', 'value' => 10.0], ['key' => 'rc14_plain', 'status' => 'ok', 'detail' => 'fine', 'value' => 12.0]]]);
+foreach (['pending_reboot', 'rc14_cpu', 'rc14_plain'] as $k) {
+    $t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$rc14Dev, 'checks', $k, 'thresholds']);
+    $ok($t['ok'] === true, "rc.14: GET checks/$k/thresholds answers ok with a stored list holding both shapes");
+}
+[$c, $body] = web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $rc14Asset, $SS['admin']);
+$ok($c === 200 && str_contains($body, '<code class="rmm-mono">rc14_cpu</code>') && str_contains($body, 'name="warn_value"') && str_contains($body, 'name="crit_value"') && str_contains($body, 'value="save_thresholds"'), 'rc.14: the thresholds editor renders for the check that declares thresholds');
+$ok(str_contains($body, 'This check declares no thresholds'), 'rc.14: the checks without thresholds say so');
+// nothing was logged, in this process or by the web server
+clearstatcache();
+$rc14Own = (string) file_get_contents($rc14Log);
+$rc14New = substr($rc14Srv(), $rc14SrvBefore);
+$ok(!str_contains($rc14Own, 'stdClass') && !str_contains($rc14New, 'stdClass'), 'rc.14: "Cannot use object of type stdClass as array" was not logged (test process and web server)');
+// (the test client sends no User-Agent header, so every request logs the same harmless "Undefined array key HTTP_USER_AGENT" warnings; they are not what is checked here)
+$rc14Php = array_values(array_filter(preg_split('/\R/', $rc14Own . "\n" . $rc14New) ?: [], static fn (string $l): bool => preg_match('/PHP (Fatal error|Warning|Notice|Deprecated|Parse error)/', $l) === 1 && !str_contains($l, 'HTTP_USER_AGENT')));
+$ok($rc14Php === [], 'rc.14: no PHP fatal, warning, notice or deprecation was logged while the tab loaded' . ($rc14Php === [] ? '' : ' [' . substr($rc14Php[0], 0, 240) . ']'));
+ini_set('error_log', $rc14Prev === false ? '' : (string) $rc14Prev);
+@unlink($rc14Log);
+$rmm->settings()->update(['checks_json' => json_encode($alrOrigChecks)]);
+$fresh();
+
 $rmm->admin()->disable($admin); $fresh();
 $a = $questions();
 $o1 = [rivetRmmEnabled($db) || rivetRmmFeatureOn("alerting", $db) ? true : null];

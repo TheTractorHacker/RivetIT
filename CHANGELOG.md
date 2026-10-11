@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.40] RivetIT — RivetCore 1.0.0-rc.14: asset page thresholds no longer fail on a check with empty params
+
+Adopts RivetCore **1.0.0-rc.14**, a bug-fix release. **No database step** (DB stays 2.6.162; rc.14 adds no migration) and no setting changes. Nothing is switched on or off by this update.
+
+- **Fixed:** opening the Alerting tab of an agent-linked asset logged `Cannot use object of type stdClass as array` (from `AlertingActions::getThresholds`) and the Thresholds part silently showed "This check declares no thresholds" for every check. It hit every install that never edited its check list (the built-in `pending_reboot` check had empty params stored as an object). Inside Core a check's `params` is now always an array and `\stdClass` exists only at the wire edges (`ChecksValidator::toWire()`); the bytes sent to agents, the signed check messages, the stored `checks_json` and the policy `version` hashes are unchanged (golden transcripts replay identically).
+- **RivetIT code:** audited the edition (`src/Core/Adapter/Endpoint`, `includes/rmm_*.php`, `agent/rmm_*.php`, `agent/post/rmm_*.php`, `js/`): nothing tests `instanceof \stdClass`, JSON-encodes a check list itself or assumes `params` is an object (the thresholds editor, the policy viewer and the checks table already read params as arrays), so no code change was needed beyond the pin.
+- **Tests:** `tests/rmm_ui_p23_c_alerting.php` (part of `tests/rmm_ui.php`, now 1504 checks) gains a regression block: a device on the built-in check list reports the four checks of the real agent (`disk_c`, `pending_reboot`, `svc_eventlog`, `agent_update`) through the real check-in, the thresholds routes answer ok for each, the asset page Alerting tab renders over HTTP, and neither the test process nor the web server logs `stdClass` or any PHP error; a second part stores a list holding both `{}` and `[]` params next to a check with thresholds and asserts the editor renders. The block fails on rc.13 (3 checks) and passes on rc.14. Nothing was deployed.
+
 ## [26.10.39] RivetIT — RivetCore 1.0.0-rc.13: optional MeshCentral agent install, RMM starter pack
 
 Adopts RivetCore **1.0.0-rc.13** (= rc.12, the optional MeshCentral agent install with automatic node-id mapping, plus the RMM starter pack). **DB 2.6.162**: one idempotent step gated on 2.6.161 that runs Core migration `0023_rmm_mesh_agent` through the Core runner (three new tables, nothing existing altered). **Nothing is switched on by this update**: the tick-box is off until an administrator saves the Mesh install settings, and the starter pack installs nothing until used.
