@@ -23,6 +23,7 @@
 
     var client = $('rmm-inst-client'), location_ = $('rmm-inst-location'), multi = $('rmm-inst-multi'), uses = $('rmm-inst-uses'), ttl = $('rmm-inst-ttl');
     var err = $('rmm-inst-error'), done = $('rmm-inst-done'), go = $('rmm-inst-go'), goLabel = $('rmm-inst-go-label');
+    var meshBox = $('rmm-inst-mesh');   // the optional "Also install the MeshCentral agent" tick-box (absent unless MeshCentral is on and has an address)
     var winNext = $('rmm-inst-windows-next'), linOut = $('rmm-inst-linux-out'), cmdBox = $('rmm-inst-linux-cmd');
     var MULTI_USES = 25;
     form.noValidate = true;   // the script reports a missing department inside the dialog; without script the browser's own check applies (the attribute is not in the markup)
@@ -144,7 +145,8 @@
                 window.setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
                 $('rmm-inst-silent-name').textContent = name;
                 var n = parseInt(uses.value, 10) || 1;
-                done.textContent = 'Downloaded ' + name + ' (' + human(blob.size) + '). Copy it to ' + (n > 1 ? 'the PCs' : 'the PC') + ', double-click it and accept the administrator prompt. This file works for ' + n + (n > 1 ? ' PCs' : ' PC') + ' for ' + (parseInt(ttl.value, 10) || 24) + ' hours; making another one creates a new audited token.';
+                done.textContent = 'Downloaded ' + name + ' (' + human(blob.size) + '). Copy it to ' + (n > 1 ? 'the PCs' : 'the PC') + ', double-click it and accept the administrator prompt. This file works for ' + n + (n > 1 ? ' PCs' : ' PC') + ' for ' + (parseInt(ttl.value, 10) || 24) + ' hours; making another one creates a new audited token.'
+                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent from your Mesh server after the RivetIT agent; if that part fails the RivetIT agent is still installed and the device page says why.' : '');
                 done.classList.remove('d-none');
                 modal.setAttribute('data-state', 'downloaded');
             });
@@ -156,7 +158,8 @@
             return res.json().then(function (d) {
                 if (!res.ok || !d || !d.success) { throw new Error((d && d.error) || 'The command could not be created.'); }
                 cmdBox.textContent = d.command;
-                $('rmm-inst-linux-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + d.expires_at + ' UTC.';
+                $('rmm-inst-linux-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + d.expires_at + ' UTC.'
+                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent (the command holds your Mesh device group id: keep it secret).' : '');
                 linOut.classList.remove('d-none');
                 modal.setAttribute('data-state', 'linux-command');
             });
@@ -185,6 +188,8 @@
     });
     form.querySelectorAll('input[name="arch"]').forEach(function (r) { r.addEventListener('change', refresh); });
     if (client) { client.addEventListener('change', function () { loadLocations(); refresh(); }); }
+    // a command made with the other choice must not stay on screen: it would not match the box any more
+    if (meshBox) { meshBox.addEventListener('change', function () { linOut.classList.add('d-none'); cmdBox.textContent = ''; done.classList.add('d-none'); showError(''); }); }
     multi.addEventListener('change', function () { uses.value = multi.checked ? MULTI_USES : 1; });
     uses.addEventListener('input', function () { multi.checked = (parseInt(uses.value, 10) || 1) > 1; });
 
@@ -209,6 +214,7 @@
         var trigger = ev.relatedTarget, want = trigger && trigger.getAttribute ? trigger.getAttribute('data-rmm-installer-client') : null;
         if (want) { selectClient(want); }
         cmdBox.textContent = ''; linOut.classList.add('d-none'); done.classList.add('d-none'); showError('');
+        if (meshBox) { meshBox.checked = false; }   // off by default, every time the dialog opens
         modal.removeAttribute('data-state');
         var g = guessArch(), radio = $('rmm-inst-arch-' + g);
         if (radio && have(g)) { radio.checked = true; }

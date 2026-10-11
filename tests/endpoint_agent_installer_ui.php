@@ -226,3 +226,148 @@ $ok($c === 200 && $jd($b)['arch'] === 'arm64' && $jd($b)['max_uses'] === 25, 'Li
 // ============================================================ the menu entry opens the dialog
 [$c, $b] = $fleet('admin', '?installer=1');
 $ok($c === 200 && strpos($b, 'id="rmmInstallerModal"') !== false, 'the menu entry (?installer=1) lands on the page that carries the dialog');
+
+// ============================================================ RivetCore rc.12: "Also install the MeshCentral agent" (off by default, only when MeshCentral is on and has an address)
+// The stamped payload is read back with Core's own InstallerStamp: an installer made WITHOUT the tick has exactly the members it always had (same keys, same order);
+// one made WITH it adds install_mesh_agent and mesh after them. Core refuses (and creates nothing) when Mesh cannot support it, and its text is shown as it is.
+require_once "$root/includes/rmm_bootstrap.php";
+$RM = rivetRmmModule($db);
+$M = $RM->meshAgentSettings();
+$mfreshI = function () use ($RM) { $RM->meshAgentSettings()->refresh(); $RM->settings()->refresh(); $RM->state()->forget(); };
+$base8 = ['version', 'installer_id', 'server_url', 'enrollment_token', 'department', 'ca_pem', 'created_at', 'expires_at'];
+$logCount = fn () => (int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Installer Created'");
+$tickBox = fn (string $b) => preg_match('/<input[^>]*type="checkbox"[^>]*name="install_mesh_agent"[^>]*>/', $b, $m) === 1 ? $m[0] : null;
+Config::set(['mesh_enabled' => 0, 'mesh_url' => '']);
+$mfreshI();
+// MeshCentral off: no box anywhere, and a forged box is refused with Core's text
+[$c, $b] = $fleet();
+$ok($tickBox($b) === null && strpos($b, 'Also install the MeshCentral agent') === false, 'MeshCentral off: the dialog has no MeshCentral tick-box');
+[$c, $b] = web($wb, 'GET', '/agent/client_overview.php?client_id=1', $S_['admin']);
+$ok($tickBox($b) === null, 'MeshCentral off: the department page dialog has none either');
+[$c, $b] = $adminPage();
+$ok(strpos($b, 'id="dp_mesh"') === false && strpos($b, 'name="install_mesh_agent"') === false, 'MeshCentral off: the Deployment card has no tick-box');
+$t0 = $toks(); $l0 = $logCount();
+[$c, $b] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$d = $jd($b);
+$ok($c === 422 && $d['success'] === false && $d['error'] === $RM->meshAgents()->installRefusal() && strpos($d['error'], 'not switched on') !== false && $toks() === $t0 && $logCount() === $l0 && substr($b, 0, 2) !== 'MZ', 'forged tick with MeshCentral off: Core\'s refusal "' . ($d['error'] ?? '?') . '", no token, no file, no audit line');
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$ok($c === 422 && $toks() === $t0 && $logCount() === $l0, 'the Linux command is refused the same way and creates nothing');
+// enabled but no address: still no box (it needs an address to be configured at all)
+Config::set(['mesh_enabled' => 1, 'mesh_url' => '']);
+$mfreshI();
+[$c, $b] = $fleet();
+$ok($tickBox($b) === null, 'MeshCentral on but no address: no tick-box');
+// enabled with an address, no device group id: the box is offered (unticked), says what is missing, and Core refuses when it is ticked
+Config::set(['mesh_enabled' => 1, 'mesh_url' => 'https://mesh.example.test']);
+$mfreshI();
+[$c, $b] = $fleet();
+$tb = $tickBox($b);
+$ok($tb !== null && strpos($tb, 'checked') === false && strpos($b, 'Also install the MeshCentral agent') !== false && strpos($b, 'id="rmm-inst-mesh-help" data-ready="0"') !== false && strpos($b, 'Not ready yet: ') !== false && strpos($b, 'device group id') !== false && strpos($b, '/admin/settings_endpoint_agent.php#mesh') !== false,
+    'MeshCentral on, no group id: the box is offered, OFF by default, with "Not ready yet" and a link to the settings');
+[$c, $b] = web($wb, 'GET', '/agent/client_overview.php?client_id=1', $S_['admin']);
+$ok($tickBox($b) !== null && strpos($b, 'data-fixed="1"') !== false, 'the department page dialog has the box too');
+[$c, $b] = $adminPage();
+$ok(strpos($b, 'id="dp_mesh"') !== false && strpos($b, 'name="install_mesh_agent"') !== false && strpos($b, 'Not ready yet') !== false, 'the Deployment card has the box');
+$t0 = $toks(); $l0 = $logCount();
+[$c, $b] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$d = $jd($b);
+$ok($c === 422 && $d['error'] === $RM->meshAgents()->installRefusal() && strpos($d['error'], 'device group id') !== false && $toks() === $t0 && $logCount() === $l0, 'ticked with no group id: Core\'s refusal "' . ($d['error'] ?? '?') . '" is what the dialog shows; nothing is created');
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$ok($c === 422 && $toks() === $t0, 'the Linux command: the same refusal, no token');
+[$c, $b] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1'], 'admin', $REFA);
+$ok($toks() === $t0, 'a plain form post (no script) is refused too and creates nothing');
+$admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1', 'ttl_hours' => 24, 'max_uses' => 1]);
+$ok($toks() === $t0 && strpos($msg(), 'device group id') !== false, 'the Deployment card: refused with the same words, nothing created');
+
+// ready: the group id is set
+$group = bin2hex(random_bytes(48));
+$M->update(['mesh_group_id' => $group], 1);
+$mfreshI();
+[$c, $b] = $fleet();
+$ok(strpos($b, 'id="rmm-inst-mesh-help" data-ready="1"') !== false && strpos($b, 'downloads the MeshCentral agent from your own Mesh server') !== false && strpos($b, 'Not ready yet') === false, 'with the group id set the box says what it does');
+$stamp = function (string $body) { $sp = S::read($body); return $sp['data'] ?? null; };
+// unticked: byte-identical in structure to before
+$t0 = $toks();
+[$c, $body] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1]);
+$p0 = $stamp($body);
+$ok($c === 200 && $p0 !== null && array_keys($p0) === $base8 && !array_key_exists('install_mesh_agent', $p0) && !array_key_exists('mesh', $p0) && strpos($body, 'install_mesh_agent') === false, 'unticked: the payload has exactly the eight members it always had, in order, and no Mesh member');
+$ok((int) $one("SELECT COUNT(*) FROM endpoint_agent_installer_options WHERE token_id = " . (int) $one("SELECT MAX(token_id) FROM endpoint_agent_enrollment_tokens")) === 0, 'unticked: no installer option is remembered for the token');
+// ticked
+[$c, $body, $h] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1, 'install_mesh_agent' => '1']);
+$p1 = $stamp($body);
+$ok($c === 200 && $p1 !== null && array_slice(array_keys($p1), 0, 8) === $base8 && array_slice(array_keys($p1), 8) === ['install_mesh_agent', 'mesh'], 'ticked: the same eight members, then install_mesh_agent and mesh');
+$ok($p1['install_mesh_agent'] === true && $p1['mesh']['url'] === 'https://mesh.example.test' && $p1['mesh']['meshid'] === $group && !array_key_exists('pin', $p1['mesh']) && $p1['mesh']['agent_ids']['windows/amd64'] === 4 && $p1['mesh']['install_args']['windows'] === ['-fullinstall'], 'ticked: the Mesh block carries the address, the group id, the id table and the arguments (no pin saved, so none)');
+$ok(array_diff_key($p1, ['install_mesh_agent' => 1, 'mesh' => 1, 'installer_id' => 1, 'enrollment_token' => 1, 'created_at' => 1, 'expires_at' => 1]) == array_diff_key($p0, ['installer_id' => 1, 'enrollment_token' => 1, 'created_at' => 1, 'expires_at' => 1]), 'ticked vs unticked: every other member is identical');
+$ok(substr($body, 0, $sp1 = S::read($body)['exe_length']) === $curBytes, 'ticked: the file is still the current binary plus the trailer (no Mesh binary bundled)');
+$lastTok = (int) $one("SELECT MAX(token_id) FROM endpoint_agent_enrollment_tokens");
+$ok((int) $one("SELECT install_mesh_agent FROM endpoint_agent_installer_options WHERE token_id = $lastTok") === 1, 'ticked: the choice is remembered for the enrollment token');
+$ok((int) $one("SELECT COUNT(*) FROM logs WHERE log_action='Installer Created' AND log_description LIKE '%also installs the MeshCentral agent%'") === 1, 'ticked: the audit line says so');
+// the token-gated download that scripts call serves the same installer
+$tokPlain = $p1['enrollment_token'];
+$gate = function (string $token) { $ch = curl_init($GLOBALS['base'] . '/api/v1/agent_installer'); curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode(['token' => $token, 'arch' => 'amd64']), CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60]); $raw = (string) curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch); return [$code, $raw]; };
+[$gc, $graw] = $gate($tokPlain);
+$gp = $gc === 200 ? $stamp($graw) : null;
+$ok($gc === 200 && $gp !== null && ($gp['install_mesh_agent'] ?? null) === true && ($gp['mesh']['meshid'] ?? '') === $group, 'the scripted token download (agent_installer) serves the ticked installer, with the Mesh block (' . $gc . ')');
+[$gc, $graw] = $gate($p0['enrollment_token']);
+$gp = $gc === 200 ? $stamp($graw) : null;
+$ok($gc === 200 && $gp !== null && !array_key_exists('mesh', $gp) && array_keys($gp) === $base8, 'the scripted download of an UNTICKED token has no Mesh block');
+// with a pin
+$pin = str_repeat('ab', 48);
+$M->update(['mesh_server_cert_pin' => $pin, 'mesh_agent_ids' => ['windows/arm64' => 36], 'mesh_install_args' => ['linux' => ['-install', '--installPath=/opt/mesh']]], 1);
+$mfreshI();
+[$c, $body] = $ep(['action' => 'download', 'client_id' => 2, 'arch' => 'arm64', 'install_mesh_agent' => '1']);
+$p2 = $stamp($body);
+$ok($c === 200 && ($p2['mesh']['pin'] ?? '') === $pin && $p2['mesh']['agent_ids']['windows/arm64'] === 36 && $p2['mesh']['install_args']['linux'] === ['-install', '--installPath=/opt/mesh'], 'a saved pin and the id and argument corrections travel in the payload');
+// Linux
+$t0 = $toks();
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64']);
+$d = $jd($b);
+$ok($c === 200 && strpos($d['command'], '--install-mesh-agent') === false && strpos($d['command'], '--mesh-') === false, 'Linux, unticked: the command is the plain one (no Mesh flags)');
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$d = $jd($b);
+$ok($c === 200 && $d['success'] === true && strpos($d['command'], ' --install-mesh-agent --mesh-url \'https://mesh.example.test\' --mesh-group-id \'' . $group . '\' --mesh-cert-pin \'' . $pin . '\'') !== false
+    && strpos($d['command'], './install-linux.sh --server ') !== false && $toks() === $t0 + 2, 'Linux, ticked: the command gets --install-mesh-agent --mesh-url --mesh-group-id --mesh-cert-pin');
+$M->update(['mesh_server_cert_pin' => ''], 1);
+$mfreshI();
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
+$d = $jd($b);
+$ok(strpos($d['command'], '--install-mesh-agent') !== false && strpos($d['command'], '--mesh-cert-pin') === false, 'Linux, ticked, no pin saved: no --mesh-cert-pin');
+// the Administration card, both buttons
+$t0 = $toks();
+[$c, $body, $h] = $admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1', 'ttl_hours' => 24, 'max_uses' => 1]);
+$p3 = $body !== '' ? $stamp($body) : null;
+$ok($c === 200 && $p3 !== null && ($p3['install_mesh_agent'] ?? null) === true && ($p3['mesh']['meshid'] ?? '') === $group && $toks() === $t0 + 1, 'the Deployment card, "Download installer" ticked: the same stamped file with the Mesh block');
+[$c, $body] = $admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1]);
+$p4 = $stamp($body);
+$ok($c === 200 && $p4 !== null && array_keys($p4) === $base8, 'the Deployment card, unticked: the plain payload');
+$admin(['show_deploy_commands' => 1, 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1', 'ttl_hours' => 24, 'max_uses' => 1]);
+[$c, $b] = $adminPage();
+$ok(strpos($b, 'id="ea_snippet_linux"') !== false && strpos($b, '--install-mesh-agent') !== false && strpos($b, '2b. Linux, with the MeshCentral agent') !== false && strpos($b, 'id="ea_snippet"') !== false, 'the Deployment commands panel shows the Linux command with the Mesh flags next to the PowerShell one');
+[$c, $b] = $adminPage();
+$ok(strpos($b, 'id="ea_snippet_linux"') === false, 'the commands (and the group id in them) are shown once');
+$admin(['show_deploy_commands' => 1, 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1]);
+[$c, $b] = $adminPage();
+$ok(strpos($b, 'id="ea_snippet_linux"') === false && strpos($b, 'id="ea_snippet"') !== false, 'unticked: the commands panel is the one it was (no Linux/Mesh block)');
+// who may not: a technician still cannot issue anything, ticked or not
+$t0 = $toks();
+[$c, $b] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1'], 'tech');
+$ok($c === 403 && $toks() === $t0, 'a technician cannot issue a Mesh installer (403, no token)');
+[$c, $b] = $fleet('tech');
+$ok($tickBox($b) === null && strpos($b, 'install_mesh_agent') === false, 'a technician sees no dialog, so no tick-box');
+// module off: nothing rendered
+Config::set(['enabled' => 0]);
+[$c, $b] = $fleet();
+$ok($tickBox($b) === null && strpos($b, 'rmmInstallerModal') === false, 'module off: no dialog and no tick-box');
+Config::set(['enabled' => 1]);
+// the optional tables missing (code updated, database not yet): the dialog still renders, without the box, and an unticked installer still works
+$q("RENAME TABLE endpoint_agent_mesh_settings TO endpoint_agent_mesh_settings_x");
+[$c, $b] = $fleet();
+$ok($c === 200 && strpos($b, 'id="rmmInstallerModal"') !== false && $tickBox($b) === null, 'new code, old schema: the dialog renders and offers no Mesh box');
+[$c, $body] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64']);
+$ok($c === 200 && substr($body, 0, 2) === 'MZ', 'new code, old schema: an unticked installer is still served');
+[$c, $b] = $adminPage();
+$ok($c === 200 && strpos($b, 'Run the database update first') !== false && strpos($b, 'name="mesh_group_id"') === false, 'new code, old schema: the Administration page says to run the update and prints no install fields');
+$q("RENAME TABLE endpoint_agent_mesh_settings_x TO endpoint_agent_mesh_settings");
+$M->update(['mesh_group_id' => '', 'mesh_agent_ids' => [], 'mesh_install_args' => []], 1);
+$mfreshI();
+Config::set(['mesh_enabled' => 0, 'mesh_url' => '']);

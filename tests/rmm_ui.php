@@ -587,7 +587,9 @@ $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asse
 // ---- events: catalog entries and the adapter
 $extra = array_column(rivetEventCatalogExtras(), 'id');
 $all = RivetCore\Rmm\RmmEvent::all();
-$ok(array_diff($all, $extra) === [] && count($all) === 21 && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true), 'every rmm.* event id (21, incl. rmm.file.transferred and rmm.log.rule_matched) is in the picker\'s catalog extras');
+$ok(array_diff($all, $extra) === [] && count($all) === 24 && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true)
+    && in_array('rmm.mesh.agent_installed', $extra, true) && in_array('rmm.mesh.node_conflict', $extra, true) && in_array('rmm.starter.installed', $extra, true),
+    'every rmm.* event id (24, incl. rmm.file.transferred, rmm.log.rule_matched, rmm.mesh.agent_installed, rmm.mesh.node_conflict and rmm.starter.installed) is in the picker\'s catalog extras');
 $ids = rivetEventCatalogIds();
 $ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
 $grp = rivetEventCatalogData()['groups'];
@@ -643,4 +645,13 @@ $rmm->admin()->enable($admin);
 foreach (glob(__DIR__ . '/rmm_ui_p68_*.php') ?: [] as $__p68) {
     echo "---- " . basename($__p68) . "\n";
     require $__p68;
+}
+
+// ============================================================ RivetCore 1.0.0-rc.12 and rc.13 (the optional MeshCentral agent, the RMM starter pack): the sections live in tests/rmm_ui_rc13_*.php
+// Same contract as the fragments above (shared variables, module on, run in file-name order). They start with the three automation sub-switches on and the Mesh settings as
+// the seed leaves them (enabled, https address, a login key, no group id), and put those back.
+$rmm->admin()->enable($admin);
+foreach (glob(__DIR__ . '/rmm_ui_rc13_*.php') ?: [] as $__rc13) {
+    echo "---- " . basename($__rc13) . "\n";
+    require $__rc13;
 }

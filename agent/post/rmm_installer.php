@@ -8,6 +8,8 @@ if (defined('FROM_POST_HANDLER')) return;
  *                     refuses (revoking the token again) when the file cannot be served. A browser form post that fails is sent back with a
  *                     flash message; a request that asks for JSON (the modal's script) gets {success:false,error}.
  *   action=linux      RmmAdmin::deploymentCommands(): an audited token and the one install snippet for Linux (JSON, no binary download).
+ *   Both take the optional install_mesh_agent=1 (the tick-box "Also install the MeshCentral agent", off by default): passed as the trailing bool; Core refuses with its
+ *   own text when MeshCentral is off or not configured and creates no token.
  *   action=locations  the department's locations for the modal's select (JSON).
  *
  * POST with the session CSRF token only. Hiding the button is cosmetic; every decision is Core's.
@@ -93,7 +95,8 @@ $who = rivetRmmPrincipal($uid, (string) $session_name);
 $arch = (string) ($_POST['arch'] ?? 'amd64');
 $ring = (string) ($_POST['ring'] ?? 'stable');
 $args = [$clientId, intval($_POST['location_id'] ?? 0), in_array($ring, ['stable', 'pilot'], true) ? $ring : 'stable', inst_int('ttl_hours', 1, 720, 24),
-    inst_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')), in_array($arch, ['amd64', 'arm64'], true) ? $arch : 'amd64'];
+    inst_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')), in_array($arch, ['amd64', 'arm64'], true) ? $arch : 'amd64',
+    ($_POST['install_mesh_agent'] ?? '') === '1'];   // the trailing bool: also install the MeshCentral agent (RivetCore rc.12). Core refuses when Mesh cannot support it and creates nothing.
 
 if ($inst_action === 'linux') {
     $r = $admin->deploymentCommands($who, ...$args);

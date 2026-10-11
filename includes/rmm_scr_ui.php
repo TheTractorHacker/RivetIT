@@ -14,6 +14,7 @@
  */
 
 require_once __DIR__ . '/rmm_ui_render.php';
+require_once __DIR__ . '/rmm_starter_ui.php';   // rc.13: the Starter badge, the risk chip and the update-waiting marker (rmm_starter_ui.php needs this file too; both are require_once)
 
 use RivetCore\Rmm\Scripts\CronSchedule;
 use RivetCore\Rmm\Scripts\ParamSchema;
@@ -526,18 +527,41 @@ function rivetRmmScrLibraryView(array $ctx, array $get): array
 
 function rivetRmmScrFlags(array $s): string
 {
-    return ($s['requires_approval'] ? rivetRmmUiPill('warn', 'Needs approval') . ' ' : '') . ($s['destructive'] ? rivetRmmUiPill('crit', 'Destructive') . ' ' : '')
+    return rivetRmmStarterBadge((array) ($s['tags'] ?? [])) . ($s['requires_approval'] ? rivetRmmUiPill('warn', 'Needs approval') . ' ' : '') . ($s['destructive'] ? rivetRmmUiPill('crit', 'Destructive') . ' ' : '')
         . (!empty($s['retired']) ? rivetRmmUiPill('off', 'Retired') : '');
 }
 
 function rivetRmmScrTagChips(array $tags): string
 {
     $o = '';
-    foreach ($tags as $t) {
+    // the pack's own tags (`starter`, `risk:*`) are shown as the Starter badge and the risk chip in the Flags column, not as plain tags
+    foreach (rivetRmmStarterTagInfo($tags)['rest'] as $t) {
         $o .= '<span class="badge text-bg-light border me-1">' . rmmH((string) $t) . '</span>';
     }
 
     return $o === '' ? '<span class="text-muted small">none</span>' : $o;
+}
+
+/** The "update waiting for review" marker of a starter script in the library list. */
+function rivetRmmStarterWaitingMarker(int $scriptId): string
+{
+    return ' <a class="text-decoration-none" href="/agent/rmm_script_library.php?script_id=' . $scriptId . '#scr-versions" title="The starter pack has a newer version of this script that was not applied because you edited it">'
+        . rivetRmmUiPill('warn', 'Update waiting for review', 'rmm-starter-waiting') . '</a>';
+}
+
+/** A version's note: the pack's own notes in plain words (with the marker and a link to the differences for a parked update), any other note as written. */
+function rivetRmmScrNoteHtml(string $note, int $scriptId, int $current, int $version, bool $canRead): string
+{
+    $words = rivetRmmStarterNoteWords($note);
+    if ($words === null) {
+        return rmmH($note);
+    }
+    if (!rivetRmmStarterIsStagedNote($note)) {
+        return rmmH($words);
+    }
+
+    return rivetRmmUiPill('warn', 'Update waiting for review', 'rmm-starter-waiting') . '<div class="small text-muted">' . rmmH($words) . '</div>'
+        . ($canRead && $version !== $current ? '<a class="small" href="/agent/rmm_script_library.php?script_id=' . $scriptId . '&amp;from=' . $current . '&amp;to=' . $version . '#scr-diff">Compare with the current version</a>' : '');
 }
 
 function rivetRmmScrLibraryPage(array $vm, array $ctx): string
@@ -548,6 +572,9 @@ function rivetRmmScrLibraryPage(array $vm, array $ctx): string
     $self = '/agent/rmm_script_library.php';
     $url = static fn (int $p) => $self . '?' . http_build_query(array_filter(['q' => $f['q'], 'language' => $f['language'], 'tag' => $f['tag'], 'retired' => $f['retired'] ? '1' : '', 'page' => $p > 1 ? $p : ''], static fn ($v): bool => $v !== ''));
     $new = $perm['run_script'] ? '<a class="btn btn-primary btn-sm" href="' . $self . '?new=1"><i class="fas fa-plus me-1" aria-hidden="true"></i>New script</a>' : '';
+    if ($perm['admin']) {   // rc.13: the starter pack is administrators only (the page and Core check again)
+        $new = '<a class="btn btn-outline-primary btn-sm" href="' . RIVET_RMM_STARTER_PAGE . '" id="scr-starter-link"><i class="fas fa-box-open me-1" aria-hidden="true"></i>Starter pack</a> ' . $new;
+    }
     $o = rivetRmmAutoHeader('Script library', 'file-code', $new,
         'Scripts you can run on your devices, or schedule. Every change to the text makes a new, signed version: the older ones stay readable and a schedule or a pending approval keeps the version it was set up with.');
     $o .= '<form method="get" action="' . $self . '" class="card card-dark mb-3"><div class="card-body"><div class="row g-2 align-items-end">'
@@ -570,6 +597,7 @@ function rivetRmmScrLibraryPage(array $vm, array $ctx): string
             $perm['run_script'] && !$filtered ? '<a class="btn btn-primary" href="' . $self . '?new=1">New script</a>' : ''), '', '', true);
     }
     $rows = '';
+    $waiting = rivetRmmStarterWaiting($ctx, $vm['items']);   // administrators only, and only when the page holds a starter script
     foreach ($vm['items'] as $s) {
         $id = (int) $s['script_id'];
         $acts = '';
@@ -587,7 +615,7 @@ function rivetRmmScrLibraryPage(array $vm, array $ctx): string
         }
         $rows .= '<tr><td class="ps-3"><a href="' . $self . '?script_id=' . $id . '">' . rmmH($s['name']) . '</a>' . ($s['description'] !== '' ? '<div class="small text-muted">' . rmmH(mb_substr((string) $s['description'], 0, 120)) . '</div>' : '') . '</td>'
             . '<td>' . rmmH(rivetRmmScrLanguage((string) $s['language'])) . '</td><td>' . rmmH(rivetRmmScrPlatformWords((string) $s['language'])) . '</td>'
-            . '<td>v' . (int) $s['current_version'] . '</td><td>' . rivetRmmScrTagChips((array) $s['tags']) . '</td><td>' . (rivetRmmScrFlags($s) ?: '<span class="text-muted small">none</span>') . '</td>'
+            . '<td>v' . (int) $s['current_version'] . '</td><td>' . rivetRmmScrTagChips((array) $s['tags']) . '</td><td>' . ((rivetRmmScrFlags($s) . (isset($waiting[$id]) ? rivetRmmStarterWaitingMarker($id) : '')) ?: '<span class="text-muted small">none</span>') . '</td>'
             . '<td>' . rivetRmmAutoUtc((string) $s['updated_at']) . '</td><td class="text-end pe-3 rmm-table-actions">' . $acts . '</td></tr>';
     }
     $table = '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Library scripts</caption>'
@@ -763,7 +791,7 @@ function rivetRmmScrVersionsCard(array $vm, array $ctx): string
     foreach ($vm['versions'] as $v) {
         $n = (int) $v['version'];
         $rows .= '<tr><td class="ps-3">v' . $n . ($n === $cur ? ' ' . rivetRmmUiPill('ok', 'Current') : '') . '</td><td>' . rmmH($vm['names'][(int) $v['created_by']] ?? ('user #' . (int) $v['created_by'])) . '</td><td>' . rivetRmmAutoUtc((string) $v['created_at']) . '</td>'
-            . '<td>' . rivetRmmScrHash((string) $v['body_sha256']) . '</td><td>' . rmmH((string) $v['note']) . '</td><td class="text-end pe-3 rmm-table-actions">'
+            . '<td>' . rivetRmmScrHash((string) $v['body_sha256']) . '</td><td>' . rivetRmmScrNoteHtml((string) $v['note'], $id, $cur, $n, (bool) $ctx['perm']['run_saved']) . '</td><td class="text-end pe-3 rmm-table-actions">'
             . ($ctx['perm']['run_saved'] ? '<a class="btn btn-sm btn-outline-secondary" href="' . $self . '&amp;view=' . $n . '#scr-version">View</a>' : '') . '</td></tr>';
     }
     $o = '<div class="table-responsive"><table class="table table-sm table-hover mb-0"><caption class="visually-hidden">Versions of this script</caption>'
@@ -816,6 +844,17 @@ function rivetRmmScrScriptPage(array $vm, array $ctx): string
         $o .= '<div class="alert alert-secondary" role="status"><i class="fas fa-archive me-1" aria-hidden="true"></i>This script is retired. It cannot be run, scheduled or edited until it is restored.</div>';
     }
     $cur = (array) ($s['current'] ?? []);
+    $staged = [];
+    foreach ($vm['versions'] as $sv) {
+        if (rivetRmmStarterIsStagedNote((string) $sv['note'])) {
+            $staged[] = (int) $sv['version'];
+        }
+    }
+    if ($staged !== [] && ($perm['admin'] || $perm['run_script'])) {
+        $o .= '<div class="alert alert-warning d-flex gap-2" role="status" id="scr-starter-waiting"><i class="fas fa-exclamation-triangle mt-1" aria-hidden="true"></i><div><strong>The starter pack has an update for this script, waiting for your review.</strong> '
+            . 'You edited the script, so the pack did not overwrite it: its newer text was added as version ' . implode(', ', $staged) . ' and the script keeps running version ' . (int) $s['current_version'] . '. '
+            . ($perm['run_saved'] ? '<a href="' . $self . '?script_id=' . (int) $s['script_id'] . '&amp;from=' . (int) $s['current_version'] . '&amp;to=' . max($staged) . '#scr-diff">See the differences</a>, then save the text you want as a new version.' : '') . '</div></div>';
+    }
     $o .= rivetRmmUiCard('About this script', 'info-circle', rivetRmmUiDl([
         ['Language', rmmH(rivetRmmScrLanguage((string) $s['language']))], ['Runs on', rmmH(rivetRmmScrPlatformWords((string) $s['language'])) . ' devices'],
         ['Current version', 'v' . (int) $s['current_version'] . ' <span class="text-muted small">signed ' . rivetRmmAutoUtc((string) ($cur['created_at'] ?? '')) . '</span>'],

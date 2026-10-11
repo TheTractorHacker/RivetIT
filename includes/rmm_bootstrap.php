@@ -226,6 +226,8 @@ function rivetRmmAutoNav(?int $userId = null): array
     $all = [
         ['policies', '/agent/rmm_policies.php', 'Policies', 'fa-sliders-h', ['rmm_policies.php'], 'automation'],
         ['scripts', '/agent/rmm_script_library.php', 'Script library', 'fa-file-code', ['rmm_script_library.php'], 'automation'],
+        // RivetCore 1.0.0-rc.13: the starter pack (administrators; the entry is left out for anyone else when the caller names the user, and the page checks again)
+        ['scripts', '/agent/rmm_starter_pack.php', 'Starter pack', 'fa-box-open', ['rmm_starter_pack.php'], 'automation'],
         ['scripts', '/agent/rmm_schedules.php', 'Schedules', 'fa-clock', ['rmm_schedules.php'], 'automation'],
         ['scripts', '/agent/rmm_approvals.php', 'Approvals', 'fa-user-check', ['rmm_approvals.php'], 'automation'],
         ['scripts', '/agent/rmm_fields.php', 'Custom fields', 'fa-tags', ['rmm_fields.php'], 'automation'],
@@ -236,7 +238,8 @@ function rivetRmmAutoNav(?int $userId = null): array
         ['logs', '/agent/rmm_logs.php', 'Logs', 'fa-scroll', ['rmm_logs.php'], 'logs'],
         ['logs', '/agent/rmm_log_rules.php', 'Log rules', 'fa-bullhorn', ['rmm_log_rules.php'], 'logs'],
     ];
-    $abilities = ['/agent/rmm_logs.php' => \RivetCore\Rmm\Authz\RmmAbility::JOB_RUN_SAVED, '/agent/rmm_log_rules.php' => \RivetCore\Rmm\Authz\RmmAbility::ALERT_MANAGE];
+    $abilities = ['/agent/rmm_logs.php' => \RivetCore\Rmm\Authz\RmmAbility::JOB_RUN_SAVED, '/agent/rmm_log_rules.php' => \RivetCore\Rmm\Authz\RmmAbility::ALERT_MANAGE,
+        '/agent/rmm_starter_pack.php' => \RivetCore\Rmm\Authz\RmmAbility::ADMIN];
     $out = [];
     foreach ($all as [$feature, $href, $label, $icon, $pages, $group]) {
         if (rivetRmmFeatureOn($feature)) {

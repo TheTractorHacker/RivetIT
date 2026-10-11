@@ -63,11 +63,34 @@ function rivetRmmInstallerLocations(\mysqli $mysqli, int $clientId): array
 }
 
 /**
+ * The optional "Also install the MeshCentral agent" tick-box (RivetCore 1.0.0-rc.12). It is offered only while MeshCentral is switched on and has an https address
+ * (the settings an administrator made on purpose); everything else (the device group id, the https check) is Core's call when the box is ticked, and its refusal text
+ * is shown as it is. `ready` is Core's own answer now, used only to tell the person up front what is still missing.
+ *
+ * @param array<string,mixed> $cfg RmmReadModel::settingsSummary()
+ * @return array{show:bool,ready:bool,hint:string}
+ */
+function rivetRmmInstallerMesh(\RivetCore\Rmm\RmmModule $rmm, array $cfg): array
+{
+    $off = ['show' => false, 'ready' => false, 'hint' => ''];
+    if ((int) ($cfg['mesh_enabled'] ?? 0) !== 1 || trim((string) ($cfg['mesh_url'] ?? '')) === '') {
+        return $off;
+    }
+    try {
+        $why = $rmm->meshAgents()->installRefusal();   // reads the 0023 tables: a database that has not been updated yet simply does not offer the box
+    } catch (\Throwable) {
+        return $off;
+    }
+
+    return ['show' => true, 'ready' => $why === null, 'hint' => $why ?? ''];
+}
+
+/**
  * What the modal needs, or null when it must not render at all (module off / not allowed).
  *
  * @param int|null $fixedClientId the department's own page: the select is replaced by that department
  * @param int      $preselect     the department to select on a page with the full list (0 = none, unless the user has exactly one)
- * @return array{clients:array<int,string>,client_id:int,fixed:bool,locations:list<array{id:int,name:string}>,binaries:array{amd64:?string,arm64:?string},problems:list<string>,ttl_max:int,csrf:string,admin:bool}|null
+ * @return array{clients:array<int,string>,client_id:int,fixed:bool,locations:list<array{id:int,name:string}>,binaries:array{amd64:?string,arm64:?string},problems:list<string>,ttl_max:int,csrf:string,admin:bool,mesh:array{show:bool,ready:bool,hint:string}}|null
  */
 function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClientId = null, int $preselect = 0): ?array
 {
@@ -128,6 +151,7 @@ function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClien
         'ttl_max' => max(1, (int) ($cfg['enroll_max_ttl_h'] ?? 720)),
         'csrf' => (string) ($_SESSION['csrf_token'] ?? ''),
         'admin' => $isAdmin,
+        'mesh' => rivetRmmInstallerMesh($rmm, $cfg),
     ];
 }
 
@@ -196,6 +220,17 @@ function rivetRmmInstallerModal(array $ctx): string
         $problem .= '<div class="alert alert-warning py-2 mb-2" role="alert">' . $h($p) . ($ctx['admin'] ? ' <a href="/admin/settings_endpoint_agent.php">Open Endpoint agent settings</a>.' : ' Ask an administrator to fix it.') . '</div>';
     }
 
+    // The optional MeshCentral agent (rc.12): off by default, rendered only while MeshCentral is on and has an address. The help text is plain; a refusal from Core is shown in the error box.
+    $meshField = '';
+    if (!empty($ctx['mesh']['show'])) {
+        $meshHint = $ctx['mesh']['ready']
+            ? $h('After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server and installs it, so Remote works without pasting a node id. If the Mesh part fails, the RivetIT agent is still installed.')
+            : $h('Not ready yet: ' . $ctx['mesh']['hint']) . ($ctx['admin'] ? ' <a href="/admin/settings_endpoint_agent.php#mesh">Open the MeshCentral settings</a>.' : ' Ask an administrator.');
+        $meshField = '<div class="col-12" id="rmm-inst-mesh-col"><div class="form-check"><input class="form-check-input" type="checkbox" id="rmm-inst-mesh" name="install_mesh_agent" value="1" aria-describedby="rmm-inst-mesh-help">'
+            . '<label class="form-check-label" for="rmm-inst-mesh">Also install the MeshCentral agent</label></div>'
+            . '<div class="form-text" id="rmm-inst-mesh-help" data-ready="' . ($ctx['mesh']['ready'] ? '1' : '0') . '">' . $meshHint . '</div></div>';
+    }
+
     $none = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-nobinary" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
         . '<span id="rmm-inst-nobinary-text">No agent program is published for this architecture yet, so an installer cannot be built.</span> '
         . ($ctx['admin'] ? '<a href="' . $h(RIVET_RMM_BINARIES_URL) . '" id="rmm-inst-nobinary-link">Publish it under Administration &gt; Endpoint agent &gt; Agent binaries</a>.' : 'Ask an administrator to publish it.') . '</div>';
@@ -230,6 +265,7 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="col-md-6"><label class="form-label" for="rmm-inst-ring">Update ring</label><select class="form-select" id="rmm-inst-ring" name="ring"><option value="stable" selected>Stable</option><option value="pilot">Pilot</option></select></div>'
         . '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="rmm-inst-multi"><label class="form-check-label" for="rmm-inst-multi">I am installing on several PCs with this one file</label></div>'
         . $lead('Off: the file works for one PC. On: it works for up to <span id="rmm-inst-multi-n">25</span> PCs until it expires.') . '</div>'
+        . $meshField
         . '</div>'
         . '<details class="mt-3" id="rmm-inst-adv"><summary class="small fw-bold">Advanced</summary><div class="row g-3 mt-0 pt-2">'
         . '<div class="col-md-4"><label class="form-label" for="rmm-inst-ttl">Token lifetime (hours)</label><input class="form-control" type="number" id="rmm-inst-ttl" name="ttl_hours" min="1" max="' . (int) $ctx['ttl_max'] . '" value="' . (int) min(24, $ctx['ttl_max']) . '"></div>'

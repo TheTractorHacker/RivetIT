@@ -51,3 +51,14 @@
   .rmm-table-actions { white-space: normal; }
   .rmm-row .row > [class*="col-"] { margin-bottom: .35rem; }
 }
+
+/* ---- starter pack page and the Starter badge in the script library (RivetCore 1.0.0-rc.13) */
+.rmm-starter-badge, .rmm-risk-chip, .rmm-starter-waiting { white-space: nowrap; }
+#starter-scripts td, #starter-policies td { vertical-align: top; }
+#starter-scripts .form-check-input, #starter-policies .form-check-input { width: 1.15rem; height: 1.15rem; }
+#starter-actions .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+#starter-blocker { border-left-width: 5px; }
+@media (max-width: 575.98px) {
+  #starter-actions .btn { flex: 1 1 auto; min-height: 2.5rem; }
+  #starter-counts .badge { white-space: normal; }
+}

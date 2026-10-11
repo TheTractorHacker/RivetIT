@@ -293,7 +293,7 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
     validateCSRFToken($_POST['csrf_token']);
     $arch = (string) ($_POST['arch'] ?? 'amd64');
     $args = [intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'), ea_post_int('ttl_hours', 1, 720, 72),
-        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch];
+        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, ($_POST['install_mesh_agent'] ?? '') === '1'];   // last: also install the MeshCentral agent (rc.12)
     if (isset($_POST['show_deploy_commands'])) {
         $r = $ea_admin->deploymentCommands($ea_who, ...$args);
         if (!$r->ok) {
@@ -301,7 +301,8 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
         }
         // Shown once, on the next page load, like a plain enrollment token.
         $_SESSION['ea_new_token'] = ['token' => $r->data['token_plain'], 'id' => (int) $r->data['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r->data['department'],
-            'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands']]];
+            'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands'],
+            'mesh' => $args[7]]];
         flash_alert('Enrollment token created. Copy the commands now: the token is shown only once.');
         redirect();
     }
@@ -383,7 +384,7 @@ if (isset($_POST['update_agent_release'])) {
     ea_flash_result($ea_admin->updateRelease($ea_who, intval($_POST['release_id'] ?? 0), ea_post_int('rollout_pct', 0, 100, 0), isset($_POST['active'])));
 }
 
-if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh'])) {
+if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($_POST['probe_mesh_pin'])) {
     validateCSRFToken($_POST['csrf_token']);
     $in = [];
     foreach (['mesh_url', 'mesh_domain', 'mesh_account_template', 'mesh_policy', 'mesh_token_ttl_s', 'mesh_login_key'] as $k) {
@@ -392,8 +393,55 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh'])) {
         }
     }
     $in['mesh_enabled'] = isset($_POST['mesh_enabled']) ? 1 : 0;
+    // RivetCore rc.12: the install settings travel with the form (present only when the card printed them, i.e. the database is updated). Core validates all of them first and
+    // writes nothing when any is invalid; what was typed is kept for the next page load. "Read it from the server" saves the rest of the card but NEVER the pin field, and the
+    // proposal it gets back is only shown (it is saved when the administrator uses it and presses Save).
+    $probing = isset($_POST['probe_mesh_pin']);
+    $keep = [];
+    if (isset($_POST['mesh_install_present'])) {
+        $jsonField = static function (string $k) use (&$keep): ?array {
+            $raw = is_string($_POST[$k] ?? null) ? trim($_POST[$k]) : '';
+            $keep[$k] = $raw;
+            if ($raw === '') {
+                return [];
+            }
+            $d = json_decode($raw, true);
+
+            return is_array($d) && ($d === [] || !array_is_list($d)) ? $d : null;
+        };
+        $in['mesh_group_id'] = is_string($_POST['mesh_group_id'] ?? null) ? trim($_POST['mesh_group_id']) : '';
+        $keep['mesh_group_id'] = $in['mesh_group_id'];
+        $keep['mesh_server_cert_pin'] = is_string($_POST['mesh_server_cert_pin'] ?? null) ? trim($_POST['mesh_server_cert_pin']) : '';
+        if (!$probing) {
+            $in['mesh_server_cert_pin'] = $keep['mesh_server_cert_pin'];
+        }
+        $in['mesh_auto_map_overwrite'] = isset($_POST['mesh_auto_map_overwrite']);
+        $ids = $jsonField('mesh_agent_ids');
+        $args = $jsonField('mesh_install_args');
+        if ($ids === null || $args === null) {
+            $_SESSION['ea_mesh_keep'] = $keep;
+            flash_alert('The agent id and install argument corrections must each be a JSON object (or empty). Nothing was saved.', 'error');
+            ea_scale_back('mesh');
+        }
+        $in['mesh_agent_ids'] = $ids;
+        $in['mesh_install_args'] = $args;
+    }
+    if ($probing) {
+        $in['mesh_probe_pin'] = true;
+    }
     $r = $ea_admin->saveMesh($ea_who, $in, isset($_POST['test_mesh']));
     $rmm->syncState();   // the remote sub-switch follows mesh_enabled
+    if (!$r->ok && $keep !== []) {
+        $_SESSION['ea_mesh_keep'] = $keep;
+    }
+    if ($probing) {
+        $_SESSION['ea_mesh_pin_probe'] = is_array($r->data['pin_probe'] ?? null) ? $r->data['pin_probe'] : null;
+        if ($r->ok) {
+            $pp = $_SESSION['ea_mesh_pin_probe'];
+            flash_alert(nullable_htmlentities(is_array($pp) && !empty($pp['ok']) ? 'Read the certificate from the Mesh server. The proposed pin is shown under the pin field: compare it with the hash MeshCentral shows, then use it and press Save.' : 'The settings were saved, but the certificate could not be read: ' . (is_array($pp) ? (string) ($pp['error'] ?? 'unknown error') : 'unknown error')), is_array($pp) && !empty($pp['ok']) ? 'success' : 'warning');
+            ea_scale_back('mesh');
+        }
+    }
     ea_flash_result($r);
 }
 

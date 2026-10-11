@@ -1445,6 +1445,21 @@ CREATE TABLE `email_queue` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `endpoint_agent_installer_options`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_installer_options`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_installer_options` (
+  `token_id` int(11) NOT NULL,
+  `install_mesh_agent` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`token_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `endpoint_agent_log_events`
 --
 
@@ -1512,6 +1527,49 @@ CREATE TABLE `endpoint_agent_log_state` (
   `window_start` datetime DEFAULT NULL,
   `window_count` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_mesh_agents`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_mesh_agents`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_mesh_agents` (
+  `device_id` int(11) NOT NULL,
+  `installed` tinyint(1) NOT NULL DEFAULT 0,
+  `version` varchar(60) NOT NULL DEFAULT '',
+  `node_id` varchar(200) NOT NULL DEFAULT '',
+  `error` varchar(300) NOT NULL DEFAULT '',
+  `map_state` varchar(20) NOT NULL DEFAULT '',
+  `conflict_device_id` int(11) DEFAULT NULL,
+  `first_installed_at` datetime DEFAULT NULL,
+  `reported_at` datetime NOT NULL,
+  `changed_at` datetime NOT NULL,
+  PRIMARY KEY (`device_id`),
+  KEY `idx_node` (`node_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_mesh_settings`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_mesh_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_mesh_settings` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `group_id` varchar(128) NOT NULL DEFAULT '',
+  `server_cert_pin` varchar(96) NOT NULL DEFAULT '',
+  `auto_map_overwrite` tinyint(1) NOT NULL DEFAULT 0,
+  `agent_ids_json` text DEFAULT NULL,
+  `install_args_json` text DEFAULT NULL,
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

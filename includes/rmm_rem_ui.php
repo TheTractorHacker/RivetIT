@@ -183,7 +183,7 @@ function rivetRmmRemPanelView(array $vm, \mysqli $mysqli): ?array
         $limits = $rmm->remoteSettings()->limits();
         $view = [
             'device_id' => $devId, 'asset_id' => (int) $vm['asset_id'], 'hostname' => (string) $vm['hostname'], 'platform' => (string) $vm['platform'], 'os' => $os, 'offline' => (bool) $vm['offline'],
-            'state' => (string) $vm['state'], 'caps' => $caps, 'admin' => $authz->allowed($uid, RmmAbility::ADMIN, $client), 'mesh' => $mesh->ok ? $mesh->data : ['configured' => false, 'mapped' => false, 'views' => []],
+            'state' => (string) $vm['state'], 'caps' => $caps, 'mesh_agent' => $vm['mesh_agent'] ?? null, 'mesh_agent_conflict_url' => $vm['mesh_agent_conflict_url'] ?? null, 'admin' => $authz->allowed($uid, RmmAbility::ADMIN, $client), 'mesh' => $mesh->ok ? $mesh->data : ['configured' => false, 'mapped' => false, 'views' => []],
             'retention_days' => (int) ($rmm->settings()->get()['job_retention_days'] ?? 30), 'services' => $snap('services'), 'processes' => $snap('processes'),
             'files_on' => $filesOn, 'roots' => $filesOn ? $rmm->remoteSettings()->allowRootsFor($os) : [], 'limits' => $limits, 'transfers' => [], 'transfer_error' => null, 'names' => [],
             'upload_cap' => rivetRmmRemUploadCap((int) $limits['transfer_max_bytes']),
@@ -503,6 +503,9 @@ function rivetRmmRemMeshHtml(array $v): string
     $m = $v['mesh'];
     $views = (array) ($m['views'] ?? []);
     $o = '<p class="small text-muted mb-2">MeshCentral opens in a new tab. The terminal is a shell on the device; the file view is MeshCentral\'s own. RivetIT does not embed it.</p>';
+    if (!empty($v['mesh_agent'])) {
+        $o .= rivetRmmMeshAgentHtml($v['mesh_agent'], ['conflict_url' => $v['mesh_agent_conflict_url'] ?? null]);   // rc.12: installed / version / node id / error, with the conflict and kept-by-hand hints
+    }
     if (empty($m['configured'])) {
         return $o . '<p class="mb-0 text-muted">MeshCentral is not configured.' . ($v['admin'] ? ' <a href="/admin/settings_endpoint_agent.php">Set it up under Administration &gt; Endpoint agent</a>.' : ' An administrator can set it up.') . '</p>';
     }

@@ -2,6 +2,8 @@
 require_once "includes/inc_all_admin.php";
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';       // rc.12: the Mesh agent install settings (printed in the MeshCentral card) and the device's Mesh state
+require_once dirname(__DIR__) . '/includes/rmm_installer.php';       // rivetRmmInstallerMesh(): is the optional MeshCentral agent tick-box offered
 require_once dirname(__DIR__) . '/includes/rmm_scale_cards.php';   // RivetCore 1.0.0-rc.11 cards (remote tools, file transfer, logs, scale, partitioning, external store)
 
 use RivetCore\Rmm\Binaries\BinaryStore;
@@ -114,6 +116,12 @@ $serviceUrlHint = 'https://' . $config_base_url;
         <?php if ($snippet === '') { ?><p class="text-danger small">Set an https:// service URL first.</p><?php } else { ?>
         <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet">Copy script</button></div>
         <textarea class="form-control font-monospace small mb-3" id="ea_snippet" rows="16" readonly spellcheck="false"><?= $h($snippet) ?></textarea>
+        <?php } ?>
+        <?php if (!empty($dep['mesh']) && (string) ($dep['commands']['linux'] ?? '') !== '') { ?>
+        <h6>2b. Linux, with the MeshCentral agent</h6>
+        <p class="small mb-1">Run as root from the unpacked <code>rivetit-agent-linux-<?= $dep['arch'] === 'arm64' ? 'arm64' : 'amd64' ?>.tar.gz</code>. <code>--install-mesh-agent</code> makes the installer also fetch the MeshCentral agent from your Mesh server (and pin its certificate when you saved a pin). The command holds the Mesh device group id and the token: keep it out of tickets and chat. A Windows installer carries the same choice inside the file.</p>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet_linux">Copy command</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_snippet_linux" rows="10" readonly spellcheck="false"><?= $h((string) $dep['commands']['linux']) ?></textarea>
         <?php } ?>
         <h6>3. Intune Win32 app and Group Policy</h6>
         <ul class="small mb-3">
@@ -439,6 +447,10 @@ echo rivetRmmUiScaleCards($scaleCtx);
             <div class="col-lg-1"><label class="form-label" for="dp_ttl">Hours</label><input type="number" class="form-control" id="dp_ttl" name="ttl_hours" min="1" max="<?= (int) $cfg['enroll_max_ttl_h'] ?>" value="<?= (int) min(72, $cfg['enroll_max_ttl_h']) ?>"></div>
             <div class="col-lg-1"><label class="form-label" for="dp_uses">Max uses</label><input type="number" class="form-control" id="dp_uses" name="max_uses" min="1" max="5000" value="25"></div>
             <div class="col-lg-2"><label class="form-label" for="dp_label">Label</label><input type="text" class="form-control" id="dp_label" name="label" maxlength="100"></div>
+            <?php $depMesh = rivetRmmInstallerMesh($rmm, $cfg); if ($depMesh['show']) { ?>
+            <div class="col-12" id="dp_mesh_col"><div class="form-check"><input class="form-check-input" type="checkbox" id="dp_mesh" name="install_mesh_agent" value="1" aria-describedby="dp_mesh_help"><label class="form-check-label" for="dp_mesh">Also install the MeshCentral agent</label></div>
+                <div class="form-text" id="dp_mesh_help"><?= $depMesh['ready'] ? 'After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server and installs it. If the Mesh part fails, the RivetIT agent is still installed. The commands for Linux then carry the Mesh address and device group id: treat them as secret.' : 'Not ready yet: ' . $h($depMesh['hint']) . ' <a href="#mesh">Open the MeshCentral settings below</a>.' ?></div></div>
+            <?php } ?>
             <div class="col-12 d-flex flex-wrap gap-2 mt-2">
                 <button type="submit" name="download_installer" class="btn btn-primary"><i class="fas fa-download me-1"></i>Download installer</button>
                 <button type="submit" name="show_deploy_commands" class="btn btn-outline-primary"><i class="fas fa-terminal me-1"></i>Show deployment commands</button>
@@ -584,6 +596,12 @@ echo rivetRmmUiScaleCards($scaleCtx);
     </div>
 </div>
 
+<?php
+$meshInstall = rivetRmmMeshInstallView($rmm);
+$meshProbe = isset($_SESSION['ea_mesh_pin_probe']) && is_array($_SESSION['ea_mesh_pin_probe']) ? $_SESSION['ea_mesh_pin_probe'] : null;   // the last "Read it from the server", shown once; never saved by the reading
+$meshKeep = isset($_SESSION['ea_mesh_keep']) && is_array($_SESSION['ea_mesh_keep']) ? $_SESSION['ea_mesh_keep'] : [];                      // what was typed when Core refused it
+unset($_SESSION['ea_mesh_pin_probe'], $_SESSION['ea_mesh_keep']);
+?>
 <div class="card mb-3" id="mesh">
     <div class="card-header"><h4 class="card-title mb-0">MeshCentral remote access</h4></div>
     <div class="card-body">
@@ -597,6 +615,7 @@ echo rivetRmmUiScaleCards($scaleCtx);
             <div class="col-lg-2"><label class="form-label" for="mc_pol">Session policy</label><select class="form-select" id="mc_pol" name="mesh_policy"><?php foreach (['unattended' => 'Unattended', 'attended' => 'Attended (user consent)', 'both' => 'Both'] as $k => $l) { echo '<option value="' . $k . '"' . ($cfg['mesh_policy'] === $k ? ' selected' : '') . '>' . $h($l) . '</option>'; } ?></select></div>
             <div class="col-lg-6"><label class="form-label" for="mc_key">Login token key <?= $cfg['mesh_login_key_set'] ? '<span class="badge bg-success">stored encrypted</span>' : '' ?></label><input type="password" class="form-control font-monospace" id="mc_key" name="mesh_login_key" autocomplete="new-password" placeholder="<?= $cfg['mesh_login_key_set'] ? 'Leave empty to keep the stored key' : 'Paste the hex key' ?>"><div class="form-text">Write-only. The consent prompt for attended access is enforced by the MeshCentral device group settings.</div></div>
             <div class="col-lg-3"><label class="form-label" for="mc_ttl">Token lifetime (s)</label><input type="number" class="form-control" id="mc_ttl" name="mesh_token_ttl_s" min="60" max="3600" value="<?= (int) $cfg['mesh_token_ttl_s'] ?>"><div class="form-text">Informational: MeshCentral applies its own login token timeout.</div></div>
+            <?= rivetRmmMeshInstallFields($meshInstall, $meshProbe, $meshKeep) ?>
             <div class="col-12 d-flex gap-2"><button class="btn btn-primary" name="save_mesh_settings">Save</button><button class="btn btn-outline-secondary" name="test_mesh">Save and test connection</button></div>
         </form>
     </div>
@@ -631,6 +650,12 @@ document.querySelectorAll('[data-ea-copy-value],[data-ea-copy-target]').forEach(
     drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; show(); } });
     input.addEventListener('change', show);
 })();
+document.querySelectorAll('[data-ea-use-pin]').forEach(function (b) {
+    b.addEventListener('click', function () {
+        var t = document.getElementById(b.getAttribute('data-ea-use-pin-target'));
+        if (t) { t.value = b.getAttribute('data-ea-use-pin'); t.focus(); }
+    });
+});
 document.querySelectorAll('input[data-ea-select]').forEach(function (i) { i.addEventListener('focus', function () { i.select(); }); });
 </script>
 <?php require_once "../includes/footer.php"; ?>

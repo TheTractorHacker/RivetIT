@@ -10917,3 +10917,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.161'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.161') {
+        // DB 2.6.162: RivetCore 1.0.0-rc.13 (rc.12 + the RMM starter pack). Core Migration0023MeshAgent (the optional MeshCentral agent install and the automatic node-id
+        // mapping): three new tables (endpoint_agent_mesh_settings, endpoint_agent_mesh_agents, endpoint_agent_installer_options), all CREATE TABLE IF NOT EXISTS, nothing
+        // existing altered. Core owns the DDL, so this step runs the Core runner (idempotent: it skips applied ids). Nothing is switched on: the tick-box "Also install the
+        // MeshCentral agent" is off for every installer until an administrator saves the Mesh install settings and ticks it, and the starter pack (no migration, no table) installs
+        // nothing until an administrator uses the Starter pack page. Skipped (version NOT advanced, so it retries) until a package that ships migration 0023 is installed.
+        // Run it before, or right after, the new code is live.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0023MeshAgent::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.162'");
+        }
+    }

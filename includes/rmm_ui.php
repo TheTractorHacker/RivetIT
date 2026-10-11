@@ -302,6 +302,13 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
 
     // ---- remote sessions
     $sessions = [];
+    // rc.12: the other device holding the Mesh node this one reported (Core names it only when it belongs to the same department); link to its asset page.
+    $meshConflictUrl = null;
+    if (is_array($view['mesh_agent'] ?? null) && (int) ($view['mesh_agent']['conflict_device_id'] ?? 0) > 0) {
+        $oa = mysqli_query($mysqli, 'SELECT asset_id FROM endpoint_agent_devices WHERE client_id = ' . $client . ' AND device_id = ' . (int) $view['mesh_agent']['conflict_device_id']);
+        $oar = $oa ? mysqli_fetch_row($oa) : null;
+        $meshConflictUrl = $oar && (int) $oar[0] > 0 ? '/agent/asset_details.php?asset_id=' . (int) $oar[0] . '#rmm-overview' : null;
+    }
     $meshConfigured = (int) ($cfg['mesh_enabled'] ?? 0) === 1 && (string) ($cfg['mesh_url'] ?? '') !== '' && !empty($cfg['mesh_login_key_enc']);
     if ($perm['remote']) {
         $s = mysqli_query($mysqli, 'SELECT s.created_at, s.source_ip, s.connection_type, u.user_name FROM rmm_remote_sessions s LEFT JOIN users u ON u.user_id = s.user_id WHERE s.asset_id = '
@@ -485,6 +492,8 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'jobs' => (array) ($view['jobs'] ?? []),
         'mesh' => ['mapped' => !empty($view['mesh']['mapped']), 'source' => $view['mesh']['source'] ?? null, 'node_id' => $perm['admin'] ? ($view['mesh']['node_id'] ?? '') : '',
             'configured' => $meshConfigured],
+        'mesh_agent' => is_array($view['mesh_agent'] ?? null) ? $view['mesh_agent'] : null,   // rc.12: RmmReadModel::deviceView()['mesh_agent'], present only once the device reported a Mesh agent
+        'mesh_agent_conflict_url' => $meshConflictUrl,
         'remote_sessions' => $sessions,
         'saved_scripts' => $saved,
         'banners' => $banners,

@@ -3,6 +3,7 @@ require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';   // rc.12: the device's Mesh agent state
 
 use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Rmm\Support\Sql;
@@ -176,12 +177,24 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
     </tbody></table>
 </div></div>
 
+<?php if (!empty($view['mesh_agent'])) { ?>
+<div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">MeshCentral agent</h5></div><div class="card-body">
+    <?php
+    $conflictUrl = null;
+    if ((int) ($view['mesh_agent']['conflict_device_id'] ?? 0) > 0) {   // Core names the other device only when it is in the same department
+        $oa = mysqli_query($mysqli, 'SELECT asset_id FROM endpoint_agent_devices WHERE client_id = ' . $client_id . ' AND device_id = ' . (int) $view['mesh_agent']['conflict_device_id']);
+        $oar = $oa ? mysqli_fetch_row($oa) : null;
+        $conflictUrl = $oar && (int) $oar[0] > 0 ? '/agent/asset_details.php?asset_id=' . (int) $oar[0] . '#rmm-overview' : null;
+    }
+    echo rivetRmmMeshAgentHtml($view['mesh_agent'], ['conflict_url' => $conflictUrl]); ?>
+</div></div>
+<?php } ?>
 <?php if ($is_admin) { ?>
 <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">MeshCentral node (administrators)</h5></div><div class="card-body">
     <form id="ea-mesh-form" class="row g-2 align-items-end">
         <input type="hidden" name="csrf_token" value="<?= $h($_SESSION['csrf_token']) ?>"><input type="hidden" name="device_id" value="<?= $device_id ?>">
         <div class="col-lg-8"><label class="form-label small" for="ea-node">Node id (node//...)</label><input class="form-control form-control-sm font-monospace" id="ea-node" name="mesh_node_id" maxlength="200" value="<?= $h($mesh['mesh_node_id'] ?? '') ?>" placeholder="node//AbCd..."></div>
-        <div class="col-lg-4"><button class="btn btn-sm btn-primary" type="submit">Save mapping</button> <span class="small text-muted">Leave empty to clear. An id set here is never overwritten by what the device reports.</span></div>
+        <div class="col-lg-4"><button class="btn btn-sm btn-primary" type="submit">Save mapping</button> <span class="small text-muted">Leave empty to clear. An id set here is kept when the Mesh agent reports a different one, unless the MeshCentral setting that lets the agent\'s node replace it is on.</span></div>
     </form>
 </div></div>
 <?php } ?>
