@@ -2431,6 +2431,64 @@ CREATE TABLE `revenues` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rmm_alert_meta`
+--
+
+DROP TABLE IF EXISTS `rmm_alert_meta`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_alert_meta` (
+  `meta_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `alert_id` int(11) NOT NULL,
+  `device_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `check_key` varchar(100) NOT NULL,
+  `episode` int(11) NOT NULL,
+  `group_key` varchar(120) NOT NULL DEFAULT '',
+  `severity` varchar(4) NOT NULL DEFAULT 'warn',
+  `state` varchar(14) NOT NULL DEFAULT 'open',
+  `message` varchar(500) NOT NULL DEFAULT '',
+  `opened_at` datetime NOT NULL,
+  `acked_by` int(11) DEFAULT NULL,
+  `acked_at` datetime DEFAULT NULL,
+  `resolved_at` datetime DEFAULT NULL,
+  `resolved_by` int(11) DEFAULT NULL,
+  `resolve_reason` varchar(20) DEFAULT NULL,
+  `policy_id` int(11) DEFAULT NULL,
+  `esc_step` int(11) NOT NULL DEFAULT 0,
+  `esc_count` int(11) NOT NULL DEFAULT 0,
+  `esc_attempts` int(11) NOT NULL DEFAULT 0,
+  `esc_next_at` datetime DEFAULT NULL,
+  `last_notified_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`meta_id`),
+  UNIQUE KEY `uniq_episode` (`device_id`,`check_key`,`episode`),
+  KEY `idx_alert` (`alert_id`),
+  KEY `idx_escalation` (`state`,`esc_next_at`),
+  KEY `idx_client_opened` (`client_id`,`opened_at`),
+  KEY `idx_opened` (`opened_at`),
+  KEY `idx_group` (`group_key`,`state`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_alerting_settings`
+--
+
+DROP TABLE IF EXISTS `rmm_alerting_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_alerting_settings` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `storm_global_max` int(11) NOT NULL DEFAULT 500,
+  `storm_global_window_s` int(11) NOT NULL DEFAULT 600,
+  `storm_client_max` int(11) NOT NULL DEFAULT 100,
+  `storm_client_window_s` int(11) NOT NULL DEFAULT 600,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_alerts`
 --
 
@@ -2463,6 +2521,36 @@ CREATE TABLE `rmm_alerts` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rmm_approvals`
+--
+
+DROP TABLE IF EXISTS `rmm_approvals`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_approvals` (
+  `approval_id` int(11) NOT NULL AUTO_INCREMENT,
+  `kind` varchar(12) NOT NULL,
+  `state` varchar(16) NOT NULL DEFAULT 'pending_approval',
+  `summary` varchar(300) NOT NULL DEFAULT '',
+  `request_json` mediumtext NOT NULL,
+  `request_sha256` char(64) NOT NULL,
+  `device_count` int(11) NOT NULL DEFAULT 0,
+  `script_id` int(11) DEFAULT NULL,
+  `script_version` int(11) DEFAULT NULL,
+  `requested_by` int(11) NOT NULL,
+  `requested_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `decided_by` int(11) DEFAULT NULL,
+  `decided_at` datetime DEFAULT NULL,
+  `decision_note` varchar(300) NOT NULL DEFAULT '',
+  `result_json` text DEFAULT NULL,
+  PRIMARY KEY (`approval_id`),
+  KEY `idx_state` (`state`,`expires_at`),
+  KEY `idx_requested` (`requested_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_check_deployments`
 --
 
@@ -2481,6 +2569,33 @@ CREATE TABLE `rmm_check_deployments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+
+--
+-- Table structure for table `rmm_check_eval`
+--
+
+DROP TABLE IF EXISTS `rmm_check_eval`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_check_eval` (
+  `device_id` int(11) NOT NULL,
+  `check_key` varchar(100) NOT NULL,
+  `tier` varchar(4) NOT NULL DEFAULT 'ok',
+  `cand_tier` varchar(4) NOT NULL DEFAULT 'ok',
+  `cand_since` datetime DEFAULT NULL,
+  `cand_count` int(11) NOT NULL DEFAULT 0,
+  `last_reading` double DEFAULT NULL,
+  `flap_bits` bigint(20) NOT NULL DEFAULT 0,
+  `flap_n` int(11) NOT NULL DEFAULT 0,
+  `flapping` tinyint(1) NOT NULL DEFAULT 0,
+  `override_json` text DEFAULT NULL,
+  `override_by` int(11) NOT NULL DEFAULT 0,
+  `override_at` datetime DEFAULT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`device_id`,`check_key`),
+  KEY `idx_updated` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `rmm_check_policies`
@@ -2508,6 +2623,107 @@ CREATE TABLE `rmm_check_policies` (
 
 
 --
+-- Table structure for table `rmm_custom_field_values`
+--
+
+DROP TABLE IF EXISTS `rmm_custom_field_values`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_custom_field_values` (
+  `field_id` int(11) NOT NULL,
+  `scope_id` int(11) NOT NULL,
+  `value_text` varchar(2000) DEFAULT NULL,
+  `value_enc` text DEFAULT NULL,
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`field_id`,`scope_id`),
+  KEY `idx_scope` (`scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_custom_fields`
+--
+
+DROP TABLE IF EXISTS `rmm_custom_fields`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_custom_fields` (
+  `field_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(40) NOT NULL,
+  `label` varchar(100) NOT NULL DEFAULT '',
+  `scope` varchar(8) NOT NULL,
+  `type` varchar(8) NOT NULL,
+  `options_json` text DEFAULT NULL,
+  `default_value` varchar(500) DEFAULT NULL,
+  `description` varchar(300) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`field_id`),
+  UNIQUE KEY `uniq_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_device_parents`
+--
+
+DROP TABLE IF EXISTS `rmm_device_parents`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_device_parents` (
+  `device_id` int(11) NOT NULL,
+  `parent_device_id` int(11) NOT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`device_id`),
+  KEY `idx_parent` (`parent_device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_escalation_policies`
+--
+
+DROP TABLE IF EXISTS `rmm_escalation_policies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_escalation_policies` (
+  `policy_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `scope_type` varchar(8) NOT NULL DEFAULT 'all',
+  `scope_id` int(11) NOT NULL DEFAULT 0,
+  `min_severity` varchar(4) NOT NULL DEFAULT 'warn',
+  `repeat_every_min` int(11) NOT NULL DEFAULT 0,
+  `repeat_max` int(11) NOT NULL DEFAULT 0,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`policy_id`),
+  UNIQUE KEY `uniq_name` (`name`),
+  KEY `idx_scope` (`scope_type`,`scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_escalation_steps`
+--
+
+DROP TABLE IF EXISTS `rmm_escalation_steps`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_escalation_steps` (
+  `policy_id` int(11) NOT NULL,
+  `step_no` int(11) NOT NULL,
+  `after_min` int(11) NOT NULL DEFAULT 0,
+  `targets_json` text NOT NULL,
+  PRIMARY KEY (`policy_id`,`step_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_integrations`
 --
 
@@ -2532,6 +2748,134 @@ CREATE TABLE `rmm_integrations` (
 
 
 --
+-- Table structure for table `rmm_job_extra`
+--
+
+DROP TABLE IF EXISTS `rmm_job_extra`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_job_extra` (
+  `job_id` char(36) NOT NULL,
+  `device_id` int(11) NOT NULL DEFAULT 0,
+  `script_id` int(11) DEFAULT NULL,
+  `script_version` int(11) DEFAULT NULL,
+  `schedule_id` int(11) DEFAULT NULL,
+  `run_id` bigint(20) DEFAULT NULL,
+  `approval_id` int(11) DEFAULT NULL,
+  `idem_key` char(64) DEFAULT NULL,
+  `secret_params_enc` mediumtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`job_id`),
+  UNIQUE KEY `uniq_idem` (`idem_key`),
+  KEY `idx_schedule_device` (`schedule_id`,`device_id`,`created_at`),
+  KEY `idx_script` (`script_id`,`created_at`),
+  KEY `idx_created` (`created_at`),
+  KEY `idx_secret` (`secret_params_enc`(8))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_maintenance_windows`
+--
+
+DROP TABLE IF EXISTS `rmm_maintenance_windows`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_maintenance_windows` (
+  `window_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `mode` varchar(8) NOT NULL DEFAULT 'mute',
+  `scope_type` varchar(8) NOT NULL DEFAULT 'all',
+  `scope_id` int(11) NOT NULL DEFAULT 0,
+  `kind` varchar(10) NOT NULL DEFAULT 'once',
+  `timezone` varchar(64) NOT NULL DEFAULT 'UTC',
+  `starts_at` datetime DEFAULT NULL,
+  `ends_at` datetime DEFAULT NULL,
+  `recur_freq` varchar(8) DEFAULT NULL,
+  `recur_interval` int(11) NOT NULL DEFAULT 1,
+  `recur_days` varchar(120) NOT NULL DEFAULT '',
+  `local_start` char(5) NOT NULL DEFAULT '00:00',
+  `duration_min` int(11) NOT NULL DEFAULT 60,
+  `recur_from` date DEFAULT NULL,
+  `recur_until` date DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT 0,
+  `active_since` datetime DEFAULT NULL,
+  `note` varchar(300) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`window_id`),
+  KEY `idx_enabled` (`enabled`),
+  KEY `idx_scope` (`scope_type`,`scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_policies`
+--
+
+DROP TABLE IF EXISTS `rmm_policies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_policies` (
+  `policy_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `description` varchar(300) NOT NULL DEFAULT '',
+  `kind` varchar(20) NOT NULL DEFAULT 'agent',
+  `body_json` mediumtext NOT NULL,
+  `version` int(11) NOT NULL DEFAULT 1,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`policy_id`),
+  UNIQUE KEY `uniq_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_policy_assignments`
+--
+
+DROP TABLE IF EXISTS `rmm_policy_assignments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_policy_assignments` (
+  `assignment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `policy_id` int(11) NOT NULL,
+  `scope_type` varchar(10) NOT NULL,
+  `scope_id` int(11) NOT NULL DEFAULT 0,
+  `priority` int(11) NOT NULL DEFAULT 100,
+  `enforce` tinyint(1) NOT NULL DEFAULT 0,
+  `overrides_json` text DEFAULT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`assignment_id`),
+  UNIQUE KEY `uniq_assignment` (`policy_id`,`scope_type`,`scope_id`),
+  KEY `idx_scope` (`scope_type`,`scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_policy_versions`
+--
+
+DROP TABLE IF EXISTS `rmm_policy_versions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_policy_versions` (
+  `policy_id` int(11) NOT NULL,
+  `version` int(11) NOT NULL,
+  `body_json` mediumtext NOT NULL,
+  `changed_by` int(11) NOT NULL DEFAULT 0,
+  `changed_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`policy_id`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_remote_sessions`
 --
 
@@ -2553,6 +2897,70 @@ CREATE TABLE `rmm_remote_sessions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+
+--
+-- Table structure for table `rmm_schedule_runs`
+--
+
+DROP TABLE IF EXISTS `rmm_schedule_runs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_schedule_runs` (
+  `run_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `schedule_id` int(11) NOT NULL,
+  `slot_at` datetime NOT NULL,
+  `state` varchar(10) NOT NULL DEFAULT 'running',
+  `cursor_device_id` int(11) NOT NULL DEFAULT 0,
+  `targeted` int(11) NOT NULL DEFAULT 0,
+  `jobs_created` int(11) NOT NULL DEFAULT 0,
+  `skipped_overlap` int(11) NOT NULL DEFAULT 0,
+  `skipped_gate` int(11) NOT NULL DEFAULT 0,
+  `skipped_other` int(11) NOT NULL DEFAULT 0,
+  `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`run_id`),
+  UNIQUE KEY `uniq_slot` (`schedule_id`,`slot_at`),
+  KEY `idx_state` (`state`),
+  KEY `idx_started` (`started_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_schedules`
+--
+
+DROP TABLE IF EXISTS `rmm_schedules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_schedules` (
+  `schedule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `script_id` int(11) NOT NULL,
+  `script_version` int(11) NOT NULL,
+  `body_sha256` char(64) NOT NULL,
+  `params_json` text DEFAULT NULL,
+  `target_type` varchar(10) NOT NULL,
+  `target_id` int(11) NOT NULL DEFAULT 0,
+  `kind` varchar(10) NOT NULL,
+  `interval_s` int(11) DEFAULT NULL,
+  `cron_expr` varchar(100) NOT NULL DEFAULT '',
+  `jitter_s` int(11) NOT NULL DEFAULT 0,
+  `overlap` varchar(6) NOT NULL DEFAULT 'skip',
+  `expires_s` int(11) NOT NULL DEFAULT 3600,
+  `timeout_s` int(11) NOT NULL DEFAULT 300,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `approval_id` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `next_run_at` datetime DEFAULT NULL,
+  `last_run_at` datetime DEFAULT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`schedule_id`),
+  UNIQUE KEY `uniq_name` (`name`),
+  KEY `idx_due` (`enabled`,`next_run_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `rmm_script_runs`
@@ -2579,6 +2987,28 @@ CREATE TABLE `rmm_script_runs` (
 
 
 --
+-- Table structure for table `rmm_script_versions`
+--
+
+DROP TABLE IF EXISTS `rmm_script_versions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_script_versions` (
+  `script_id` int(11) NOT NULL,
+  `version` int(11) NOT NULL,
+  `body` mediumtext NOT NULL,
+  `body_sha256` char(64) NOT NULL,
+  `params_schema_json` text DEFAULT NULL,
+  `signature` varchar(100) NOT NULL DEFAULT '',
+  `signing_key_id` varchar(32) NOT NULL DEFAULT '',
+  `note` varchar(200) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`script_id`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_scripts`
 --
 
@@ -2601,6 +3031,52 @@ CREATE TABLE `rmm_scripts` (
   PRIMARY KEY (`id`),
   KEY `idx_integration_script` (`rmm_integration_id`,`tactical_script_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_scripts_v2`
+--
+
+DROP TABLE IF EXISTS `rmm_scripts_v2`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_scripts_v2` (
+  `script_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `description` varchar(500) NOT NULL DEFAULT '',
+  `language` varchar(12) NOT NULL,
+  `platform` varchar(10) NOT NULL,
+  `tags_json` text DEFAULT NULL,
+  `owner_id` int(11) NOT NULL DEFAULT 0,
+  `requires_approval` tinyint(1) NOT NULL DEFAULT 0,
+  `destructive` tinyint(1) NOT NULL DEFAULT 0,
+  `timeout_s` int(11) NOT NULL DEFAULT 300,
+  `current_version` int(11) NOT NULL DEFAULT 0,
+  `retired_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`script_id`),
+  UNIQUE KEY `uniq_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_storm_summaries`
+--
+
+DROP TABLE IF EXISTS `rmm_storm_summaries`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_storm_summaries` (
+  `scope` varchar(30) NOT NULL,
+  `bucket` datetime NOT NULL,
+  `alert_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `resolved_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`scope`,`bucket`),
+  KEY `idx_open` (`resolved_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -3033,6 +3509,8 @@ CREATE TABLE `settings` (
   `config_vault_v3_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_vault_dek_wrap` text DEFAULT NULL,
   `config_vault_v3_prepared_at` datetime DEFAULT NULL,
+  `config_rmm_approve_scripts_lvl3` tinyint(1) NOT NULL DEFAULT 0,
+  `config_rmm_escalation_contact` text DEFAULT NULL,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
