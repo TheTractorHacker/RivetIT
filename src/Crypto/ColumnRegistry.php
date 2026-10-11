@@ -28,6 +28,8 @@ final class ColumnRegistry
             'config_outlook_cal_client_secret', 'config_imap_password', 'config_backup_s3_secret_key', 'config_backup_passphrase',
             'config_comet_admin_pass', 'config_comet_totp_secret', 'config_comet_webhook_secret', 'config_oidc_client_secret',
             'config_kb_media_key', 'config_training_youtube_api_key', 'config_redis_password',
+            // The RMM external metric store (RivetCore 1.0.0-rc.11, off by default): the endpoint URLs and the bearer token, sealed with encryptSetting().
+            'config_rmm_extstore_write_url', 'config_rmm_extstore_read_url', 'config_rmm_extstore_token',
         ] as $c) {
             $specs[] = new ColumnSpec('settings', 'company_id', $c);
         }
@@ -51,6 +53,12 @@ final class ColumnRegistry
                 $specs[] = new ColumnSpec($table, $pk, $c);
             }
         }
+        // The RMM module seals these two through EndpointSecretBox -> encryptSetting() (generic context) too: the secret parameters of a queued job (keyed by the job's uuid, a
+        // string) and the values of secret custom fields (a composite integer key: field_id + scope_id). A cleartext value in either is never a ciphertext the module would
+        // accept (its box refuses it), so a rewrap never wraps one (wrapPlaintext false). They were missing from this list until now: after a key rotation those values stayed
+        // on the old key (v3: under a retired key, or ENC2:), so retiring the key would have made them unreadable.
+        $specs[] = new ColumnSpec('rmm_job_extra', 'job_id', 'secret_params_enc', 'settings', false, false);
+        $specs[] = new ColumnSpec('rmm_custom_field_values', 'field_id', 'value_enc', 'settings', false, true, null, 'scope_id');
         // The license keys were cleartext on old installs; every reader goes through decryptSetting().
         $specs[] = new ColumnSpec('software', 'software_id', 'software_key', 'settings', true);
         $specs[] = new ColumnSpec('software_keys', 'software_key_id', 'software_key', 'settings', true);

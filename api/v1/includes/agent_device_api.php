@@ -2,7 +2,7 @@
 defined('FROM_API') || die();
 
 /**
- * Bridge for the DEVICE-facing endpoints (agent_enroll, agent_checkin, agent_jobs, agent_update, agent_installer).
+ * Bridge for the DEVICE-facing endpoints (agent_enroll, agent_checkin, agent_jobs, agent_update, agent_installer, agent_transfer, agent_logs).
  *
  * These are dispatched from api/v1/index.php ABOVE the Bearer/legacy-key parsing and above its pre-auth request-body read: a device
  * credential is not an api_tokens row, and that early body read has no size ceiling. The handlers themselves live in rivet/rivet-core

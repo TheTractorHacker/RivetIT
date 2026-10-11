@@ -50,7 +50,7 @@ foreach (ColumnRegistry::all() as $cs) {
     $plain = 'secret-' . $cs->table . '-' . $cs->column;
     $val = $cs->kind === 'canonical' ? 'abcdEFGH12345678' : $plain;
     $stored = $cs->column === 'config_whitelabel_key' || str_contains($cs->column, 'refresh') ? $cbc($val) : encryptSetting($val, $cs->kind === 'canonical' ? SettingsCrypto::VAULT_CANONICAL_KEY : SettingsCrypto::GENERIC);
-    $pkv = $cs->table === 'settings' ? 1 : ($cs->table === 'recovery_settings' ? "'drill_db_pass'" : (900 + $seeded));
+    $pkv = $cs->table === 'settings' ? 1 : ($cs->table === 'recovery_settings' ? "'drill_db_pass'" : ($cs->numericPk ? (900 + $seeded) : "'rw-" . (900 + $seeded) . "'"));
     if ($cs->table === 'settings') {
         $q("UPDATE settings SET `{$cs->column}` = '" . $esc($stored) . "' WHERE company_id = 1");
     } elseif ($cs->table === 'endpoint_agent_settings') {
@@ -60,7 +60,7 @@ foreach (ColumnRegistry::all() as $cs) {
         $q("INSERT INTO recovery_settings (setting_key, setting_value) VALUES ('drill_db_pass', '" . $esc($stored) . "') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
     } else {
         $q("DELETE FROM `{$cs->table}` WHERE `{$cs->pk}` = $pkv");
-        $extra = $cs->table === 'software_keys' ? ', software_key_software_id = 899' : '';
+        $extra = $cs->table === 'software_keys' ? ', software_key_software_id = 899' : ($cs->pk2 !== null ? ", `{$cs->pk2}` = 7" : '');
         $ok($q("INSERT INTO `{$cs->table}` SET `{$cs->pk}` = $pkv, `{$cs->column}` = '" . $esc($stored) . "'$extra") !== false, "seed {$cs->name()}");
     }
     $expect[$cs->name()] = [$cs, $pkv, $val];
@@ -72,6 +72,35 @@ $q("UPDATE users SET user_token='SEEDBBBB' WHERE user_id=$ub");   // cleartext
 $q("UPDATE settings SET config_slack_bot_token='xoxb-clear' WHERE company_id=1");                  // wrapPlaintext column
 $q("UPDATE settings SET config_oidc_client_secret='oidc-clear' WHERE company_id=1");               // a column with raw readers: left alone
 $ok($seeded >= 30, "seeded $seeded registered columns with a legacy value");
+
+// ------------------------------------------------------------------ the registry covers every column the app seals
+$regNames = array_map(fn ($c) => $c->name(), ColumnRegistry::all());
+$uncovered = [];
+foreach (array_merge(secStragglerColumns(), function_exists('secDeferredColumns') ? secDeferredColumns() : []) as $table => [$pk, $cols]) {
+    foreach ($cols as $c) { if (!in_array("$table.$c", $regNames, true)) { $uncovered[] = "$table.$c"; } }
+}
+$ok($uncovered === [], 'every secStragglerColumns()/secDeferredColumns() column is in the rewrap registry' . ($uncovered ? ': ' . implode(', ', $uncovered) : ''));
+$ok(in_array('rmm_job_extra.secret_params_enc', $regNames, true) && in_array('rmm_custom_field_values.value_enc', $regNames, true) && in_array('endpoint_agent_settings.signing_private_key_enc', $regNames, true) && in_array('endpoint_agent_settings.mesh_login_key_enc', $regNames, true), 'the RMM module columns (signing key, Mesh login key, job secrets, secret custom fields) are in the registry');
+$ok(in_array('settings.config_rmm_extstore_write_url', $regNames, true) && in_array('settings.config_rmm_extstore_read_url', $regNames, true) && in_array('settings.config_rmm_extstore_token', $regNames, true), 'the RMM external metric store settings are in the registry');
+// Schema-wide: a column that looks like it holds an encryptSetting() value (name ends in _enc, or is a named secret/token/key column of the settings row or an integrations table) must be in
+// the registry or in the short list of columns that use another envelope on purpose. A NEW secret column added to the schema without a registry line fails here, and a rotation would
+// have silently skipped it.
+$otherEnvelope = [   // table.column => why it is not in the registry
+    'credential_versions.version_previous_username_enc' => 'credential vault (VaultV3)', 'credential_versions.version_previous_password_enc' => 'credential vault (VaultV3)',
+    'settings.config_backup_s3_access_key' => 'an access key ID is an identifier, not a secret (the secret key is registered)',
+    'users.user_passkey_enc_ciphertext' => 'passkey wrap, derived from the user\'s password (not encryptSetting)', 'users.user_passkey_enc_iv' => 'passkey wrap IV (not a secret value)',
+];
+$scan = $rows("SELECT TABLE_NAME t, COLUMN_NAME c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND DATA_TYPE IN ('varchar','text','mediumtext','longtext','tinytext','char')
+    AND (COLUMN_NAME LIKE '%\\_enc' OR (TABLE_NAME = 'settings' AND (COLUMN_NAME LIKE 'config\\_%secret' OR COLUMN_NAME LIKE 'config\\_%password' OR COLUMN_NAME LIKE 'config\\_%\\_token' OR COLUMN_NAME LIKE 'config\\_%\\_key' OR COLUMN_NAME LIKE 'config\\_%passphrase' OR COLUMN_NAME LIKE 'config\\_%\\_pass')))");
+$missing = [];
+foreach ($scan as $r) {
+    $n = $r['t'] . '.' . $r['c'];
+    if (!in_array($n, $regNames, true) && !isset($otherEnvelope[$n])) { $missing[] = $n; }
+}
+$ok($missing === [], 'no secret-looking column is missing from the rewrap registry (schema scan of *_enc and settings secret/password/token/key columns)' . ($missing ? ': ' . implode(', ', $missing) : ''));
+// the guard itself works: a registry without a known column is detected by the same comparison
+$without = array_values(array_diff($regNames, ['rmm_job_extra.secret_params_enc']));
+$ok(!in_array('rmm_job_extra.secret_params_enc', $without, true) && array_filter($scan, fn ($r) => $r['t'] . '.' . $r['c'] === 'rmm_job_extra.secret_params_enc') !== [], 'the schema scan sees rmm_job_extra.secret_params_enc, so removing it from the registry would fail the check above');
 
 // ------------------------------------------------------------------ key file, stage on
 KeyAdmin::generate($kf);
@@ -117,7 +146,7 @@ $ok(array_sum(array_map(fn ($r) => $r->rewrapped, $again)) === 0, 'a second full
 $allRead = true; $allActive = true; $detail = '';
 foreach ($expect as $name => [$cs, $pkv, $plain]) {
     $col = $cs->column;
-    $v = (string) $one("SELECT `$col` FROM `{$cs->table}` WHERE `{$cs->pk}` = " . (is_string($pkv) ? $pkv : (int) $pkv));
+    $v = (string) $one("SELECT `$col` FROM `{$cs->table}` WHERE `{$cs->pk}` = " . (is_string($pkv) ? $pkv : (int) $pkv) . ($cs->pk2 !== null ? " AND `{$cs->pk2}` = 7" : ''));
     $got = decryptSetting($v, $cs->kind === 'canonical' ? SettingsCrypto::VAULT_CANONICAL_KEY : SettingsCrypto::GENERIC);
     if ($cs->name() === 'settings.config_slack_bot_token' || $cs->name() === 'settings.config_oidc_client_secret') { continue; }
     if ($got !== $plain) { $allRead = false; $detail .= " read:$name"; }
@@ -175,6 +204,7 @@ $ok($c4 === 1 && str_contains($o4, 'active key cannot be retired'), 'keys_cli re
 $q("DELETE FROM software_keys WHERE software_key_id BETWEEN 900 AND 960");
 foreach ($expect as [$cs, $pkv]) { if (!in_array($cs->table, ['settings', 'endpoint_agent_settings', 'recovery_settings'], true)) { $q("DELETE FROM `{$cs->table}` WHERE `{$cs->pk}` = $pkv"); } }
 $q("DELETE FROM users WHERE user_name LIKE 'crw-%'");
+$q("DELETE FROM rmm_job_extra WHERE job_id LIKE 'rw-%'"); $q("DELETE FROM rmm_custom_field_values WHERE scope_id = 7 AND field_id >= 900");
 $q("DELETE FROM software WHERE software_id = 899");
 foreach (ColumnRegistry::all() as $cs) { if ($cs->table === 'settings') { $q("UPDATE settings SET `{$cs->column}` = NULL WHERE company_id = 1"); } }
 $q("UPDATE endpoint_agent_settings SET signing_private_key_enc = '', mesh_login_key_enc = '' WHERE id = 1");

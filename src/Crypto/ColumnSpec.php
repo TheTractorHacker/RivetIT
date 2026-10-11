@@ -24,6 +24,8 @@ final class ColumnSpec
         public readonly bool $wrapPlaintext = false,
         public readonly bool $numericPk = true,
         public readonly ?\Closure $contextFn = null,
+        /** Second primary key column of a composite integer key (rmm_custom_field_values: field_id, scope_id); the row id is then "<pk>:<pk2>". */
+        public readonly ?string $pk2 = null,
     ) {
     }
 

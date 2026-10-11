@@ -10,6 +10,13 @@ if (is_array($row)) {
     secLazyRewrapSettings($mysqli, $row);
 }
 
+// RMM external metric store (RivetCore 1.0.0-rc.11, off by default): the switch is read here so the RMM module (includes/rmm_bootstrap.php) costs no extra statement; the three
+// encrypted values (write URL, read URL, token) stay raw and are decrypted only when the switch is on.
+$config_rmm_extstore_enabled = intval($row['config_rmm_extstore_enabled'] ?? 0);
+$config_rmm_extstore_raw = $config_rmm_extstore_enabled === 1
+    ? ['write_url' => (string) ($row['config_rmm_extstore_write_url'] ?? ''), 'read_url' => (string) ($row['config_rmm_extstore_read_url'] ?? ''), 'token' => (string) ($row['config_rmm_extstore_token'] ?? '')]
+    : null;
+
 // Database version
 DEFINE("CURRENT_DATABASE_VERSION", $row['config_current_database_version']);
 

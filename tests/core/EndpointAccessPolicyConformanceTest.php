@@ -58,6 +58,8 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['moduleonly'], RmmAbility::DEVICE_VIEW, 'client', 3],
             // RMM Phase 2 and 3: administrators approve and manage alerts; a technician with RMM write manages alerts
             [$u['admin'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['admin'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['tech'], RmmAbility::ALERT_MANAGE, 'client', 3],
+            // RMM Phase 6 (rc.11): administrators use the remote tools
+            [$u['admin'], RmmAbility::REMOTE_MANAGE, 'client', 3],
         ];
     }
 
@@ -75,6 +77,9 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             // approval is a second person's grant: a level 3 script technician does NOT have it by default; alert management needs RMM write, and never a module-only login
             [$u['tech'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['viewer'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['reboot'], RmmAbility::ALERT_MANAGE, 'client', 3],
             [$u['moduleonly'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['disabled'], RmmAbility::ALERT_MANAGE, 'client', 3],
+            // the remote tools are stronger than a remote session: no technician has them by default (the setting is off), and never a module-only login or a viewer
+            [$u['tech'], RmmAbility::REMOTE_MANAGE, 'client', 3], [$u['viewer'], RmmAbility::REMOTE_MANAGE, 'client', 3], [$u['reboot'], RmmAbility::REMOTE_MANAGE, 'client', 3],
+            [$u['moduleonly'], RmmAbility::REMOTE_MANAGE, 'client', 3], [$u['disabled'], RmmAbility::REMOTE_MANAGE, 'client', 3],
         ];
     }
 
@@ -92,5 +97,22 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
         $this->assertTrue($policy->can(self::USERS['admin'], RmmAbility::JOB_APPROVE, 'client', 3));
         $db->execute('UPDATE settings SET config_rmm_approve_scripts_lvl3 = 0 WHERE company_id = 1');
         $this->assertFalse($policy->can($tech, RmmAbility::JOB_APPROVE, 'client', 3));
+    }
+
+    public function testLevelThreeScriptRolesWithRemoteAccessUseTheRemoteToolsOnlyWhileTheAdminSettingIsOn(): void
+    {
+        $policy = $this->policy();
+        $db = EndpointKit::db();
+        $db->execute('UPDATE settings SET config_rmm_remote_manage_lvl3 = 0 WHERE company_id = 1');
+        $this->assertFalse($policy->can(self::USERS['tech'], RmmAbility::REMOTE_MANAGE, 'client', 3), 'off by default');
+        $db->execute('UPDATE settings SET config_rmm_remote_manage_lvl3 = 1 WHERE company_id = 1');
+        $this->assertTrue($policy->can(self::USERS['tech'], RmmAbility::REMOTE_MANAGE, 'client', 3), 'on: scripts level 3 with remote access may');
+        $this->assertFalse($policy->can(self::USERS['reboot'], RmmAbility::REMOTE_MANAGE, 'client', 3), 'on: level 2 still may not');
+        $this->assertFalse($policy->can(self::USERS['viewer'], RmmAbility::REMOTE_MANAGE, 'client', 3), 'on: a viewer still may not');
+        $this->assertFalse($policy->can(self::USERS['moduleonly'], RmmAbility::REMOTE_MANAGE, 'client', 3), 'on: a module-only login still may not');
+        $this->assertFalse($policy->can(self::USERS['tech'], RmmAbility::ADMIN, 'client', 0), 'on: the setting never grants administration (uploads, remote settings)');
+        $this->assertTrue($policy->can(self::USERS['admin'], RmmAbility::REMOTE_MANAGE, 'client', 3));
+        $db->execute('UPDATE settings SET config_rmm_remote_manage_lvl3 = 0 WHERE company_id = 1');
+        $this->assertFalse($policy->can(self::USERS['tech'], RmmAbility::REMOTE_MANAGE, 'client', 3));
     }
 }

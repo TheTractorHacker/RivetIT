@@ -7052,11 +7052,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
                 $enc_max_len = intval($enc_len_row['max_len']);
 
                 // Only untouched, non-empty values. NOT LIKE 'ENC:%' / 'ENC2:%' is what
-                // makes this safe to run twice.
+                // makes this safe to run twice (v3: is the RivetCore envelope of DB 2.6.160: a value that is already one must never be wrapped again).
                 $enc_rows = mysqli_query($mysqli,
                     "SELECT `$enc_pk` AS pk, `$enc_col` AS val FROM `$enc_table`
                      WHERE `$enc_col` IS NOT NULL AND `$enc_col` <> ''
-                       AND `$enc_col` NOT LIKE 'ENC:%' AND `$enc_col` NOT LIKE 'ENC2:%'"
+                       AND `$enc_col` NOT LIKE 'ENC:%' AND `$enc_col` NOT LIKE 'ENC2:%' AND `$enc_col` NOT LIKE 'v3:%'"
                 );
                 if (!$enc_rows) {
                     continue;
@@ -10885,4 +10885,35 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         \ITFlow\Crypto\SchemaWidening::run($mysqli);
 
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.160'");
+    }
+
+    if ($rivetit_db_version() == '2.6.160') {
+        // DB 2.6.161: RivetCore 1.0.0-rc.11 Migration0021ScaleStorage + Migration0022RemoteAndLogs (RMM scale S3 to S8, remote tools, log collection): ten new tables
+        // (rmm_metric_daily, rmm_storage_state, rmm_cache, rmm_metric_outbox, rmm_token_buckets; endpoint_agent_remote_settings, endpoint_agent_transfers,
+        // endpoint_agent_log_events, endpoint_agent_log_state, endpoint_agent_log_rules), all CREATE TABLE IF NOT EXISTS, nothing existing altered. Core owns the DDL, so
+        // this step runs the Core runner (idempotent: it skips applied ids). Nothing is switched on: the remote, filetransfer and logs sub-switches, partitioning, the
+        // cache's herd controls and the external metric store are all off until an administrator turns them on. Small settings of our own: who may use the remote
+        // tools (an administrator always; a role with RMM scripts level 3 only while config_rmm_remote_manage_lvl3 = 1, off by default) and the external metric store (config_rmm_extstore_*, off). The transfer folder
+        // (backups/endpoint-transfer, inside the denied backups/ area) is created here when this process owns backups/ (so the web user can use it); otherwise the first
+        // transfer creates it, or Administration > Endpoint agent shows a button. Skipped (version NOT advanced, so it retries) until a package that ships both
+        // migrations is installed. Run it before, or right after, the new code is live.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0022RemoteAndLogs::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            // The external metric store (RMM scale S4, off): its switch and its three encrypted values (the write URL, the read URL, the bearer token; encryptSetting(), so TEXT).
+            mysqli_query($mysqli, "ALTER TABLE `settings`
+                ADD COLUMN IF NOT EXISTS `config_rmm_remote_manage_lvl3` tinyint(1) NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS `config_rmm_extstore_enabled` tinyint(1) NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS `config_rmm_extstore_write_url` text DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `config_rmm_extstore_read_url` text DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `config_rmm_extstore_token` text DEFAULT NULL");
+            $rivetit_transfer_dir = dirname(__DIR__) . '/backups/endpoint-transfer';
+            if (!is_dir($rivetit_transfer_dir) && is_dir(dirname($rivetit_transfer_dir)) && function_exists('posix_geteuid') && @fileowner(dirname($rivetit_transfer_dir)) === posix_geteuid()) {
+                @mkdir($rivetit_transfer_dir, 0750);
+            }
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.161'");
+        }
     }

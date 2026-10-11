@@ -7,8 +7,8 @@
  * Everything here is lazy: nothing touches the database until a function that needs the module is called, and a request that only asks
  * "is the module on" (the menus, the cron block) is answered from the module's state file when there is a valid one.
  *
- * Constants an install may define in config.php (all optional): EA_ALLOW_INSECURE_HTTP (loopback test servers only), EA_BINARY_DIR,
- * EA_BINARY_MAX_BYTES, EA_ALLOW_NON_WINDOWS (the agent's Linux test build in the integration harness), RMM_STATE_DIR (see EndpointModuleState).
+ * Constants an install may define in config.php (all optional): EA_ALLOW_INSECURE_HTTP (loopback test servers only), EA_BINARY_DIR, EA_TRANSFER_DIR
+ * (where file transfers are stored; default backups/endpoint-transfer, inside the denied backups/ area), EA_BINARY_MAX_BYTES, EA_ALLOW_NON_WINDOWS (the agent's Linux test build in the integration harness), RMM_STATE_DIR (see EndpointModuleState).
  */
 
 require_once __DIR__ . '/event_bus.php';   // rivetCoreDb(), rivetWebhookUrlPolicy()
@@ -24,6 +24,10 @@ use ITFlow\Core\Adapter\Endpoint\EndpointModuleState;
 use ITFlow\Core\Adapter\Endpoint\EndpointSecretBox;
 use ITFlow\Core\Adapter\Endpoint\EndpointTenancy;
 use RivetCore\Rmm\Authz\RmmPrincipal;
+use RivetCore\Rmm\Metrics\CompositeMetricSink;
+use RivetCore\Rmm\Metrics\ExternalMetricReader;
+use RivetCore\Rmm\Metrics\ExternalMetricSink;
+use RivetCore\Rmm\Metrics\VictoriaMetricsStore;
 use RivetCore\Rmm\Http\RmmRequest;
 use RivetCore\Rmm\RmmModule;
 use RivetCore\Rmm\RmmStateFile;
@@ -65,7 +69,31 @@ function rivetRmmModule($mysqli = null): RmmModule
     if (defined('EA_BINARY_MAX_BYTES')) {
         $options['max_upload_bytes'] = (int) EA_BINARY_MAX_BYTES;
     }
+    // RivetCore 1.0.0-rc.11 (RMM Phase 6): file transfers are stored here (a folder private to the web user, outside the web root: backups/ is denied by every web server
+    // template). Without a folder transfers answer 409 not_configured. The folder is created on first use (mode 0700) when it does not exist.
+    $options['transfer_dir'] = defined('EA_TRANSFER_DIR') ? (string) EA_TRANSFER_DIR : $root . '/backups/endpoint-transfer';
+    // RivetCore 1.0.0-rc.11 (scale S8): with Redis switched on the per-client token buckets (off unless a limit is set) and the read-path cache live in Redis instead of the
+    // database. Both fail open when Redis is down (a miss, an admitted request). Without Redis Core uses its own tables.
+    if (function_exists('rivetRedisGuardsOn') && rivetRedisGuardsOn()) {
+        $provider = rivetRedisProvider();
+        $options['redis'] = $provider;
+        $options['cache'] = new \RivetCore\Mcp\RedisMetadataCache($provider, rivetRedisKeyPrefix() . 'rmm_cache:');
+    }
     $metrics = new EndpointMetricSink($mysqli);
+    $sink = $metrics;
+    $ext = rivetRmmExternalStoreConfig($mysqli);
+    if ($ext !== null) {
+        try {
+            // Scale S4, OFF by default: history also goes to a time-series database, through a bounded buffer that never blocks a check-in; reads of history prefer the store and fall
+            // back to RivetIT's own metric tables. The store's URLs are vetted by the same UrlPolicy as webhooks (public addresses, https, no redirects, the connection pinned).
+            $store = new VictoriaMetricsStore($ext['write_url'], rivetWebhookUrlPolicy($mysqli), null, $ext['read_url'] !== '' ? $ext['read_url'] : null, $ext['token'] !== '' ? $ext['token'] : null);
+            $sink = new CompositeMetricSink([[$metrics, true], [new ExternalMetricSink($db, new \RivetCore\Support\SystemClock(), $store), false]]);
+            $options['metric_reader'] = new ExternalMetricReader($store, $metrics);
+        } catch (\Throwable $e) {
+            error_log('RMM external metric store not used: ' . get_class($e));
+            $sink = $metrics;
+        }
+    }
     $module = new RmmModule(
         $db,
         new \RivetCore\Support\SystemClock(),
@@ -74,7 +102,7 @@ function rivetRmmModule($mysqli = null): RmmModule
         new EndpointBridge($db, $mysqli),
         new EndpointSecretBox(),
         new EndpointAudit(),
-        $metrics,   // sink and reader (RmmMetricReaderInterface): the network bar reads the 24 hour peak from here
+        $sink,   // sink; $metrics is also the reader (RmmMetricReaderInterface): the network bar reads the 24 hour peak from here (or from the external store, option metric_reader)
         new EndpointModuleState(),
         $options,
         null,
@@ -85,6 +113,45 @@ function rivetRmmModule($mysqli = null): RmmModule
     $built[$key] = [$mysqli, $module];
 
     return $module;
+}
+
+/**
+ * The external metric store's settings (RMM scale S4), or null while it is off, unconfigured or unreadable. Read from the settings row the request already loaded
+ * (includes/load_global_settings.php), or with one query when nothing loaded it (cron, tests). The values are encrypted with encryptSetting(); a value that cannot be
+ * decrypted counts as not configured.
+ *
+ * @return array{write_url:string,read_url:string,token:string}|null
+ */
+function rivetRmmExternalStoreConfig($mysqli = null): ?array
+{
+    $raw = $GLOBALS['config_rmm_extstore_raw'] ?? false;
+    $on = $GLOBALS['config_rmm_extstore_enabled'] ?? null;
+    if ($on === null || ($on === 1 && !is_array($raw))) {
+        $raw = null;
+        $mysqli ??= $GLOBALS['mysqli'] ?? null;
+        if ($mysqli instanceof \mysqli) {
+            try {
+                $res = mysqli_query($mysqli, 'SELECT config_rmm_extstore_enabled AS e, config_rmm_extstore_write_url AS w, config_rmm_extstore_read_url AS r, config_rmm_extstore_token AS t FROM settings WHERE company_id = 1');
+                $row = $res ? mysqli_fetch_assoc($res) : null;
+                if ($row && (int) $row['e'] === 1) {
+                    $raw = ['write_url' => (string) $row['w'], 'read_url' => (string) $row['r'], 'token' => (string) $row['t']];
+                }
+            } catch (\Throwable) {
+                $raw = null;   // the column is not there yet (new code, old schema)
+            }
+        }
+    } elseif ($on !== 1) {
+        return null;
+    }
+    if (!is_array($raw)) {
+        return null;
+    }
+    $write = trim(decryptSetting($raw['write_url']));
+    if ($write === '') {
+        return null;
+    }
+
+    return ['write_url' => $write, 'read_url' => trim(decryptSetting($raw['read_url'])), 'token' => decryptSetting($raw['token'])];
 }
 
 /**

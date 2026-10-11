@@ -63,6 +63,9 @@ final class MysqliRewrapSource implements RewrapSource
             $where .= ' AND ' . $this->rowFilter;
         }
         $limit = max(1, $limit);
+        if ($this->spec->pk2 !== null) {
+            return $this->nextComposite($afterId, $limit, $t, $pk, $this->ident($this->spec->pk2), $col, $where);
+        }
         if ($afterId !== null) {
             $where .= $this->spec->numericPk ? " AND $pk > ?" : " AND BINARY $pk > BINARY ?";
         }
@@ -91,11 +94,54 @@ final class MysqliRewrapSource implements RewrapSource
         return $items;
     }
 
+    /** @return list<RewrapItem> composite integer key: ids are "<pk>:<pk2>", ordered by the pair, cursor exclusive */
+    private function nextComposite(?string $afterId, int $limit, string $t, string $pk, string $pk2, string $col, string $where): array
+    {
+        $a = 0;
+        $b = 0;
+        if ($afterId !== null) {
+            [$a, $b] = array_map('intval', explode(':', $afterId, 2) + [1 => '0']);
+            $where .= " AND ($pk > ? OR ($pk = ? AND $pk2 > ?))";
+        }
+        $stmt = $this->db->prepare("SELECT $pk AS id1, $pk2 AS id2, $col AS val FROM $t WHERE $where ORDER BY $pk ASC, $pk2 ASC LIMIT $limit");
+        if (!$stmt) {
+            throw new \RuntimeException('Rewrap source ' . $this->name() . ' could not prepare its read.');
+        }
+        if ($afterId !== null) {
+            $stmt->bind_param('iii', $a, $a, $b);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $items = [];
+        while ($row = $res->fetch_assoc()) {
+            $id = (string) $row['id1'] . ':' . (string) $row['id2'];
+            $items[] = new RewrapItem($id, (string) $row['val'], $this->spec->contextFor($id));
+        }
+        $stmt->close();
+
+        return $items;
+    }
+
     public function replace(string $id, string $expected, string $replacement): bool
     {
         $cap = $this->capacity();
         if ($cap !== null && strlen($replacement) > $cap) {
             return false;
+        }
+        if ($this->spec->pk2 !== null) {
+            [$a, $b] = array_map('intval', explode(':', $id, 2) + [1 => '0']);
+            $t = $this->ident($this->spec->table);
+            $col = $this->ident($this->spec->column);
+            $stmt = $this->db->prepare("UPDATE $t SET $col = ? WHERE " . $this->ident($this->spec->pk) . ' = ? AND ' . $this->ident($this->spec->pk2) . " = ? AND BINARY $col = BINARY ?");
+            if (!$stmt) {
+                return false;
+            }
+            $stmt->bind_param('siis', $replacement, $a, $b, $expected);
+            $ok = $stmt->execute();
+            $changed = $ok ? $stmt->affected_rows : 0;
+            $stmt->close();
+
+            return $changed === 1;
         }
         $t = $this->ident($this->spec->table);
         $pk = $this->ident($this->spec->pk);

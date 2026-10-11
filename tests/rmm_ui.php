@@ -587,7 +587,7 @@ $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asse
 // ---- events: catalog entries and the adapter
 $extra = array_column(rivetEventCatalogExtras(), 'id');
 $all = RivetCore\Rmm\RmmEvent::all();
-$ok(array_diff($all, $extra) === [] && count($all) === 19, 'every rmm.* event id is in the picker\'s catalog extras');
+$ok(array_diff($all, $extra) === [] && count($all) === 21 && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true), 'every rmm.* event id (21, incl. rmm.file.transferred and rmm.log.rule_matched) is in the picker\'s catalog extras');
 $ids = rivetEventCatalogIds();
 $ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
 $grp = rivetEventCatalogData()['groups'];

@@ -1445,6 +1445,132 @@ CREATE TABLE `email_queue` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `endpoint_agent_log_events`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_log_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_log_events` (
+  `event_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `device_id` int(11) NOT NULL,
+  `occurred_at` datetime NOT NULL,
+  `received_at` datetime NOT NULL,
+  `level` tinyint(4) NOT NULL,
+  `source` varchar(100) NOT NULL DEFAULT '',
+  `code` int(11) DEFAULT NULL,
+  `message` varchar(1024) NOT NULL DEFAULT '',
+  `dedupe` binary(16) NOT NULL,
+  PRIMARY KEY (`event_id`),
+  UNIQUE KEY `uq_device_dedupe` (`device_id`,`dedupe`),
+  KEY `idx_device_time` (`device_id`,`occurred_at`),
+  KEY `idx_occurred` (`occurred_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_log_rules`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_log_rules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_log_rules` (
+  `rule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `min_level` tinyint(4) NOT NULL DEFAULT 2,
+  `source_contains` varchar(100) NOT NULL DEFAULT '',
+  `code` int(11) DEFAULT NULL,
+  `contains` varchar(200) NOT NULL DEFAULT '',
+  `threshold` int(11) NOT NULL DEFAULT 1,
+  `window_min` int(11) NOT NULL DEFAULT 5,
+  `severity` varchar(4) NOT NULL DEFAULT 'warn',
+  `resolve_after_min` int(11) NOT NULL DEFAULT 30,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`rule_id`),
+  KEY `idx_enabled_client` (`enabled`,`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_log_state`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_log_state`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_log_state` (
+  `device_id` int(11) NOT NULL,
+  `row_count` int(11) NOT NULL DEFAULT 0,
+  `dropped_total` bigint(20) NOT NULL DEFAULT 0,
+  `last_event_at` datetime DEFAULT NULL,
+  `last_batch_at` datetime DEFAULT NULL,
+  `window_start` datetime DEFAULT NULL,
+  `window_count` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_remote_settings`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_remote_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_remote_settings` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `transfer_allow_json` text DEFAULT NULL,
+  `logs_collect_json` text DEFAULT NULL,
+  `limits_json` text DEFAULT NULL,
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `endpoint_agent_transfers`
+--
+
+DROP TABLE IF EXISTS `endpoint_agent_transfers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `endpoint_agent_transfers` (
+  `transfer_id` char(36) NOT NULL,
+  `device_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL DEFAULT 0,
+  `asset_id` int(11) DEFAULT NULL,
+  `direction` varchar(8) NOT NULL,
+  `remote_path` varchar(1024) NOT NULL,
+  `file_name` varchar(120) NOT NULL DEFAULT '',
+  `state` varchar(20) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `received_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `served_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `max_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `sha256` char(64) DEFAULT NULL,
+  `token_hash` char(64) NOT NULL,
+  `storage_name` varchar(60) NOT NULL,
+  `overwrite` tinyint(1) NOT NULL DEFAULT 0,
+  `job_id` char(36) DEFAULT NULL,
+  `error` varchar(200) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`transfer_id`),
+  KEY `idx_device_created` (`device_id`,`created_at`),
+  KEY `idx_state_expires` (`state`,`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `expenses`
 --
 
@@ -2551,6 +2677,24 @@ CREATE TABLE `rmm_approvals` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rmm_cache`
+--
+
+DROP TABLE IF EXISTS `rmm_cache`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_cache` (
+  `cache_key` varchar(100) NOT NULL,
+  `cache_value` mediumtext NOT NULL,
+  `fresh_until` datetime NOT NULL,
+  `stale_until` datetime NOT NULL,
+  `refresh_until` datetime DEFAULT NULL,
+  PRIMARY KEY (`cache_key`),
+  KEY `idx_stale` (`stale_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_check_deployments`
 --
 
@@ -2812,6 +2956,48 @@ CREATE TABLE `rmm_maintenance_windows` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rmm_metric_daily`
+--
+
+DROP TABLE IF EXISTS `rmm_metric_daily`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_metric_daily` (
+  `asset_id` int(11) NOT NULL,
+  `metric_key` varchar(64) NOT NULL,
+  `instance` varchar(64) NOT NULL DEFAULT '',
+  `day_start` datetime NOT NULL,
+  `samples` int(10) unsigned NOT NULL DEFAULT 0,
+  `sum_value` double NOT NULL DEFAULT 0,
+  `min_value` double NOT NULL,
+  `max_value` double NOT NULL,
+  PRIMARY KEY (`asset_id`,`metric_key`,`instance`,`day_start`),
+  KEY `idx_day` (`day_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_metric_outbox`
+--
+
+DROP TABLE IF EXISTS `rmm_metric_outbox`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_metric_outbox` (
+  `outbox_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `points` int(11) NOT NULL DEFAULT 0,
+  `payload` mediumtext NOT NULL,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `next_attempt_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `lease_until` datetime DEFAULT NULL,
+  `last_error` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`outbox_id`),
+  KEY `idx_due` (`next_attempt_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_policies`
 --
 
@@ -3061,6 +3247,22 @@ CREATE TABLE `rmm_scripts_v2` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rmm_storage_state`
+--
+
+DROP TABLE IF EXISTS `rmm_storage_state`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_storage_state` (
+  `name` varchar(64) NOT NULL,
+  `watermark` datetime DEFAULT NULL,
+  `detail` text DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_storm_summaries`
 --
 
@@ -3102,6 +3304,21 @@ CREATE TABLE `rmm_sync_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+
+--
+-- Table structure for table `rmm_token_buckets`
+--
+
+DROP TABLE IF EXISTS `rmm_token_buckets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_token_buckets` (
+  `bucket_key` varchar(80) NOT NULL,
+  `tokens` double NOT NULL DEFAULT 0,
+  `refilled_ms` bigint(20) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`bucket_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `security_settings`
@@ -3511,6 +3728,11 @@ CREATE TABLE `settings` (
   `config_vault_v3_prepared_at` datetime DEFAULT NULL,
   `config_rmm_approve_scripts_lvl3` tinyint(1) NOT NULL DEFAULT 0,
   `config_rmm_escalation_contact` text DEFAULT NULL,
+  `config_rmm_remote_manage_lvl3` tinyint(1) NOT NULL DEFAULT 0,
+  `config_rmm_extstore_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_rmm_extstore_write_url` text DEFAULT NULL,
+  `config_rmm_extstore_read_url` text DEFAULT NULL,
+  `config_rmm_extstore_token` text DEFAULT NULL,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
