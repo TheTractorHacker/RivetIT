@@ -635,3 +635,12 @@ foreach (glob(__DIR__ . '/rmm_ui_p23_*.php') ?: [] as $__p23) {
     echo "---- " . basename($__p23) . "\n";
     require $__p23;
 }
+
+// ============================================================ RMM Phase 6 and 8 and the scale settings (RivetCore 1.0.0-rc.11): the sections live in tests/rmm_ui_p68_*.php
+// Same contract as the Phase 2 and 3 fragments above (shared variables, module on, run in file-name order). The remote, filetransfer and logs sub-switches are OFF at the start
+// of each fragment; a fragment switches on what it needs through RemoteActions::updateSettings() and puts it back.
+$rmm->admin()->enable($admin);
+foreach (glob(__DIR__ . '/rmm_ui_p68_*.php') ?: [] as $__p68) {
+    echo "---- " . basename($__p68) . "\n";
+    require $__p68;
+}
