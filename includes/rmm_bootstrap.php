@@ -87,7 +87,7 @@ function rivetRmmModule($mysqli = null): RmmModule
         try {
             // Scale S4, OFF by default: history also goes to a time-series database, through a bounded buffer that never blocks a check-in; reads of history prefer the store and fall
             // back to RivetIT's own metric tables. The store's URLs are vetted by the same UrlPolicy as webhooks (public addresses, https, no redirects, the connection pinned).
-            $store = new VictoriaMetricsStore($ext['write_url'], rivetWebhookUrlPolicy($mysqli), null, $ext['read_url'] !== '' ? $ext['read_url'] : null, $ext['token'] !== '' ? $ext['token'] : null);
+            $store = new VictoriaMetricsStore($ext['write_url'], rivetWebhookUrlPolicy($mysqli), null, $ext['read_url'] !== '' ? $ext['read_url'] : null, $ext['token'] !== '' ? $ext['token'] : null, null, 10, rivetRmmExtStoreAllowHttp());
             $sink = new CompositeMetricSink([[$metrics, true], [new ExternalMetricSink($db, new \RivetCore\Support\SystemClock(), $store), false]]);
             $options['metric_reader'] = new ExternalMetricReader($store, $metrics);
         } catch (\Throwable $e) {
@@ -114,6 +114,16 @@ function rivetRmmModule($mysqli = null): RmmModule
     $built[$key] = [$mysqli, $module];
 
     return $module;
+}
+
+/**
+ * Plain http to the external metric store is for the automated tests only: it needs BOTH the install constant that already exists for loopback test servers
+ * (EA_ALLOW_INSECURE_HTTP, set by the scratch config.php and never in production) AND the webhook policy's private-address switch in the environment
+ * (RIVETIT_WEBHOOK_ALLOW_PRIVATE=1). Nothing else enables it; a production install has neither, so the store is https only.
+ */
+function rivetRmmExtStoreAllowHttp(): bool
+{
+    return defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true && getenv('RIVETIT_WEBHOOK_ALLOW_PRIVATE') === '1';
 }
 
 /**
