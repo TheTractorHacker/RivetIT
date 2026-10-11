@@ -195,6 +195,9 @@ file's comments for the full tradeoffs):
                               if --backup's manifest is encrypted
                               (backup-manifest.json.enc). Works even against
                               a brand-new, never-set-up --app-dir.
+  --key-file=<path>           Offline copy of the Core crypto key file (keys.json). Installed at
+                              --key-file-dest (default /etc/rivetit/keys.json), 0640. The archive never
+                              contains it: keep it apart from the dump and the passphrase.
   --settings-key-file=<path>  File holding the original config_settings_enc_key. Only
                               needed for a backup whose manifest carries no key (the
                               app's zips since 26.10.30 always encrypt the key inside
@@ -249,6 +252,8 @@ parse_args() {
             --backup=*)                BACKUP_FILE="${arg#*=}" ;;
             --passphrase-file=*)      PASSPHRASE_FILE="${arg#*=}" ;;
             --settings-key-file=*)    SETTINGS_KEY_FILE="${arg#*=}" ;;
+            --key-file=*)             KEY_FILE_RESTORE="${arg#*=}" ;;
+            --key-file-dest=*)        KEY_FILE_DEST="${arg#*=}" ;;
             --admin-user=*)            ADMIN_USER="${arg#*=}" ;;
             --admin-password-file=*)  ADMIN_PASSWORD_FILE="${arg#*=}" ;;
             --confirm-restore)         CONFIRM_RESTORE=1 ;;
@@ -644,6 +649,11 @@ main() {
     import_database
     restore_uploads
     apply_settings_enc_key "${APP_DIR}/config.php" "${MANIFEST_SETTINGS_ENC_KEY}"
+    if [[ -n "${KEY_FILE_RESTORE}" ]]; then
+        install_key_file "${KEY_FILE_RESTORE}" "${KEY_FILE_DEST}"
+    else
+        warn "No --key-file given: if this install used the Core key file (/etc/rivetit/keys.json), put the offline copy back, or v3 secrets stay unreadable."
+    fi
 
     if [[ "${ADMIN_AUTH_VERIFIED}" -eq 1 ]]; then
         recover_master_key_via_admin

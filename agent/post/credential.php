@@ -22,6 +22,7 @@ if (isset($_POST['add_credential'])) {
     mysqli_query($mysqli,"INSERT INTO credentials SET credential_type = '$type', credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_folder_id = $folder_id, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_client_id = $client_id, credential_rotation_due_at = $rotation_due_at");
 
     $credential_id = mysqli_insert_id($mysqli);
+    \ITFlow\Crypto\VaultV3::finalizeCredential($mysqli, $credential_id);   // vault v3 on: the fields just written become v3 (no-op otherwise)
 
      // Add Tags
     if (isset($_POST['tags'])) {
@@ -59,8 +60,8 @@ if (isset($_POST['edit_credential'])) {
     $old_name_h        = $old_row['credential_name'];
     $old_description_h = $old_row['credential_description'];
     $old_uri_h         = $old_row['credential_uri'];
-    $old_username_h    = decryptCredentialEntry($old_row['credential_username']);
-    $old_password_h    = decryptCredentialEntry($old_row['credential_password']);
+    $old_username_h    = decryptCredentialEntry($old_row['credential_username'], $credential_id, 'username');
+    $old_password_h    = decryptCredentialEntry($old_row['credential_password'], $credential_id, 'password');
     $old_note_h        = $old_row['credential_note'];
 
     // Determine if the password has actually changed (salt is rotated on all updates, so have to dencrypt both and compare)
@@ -81,6 +82,10 @@ if (isset($_POST['edit_credential'])) {
         $stmt_version = mysqli_prepare($mysqli, "INSERT INTO credential_versions SET version_credential_id = ?, version_changed_by = ?, version_changed_by_name = ?, version_previous_username_enc = ?, version_previous_password_enc = ?");
         $old_username_enc = $old_row['credential_username'];
         $old_password_enc = $old_row['credential_password'];
+        // A v3 field is bound to this credential's id and cannot be moved into the version row: keep the snapshot in the legacy form (the rewrap
+        // converts version rows under their own context).
+        if (\ITFlow\Crypto\VaultV3::isV3Field((string) $old_username_enc) && $old_username_h !== null && $old_username_h !== false) { $old_username_enc = encryptCredentialEntry($old_username_h); }
+        if (\ITFlow\Crypto\VaultV3::isV3Field((string) $old_password_enc) && $old_password_h !== null && $old_password_h !== false) { $old_password_enc = encryptCredentialEntry($old_password_h); }
         mysqli_stmt_bind_param($stmt_version, "iisss", $credential_id, $session_user_id, $session_name, $old_username_enc, $old_password_enc);
         mysqli_stmt_execute($stmt_version);
         mysqli_stmt_close($stmt_version);
@@ -88,6 +93,7 @@ if (isset($_POST['edit_credential'])) {
 
     // Update the credential entry with the new details
     mysqli_query($mysqli,"UPDATE credentials SET credential_type = '$type', credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_uri_2 = '$uri_2', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$otp_secret', credential_note = '$note', credential_favorite = $favorite, credential_contact_id = $contact_id, credential_asset_id = $asset_id, credential_rotation_due_at = $rotation_due_at WHERE credential_id = $credential_id");
+    \ITFlow\Crypto\VaultV3::finalizeCredential($mysqli, $credential_id);   // vault v3 on: the fields just written become v3 (no-op otherwise)
 
     // Record history for each changed field
     $history_changes = [
@@ -596,9 +602,9 @@ if (isset($_POST['export_credentials_csv'])) {
 
         //output each row of the data, format line as csv and write to file pointer
         while($row = mysqli_fetch_assoc($sql)){
-            $credential_username = decryptCredentialEntry($row['credential_username']);
-            $credential_password = decryptCredentialEntry($row['credential_password']);
-            $lineData = array($row['credential_name'], $row['credential_description'], $credential_username, $credential_password, decryptOtpSecret($row['credential_otp_secret'] ?? ''), $row['credential_uri']);
+            $credential_username = decryptCredentialEntry($row['credential_username'], $row['credential_id'] ?? null, 'username');
+            $credential_password = decryptCredentialEntry($row['credential_password'], $row['credential_id'] ?? null, 'password');
+            $lineData = array($row['credential_name'], $row['credential_description'], $credential_username, $credential_password, decryptOtpSecret($row['credential_otp_secret'] ?? '', $row['credential_id'] ?? null), $row['credential_uri']);
             fputcsv($f, $lineData, $delimiter, $enclosure, $escape);
         }
 
@@ -700,6 +706,7 @@ if (isset($_POST["import_credentials_csv"])) {
             if ($duplicate_detect == 0){
                 //Add
                 mysqli_query($mysqli,"INSERT INTO credentials SET credential_name = '$name', credential_description = '$description', credential_uri = '$uri', credential_username = '$username', credential_password = '$password', credential_otp_secret = '$totp', credential_client_id = $client_id");
+                \ITFlow\Crypto\VaultV3::finalizeCredential($mysqli, mysqli_insert_id($mysqli));
                 $row_count = $row_count + 1;
             } else {
                 $duplicate_count = $duplicate_count + 1;

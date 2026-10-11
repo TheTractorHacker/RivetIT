@@ -323,6 +323,14 @@ if (!file_exists('../config.php')) {
 
 require "../config.php";
 
+// The key file (RivetCore\Crypto, docs/KEY_MANAGEMENT.md). A restore (--config-only) leaves it to deploy/restore.sh, which puts the original
+// key file back; a fresh install starts on it, with the config.php key as kid k1.
+if (!$config_only) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+    $key_file_result = \ITFlow\Crypto\KeyAdmin::createForInstall($settings_enc_key);
+    echo ($key_file_result['status'] === 'failed' ? "WARNING: " : "") . $key_file_result['message'] . "\n";
+}
+
 if ($config_only) {
     echo "\nconfig.php written (--config-only) - schema import, admin user, and company setup were skipped.\n";
     echo "Restore data into '$database' next (see deploy/restore.sh); this instance will be ready to log in once that completes.\n";

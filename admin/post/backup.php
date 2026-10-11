@@ -255,6 +255,17 @@ function build_backup_manifest(mysqli $mysqli, string $baseName, ?string $passph
         'settings_enc_key_fingerprint' => backup_settings_key_fingerprint($settingsKey),
         'backup_timestamp'             => date('YmdHis'),
     ];
+    // The key file's keys by kid and fingerprint (no key material): lets a restore see which key file the secrets in this backup need.
+    if (class_exists(\ITFlow\Crypto\KeyStore::class)) {
+        $ks = \ITFlow\Crypto\KeyStore::load();
+        if ($ks->source === 'file' && $ks->ring->hasActive()) {
+            $data['keyring'] = [];
+            foreach ($ks->ring->kids() as $kid) {
+                $data['keyring'][$kid] = $ks->ring->fingerprint($kid);
+            }
+            $data['keyring_active'] = $ks->ring->activeKid();
+        }
+    }
     // The key itself only ever goes into a manifest that is about to be encrypted.
     if ($encrypted) {
         $data['settings_enc_key'] = $settingsKey;

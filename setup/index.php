@@ -98,6 +98,12 @@ if (isset($_POST['add_database'])) {
 
         include "../config.php";
 
+        // The key file (RivetCore\Crypto, docs/KEY_MANAGEMENT.md): a new install starts on it. The config.php key above becomes kid k1, so
+        // everything derived from it stays valid. If this process cannot write it (it usually cannot create /etc/rivetit) the install carries
+        // on with the config.php key and the message says how to create the file.
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $key_file_result = \ITFlow\Crypto\KeyAdmin::createForInstall($settings_enc_key);
+
 
         // Name of the file
         $filename = '../db.sql';
@@ -122,7 +128,7 @@ if (isset($_POST['add_database'])) {
             }
         }
 
-        $_SESSION['alert_message'] = "Database successfully added, now lets add a user.";
+        $_SESSION['alert_message'] = "Database successfully added, now lets add a user." . (($key_file_result['status'] ?? '') === 'failed' ? " Note: " . $key_file_result['message'] : '');
         header("Location: ?user");
         exit;
 

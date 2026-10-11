@@ -179,7 +179,7 @@ if (isset($_POST['edit_your_user_password'])) {
 
     $plain_new_password = $new_password;
     $new_password = mysqli_real_escape_string($mysqli, secPasswordHash($plain_new_password));
-    $user_specific_encryption_ciphertext = encryptUserSpecificKey($plain_new_password);
+    $user_specific_encryption_ciphertext = encryptUserSpecificKey($plain_new_password, (int) $session_user_id, $current_password);
     mysqli_query($mysqli,"UPDATE users SET user_password = '$new_password', user_specific_encryption_ciphertext = '$user_specific_encryption_ciphertext' WHERE user_id = $session_user_id");
 
     // A changed password signs the user out everywhere (this browser too: the page below logs out) and ends remember-me cookies.
@@ -307,7 +307,7 @@ if (isset($_POST['enable_mfa'])) {
 
         // SUCCESS - the seed is stored wrapped (encryptSetting); never in plaintext
         try {
-            $token_stored = mysqli_real_escape_string($mysqli, secUserTotpStore($token));
+            $token_stored = mysqli_real_escape_string($mysqli, secUserTotpStore($token, (int) $session_user_id));
         } catch (\Throwable $e) {
             flash_alert('Two-factor authentication could not be saved securely: the server has no settings encryption key.', 'error');
             redirect('user_security.php');

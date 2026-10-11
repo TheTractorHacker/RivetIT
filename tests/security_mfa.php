@@ -153,14 +153,14 @@ $ok(secUserHasVaultAccess($db, $vault) && secUserHasVaultAccess($db, $admin) && 
 
 // ------------------------------------------------------------------ wiring in login.php / api
 $login = file_get_contents("$root/login.php");
-$ok(str_contains($login, 'secUserTotpSecret($selectedRow[\'user_token\']') && str_contains($login, 'secUserTotpSecret($pm_row[\'user_token\'])'), 'login.php reads the agent and portal TOTP seed through secUserTotpSecret');
+$ok(str_contains($login, 'secUserTotpSecret($selectedRow[\'user_token\']') && str_contains($login, 'secUserTotpSecret($pm_row[\'user_token\'], $pm_user_id)'), 'login.php reads the agent and portal TOTP seed through secUserTotpSecret');
 $ok(str_contains($login, "secRememberMeMaySkipMfa(\$mysqli, \$user_id)"), 'login.php applies the remember-me rule');
 $ok(str_contains($login, 'secRecoveryCodeConsume(') && str_contains($login, "name='recovery_code'") && str_contains($login, "auth.recovery_code_used"), 'login.php accepts and audits a recovery code');
 $ok(str_contains($login, 'secPasswordRehashIfNeeded('), 'login.php rehashes an out-of-date hash');
 $api = file_get_contents("$root/api/v1/auth.php");
 $ok(str_contains($api, 'secUserTotpSecret($user[\'user_token\']') && str_contains($api, 'secRecoveryCodeConsume('), 'the mobile API login reads the wrapped seed and accepts a recovery code');
 $pf = file_get_contents("$root/agent/user/post/profile.php");
-$ok(str_contains($pf, 'secUserTotpStore($token)') && str_contains($pf, 'secRecoveryCodesGenerate($mysqli, $session_user_id)'), 'enabling MFA stores the seed wrapped and creates the recovery codes');
+$ok(str_contains($pf, 'secUserTotpStore($token, (int) $session_user_id)') && str_contains($pf, 'secRecoveryCodesGenerate($mysqli, $session_user_id)'), 'enabling MFA stores the seed wrapped and creates the recovery codes');
 
 // cleanup
 $q("DELETE FROM user_recovery_codes");

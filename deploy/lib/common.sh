@@ -218,6 +218,10 @@ MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT=""
 # Optional: file holding the original config_settings_enc_key (written by backup.sh next to each archive as
 # <archive>.settings-key). Set by restore.sh / restore_admin_zip.sh from --settings-key-file or the archive's sidecar.
 SETTINGS_KEY_FILE=""
+# Core crypto key file (RivetCore\Crypto, docs/KEY_MANAGEMENT.md): the offline copy of /etc/rivetit/keys.json. Set from --key-file; KEY_FILE_DEST
+# is where it is installed (--key-file-dest). Without it the v3 secrets in a restored database do not open: the archive never carries this file.
+KEY_FILE_RESTORE=""
+KEY_FILE_DEST="/etc/rivetit/keys.json"
 MANIFEST_INSTALLATION_ID=""
 MANIFEST_DB_NAME=""
 MANIFEST_BACKUP_TIMESTAMP=""
@@ -307,6 +311,27 @@ read_manifest_dir() {
         return 0
     fi
     success "Found this backup's settings-encryption key in its manifest (installation_id=${MANIFEST_INSTALLATION_ID:-N/A}, taken ${MANIFEST_BACKUP_TIMESTAMP:-N/A}) — will apply it to config.php after import."
+}
+
+# install_key_file(src, dest): validates the key file with the app's own loader (no key material is printed), keeps any file already at dest as
+# <dest>.pre-restore-<ts>, and installs it 0640 (root:www-data when run as root and the group exists).
+install_key_file() {
+    local src="$1" dest="$2"
+    [[ -f "${src}" ]] || die "--key-file '${src}' does not exist."
+    local kids
+    kids="$(php -r 'require $argv[1] . "/vendor/autoload.php"; try { $r = RivetCore\Crypto\KeyFile::ringFromJson((string) file_get_contents($argv[2])); echo implode(",", $r->kids()), " active=", $r->activeKid(); } catch (Throwable $e) { fwrite(STDERR, $e->getMessage()); exit(1); }' -- "${APP_DIR}" "${src}")" \
+        || die "${src} is not a usable key file."
+    if [[ -f "${dest}" ]] && ! cmp -s "${src}" "${dest}"; then
+        local keep="${dest}.pre-restore-$(date +%Y%m%d%H%M%S)"
+        cp -p "${dest}" "${keep}" && warn "A different key file was already at ${dest}; kept as ${keep}."
+    fi
+    install -d -m 0750 "$(dirname "${dest}")" || die "Cannot create $(dirname "${dest}")."
+    if [[ "$(id -u)" -eq 0 ]] && getent group www-data >/dev/null 2>&1; then
+        install -m 0640 -o root -g www-data "${src}" "${dest}"
+    else
+        install -m 0640 "${src}" "${dest}"
+    fi
+    success "Key file installed at ${dest} (keys: ${kids})."
 }
 
 # load_settings_key_file(path, [fingerprint]): reads the original config_settings_enc_key from `path`

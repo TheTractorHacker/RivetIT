@@ -2,6 +2,71 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+// ── Encryption keys (Administration > Security > Keys). Admin only (the handler is only included for administrators and each action checks again),
+// CSRF-checked, audited. Nothing here ever reads, shows or logs key material: kids, fingerprints and counts only. The same code runs from
+// scripts/keys_cli.php and scripts/rewrap_cli.php (ITFlow\Crypto\KeyAdmin, RewrapService).
+if (isset($_POST['keys_action'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    enforceAdminPermission();
+
+    $keys_action = (string) $_POST['keys_action'];
+    $keys_kid    = (string) ($_POST['kid'] ?? '');
+    try {
+        switch ($keys_action) {
+            case 'add_key':
+                $r = \ITFlow\Crypto\KeyAdmin::addKey(true);
+                $msg = "$session_name added encryption key {$r['kid']} (fingerprint {$r['fingerprint']}) and made it active";
+                \ITFlow\Audit\AuditService::record('crypto.key_added', $session_user_id, 'key', $r['kid'], 'rotate', $msg, ['kid' => $r['kid'], 'fingerprint' => $r['fingerprint']]);
+                logAction("Settings", "Edit", $msg);
+                flash_alert("Key {$r['kid']} added and active. New values use it; run the rewrap to move the existing ones, and refresh your offline copy of the key file.");
+                break;
+
+            case 'set_active':
+                $r = \ITFlow\Crypto\KeyAdmin::setActive($keys_kid);
+                $msg = "$session_name made encryption key {$r['kid']} the active key";
+                \ITFlow\Audit\AuditService::record('crypto.key_activated', $session_user_id, 'key', $r['kid'], 'activate', $msg, ['kid' => $r['kid']]);
+                logAction("Settings", "Edit", $msg);
+                flash_alert("Key {$r['kid']} is now the active key.");
+                break;
+
+            case 'retire':
+                $svc = new \ITFlow\Crypto\RewrapService($mysqli, (int) $session_user_id);
+                $usage = [];
+                foreach ($svc->inventory()['totals'] as $label => $n) {
+                    if (str_starts_with($label, 'v3:')) {
+                        $usage[substr($label, 3)] = $n;
+                    }
+                }
+                $r = \ITFlow\Crypto\KeyAdmin::retire($keys_kid, $usage, false);   // the panel never forces
+                $msg = "$session_name retired encryption key {$r['kid']}";
+                \ITFlow\Audit\AuditService::record('crypto.key_retired', $session_user_id, 'key', $r['kid'], 'retire', $msg, ['kid' => $r['kid']]);
+                logAction("Settings", "Edit", $msg);
+                flash_alert("Key {$r['kid']} retired. Refresh your offline copy of the key file.");
+                break;
+
+            case 'rewrap':
+            case 'rewrap_dry':
+                $dry = $keys_action === 'rewrap_dry';
+                $svc = new \ITFlow\Crypto\RewrapService($mysqli, (int) $session_user_id);
+                $reports = $svc->run(null, $dry, 100, null, 20.0);   // 20 seconds a click; resumable, so click again until it reports 0
+                $changed = 0; $bad = 0; $done = true;
+                foreach ($reports as $rep) { $changed += $rep->rewrapped; $bad += $rep->failed + $rep->conflicts; $done = $done && $rep->completed; }
+                \ITFlow\Audit\AuditService::record('crypto.rewrap_requested', $session_user_id, 'key', 'rewrap', $dry ? 'dry_run' : 'run', "$session_name ran the encryption rewrap" . ($dry ? ' (dry run)' : ''), ['changed' => $changed, 'failed_or_conflicted' => $bad, 'completed' => $done]);
+                logAction("Settings", "Edit", "$session_name ran the encryption rewrap" . ($dry ? ' (dry run)' : '') . ": $changed value(s) " . ($dry ? 'would change' : 'changed') . ", $bad failed or conflicted");
+                flash_alert(($dry ? "Dry run: $changed value(s) would move to the active key." : "$changed value(s) moved to the active key.") . ($bad ? " $bad failed or conflicted: run again." : '') . ($done ? '' : ' Not finished: run it again.'), $bad ? 'warning' : 'success');
+                break;
+
+            default:
+                flash_alert("Unknown key action", "error");
+        }
+    } catch (\Throwable $e) {
+        flash_alert("Not done: " . $e->getMessage(), "error");
+    }
+
+    redirect();
+}
+
 if (isset($_POST['establish_canonical_vault_key'])) {
 
     validateCSRFToken($_POST['csrf_token']);

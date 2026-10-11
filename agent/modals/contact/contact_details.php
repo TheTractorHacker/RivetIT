@@ -444,16 +444,16 @@ $has_contact_facts = $contact_email || $contact_phone || $contact_mobile || $loc
                                 $credential_uri = nullable_htmlentities($row['credential_uri']);
                                 $credential_uri_display = empty($credential_uri) ? "-" : $credential_uri;
 
-                                $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username']));
+                                $credential_username = nullable_htmlentities(decryptCredentialEntry($row['credential_username'], ($row['credentials_credential_id'] ?? $row['credential_id'] ?? null), 'username'));
                                 if (empty($credential_username)) {
                                     $credential_username_display = "-";
                                 } else {
                                     $credential_username_display = "$credential_username <button type='button' class='btn btn-sm clipboardjs' data-clipboard-text='$credential_username'><i class='far fa-copy text-secondary'></i></button>";
                                 }
 
-                                $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password']));
+                                $credential_password = nullable_htmlentities(decryptCredentialEntry($row['credential_password'], ($row['credentials_credential_id'] ?? $row['credential_id'] ?? null), 'password'));
 
-                                $credential_otp_secret = nullable_htmlentities(decryptOtpSecret($row['credential_otp_secret'] ?? ''));
+                                $credential_otp_secret = nullable_htmlentities(decryptOtpSecret($row['credential_otp_secret'] ?? '', ($row['credentials_credential_id'] ?? $row['credential_id'] ?? null)));
                                 if (empty($credential_otp_secret)) {
                                     $otp_display = "-";
                                 } else {

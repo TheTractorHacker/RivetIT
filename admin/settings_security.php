@@ -81,6 +81,124 @@ $vault_unsynced_users = intval(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 
     </div>
 </div>
 
+<?php
+// ── Encryption keys panel (ITFlow\Crypto\KeyAdmin / RewrapService, ADR-011). Kids, fingerprints, dates and counts only: key material is never shown.
+$kp_status = \ITFlow\Crypto\KeyAdmin::status();
+$kp_inventory = null;
+$kp_plan = null;
+$kp_error = null;
+try {
+    if (\ITFlow\Crypto\KeyStore::load()->ring->hasActive()) {
+        $kp_svc = new \ITFlow\Crypto\RewrapService($mysqli, (int) $session_user_id);
+        $kp_inventory = $kp_svc->inventory();
+        $kp_plan = $kp_svc->plan($kp_inventory);
+    }
+} catch (\Throwable $e) {
+    $kp_error = 'The stored values could not be inspected: ' . get_class($e);
+}
+$kp_uses = [];
+foreach (($kp_inventory['totals'] ?? []) as $kp_label => $kp_n) {
+    if (str_starts_with($kp_label, 'v3:')) { $kp_uses[substr($kp_label, 3)] = $kp_n; }
+}
+$kp_legacy_values = 0;
+foreach (($kp_inventory['totals'] ?? []) as $kp_label => $kp_n) {
+    if (str_starts_with($kp_label, 'legacy:')) { $kp_legacy_values += $kp_n; }
+}
+?>
+
+<div class="card">
+    <div class="card-header py-3">
+        <h3 class="card-title"><i class="fas fa-fw fa-key me-2"></i>Encryption keys</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            Stored secrets (mail passwords, API keys, webhook secrets, two-factor seeds) are sealed with a key from the key file, outside the web
+            root. Each key has an id, a creation date and a fingerprint. To rotate: add a key, run the rewrap until nothing is left on the old
+            key, keep the old key for one backup cycle, then retire it. <strong>Keep an offline copy of the key file, separate from the database
+            backup and the backup passphrase.</strong>
+        </p>
+
+        <table class="table table-sm table-borderless mb-3" style="max-width:760px;">
+            <tr><td class="text-secondary">Key source</td><td>
+                <?php if ($kp_status['source'] === 'file') { ?><span class="badge bg-success">key file</span> <code><?php echo nullable_htmlentities((string) $kp_status['path']); ?></code> (mode <?php echo nullable_htmlentities((string) $kp_status['mode']); ?>)
+                <?php } elseif ($kp_status['source'] === 'legacy') { ?><span class="badge bg-warning text-dark">config.php key only</span> no key file yet
+                <?php } elseif ($kp_status['source'] === 'none') { ?><span class="badge bg-danger">no key</span>
+                <?php } else { ?><span class="badge bg-danger">key file unusable</span><?php } ?>
+            </td></tr>
+            <tr><td class="text-secondary">New values are written as</td><td><?php echo $kp_status['stage_on'] ? '<code>v3</code> (AES-256-GCM, key id and context bound)' : '<code>ENC2</code> (the older form; becomes v3 once the key file exists)'; ?></td></tr>
+            <tr><td class="text-secondary">Credential vault v3</td><td><?php echo \ITFlow\Crypto\VaultV3::enabled($mysqli) ? '<span class="badge bg-success">on</span>' : '<span class="badge bg-secondary">off</span> the vault keeps the legacy format; switched on from the server with <code>scripts/vault_v3_cli.php</code> after a rewrap'; ?></td></tr>
+            <tr><td class="text-secondary">Two-factor seeds</td><td><?php echo $kp_status['totp_stage_on'] ? 'v3, bound to the user' : 'older form'; ?></td></tr>
+        </table>
+
+        <?php foreach ($kp_status['warnings'] as $kp_w) { ?><div class="alert alert-warning py-2"><i class="fas fa-fw fa-exclamation-triangle me-1"></i><?php echo nullable_htmlentities($kp_w); ?></div><?php } ?>
+        <?php if ($kp_status['error']) { ?><div class="alert alert-danger py-2"><?php echo nullable_htmlentities($kp_status['error']); ?> Values written with the key file cannot be read until this is fixed.</div><?php } ?>
+        <?php if ($kp_error) { ?><div class="alert alert-danger py-2"><?php echo nullable_htmlentities($kp_error); ?></div><?php } ?>
+        <?php if ($kp_status['rotation_due']) { ?><div class="alert alert-warning py-2"><i class="fas fa-fw fa-history me-1"></i>The active key is <?php echo \ITFlow\Crypto\KeyAdmin::ROTATION_WARN_MONTHS; ?> months old or older. Plan a rotation.</div><?php } ?>
+
+        <?php if ($kp_status['source'] === 'legacy') { ?>
+            <div class="alert alert-info">
+                Secrets are protected by the key in <code>config.php</code>. To move to a key file (a one-time step on the server, as root):
+                <pre class="mb-0 mt-2">sudo php <?php echo nullable_htmlentities(dirname(__DIR__)); ?>/scripts/keys_cli.php generate
+sudo chown root:www-data <?php echo nullable_htmlentities((string) ($kp_status['path'] ?? '/etc/rivetit/keys.json')); ?> &amp;&amp; sudo chmod 0640 <?php echo nullable_htmlentities((string) ($kp_status['path'] ?? '/etc/rivetit/keys.json')); ?></pre>
+                The existing key becomes key <code>k1</code>, so everything stored keeps working. Take a database dump first and back the file up offline.
+            </div>
+        <?php } ?>
+
+        <?php if ($kp_status['keys']) { ?>
+        <div class="table-responsive">
+        <table class="table table-sm">
+            <thead><tr><th>Key id</th><th>Fingerprint</th><th>Created</th><th>Age</th><th class="text-end">Values on it</th><th>State</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach ($kp_status['keys'] as $kp_k) { $kp_n = (int) ($kp_uses[$kp_k['kid']] ?? 0); ?>
+                <tr>
+                    <td><code><?php echo nullable_htmlentities($kp_k['kid']); ?></code></td>
+                    <td><code><?php echo nullable_htmlentities($kp_k['fingerprint']); ?></code></td>
+                    <td><?php echo $kp_k['created'] ? nullable_htmlentities(substr($kp_k['created'], 0, 10)) : '<span class="text-secondary">unknown</span>'; ?></td>
+                    <td><?php echo $kp_k['age_months'] !== null ? (int) $kp_k['age_months'] . ' mo' : ''; ?></td>
+                    <td class="text-end"><?php echo $kp_n; ?></td>
+                    <td><?php echo $kp_k['active'] ? '<span class="badge bg-success">active</span>' : ($kp_n > 0 ? '<span class="badge bg-warning text-dark">still in use</span>' : '<span class="badge bg-secondary">retirable</span>'); ?></td>
+                    <td class="text-end text-nowrap">
+                        <?php if (!$kp_k['active'] && $kp_status['writable']) { ?>
+                        <form action="post.php" method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="kid" value="<?php echo nullable_htmlentities($kp_k['kid']); ?>">
+                            <button type="submit" name="keys_action" value="set_active" class="btn btn-sm btn-outline-secondary confirm-link">Make active</button>
+                            <?php if ($kp_n === 0) { ?><button type="submit" name="keys_action" value="retire" class="btn btn-sm btn-outline-danger confirm-link">Retire</button><?php } ?>
+                        </form>
+                        <?php } ?>
+                    </td>
+                </tr>
+            <?php } ?>
+            </tbody>
+        </table>
+        </div>
+        <?php } ?>
+
+        <?php if ($kp_plan) { ?>
+        <p class="mb-2">
+            <strong>Rewrap status:</strong>
+            <?php if ($kp_plan->isComplete()) { ?><span class="text-success"><i class="fas fa-fw fa-check-circle"></i> every stored value is on the active key</span>
+            <?php } else { ?><span class="text-warning"><i class="fas fa-fw fa-hourglass-half"></i> <?php echo (int) $kp_plan->pendingCount(); ?> value(s) are not on the active key yet</span><?php } ?>
+            <span class="text-secondary">(<?php echo (int) $kp_plan->total(); ?> encrypted values in all<?php echo ($kp_inventory['skipped_cleartext'] ?? 0) > 0 ? ', ' . (int) $kp_inventory['skipped_cleartext'] . ' cleartext value(s) in columns that are left alone' : ''; ?>)</span>
+        </p>
+        <ul class="small text-secondary mb-3"><?php foreach ($kp_plan->steps() as $kp_step) { ?><li><?php echo nullable_htmlentities($kp_step); ?></li><?php } ?></ul>
+        <?php } ?>
+
+        <form action="post.php" method="post" autocomplete="off" class="d-flex flex-wrap gap-2">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
+            <?php if ($kp_status['stage_on'] && $kp_plan) { ?>
+                <button type="submit" name="keys_action" value="rewrap_dry" class="btn btn-outline-secondary"><i class="fas fa-fw fa-search me-1"></i>Rewrap: dry run</button>
+                <button type="submit" name="keys_action" value="rewrap" class="btn btn-primary confirm-link"><i class="fas fa-fw fa-sync me-1"></i>Rewrap to the active key</button>
+            <?php } ?>
+            <?php if ($kp_status['source'] === 'file' && $kp_status['writable']) { ?>
+                <button type="submit" name="keys_action" value="add_key" class="btn btn-outline-primary confirm-link"><i class="fas fa-fw fa-plus me-1"></i>Add a new key and make it active</button>
+            <?php } elseif ($kp_status['source'] === 'file') { ?>
+                <span class="text-secondary small align-self-center">The web server cannot write the key file (as it should not): add, activate and retire keys with <code>sudo php scripts/keys_cli.php</code>. The rewrap works from here.</span>
+            <?php } ?>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-shield-alt me-2"></i>Security</h3>

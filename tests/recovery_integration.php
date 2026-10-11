@@ -70,6 +70,42 @@ $r = (new \ITFlow\Recovery\RestoreDrill($db, $root, ['passphrase' => 'wrong-pass
 $ok($r['status'] === 'fail' && $checkOf($r['checks'], 'key') === 'fail', 'with the wrong passphrase the drill cannot read the manifest and fails (the passphrase is part of recoverability)');
 $ok($drillDbs() === [], 'no drill_% database is left behind');
 
+// ---------------------------------------------------------------- v3 secrets: the key file is part of recoverability
+// With the Core key file in use, secrets are v3 and the manifest names the keys (kid + fingerprint, never the keys). The drill must open a v3
+// sample secret and a v3 canonical vault key with the key file, and say so when the key file here lacks a key the backup names.
+$v3dir = "$tmp/v3keys"; mkdir($v3dir, 0700);
+$GLOBALS['config_keyfile'] = "$v3dir/keys.json"; \ITFlow\Crypto\SettingsCrypto::reset();
+\ITFlow\Crypto\KeyAdmin::generate("$v3dir/keys.json");
+\ITFlow\Crypto\KeyAdmin::addKey(true);
+$q("UPDATE settings SET config_smtp_password = '" . $esc(encryptSetting('integration-smtp-secret')) . "' WHERE company_id = 1");
+$ok(str_starts_with((string) $one("SELECT config_smtp_password FROM settings WHERE company_id=1"), 'v3:'), 'with the key file the stored SMTP secret is v3');
+$res3 = build_backup($db, 'auto', "$tmp/zips");
+$z = new ZipArchive(); $z->open($res3['path']); $man = (string) $z->getFromName('backup-manifest.json.enc'); $z->close();
+$ok($man !== '', 'the v3 backup zip carries the encrypted manifest');
+file_put_contents("$tmp/v3.man.enc", $man);
+$manPlain = '';
+foreach (['-iter 600000', ''] as $iter) {
+    $manPlain = (string) shell_exec('openssl enc -d -aes-256-cbc -pbkdf2 ' . $iter . ' -in ' . escapeshellarg("$tmp/v3.man.enc") . ' -pass file:' . escapeshellarg("$tmp/pass") . ' 2>/dev/null');
+    if (json_decode($manPlain, true) !== null) { break; }
+}
+$mj = json_decode($manPlain, true) ?: [];
+$ring = \ITFlow\Crypto\KeyStore::load()->ring;
+$ok(($mj['settings_enc_key_fingerprint'] ?? '') === $FP && count($mj['keyring'] ?? []) === 2 && ($mj['keyring_active'] ?? '') === $ring->activeKid() && !str_contains($manPlain, bin2hex($ring->activeKey())), 'the manifest keeps the settings key fingerprint formula, adds the ring (kid => fingerprint) and carries no ring key material');
+$opts3 = $opts; $opts3['backup_dir'] = "$tmp/zips";
+$r = (new \ITFlow\Recovery\RestoreDrill($db, $root, $opts3))->run();
+if ($r['status'] !== 'pass') { foreach ($r['checks'] as $c) { echo "      [{$c['status']}] {$c['label']}: {$c['detail']}\n"; } }
+$ok($r['status'] === 'pass' && $checkOf($r['checks'], 'secret') === 'pass' && $checkOf($r['checks'], 'keyring') === 'pass' && $checkOf($r['checks'], 'key') === 'pass', 'DRILL with v3 secrets passes: sample secret opens, the key file holds every key the backup names');
+$ok(true, 'drill detail: ' . $r['message']);
+// a key file here that lacks the backup's newest key
+\ITFlow\Crypto\KeyAdmin::generate("$v3dir/other.json", true);
+$GLOBALS['config_keyfile'] = "$v3dir/other.json"; \ITFlow\Crypto\SettingsCrypto::reset();
+$r = (new \ITFlow\Recovery\RestoreDrill($db, $root, $opts3))->run();
+$ok($checkOf($r['checks'], 'keyring') === 'warn' && $checkOf($r['checks'], 'secret') !== 'pass', 'with the wrong key file the drill warns about the key ring and the v3 sample secret no longer opens');
+$GLOBALS['config_keyfile'] = ''; \ITFlow\Crypto\SettingsCrypto::reset();
+$q("UPDATE settings SET config_smtp_password = '" . $esc(encryptSetting('integration-smtp-secret')) . "' WHERE company_id = 1");
+$ok($drillDbs() === [], 'no drill_% database is left behind (v3 drills)');
+foreach (glob("$tmp/zips/*.zip") ?: [] as $zf) { if ($zf !== $res['path']) { @unlink($zf); } }
+
 // ---------------------------------------------------------------- deploy/backup.sh archive -> deploy/restore_drill.sh
 // The test server is not the default MariaDB: this machine's client config (/etc/mysql/my.cnf) pins the default socket and beats
 // MYSQL_UNIX_PORT, so mysqldump gets a thin wrapper that adds --socket, and the drill account's socket goes into the scratch config.php.

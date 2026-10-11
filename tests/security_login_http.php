@@ -7,6 +7,7 @@
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=rivetit_x_scratch RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/security_login_http.php
  */
 require __DIR__ . '/support/security_lib.php';
+require_once "$root/includes/security_crypto.php";
 require_once "$root/includes/security_policy.php";
 require_once "$root/plugins/totp/totp.php";
 
@@ -26,10 +27,10 @@ $seedT = 'KRSXG5CTMVRXEZLU';
 $mkuser = function (string $tag, int $role, ?string $seed) use ($q, $esc, $one, $PW, $master): int {
     $hash = password_hash($PW, PASSWORD_BCRYPT);   // an OLD-format hash on purpose: the sign-in must upgrade it
     $cipher = setupFirstUserSpecificKey($PW, $master);
-    $tok = $seed === null ? '' : encryptSetting($seed);
-    $q("INSERT INTO users SET user_name='Http $tag', user_email='sec-http-$tag@example.test', user_password='" . $esc($hash) . "', user_specific_encryption_ciphertext='" . $esc($cipher) . "', user_type=1, user_status=1, user_role_id=$role, user_token='" . $esc($tok) . "'");
+    $q("INSERT INTO users SET user_name='Http $tag', user_email='sec-http-$tag@example.test', user_password='" . $esc($hash) . "', user_specific_encryption_ciphertext='" . $esc($cipher) . "', user_type=1, user_status=1, user_role_id=$role, user_token=''");
     $id = (int) $one("SELECT user_id FROM users WHERE user_email='sec-http-$tag@example.test'");
     $q("INSERT INTO user_settings SET user_id=$id ON DUPLICATE KEY UPDATE user_id=user_id");
+    if ($seed !== null) { $q("UPDATE users SET user_token='" . $esc(secUserTotpStore($seed, $id)) . "' WHERE user_id=$id"); }   // the seed is bound to the user (v3 once the key file exists)
     return $id;
 };
 $admin = $mkuser('admin', 85, $seedA);
@@ -233,7 +234,7 @@ $ok($newSeed !== '', 'the enrolment page created a secret in the session');
 preg_match('/name="csrf_token" value="([^"]+)"/', $body, $mc);
 $bg->go('POST', '/agent/user/post.php', ['csrf_token' => $mc[1], 'enable_mfa' => '1', 'verify_code' => (string) $code($newSeed)], ['Referer: ' . $base . '/agent/user/mfa_enforcement.php']);
 $stored = $one("SELECT user_token FROM users WHERE user_id=$plain");
-$ok(str_starts_with($stored, 'ENC2:') && decryptSetting($stored) === $newSeed, 'enrolling stores the TOTP seed wrapped, never in plaintext');
+$ok((str_starts_with($stored, 'ENC2:') || str_starts_with($stored, 'v3:')) && secUserTotpSecret($stored, $plain) === $newSeed, 'enrolling stores the TOTP seed wrapped, never in plaintext');
 $ok(secRecoveryCodesRemaining($db, $plain) === 10, 'and creates ten recovery codes');
 $ok(str_contains($bg->location(), 'user_security.php'), 'then goes to the Security page');
 [$c, $body] = $bg->go('GET', '/agent/user/user_security.php');
@@ -269,7 +270,7 @@ $ok(secSetting('mfa_policy') === 'off' && secSettingInt('mfa_grace_days') === 0 
 // the login key secret is stored wrapped
 $ba->go('POST', '/admin/post.php', ['csrf_token' => $mc[1], 'edit_security_settings' => '1', 'config_login_message' => '', 'config_login_key_required' => '0', 'config_login_key_secret' => 'MYKEY123', 'config_login_remember_me_expire' => '30', 'config_login_session_lifetime' => '480', 'config_log_retention' => '0'], ['Referer: ' . $base . '/admin/settings_security.php']);
 $stored = $one("SELECT config_login_key_secret FROM settings WHERE company_id=1");
-$ok(str_starts_with($stored, 'ENC2:') && decryptSetting($stored) === 'MYKEY123', 'the login key secret is saved wrapped');
+$ok((str_starts_with($stored, 'ENC2:') || str_starts_with($stored, 'v3:')) && decryptSetting($stored) === 'MYKEY123', 'the login key secret is saved wrapped');
 $ok((int) $one("SELECT config_login_session_lifetime FROM settings WHERE company_id=1") === 480, 'and a 480 minute session lifetime is accepted (no 30-day minimum)');
 [$c, $body] = $ba->go('GET', '/admin/settings_security.php');
 $ok(str_contains($body, 'value="MYKEY123"'), 'the login key secret shows decrypted on the settings page');

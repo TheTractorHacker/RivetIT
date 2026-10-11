@@ -3,8 +3,8 @@
 /*
  * Wave 1 security - encryption of secrets that used to be stored in plaintext.
  *
- * The cipher is encryptSetting() / decryptSetting() in functions.php (ENC2: AES-256-GCM, ENC: legacy CBC, unprefixed legacy plaintext
- * that stays readable). This file adds what the stragglers need:
+ * The cipher is encryptSetting() / decryptSetting() in functions.php (v3: RivetCore\Crypto envelope once the key file exists, else ENC2:
+ * AES-256-GCM; ENC: legacy CBC and unprefixed legacy plaintext stay readable). This file adds what the stragglers need:
  *   - secIsWrapped()         does a stored value already carry an ENC:/ENC2: prefix
  *   - secWrapIfPlain()       wrap a value for writing; never double-wraps
  *   - secRewrapColumn()      wrap every plaintext row of one column (used by DB update 2.6.153 and by the lazy re-wrap)
@@ -22,13 +22,13 @@ if (!function_exists('secIsWrapped')) {
     /** True when the stored value already carries one of the encryptSetting() prefixes. */
     function secIsWrapped(?string $stored): bool
     {
-        return $stored !== null && (str_starts_with($stored, 'ENC2:') || str_starts_with($stored, 'ENC:'));
+        return $stored !== null && (str_starts_with($stored, 'v3:') || str_starts_with($stored, 'ENC2:') || str_starts_with($stored, 'ENC:'));
     }
 
     /** True when a settings key is configured, so wrapping is possible. */
     function secSettingsKeyAvailable(): bool
     {
-        return !empty($GLOBALS['config_settings_enc_key']);
+        return !empty($GLOBALS['config_settings_enc_key']) || \ITFlow\Crypto\KeyStore::load()->usable();
     }
 
     /**
@@ -100,7 +100,7 @@ if (!function_exists('secIsWrapped')) {
         $rows = mysqli_query(
             $mysqli,
             "SELECT `$pk` AS pk, `$col` AS val FROM `$table`
-             WHERE `$col` IS NOT NULL AND `$col` <> '' AND `$col` NOT LIKE 'ENC:%' AND `$col` NOT LIKE 'ENC2:%'"
+             WHERE `$col` IS NOT NULL AND `$col` <> '' AND `$col` NOT LIKE 'ENC:%' AND `$col` NOT LIKE 'ENC2:%' AND `$col` NOT LIKE 'v3:%'"
         );
         if (!$rows) {
             return $result;
@@ -124,8 +124,11 @@ if (!function_exists('secIsWrapped')) {
     }
 
     /**
-     * Lazy re-wrap of the straggler columns of the settings row just read ($row is that row, from SELECT * FROM settings).
-     * Cheap: string prefix tests only; a database write happens only when a plaintext secret is found. Does nothing without a key.
+     * Lazy re-wrap of the secret columns of the settings row just read ($row is that row, from SELECT * FROM settings):
+     *   1. a straggler column that is still cleartext is wrapped (a writer that has not been updated yet, such as a cron job that stores a
+     *      refreshed OAuth token, may still write plaintext);
+     *   2. with the v3 stage on, a legacy ENC:/ENC2: value or a v3 value under an older key id moves to the active key.
+     * Cheap: string prefix tests only; a database write happens only when there is something to move. Does nothing without a key.
      */
     function secLazyRewrapSettings(mysqli $mysqli, array $row): void
     {
@@ -140,11 +143,27 @@ if (!function_exists('secIsWrapped')) {
                 $set[] = $col;
             }
         }
-        if (!$set) {
+        $move = [];   // column => [name, value]
+        if (class_exists(\ITFlow\Crypto\SettingsCrypto::class) && \ITFlow\Crypto\SettingsCrypto::v3Enabled()) {
+            $active = \ITFlow\Crypto\KeyStore::load()->ring->activeKid();
+            foreach (\ITFlow\Crypto\ColumnRegistry::all() as $cs) {
+                if ($cs->table !== 'settings' || !in_array($cs->kind, ['settings', 'canonical'], true)) {
+                    continue;
+                }
+                $v = $row[$cs->column] ?? null;
+                if (!is_string($v) || $v === '' || ($active !== null && str_starts_with($v, 'v3:' . $active . ':'))) {
+                    continue;
+                }
+                if (secIsWrapped($v)) {   // cleartext is the first block's business
+                    $move[$cs->column] = [$cs->kind === 'canonical' ? \ITFlow\Crypto\SettingsCrypto::VAULT_CANONICAL_KEY : \ITFlow\Crypto\SettingsCrypto::GENERIC, $v];
+                }
+            }
+        }
+        if (!$set && !$move) {
             return;
         }
-        // A value too long for its column is skipped by secRewrapColumn; do not retry it on every request, once an hour is enough.
-        $marker = sys_get_temp_dir() . '/rivetit_rewrap_skip_' . md5((string) ($GLOBALS['database'] ?? 'db') . '|' . implode(',', $set));
+        // A value too long for its column, or one that cannot be read, is skipped; do not retry it on every request, once an hour is enough.
+        $marker = sys_get_temp_dir() . '/rivetit_rewrap_skip_' . md5((string) ($GLOBALS['database'] ?? 'db') . '|' . implode(',', $set) . '|' . implode(',', array_keys($move)));
         if (is_file($marker) && time() - (int) @filemtime($marker) < 3600) {
             return;
         }
@@ -153,39 +172,70 @@ if (!function_exists('secIsWrapped')) {
             foreach ($set as $col) {
                 $skipped += secRewrapColumn($mysqli, 'settings', $spec[0], $col)['skipped_too_long'];
             }
+            foreach ($move as $col => [$name, $old]) {
+                $new = \ITFlow\Crypto\SettingsCrypto::rewrapped($old, $name);
+                $cap = $new === null ? null : \ITFlow\Crypto\MysqliRewrapSource::columnCapacity($mysqli, 'settings', $col);
+                if ($new === null || ($cap !== null && strlen($new) > $cap)) {
+                    $skipped++;   // unreadable, or the column is not wide enough yet (DB update 2.6.160): leave it as it is
+                    continue;
+                }
+                $stmt = $mysqli->prepare("UPDATE settings SET `$col` = ? WHERE company_id = 1 AND BINARY `$col` = BINARY ?");
+                if ($stmt) {
+                    $stmt->bind_param('ss', $new, $old);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+            }
             if ($skipped > 0) {
                 @touch($marker);
             }
         } catch (\Throwable $e) {
             // Never break a page load over a re-wrap; the next read tries again.
-            error_log('settings lazy re-wrap failed: ' . $e->getMessage());
+            error_log('settings lazy re-wrap failed: ' . get_class($e));
         }
     }
 
-    /** users.user_token (the TOTP seed) in either stored form: wrapped or legacy plaintext. */
-    function secUserTotpSecret(?string $stored): string
+    /**
+     * users.user_token (the TOTP seed) in any stored form: v3 (totp purpose, bound to the user), ENC2/ENC, or legacy plaintext.
+     * Pass the owner's user id: a v3 seed is bound to it and cannot be read without it.
+     */
+    function secUserTotpSecret(?string $stored, ?int $userId = null): string
     {
-        return $stored === null || $stored === '' ? '' : decryptSetting($stored);
+        if ($stored === null || $stored === '') {
+            return '';
+        }
+
+        return $userId !== null ? \ITFlow\Crypto\SettingsCrypto::decryptTotp($stored, $userId) : decryptSetting($stored);
     }
 
-    /** The value to write to users.user_token for a new seed. Throws without a settings key (never silently plaintext). */
-    function secUserTotpStore(string $secret): string
+    /**
+     * The value to write to users.user_token for a new seed. Throws without a key (never silently plaintext). With the TOTP stage on the seed
+     * is a v3 value of the totp purpose bound to the user, so the user id is required for that form; without one the settings form is used.
+     */
+    function secUserTotpStore(string $secret, ?int $userId = null): string
     {
-        return encryptSetting($secret);
+        return $userId !== null ? \ITFlow\Crypto\SettingsCrypto::encryptTotp($secret, $userId) : encryptSetting($secret);
     }
 
-    /** Lazily wrap one user's TOTP seed after a successful read of a legacy plaintext one. */
+    /** Lazily bring one user's TOTP seed to the current form after a successful read (cleartext, ENC2/ENC, an old key id, a settings-purpose v3). */
     function secUserTotpRewrap(mysqli $mysqli, int $userId, ?string $stored): void
     {
-        if ($stored === null || $stored === '' || secIsWrapped($stored) || !secSettingsKeyAvailable()) {
+        if ($stored === null || $stored === '') {
             return;
         }
         try {
-            $esc  = mysqli_real_escape_string($mysqli, encryptSetting($stored));
+            $new = \ITFlow\Crypto\SettingsCrypto::rewrapTotp($stored, $userId);
+            if ($new === null && !secIsWrapped($stored) && secSettingsKeyAvailable()) {
+                $new = encryptSetting($stored);   // the TOTP stage is off: a cleartext seed still gets wrapped, the old way
+            }
+            if ($new === null) {
+                return;
+            }
+            $esc  = mysqli_real_escape_string($mysqli, $new);
             $orig = mysqli_real_escape_string($mysqli, $stored);
             mysqli_query($mysqli, "UPDATE users SET user_token = '$esc' WHERE user_id = $userId AND user_token = '$orig'");
         } catch (\Throwable $e) {
-            error_log('TOTP seed re-wrap failed: ' . $e->getMessage());
+            error_log('TOTP seed re-wrap failed: ' . get_class($e));
         }
     }
 }
