@@ -29,8 +29,8 @@ final class EndpointSecretBox implements SecretBoxInterface
     public function decrypt(string $ciphertext): string
     {
         // decryptSetting() hands legacy unprefixed text back as it is (settings written before encryption existed). A signing or login key must never be
-        // taken from text that is not a ciphertext, so anything without a known prefix is "not available" here, as the contract says.
-        if (!str_starts_with($ciphertext, 'ENC2:') && !str_starts_with($ciphertext, 'ENC:')) {
+        // taken from text that is not a ciphertext, so anything without a known prefix (v3: from the Core envelope, ENC2:, ENC:) is "not available" here, as the contract says.
+        if (!str_starts_with($ciphertext, 'v3:') && !str_starts_with($ciphertext, 'ENC2:') && !str_starts_with($ciphertext, 'ENC:')) {
             return '';
         }
         try {

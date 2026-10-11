@@ -44,7 +44,8 @@ final class EndpointSecretBoxConformanceTest extends SecretBoxConformanceTestCas
             return 'ENC:' . base64_encode($iv . openssl_encrypt($plain, 'aes-128-cbc', $k, OPENSSL_RAW_DATA, $iv));
         })('legacy-cbc-secret');
         $this->assertSame('legacy-cbc-secret', $this->box()->decrypt($legacyCbc));
-        $this->assertStringStartsWith('ENC2:', $this->box()->encrypt('x'));
+        // ENC2: without a key file, v3: (Core envelope) once /etc/rivetit/keys.json exists on the host running the test.
+        $this->assertMatchesRegularExpression('/^(ENC2|v3):/', $this->box()->encrypt('x'));
         $this->assertSame('', $this->box()->decrypt('plain legacy text without a prefix'));
     }
 }
