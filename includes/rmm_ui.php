@@ -440,6 +440,9 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'device_id' => $deviceId,
         'asset_id' => $assetId,
         'client_id' => $client,
+        'user_id' => $userId,
+        // RMM Phase 2 and 3 sub-switches (RivetCore 1.0.0-rc.10), from the module's state file: the asset page shows the Policy and Alerting tabs only for these
+        'features' => ['policies' => $rmm->featureOn('policies'), 'scripts' => $rmm->featureOn('scripts'), 'alerting' => $rmm->featureOn('alerting')],
         'hostname' => (string) $dev['hostname'],
         'platform' => $platform,
         'os_label' => (string) ($dev['os_version'] ?? ''),

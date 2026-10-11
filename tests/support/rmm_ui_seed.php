@@ -150,3 +150,26 @@ function rmm_ui_seed_phase1(array $S): void
         ['asset_id' => $S['asset']['WIN1'], 'key' => 'network.tx_bytes_per_s', 'instance' => 'total', 'value' => 500000.0, 'at' => new DateTimeImmutable('-20 hours', new DateTimeZone('UTC')), 'label' => 'All adapters'],
     ], (int) $rmm->settings()->get()['integration_id']);
 }
+
+/**
+ * RMM Phase 2 and 3 on top of rmm_ui_seed() (RivetCore 1.0.0-rc.10): the `policies`, `scripts` and `alerting` sub-switches on (they are off by default), and the
+ * approval level-3 setting off. Everything else (policies, scripts, windows ...) is created by the test or smoke that needs it, through the REAL pages and
+ * handlers, so the data on screen is data the product itself wrote. Used by tests/rmm_ui_p23_*.php and the browser smoke seed.
+ */
+function rmm_ui_seed_phase23(array $S): void
+{
+    global $q, $db;
+    require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+    $rmm = rivetRmmModule($db);
+    $admin = new RmmPrincipal(1, 'admin');
+    $features = $rmm->settings()->features();
+    foreach (['policies', 'scripts', 'alerting'] as $f) {
+        $features[$f] = true;
+    }
+    $r = $rmm->admin()->saveSettings($admin, ['features_json' => $features]);
+    if (!$r->ok) {
+        throw new RuntimeException('could not switch policies/scripts/alerting on: ' . $r->message);
+    }
+    $q("UPDATE settings SET config_rmm_approve_scripts_lvl3 = 0, config_rmm_escalation_contact = NULL WHERE company_id = 1");
+    rivetRmmForgetAccess();
+}

@@ -140,6 +140,17 @@ if (!empty($rmm_ui_scripts)) {
     $__rmm_js = __DIR__ . '/../js/rmm_panel.js';
     echo '<script src="/js/rmm_panel.js?v=' . (file_exists($__rmm_js) ? filemtime($__rmm_js) : time()) . '" defer></script>' . "\n";
 }
+// js/rmm_automation.js (RMM Phase 2 and 3 pages: policies, script library, schedules, approvals, fields, alerts, maintenance, escalation): only a page that set $rmm_auto_scripts.
+if (!empty($rmm_auto_scripts)) {
+    $__rmm_auto_js = __DIR__ . '/../js/rmm_automation.js';
+    echo '<script src="/js/rmm_automation.js?v=' . (file_exists($__rmm_auto_js) ? filemtime($__rmm_auto_js) : time()) . '" defer></script>' . "\n";
+    // A page may add its own script after it: $rmm_auto_extra_js = ['rmm_pol.js'] (a file name in /js starting with rmm_, nothing else).
+    foreach ((array) ($rmm_auto_extra_js ?? []) as $__rmm_extra) {
+        if (is_string($__rmm_extra) && preg_match('/^rmm_[a-z0-9_]+\.js$/', $__rmm_extra) === 1 && is_file(__DIR__ . '/../js/' . $__rmm_extra)) {
+            echo '<script src="/js/' . $__rmm_extra . '?v=' . filemtime(__DIR__ . '/../js/' . $__rmm_extra) . '" defer></script>' . "\n";
+        }
+    }
+}
 // js/rmm_installer.js (the "Add device" / "Download installer" dialog) likewise: only a page that rendered the dialog (module on, user may issue installers).
 if (!empty($rmm_installer_scripts)) {
     $__rmm_inst_js = __DIR__ . '/../js/rmm_installer.js';

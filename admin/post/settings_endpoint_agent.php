@@ -102,6 +102,106 @@ if (isset($_POST['save_inventory_settings'])) {
     ea_flash_result($ea_admin->saveSettings($ea_who, $in), 'Software inventory settings saved.');
 }
 
+// RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10): the three sub-switches (policies, scripts, alerting), the approval and alerting settings, the escalation contact and
+// the script/approval limits. RmmAdmin validates and audits the switches and limits; only values that changed are written, so an install on the legacy feature
+// defaults (features_json NULL) stays that way until an administrator actually changes something here.
+if (isset($_POST['save_automation_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $cur = $rmm->readModel()->settingsSummary();
+    $in = [];
+    $features = $cur['features'];
+    $changedFeature = false;
+    foreach (['policies', 'scripts', 'alerting'] as $f) {
+        $want = !empty($_POST['feature_' . $f]);
+        if ($want !== !empty($features[$f])) {
+            $features[$f] = $want;
+            $changedFeature = true;
+        }
+    }
+    if ($changedFeature) {
+        $in['features_json'] = $features;
+    }
+    $stored = is_string($cur['limits_json'] ?? null) && $cur['limits_json'] !== '' ? json_decode($cur['limits_json'], true) : [];
+    $stored = is_array($stored) ? $stored : [];
+    $changedLimit = false;
+    foreach (['approval_bulk_threshold' => [0, 100000], 'approval_expiry_h' => [1, 720], 'schedule_batch' => [10, 5000], 'bulk_run_max' => [1, 100000]] as $k => [$lo, $hi]) {
+        if (!isset($_POST[$k]) || !is_numeric($_POST[$k])) {
+            continue;
+        }
+        $v = max($lo, min($hi, (int) $_POST[$k]));
+        if ($v !== (int) ($cur['limits'][$k] ?? -1)) {
+            $stored[$k] = $v;
+            $changedLimit = true;
+        }
+    }
+    if ($changedLimit) {
+        $in['limits_json'] = $stored;
+    }
+    $messages = [];
+    if ($in !== []) {
+        $r = $ea_admin->saveSettings($ea_who, $in);
+        if (!$r->ok) {
+            ea_flash_result($r);
+        }
+        $messages[] = 'Switches and limits saved.';
+    }
+    // The two settings RivetIT keeps itself: who besides an administrator may approve, and who is told when an alert has nobody assigned.
+    $lvl3 = !empty($_POST['approve_scripts_lvl3']) ? 1 : 0;
+    $contactRaw = trim((string) ($_POST['escalation_contact'] ?? ''));
+    $contacts = [];
+    foreach (preg_split('/[\s,;]+/', $contactRaw) ?: [] as $c) {
+        if ($c === '') {
+            continue;
+        }
+        if (ctype_digit($c)) {
+            $u = mysqli_fetch_row(mysqli_query($mysqli, 'SELECT user_id FROM users WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL AND user_id = ' . (int) $c));
+            if (!$u) {
+                flash_alert('The escalation contact "' . nullable_htmlentities($c) . '" is not an active user id. Use an email address or the id of an active user.', 'error');
+                redirect();
+            }
+        } elseif (!filter_var($c, FILTER_VALIDATE_EMAIL)) {
+            flash_alert('The escalation contact "' . nullable_htmlentities($c) . '" is neither an email address nor a user id.', 'error');
+            redirect();
+        }
+        $contacts[$c] = $c;
+    }
+    if (count($contacts) > 10) {
+        flash_alert('At most 10 escalation contacts.', 'error');
+        redirect();
+    }
+    $contactSql = mysqli_real_escape_string($mysqli, implode(', ', $contacts));
+    $before = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_approve_scripts_lvl3 AS a, config_rmm_escalation_contact AS c FROM settings WHERE company_id = 1')) ?: ['a' => 0, 'c' => ''];
+    if ((int) $before['a'] !== $lvl3 || (string) $before['c'] !== implode(', ', $contacts)) {
+        mysqli_query($mysqli, "UPDATE settings SET config_rmm_approve_scripts_lvl3 = $lvl3, config_rmm_escalation_contact = " . ($contacts === [] ? 'NULL' : "'$contactSql'") . ' WHERE company_id = 1');
+        logAction('RMM', 'Settings Changed', "$session_name changed the RMM approval and escalation settings (level 3 script users may approve: " . ($lvl3 ? 'yes' : 'no') . '; escalation contact: ' . ($contacts === [] ? 'none' : implode(', ', $contacts)) . ')');
+        $messages[] = 'Approval and escalation settings saved.';
+    }
+    // Storm control (rmm.admin; Core validates and audits).
+    $storm = [];
+    foreach (['storm_global_max', 'storm_global_window_s', 'storm_client_max', 'storm_client_window_s'] as $k) {
+        if (isset($_POST[$k]) && is_numeric($_POST[$k])) {
+            $storm[$k] = (int) $_POST[$k];
+        }
+    }
+    if ($storm !== []) {
+        $now = $rmm->alertingActions()->settings($ea_who);
+        $curStorm = (array) ($now->data['storm'] ?? []);
+        $diff = array_filter($storm, static fn ($v, $k) => ($curStorm[$k] ?? null) !== $v, ARRAY_FILTER_USE_BOTH);
+        if ($diff !== []) {
+            $r = $rmm->alertingActions()->updateSettings($ea_who, $diff);
+            if (!$r->ok) {
+                ea_flash_result($r);
+            }
+            $messages[] = 'Storm control saved.';
+        }
+    }
+    if ($messages === []) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    ea_flash_result(ActionResult::ok('Saved.'), implode(' ', $messages));
+}
+
 // ---------------------------------------------------------------- agent binaries and per-department installers
 
 if (isset($_POST['upload_agent_binary'])) {

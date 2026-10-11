@@ -215,6 +215,86 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 
+<?php
+// RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10): policies, script library with schedules and approvals, and alerting. Each sub-switch is off by default.
+$autoStorm = (array) ($rmm->alertingActions()->settings(rivetRmmPrincipal((int) $session_user_id, (string) $session_name))->data['storm'] ?? []);
+$autoSettings = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_approve_scripts_lvl3 AS a, config_rmm_escalation_contact AS c FROM settings WHERE company_id = 1')) ?: ['a' => 0, 'c' => ''];
+$autoLimits = (array) $cfg['limits'];
+?>
+<div class="card mb-3" id="automation">
+    <div class="card-header"><h4 class="card-title mb-0">Policies, scripts and alerting</h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Three optional parts of the endpoint agent, each off until you switch it on. Roll out an agent of RivetCore 1.0.0-rc.10 or later first: older agents keep working, they simply do not use the new parts. Each switch shows an Endpoints menu entry for the technicians who may use it, and takes effect only while the RMM module itself is on. Switching one off stops it within one check-in and keeps everything you created.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="form-check form-switch mb-2">
+                            <input type="checkbox" class="form-check-input" id="ea_sw_policies" name="feature_policies" value="1" <?= !empty($cfg['features']['policies']) ? 'checked' : '' ?> aria-describedby="ea_sw_policies_h">
+                            <label class="form-check-label fw-semibold" for="ea_sw_policies">Policies (<code>policies</code>)</label>
+                        </div>
+                        <p class="small text-muted mb-0" id="ea_sw_policies_h">Settings and check templates assigned to everything, a department, a site, a group, a tag or one device; the most specific wins. <strong>Cost:</strong> one extra database query per check-in (the same however many policies exist), plus re-signing the device's check list. No other work while it is off.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="form-check form-switch mb-2">
+                            <input type="checkbox" class="form-check-input" id="ea_sw_scripts" name="feature_scripts" value="1" <?= !empty($cfg['features']['scripts']) ? 'checked' : '' ?> aria-describedby="ea_sw_scripts_h">
+                            <label class="form-check-label fw-semibold" for="ea_sw_scripts">Script library, schedules and approvals (<code>scripts</code>)</label>
+                        </div>
+                        <p class="small text-muted mb-0" id="ea_sw_scripts_h">Signed, versioned scripts with parameters, runs on a device, tag, group or department, schedules, a second person's approval and custom fields. <strong>Cost:</strong> the scheduler runs from the minute cron: about 4 database statements per device per scheduled run (a daily schedule on 5,000 devices adds about 5,000 job rows a day), and nothing runs between schedules. Scripts run as SYSTEM or root on the device.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <div class="form-check form-switch mb-2">
+                            <input type="checkbox" class="form-check-input" id="ea_sw_alerting" name="feature_alerting" value="1" <?= !empty($cfg['features']['alerting']) ? 'checked' : '' ?> aria-describedby="ea_sw_alerting_h">
+                            <label class="form-check-label fw-semibold" for="ea_sw_alerting">Alerting (<code>alerting</code>)</label>
+                        </div>
+                        <p class="small text-muted mb-0" id="ea_sw_alerting_h">Warning and critical thresholds, flap detection, maintenance windows, device dependencies, alert storm control and escalation. <strong>Cost:</strong> a healthy check-in costs nothing extra; a check with thresholds or flap detection adds one batched read, and a write only when its state changes (about 2 to 5 extra statements per check-in at worst). Escalation is worked by the minute cron, never inside a check-in.</p>
+                    </div>
+                </div>
+            </div>
+            <h6 class="mt-4">Approvals</h6>
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" class="form-check-input" id="ea_apr3" name="approve_scripts_lvl3" value="1" <?= (int) $autoSettings['a'] === 1 ? 'checked' : '' ?> aria-describedby="ea_apr3_h">
+                <label class="form-check-label" for="ea_apr3">Technicians with RMM scripts level 3 may approve runs</label>
+                <div class="form-text" id="ea_apr3_h">Administrators can always approve. A request is never approved by the person who made it, so a second person is always needed. Off by default.</div>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_apb">Approval needed above (devices)</label>
+                    <input type="number" class="form-control" id="ea_apb" name="approval_bulk_threshold" min="0" max="100000" value="<?= (int) ($autoLimits['approval_bulk_threshold'] ?? 0) ?>" aria-describedby="ea_apb_h">
+                    <div class="form-text" id="ea_apb_h">A run or schedule on more devices than this needs a second person. 0 means never (a script marked "requires approval" always does).</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_ape">Approval request expires after (hours)</label>
+                    <input type="number" class="form-control" id="ea_ape" name="approval_expiry_h" min="1" max="720" value="<?= (int) ($autoLimits['approval_expiry_h'] ?? 48) ?>">
+                    <div class="form-text">Default 48.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_asb">Scheduled jobs per minute</label>
+                    <input type="number" class="form-control" id="ea_asb" name="schedule_batch" min="10" max="5000" value="<?= (int) ($autoLimits['schedule_batch'] ?? 200) ?>" aria-describedby="ea_asb_h">
+                    <div class="form-text" id="ea_asb_h">Most jobs one scheduler pass queues. 200 reaches 5,000 devices in about 25 minutes. Halved or paused automatically when the server is under load.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_abr">Most devices in one run</label>
+                    <input type="number" class="form-control" id="ea_abr" name="bulk_run_max" min="1" max="100000" value="<?= (int) ($autoLimits['bulk_run_max'] ?? 1000) ?>">
+                    <div class="form-text">A larger run is refused. Default 1000.</div></div>
+            </div>
+            <h6 class="mt-4">Alerting</h6>
+            <div class="row g-3">
+                <div class="col-lg-6"><label class="form-label" for="ea_esc">Escalation contact</label>
+                    <textarea class="form-control" id="ea_esc" name="escalation_contact" rows="2" maxlength="600" aria-describedby="ea_esc_h"><?= $h((string) $autoSettings['c']) ?></textarea>
+                    <div class="form-text" id="ea_esc_h">Email addresses or user ids, separated by commas. Told whenever an escalation step reaches nobody, and copied on every critical alert. Escalation steps themselves are set under Endpoints &rarr; Escalation policies. A critical alert that escalates also opens (or reuses) a ticket.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sc">Storm control: alerts per department</label>
+                    <input type="number" class="form-control" id="ea_sc" name="storm_client_max" min="0" max="1000000" value="<?= (int) ($autoStorm['storm_client_max'] ?? 100) ?>" aria-describedby="ea_sc_h">
+                    <div class="form-text" id="ea_sc_h">Most alerts one department may open in 10 minutes; the rest wait and one summary alert says so. 0 turns the limit off. Default 100.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sg">Storm control: alerts in total</label>
+                    <input type="number" class="form-control" id="ea_sg" name="storm_global_max" min="0" max="1000000" value="<?= (int) ($autoStorm['storm_global_max'] ?? 500) ?>">
+                    <div class="form-text">Across all departments in 10 minutes. Default 500.</div></div>
+            </div>
+            <input type="hidden" name="storm_global_window_s" value="<?= (int) ($autoStorm['storm_global_window_s'] ?? 600) ?>">
+            <input type="hidden" name="storm_client_window_s" value="<?= (int) ($autoStorm['storm_client_window_s'] ?? 600) ?>">
+            <button type="submit" name="save_automation_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save policies, scripts and alerting settings</button>
+        </form>
+    </div>
+</div>
+
 <div class="card mb-3" id="binaries">
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
     <div class="card-body">

@@ -56,6 +56,8 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['tech'], RmmAbility::DEVICE_VIEW, 'client', 3], [$u['tech'], RmmAbility::JOB_RUN_SCRIPT, 'client', 3], [$u['tech'], RmmAbility::JOB_REBOOT, 'client', 3], [$u['tech'], RmmAbility::REMOTE_LAUNCH, 'client', 3],
             [$u['viewer'], RmmAbility::DEVICE_VIEW, 'client', 3], [$u['reboot'], RmmAbility::JOB_REBOOT, 'client', 3], [$u['reboot'], RmmAbility::JOB_RUN_SAVED, 'client', 3],
             [$u['moduleonly'], RmmAbility::DEVICE_VIEW, 'client', 3],
+            // RMM Phase 2 and 3: administrators approve and manage alerts; a technician with RMM write manages alerts
+            [$u['admin'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['admin'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['tech'], RmmAbility::ALERT_MANAGE, 'client', 3],
         ];
     }
 
@@ -70,6 +72,25 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['moduleonly'], RmmAbility::JOB_RUN_SAVED, 'client', 3], [$u['moduleonly'], RmmAbility::JOB_REBOOT, 'client', 3], [$u['moduleonly'], RmmAbility::JOB_RUN_SCRIPT, 'client', 3], [$u['moduleonly'], RmmAbility::REMOTE_LAUNCH, 'client', 3],
             [$u['disabled'], RmmAbility::DEVICE_VIEW, 'client', 3], [$u['disabled'], RmmAbility::JOB_RUN_SAVED, 'client', 3],
             [null, RmmAbility::DEVICE_VIEW, 'client', 3], [999999, RmmAbility::DEVICE_VIEW, 'client', 3],
+            // approval is a second person's grant: a level 3 script technician does NOT have it by default; alert management needs RMM write, and never a module-only login
+            [$u['tech'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['viewer'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['reboot'], RmmAbility::ALERT_MANAGE, 'client', 3],
+            [$u['moduleonly'], RmmAbility::ALERT_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::JOB_APPROVE, 'client', 3], [$u['disabled'], RmmAbility::ALERT_MANAGE, 'client', 3],
         ];
+    }
+
+    public function testLevelThreeScriptRolesApproveOnlyWhileTheAdminSettingIsOn(): void
+    {
+        $policy = $this->policy();
+        $db = EndpointKit::db();
+        $tech = self::USERS['tech'];
+        $db->execute('UPDATE settings SET config_rmm_approve_scripts_lvl3 = 0 WHERE company_id = 1');
+        $this->assertFalse($policy->can($tech, RmmAbility::JOB_APPROVE, 'client', 3), 'off by default');
+        $db->execute('UPDATE settings SET config_rmm_approve_scripts_lvl3 = 1 WHERE company_id = 1');
+        $this->assertTrue($policy->can($tech, RmmAbility::JOB_APPROVE, 'client', 3), 'on: a level 3 script role may approve');
+        $this->assertFalse($policy->can(self::USERS['reboot'], RmmAbility::JOB_APPROVE, 'client', 3), 'on: level 2 still may not');
+        $this->assertFalse($policy->can(self::USERS['moduleonly'], RmmAbility::JOB_APPROVE, 'client', 3), 'on: a module-only login still may not');
+        $this->assertTrue($policy->can(self::USERS['admin'], RmmAbility::JOB_APPROVE, 'client', 3));
+        $db->execute('UPDATE settings SET config_rmm_approve_scripts_lvl3 = 0 WHERE company_id = 1');
+        $this->assertFalse($policy->can($tech, RmmAbility::JOB_APPROVE, 'client', 3));
     }
 }

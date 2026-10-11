@@ -10,6 +10,12 @@
 
 require_once __DIR__ . '/rmm_ui.php';
 require_once __DIR__ . '/rmm_installer.php';
+// RMM Phase 2 and 3 sections of the asset page (RivetCore 1.0.0-rc.10). Each file defines the section hooks used by rivetRmmUiTabs() below.
+foreach (['rmm_pol_ui.php', 'rmm_scr_ui.php', 'rmm_alr_ui.php'] as $__rmm_p23) {
+    if (is_file(__DIR__ . '/' . $__rmm_p23)) {
+        require_once __DIR__ . '/' . $__rmm_p23;
+    }
+}
 
 function rmmH($v): string
 {
@@ -690,16 +696,29 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
         . '" id="rmm-tab-' . $id . '" data-bs-toggle="tab" data-bs-target="#rmm-pane-' . $id . '" role="tab" aria-controls="rmm-pane-' . $id . '" aria-selected="' . ($active ? 'true' : 'false')
         . '"><i class="fas fa-' . $icon . ' me-1" aria-hidden="true"></i>' . $label . '</button></li>';
 
+    // RMM Phase 2 and 3 tabs. Each hook returns '' when its sub-switch is off or the viewer may see nothing, and then neither the tab nor the pane is drawn.
+    $mysqli = $GLOBALS['mysqli'] ?? null;
+    $polHtml = $scrHtml = $alrHtml = '';
+    if ($mysqli instanceof \mysqli) {
+        $polHtml = function_exists('rivetRmmPolPanelSection') && ($vm['features']['policies'] || $vm['features']['scripts']) ? rivetRmmPolPanelSection($vm, $mysqli, $csrf) : '';
+        $scrHtml = function_exists('rivetRmmScrDeviceSection') && $vm['features']['scripts'] ? rivetRmmScrDeviceSection($vm, $mysqli, $csrf) : '';
+        $alrHtml = function_exists('rivetRmmAlrPanelSection') && $vm['features']['alerting'] ? rivetRmmAlrPanelSection($vm, $mysqli, $csrf) : '';
+    }
+
     return '<div class="card card-dark mb-3" id="rmm-panel" data-device-id="' . (int) $vm['device_id'] . '" data-csrf="' . rmmH($csrf) . '" data-post-url="/agent/post/rmm_agent.php" data-output-url="/agent/rmm_job_output.php" '
         . 'data-platform="' . rmmH($vm['platform']) . '" data-offline="' . ($vm['offline'] ? '1' : '0') . '">'
         . '<div class="card-header p-0 border-bottom-0"><ul class="nav nav-tabs px-3 pt-2 rmm-tabbar" role="tablist" aria-label="RMM device sections">'
-        . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . ($vm['software'] !== null ? $tab('software', 'cube', 'Software', false) : '') . $tab('jobs', 'tasks', 'Jobs', false) . '</ul></div>'
+        . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . ($vm['software'] !== null ? $tab('software', 'cube', 'Software', false) : '') . $tab('jobs', 'tasks', 'Jobs', false)
+        . ($polHtml !== '' ? $tab('policy', 'sliders-h', 'Policy and fields', false) : '') . ($alrHtml !== '' ? $tab('alerting', 'bell', 'Alerting', false) : '') . '</ul></div>'
         . '<div class="px-3 pt-3"><div id="rmm-msg" class="alert d-none mb-0" role="status" aria-live="polite"></div></div>'
         . '<div class="tab-content"><div class="tab-pane active p-3" id="rmm-pane-overview" role="tabpanel" aria-labelledby="rmm-tab-overview" tabindex="0">' . rivetRmmUiOverview($vm, $performanceHtml, $performanceNote) . '</div>'
         . '<div class="tab-pane p-3" id="rmm-pane-inventory" role="tabpanel" aria-labelledby="rmm-tab-inventory" tabindex="0">' . rivetRmmUiInventory($vm) . '</div>'
         . ($vm['software'] !== null ? '<div class="tab-pane p-3" id="rmm-pane-software" role="tabpanel" aria-labelledby="rmm-tab-software" tabindex="0">' . rivetRmmUiSoftware($vm) . '</div>' : '')
-        . '<div class="tab-pane p-3" id="rmm-pane-jobs" role="tabpanel" aria-labelledby="rmm-tab-jobs" tabindex="0">' . rivetRmmUiJobs($vm, $userNames) . '</div></div></div>'
-        . rivetRmmUiDialogs($vm);
+        . '<div class="tab-pane p-3" id="rmm-pane-jobs" role="tabpanel" aria-labelledby="rmm-tab-jobs" tabindex="0">' . $scrHtml . rivetRmmUiJobs($vm, $userNames) . '</div>'
+        . ($polHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-policy" role="tabpanel" aria-labelledby="rmm-tab-policy" tabindex="0">' . $polHtml . '</div>' : '')
+        . ($alrHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-alerting" role="tabpanel" aria-labelledby="rmm-tab-alerting" tabindex="0">' . $alrHtml . '</div>' : '') . '</div></div>'
+        . rivetRmmUiDialogs($vm)
+        . ($polHtml . $scrHtml . $alrHtml !== '' ? rivetRmmAutoConfirmModal() . rivetRmmAutoScriptsOn() : '');
 }
 
 /** @return array<int,string> user_id => name for the job rows (one query, none when there are no jobs). */
@@ -1008,3 +1027,6 @@ function rivetRmmUiCapacity(array $cap): string
         . ($tables !== '' ? '<div class="table-responsive"><table class="table table-sm mb-2">' . rivetRmmUiThead(['Table', 'Rows (estimate)', 'Size']) . '<tbody>' . $tables . '</tbody></table></div>' : '')
         . '</div></section>';
 }
+
+// The shared layer of the Phase 2 and 3 pages (required last: it requires this file first, and everything above is defined by now).
+require_once __DIR__ . '/rmm_automation.php';

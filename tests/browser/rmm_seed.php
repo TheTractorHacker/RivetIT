@@ -17,6 +17,7 @@ require dirname(__DIR__) . '/support/rmm_ui_seed.php';
 $out = $argv[1] ?? (sys_get_temp_dir() . '/rmm-seed.json');
 $S = rmm_ui_seed();
 rmm_ui_seed_phase1($S);   // RivetCore 1.0.0-rc.9: software, tags, group, check history, network peak
+rmm_ui_seed_phase23($S);  // RivetCore 1.0.0-rc.10: the policies, scripts and alerting sub-switches on
 $pw = (string) (getenv('RMM_SMOKE_PASSWORD') ?: 'Scratch-Admin-1234');
 $q("UPDATE users SET user_email='admin@scratch.test', user_name='Scratch Admin', user_password='" . $db->real_escape_string(password_hash($pw, PASSWORD_DEFAULT)) . "' WHERE user_id=1");
 $q("INSERT IGNORE INTO user_settings (user_id) VALUES (1)");   // the preferences page (theme switch) reads this row

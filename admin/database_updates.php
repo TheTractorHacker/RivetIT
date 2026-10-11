@@ -10843,3 +10843,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.158'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.158') {
+        // DB 2.6.159: RivetCore 1.0.0-rc.10 Migration0019PoliciesAndScripts + Migration0020AlertingMaturity (RMM Phase 2 and 3): nineteen new tables (rmm_policies,
+        // rmm_policy_versions, rmm_policy_assignments, rmm_scripts_v2, rmm_script_versions, rmm_job_extra, rmm_schedules, rmm_schedule_runs, rmm_approvals,
+        // rmm_custom_fields, rmm_custom_field_values; rmm_alerting_settings, rmm_check_eval, rmm_alert_meta, rmm_storm_summaries, rmm_maintenance_windows,
+        // rmm_device_parents, rmm_escalation_policies, rmm_escalation_steps), all CREATE TABLE IF NOT EXISTS, nothing existing altered. Core owns the DDL, so this
+        // step runs the Core runner (idempotent: it skips applied ids). Two small settings of our own: who may approve a script run (an administrator always; a
+        // role with RMM scripts level 3 only while config_rmm_approve_scripts_lvl3 = 1, off by default) and the escalation contact (an address that gets a
+        // nothing-assigned alert escalation, config_rmm_escalation_contact). TEXT for the contact keeps the settings row far from MariaDB's row-size limit.
+        // Nothing is switched on: the policies, scripts and alerting sub-switches are off until an administrator turns them on. Skipped (version NOT advanced,
+        // so it retries) until a package that ships both migrations is installed. Run it before, or right after, the new code is live.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0020AlertingMaturity::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "ALTER TABLE `settings`
+                ADD COLUMN IF NOT EXISTS `config_rmm_approve_scripts_lvl3` tinyint(1) NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS `config_rmm_escalation_contact` text DEFAULT NULL");
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.159'");
+        }
+    }

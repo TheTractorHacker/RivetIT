@@ -581,17 +581,17 @@ $ok(str_contains($offNet, 'rmm-dim'), 'network tile: dimmed with the rest while 
 // ---- the page: tabs, deep link, no-JS server-rendered content
 [$c, $body] = $get('admin');
 $ok(substr_count($body, 'role="tab"') === 4 && preg_match('/id="rmm-tab-software"[^>]*aria-controls="rmm-pane-software"/', $body) === 1, 'asset page: four tabs (Overview, Inventory, Software, Jobs), the Software tab is wired to its pane');
-$ok(str_contains(file_get_contents($root . '/js/rmm_panel.js'), 'overview|inventory|software|jobs'), 'the tab deep link handler knows #rmm-software');
+$ok(str_contains(file_get_contents($root . '/js/rmm_panel.js'), 'overview|inventory|software|jobs|policy|alerting'), 'the tab deep link handler knows #rmm-software');
 $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asset page: trend column and the network card');
 
 // ---- events: catalog entries and the adapter
 $extra = array_column(rivetEventCatalogExtras(), 'id');
 $all = RivetCore\Rmm\RmmEvent::all();
-$ok(array_diff($all, $extra) === [] && count($all) === 9, 'every rmm.* event id is in the picker\'s catalog extras');
+$ok(array_diff($all, $extra) === [] && count($all) === 19, 'every rmm.* event id is in the picker\'s catalog extras');
 $ids = rivetEventCatalogIds();
 $ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
 $grp = rivetEventCatalogData()['groups'];
-$ok(isset($grp['rmm']) && $grp['rmm']['count'] === 9, 'the picker has one "rmm" group with the nine events');
+$ok(isset($grp['rmm']) && $grp['rmm']['count'] === count($all), 'the picker has one "rmm" group with every rmm.* event (' . count($all) . ')');
 [$c, $body] = web($wb, 'GET', '/modals/event_catalog.php', $SS['admin']);
 $ok($c === 200 && str_contains($body, 'rmm.software.installed') && str_contains($body, 'rmm.check.failed'), 'the picker\'s catalog endpoint lists the rmm.* events');
 // a check that opens an alert publishes rmm.check.failed
@@ -625,3 +625,13 @@ $ok($rmm->featureOn('inventory_software') === false, 'inventory_software stays o
 $vm = $panel('WIN1');
 $ok($vm['software'] === null && !str_contains(rivetRmmUiTabs($vm, '', '', [], 'tok'), 'rmm-tab-software'), 'with the software switch off again the Software tab is gone (data is kept)');
 $ok($rmm->readModel()->softwareFor($W)['total'] === 4, 'switching the inventory off deletes nothing');
+
+// ============================================================ RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10): the sections live in tests/rmm_ui_p23_*.php
+// Each fragment shares this file's variables ($ok $q $one $db $root $S $D $A $USER $SS $wb $rmm $admin $questions $overhead $fresh), starts from the seed below
+// (the three sub-switches on, module on) and must leave the module on. They run in file-name order.
+$rmm->admin()->enable($admin);
+rmm_ui_seed_phase23($S);
+foreach (glob(__DIR__ . '/rmm_ui_p23_*.php') ?: [] as $__p23) {
+    echo "---- " . basename($__p23) . "\n";
+    require $__p23;
+}

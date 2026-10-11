@@ -67,10 +67,39 @@ $pushAlertToVendor = function (string $vendor_action) use ($mysqli, $alert, $ale
     }
 };
 
+/*
+ * RivetCore keeps its own record of an endpoint agent alert (state, events, the escalation clock). When the alert belongs to the endpoint agent integration and the
+ * `alerting` switch is on, bring that record in line with the edition's row just updated, so an acknowledged alert stops escalating and a resolved one stops being
+ * a Core alert. Never throws and never changes the answer; with the module or the switch off nothing is built or asked.
+ */
+$syncCoreAlert = function (string $what) use ($mysqli, $alert, $alert_id, $client_id, $session_user_id) {
+    try {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';
+        if (!rivetRmmFeatureOn('alerting', $mysqli)) {
+            return;
+        }
+        $integration_id = intval($alert['integration_id'] ?? 0);
+        $type = $integration_id ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT type FROM rmm_integrations WHERE id = $integration_id")) : null;
+        if (!$type || ($type['type'] ?? '') !== 'rivetit_agent') {
+            return;
+        }
+        $alerts = rivetRmmModule($mysqli)->alerts();
+        if ($what === 'acknowledge') {
+            $alerts->acknowledge($alert_id, intval($session_user_id));
+        } else {
+            $alerts->resolveExternal($alert_id, intval($session_user_id));
+        }
+    } catch (\Throwable $e) {
+        logAction('RMM', 'Core Alert Sync Failed', "Could not $what alert ID $alert_id in RivetCore: " . $e->getMessage(), $client_id, intval($alert['asset_id']));
+    }
+};
+
 if ($action === 'acknowledge') {
     enforceUserPermission('module_rmm_alerts_ack');
     mysqli_query($mysqli, "UPDATE rmm_alerts SET status='acknowledged', acknowledged_by=$session_user_id, acknowledged_at=NOW() WHERE id=$alert_id");
     logAction('RMM', 'Alert Acknowledged', "$session_name acknowledged RMM alert ID $alert_id", $client_id, intval($alert['asset_id']));
+    $syncCoreAlert('acknowledge');
     $vendor_warning = $pushAlertToVendor('acknowledge');
     $resp = ['success' => true];
     if ($vendor_warning) { $resp['vendor_warning'] = $vendor_warning; }
@@ -82,6 +111,7 @@ if ($action === 'resolve') {
     enforceUserPermission('module_rmm_alerts_ack');
     mysqli_query($mysqli, "UPDATE rmm_alerts SET status='resolved', resolved_at=NOW() WHERE id=$alert_id");
     logAction('RMM', 'Alert Resolved', "$session_name resolved RMM alert ID $alert_id", $client_id, intval($alert['asset_id']));
+    $syncCoreAlert('resolve');
     $vendor_warning = $pushAlertToVendor('resolve');
     $resp = ['success' => true];
     if ($vendor_warning) { $resp['vendor_warning'] = $vendor_warning; }

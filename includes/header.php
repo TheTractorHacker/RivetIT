@@ -208,6 +208,7 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
     <!-- RMM asset panel and agent fleet page (includes/rmm_ui_render.php). Scoped under .rmm-*, built from --if-* tokens and the .ifm-* cards above,
          so it must follow itflow_metrics.css and stay BEFORE itflow.bind-tabler.css. -->
     <link rel="stylesheet" href="/css/itflow_rmm.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm.css') ?>">
+    <link rel="stylesheet" href="/css/itflow_rmm_automation.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_automation.css') ?>">
 
     <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*.
          MUST load after the design layer (so the mappings win) and BEFORE the
