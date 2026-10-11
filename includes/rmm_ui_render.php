@@ -1005,6 +1005,13 @@ function rivetRmmUiOutdatedSoftware(array $o, callable $cn, array $f): string
         . '<i class="fas fa-cube me-2 text-warning" aria-hidden="true"></i>Outdated software</h6>' . $head . '</div><div class="card-body border-bottom py-2">' . $form . '</div>' . $body . '</section>';
 }
 
+/**
+ * The "Performance and capacity" (scale and capacity) panel of the Agent fleet page (administrators): RivetCore's CapacityReport::build() in plain words. Rendering only.
+ * RivetCore 1.0.0-rc.11 adds the autoscaling hint, the read cache, herd control (warm start, per-department token buckets), the storage tiers and the external
+ * store buffer; each block is skipped when its key is missing so an older report still renders. `limits` and `cache_shared` are added by rivetRmmUiFleet().
+ *
+ * @param array<string,mixed> $cap
+ */
 function rivetRmmUiCapacity(array $cap): string
 {
     $d = $cap['devices'];
@@ -1014,6 +1021,7 @@ function rivetRmmUiCapacity(array $cap): string
     $pct = $max > 0 ? min(100, round($d['active'] / $max * 100, 1)) : null;
     $tile = static fn (string $icon, string $tint, string $value, string $label, string $meta, string $extra = ''): string => '<div class="col-md-6 col-xl-4 mb-2">' . rivetRmmUiStatCard($icon, $tint, $value, $label, $meta, $extra) . '</div>';
     $q = $cap['queue'];
+    $limits = (array) ($cap['limits'] ?? []);
     $tiles = $tile('laptop', 'primary', rmmH($d['active']) . ($max > 0 ? ' <span class="text-muted fs-5">of ' . $max . '</span>' : ''), 'Enrolled devices', '<span>' . ($pct === null ? 'no device limit set' : $pct . '% of the limit') . '</span>',
             $pct === null ? '' : '<div class="px-3 pb-1">' . rivetRmmUiBar((float) $pct, 'info', 5, 'Share of the device limit') . '</div>')
         . $tile('exchange-alt', 'info', rmmH($cap['checkins']['last_minute']), 'Check-ins, last minute', '<span>' . (int) $cap['checkins']['last_hour'] . ' in the last hour</span>')
@@ -1029,11 +1037,75 @@ function rivetRmmUiCapacity(array $cap): string
         $tables .= '<tr><td class="ps-3 ifm-mono">' . rmmH($t['table']) . '</td><td class="text-end">' . rmmH(number_format((int) $t['rows'])) . '</td><td class="text-end pe-3">' . rmmH($t['total_mb']) . ' MB</td></tr>';
     }
 
+    // ---- queue workers: the autoscaling hint in plain words
+    $workers = '';
+    $a = $cap['autoscale'] ?? null;
+    if (is_array($a)) {
+        $n = (int) $a['workers_desired'];
+        $hint = (string) $a['hint'];
+        $queued = (string) $cap['ingest_mode'] === 'queued';
+        $headline = 'Run ' . $n . ' queue worker' . ($n === 1 ? '' : 's') . '.';
+        $verdict = ['up' => 'Add workers now: ', 'down' => 'You could run fewer: ', 'hold' => 'No change needed: '][$hint] ?? '';
+        $eta = $a['drain_eta_s'] === null ? ((int) $a['pending'] === 0 ? 'nothing waiting' : 'not shrinking') : '~' . (int) $a['drain_eta_s'] . ' s to empty';
+        $workers = '<div class="rmm-scale-hint rmm-hint-' . rmmH($hint) . ' mb-3" id="rmm-autoscale"><p class="mb-1"><i class="fas fa-' . ($hint === 'up' ? 'arrow-up text-warning' : ($hint === 'down' ? 'arrow-down text-success' : 'equals text-info')) . ' me-2" aria-hidden="true"></i><strong>' . rmmH($headline) . '</strong> '
+            . rivetRmmUiPill($hint === 'up' ? 'warn' : 'ok', $hint === 'up' ? 'Add workers' : ($hint === 'down' ? 'Could reduce' : 'Keeping up')) . '</p>'
+            . '<p class="small mb-1">' . rmmH($verdict . $a['reason']) . ($a['workers_current'] !== null ? ' About ' . (int) $a['workers_current'] . ' worker' . ((int) $a['workers_current'] === 1 ? ' is' : 's are') . ' busy right now.' : '') . '</p>'
+            . '<p class="small text-muted mb-1">' . (int) $a['pending'] . ' waiting &middot; ' . (int) $a['running'] . ' running &middot; ' . rmmH($a['arrival_per_s']) . ' arriving per second &middot; ' . rmmH($a['completion_per_s']) . ' finished per second &middot; ' . rmmH($eta)
+            . '. Assumes one worker finishes about ' . rmmH(rtrim(rtrim(number_format((float) $a['per_worker_jobs_per_s'], 1, '.', ''), '0'), '.')) . ' jobs a second.</p>'
+            . (!$queued ? '<p class="small mb-1"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>Ingest mode is <strong>' . rmmH($cap['ingest_mode']) . '</strong>: check-ins are processed as they arrive, so no queue workers are needed. The number above only applies once ingest mode is "queued".</p>' : '')
+            . '</div>';
+    }
+
+    // ---- read cache, herd control, storage, external store
+    $cacheRows = [];
+    if ($limits !== []) {
+        $fresh = (int) ($limits['cache_fresh_s'] ?? 0);
+        $cacheRows[] = ['Read cache', $fresh <= 0 ? rivetRmmUiPill('off', 'Off') . ' every page view recounts' : rivetRmmUiPill('ok', 'On') . ' fresh for ' . $fresh . ' s, then up to ' . (int) ($limits['cache_stale_s'] ?? 0) . ' s stale &middot; kept in ' . (!empty($cap['cache_shared']) ? 'Redis' : 'the database')];
+    }
+    $herd = $cap['herd'] ?? null;
+    if (is_array($herd)) {
+        $ws = $herd['warm_start'] ?? null;
+        $warmLen = (int) ($limits['warm_start_s'] ?? 0);
+        if (is_array($ws) && !empty($ws['active'])) {
+            $cacheRows[] = ['Warm start', rivetRmmUiPill('warn', 'In progress') . ' admitting about ' . rmmH($ws['admitted_percent']) . ' % of check-ins until ' . rmmH(gmdate('H:i:s', (int) $ws['until'])) . ' UTC'];
+        } else {
+            $cacheRows[] = ['Warm start', $warmLen > 0 ? rivetRmmUiPill('ok', 'Armed') . ' not active now; starts after the module is switched back on or after a ' . (int) ($limits['warm_quiet_s'] ?? 120) . ' s quiet gap' : rivetRmmUiPill('off', 'Off')];
+        }
+        $b = (int) $herd['client_bucket_burst'];
+        $r = (int) $herd['client_bucket_per_min'];
+        $cacheRows[] = ['Check-ins per department', $b > 0 && $r > 0 ? rivetRmmUiPill('ok', 'Limited') . ' ' . $r . ' per minute, burst of ' . $b : rivetRmmUiPill('off', 'Off') . ' no per-department limit'];
+    }
+    $cacheRows[] = ['Load shedding', $shed > 0 ? rivetRmmUiPill('warn', 'Level ' . $shed) . ' devices are asked to report less often' : rivetRmmUiPill('ok', 'Level 0') . ' normal'];
+    $cacheRows[] = ['Ingest mode', rmmH(ucfirst((string) $cap['ingest_mode'])) . ((string) $cap['ingest_mode'] === 'queued' ? ' &middot; check-ins are queued and processed by workers' : ' &middot; check-ins are processed as they arrive')];
+    $st = $cap['storage'] ?? null;
+    $storRows = [];
+    if (is_array($st)) {
+        $hist = $st['tables']['endpoint_agent_check_history'] ?? null;
+        if (is_array($hist)) {
+            $storRows[] = ['Check history', rmmH($hist['retention_days']) . ' days kept &middot; ' . (!empty($hist['partitioned']) ? rivetRmmUiPill('ok', 'Partitioned') . ' ' . (int) $hist['partitions'] . ' partitions' : 'plain table, expired rows deleted in batches')];
+        }
+        $storRows[] = ['Partitioning setting', !empty($st['partitioning_enabled']) ? rivetRmmUiPill('ok', 'On') : rivetRmmUiPill('off', 'Off')];
+        $storRows[] = ['RivetCore daily rollup', '<span class="text-muted">not used: RivetIT keeps its own hourly metric rollups</span>'];
+    }
+    $ext = $cap['external_store'] ?? null;
+    if (is_array($ext)) {
+        $storRows[] = ['External metric store', rivetRmmUiPill($ext['pending_batches'] > 0 ? 'warn' : 'ok', 'On') . ' ' . (int) $ext['pending_batches'] . ' batch' . ((int) $ext['pending_batches'] === 1 ? '' : 'es') . ' waiting &middot; ' . (int) $ext['dropped_points'] . ' points dropped (this request)'];
+    }
+    $detail = '<div class="row"><div class="col-lg-6 mb-2"><h6 class="small text-uppercase text-muted">Load and cache</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($cacheRows) . '</div></div>'
+        . ($storRows !== [] ? '<div class="col-lg-6 mb-2"><h6 class="small text-uppercase text-muted">Storage</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($storRows) . '</div></div>' : '') . '</div>';
+
+    $guidance = '<p class="small text-muted mb-2" id="rmm-workers-help"><i class="fas fa-info-circle me-1" aria-hidden="true"></i><strong>Running several queue workers.</strong> Several workers are safe: on MariaDB 10.6 or later and MySQL 8.0.1 or later each job is claimed by exactly one worker (SKIP LOCKED), and on older servers a lease does the same, '
+        . 'so you can raise or lower the number at any time. To run N workers, start N copies of the queue worker (for example N systemd service instances or N cron lines for <code>cron/integration_worker.php</code>); the hint above says what N should be. '
+        . 'The limits that shape them are under Administration &rarr; Endpoint agent &rarr; Scale settings; see <code>docs/ENDPOINT_AGENT.md</code> for the commands.</p>';
+
     return '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-info)" id="rmm-capacity"><div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px"><h6 class="mb-0 me-auto">'
-        . '<i class="fas fa-server me-2 text-info" aria-hidden="true"></i>Performance and capacity <span class="small text-muted fw-normal ms-2">Administrators only</span></h6>'
-        . ($shed > 0 ? rivetRmmUiPill('warn', 'Shed level ' . $shed) : rivetRmmUiPill('ok', 'Shed level 0: normal')) . '</div><div class="card-body pb-1"><div class="row">' . $tiles . '</div>'
+        . '<i class="fas fa-server me-2 text-info" aria-hidden="true"></i>Performance and capacity <span class="small text-muted fw-normal ms-2">scale, queue workers and storage &middot; Administrators only</span></h6>'
+        . ($shed > 0 ? rivetRmmUiPill('warn', 'Shed level ' . $shed) : rivetRmmUiPill('ok', 'Shed level 0: normal')) . '</div><div class="card-body pb-1">' . $workers . '<div class="row">' . $tiles . '</div>'
         . ($warn !== '' ? '<ul class="list-group list-group-flush mb-2">' . $warn . '</ul>' : '<p class="small text-muted"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No capacity warnings.</p>')
-        . ($tables !== '' ? '<div class="table-responsive"><table class="table table-sm mb-2">' . rivetRmmUiThead(['Table', 'Rows (estimate)', 'Size']) . '<tbody>' . $tables . '</tbody></table></div>' : '')
+        . $detail
+        . ($tables !== '' ? '<div class="table-responsive"><table class="table table-sm mb-2"><caption class="visually-hidden">Largest endpoint agent tables</caption>' . rivetRmmUiThead(['Table', 'Rows (estimate)', 'Size']) . '<tbody>' . $tables . '</tbody></table></div>' : '')
+        . $guidance
+        . '<p class="small mb-2"><a href="/admin/settings_endpoint_agent.php#scale"><i class="fas fa-cog me-1" aria-hidden="true"></i>Scale settings</a></p>'
         . '</div></section>';
 }
 

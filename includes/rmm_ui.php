@@ -629,6 +629,8 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
             $redis = (bool) redisEnabled();
         }
         $capacity = $rmm->capacity()->build(['redis_available' => $redis]);
+        $capacity['limits'] = $rmm->settings()->limits();   // rc.11 scale panel: the cache and herd settings in force (CapacityReport does not repeat them)
+        $capacity['cache_shared'] = $rmm->cache()->shared();
     }
 
     return [
