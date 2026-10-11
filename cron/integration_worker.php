@@ -14,7 +14,7 @@ require_once "../vendor/autoload.php";
 // One worker by default (the guard keeps a slow run from stacking up). RivetCore 1.0.0-rc.11 made claim() safe for any number of concurrent workers (SKIP LOCKED on MariaDB 10.6+ and
 // MySQL 8.0.1+, a conditional-UPDATE lease elsewhere; docs/ENDPOINT_AGENT.md "Several queue workers"), so a busy install may run N copies, each with its own number:
 //   * * * * * php cron/integration_worker.php --worker=2      (worker 1 is the one without the option)
-// The recommended N is shown in Administration > Endpoint agent > Scale and capacity.
+// The recommended N is shown in the Performance and capacity panel of Endpoints > Agent Fleet.
 $worker_no = 1;
 foreach (array_slice($argv ?? [], 1) as $arg) {
     if (preg_match('/^--worker=([0-9]{1,2})$/', (string) $arg, $wm) === 1 && (int) $wm[1] >= 1 && (int) $wm[1] <= 32) {

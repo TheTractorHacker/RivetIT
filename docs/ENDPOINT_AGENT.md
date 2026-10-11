@@ -21,7 +21,7 @@ Where the rest is:
 | --- | --- |
 | Composition root: builds `RivetCore\Rmm\RmmModule` from the adapters below | `includes/rmm_bootstrap.php` (`rivetRmmModule()`, `rivetRmmEnabled()`, `rivetRmmSyncState()`, `rivetRmmHousekeeping()`, `rivetRmmRequest()`) |
 | Adapters for the Core contracts | `src/Core/Adapter/Endpoint/`: `EndpointTenancy` (clients, locations, department scope), `EndpointAssets` (`assets`, `asset_interfaces`), `EndpointBridge` (`rmm_integrations`, `asset_rmm_links`, `rmm_alerts`, `rmm_scripts`, `rmm_remote_sessions`, ticket auto-close), `EndpointSecretBox` (`encryptSetting` format, unchanged), `EndpointAudit` (the `logs` rows and the audit trail), `EndpointMetricSink` (`MetricIngestService` into `device_metric_samples`), `EndpointAccessPolicy` (the nine `rmm.*` abilities), `EndpointModuleState` |
-| Device REST bridges (URLs and file names frozen: enrolled agents depend on them) | `api/v1/agent_enroll.php`, `agent_checkin.php`, `agent_jobs.php`, `agent_update.php`, `agent_installer.php`, all via `api/v1/includes/agent_device_api.php` (`ea_dispatch()`) |
+| Device REST bridges (URLs and file names frozen: enrolled agents depend on them) | `api/v1/agent_enroll.php`, `agent_checkin.php`, `agent_jobs.php`, `agent_update.php`, `agent_installer.php`, and (RivetCore 1.0.0-rc.11) `agent_transfer.php` and `agent_logs.php`, all via `api/v1/includes/agent_device_api.php` (`ea_dispatch()`) |
 | Technician REST API (user API token; the legacy shared key is refused) | `api/v1/endpoint_devices.php` |
 | Pre-bootstrap gate | `api/v1/rmm_gate.php`, the first include of `api/v1/index.php` |
 | Administration page and its POST handler | `admin/settings_endpoint_agent.php`, `admin/post/settings_endpoint_agent.php` |
@@ -42,7 +42,7 @@ sessions when MeshCentral is enabled).
 
 While the module is **off**:
 
-* the device endpoints (`agent_enroll`, `agent_checkin`, `agent_jobs`, `agent_update`, `agent_installer`) answer `503 module_disabled` with
+* the device endpoints (`agent_enroll`, `agent_checkin`, `agent_jobs`, `agent_update`, `agent_installer`, `agent_transfer`, `agent_logs`) answer `503 module_disabled` with
   `Retry-After: 3600` and `Cache-Control: no-store`, **from `api/v1/rmm_gate.php` before
   `config.php` is loaded**: no database connection, no query, no Core class (proved by `tests/endpoint_agent_module.php`); `endpoint_devices` is not answered by the gate (401 without a token, then `404 {"code":"disabled"}`, so an anonymous caller learns nothing). Enrolled agents keep their
   credential and data and back off to about one attempt an hour; nothing is deleted, and switching on again resumes everything;
@@ -72,6 +72,7 @@ No new permission keys; the nine Core abilities map onto the existing RMM module
 | `rmm.job.run_script` (free-form PowerShell) | view, `module_rmm_scripts` >= 3, not a module-only login |
 | `rmm.remote.launch` | view, `module_rmm_remote_connect` >= 1, not a module-only login |
 | `rmm.device.manage`, `rmm.token.manage`, `rmm.binary.publish`, `rmm.admin` | administrator (`role_is_admin`) |
+| `rmm.remote.manage` (RivetCore 1.0.0-rc.11: service and process managers, downloading a file from a device, the Mesh terminal and files views) | administrator; a role with `module_rmm_scripts` >= 3 **and** `module_rmm_remote_connect` >= 1 only while Administration > Endpoint agent > Remote tools has "Level 3 script users with remote access may use the remote tools" on (`settings.config_rmm_remote_manage_lvl3`, off by default); never a module-only login. Sending a file **to** a device and the remote-tools settings stay `rmm.admin` (administrators only), reading collected logs needs `rmm.device.view` + `rmm.job.run_saved`, log rules `rmm.alert.manage` |
 
 An inactive account (disabled, archived, not an agent user) is denied everything. Department access (`EndpointTenancy::visibleClientIds()`):
 administrators and users with no `user_client_permissions` row see every department; otherwise only the listed ones, plus devices without a department.
@@ -85,11 +86,29 @@ a remote session. The reason strings of a denial are Core's generic ones ("Your 
   `sudo -u www-data php scripts/endpoint_agent_publish.php rivetit-agent-windows-amd64.exe --version 1.2.0 --arch amd64 --activate [--release pilot --rollout 10]`.
   Files are stored under `backups/endpoint-agent/` (or `EA_BINARY_DIR` in `config.php`) with random names; the shipped nginx rules and `.htaccess` deny that
   directory over HTTP. The previous RivetIT-hosted agent release (`agent-v0.1.0-beta.1` on this repository) remains as history.
-* **config.php constants** (all optional): `EA_ALLOW_INSECURE_HTTP` (loopback test servers only), `EA_BINARY_DIR`, `EA_BINARY_MAX_BYTES`,
+* **config.php constants** (all optional): `EA_ALLOW_INSECURE_HTTP` (loopback test servers only), `EA_BINARY_DIR`, `EA_TRANSFER_DIR` (file transfers, default `backups/endpoint-transfer`), `EA_BINARY_MAX_BYTES`,
   `EA_ALLOW_NON_WINDOWS` (the agent's Linux test build in an integration harness, never production), `RMM_STATE_DIR`.
 * **nginx / PHP-FPM.** `client_max_body_size` at least 1m for `/api/v1/agent_checkin`; PHP-FPM must pass `HTTPS` (or the proxy sets
   `X-Forwarded-Proto: https` from a private peer). The live nginx rules are not changed by this feature. The state directory is below `backups/`, which
   the shipped rules already deny.
+* **Transfer folder (rc.11).** Files copied from or to a device are stored in `backups/endpoint-transfer/` (or `EA_TRANSFER_DIR`): mode 0700, private to the web user, inside the `backups/` area that
+  every shipped nginx template and `.htaccess` denies (`tests/nginx_private_paths.php` pins that), named `xfer_<random>.bin`, deleted when the transfer expires (`transfer_ttl_s`, 24 hours by default) by the cron
+  housekeeping. It is not part of the in-app backup or `deploy/backup.sh` (transient data). DB step 2.6.161 creates it when the process running the update owns `backups/`; otherwise the first transfer creates it
+  (as the web user) or Administration > Endpoint agent > File transfer shows its state with a "Create folder" button. Give it a disk with room for `transfer_store_max_bytes` (1 GiB by default).
+  nginx: the agent sends chunks of at most 1 MiB, so `client_max_body_size` must be at least 2m for `/api/v1/agent_transfer` (the shipped templates use 500M; a hand-written vhost with the 1m default would
+  refuse full chunks). The live nginx rules are not changed by this feature.
+* **Several queue workers (rc.11, scale S6).** `RivetCore\Jobs\JobClaimer` makes claiming safe for any number of workers: `SELECT ... FOR UPDATE SKIP LOCKED` on MariaDB 10.6+ and MySQL 8.0.1+, a conditional-UPDATE
+  lease on older servers (either way a job is never run twice), with an exact per-queue limit (`ingest_max_running`). `cron/integration_worker.php` still runs ONE worker by default (its cron guard); to run N, add N-1
+  more cron lines with their own number: `* * * * * php /path/cron/integration_worker.php --worker=2` ... `--worker=N`. How many: the Performance and capacity panel (Endpoints > Agent Fleet) shows the autoscaling hint
+  (`CapacityReport::build()['autoscale']`: queue depth, jobs per second, recommended workers). It matters only when `ingest_mode` is `queued` (the module's load-shedding switches to it under load);
+  with sync ingest the check-in writes directly. Housekeeping takes back the jobs of a worker that died after a two-minute lease.
+* **Cron (rc.11).** Nothing new to schedule: the "built-in endpoint agent" block of `cron/cron.php` calls `Housekeeping::run()`, which now also prunes collected logs (retention, per-device and fleet caps, in batches
+  of 2000), recovers log-rule alerts, deletes expired transfers, maintains time partitions when partitioning is on, prunes the read cache table, reclaims dead workers' `rmm.ingest` jobs and flushes the external
+  metric buffer when that is on. Keep the cron's PHP time limit above 30 seconds (the CLI default is unlimited). RivetIT writes device metrics to its own `device_metric_*` tables, so Core's daily metric rollup is
+  not used here (housekeeping skips it); `cron/metrics_rollup.php` keeps doing that job.
+* **Redis (rc.11).** When Redis answers, the read cache (fleet counters 15 s fresh / 5 min stale, the active releases) and the per-client token buckets use it, shared by every web worker and the cron
+  (`EndpointRedisProvider`); both fail open when it is down and then Core uses its own tables. A writer that changes `endpoint_agent_releases` or `endpoint_agent_devices` directly must call
+  `rivetRmmModule()->updates()->releasesChanged()` / `->cache()->invalidate('fleet', true)` (Core's own writers do).
 * **Updating.** `Update Database` (2.6.150) runs Core's migration runner. Migrations 0014 and 0015 are `CREATE TABLE IF NOT EXISTS` / guarded `ALTER`s that
   change nothing on an install that has the tables; 0016 adds five columns (`features_json`, `limits_json`, `shed_level`, `ingest_mode`, `max_devices`) to
   `endpoint_agent_settings` with defaults that reproduce today's behaviour. Run `composer install --no-dev` first (the in-app Update and
@@ -106,6 +125,8 @@ RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=scratch_x RIVETIT_TEST_DB_USER=... RIVETI
 php tests/endpoint_agent_deploy_unit.php               # no database
 RIVET_CORE_DIR=/path/to/rivet-core php tests/endpoint_agent_golden.php   # golden HTTP transcripts recorded from the pre-adoption code, replayed against the bridges
 php tests/endpoint_agent_module.php                    # module switch, gate with zero queries, fail-safe state file, fresh vs existing install
+php tests/rmm_ui.php                                    # asset panel, fleet, Phase 2/3 and (tests/rmm_ui_p68_*.php) the remote tools, logs and scale settings pages
+tests/real_agent_proof/run.sh                           # the real Linux agent under systemd against RivetIT's bridges (docker; header says how)
 RIVETCORE_PHPUNIT_AUTOLOAD=/path/to/rivet-core/vendor/autoload.php RIVETCORE_TEST_DB_NAME=scratch_x ... phpunit -c tests/core/phpunit.xml   # Endpoint*ConformanceTest = Core's adapter kit
 php tests/load/agent_ingest_load.php 200 10 16 8        # load and cost measurement
 ```
@@ -180,3 +201,50 @@ without relaxing the SSRF rules, and the upload covers the same need.
 Tests: `tests/endpoint_agent_installer_ui.php` (visibility matrix, CSRF/method/permission/module-off refusals, streamed `.exe` with `MZ`, current binary byte for byte, `InstallerStamp` trailer,
 file name, token lifetime/uses, audit rows, Linux command, multi-file publish) and the "installer dialog" checks of `tests/browser/rmm_smoke.mjs` (seed with `RMM_SMOKE_BASE_URL=http://127.0.0.1:<port>`,
 which also publishes placeholder binaries).
+
+## 9. Remote tools, file transfer and log collection (RivetCore 1.0.0-rc.11, RMM Phases 6 and 8)
+
+Everything here is **off by default** and dormant until an administrator turns it on under Administration > Settings > Endpoint agent (the cards **Remote tools**, **File transfer**, **Log collection**). The
+three sub-switches are Core's `remote_tools`, `filetransfer` and `logs` (`RmmSettings::FEATURES`). An agent that does not announce the capabilities (`remote:services`, `remote:processes`, `remote:files`,
+`logs:collect`; older agents) is answered exactly as before, and the golden transcripts replay byte for byte (`tests/endpoint_agent_golden.php`, 10 files). Operator guide: rivet-core `docs/rmm/REMOTE_AND_LOGS.md`.
+
+| Piece | Where | Needs |
+| --- | --- | --- |
+| Device bridges | `api/v1/agent_transfer.php` (GET and POST, raw body of at most 1 MiB, header `X-Transfer-Token`), `api/v1/agent_logs.php` (POST, JSON, at most 200 entries and 256 KiB); routed in `api/v1/index.php` above the bearer parsing; the pre-bootstrap gate (`api/v1/rmm_gate.php`, from Core's rc.11 template) answers both while the module is off | device credential (+ the one-time transfer token) |
+| Remote tab of the asset page | `includes/rmm_rem_ui.php`, `agent/post/rmm_remote_tools.php`, `js/rmm_remote.js`: **Services** (list, start, stop, restart, enable, disable; stop/restart/disable ask for a confirmation), **Processes** (list with CPU and memory, end a process by id and name, confirmation), **Files** (the administrator-allowed folders as starting points and a path field, download with the SHA-256 the server verified, upload for administrators with a confirmation and the size caps, the transfer list), **Remote access** (MeshCentral desktop, terminal and files) | module + `remote_tools` (+ `filetransfer` for Files) + `rmm.remote.manage`; upload `rmm.admin`; Mesh also `rmm.remote.launch` |
+| Logs | `agent/rmm_logs.php` (fleet search: device, time range, level, source, event id, text, pagination; department scoped by Core), the **Logs** tab of the asset page, `includes/rmm_log_ui.php` | module + `logs` + `rmm.device.view` + `rmm.job.run_saved` |
+| Log rules | `agent/rmm_log_rules.php`, `agent/post/rmm_logs.php`: phrase rules (never a regular expression) with a count in a window; a match reports the check `log.rule_<id>` through the alert engine, so debounce, maintenance windows and escalation apply and the alert shows on **Agent alerts** | module + `logs` + `rmm.alert.manage` |
+| Administration cards | `admin/settings_endpoint_agent.php`, `admin/post/settings_endpoint_agent.php`, `includes/rmm_scale_admin.php`, `includes/rmm_scale_cards.php`, `js/rmm_scale.js`: the three switches with Core's risk and storage texts and the required acknowledgements, allowed folders per platform, transfer and log limits, the transfer-folder status, log sources | administrator |
+
+The old `agent/post/rmm_remote.php` (the vendor-RMM "Remote Connect" handler) is untouched. Every action is authorised on the server on every call (role, the device's department, the ability, the switch) by Core's
+`RemoteActions` / `LogActions`; the pages only decide what to draw. Another department's device is the same 404 as a missing one. Every request, refusal and completion is audited (the activity log, type Endpoint Agent), and
+`rmm.file.transferred` and `rmm.log.rule_matched` are on the event bus (webhooks and event rules; both are in the event picker).
+
+**What is verified.** The pages and handlers over HTTP with a simulated device (`tests/rmm_ui_p68_remote.php`, `tests/rmm_ui_p68_logs.php`, `tests/rmm_ui_p68_admin.php`, loaded by `tests/rmm_ui.php`) and in a
+real browser at 1366 and 390 px, light and dark (`tests/browser/rmm_p68_*_smoke.mjs`); and, end to end with the **real Linux agent** built from RivetCore v1.0.0-rc.11 under a real systemd in a container,
+talking TLS through nginx to RivetIT's own bridges on a scratch install (`tests/real_agent_proof/run.sh`, 39 checks): service list, a unit really restarted, the agent's own service refused, process list and a
+kill that only succeeds when the name matches, a download with a verified SHA-256 and identical bytes, `/etc/shadow` and a symlink to it refused, an upload hash-verified by the agent, an overwrite refused,
+a journald line shipped, filtered and turned into an alert by a log rule, and the audit rows. **Not verified:** any Windows code path (cross-compiled and vetted only), a real MeshCentral server (the `viewmode`
+values 11/12/13 are Core's reading of MeshCentral's URL scheme, checked against a stub), macOS.
+
+## 10. Scale settings and the Performance and capacity panel (RivetCore 1.0.0-rc.11, S3 to S8)
+
+Administration > Settings > Endpoint agent > the cards **Scale settings**, **Metric storage and partitioning** and **External metric store** (all limits are validated by `RmmSettings::update`, only changed
+values are written) and the read-only **Performance and capacity** panel on the Agent Fleet page (`rivetRmmUiCapacity()`):
+
+* **What changed without any setting:** a steady check-in takes fewer statements (S3), fleet counters and the active releases are cached for 15 seconds (5 minutes stale-while-revalidate; `cache_fresh_s` 0 turns
+  it off), job claiming is safe for several workers (S6), housekeeping does more (see Operations).
+* **Redis:** when Redis answers, the cache and the token buckets use it (`EndpointRedisProvider`); otherwise Core's tables.
+* **Partitioning (opt-in, `partitioning`):** the card runs Core's capability probe and says in words what it found (server version, privileges, foreign keys, unique keys) and which tables it would convert; "Enable"
+  needs a confirmation because the one-time table copy blocks writers on a big table (do it off hours). In RivetIT it concerns `endpoint_agent_check_history`; Core's `rmm_metric_hourly` and `rmm_metric_daily`
+  are converted too but stay empty, because **RivetIT writes device metrics to its own `device_metric_*` tables**, so Core's daily metric rollup is **not used** and the card says so instead of showing a status.
+  Verified on MariaDB 11.8 (`tests/rmm_ui_p68_admin.php`: converted, housekeeping and check-ins still work, refused when the probe says no).
+* **Herd control (off by default):** warm start after the module is switched on again or after a quiet gap (`warm_start_s`, `warm_start_pct`, `warm_quiet_s`; the gate reads `rmm_herd.json` in the state directory before
+  any database work) and a token bucket per department for check-ins and enrollment (`client_bucket_burst`, `client_bucket_per_min`).
+* **Queue workers:** the panel shows the autoscaling hint ("run N queue workers", from `CapacityReport`); see "Several queue workers" in Operations for how to run them.
+* **External metric store (off by default, S4):** only for installs far beyond 10,000 devices; another service to run and secure. Switch, write URL, read URL and bearer token live in
+  `settings.config_rmm_extstore_*`, sealed with `encryptSetting()` (registered for the key rotation, never echoed back; empty input keeps the stored value, a checkbox clears it). **Test connection** vets the URLs with
+  the same `UrlPolicy` as webhooks (https, public addresses, no redirects, the connection pinned) and pings with a short timeout; it never prints the token. History is written to a bounded outbox
+  (`rmm_metric_outbox`, flushed by housekeeping) and read from the store with RivetIT's own tables as the fallback; a check-in never waits for it. Plain http to a loopback fake server is possible only in the
+  automated tests (it needs `EA_ALLOW_INSECURE_HTTP` and `RIVETIT_WEBHOOK_ALLOW_PRIVATE=1`, neither of which a production install has).
+* **Not done:** the S9 validation (24 hours, 10,000 devices, reference hardware) is Core's and has not been run; nothing here was load-tested beyond the scratch suites.
