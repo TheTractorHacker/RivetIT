@@ -280,7 +280,11 @@ $admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'install
 $ok($toks() === $t0 && strpos($msg(), 'device group id') !== false, 'the Deployment card: refused with the same words, nothing created');
 
 // ready: the group id is set
-$group = bin2hex(random_bytes(48));
+do {   // rc.15: saved as hex; the payload carries MeshCentral's 64-character URL form ('@' for '+', '$' for '/'), computed here independently of the product
+    $groupRaw = random_bytes(48);
+    $groupUrl = strtr(base64_encode($groupRaw), ['+' => '@', '/' => '$']);
+} while (!str_contains($groupUrl, '@') || !str_contains($groupUrl, '$'));
+$group = bin2hex($groupRaw);
 $M->update(['mesh_group_id' => $group], 1);
 $mfreshI();
 [$c, $b] = $fleet();
@@ -296,7 +300,7 @@ $ok((int) $one("SELECT COUNT(*) FROM endpoint_agent_installer_options WHERE toke
 [$c, $body, $h] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1, 'install_mesh_agent' => '1']);
 $p1 = $stamp($body);
 $ok($c === 200 && $p1 !== null && array_slice(array_keys($p1), 0, 8) === $base8 && array_slice(array_keys($p1), 8) === ['install_mesh_agent', 'mesh'], 'ticked: the same eight members, then install_mesh_agent and mesh');
-$ok($p1['install_mesh_agent'] === true && $p1['mesh']['url'] === 'https://mesh.example.test' && $p1['mesh']['meshid'] === $group && !array_key_exists('pin', $p1['mesh']) && $p1['mesh']['agent_ids']['windows/amd64'] === 4 && $p1['mesh']['install_args']['windows'] === ['-fullinstall'], 'ticked: the Mesh block carries the address, the group id, the id table and the arguments (no pin saved, so none)');
+$ok($p1['install_mesh_agent'] === true && $p1['mesh']['url'] === 'https://mesh.example.test' && $p1['mesh']['meshid'] === $groupUrl && strlen($p1['mesh']['meshid']) === 64 && $p1['mesh']['meshid'] !== $group && !array_key_exists('pin', $p1['mesh']) && $p1['mesh']['agent_ids']['windows/amd64'] === 4 && $p1['mesh']['install_args']['windows'] === ['-fullinstall'], 'ticked: the Mesh block carries the address, the group id, the id table and the arguments (no pin saved, so none)');
 $ok(array_diff_key($p1, ['install_mesh_agent' => 1, 'mesh' => 1, 'installer_id' => 1, 'enrollment_token' => 1, 'created_at' => 1, 'expires_at' => 1]) == array_diff_key($p0, ['installer_id' => 1, 'enrollment_token' => 1, 'created_at' => 1, 'expires_at' => 1]), 'ticked vs unticked: every other member is identical');
 $ok(substr($body, 0, $sp1 = S::read($body)['exe_length']) === $curBytes, 'ticked: the file is still the current binary plus the trailer (no Mesh binary bundled)');
 $lastTok = (int) $one("SELECT MAX(token_id) FROM endpoint_agent_enrollment_tokens");
@@ -307,10 +311,24 @@ $tokPlain = $p1['enrollment_token'];
 $gate = function (string $token) { $ch = curl_init($GLOBALS['base'] . '/api/v1/agent_installer'); curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode(['token' => $token, 'arch' => 'amd64']), CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60]); $raw = (string) curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch); return [$code, $raw]; };
 [$gc, $graw] = $gate($tokPlain);
 $gp = $gc === 200 ? $stamp($graw) : null;
-$ok($gc === 200 && $gp !== null && ($gp['install_mesh_agent'] ?? null) === true && ($gp['mesh']['meshid'] ?? '') === $group, 'the scripted token download (agent_installer) serves the ticked installer, with the Mesh block (' . $gc . ')');
+$ok($gc === 200 && $gp !== null && ($gp['install_mesh_agent'] ?? null) === true && ($gp['mesh']['meshid'] ?? '') === $groupUrl, 'the scripted token download (agent_installer) serves the ticked installer, with the Mesh block (' . $gc . ')');
 [$gc, $graw] = $gate($p0['enrollment_token']);
 $gp = $gc === 200 ? $stamp($graw) : null;
 $ok($gc === 200 && $gp !== null && !array_key_exists('mesh', $gp) && array_keys($gp) === $base8, 'the scripted download of an UNTICKED token has no Mesh block');
+// rc.15: saved as the whole pasted download address, the payload carries the meshid exactly as MeshCentral printed it, and an old hex-only row derives the same form
+$pasted = strtr(base64_encode(random_bytes(48)), ['+' => '@', '/' => '$']);
+$M->update(['mesh_group_id' => "https://mesh.example.test/meshagents?id=4&meshid=$pasted&installflags=0"], 1);
+$mfreshI();
+[$c, $body] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1, 'install_mesh_agent' => '1']);
+$pv = $stamp($body);
+$ok($c === 200 && $pv !== null && ($pv['mesh']['meshid'] ?? '') === $pasted && $pv['mesh']['meshid'] !== bin2hex(base64_decode(strtr($pasted, ['@' => '+', '$' => '/']))), 'rc.15: a pasted download address: the stamped mesh.meshid is the meshid exactly as pasted (URL form, not hex)');
+$q("UPDATE endpoint_agent_mesh_settings SET group_id_url = '' WHERE id = 1");   // a row saved by rc.12 to rc.14 (hex only)
+$M->update(['mesh_group_id' => $group], 1);
+$mfreshI();
+[$c, $body] = $ep(['action' => 'download', 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1, 'install_mesh_agent' => '1']);
+$pv = $stamp($body);
+$ok($c === 200 && ($pv['mesh']['meshid'] ?? '') === $groupUrl, 'rc.15: a hex-only row (rc.12 to rc.14) derives the same URL form in the payload');
+$t0 += 2;   // the two installers above created two tokens; the counters below start from there
 // with a pin
 $pin = str_repeat('ab', 48);
 $M->update(['mesh_server_cert_pin' => $pin, 'mesh_agent_ids' => ['windows/arm64' => 36], 'mesh_install_args' => ['linux' => ['-install', '--installPath=/opt/mesh']]], 1);
@@ -325,7 +343,7 @@ $d = $jd($b);
 $ok($c === 200 && strpos($d['command'], '--install-mesh-agent') === false && strpos($d['command'], '--mesh-') === false, 'Linux, unticked: the command is the plain one (no Mesh flags)');
 [$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
 $d = $jd($b);
-$ok($c === 200 && $d['success'] === true && strpos($d['command'], ' --install-mesh-agent --mesh-url \'https://mesh.example.test\' --mesh-group-id \'' . $group . '\' --mesh-cert-pin \'' . $pin . '\'') !== false
+$ok($c === 200 && $d['success'] === true && strpos($d['command'], ' --install-mesh-agent --mesh-url \'https://mesh.example.test\' --mesh-group-id \'' . $groupUrl . '\' --mesh-cert-pin \'' . $pin . '\'') !== false
     && strpos($d['command'], './install-linux.sh --server ') !== false && $toks() === $t0 + 2, 'Linux, ticked: the command gets --install-mesh-agent --mesh-url --mesh-group-id --mesh-cert-pin');
 $M->update(['mesh_server_cert_pin' => ''], 1);
 $mfreshI();
@@ -336,7 +354,7 @@ $ok(strpos($d['command'], '--install-mesh-agent') !== false && strpos($d['comman
 $t0 = $toks();
 [$c, $body, $h] = $admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1', 'ttl_hours' => 24, 'max_uses' => 1]);
 $p3 = $body !== '' ? $stamp($body) : null;
-$ok($c === 200 && $p3 !== null && ($p3['install_mesh_agent'] ?? null) === true && ($p3['mesh']['meshid'] ?? '') === $group && $toks() === $t0 + 1, 'the Deployment card, "Download installer" ticked: the same stamped file with the Mesh block');
+$ok($c === 200 && $p3 !== null && ($p3['install_mesh_agent'] ?? null) === true && ($p3['mesh']['meshid'] ?? '') === $groupUrl && $toks() === $t0 + 1, 'the Deployment card, "Download installer" ticked: the same stamped file with the Mesh block');
 [$c, $body] = $admin(['download_installer' => 1, 'client_id' => 1, 'arch' => 'amd64', 'ttl_hours' => 24, 'max_uses' => 1]);
 $p4 = $stamp($body);
 $ok($c === 200 && $p4 !== null && array_keys($p4) === $base8, 'the Deployment card, unticked: the plain payload');

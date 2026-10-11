@@ -409,6 +409,8 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($
 
             return is_array($d) && ($d === [] || !array_is_list($d)) ? $d : null;
         };
+        // rc.15: the device group id is sent to Core exactly as typed or pasted (only surrounding whitespace is trimmed): the bare 64-character meshid, the whole MeshCentral
+        // download address, mesh//... or hex. Core parses all of them, refuses the rest with one message and warns about a pasted address for another host. No hex check here.
         $in['mesh_group_id'] = is_string($_POST['mesh_group_id'] ?? null) ? trim($_POST['mesh_group_id']) : '';
         $keep['mesh_group_id'] = $in['mesh_group_id'];
         $keep['mesh_server_cert_pin'] = is_string($_POST['mesh_server_cert_pin'] ?? null) ? trim($_POST['mesh_server_cert_pin']) : '';
@@ -434,15 +436,26 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($
     if (!$r->ok && $keep !== []) {
         $_SESSION['ea_mesh_keep'] = $keep;
     }
+    // rc.15: Core's `warnings` (a pasted address for another host than the saved MeshCentral address) are shown with the result; the save itself succeeded.
+    $meshWarn = is_array($r->data['warnings'] ?? null) ? array_values(array_filter($r->data['warnings'], 'is_string')) : [];
+    $meshWarnText = $meshWarn === [] ? '' : ' Warning: ' . implode(' ', $meshWarn);
     if ($probing) {
         $_SESSION['ea_mesh_pin_probe'] = is_array($r->data['pin_probe'] ?? null) ? $r->data['pin_probe'] : null;
         if ($r->ok) {
             $pp = $_SESSION['ea_mesh_pin_probe'];
-            flash_alert(nullable_htmlentities(is_array($pp) && !empty($pp['ok']) ? 'Read the certificate from the Mesh server. The proposed pin is shown under the pin field: compare it with the hash MeshCentral shows, then use it and press Save.' : 'The settings were saved, but the certificate could not be read: ' . (is_array($pp) ? (string) ($pp['error'] ?? 'unknown error') : 'unknown error')), is_array($pp) && !empty($pp['ok']) ? 'success' : 'warning');
+            if (is_array($pp) && !empty($pp['ok'])) {
+                $msg = !empty($pp['publicly_trusted'])
+                    ? 'Read the certificate from the Mesh server. It is publicly trusted, so no pin is needed: leave the pin empty.'
+                    : 'Read the certificate from the Mesh server. The proposed pin is shown under the pin field: compare it with the hash MeshCentral shows, then use it and press Save.';
+            } else {
+                $msg = 'The settings were saved, but the certificate could not be read: ' . (is_array($pp) ? (string) ($pp['error'] ?? 'unknown error') : 'unknown error');
+            }
+            flash_alert(nullable_htmlentities($msg . $meshWarnText), $meshWarn !== [] || !is_array($pp) || empty($pp['ok']) ? 'warning' : 'success');
             ea_scale_back('mesh');
         }
     }
-    ea_flash_result($r);
+    flash_alert(nullable_htmlentities($r->message . $meshWarnText), !$r->ok ? 'error' : ($meshWarn !== [] ? 'warning' : 'success'));
+    redirect();
 }
 
 // ================================================================================================================================================================

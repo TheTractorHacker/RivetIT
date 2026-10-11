@@ -1563,6 +1563,7 @@ DROP TABLE IF EXISTS `endpoint_agent_mesh_settings`;
 CREATE TABLE `endpoint_agent_mesh_settings` (
   `id` tinyint(4) NOT NULL DEFAULT 1,
   `group_id` varchar(128) NOT NULL DEFAULT '',
+  `group_id_url` varchar(64) NOT NULL DEFAULT '',
   `server_cert_pin` varchar(96) NOT NULL DEFAULT '',
   `auto_map_overwrite` tinyint(1) NOT NULL DEFAULT 0,
   `agent_ids_json` text DEFAULT NULL,

@@ -49,7 +49,7 @@ foreach (['name="mesh_group_id"' => 'device group id', 'name="mesh_server_cert_p
     $ok(str_contains($card, $needle), "the card has the $what field");
 }
 $ok(str_contains($card, 'Read it from the server') && str_contains($card, 'trust on first use'), 'the pin help explains the button (trust on first use)');
-$ok(str_contains($card, 'id="mesh-install-help"') && str_contains($card, 'Create the device group in MeshCentral') && str_contains($card, 'Treat the group id as a secret') && str_contains($card, 'Check the result'), 'step-by-step help text is on the card');
+$ok(str_contains($card, 'id="mesh-install-help"') && str_contains($card, 'Create the device group in MeshCentral') && str_contains($card, 'Treat the group id like an invitation key') && str_contains($card, 'Check the result'), 'step-by-step help text is on the card');
 $ok(preg_match('/<details id="mesh-install-advanced"(?![^>]*\bopen\b)/', $card) === 1, 'the advanced corrections are collapsed by default');
 $ok(str_contains($card, 'verify against your MeshCentral version') && str_contains($card, 'Windows ARM64 agent id (36) is the least certain'), 'the advanced section carries the "verify against your MeshCentral version" warning');
 $ok(str_contains($card, 'id="mesh-install-ready"') && str_contains($card, 'Not ready: ') && str_contains($card, 'device group id'), 'the card says what is missing before the installer tick-box can appear (' . ($rmm->meshAgents()->installRefusal() ?? 'null') . ')');
@@ -61,18 +61,82 @@ $ok(str_contains($card, 'role="switch"') && str_contains($card, 'for="mc_group"'
 $ok($mstate()['group_id'] === '', 'a technician cannot save the Mesh install settings (' . $c . ')');
 
 // the group id in MeshCentral's own mesh// form is converted; the hex form is accepted too
-$raw48 = random_bytes(48);
+do {   // rc.15: an id whose URL form has both an '@' (for '+') and a '$' (for '/'), so the spelling is really exercised
+    $raw48 = random_bytes(48);
+    $u48 = strtr(base64_encode($raw48), ['+' => '@', '/' => '$']);   // MeshCentral's URL form: 64 characters
+} while (!str_contains($u48, '@') || !str_contains($u48, '$'));
 $meshForm64 = 'mesh//' . strtr(base64_encode($raw48), ['+' => '@', '/' => '$']);
 [$c] = $adm1($meshForm(['mesh_group_id' => $meshForm64, 'mesh_auto_map_overwrite' => '1']));
 $g = $mstate();
 $ok($g['group_id'] === bin2hex($raw48) && $g['auto_map_overwrite'] === true, 'the mesh// form of the group id is saved as hex, and the overwrite switch is saved on (' . $c . ')');
 [$c, $page] = $adminPageM();
 $card = $cardOf($page);
-$ok(str_contains($card, 'value="' . bin2hex($raw48) . '"') && preg_match('/name="mesh_auto_map_overwrite"[^>]*checked/', $card) === 1 && str_contains($card, 'Ready: the tick-box appears in the installer dialogs.'), 'the card shows the saved hex id, the switch on and "Ready"');
+$ok(str_contains($card, 'value="' . $u48 . '"') && !str_contains($card, bin2hex($raw48)) && preg_match('/name="mesh_auto_map_overwrite"[^>]*checked/', $card) === 1 && str_contains($card, 'Ready: the tick-box appears in the installer dialogs.'), 'the card shows the saved id in MeshCentral\'s URL form (mesh_group_id_url, not the hex), the switch on and "Ready"');
 [$c] = $adm1($meshForm(['mesh_group_id' => strtoupper(bin2hex($raw48))]));
 $ok($mstate()['group_id'] === bin2hex($raw48) && $mstate()['auto_map_overwrite'] === false, 'a hex id in capitals is normalised; an unticked switch saves off');
 $audit0 = (int) $one("SELECT COUNT(*) FROM logs WHERE log_description LIKE '%edited the MeshCentral settings%Mesh agent install settings%'");
 $ok($audit0 >= 2, 'saving the install settings is audited (' . $audit0 . ' lines)');
+
+// ---- RivetCore 1.0.0-rc.15: the device group id in MeshCentral's own URL form (all values below are random placeholders made by this test)
+[$c, $page] = $adminPageM();
+$card = $cardOf($page);
+preg_match('/<input[^>]*id="mc_group"[^>]*>/', $card, $gIn);
+$gIn = $gIn[0] ?? '';
+$ok($gIn !== '' && !str_contains($gIn, 'pattern=') && str_contains($gIn, 'maxlength="2000"') && str_contains($gIn, 'name="mesh_group_id"') && str_contains($gIn, 'autocomplete="new-password"'), 'rc.15: the group id input has no pattern attribute (no hex-only restriction) and takes up to 2000 characters');
+$ok(str_contains($gIn, 'type="password"') && preg_match('~data-toggle="password"[^>]*aria-controls="mc_group"|aria-controls="mc_group"[^>]*data-toggle="password"~', $card) === 1, 'rc.15: the id is masked like an invitation key, with a show/hide toggle button');
+$ok(str_contains($card, 'Paste the download address from MeshCentral (device group') && str_contains($card, 'Windows 64-bit installer') && str_contains($card, 'It is 64 characters, not hex') && str_contains($card, 'Treat it like an invitation key'), 'rc.15: the field help says what to paste (the download address or its meshid), that it is 64 characters not hex, and to treat it like an invitation key');
+$ok(str_contains($card, 'empty = public CA certificate') && str_contains($card, 'Leave this empty when the Mesh server') && str_contains($card, 'Let\'s Encrypt') && str_contains($card, '60 to 90 days') && str_contains($card, 'Pin only a private CA or a self-signed certificate'), 'rc.15: the pin help says to leave it empty for a public CA (Let\'s Encrypt renews every 60 to 90 days) and to pin only a private CA or self-signed certificate');
+$gAll = fn () => $mstate();
+// the bare 64-character meshid
+[$c] = $adm1($meshForm(['mesh_group_id' => $u48, 'mesh_auto_map_overwrite' => null]));
+$g = $gAll();
+$ok($g['group_id'] === bin2hex($raw48) && $g['group_id_url'] === $u48, 'rc.15: the bare 64-character meshid is saved (hex canonical, the URL form kept verbatim)');
+$ok((string) $one("SELECT group_id_url FROM endpoint_agent_mesh_settings WHERE id=1") === $u48 && (string) $one("SELECT group_id FROM endpoint_agent_mesh_settings WHERE id=1") === bin2hex($raw48), 'rc.15: the database holds group_id (hex) and group_id_url (the URL form as pasted)');
+[$c, $page] = $adminPageM();
+$ok(str_contains($cardOf($page), 'value="' . $u48 . '"') && !str_contains($page, 'Warning: The pasted address'), 'rc.15: the card reads the id back from mesh_group_id_url; a bare id gives no warning');
+// the whole pasted download address, same host as the saved MeshCentral address: only the meshid is taken, no warning
+$u2 = strtr(base64_encode(random_bytes(48)), ['+' => '@', '/' => '$']);
+$mHost = (string) parse_url((string) $rmm->settings()->get(true)['mesh_url'], PHP_URL_HOST);
+[$c] = $adm1($meshForm(['mesh_group_id' => " https://$mHost/meshagents?id=4&meshid=$u2&installflags=0 \n"]));
+$g = $gAll();
+$ok($g['group_id_url'] === $u2 && $g['group_id'] === bin2hex(base64_decode(strtr($u2, ['@' => '+', '$' => '/']))), 'rc.15: the whole pasted download address (same host, with surrounding whitespace) is saved: only the meshid is extracted');
+[$c, $page] = $adminPageM();
+$ok(!str_contains($page, 'Warning: The pasted address') && str_contains($cardOf($page), 'value="' . $u2 . '"') && preg_match('/<input[^>]*id="mc_group"[^>]*meshagents/', $cardOf($page)) !== 1, 'rc.15: a pasted address for the saved host raises no warning; the card shows the meshid, not the address');
+// a different host: saved, with Core\'s warning shown
+$u3 = strtr(base64_encode(random_bytes(48)), ['+' => '@', '/' => '$']);
+[$c] = $adm1($meshForm(['mesh_group_id' => "https://other-mesh.example.net/meshagents?id=4&meshid=$u3&installflags=0"]));
+$g = $gAll();
+$ok($g['group_id_url'] === $u3, 'rc.15: an address for a different host is still saved');
+[$c, $page] = $adminPageM();
+$ok(str_contains($page, 'Warning: The pasted address is for the host other-mesh.example.net, but the MeshCentral address is set to ' . $mHost) && str_contains($page, 'Check that both belong to the same MeshCentral server'), 'rc.15: Core\'s warning about the other host is shown with the confirmation');
+[$c, $page] = $adminPageM();
+$ok(!str_contains($page, 'Warning: The pasted address'), 'rc.15: the warning is shown once');
+// the other accepted spellings
+[$c] = $adm1($meshForm(['mesh_group_id' => "mesh//$u2"]));
+$g = $gAll();
+$ok($g['group_id_url'] === $u2 && $g['group_id'] === bin2hex(base64_decode(strtr($u2, ['@' => '+', '$' => '/']))), 'rc.15: mesh//<64 characters> is saved with the URL form kept');
+[$c] = $adm1($meshForm(['mesh_group_id' => strtoupper(bin2hex($raw48))]));
+$g = $gAll();
+$ok($g['group_id'] === bin2hex($raw48) && $g['group_id_url'] === $u48, 'rc.15: hex is still accepted and the URL form is derived from it (' . $g['group_id_url'] . ')');
+$ok((string) $one("SELECT group_id_url FROM endpoint_agent_mesh_settings WHERE id=1") === '', 'rc.15: a hex save does not store a URL form (it is derived on read)');
+[$c, $page] = $adminPageM();
+$ok(str_contains($cardOf($page), 'value="' . $u48 . '"'), 'rc.15: the card shows the derived URL form for an id saved as hex');
+// hostile and malformed values are refused with one message and nothing is written; what was typed comes back escaped
+$hostile = ['<script>alert(1)</script>', 'ab cd' . str_repeat('e', 59), "$u48\"onfocus=\"alert(1)", "javascript:alert(1)", "https://user:pw@mesh.example.test/meshagents?id=4&meshid=$u48", "https://$mHost/meshagents?id=4&installflags=0",
+    "https://$mHost/meshagents?id=0&meshid=$u48", "https://$mHost/meshagents?id=999&meshid=$u48", substr($u48, 1), $u48 . 'A', "mesh//" . substr($u48, 2), str_repeat('z', 64) . '#', "$u48&x=1", "'$u48'", "ab\ncd", str_repeat('A', 2100), 'file:///etc/passwd', "$u48`id`"];
+$stored = $gAll();
+$bad = 0;
+foreach ($hostile as $h) {
+    [$c] = $adm1($meshForm(['mesh_group_id' => $h]));
+    $g = $gAll();
+    if ($g['group_id'] !== $stored['group_id'] || $g['group_id_url'] !== $stored['group_id_url']) { $bad++; echo "  accepted: " . json_encode(substr($h, 0, 70)) . "\n"; }
+}
+$ok($bad === 0, 'rc.15: ' . count($hostile) . ' hostile or malformed values (markup, quotes, backtick, credentials in the URL, no meshid, id 0 and 999, wrong length, extra parameters, newline, 2100 characters, file:) are all refused; the stored id never changes');
+[$c] = $adm1($meshForm(['mesh_group_id' => '<script>alert(1)</script>']));
+[$c, $page] = $adminPageM();
+$card = $cardOf($page);
+$ok(str_contains($page, 'The Mesh device group id must be the meshid') && str_contains($card, 'value="&lt;script&gt;alert(1)&lt;/script&gt;"') && !str_contains($page, '<script>alert(1)</script>'), 'rc.15: a refused value comes back escaped, with Core\'s one message');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48)]));   // back to the id the rest of this fragment uses
 
 // refusals write nothing at all (the group id is valid, the pin is not), and what was typed comes back
 [$c] = $adm1($meshForm(['mesh_group_id' => str_repeat('cd', 40), 'mesh_server_cert_pin' => 'not-a-pin', 'mesh_auto_map_overwrite' => '1']));
@@ -86,7 +150,7 @@ $ok(!str_contains($cardOf($page), 'value="not-a-pin"'), 'the kept values are sho
 [$c] = $adm1($meshForm(['mesh_group_id' => 'xyz not hex']));
 $ok($mstate()['group_id'] === bin2hex($raw48), 'an invalid group id is refused and the stored one stays');
 [$c, $page] = $adminPageM();
-$ok(str_contains($page, 'The Mesh device group id must be the hex id'), 'the group id refusal text is Core\'s');
+$ok(str_contains($page, 'The Mesh device group id must be the meshid from the MeshCentral download address'), 'the group id refusal text is Core\'s');
 [$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_agent_ids' => '[1,2,3]']));
 [$c, $page] = $adminPageM();
 $ok(str_contains($page, 'must each be a JSON object') && $mstate()['agent_ids'] === [], 'a JSON list for the agent id corrections is refused before Core is asked');
@@ -146,6 +210,7 @@ if ($haveOpenssl) {
     $ok(str_contains($card, 'id="mc_pin_proposal"') && str_contains($card, 'Proposed pin (not saved)') && str_contains($card, '<div class="font-monospace small text-break" id="mc_pin_proposed">' . $expectPin . '</div>'), 'the proposal is shown: the SHA-384 of the server\'s certificate');
     $ok(str_contains($card, 'data-ea-use-pin="' . $expectPin . '"') && str_contains($card, 'Compare it with the hash MeshCentral shows') && preg_match('/name="mesh_server_cert_pin"[^>]*value=""/', $card) === 1, 'a "Use this pin" button carries it; the pin field itself is still empty');
     $ok($mstate()['server_cert_pin'] === '', 'the proposal is not saved by showing it');
+    $ok(str_contains($card, 'data-publicly-trusted="0"') && str_contains($card, 'id="mc_pin_note"') && str_contains($card, 'This certificate is not trusted by the system certificate store (a private CA or a self-signed certificate)'), 'rc.15: a self-signed certificate: Core\'s note says it is not publicly trusted (pin_probe.note) and the proposal is offered');
     [$c, $page] = $adminPageM();
     $ok(!str_contains($cardOf($page), 'mc_pin_proposed'), 'the proposal is shown once');
     [$c] = $adm1($meshForm(['mesh_url' => $meshUrlTls, 'mesh_group_id' => bin2hex($raw48), 'mesh_server_cert_pin' => strtoupper(implode(':', str_split($expectPin, 2)))]));
@@ -159,6 +224,51 @@ if ($haveOpenssl) {
     $ok(!str_contains($cardOf($page), 'mc_pin_proposed'), 'a technician cannot use the probe (nothing is shown to the administrator)');
     [$c] = $adm1($meshForm(['mesh_url' => 'https://127.0.0.1:' . $tlsPort, 'mesh_group_id' => bin2hex($raw48), 'mesh_server_cert_pin' => '']));
     $ok($mstate()['server_cert_pin'] === '', 'an empty pin clears it (the system trust store is used again)');
+
+    // ---- rc.15: pin_probe.publicly_trusted. The system trust store of the test machine cannot be changed, and a public CA (Let's Encrypt) cannot be reached from here, so the
+    // "publicly trusted" answer is produced with a LOCAL CA: a second php -S whose PHP is started with curl.cainfo = that CA (the bundle PHP's curl hands to libcurl; Core has no
+    // trust-store injection of its own), against a stand-in whose certificate that CA signed. That proves the page logic and the handshake wiring, NOT Let's Encrypt itself.
+    exec('openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=rc15 local test CA" -addext "basicConstraints=critical,CA:TRUE" -keyout ' . escapeshellarg("$tdir/ca.key") . ' -out ' . escapeshellarg("$tdir/ca.pem") . ' 2>/dev/null', $oo, $rc1);
+    exec('openssl req -newkey rsa:2048 -nodes -subj "/CN=mesh.public.test" -keyout ' . escapeshellarg("$tdir/p.key") . ' -out ' . escapeshellarg("$tdir/p.csr") . ' 2>/dev/null', $oo, $rc2);
+    file_put_contents("$tdir/ext.cnf", "subjectAltName=IP:127.0.0.1,DNS:localhost\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n");
+    exec('openssl x509 -req -in ' . escapeshellarg("$tdir/p.csr") . ' -CA ' . escapeshellarg("$tdir/ca.pem") . ' -CAkey ' . escapeshellarg("$tdir/ca.key") . ' -CAcreateserial -days 2 -extfile ' . escapeshellarg("$tdir/ext.cnf") . ' -out ' . escapeshellarg("$tdir/p.pem") . ' 2>/dev/null', $oo, $rc3);
+    $haveCa = $rc1 === 0 && $rc2 === 0 && $rc3 === 0 && is_file("$tdir/p.pem") && trim((string) @shell_exec('command -v python3')) !== '';
+    $ok($haveCa, 'rc.15: a local CA and a server certificate it signed (SAN IP 127.0.0.1)');
+    if ($haveCa) {
+        $sock = stream_socket_server('tcp://127.0.0.1:0', $en, $es);
+        $caPort = (int) explode(':', stream_socket_get_name($sock, false))[1];
+        fclose($sock);
+        $caProc = proc_open(['python3', '-I', __DIR__ . '/support/tls_stub_server.py', (string) $caPort, "$tdir/p.pem", "$tdir/p.key"], [0 => ['file', '/dev/null', 'r'], 1 => ['file', "$tdir/srv2.log", 'a'], 2 => ['file', "$tdir/srv2.log", 'a']], $pp2);
+        register_shutdown_function(function () use (&$caProc) { if (is_resource($caProc)) { proc_terminate($caProc); proc_close($caProc); } });
+        for ($i = 0; $i < 50; $i++) { if (@fsockopen('127.0.0.1', $caPort)) { break; } usleep(100000); }
+        $caPin = strtolower(str_replace(':', '', trim((string) shell_exec('openssl x509 -in ' . escapeshellarg("$tdir/p.pem") . ' -noout -fingerprint -sha384 | cut -d= -f2'))));
+        $web2 = ea_start_php($root . '/tests/mobile_api_router.php', ['RIVETIT_WEBHOOK_ALLOW_PRIVATE' => '1'], ["session.save_path=$sdir", "curl.cainfo=$tdir/ca.pem"]);
+        $wb2 = "http://127.0.0.1:{$web2['port']}";
+        $adm2 = function (array $f) use ($wb2, $SS, $REF1, $fresh) { $r = web($wb2, 'POST', '/admin/post.php', $SS['admin'], $f + ['csrf_token' => 'csrftok1'], $REF1); $fresh(); return $r; };
+        $card2 = function () use ($wb2, $SS, $cardOf): string { [, $pg] = web($wb2, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']); return $cardOf($pg); };
+        $caUrl = 'https://127.0.0.1:' . $caPort;
+        // 1. a certificate that the web server's trust bundle verifies: the note says no pin is needed and NOTHING offers to save the proposed pin
+        [$c] = $adm2($meshForm(['mesh_url' => $caUrl, 'mesh_group_id' => $u48, 'mesh_server_cert_pin' => '', 'probe_mesh_pin' => '1', 'save_mesh_settings' => null]));
+        $cd = $card2();
+        $ok(str_contains($cd, 'id="mc_pin_proposal"') && str_contains($cd, 'data-publicly-trusted="1"') && str_contains($cd, 'Publicly trusted certificate: no pin needed') && str_contains($cd, 'This certificate is publicly trusted: no pin needed. Leave the pin empty so installs keep working when the certificate is renewed.'), 'rc.15: a certificate the trust store verifies (publicly_trusted true): the page shows Core\'s note, "no pin needed"');
+        $ok(!str_contains($cd, 'data-ea-use-pin="') && !str_contains($cd, 'Use this pin') && !str_contains($cd, 'mc_pin_proposed') && !str_contains($cd, 'Proposed pin') && !str_contains($cd, $caPin), 'rc.15: a publicly trusted certificate: no "Use this pin" button, no proposed pin, the hash is not even printed');
+        $ok($mstate()['server_cert_pin'] === '' && preg_match('/name="mesh_server_cert_pin"[^>]*value=""/', $cd) === 1, 'rc.15: the pin stays empty');
+        // 2. the control: the very same server read by the first web server (whose trust store does not hold that CA) is NOT publicly trusted, so it is the CA that flipped the answer
+        [$c] = $adm1($meshForm(['mesh_url' => $caUrl, 'mesh_group_id' => $u48, 'mesh_server_cert_pin' => '', 'probe_mesh_pin' => '1', 'save_mesh_settings' => null]));
+        [$c, $pg] = $adminPageM();
+        $cd = $cardOf($pg);
+        $ok(str_contains($cd, 'data-publicly-trusted="0"') && str_contains($cd, 'mc_pin_proposed') && str_contains($cd, $caPin) && str_contains($cd, 'not trusted by the system certificate store'), 'rc.15: control: the same certificate read by a web server that does not trust the local CA is not publicly trusted, and the proposal is offered');
+        // 3. the self-signed stand-in read by the web server that trusts only the local CA is not publicly trusted either
+        [$c] = $adm2($meshForm(['mesh_url' => $meshUrlTls, 'mesh_group_id' => $u48, 'mesh_server_cert_pin' => '', 'probe_mesh_pin' => '1', 'save_mesh_settings' => null]));
+        $cd = $card2();
+        $ok(str_contains($cd, 'data-publicly-trusted="0"') && str_contains($cd, $expectPin), 'rc.15: a self-signed certificate is not publicly trusted even where the local CA is trusted');
+        // 4. the flash after the button says the same
+        [$c, , $hd] = $adm2($meshForm(['mesh_url' => $caUrl, 'mesh_group_id' => $u48, 'mesh_server_cert_pin' => '', 'probe_mesh_pin' => '1', 'save_mesh_settings' => null]));
+        [, $pg] = web($wb2, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']);
+        $ok(str_contains($pg, 'It is publicly trusted, so no pin is needed: leave the pin empty.'), 'rc.15: the confirmation after the button says no pin is needed');
+        [$c] = $adm1($meshForm(['mesh_url' => 'https://127.0.0.1:' . $tlsPort, 'mesh_group_id' => bin2hex($raw48), 'mesh_server_cert_pin' => '']));
+        $mstate();
+    }
 }
 
 // ---- back to the seed's address; keep the group id for the device scenarios (the installer tests clear it)

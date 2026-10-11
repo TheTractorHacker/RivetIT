@@ -42,6 +42,9 @@ const tlsPort = await freePort();
 const tlsProc = spawn('openssl', ['s_server', '-accept', `127.0.0.1:${tlsPort}`, '-cert', join(tlsDir, 'c.pem'), '-key', join(tlsDir, 'k.pem'), '-www', '-quiet'], { stdio: 'ignore' });
 const EXPECT_PIN = execFileSync('openssl', ['x509', '-in', join(tlsDir, 'c.pem'), '-noout', '-fingerprint', '-sha384'], { encoding: 'utf8' }).trim().split('=')[1].replace(/:/g, '').toLowerCase();
 const MESH_TLS = `https://127.0.0.1:${tlsPort}`;
+// rc.15: MeshCentral's URL form of a device group id (base64 of the 48 bytes, '@' for '+', '$' for '/'), computed here independently of the product; 'cd'x48 is the hex used below
+const urlForm = (hex) => Buffer.from(hex, 'hex').toString('base64').replace(/\+/g, '@').replace(/\//g, '$');
+const CD_HEX = 'cd'.repeat(48), CD_URL = urlForm(CD_HEX);
 const stopTls = () => { try { tlsProc.kill(); } catch {} try { rmSync(tlsDir, { recursive: true, force: true }); } catch {} };
 process.on('exit', stopTls);
 const canConnect = (port) => new Promise((ok) => { const c = connect(port, '127.0.0.1', () => { c.destroy(); ok(true); }); c.on('error', () => ok(false)); });
@@ -193,7 +196,7 @@ await T('settings card: new fields, collapsed advanced section with the verify w
   assert(/verify against your MeshCentral version/.test(t) && /least certain/.test(t) && /windows\/amd64/.test(t) && /built in/.test(t), 'advanced text: ' + t.slice(0, 300));
   await p.eval(`document.querySelector('#mesh-install-help summary').click()`);
   const h = await text('#mesh-install-help');
-  assert(/Create the device group in MeshCentral/.test(h) && /Treat the group id as a secret/.test(h) && /Check the result/.test(h), 'help text: ' + h.slice(0, 200));
+  assert(/Create the device group in MeshCentral/.test(h) && /Treat the group id like an invitation key/.test(h) && /not hex/.test(h) && /Check the result/.test(h), 'help text: ' + h.slice(0, 200));
   await shotEl('#mesh', 'card-mesh-desktop-light');
 });
 await T('settings card: a bad group id and a bad pin are refused with Core\'s text and what was typed stays in the form', async () => {
@@ -201,7 +204,7 @@ await T('settings card: a bad group id and a bad pin are refused with Core\'s te
   await p.type('#mc_group', 'not hex at all');
   await nav('button[name=save_mesh_settings]');
   const msg = await bodyText();
-  assert(/device group id must be the hex id/.test(msg), 'no Core refusal on the page');
+  assert(/device group id must be the meshid from the MeshCentral download address/.test(msg), 'no Core refusal on the page');
   assert((await p.eval(`document.getElementById('mc_group').value`)) === 'not hex at all', 'the typed group id was not kept');
   await go(ADMIN + '#mesh');
   await p.type('#mc_group', 'ab'.repeat(48));
@@ -210,17 +213,49 @@ await T('settings card: a bad group id and a bad pin are refused with Core\'s te
   assert(/certificate pin must be the SHA-384/.test(await bodyText()), 'no pin refusal');
   assert((await p.eval(`document.getElementById('mc_pin').value`)) === 'not-a-pin', 'the typed pin was not kept');
 });
+await T('settings card (rc.15): the group id field is masked with a show toggle, takes the whole pasted address, warns about another host, and reads back the URL form', async () => {
+  await go(ADMIN + '#mesh');
+  const attrs = await p.eval(`(()=>{const e=document.getElementById('mc_group');return {type:e.type,pattern:e.getAttribute('pattern'),max:e.maxLength,ac:e.autocomplete}})()`);
+  assert(attrs.type === 'password' && attrs.pattern === null && attrs.max === 2000, 'input attributes: ' + JSON.stringify(attrs));
+  assert(/not hex/.test(await text('#mc_group_help')) && /invitation key/.test(await text('#mc_group_help')) && /Windows 64-bit installer/.test(await text('#mc_group_help')), 'help: ' + await text('#mc_group_help'));
+  assert(/Leave this empty when the Mesh server/.test(await text('#mc_pin_help')) && /Let's Encrypt/.test(await text('#mc_pin_help')), 'pin help: ' + await text('#mc_pin_help'));
+  assert((await p.eval(`document.getElementById('mc_pin').placeholder`)) === 'empty = public CA certificate', 'pin placeholder');
+  const A = urlForm('ab'.repeat(48));
+  const host = await p.eval(`new URL(document.getElementById('mc_url').value).hostname`);
+  await p.type('#mc_group', `https://some-other-mesh.example.net/meshagents?id=4&meshid=${A}&installflags=0`);
+  await click('#mc_group_show');
+  assert((await p.eval(`document.getElementById('mc_group').type`)) === 'text', 'the show toggle did not reveal the id');
+  assert((await p.eval(`document.getElementById('mc_group').value`)).startsWith('https://some-other-mesh'), 'the pasted address was altered in the field');
+  await nav('button[name=save_mesh_settings]');
+  const t = await bodyText();
+  assert(/Warning: The pasted address is for the host some-other-mesh\.example\.net, but the MeshCentral address is set to /.test(t), 'no warning about the other host: ' + t.slice(0, 300));
+  assert((await p.eval(`document.getElementById('mc_group').value`)) === A, 'the card did not read the id back in the URL form');
+  assert((await p.eval(`document.getElementById('mc_group').type`)) === 'password', 'the id is not masked after reload');
+  await click('#mc_group_show');
+  assert((await p.eval(`document.getElementById('mc_group').type`)) === 'text', 'toggle (second time)');
+  await click('#mc_group_show');
+  assert((await p.eval(`document.getElementById('mc_group').type`)) === 'password', 'toggle back');
+  await shotEl('#mesh', 'card-mesh-group-url-desktop-light');
+  await p.type('#mc_group', '<img src=x onerror=alert(1)>');
+  await nav('button[name=save_mesh_settings]');
+  assert(/device group id must be the meshid/.test(await bodyText()), 'hostile value was not refused');
+  assert((await p.eval(`document.getElementById('mc_group').value`)) === '<img src=x onerror=alert(1)>' && !(await p.exists('#mesh img')), 'the refused value must come back as text, not markup');
+  await p.type('#mc_group', A);
+  await nav('button[name=save_mesh_settings]');
+  assert((await p.eval(`document.getElementById('mc_group').value`)) === A, 'the bare meshid was not saved');
+});
 await T('settings card: point it at the local TLS stand-in, read the pin from the server, compare, use it, save', async () => {
   php(['mesh', MESH_TLS, '-']);
   await go(ADMIN + '#mesh');
   assert((await p.eval(`document.getElementById('mc_url').value`)) === MESH_TLS, 'the address field');
-  await p.type('#mc_group', 'cd'.repeat(48));
+  await p.type('#mc_group', CD_HEX);
   await p.type('#mc_pin', 'ee'.repeat(48));   // typed, but the probe button must NOT save it
   await nav('#mc_pin_probe');
   await p.waitSel('#mc_pin_proposed');
   const proposed = await text('#mc_pin_proposed');
   assert(proposed === EXPECT_PIN, `proposed pin ${proposed} !== independently computed ${EXPECT_PIN}`);
   assert(/Proposed pin \(not saved\)/.test(await text('#mc_pin_proposal')), 'not labelled as unsaved');
+  assert(/not trusted by the system certificate store/.test(await text('#mc_pin_note')) && (await p.eval(`document.getElementById('mc_pin_proposal').getAttribute('data-publicly-trusted')`)) === '0', 'no self-signed note: ' + await text('#mc_pin_proposal'));
   assert((await p.eval(`document.getElementById('mc_pin').value`)) === '', 'the pin field is not empty (a typed pin must not have been saved by the probe)');
   await shotEl('#mc_pin_proposal', 'card-mesh-pin-proposal-desktop-light');
   await click('[data-ea-use-pin]');
@@ -229,7 +264,7 @@ await T('settings card: point it at the local TLS stand-in, read the pin from th
   assert((await p.eval(`document.activeElement && document.activeElement.id`)) === 'mc_pin', 'focus did not move to the pin field');
   await nav('button[name=save_mesh_settings]');
   assert((await p.eval(`document.getElementById('mc_pin').value`)) === EXPECT_PIN, 'the pin was not saved');
-  assert((await p.eval(`document.getElementById('mc_group').value`)) === 'cd'.repeat(48), 'the group id was not saved');
+  assert((await p.eval(`document.getElementById('mc_group').value`)) === CD_URL, 'the group id was not saved (the card shows the URL form ' + CD_URL + ')');
   assert(/Ready: the tick-box appears/.test(await text('#mesh-install-ready')), 'ready line: ' + await text('#mesh-install-ready'));
   assert(!(await p.exists('#mc_pin_proposal')), 'the proposal is still shown after saving');
 });
@@ -279,7 +314,7 @@ await T('dialog, Linux: ticked gives the command with the Mesh flags (and the pi
   await click('#rmm-inst-go');
   await p.waitFor(`document.getElementById('rmm-inst-linux-cmd').innerText.length > 20`, { timeout: 20000 });
   const cmd = await p.eval(`document.getElementById('rmm-inst-linux-cmd').innerText`);
-  assert(cmd.includes(`--install-mesh-agent --mesh-url '${MESH_TLS}' --mesh-group-id '${'cd'.repeat(48)}' --mesh-cert-pin '${EXPECT_PIN}'`), 'ticked command: ' + cmd.slice(-300));
+  assert(cmd.includes(`--install-mesh-agent --mesh-url '${MESH_TLS}' --mesh-group-id '${CD_URL}' --mesh-cert-pin '${EXPECT_PIN}'`), 'ticked command: ' + cmd.slice(-300));
   assert(/Mesh device group id: keep it secret/.test(await text('#rmm-inst-linux-meta')), 'no secrecy note: ' + await text('#rmm-inst-linux-meta'));
   await shotEl('#rmmInstallerModal .modal-content', 'dialog-mesh-linux-desktop-light');
 });

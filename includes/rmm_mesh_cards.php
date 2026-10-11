@@ -23,7 +23,7 @@ const RIVET_RMM_MESH_VERIFY_WARNING = 'Everything about talking to MeshCentral w
 /**
  * What the install card needs, or null when the 0023 tables are not there yet (a database that has not been updated: say so, print no fields).
  *
- * @return array{group_id:string,server_cert_pin:string,auto_map_overwrite:bool,agent_ids:array<string,int>,install_args:array<string,list<string>>,effective_agent_ids:array<string,int>,effective_install_args:array<string,list<string>>,default_agent_ids:array<string,int>,ready:bool,refusal:string}|null
+ * @return array{group_id:string,group_id_url:string,server_cert_pin:string,auto_map_overwrite:bool,agent_ids:array<string,int>,install_args:array<string,list<string>>,effective_agent_ids:array<string,int>,effective_install_args:array<string,list<string>>,default_agent_ids:array<string,int>,ready:bool,refusal:string}|null
  */
 function rivetRmmMeshInstallView(\RivetCore\Rmm\RmmModule $rmm): ?array
 {
@@ -35,7 +35,7 @@ function rivetRmmMeshInstallView(\RivetCore\Rmm\RmmModule $rmm): ?array
         return null;
     }
 
-    return ['group_id' => $m['group_id'], 'server_cert_pin' => $m['server_cert_pin'], 'auto_map_overwrite' => $m['auto_map_overwrite'], 'agent_ids' => $m['agent_ids'], 'install_args' => $m['install_args'],
+    return ['group_id' => $m['group_id'], 'group_id_url' => (string) ($m['group_id_url'] ?? ''), 'server_cert_pin' => $m['server_cert_pin'], 'auto_map_overwrite' => $m['auto_map_overwrite'], 'agent_ids' => $m['agent_ids'], 'install_args' => $m['install_args'],
         'effective_agent_ids' => $t['agent_ids'], 'effective_install_args' => $t['install_args'], 'default_agent_ids' => \RivetCore\Rmm\Mesh\MeshAgentCatalog::DEFAULT_AGENT_IDS,
         'ready' => $why === null, 'refusal' => (string) $why];
 }
@@ -55,7 +55,8 @@ function rivetRmmMeshJson(array $v): string
 function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): string
 {
     $h = 'rivetRmmMeshH';
-    $keepGroup = (string) ($keep['mesh_group_id'] ?? ($v['group_id'] ?? ''));
+    // rc.15: what the field shows is the group id in MeshCentral's own 64-character URL form (Core's mesh_group_id_url; the canonical hex stays in mesh_group_id and is not printed)
+    $keepGroup = (string) ($keep['mesh_group_id'] ?? (($v['group_id_url'] ?? '') !== '' ? $v['group_id_url'] : ($v['group_id'] ?? '')));
     $keepPin = (string) ($keep['mesh_server_cert_pin'] ?? ($v['server_cert_pin'] ?? ''));
     $o = '<div class="col-12"><hr class="my-1"><h5 class="mb-1" id="mesh-install-title">Install the MeshCentral agent with the RivetIT agent <span class="badge bg-secondary-lt text-secondary">optional</span></h5>'
         . '<p class="small text-muted mb-2">Off by default. When you issue an installer you can tick <strong>Also install the MeshCentral agent</strong>; the installer then pulls the Mesh agent for <em>your</em> Mesh server and device group (never a bundled binary) and the device\'s Mesh node is mapped to it automatically, so Remote works without anybody pasting a node id. A failure to install Mesh never fails the RivetIT install.</p>';
@@ -65,24 +66,31 @@ function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): 
     $o .= '<input type="hidden" name="mesh_install_present" value="1">';
     $o .= '<details class="mb-3" id="mesh-install-help"><summary class="small fw-bold">Set it up, step by step</summary><ol class="small ps-3 mt-2 mb-0">'
         . '<li><strong>Create the device group in MeshCentral.</strong> Sign in to your Mesh server, My Devices, <em>Add Device Group</em>, name it (for example "Acme laptops"), type <em>Manage using a software agent</em>. The devices will join this group.</li>'
-        . '<li><strong>Get the group id (meshid).</strong> Open the group, click <em>Add Agent</em>, choose an operating system and look at the download address or install command it shows: it contains <code>meshagents?id=4&amp;meshid=&lt;long hex&gt;&amp;installflags=0</code>. The long hex after <code>meshid=</code> is the id (usually 96 hex characters). MeshCentral\'s own <code>mesh//...</code> form is accepted too and converted. <strong>Treat the group id as a secret</strong>: anyone who has it and can reach your Mesh server can download an agent that joins the group.</li>'
-        . '<li><strong>Decide how the installer trusts your Mesh server.</strong> A certificate from a public CA (for example Let\'s Encrypt): leave the pin empty, the installer uses the machine\'s trusted roots. MeshCentral\'s default self-signed certificate: pin it with <em>Read it from the server</em> below, compare the hash with the one MeshCentral shows under My Server, then save. A pin on a certificate that is renewed every few months breaks at each renewal: pin long-lived self-signed certificates only.</li>'
+        . '<li><strong>Get the group id (meshid).</strong> Open the group, click <em>Add Agent</em>, choose <em>Windows 64-bit</em> (the installer) and copy the download address it shows: <code>https://&lt;your mesh&gt;/meshagents?id=4&amp;meshid=&lt;64 characters&gt;&amp;installflags=0</code>. Paste the whole address, or just the 64 characters after <code>meshid=</code> (letters, digits, <code>@</code> and <code>$</code>: it is <strong>not</strong> hex). RivetIT reads nothing from the network. MeshCentral\'s <code>mesh//...</code> form and the 96-character hex form are accepted too. <strong>Treat the group id like an invitation key</strong>: anyone who has it and can reach your Mesh server can download an agent that joins the group.</li>'
+        . '<li><strong>Decide how the installer trusts your Mesh server.</strong> A certificate from a public CA (for example Let\'s Encrypt): <strong>leave the pin empty</strong>, the installer uses the machine\'s trusted roots (a Let\'s Encrypt certificate is renewed every 60 to 90 days and a pin of it would break at each renewal). A private CA or MeshCentral\'s default self-signed certificate: pin it with <em>Read it from the server</em> below, compare the hash with the one MeshCentral shows under My Server, then save.</li>'
         . '<li><strong>Save here</strong> (MeshCentral enabled, the address, the device group id, the pin if any).</li>'
         . '<li><strong>Issue an installer with the box ticked</strong> (Endpoints &rarr; Agent Fleet &rarr; Add device, or the Deployment card). If Mesh cannot support it RivetIT says so and creates nothing.</li>'
         . '<li><strong>Run it</strong> like any RivetIT installer. On Windows the RivetIT agent installs first, then the Mesh agent. On Linux the command carries <code>--install-mesh-agent</code> with your Mesh address and group.</li>'
         . '<li><strong>Check the result</strong> on the device page: the Mesh state shows installed or the error, the node id and whether it was mapped.</li></ol></details>';
     $o .= '<div class="col-lg-6"><label class="form-label" for="mc_group">Device group id <span class="text-muted">(meshid)</span></label>'
-        . '<input class="form-control font-monospace" id="mc_group" name="mesh_group_id" maxlength="140" autocomplete="off" spellcheck="false" value="' . $h($keepGroup) . '" placeholder="96 hex characters, or mesh//..." aria-describedby="mc_group_help">'
-        . '<div class="form-text" id="mc_group_help">The group the installed devices join. A secret: it is only ever shown on this page and inside the installer commands.</div></div>';
+        . '<div class="input-group"><input type="password" class="form-control font-monospace" id="mc_group" name="mesh_group_id" maxlength="2000" autocomplete="new-password" spellcheck="false" value="' . $h($keepGroup) . '" placeholder="Paste the MeshCentral download address, or its meshid" aria-describedby="mc_group_help">'
+        . '<button type="button" class="btn btn-outline-secondary" data-toggle="password" id="mc_group_show" aria-label="Show or hide the device group id" aria-controls="mc_group"><i class="fas fa-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="form-text" id="mc_group_help">Paste the download address from MeshCentral (device group &rarr; <em>Add Agent</em> &rarr; Windows 64-bit installer) or just its <code>meshid</code>. It is 64 characters, not hex. Treat it like an invitation key: it is hidden here until you press the eye, and it is only ever printed on this page and inside the installer commands.</div></div>';
     $o .= '<div class="col-lg-6"><label class="form-label" for="mc_pin">Server certificate pin <span class="text-muted">(optional)</span></label>'
-        . '<div class="input-group"><input class="form-control font-monospace" id="mc_pin" name="mesh_server_cert_pin" maxlength="100" autocomplete="off" spellcheck="false" value="' . $h($keepPin) . '" placeholder="empty = trust the system roots" aria-describedby="mc_pin_help">'
+        . '<div class="input-group"><input class="form-control font-monospace" id="mc_pin" name="mesh_server_cert_pin" maxlength="100" autocomplete="off" spellcheck="false" value="' . $h($keepPin) . '" placeholder="empty = public CA certificate" aria-describedby="mc_pin_help">'
         . '<button class="btn btn-outline-secondary" type="submit" name="probe_mesh_pin" value="1" id="mc_pin_probe">Read it from the server</button></div>'
-        . '<div class="form-text" id="mc_pin_help">The SHA-384 (96 hex) or SHA-256 (64 hex) hash of the Mesh server\'s certificate. <em>Read it from the server</em> saves the other fields of this card, connects to the address above and shows the hash it found. It is trust on first use, so compare it with the hash MeshCentral shows (My Server) before you use it; nothing is saved from the reading itself.</div>';
+        . '<div class="form-text" id="mc_pin_help"><strong>Leave this empty when the Mesh server\'s certificate is publicly trusted</strong> (for example Let\'s Encrypt, which renews every 60 to 90 days and would break a pin). Pin only a private CA or a self-signed certificate: the SHA-384 (96 hex) or SHA-256 (64 hex) hash of the Mesh server\'s certificate. <em>Read it from the server</em> saves the other fields of this card, connects to the address above and shows the hash it found. It is trust on first use, so compare it with the hash MeshCentral shows (My Server) before you use it; nothing is saved from the reading itself.</div>';
     if ($probe !== null) {
-        if (!empty($probe['ok']) && is_string($probe['pin'] ?? null)) {
-            $o .= '<div class="alert alert-info mt-2 mb-0 py-2" role="status" id="mc_pin_proposal"><div class="small fw-bold">Proposed pin (not saved)</div>'
+        $note = is_string($probe['note'] ?? null) && $probe['note'] !== '' ? '<div class="small mt-1" id="mc_pin_note">' . $h($probe['note']) . '</div>' : '';
+        $cert = (($probe['subject'] ?? '') !== '' ? 'Certificate for ' . $h($probe['subject']) . '. ' : '') . (($probe['not_after'] ?? '') !== '' ? 'Valid until ' . $h($probe['not_after']) . '. ' : '');
+        if (!empty($probe['ok']) && is_string($probe['pin'] ?? null) && !empty($probe['publicly_trusted'])) {
+            // rc.15: a certificate the system roots verify needs no pin (it changes at each renewal): show Core's note, offer nothing to save
+            $o .= '<div class="alert alert-success mt-2 mb-0 py-2" role="status" id="mc_pin_proposal" data-publicly-trusted="1"><div class="small fw-bold">Publicly trusted certificate: no pin needed</div>'
+                . $note . '<div class="small text-muted">' . $cert . 'Leave the pin field empty.</div></div>';
+        } elseif (!empty($probe['ok']) && is_string($probe['pin'] ?? null)) {
+            $o .= '<div class="alert alert-info mt-2 mb-0 py-2" role="status" id="mc_pin_proposal" data-publicly-trusted="0"><div class="small fw-bold">Proposed pin (not saved)</div>'
                 . '<div class="font-monospace small text-break" id="mc_pin_proposed">' . $h($probe['pin']) . '</div>'
-                . '<div class="small text-muted">' . (($probe['subject'] ?? '') !== '' ? 'Certificate for ' . $h($probe['subject']) . '. ' : '') . (($probe['not_after'] ?? '') !== '' ? 'Valid until ' . $h($probe['not_after']) . '. ' : '') . 'Compare it with the hash MeshCentral shows, then use it and press Save.</div>'
+                . $note . '<div class="small text-muted">' . $cert . 'Compare it with the hash MeshCentral shows, then use it and press Save.</div>'
                 . '<button type="button" class="btn btn-sm btn-outline-primary mt-1" data-ea-use-pin="' . $h($probe['pin']) . '" data-ea-use-pin-target="mc_pin">Use this pin</button></div>';
         } else {
             $o .= '<div class="alert alert-warning mt-2 mb-0 py-2" role="alert" id="mc_pin_proposal">Could not read the certificate: ' . $h((string) ($probe['error'] ?? 'unknown error')) . '</div>';
