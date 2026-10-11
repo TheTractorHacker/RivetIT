@@ -11,7 +11,7 @@
 require_once __DIR__ . '/rmm_ui.php';
 require_once __DIR__ . '/rmm_installer.php';
 // RMM Phase 2 and 3 sections of the asset page (RivetCore 1.0.0-rc.10). Each file defines the section hooks used by rivetRmmUiTabs() below.
-foreach (['rmm_pol_ui.php', 'rmm_scr_ui.php', 'rmm_alr_ui.php'] as $__rmm_p23) {
+foreach (['rmm_pol_ui.php', 'rmm_scr_ui.php', 'rmm_alr_ui.php', 'rmm_log_ui.php'] as $__rmm_p23) {
     if (is_file(__DIR__ . '/' . $__rmm_p23)) {
         require_once __DIR__ . '/' . $__rmm_p23;
     }

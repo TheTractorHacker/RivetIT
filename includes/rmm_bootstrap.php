@@ -206,11 +206,12 @@ function rivetRmmFeatureOn(string $feature, $mysqli = null): bool
 
 /**
  * The Endpoints menu entries of RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10), each shown only while the module AND its sub-switch are on. Answered from the
- * state file: no database query, and no module is built, while anything is off. The caller has already checked the RMM module grant.
+ * state file: no database query, and no module is built, while anything is off. The caller has already checked the RMM module grant. With a user id the Logs entries
+ * (the only ones that need an ability beyond viewing) are left out for a user who lacks it; that check builds the module, and only while the `logs` switch is on.
  *
  * @return list<array{href:string,label:string,icon:string,pages:list<string>,group:string}>
  */
-function rivetRmmAutoNav(): array
+function rivetRmmAutoNav(?int $userId = null): array
 {
     $all = [
         ['policies', '/agent/rmm_policies.php', 'Policies', 'fa-sliders-h', ['rmm_policies.php'], 'automation'],
@@ -221,10 +222,21 @@ function rivetRmmAutoNav(): array
         ['alerting', '/agent/rmm_agent_alerts.php', 'Agent alerts', 'fa-bell', ['rmm_agent_alerts.php'], 'alerting'],
         ['alerting', '/agent/rmm_maintenance.php', 'Maintenance windows', 'fa-wrench', ['rmm_maintenance.php'], 'alerting'],
         ['alerting', '/agent/rmm_escalations.php', 'Escalation policies', 'fa-level-up-alt', ['rmm_escalations.php'], 'alerting'],
+        // RMM Phase 8 (RivetCore 1.0.0-rc.11), sub-switch `logs` (off by default): the search needs the ability that reads job output, the rules the alert-management ability.
+        ['logs', '/agent/rmm_logs.php', 'Logs', 'fa-scroll', ['rmm_logs.php'], 'logs'],
+        ['logs', '/agent/rmm_log_rules.php', 'Log rules', 'fa-bullhorn', ['rmm_log_rules.php'], 'logs'],
     ];
+    $abilities = ['/agent/rmm_logs.php' => \RivetCore\Rmm\Authz\RmmAbility::JOB_RUN_SAVED, '/agent/rmm_log_rules.php' => \RivetCore\Rmm\Authz\RmmAbility::ALERT_MANAGE];
     $out = [];
     foreach ($all as [$feature, $href, $label, $icon, $pages, $group]) {
         if (rivetRmmFeatureOn($feature)) {
+            // an entry that needs an ability is drawn only for a user who has it (when the caller names the user); the page and the handler check again
+            if ($userId !== null && isset($abilities[$href])) {
+                $authz = rivetRmmModule()->authorizer();
+                if (!$authz->allowed($userId, \RivetCore\Rmm\Authz\RmmAbility::DEVICE_VIEW, 0) || !$authz->allowed($userId, $abilities[$href], 0)) {
+                    continue;
+                }
+            }
             $out[] = ['href' => $href, 'label' => $label, 'icon' => $icon, 'pages' => $pages, 'group' => $group];
         }
     }
