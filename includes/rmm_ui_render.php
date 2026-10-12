@@ -368,7 +368,8 @@ function rivetRmmUiRemoteCard(array $vm): string
 {
     $perm = $vm['perm'];
     $m = $vm['mesh'];
-    if (!$m['configured'] && !$perm['admin']) {
+    $push = rivetRmmMeshPushControls(rivetRmmMeshPushState($vm));   // rc.16: install / remove the MeshCentral agent on this device ('' unless Core offers it and the viewer may)
+    if (!$m['configured'] && !$perm['admin'] && $push === '') {
         return '';   // Mesh is not set up: nothing to offer or explain to a technician
     }
     $body = '<div class="card-body py-2">';
@@ -387,8 +388,8 @@ function rivetRmmUiRemoteCard(array $vm): string
     }
     $body .= '</div>';
     // RivetCore rc.12: what the device reported about its MeshCentral agent (present only once it reported one). An administrator also sees the hint that nothing was reported yet.
-    if (!empty($vm['mesh_agent']) || ($m['configured'] && $perm['admin'])) {
-        $body .= '<div class="card-body border-top py-2"><div class="ifm-toolbar-label mb-1">MeshCentral agent</div>' . rivetRmmMeshAgentHtml($vm['mesh_agent'] ?? null, ['conflict_url' => $vm['mesh_agent_conflict_url'] ?? null]) . '</div>';
+    if (!empty($vm['mesh_agent']) || ($m['configured'] && $perm['admin']) || $push !== '') {
+        $body .= '<div class="card-body border-top py-2"><div class="ifm-toolbar-label mb-1">MeshCentral agent</div>' . rivetRmmMeshAgentHtml($vm['mesh_agent'] ?? null, ['conflict_url' => $vm['mesh_agent_conflict_url'] ?? null]) . $push . '</div>';
     }
     if ($perm['admin']) {
         $body .= '<div class="card-body border-top py-2"><form id="rmm-mesh-form" class="row g-2 align-items-end"><div class="col-12"><label class="form-label small mb-1" for="rmm-mesh-node">MeshCentral node id (administrators)</label>'
@@ -604,7 +605,7 @@ function rivetRmmUiSoftware(array $vm): string
 
 function rivetRmmUiJobLabel(string $type): string
 {
-    return ['powershell' => 'PowerShell script', 'reboot' => 'Reboot', 'collect' => 'Collect inventory'][$type] ?? $type;
+    return ['powershell' => 'PowerShell script', 'reboot' => 'Reboot', 'collect' => 'Collect inventory', 'mesh_install' => 'Install MeshCentral agent', 'mesh_uninstall' => 'Remove MeshCentral agent'][$type] ?? $type;
 }
 
 /** @param array<int,string> $userNames */
@@ -620,7 +621,11 @@ function rivetRmmUiJobs(array $vm, array $userNames): string
         $by = $j['created_by'] > 0 ? ($userNames[$j['created_by']] ?? 'user #' . $j['created_by']) : 'system';
         $done = in_array($j['state'], ['succeeded', 'failed', 'timed_out'], true);
         $acts = '';
-        if ($perm['run_saved'] && $done) {
+        $meshJob = rivetRmmMeshPushIsJob((string) $j['type']);   // rc.16: a pushed Mesh install / removal; its result is read through the remote endpoint (needs rmm.remote.manage), not as script output
+        if ($meshJob && !empty($perm['remote_manage'])) {
+            $acts .= '<button type="button" class="btn btn-xs btn-info" data-mesh-push-result="' . rmmH($j['job_id']) . '" data-device-id="' . (int) $vm['device_id'] . '" data-post-url="' . RIVET_RMM_MESHPUSH_HANDLER . '" data-csrf="' . rmmH((string) ($_SESSION['csrf_token'] ?? '')) . '" aria-expanded="false" aria-controls="rmm-mres-' . rmmH($j['job_id']) . '">View result</button> ';
+        }
+        if ($perm['run_saved'] && $done && !$meshJob) {
             $acts .= '<button type="button" class="btn btn-xs btn-info rmm-output-btn" data-job="' . rmmH($j['job_id']) . '" aria-expanded="false" aria-controls="rmm-out-' . rmmH($j['job_id']) . '">View output</button> ';
         }
         if ($perm['run_saved'] && $j['state'] === 'queued') {
@@ -631,7 +636,10 @@ function rivetRmmUiJobs(array $vm, array $userNames): string
             . '<td>' . rivetRmmUiPill($s[0], $s[1]) . ($j['state'] === 'queued' ? '<div class="small text-muted">waiting for the device</div>' : '') . ($j['reason'] ? '<div class="small text-muted">' . rmmH($j['reason']) . '</div>' : '') . '</td>'
             . '<td class="text-nowrap">' . rivetRmmUiTime($j['started_at'] ?: $j['created_at']) . '</td><td>' . rmmH($took) . '</td><td>' . rmmH($by) . '</td>'
             . '<td>' . ($j['exit_code'] === null ? '<span class="text-muted">none</span>' : (int) $j['exit_code']) . '</td><td class="text-end pe-2 text-nowrap">' . $acts . '</td></tr>';
-        if ($perm['run_saved'] && $done) {
+        if ($meshJob && !empty($perm['remote_manage'])) {
+            $rows .= '<tr id="rmm-mres-' . rmmH($j['job_id']) . '" hidden><td colspan="7" class="ps-3"><div data-mesh-push-result-body></div></td></tr>';
+        }
+        if ($perm['run_saved'] && $done && !$meshJob) {
             $rows .= '<tr id="rmm-out-' . rmmH($j['job_id']) . '" hidden><td colspan="7" class="ps-3"><div class="small text-muted rmm-out-meta"></div><pre class="rmm-pre mb-1" tabindex="0" aria-label="Job output"></pre>'
                 . '<button type="button" class="btn btn-xs btn-outline-secondary rmm-copy-btn">Copy</button></td></tr>';
         }
@@ -649,10 +657,15 @@ function rivetRmmUiJobs(array $vm, array $userNames): string
 
 // ------------------------------------------------------------------ dialogs (in-page; no window.confirm)
 
-function rivetRmmUiDialogs(array $vm): string
+function rivetRmmUiDialogs(array $vm, string $csrf = ''): string
 {
     $perm = $vm['perm'];
     $o = '';
+    // rc.16: the confirm dialog of the Install / Remove MeshCentral agent buttons (drawn only when a button group is)
+    if (rivetRmmMeshPushState($vm) !== null) {
+        $GLOBALS['rmm_mesh_push_scripts'] = true;   // includes/footer.php links js/rmm_mesh_push.js only when this is set
+        $o .= rivetRmmMeshPushDialog($csrf !== '' ? $csrf : (string) ($_SESSION['csrf_token'] ?? ''));
+    }
     // Reboot
     $o .= '<div class="modal fade" id="rmmRebootModal" tabindex="-1" aria-labelledby="rmmRebootTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
         . '<div class="modal-header"><h5 class="modal-title" id="rmmRebootTitle"><i class="fas fa-power-off me-2" aria-hidden="true"></i>Reboot ' . rmmH($vm['hostname']) . '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
@@ -731,7 +744,7 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
         . ($alrHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-alerting" role="tabpanel" aria-labelledby="rmm-tab-alerting" tabindex="0">' . $alrHtml . '</div>' : '')
         . ($remHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-remote" role="tabpanel" aria-labelledby="rmm-tab-remote" tabindex="0">' . $remHtml . '</div>' : '')
         . ($logHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-logs" role="tabpanel" aria-labelledby="rmm-tab-logs" tabindex="0">' . $logHtml . '</div>' : '') . '</div></div>'
-        . rivetRmmUiDialogs($vm)
+        . rivetRmmUiDialogs($vm, $csrf)
         . ($polHtml . $scrHtml . $alrHtml !== '' ? rivetRmmAutoConfirmModal() . rivetRmmAutoScriptsOn() : '');
 }
 
@@ -960,6 +973,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
 
     return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-satellite me-2" aria-hidden="true"></i>Agent fleet</h4>'
         . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '')
+        . rivetRmmMeshBulkTrigger($f['mesh_bulk'] ?? null)
         . '<a href="/agent/rmm_assets.php" class="btn btn-info btn-sm"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
         . '<a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
         . ($f['perm']['admin'] ? '<a href="/admin/settings_endpoint_agent.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-cog me-1" aria-hidden="true"></i>Administration</a>' : '') . '</div>'
@@ -970,7 +984,8 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
         . '<div class="row"><div class="col-lg-7">' . $healthCard . '</div><div class="col-lg-5">' . $apCard . '</div></div>'
         . '<div class="row"><div class="col-lg-6">' . $offCard . '</div><div class="col-lg-6">' . $fCard . '</div></div>'
         . $versionsCard . $swCard . $capacity . $table
-        . ($installer !== null ? rivetRmmInstallerModal($installer) : '');
+        . ($installer !== null ? rivetRmmInstallerModal($installer) : '')
+        . rivetRmmMeshBulkDialog($f['mesh_bulk'] ?? null);
 }
 
 /**

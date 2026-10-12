@@ -5,7 +5,7 @@
  * installers) this file is never requested. Every decision is the server's; this script only fills the form in, posts it with the CSRF token,
  * and shows the answer. Server text is written with textContent. Without JavaScript the form is a plain POST that downloads the file.
  *
- * Windows: the file is fetched (so a refusal is shown inside the dialog) and saved through a temporary link; nothing is kept in the page.
+ * Windows: Format .exe (default) or .msi (the same endpoint with format=msi; offered only when a template is published for the architecture). The file is fetched (so a refusal is shown inside the dialog) and saved through a temporary link; nothing is kept in the page.
  * Linux: the endpoint returns the install snippet with the freshly created token (shown once); there is no binary to download.
  */
 (function () {
@@ -30,6 +30,11 @@
 
     function archValue() { var c = form.querySelector('input[name="arch"]:checked'); return c ? c.value : 'amd64'; }
     function have(arch) { return modal.getAttribute('data-have-' + arch) === '1'; }
+    function haveMsi(arch) { return modal.getAttribute('data-have-msi-' + arch) === '1'; }   // an MSI template is published for this architecture (RivetCore 1.0.0-rc.16)
+    function formatValue() {   // 'msi' only on the Windows tab, with a template for the chosen architecture, and when the person picked it; everything else is the .exe
+        var m = $('rmm-inst-format-msi');
+        return os === 'windows' && m && m.checked && !m.disabled ? 'msi' : 'exe';
+    }
 
     function showError(text) {
         if (!text) { err.classList.add('d-none'); err.textContent = ''; return; }
@@ -45,7 +50,21 @@
 
     function refresh() {
         var arch = archValue();
-        var missing = !have(arch);
+        // rc.16: the Format selector (Windows only). MSI is offered only for an architecture that has a published template; ARM64 normally has none (the build makes x64 only).
+        var msiRadio = $('rmm-inst-format-msi'), exeRadio = $('rmm-inst-format-exe'), fmtHelp = $('rmm-inst-format-help'), fmtLink = $('rmm-inst-format-link');
+        var msiOk = haveMsi(arch);
+        msiRadio.disabled = !msiOk;
+        if (!msiOk && msiRadio.checked) { exeRadio.checked = true; }
+        $('rmm-inst-format-col').classList.toggle('d-none', os !== 'windows');
+        fmtHelp.textContent = msiOk ? 'The .exe is the default. Use the MSI for Intune, Group Policy or any tool that installs .msi packages.'
+            : (arch === 'arm64' ? 'MSI is not available for ARM64: no ARM64 MSI template is published (the build makes x64 only). Use the .exe installer for ARM64 PCs.'
+                : 'MSI is not available: no MSI template is published for x64.' + (modal.getAttribute('data-admin') === '1' ? '' : ' Ask an administrator to upload one.'));
+        if (fmtLink) { fmtLink.classList.toggle('d-none', msiOk); }
+        var fmt = formatValue();
+        $('rmm-inst-msi-warn').classList.toggle('d-none', fmt !== 'msi');
+        $('rmm-inst-silent-exe').classList.toggle('d-none', fmt === 'msi');
+        $('rmm-inst-silent-msi').classList.toggle('d-none', fmt !== 'msi');
+        var missing = fmt === 'msi' ? false : !have(arch);   // an MSI installer needs no agent program, only its template
         var otherArch = arch === 'amd64' ? 'arm64' : 'amd64';
         var box = $('rmm-inst-nobinary'), text = $('rmm-inst-nobinary-text');
         if (missing) {
@@ -70,6 +89,7 @@
         var slug = client && client.tagName === 'SELECT' && client.selectedIndex > 0 ? client.options[client.selectedIndex].text : '';
         slug = String(slug).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'department';
         $('rmm-inst-silent-name').textContent = 'RivetIT-Agent-Setup-' + slug + '-' + (arch === 'arm64' ? 'arm64' : 'x64') + '.exe';
+        $('rmm-inst-silent-name-msi').textContent = 'RivetIT-Agent-' + slug + '-' + (arch === 'arm64' ? 'arm64' : 'x64') + '.msi';
     }
 
     function setOs(next) {
@@ -136,16 +156,18 @@
     function downloadWindows() {
         return request().then(function (res) {
             if (!res.ok) { return failure(res).then(function (m) { throw new Error(m); }); }
-            var name = fileNameFrom(res, 'RivetIT-Agent-Setup.exe');
+            var isMsi = formatValue() === 'msi';
+            var name = fileNameFrom(res, isMsi ? 'RivetIT-Agent.msi' : 'RivetIT-Agent-Setup.exe');
             return res.blob().then(function (blob) {
                 var a = document.createElement('a');
                 var url = URL.createObjectURL(blob);
                 a.href = url; a.download = name; a.rel = 'noopener'; a.style.display = 'none';
                 document.body.appendChild(a); a.click();
                 window.setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
-                $('rmm-inst-silent-name').textContent = name;
+                $(isMsi ? 'rmm-inst-silent-name-msi' : 'rmm-inst-silent-name').textContent = name;
                 var n = parseInt(uses.value, 10) || 1;
                 done.textContent = 'Downloaded ' + name + ' (' + human(blob.size) + '). Copy it to ' + (n > 1 ? 'the PCs' : 'the PC') + ', double-click it and accept the administrator prompt. This file works for ' + n + (n > 1 ? ' PCs' : ' PC') + ' for ' + (parseInt(ttl.value, 10) || 24) + ' hours; making another one creates a new audited token.'
+                    + (isMsi ? ' It is an MSI: double-click it, or run msiexec /i "' + name + '" /qn /norestart. It is unsigned and has not been verified on Windows yet, so try it on one PC first.' : '')
                     + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent from your Mesh server after the RivetIT agent; if that part fails the RivetIT agent is still installed and the device page says why.' : '');
                 done.classList.remove('d-none');
                 modal.setAttribute('data-state', 'downloaded');
@@ -187,6 +209,7 @@
         });
     });
     form.querySelectorAll('input[name="arch"]').forEach(function (r) { r.addEventListener('change', refresh); });
+    form.querySelectorAll('input[name="format"]').forEach(function (r) { r.addEventListener('change', function () { done.classList.add('d-none'); showError(''); refresh(); }); });
     if (client) { client.addEventListener('change', function () { loadLocations(); refresh(); }); }
     // a command made with the other choice must not stay on screen: it would not match the box any more
     if (meshBox) { meshBox.addEventListener('change', function () { linOut.classList.add('d-none'); cmdBox.textContent = ''; done.classList.add('d-none'); showError(''); }); }
@@ -215,6 +238,7 @@
         if (want) { selectClient(want); }
         cmdBox.textContent = ''; linOut.classList.add('d-none'); done.classList.add('d-none'); showError('');
         if (meshBox) { meshBox.checked = false; }   // off by default, every time the dialog opens
+        $('rmm-inst-format-exe').checked = true;    // the .exe is the default, every time the dialog opens
         modal.removeAttribute('data-state');
         var g = guessArch(), radio = $('rmm-inst-arch-' + g);
         if (radio && have(g)) { radio.checked = true; }

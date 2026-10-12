@@ -3,7 +3,7 @@ if (defined('FROM_POST_HANDLER')) return;
 /*
  * "Add device" / "Download installer" (Agent Fleet page, department page, Endpoints menu). A direct endpoint like rmm_agent.php.
  *
- *   action=download   streams the department's stamped installer (.exe). Same call as Administration > Endpoint agent > Deployment:
+ *   action=download   streams the department's stamped installer (.exe, or .msi with format=msi, RivetCore rc.16). Same call as Administration > Endpoint agent > Deployment:
  *                     RivetCore\Rmm\Admin\RmmAdmin::downloadInstaller(), which checks the permission, creates the audited enrollment token and
  *                     refuses (revoking the token again) when the file cannot be served. A browser form post that fails is sent back with a
  *                     flash message; a request that asks for JSON (the modal's script) gets {success:false,error}.
@@ -97,6 +97,15 @@ $ring = (string) ($_POST['ring'] ?? 'stable');
 $args = [$clientId, intval($_POST['location_id'] ?? 0), in_array($ring, ['stable', 'pilot'], true) ? $ring : 'stable', inst_int('ttl_hours', 1, 720, 24),
     inst_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')), in_array($arch, ['amd64', 'arm64'], true) ? $arch : 'amd64',
     ($_POST['install_mesh_agent'] ?? '') === '1'];   // the trailing bool: also install the MeshCentral agent (RivetCore rc.12). Core refuses when Mesh cannot support it and creates nothing.
+// RivetCore 1.0.0-rc.16: the installer format, `exe` (the default) or `msi` (a stamped copy of the published MSI template). Only the Windows download takes it; the Linux snippet is always the exe's.
+$format = (string) ($_POST['format'] ?? 'exe');
+if ($format === '') {
+    $format = 'exe';
+}
+if (!in_array($format, ['exe', 'msi'], true)) {
+    inst_fail(422, 'invalid', 'Choose the installer format: exe or msi.', $inst_json);
+}
+$args[] = $inst_action === 'linux' ? 'exe' : $format;
 
 if ($inst_action === 'linux') {
     $r = $admin->deploymentCommands($who, ...$args);

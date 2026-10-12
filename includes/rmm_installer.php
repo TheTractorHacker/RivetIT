@@ -18,6 +18,9 @@ use RivetCore\Rmm\Authz\RmmAbility;
 /** The Administration anchor of the binaries card (where an administrator publishes the agent). */
 const RIVET_RMM_BINARIES_URL = '/admin/settings_endpoint_agent.php#binaries';
 
+/** The Administration anchor of the MSI template card (RivetCore 1.0.0-rc.16). */
+const RIVET_RMM_MSI_URL = '/admin/settings_endpoint_agent.php#msi-templates';
+
 /**
  * May this user issue installers (for one department, or anywhere when $clientId is 0)? The module must be on. rmm.token.manage or rmm.admin;
  * the Core call repeats the per-department check, so this is only the decision to show or accept the control.
@@ -86,11 +89,33 @@ function rivetRmmInstallerMesh(\RivetCore\Rmm\RmmModule $rmm, array $cfg): array
 }
 
 /**
+ * The version of the current, active MSI template per architecture (RivetCore 1.0.0-rc.16), or null where none is published. An install that has not applied
+ * migration 0025 has no such table: Core answers an empty list, so the format selector simply has no MSI to offer.
+ *
+ * @return array{amd64:?string,arm64:?string}
+ */
+function rivetRmmInstallerMsi(\RivetCore\Rmm\Read\RmmReadModel $read): array
+{
+    $out = ['amd64' => null, 'arm64' => null];
+    try {
+        foreach ($read->msiTemplates(200) as $t) {
+            if ($t['is_current'] && $t['active'] && array_key_exists($t['arch'], $out) && $out[$t['arch']] === null) {
+                $out[$t['arch']] = (string) $t['version'];
+            }
+        }
+    } catch (\Throwable) {
+        // no templates
+    }
+
+    return $out;
+}
+
+/**
  * What the modal needs, or null when it must not render at all (module off / not allowed).
  *
  * @param int|null $fixedClientId the department's own page: the select is replaced by that department
  * @param int      $preselect     the department to select on a page with the full list (0 = none, unless the user has exactly one)
- * @return array{clients:array<int,string>,client_id:int,fixed:bool,locations:list<array{id:int,name:string}>,binaries:array{amd64:?string,arm64:?string},problems:list<string>,ttl_max:int,csrf:string,admin:bool,mesh:array{show:bool,ready:bool,hint:string}}|null
+ * @return array{clients:array<int,string>,client_id:int,fixed:bool,locations:list<array{id:int,name:string}>,binaries:array{amd64:?string,arm64:?string},msi:array{amd64:?string,arm64:?string},problems:list<string>,ttl_max:int,csrf:string,admin:bool,mesh:array{show:bool,ready:bool,hint:string}}|null
  */
 function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClientId = null, int $preselect = 0): ?array
 {
@@ -104,6 +129,7 @@ function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClien
         $read = $rmm->readModel();
         $cfg = $read->settingsSummary();
         $cur = $read->currentBinaries();
+        $msi = rivetRmmInstallerMsi($read);
         $isAdmin = $authz->allowed($userId, RmmAbility::ADMIN, 0);
         $visible = $authz->visibleClientIds($userId);   // null = every department
     } catch (\Throwable) {
@@ -146,6 +172,7 @@ function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClien
         'client_id' => $selected,
         'fixed' => $fixedClientId !== null,
         'locations' => rivetRmmInstallerLocations($mysqli, $selected),
+        'msi' => $msi,
         'binaries' => ['amd64' => is_array($cur['amd64']) ? (string) ($cur['amd64']['version'] ?? '') : null, 'arm64' => is_array($cur['arm64']) ? (string) ($cur['arm64']['version'] ?? '') : null],
         'problems' => $problems,
         'ttl_max' => max(1, (int) ($cfg['enroll_max_ttl_h'] ?? 720)),
@@ -231,6 +258,8 @@ function rivetRmmInstallerModal(array $ctx): string
             . '<div class="form-text" id="rmm-inst-mesh-help" data-ready="' . ($ctx['mesh']['ready'] ? '1' : '0') . '">' . $meshHint . '</div></div>';
     }
 
+    $msiWarn = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-msi-warn" role="note"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
+        . '<strong>Not yet verified on Windows.</strong> The MSI installer is unsigned (SmartScreen may warn) and has not been run on a real Windows PC yet: try it on one PC before a roll-out. The .exe installer is the proven path.</div>';
     $none = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-nobinary" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
         . '<span id="rmm-inst-nobinary-text">No agent program is published for this architecture yet, so an installer cannot be built.</span> '
         . ($ctx['admin'] ? '<a href="' . $h(RIVET_RMM_BINARIES_URL) . '" id="rmm-inst-nobinary-link">Publish it under Administration &gt; Endpoint agent &gt; Agent binaries</a>.' : 'Ask an administrator to publish it.') . '</div>';
@@ -238,13 +267,17 @@ function rivetRmmInstallerModal(array $ctx): string
     $arch = static fn (string $v, string $id, string $label, bool $checked): string => '<input type="radio" class="btn-check" name="arch" id="' . $id . '" value="' . $v . '"' . ($checked ? ' checked' : '') . ' autocomplete="off">'
         . '<label class="btn btn-outline-primary btn-sm" for="' . $id . '">' . $label . '</label>';
 
+    $fmt = static fn (string $v, string $id, string $label, bool $checked): string => '<input type="radio" class="btn-check" name="format" id="' . $id . '" value="' . $v . '"' . ($checked ? ' checked' : '') . ' autocomplete="off" aria-describedby="rmm-inst-format-help">'
+        . '<label class="btn btn-outline-primary btn-sm" for="' . $id . '">' . $label . '</label>';
+
     $steps = '<ol class="mb-2 ps-3" id="rmm-inst-steps-list"><li>Copy the downloaded file to the PC.</li><li>Double-click it and accept the Windows administrator prompt.</li>'
         . '<li>It installs and enrolls itself. The PC shows up in Agent Fleet within a few minutes.</li></ol>'
-        . '<p class="mb-0 small text-muted">For a deployment tool (Intune, GPO, your RMM) run <code>' . '<span id="rmm-inst-silent-name">RivetIT-Agent-Setup-department-x64.exe</span> setup --silent' . '</code> as SYSTEM or an administrator. Or choose <em>Several PCs</em> and use the same file on each.</p>';
+        . '<p class="mb-0 small text-muted">For a deployment tool (Intune, GPO, your RMM) run <code>' . '<span id="rmm-inst-silent-exe"><span id="rmm-inst-silent-name">RivetIT-Agent-Setup-department-x64.exe</span> setup --silent</span><span id="rmm-inst-silent-msi" class="d-none">msiexec /i "<span id="rmm-inst-silent-name-msi">RivetIT-Agent-department-x64.msi</span>" /qn /norestart</span>' . '</code> as SYSTEM or an administrator. Or choose <em>Several PCs</em> and use the same file on each.</p>';
 
     return '<div class="modal fade" id="rmmInstallerModal" tabindex="-1" aria-labelledby="rmmInstallerTitle" aria-hidden="true"'
         . ' data-post-url="/agent/post/rmm_installer.php" data-csrf="' . $h($ctx['csrf']) . '" data-ttl-max="' . (int) $ctx['ttl_max'] . '" data-fixed="' . ($ctx['fixed'] ? '1' : '0') . '"'
-        . ' data-have-amd64="' . ($b['amd64'] !== null ? '1' : '0') . '" data-have-arm64="' . ($b['arm64'] !== null ? '1' : '0') . '" data-service-ok="' . ($ctx['problems'] === [] ? '1' : '0') . '">'
+        . ' data-have-amd64="' . ($b['amd64'] !== null ? '1' : '0') . '" data-have-arm64="' . ($b['arm64'] !== null ? '1' : '0') . '" data-have-msi-amd64="' . (($ctx['msi']['amd64'] ?? null) !== null ? '1' : '0') . '" data-have-msi-arm64="' . (($ctx['msi']['arm64'] ?? null) !== null ? '1' : '0')
+        . '" data-admin="' . ($ctx['admin'] ? '1' : '0') . '" data-service-ok="' . ($ctx['problems'] === [] ? '1' : '0') . '">'
         . '<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"><div class="modal-content">'
         . '<form id="rmm-inst-form" method="post" action="/agent/post/rmm_installer.php" autocomplete="off">'
         . '<input type="hidden" name="csrf_token" value="' . $h($ctx['csrf']) . '"><input type="hidden" name="action" id="rmm-inst-action" value="download">'
@@ -252,7 +285,7 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
         . '<div class="modal-body">'
         . '<p class="text-muted small mb-3">Pick the department, then download an installer that already knows your server and the department. Nothing to type on the PC.</p>'
-        . $problem . $none
+        . $problem . $none . $msiWarn
         . '<ul class="nav nav-pills mb-3" role="tablist" aria-label="Operating system">'
         . '<li class="nav-item" role="presentation"><button type="button" class="nav-link active" id="rmm-inst-tab-windows" role="tab" aria-selected="true" aria-controls="rmm-inst-panel" data-os="windows"><i class="fab fa-windows me-1" aria-hidden="true"></i>Windows</button></li>'
         . '<li class="nav-item" role="presentation"><button type="button" class="nav-link" id="rmm-inst-tab-linux" role="tab" aria-selected="false" aria-controls="rmm-inst-panel" data-os="linux" tabindex="-1"><i class="fab fa-linux me-1" aria-hidden="true"></i>Linux</button></li></ul>'
@@ -262,6 +295,10 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="col-md-6' . ($ctx['locations'] === [] ? ' d-none' : '') . '" id="rmm-inst-location-col"><label class="form-label" for="rmm-inst-location">Location <span class="text-muted">(optional)</span></label><select class="form-select" id="rmm-inst-location" name="location_id">' . $locOpts . '</select></div>'
         . '<div class="col-md-6"><span class="form-label d-block" id="rmm-inst-arch-label">Architecture</span><div class="btn-group" role="group" aria-labelledby="rmm-inst-arch-label">'
         . $arch('amd64', 'rmm-inst-arch-amd64', 'x64 (most PCs)', true) . $arch('arm64', 'rmm-inst-arch-arm64', 'ARM64', false) . '</div></div>'
+        . '<div class="col-md-6" id="rmm-inst-format-col"><span class="form-label d-block" id="rmm-inst-format-label">Format</span><div class="btn-group" role="group" aria-labelledby="rmm-inst-format-label">'
+        . $fmt('exe', 'rmm-inst-format-exe', 'Installer (.exe)', true) . $fmt('msi', 'rmm-inst-format-msi', 'MSI (.msi)', false) . '</div>'
+        . '<div class="form-text" id="rmm-inst-format-help" aria-live="polite">The .exe is the default. Use the MSI for Intune, Group Policy or any tool that installs .msi packages.</div>'
+        . ($ctx['admin'] ? '<a class="small d-none" id="rmm-inst-format-link" href="' . $h(RIVET_RMM_MSI_URL) . '">Upload an MSI template under Administration &gt; Endpoint agent</a>' : '') . '</div>'
         . '<div class="col-md-6"><label class="form-label" for="rmm-inst-ring">Update ring</label><select class="form-select" id="rmm-inst-ring" name="ring"><option value="stable" selected>Stable</option><option value="pilot">Pilot</option></select></div>'
         . '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="rmm-inst-multi"><label class="form-check-label" for="rmm-inst-multi">I am installing on several PCs with this one file</label></div>'
         . $lead('Off: the file works for one PC. On: it works for up to <span id="rmm-inst-multi-n">25</span> PCs until it expires.') . '</div>'

@@ -19,6 +19,7 @@
  */
 
 require_once __DIR__ . '/rmm_ui_render.php';
+require_once __DIR__ . '/rmm_mesh_push.php';   // rc.16: the Install / Remove MeshCentral agent buttons and a mesh job's result
 
 use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Rmm\Authz\RmmPrincipal;
@@ -183,7 +184,7 @@ function rivetRmmRemPanelView(array $vm, \mysqli $mysqli): ?array
         $limits = $rmm->remoteSettings()->limits();
         $view = [
             'device_id' => $devId, 'asset_id' => (int) $vm['asset_id'], 'hostname' => (string) $vm['hostname'], 'platform' => (string) $vm['platform'], 'os' => $os, 'offline' => (bool) $vm['offline'],
-            'state' => (string) $vm['state'], 'caps' => $caps, 'mesh_agent' => $vm['mesh_agent'] ?? null, 'mesh_agent_conflict_url' => $vm['mesh_agent_conflict_url'] ?? null, 'admin' => $authz->allowed($uid, RmmAbility::ADMIN, $client), 'mesh' => $mesh->ok ? $mesh->data : ['configured' => false, 'mapped' => false, 'views' => []],
+            'state' => (string) $vm['state'], 'caps' => $caps, 'mesh_push' => rivetRmmMeshPushState($vm), 'mesh_agent' => $vm['mesh_agent'] ?? null, 'mesh_agent_conflict_url' => $vm['mesh_agent_conflict_url'] ?? null, 'admin' => $authz->allowed($uid, RmmAbility::ADMIN, $client), 'mesh' => $mesh->ok ? $mesh->data : ['configured' => false, 'mapped' => false, 'views' => []],
             'retention_days' => (int) ($rmm->settings()->get()['job_retention_days'] ?? 30), 'services' => $snap('services'), 'processes' => $snap('processes'),
             'files_on' => $filesOn, 'roots' => $filesOn ? $rmm->remoteSettings()->allowRootsFor($os) : [], 'limits' => $limits, 'transfers' => [], 'transfer_error' => null, 'names' => [],
             'upload_cap' => rivetRmmRemUploadCap((int) $limits['transfer_max_bytes']),
@@ -366,6 +367,9 @@ function rivetRmmRemJobResultHtml(array $r): string
     $state = (string) ($r['state'] ?? '');
     $res = is_array($r['result'] ?? null) ? $r['result'] : null;
     $type = (string) ($r['type'] ?? '');
+    if (rivetRmmMeshPushIsJob($type)) {
+        return rivetRmmMeshPushResultHtml($r);   // rc.16: a pushed Mesh agent install / removal
+    }
     $what = '';
     if ($res !== null && $type === RemoteProtocol::JOB_SERVICE_CONTROL) {
         $what = 'Service <span class="rmm-mono">' . rmmH((string) ($res['name'] ?? '')) . '</span>, ' . rmmH((string) ($res['action'] ?? '')) . '.';
@@ -506,8 +510,9 @@ function rivetRmmRemMeshHtml(array $v): string
     if (!empty($v['mesh_agent'])) {
         $o .= rivetRmmMeshAgentHtml($v['mesh_agent'], ['conflict_url' => $v['mesh_agent_conflict_url'] ?? null]);   // rc.12: installed / version / node id / error, with the conflict and kept-by-hand hints
     }
+    $o .= rivetRmmMeshPushControls($v['mesh_push'] ?? null);   // rc.16: Install / Remove MeshCentral agent (Core decides whether the install is offered)
     if (empty($m['configured'])) {
-        return $o . '<p class="mb-0 text-muted">MeshCentral is not configured.' . ($v['admin'] ? ' <a href="/admin/settings_endpoint_agent.php">Set it up under Administration &gt; Endpoint agent</a>.' : ' An administrator can set it up.') . '</p>';
+        return $o . '<p class="mb-0 text-muted mt-2">MeshCentral is not configured.' . ($v['admin'] ? ' <a href="/admin/settings_endpoint_agent.php">Set it up under Administration &gt; Endpoint agent</a>.' : ' An administrator can set it up.') . '</p>';
     }
     if (empty($m['mapped'])) {
         return $o . '<p class="mb-0 text-muted">This device is not mapped to a MeshCentral node yet. An administrator can map it in the Remote access card on the Overview tab.</p>';

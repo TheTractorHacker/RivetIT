@@ -647,6 +647,15 @@ foreach (glob(__DIR__ . '/rmm_ui_p68_*.php') ?: [] as $__p68) {
     require $__p68;
 }
 
+// ============================================================ RivetCore 1.0.0-rc.16 (the pushed MeshCentral agent install, the MSI installer): the sections live in tests/rmm_ui_rc16_*.php
+// Same contract as the fragments above (shared variables, module on, run in file-name order). They put the Mesh settings, the remote-tools switch, the service address and the MSI templates back.
+// This block runs BEFORE the rc.12/rc.13 block on purpose: tests/rmm_ui_rc13_starter.php ends the whole script (itflow_render_denied() exits) at its 'page gate' check, so nothing placed after it would run.
+$rmm->admin()->enable($admin);
+foreach (glob(__DIR__ . '/rmm_ui_rc16_*.php') ?: [] as $__rc16) {
+    echo "---- " . basename($__rc16) . "\n";
+    require $__rc16;
+}
+
 // ============================================================ RivetCore 1.0.0-rc.12 and rc.13 (the optional MeshCentral agent, the RMM starter pack): the sections live in tests/rmm_ui_rc13_*.php
 // Same contract as the fragments above (shared variables, module on, run in file-name order). They start with the three automation sub-switches on and the Mesh settings as
 // the seed leaves them (enabled, https address, a login key, no group id), and put those back.

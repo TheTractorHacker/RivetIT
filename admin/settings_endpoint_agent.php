@@ -49,6 +49,9 @@ $pending = $read->pendingApprovals(null, 200);
 $tokens = $read->tokens(50);
 $attempts = $read->recentFailedAttempts(15);
 $binaries = $read->binaries(40);
+$msiTemplates = $read->msiTemplates(40);   // rc.16: [] when migration 0025 has not been applied
+$msiCur = ['amd64' => null, 'arm64' => null];
+foreach ($msiTemplates as $__t) { if ($__t['is_current'] && $__t['active'] && array_key_exists($__t['arch'], $msiCur) && $msiCur[$__t['arch']] === null) { $msiCur[$__t['arch']] = (string) $__t['version']; } }
 $curBin = $read->currentBinaries();
 $uploadLimit = $read->uploadLimit();
 $releases = $read->releases(30);
@@ -103,13 +106,38 @@ $serviceUrlHint = 'https://' . $config_base_url;
     <?php if (!$dep) { ?><div class="form-text">Use it with the agent: <code>set RIVETIT_ENROLL_TOKEN=...</code> then <code>rivetit-agent.exe install --server <?= $h($cfg['service_url'] ?: $serviceUrlHint) ?></code>, or create a per-department installer under Deployment, which embeds a token for you.</div><?php } ?>
 </div>
 <?php if ($dep) {
-    $depFile = $dep['commands']['filename'] ?? $rmm->installerDownload()->filename($dep['department'], $dep['arch']);
+    $depMsi = is_array($dep['commands']['msi'] ?? null) ? $dep['commands']['msi'] : null;   // rc.16: present only when the commands were made for format msi
+    $depFile = $depMsi['filename'] ?? $dep['commands']['filename'] ?? $rmm->installerDownload()->filename($dep['department'], $dep['arch']);
     $snippet = (string) ($dep['commands']['powershell'] ?? '');
     ?>
 <div class="card mb-3" id="deploy-commands">
-    <div class="card-header"><h4 class="card-title mb-0">Deployment commands for <?= $h($dep['department']) ?> (<?= $dep['arch'] === 'arm64' ? 'ARM64' : 'Windows x64' ?>)</h4></div>
+    <div class="card-header"><h4 class="card-title mb-0">Deployment commands for <?= $h($dep['department']) ?> (<?= $dep['arch'] === 'arm64' ? 'ARM64' : 'Windows x64' ?><?= $depMsi ? ', MSI' : '' ?>)</h4></div>
     <div class="card-body">
         <p class="small text-muted">This token allows <?= (int) $dep['max_uses'] ?> enrollments and expires <?= $h($dep['expires_at']) ?> UTC. The commands below contain it: keep them out of tickets, chat and shared script shares.</p>
+        <?php if ($depMsi) { ?>
+        <div class="alert alert-warning small" role="note" id="deploy-msi-warning"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><strong>Not yet verified on Windows.</strong> The MSI installer is unsigned and has never been run on a real Windows PC: msiexec accepting a package with the payload appended, repair and upgrade behaviour and the custom actions are unverified. Follow the checklist <code>docs/rmm/MSI_VERIFY.md</code> (RivetCore) on one machine before a roll-out.</div>
+        <h6>1. MSI: one PC, Intune, Group Policy or your RMM</h6>
+        <p class="small mb-2">Use <strong>Download installer</strong> with Format <em>MSI</em> for this department. The stamped file <code><?= $h($depMsi['filename']) ?></code> already contains the server address, the token and the department. Double-click it, or install it silently (the log is written to <code>%TEMP%</code>; msiexec's exit code 0 or 3010 means installed):</p>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_msi_msiexec">Copy command</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_msi_msiexec" rows="2" readonly spellcheck="false"><?= $h((string) $depMsi['msiexec']) ?></textarea>
+        <h6>2. MSI: PowerShell downloader (RMM, Intune platform script, GPO startup script)</h6>
+        <p class="small mb-1">Downloads the stamped MSI from this server with the token (the same endpoint, <code>format = msi</code>), installs it with msiexec and deletes it. The script holds the token: keep it out of tickets and chat.</p>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_msi_ps">Copy script</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_msi_ps" rows="14" readonly spellcheck="false"><?= $h((string) $depMsi['powershell']) ?></textarea>
+        <h6>3. MSI: property form (the unstamped template)</h6>
+        <p class="small mb-1">For a tool that deploys the published template itself (<code>rivetit-agent-windows-amd64.msi</code>) and passes the server and the token as properties. Use <code>ENROLL_TOKEN_FILE</code> instead of <code>ENROLL_TOKEN</code> to keep the token off the command line; <code>CA_PEM_FILE</code> is only for a server certificate from a private CA.</p>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_msi_props">Copy command</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_msi_props" rows="3" readonly spellcheck="false"><?= $h((string) $depMsi['properties']) ?></textarea>
+        <h6>4. MSI: uninstall and detection</h6>
+        <p class="small mb-1">Uninstall (the product code changes with every version, so it is looked up by name; the MeshCentral agent stays unless <code>REMOVE_MESHAGENT=1</code> is added to the msiexec arguments):</p>
+        <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_msi_uninstall">Copy script</button></div>
+        <textarea class="form-control font-monospace small mb-3" id="ea_msi_uninstall" rows="4" readonly spellcheck="false"><?= $h((string) $depMsi['uninstall']) ?></textarea>
+        <ul class="small mb-3">
+            <li><strong>Detection rule (Intune, MSI product code or name):</strong> product name <code><?= $h($depMsi['detection']['product_name']) ?></code>, upgrade code <code><?= $h($depMsi['detection']['upgrade_code']) ?></code> (it never changes between versions, so an Intune MSI detection rule on the upgrade code survives an agent update). The file and service rules below also work.</li>
+            <li><strong>Intune:</strong> add the stamped <code><?= $h($depMsi['filename']) ?></code> as a Line-of-business app (MSI), or wrap it as a Win32 app with install command <code><?= $h((string) $depMsi['msiexec']) ?></code>. The embedded token expires, so create the installer with a lifetime and use count that cover the rollout.</li>
+            <li><strong>Group Policy:</strong> a software-installation GPO needs a share every computer can read, and the stamped file holds a token: prefer the PowerShell startup script above with a token of a small use count, or Intune.</li>
+        </ul>
+        <?php } else { ?>
         <h6>1. Interactive (one PC)</h6>
         <p class="small mb-3">Use <strong>Download installer</strong> in the Deployment card for this department, copy <code><?= $h($depFile) ?></code> to the PC and double-click it (accept the administrator prompt), or run <code><?= $h($depFile) ?> setup</code> from an elevated prompt. The file already contains the server address, the token and the department.</p>
         <h6>2. Silent install for an RMM, Intune platform script or GPO startup script</h6>
@@ -117,12 +145,14 @@ $serviceUrlHint = 'https://' . $config_base_url;
         <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet">Copy script</button></div>
         <textarea class="form-control font-monospace small mb-3" id="ea_snippet" rows="16" readonly spellcheck="false"><?= $h($snippet) ?></textarea>
         <?php } ?>
+        <?php } ?>
         <?php if (!empty($dep['mesh']) && (string) ($dep['commands']['linux'] ?? '') !== '') { ?>
         <h6>2b. Linux, with the MeshCentral agent</h6>
         <p class="small mb-1">Run as root from the unpacked <code>rivetit-agent-linux-<?= $dep['arch'] === 'arm64' ? 'arm64' : 'amd64' ?>.tar.gz</code>. <code>--install-mesh-agent</code> makes the installer also fetch the MeshCentral agent from your Mesh server (and pin its certificate when you saved a pin). The command holds the Mesh device group id and the token: keep it out of tickets and chat. A Windows installer carries the same choice inside the file.</p>
         <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet_linux">Copy command</button></div>
         <textarea class="form-control font-monospace small mb-3" id="ea_snippet_linux" rows="10" readonly spellcheck="false"><?= $h((string) $dep['commands']['linux']) ?></textarea>
         <?php } ?>
+        <?php if (!$depMsi) { ?>
         <h6>3. Intune Win32 app and Group Policy</h6>
         <ul class="small mb-3">
             <li><strong>Intune Win32 app:</strong> wrap <code><?= $h($depFile) ?></code> with the Win32 Content Prep Tool (<code>IntuneWinAppUtil.exe -c folder -s <?= $h($depFile) ?> -o out</code>). Install command: <code><?= $h($depFile) ?> setup --silent</code>. Uninstall command: <code>"%ProgramFiles%\RivetIT\Agent\rivetit-agent.exe" uninstall</code>. Install behavior: System. The embedded token expires, so create the installer with a lifetime and use count that cover the rollout.</li>
@@ -130,6 +160,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
             <li><strong>Group Policy:</strong> Computer Configuration, Policies, Windows Settings, Scripts, Startup, PowerShell Scripts: add the script from step 2. Startup scripts run as SYSTEM before logon. SYSVOL is readable by every domain user, so use a token with a small use count, or prefer Intune or your RMM, which keep the script private.</li>
             <li>The setup is idempotent: a machine that already has the agent keeps its identity. Windows PCs that do not trust your server certificate need the issuing CA in their store (or set the CA certificate in the service settings, which the installer embeds for the agent).</li>
         </ul>
+        <?php } ?>
         <h6>4. New agent versions</h6>
         <p class="small mb-0">The Windows agent is built and released from the RivetCore repository (<code>endpoint-agent/</code>, release tags <code>agent-v*</code>, see <code>docs/rmm/AGENT_BUILD.md</code> there). Download the release executables and upload <code>rivetit-agent-windows-amd64.exe</code> and <code>...-arm64.exe</code> under Agent binaries, or run <code>sudo -u www-data php scripts/endpoint_agent_publish.php rivetit-agent-windows-amd64.exe --version 1.2.0 --arch amd64 --activate [--release pilot --rollout 10]</code>. Installers created afterwards use the current binary; enrolled agents update through the release ring.</p>
     </div>
@@ -424,6 +455,44 @@ echo rivetRmmUiScaleCards($scaleCtx);
     </div>
 </div>
 
+<div class="card mb-3" id="msi-templates">
+    <div class="card-header"><h4 class="card-title mb-0">MSI template</h4></div>
+    <div class="card-body">
+        <div class="alert alert-danger small" role="alert" id="msi-unverified"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><strong>UNVERIFIED on Windows.</strong> The MSI installer has never been run on a real Windows PC. Whether <code>msiexec</code> accepts a package with the enrollment payload appended after the end of the file, what happens on repair and upgrade, and the whole custom-action flow are not proven. The template is also <strong>unsigned</strong>: SmartScreen or an application-control policy may warn or block it, and signing a template and then stamping it would break the signature of the stamped copy. Work through the checklist <code>docs/rmm/MSI_VERIFY.md</code> in RivetCore (<a href="https://github.com/TheTractorHacker/rivet-core/blob/v1.0.0-rc.16/docs/rmm/MSI_VERIFY.md" rel="noopener noreferrer" target="_blank">open it<span class="visually-hidden"> (opens in a new tab)</span></a>) on one PC of each kind before relying on it. The <strong>.exe installer stays the default and the proven path</strong>.</div>
+        <p class="small text-muted">An MSI installer is a copy of a template published here with the department's enrollment payload appended; the stored template is never changed. Upload <code>rivetit-agent-windows-amd64.msi</code> from the agent release (or build it with <code>make msi</code> in RivetCore, see <code>docs/rmm/AGENT_BUILD.md</code>). <strong>Only x64 (amd64) is built</strong>: the build tool cannot make an ARM64 package, so ARM64 PCs use the .exe; an ARM64 package you built yourself is accepted.</p>
+        <p class="small text-muted mb-2">The server checks that the file is a Windows Installer package (an OLE compound file), that it is between <?= $h(BinaryStore::human(\RivetCore\Rmm\Binaries\MsiInspector::MIN_BYTES)) ?> and <?= $h(BinaryStore::human($rmm->binaryStore()->maxBytes())) ?>, that it is not already an installer with a payload, and reads the platform from the package's summary information (<code>x64</code> or <code>Arm64</code>; <code>Intel</code> is refused; if the summary cannot be read the file is accepted on your word and recorded as <em>declared</em>). It is stored outside the web-served area. Largest accepted upload now: <strong><?= $h(BinaryStore::human(min($uploadLimit, $rmm->binaryStore()->maxBytes()))) ?></strong> (the lower of the cap, PHP <code>upload_max_filesize</code> <?= $h(ini_get('upload_max_filesize')) ?> and <code>post_max_size</code> <?= $h(ini_get('post_max_size')) ?>). Larger or automated uploads: <code>sudo -u www-data php scripts/endpoint_agent_publish.php rivetit-agent-windows-amd64.msi --msi --version 1.2.0 --arch amd64 --activate</code>.</p>
+        <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-lg-4"><label class="form-label small" for="msi_file">MSI template (.msi)</label><input type="file" class="form-control form-control-sm" id="msi_file" name="msi_template" accept=".msi" required></div>
+            <div class="col-lg-2"><label class="form-label small" for="msi_v">Version</label><input class="form-control form-control-sm" id="msi_v" name="version" placeholder="1.2.0" maxlength="40" required></div>
+            <div class="col-lg-2"><label class="form-label small" for="msi_a">Architecture</label><select class="form-select form-select-sm" id="msi_a" name="arch"><option value="amd64">x64 (amd64)</option><option value="arm64">ARM64 (your own build)</option></select></div>
+            <div class="col-lg-3"><div class="form-check"><input type="checkbox" class="form-check-input" id="msi_cur" name="activate" value="1" checked><label class="form-check-label small" for="msi_cur">Use for new MSI installers (make current)</label></div></div>
+            <div class="col-lg-1"><button class="btn btn-sm btn-primary w-100" name="upload_msi_template" value="1">Upload</button></div>
+        </form>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <caption class="visually-hidden">Published MSI templates</caption>
+            <thead><tr><th scope="col">Version</th><th scope="col">Arch</th><th scope="col">Size</th><th scope="col">SHA-256</th><th scope="col">Platform read from</th><th scope="col">Uploaded (UTC)</th><th scope="col">State</th><th scope="col"></th></tr></thead><tbody>
+            <?php foreach ($msiTemplates as $t) { ?>
+                <tr>
+                    <td><?= $h($t['version']) ?></td><td><?= $h($t['arch']) ?></td><td><?= $h(BinaryStore::human((int) $t['size_bytes'])) ?></td>
+                    <td class="small font-monospace text-break"><?= $h($t['sha256']) ?></td>
+                    <td class="small"><?= $t['arch_source'] === 'summary' ? 'the package' : '<span class="badge bg-warning text-dark">declared by the uploader</span>' ?></td>
+                    <td><?= $h($dt($t['created_at'])) ?></td>
+                    <td><?php if (!$t['active']) { echo '<span class="badge bg-secondary">Inactive</span>'; } elseif ($t['is_current']) { echo '<span class="badge bg-success">Current</span>'; } else { echo '<span class="badge bg-info text-dark">Available</span>'; } ?></td>
+                    <td class="text-nowrap">
+                        <form action="post.php" method="post" class="d-inline-flex gap-1 flex-wrap align-items-center"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="template_id" value="<?= (int) $t['template_id'] ?>">
+                        <?php if ($t['active']) { ?>
+                            <?php if (!$t['is_current']) { ?><button class="btn btn-xs btn-outline-primary" name="msi_template_action" value="make_current">Make current</button><?php } ?>
+                            <button class="btn btn-xs btn-outline-danger" name="msi_template_action" value="deactivate" data-ea-confirm="Deactivate this MSI template? It stops being used for MSI installers. The file is kept.">Deactivate</button>
+                        <?php } else { ?><button class="btn btn-xs btn-outline-primary" name="msi_template_action" value="activate">Reactivate</button><?php } ?>
+                        </form>
+                    </td>
+                </tr>
+            <?php } if (!$msiTemplates) { echo '<tr><td colspan="8" class="text-muted">No MSI template published yet. MSI installers cannot be created until one is current; the .exe installer does not need one.</td></tr>'; } ?>
+        </tbody></table></div>
+    </div>
+</div>
+
 <div class="card mb-3" id="deployment">
     <div class="card-header"><h4 class="card-title mb-0">Deployment: per-department installer</h4></div>
     <div class="card-body">
@@ -442,6 +511,7 @@ echo rivetRmmUiScaleCards($scaleCtx);
                     <?php foreach ($clients as $c) { echo '<option value="' . (int) $c['client_id'] . '">' . $h($c['client_name']) . '</option>'; } ?>
                 </select></div>
             <div class="col-lg-2"><label class="form-label" for="dp_arch">Architecture</label><select class="form-select" id="dp_arch" name="arch"><option value="amd64">Windows x64</option><option value="arm64">Windows ARM64</option></select></div>
+            <div class="col-lg-2"><label class="form-label" for="dp_format">Format</label><select class="form-select" id="dp_format" name="format" aria-describedby="dp_format_help" data-msi-amd64="<?= $msiCur['amd64'] !== null ? '1' : '0' ?>" data-msi-arm64="<?= $msiCur['arm64'] !== null ? '1' : '0' ?>"><option value="exe" selected>Installer (.exe)</option><option value="msi">MSI (.msi)</option></select></div>
             <div class="col-lg-1"><label class="form-label" for="dp_loc">Location</label><input type="number" class="form-control" id="dp_loc" name="location_id" min="0" value="0" title="Location id, 0 for none"></div>
             <div class="col-lg-2"><label class="form-label" for="dp_ring">Update ring</label><select class="form-select" id="dp_ring" name="ring"><option value="stable">stable</option><option value="pilot">pilot</option></select></div>
             <div class="col-lg-1"><label class="form-label" for="dp_ttl">Hours</label><input type="number" class="form-control" id="dp_ttl" name="ttl_hours" min="1" max="<?= (int) $cfg['enroll_max_ttl_h'] ?>" value="<?= (int) min(72, $cfg['enroll_max_ttl_h']) ?>"></div>
@@ -451,6 +521,7 @@ echo rivetRmmUiScaleCards($scaleCtx);
             <div class="col-12" id="dp_mesh_col"><div class="form-check"><input class="form-check-input" type="checkbox" id="dp_mesh" name="install_mesh_agent" value="1" aria-describedby="dp_mesh_help"><label class="form-check-label" for="dp_mesh">Also install the MeshCentral agent</label></div>
                 <div class="form-text" id="dp_mesh_help"><?= $depMesh['ready'] ? 'After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server and installs it. If the Mesh part fails, the RivetIT agent is still installed. The commands for Linux then carry the Mesh address and device group id: treat them as secret.' : 'Not ready yet: ' . $h($depMesh['hint']) . ' <a href="#mesh">Open the MeshCentral settings below</a>.' ?></div></div>
             <?php } ?>
+            <div class="col-12 small text-muted" id="dp_format_help" aria-live="polite">The .exe is the default. The MSI is a stamped copy of the published MSI template for Intune, Group Policy or any tool that installs .msi packages. <?= $msiCur['amd64'] === null ? 'No MSI template is published for x64 yet (<a href="#msi-templates">upload one under MSI template</a>).' : 'Current x64 template: ' . $h($msiCur['amd64']) . '.' ?></div>
             <div class="col-12 d-flex flex-wrap gap-2 mt-2">
                 <button type="submit" name="download_installer" class="btn btn-primary"><i class="fas fa-download me-1"></i>Download installer</button>
                 <button type="submit" name="show_deploy_commands" class="btn btn-outline-primary"><i class="fas fa-terminal me-1"></i>Show deployment commands</button>
@@ -656,6 +727,26 @@ document.querySelectorAll('[data-ea-use-pin]').forEach(function (b) {
         if (t) { t.value = b.getAttribute('data-ea-use-pin'); t.focus(); }
     });
 });
+(function () {   // Deployment: the MSI format is offered only for an architecture that has a current template (ARM64 normally has none)
+    var fmt = document.getElementById('dp_format'), arch = document.getElementById('dp_arch'), help = document.getElementById('dp_format_help');
+    if (!fmt || !arch) { return; }
+    var base = help ? help.innerHTML : '';
+    function sync() {
+        var ok = fmt.getAttribute('data-msi-' + arch.value) === '1', opt = fmt.querySelector('option[value="msi"]');
+        opt.disabled = !ok;
+        if (!ok && fmt.value === 'msi') { fmt.value = 'exe'; }
+        if (help) {
+            help.innerHTML = base;
+            if (!ok) {
+                var n = document.createElement('div');
+                n.className = 'text-warning-emphasis';
+                n.textContent = arch.value === 'arm64' ? 'MSI is not available for ARM64: no ARM64 MSI template is published (the build makes x64 only). Use the .exe.' : 'MSI is not available: no current MSI template is published for x64.';
+                help.appendChild(n);
+            }
+        }
+    }
+    arch.addEventListener('change', sync); sync();
+})();
 document.querySelectorAll('input[data-ea-select]').forEach(function (i) { i.addEventListener('focus', function () { i.select(); }); });
 </script>
 <?php require_once "../includes/footer.php"; ?>

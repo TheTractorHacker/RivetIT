@@ -44,3 +44,27 @@ for ($run = 1; $run <= 3; $run++) {
 }
 $ok(stripos((string) $out, 'error') === false || true, 'update output captured');
 $q("UPDATE endpoint_agent_settings SET service_url='', failure_debounce=3, ca_pem=NULL WHERE id=1"); $q("DELETE FROM endpoint_agent_binaries"); $q("DELETE FROM endpoint_agent_releases");
+
+// ---- DB 2.6.164 (RivetCore 1.0.0-rc.16): Core migration 0025 creates endpoint_agent_msi_templates through the Core runner; db.sql carries the same table
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.164', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.164 (' . LATEST_DATABASE_VERSION . ')');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.163') {") !== false && strpos($upd, "'2.6.164'") !== false && strpos($upd, 'Migration0025MsiTemplates') !== false && strpos($upd, '\\RivetCore\\Migration\\MigrationRunner') !== false, 'the 2.6.164 step is gated on 2.6.163 and runs the Core runner (Migration0025MsiTemplates), no DDL of its own');
+$msiCols = fn () => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='endpoint_agent_msi_templates' ORDER BY ordinal_position"), 'column_name');
+preg_match('/CREATE TABLE `endpoint_agent_msi_templates` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $mm);
+preg_match_all('/^  `([a-z_0-9]+)` /m', $mm[1] ?? '', $msiDbSql);
+$ok(($msiDbSql[1] ?? []) !== [] && $msiDbSql[1] === $msiCols() && $msiCols() === ['template_id', 'version', 'arch', 'sha256', 'size_bytes', 'storage_name', 'arch_source', 'uploaded_by', 'active', 'is_current', 'created_at'], 'db.sql and the migrated schema agree on the columns of endpoint_agent_msi_templates');
+$ok((string) $one("SELECT table_collation FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='endpoint_agent_msi_templates'") === 'utf8mb4_general_ci' && (int) $one("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='endpoint_agent_msi_templates' AND index_name='uniq_version_arch'") === 2, 'the table is utf8mb4_general_ci with the unique (version, arch) key');
+$ok((int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0025_rmm_msi_templates'") === 1, 'the Core runner recorded 0025_rmm_msi_templates');
+$q("INSERT INTO endpoint_agent_msi_templates SET version='9.9.9', arch='amd64', sha256='" . str_repeat('c', 64) . "', size_bytes=5, storage_name='bin_keep', created_at=UTC_TIMESTAMP()");
+// a replay from 2.6.163 over a table that holds data keeps the data; a database that has no table yet (and no migration row) gets it
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) { $q('DROP TABLE endpoint_agent_msi_templates'); $q("DELETE FROM rivet_core_migrations WHERE migration_id='0025_rmm_msi_templates'"); }
+    $q("UPDATE settings SET config_current_database_version='2.6.163' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.164 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((int) $one("SELECT COUNT(*) FROM endpoint_agent_msi_templates WHERE version='9.9.9'") === 1, 'replay 1: the existing template row is kept (IF NOT EXISTS)');
+    } else {
+        $ok($msiCols() === $msiDbSql[1] && (int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0025_rmm_msi_templates'") === 1, 'replay 2: the missing table is created again with the db.sql columns and the migration is recorded');
+    }
+}
+$q('DELETE FROM endpoint_agent_msi_templates');

@@ -289,11 +289,45 @@ if (isset($_POST['binary_action'])) {
     ea_flash_result($ea_admin->binaryAction($ea_who, intval($_POST['binary_id'] ?? 0), (string) $_POST['binary_action'], (string) ($_POST['release_ring'] ?? 'pilot'), ea_post_int('rollout_pct', 0, 100, 10)));
 }
 
+/**
+ * MSI template (RivetCore 1.0.0-rc.16): upload one Windows Installer package as the template MSI installers are stamped from (RmmAdmin::uploadMsiTemplate: OLE compound
+ * file check, size window, not already stamped, platform from the package, audit entry) and activate / deactivate it (RmmAdmin::msiTemplateAction).
+ */
+if (isset($_POST['upload_msi_template'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $f = $_FILES['msi_template'] ?? null;
+    $limit = min($rmm->binaryStore()->effectiveUploadLimit(), $rmm->binaryStore()->maxBytes());
+    if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) ($f['tmp_name'] ?? ''))) {
+        $code = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        $why = in_array($code, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+            ? 'The file is larger than the limit of ' . \RivetCore\Rmm\Binaries\BinaryStore::human($limit) . ' (PHP upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . '). Raise them in php.ini or upload with scripts/endpoint_agent_publish.php --msi.'
+            : ($code === UPLOAD_ERR_NO_FILE ? 'Choose the MSI template (.msi) to upload.' : 'The upload failed (PHP error ' . $code . ').');
+        flash_alert(nullable_htmlentities($why), 'error');
+        redirect();
+    }
+    $arch = (string) ($_POST['arch'] ?? 'amd64');
+    ea_flash_result($ea_admin->uploadMsiTemplate($ea_who, (string) $f['tmp_name'], trim((string) ($_POST['version'] ?? '')), in_array($arch, ['amd64', 'arm64'], true) ? $arch : 'amd64', [
+        'activate' => isset($_POST['activate']),
+    ]));
+}
+
+if (isset($_POST['msi_template_action'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_flash_result($ea_admin->msiTemplateAction($ea_who, intval($_POST['template_id'] ?? 0), (string) $_POST['msi_template_action']));
+}
+
 if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])) {
     validateCSRFToken($_POST['csrf_token']);
     $arch = (string) ($_POST['arch'] ?? 'amd64');
+    $format = (string) ($_POST['format'] ?? 'exe');   // RivetCore 1.0.0-rc.16: exe (the default) or msi; anything else is refused before a token exists
+    if ($format === '') {
+        $format = 'exe';
+    }
+    if (!in_array($format, ['exe', 'msi'], true)) {
+        ea_flash_result(ActionResult::fail(422, 'invalid', 'Choose the installer format: exe or msi.'));
+    }
     $args = [intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'), ea_post_int('ttl_hours', 1, 720, 72),
-        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, ($_POST['install_mesh_agent'] ?? '') === '1'];   // last: also install the MeshCentral agent (rc.12)
+        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, ($_POST['install_mesh_agent'] ?? '') === '1', $format];   // last two: also install the MeshCentral agent (rc.12), the installer format (rc.16)
     if (isset($_POST['show_deploy_commands'])) {
         $r = $ea_admin->deploymentCommands($ea_who, ...$args);
         if (!$r->ok) {
@@ -302,7 +336,7 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
         // Shown once, on the next page load, like a plain enrollment token.
         $_SESSION['ea_new_token'] = ['token' => $r->data['token_plain'], 'id' => (int) $r->data['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r->data['department'],
             'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands'],
-            'mesh' => $args[7]]];
+            'mesh' => $args[7], 'format' => $format]];
         flash_alert('Enrollment token created. Copy the commands now: the token is shown only once.');
         redirect();
     }

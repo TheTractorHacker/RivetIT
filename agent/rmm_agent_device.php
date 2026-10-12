@@ -4,6 +4,7 @@ enforceUserPermission('module_rmm');
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';   // rc.12: the device's Mesh agent state
+require_once dirname(__DIR__) . '/includes/rmm_mesh_push.php';    // rc.16: Install / Remove MeshCentral agent
 
 use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Rmm\Support\Sql;
@@ -51,6 +52,11 @@ if ($can_saved) {
     $res = mysqli_query($mysqli, "SELECT id, name FROM rmm_scripts WHERE enabled = 1 AND script_type = 'powershell' AND script_body IS NOT NULL AND script_body <> '' ORDER BY name LIMIT 300");
     while ($res && ($sr = mysqli_fetch_assoc($res))) { $saved[] = $sr; }
 }
+// rc.16: the buttons that push (or remove) the MeshCentral agent. Core decides whether the install is offered (deviceView()['mesh_install']); the handler checks everything again.
+$push_remote = $authz->allowed($uid, RmmAbility::REMOTE_MANAGE, $client_id) && $rmm->featureOn('remote_tools');
+$push_state = rivetRmmMeshPushState(['features' => ['remote_tools' => $rmm->featureOn('remote_tools')], 'perm' => ['remote_manage' => $authz->allowed($uid, RmmAbility::REMOTE_MANAGE, $client_id)],
+    'usable' => $dev['link_state'] === 'linked', 'revoked' => $dev['revoked_at'] !== null, 'retired' => $dev['retired_at'] !== null, 'mesh_install' => $view['mesh_install'] ?? null,
+    'mesh_agent' => $view['mesh_agent'] ?? null, 'offline' => in_array($st['state'], ['offline', 'stale'], true), 'device_id' => $device_id, 'hostname' => (string) $dev['hostname']]);
 $badge = ['online' => 'success', 'offline' => 'danger', 'stale' => 'secondary', 'never' => 'secondary'][$st['state']];
 $pct = static fn($v) => $v === null ? '<span class="text-muted">no data</span>' : htmlspecialchars((string) round((float) $v, 1)) . '%';
 $bytes = static function ($b) { if ($b === null) { return '<span class="text-muted">no data</span>'; } $u = ['B', 'KB', 'MB', 'GB', 'TB']; $i = 0; $b = (float) $b; while ($b >= 1024 && $i < 4) { $b /= 1024; $i++; } return round($b, 1) . ' ' . $u[$i]; };
@@ -171,23 +177,28 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
         <tr><td class="font-monospace small"><?= $h(substr($j['job_id'], 0, 8)) ?></td><td><?= $h($j['type']) ?><?= $j['destructive'] ? ' <span class="badge bg-warning text-dark">destructive</span>' : '' ?></td>
             <td><span class="badge bg-<?= $stateBadge[$j['state']] ?? 'secondary' ?>"><?= $h($j['state']) ?></span><?= $j['reason'] ? ' <span class="small text-muted">' . $h($j['reason']) . '</span>' : '' ?></td>
             <td><?= $ts($j['created_at']) ?></td><td><?= $j['finished_at'] ? $ts($j['finished_at']) : '' ?></td><td><?= $j['exit_code'] === null ? '' : (int) $j['exit_code'] ?></td>
-            <td><?php if ($j['state'] === 'queued' && $can_saved) { ?><button type="button" class="btn btn-xs btn-outline-secondary ea-cancel" data-job="<?= $h($j['job_id']) ?>">Cancel</button><?php } ?></td></tr>
+            <td><?php if ($j['state'] === 'queued' && $can_saved) { ?><button type="button" class="btn btn-xs btn-outline-secondary ea-cancel" data-job="<?= $h($j['job_id']) ?>">Cancel</button><?php } ?>
+                <?php if (rivetRmmMeshPushIsJob((string) $j['type']) && $push_remote) { $GLOBALS['rmm_mesh_push_scripts'] = true; ?><button type="button" class="btn btn-xs btn-info" data-mesh-push-result="<?= $h($j['job_id']) ?>" data-device-id="<?= $device_id ?>" data-post-url="<?= RIVET_RMM_MESHPUSH_HANDLER ?>" data-csrf="<?= $h($_SESSION['csrf_token']) ?>" aria-expanded="false" aria-controls="rmm-mres-<?= $h($j['job_id']) ?>">View result</button><?php } ?></td></tr>
+        <?php if (rivetRmmMeshPushIsJob((string) $j['type']) && $push_remote) { ?><tr id="rmm-mres-<?= $h($j['job_id']) ?>" hidden><td colspan="7"><div data-mesh-push-result-body></div></td></tr><?php } ?>
         <?php if (!empty($j['output'])) { ?><tr><td colspan="7"><pre class="small bg-light p-2 mb-0" style="max-height:14rem;overflow:auto"><?= $h($j['output']) ?><?= !empty($j['output_truncated']) ? "\n[output truncated]" : '' ?></pre></td></tr><?php } ?>
     <?php } if (!$jobs) { echo '<tr><td colspan="7" class="text-muted">No jobs yet.</td></tr>'; } ?>
     </tbody></table>
 </div></div>
 
-<?php if (!empty($view['mesh_agent'])) { ?>
+<?php if (!empty($view['mesh_agent']) || $push_state !== null) { ?>
 <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">MeshCentral agent</h5></div><div class="card-body">
     <?php
+    if (empty($view['mesh_agent'])) { echo '<div class="small text-muted">No Mesh agent has been reported by this device.</div>'; }
     $conflictUrl = null;
     if ((int) ($view['mesh_agent']['conflict_device_id'] ?? 0) > 0) {   // Core names the other device only when it is in the same department
         $oa = mysqli_query($mysqli, 'SELECT asset_id FROM endpoint_agent_devices WHERE client_id = ' . $client_id . ' AND device_id = ' . (int) $view['mesh_agent']['conflict_device_id']);
         $oar = $oa ? mysqli_fetch_row($oa) : null;
         $conflictUrl = $oar && (int) $oar[0] > 0 ? '/agent/asset_details.php?asset_id=' . (int) $oar[0] . '#rmm-overview' : null;
     }
-    echo rivetRmmMeshAgentHtml($view['mesh_agent'], ['conflict_url' => $conflictUrl]); ?>
+    if (!empty($view['mesh_agent'])) { echo rivetRmmMeshAgentHtml($view['mesh_agent'], ['conflict_url' => $conflictUrl]); }
+    echo rivetRmmMeshPushControls($push_state); ?>
 </div></div>
+<?php if ($push_state !== null) { echo rivetRmmMeshPushDialog((string) $_SESSION['csrf_token']); } ?>
 <?php } ?>
 <?php if ($is_admin) { ?>
 <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">MeshCentral node (administrators)</h5></div><div class="card-body">

@@ -19,6 +19,7 @@
  */
 
 require_once __DIR__ . '/rmm_bootstrap.php';
+require_once __DIR__ . '/rmm_mesh_push.php';   // rc.16: push the MeshCentral agent to an enrolled device (state, buttons, dialogs, the fleet's bulk dialog)
 
 use RivetCore\Rmm\Authz\RmmAbility;
 
@@ -264,6 +265,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'remote' => $authz->allowed($userId, RmmAbility::REMOTE_LAUNCH, $client),
         'admin' => $authz->allowed($userId, RmmAbility::ADMIN, $client),
         'manage' => $authz->allowed($userId, RmmAbility::DEVICE_MANAGE, $client),   // tags
+        'remote_manage' => $authz->allowed($userId, RmmAbility::REMOTE_MANAGE, $client),   // rc.16: push / remove the MeshCentral agent, read a mesh job's result
     ];
     $read = $rmm->readModel();
     $view = $read->deviceView($deviceId, false, 15);
@@ -449,7 +451,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'client_id' => $client,
         'user_id' => $userId,
         // RMM Phase 2 and 3 sub-switches (RivetCore 1.0.0-rc.10), from the module's state file: the asset page shows the Policy and Alerting tabs only for these
-        'features' => ['policies' => $rmm->featureOn('policies'), 'scripts' => $rmm->featureOn('scripts'), 'alerting' => $rmm->featureOn('alerting')],
+        'features' => ['policies' => $rmm->featureOn('policies'), 'scripts' => $rmm->featureOn('scripts'), 'alerting' => $rmm->featureOn('alerting'), 'remote_tools' => $rmm->featureOn('remote_tools')],
         'hostname' => (string) $dev['hostname'],
         'platform' => $platform,
         'os_label' => (string) ($dev['os_version'] ?? ''),
@@ -494,6 +496,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
             'configured' => $meshConfigured],
         'mesh_agent' => is_array($view['mesh_agent'] ?? null) ? $view['mesh_agent'] : null,   // rc.12: RmmReadModel::deviceView()['mesh_agent'], present only once the device reported a Mesh agent
         'mesh_agent_conflict_url' => $meshConflictUrl,
+        'mesh_install' => is_array($view['mesh_install'] ?? null) ? $view['mesh_install'] : null,   // rc.16: {available, agent_supports, installed}, present only while a pushed install is available
         'remote_sessions' => $sessions,
         'saved_scripts' => $saved,
         'banners' => $banners,
@@ -669,6 +672,7 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
         'client_names' => $clientNames,
         'open_alerts' => rivetRmmUiOpenAlertCount($mysqli, $rmm, $visible),
         'capacity' => $capacity,
+        'mesh_bulk' => rivetRmmMeshBulkContext($mysqli, $rmm, $userId, $visible, $tagList, $groupList, $filters),   // rc.16: null unless a bulk Mesh install can be offered
         'perm' => ['admin' => $isAdmin, 'manage' => $canManage],
     ];
 }
