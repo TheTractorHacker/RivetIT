@@ -1245,7 +1245,7 @@ if ($config_backup_auto_enabled) {
  * ###############################################################################################################
  *  RECOVERY WATCH
  *  Alerts (in-app, email, event) for a stale or failed backup, a failing or stalled integration sync (RMM, Intune, UniFi)
- *  and a restore drill that stopped running. De-duplicated to one alert per 6 hours each. See src/Recovery/RecoveryWatch.php.
+ *  and a restore drill that stopped running. De-duplicated to one alert per alert_repeat_hours (default 24) each; dormant syncs are shown, not mailed. See src/Recovery/RecoveryWatch.php.
  * ###############################################################################################################
  */
 try {

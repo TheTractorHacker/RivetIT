@@ -23,6 +23,8 @@ final class RecoverySettings
         'sync_interval_rmm'        => '15',      // minutes; stale = no run in 3x. 0 turns the watch off for that source
         'sync_interval_intune'     => '15',
         'sync_interval_unifi'      => 'auto',    // 'auto' = infer from its own scheduled runs; a number = minutes; 0 = off
+        'sync_dormant_days'        => '14',      // a sync whose newest run is older than this is dormant: shown on the panel, never mailed as stale/failing
+        'alert_repeat_hours'       => '24',      // the same problem is mailed at most this often (the first one is always immediate)
         'alert_email'              => '',        // blank: every active administrator
     ];
 

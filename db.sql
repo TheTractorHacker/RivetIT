@@ -9250,6 +9250,20 @@ CREATE TABLE IF NOT EXISTS `recovery_settings` (
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `recovery_watch_overrides` (
+  `override_id` int(11) NOT NULL AUTO_INCREMENT,
+  `override_source` varchar(16) NOT NULL,
+  `override_integration_id` int(11) NOT NULL,
+  `override_muted` tinyint(1) NOT NULL DEFAULT 0,
+  `override_expected_interval_s` int(11) DEFAULT NULL,
+  `override_forget_before` datetime DEFAULT NULL,
+  `override_note` varchar(255) NOT NULL DEFAULT '',
+  `override_updated_by` int(11) NOT NULL DEFAULT 0,
+  `override_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`override_id`),
+  UNIQUE KEY `uniq_override_source_integration` (`override_source`,`override_integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Remote MCP built-in OAuth 2.1 authorization server (clients, codes, grants, tokens, switches), DB 2.6.156
 --

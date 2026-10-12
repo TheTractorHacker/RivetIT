@@ -8,6 +8,7 @@ if (!isset($mysqli, $backup_dir)) { http_response_code(404); exit; }   // only e
 
 use ITFlow\Recovery\BackupStatus;
 use ITFlow\Recovery\DrillVerifier;
+use ITFlow\Recovery\RecoveryAlerts;
 use ITFlow\Recovery\RecoverySettings;
 use ITFlow\Recovery\RestoreDrill;
 
@@ -82,6 +83,8 @@ $rec_ago = function (?int $sec): string {
     </div>
 </div>
 
+<?php require __DIR__ . '/sync_watch_panel.php'; ?>
+
 <!-- ── Restore drill ─────────────────────────────────────────────────────── -->
 <div class="card mb-3" id="restore-drill">
     <div class="card-header py-2 d-flex align-items-center">
@@ -135,7 +138,13 @@ $rec_ago = function (?int $sec): string {
                     <input type="number" min="2" max="720" class="form-control form-control-sm" name="backup_stale_hours" value="<?= $rec_stale_h ?>"></div>
                 <div class="col-md-3 form-group"><label class="small">Failed sync runs in a row</label>
                     <input type="number" min="1" max="20" class="form-control form-control-sm" name="sync_error_threshold" value="<?= (int) RecoverySettings::get($mysqli, 'sync_error_threshold') ?>"></div>
-                <div class="col-md-6 form-group"><label class="small">Alert email (blank = every administrator)</label>
+                <div class="col-md-3 form-group"><label class="small">Repeat a problem alert after (hours)</label>
+                    <input type="number" min="1" max="720" class="form-control form-control-sm" name="alert_repeat_hours" value="<?= RecoveryAlerts::repeatHours($mysqli) ?>"></div>
+                <div class="col-md-3 form-group"><label class="small">Sync dormant after (days, 0 = never)</label>
+                    <input type="number" min="0" max="3650" class="form-control form-control-sm" name="sync_dormant_days" value="<?= (int) RecoverySettings::get($mysqli, 'sync_dormant_days') ?>"></div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 form-group"><label class="small">Alert email (blank = every administrator)</label>
                     <input type="text" class="form-control form-control-sm" name="alert_email" value="<?= nullable_htmlentities(RecoverySettings::get($mysqli, 'alert_email')) ?>" placeholder="it-alerts@example.com"></div>
             </div>
             <div class="row">
@@ -146,7 +155,7 @@ $rec_ago = function (?int $sec): string {
                 <div class="col-md-4 form-group"><label class="small">UniFi sync interval (min, <code>auto</code>, 0 = off)</label>
                     <input type="text" class="form-control form-control-sm" name="sync_interval_unifi" value="<?= nullable_htmlentities(RecoverySettings::get($mysqli, 'sync_interval_unifi')) ?>"></div>
             </div>
-            <small class="text-muted d-block mb-2">A sync is reported as stopped after three times its interval with no run, and as failing after the number of errored runs above. Each alert repeats at most every 6 hours.</small>
+            <small class="text-muted d-block mb-2">A sync is reported as stopped after three times its interval with no run, and as failing after the number of errored runs above. A sync whose newest run is older than the dormant limit is shown as dormant and not mailed. Each alert repeats at most every <?= RecoveryAlerts::repeatHours($mysqli) ?> hours (the first one is immediate).</small>
             <button type="submit" name="save_recovery_settings" class="btn btn-primary btn-sm" <?= $rec_ready ? '' : 'disabled' ?>><i class="fas fa-check me-1"></i>Save</button>
         </form>
 

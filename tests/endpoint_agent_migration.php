@@ -68,3 +68,24 @@ for ($run = 1; $run <= 2; $run++) {
     }
 }
 $q('DELETE FROM endpoint_agent_msi_templates');
+
+// ---- DB 2.6.165 (sync-watch overrides): one new table, idempotent, equal to db.sql, data kept on replay
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.165', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.165 (' . LATEST_DATABASE_VERSION . ')');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.164') {") !== false && strpos($upd, "'2.6.165'") !== false && substr_count($upd, 'CREATE TABLE IF NOT EXISTS `recovery_watch_overrides`') === 1, 'the 2.6.165 step is gated on 2.6.164 and its CREATE is IF NOT EXISTS');
+$wCols = fn () => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='recovery_watch_overrides' ORDER BY ordinal_position"), 'column_name');
+preg_match('/CREATE TABLE IF NOT EXISTS `recovery_watch_overrides` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $wm);
+preg_match_all('/^  `([a-z_0-9]+)` /m', $wm[1] ?? '', $wSql);
+$ok(($wSql[1] ?? []) !== [] && $wSql[1] === $wCols(), 'db.sql and the migrated schema agree on the columns of recovery_watch_overrides');
+$ok((string) $one("SELECT table_collation FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='recovery_watch_overrides'") === 'utf8mb4_general_ci' && (int) $one("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='recovery_watch_overrides' AND index_name='uniq_override_source_integration' AND non_unique=0") === 2, 'recovery_watch_overrides is utf8mb4_general_ci with the unique (source, integration) key');
+$q("DELETE FROM recovery_watch_overrides"); $q("INSERT INTO recovery_watch_overrides SET override_source='rmm', override_integration_id=5, override_muted=1, override_expected_interval_s=86400, override_note='keep'");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) { $q('DROP TABLE recovery_watch_overrides'); }
+    $q("UPDATE settings SET config_current_database_version='2.6.164' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.165 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok($one("SELECT override_note FROM recovery_watch_overrides WHERE override_integration_id=5") === 'keep' && (int) $one("SELECT COUNT(*) FROM recovery_watch_overrides") === 1, 'replay 1: the existing override row is kept');
+    } else {
+        $ok($wCols() === $wSql[1] && (int) $one("SELECT COUNT(*) FROM recovery_watch_overrides") === 0, 'replay 2: the missing table is created again with the db.sql columns');
+    }
+}

@@ -77,20 +77,22 @@ $ok(V::restoreTestedState(36.0, 'pass', 1.0, 35, true)['state'] === 'fail', 'com
 $ok(V::restoreTestedState(null, 'fail', null, 35, true)['state'] === 'fail' && V::restoreTestedState(null, null, null, 35, false)['state'] === 'fail', 'compliance: failures and "never" are not compliant');
 
 $now = 1_000_000;
-$run = fn (string $s, int $ago, ?int $dur = 60) => ['status' => $s, 'started' => $now - $ago, 'finished' => $dur === null ? null : $now - $ago + $dur];
+$run = fn (string $s, int $ago, ?int $dur = 60, ?string $err = null) => ['status' => $s, 'started' => $now - $ago, 'finished' => $dur === null ? null : $now - $ago + $dur, 'error' => $err ?? ($s === 'failed' ? 'API timeout' : null)];
 $ok(SyncWatch::assess([$run('success', 300)], null, $now, 15, 3)['state'] === 'ok', 'sync: a recent success is ok');
 $ok(SyncWatch::assess([$run('success', 45 * 60 + 1)], null, $now, 15, 3)['state'] === 'stale', 'sync: no run in 3x the interval is stale');
 $ok(SyncWatch::assess([$run('success', 45 * 60 - 5)], null, $now, 15, 3)['state'] === 'ok', 'sync: just inside 3x is ok');
 $ok(SyncWatch::assess([$run('failed', 60), $run('failed', 600), $run('failed', 1200)], null, $now, 15, 3)['state'] === 'failing', 'sync: three failures in a row is failing');
 $ok(SyncWatch::assess([$run('failed', 60), $run('success', 600), $run('failed', 1200)], null, $now, 15, 3)['state'] === 'ok', 'sync: a success in between resets the count');
 $ok(SyncWatch::assess([$run('failed', 60), $run('failed', 600)], null, $now, 15, 3)['state'] === 'ok', 'sync: fewer errored runs than the threshold is ok');
-$ok(SyncWatch::assess([$run('running', 7200, null), $run('running', 8000, null), $run('failed', 9000)], null, $now, 15, 3)['state'] === 'failing', 'sync: runs stuck "running" for over an hour count as errors');
+$ok(SyncWatch::assess([$run('running', 7200, null, 'worker died'), $run('running', 8000, null, 'worker died'), $run('failed', 9000)], null, $now, 15, 3)['state'] === 'failing', 'sync: runs stuck "running" for over an hour that carry real error text count as errors');
+$ok(SyncWatch::assess([$run('running', 7200, null), $run('running', 8000, null), $run('failed', 9000)], null, $now, 15, 3)['state'] !== 'failing', 'sync: ... but a stuck run with no error text is not counted (only real error text counts)');
 $ok(SyncWatch::assess([$run('running', 60, null)], null, $now, 15, 3)['state'] === 'ok', 'sync: a run in progress is fine');
 $ok(SyncWatch::assess([], $now - 3 * 3600, $now, 15, 3)['state'] === 'stale' && SyncWatch::assess([], $now - 600, $now, 15, 3)['state'] === 'ok' && SyncWatch::assess([], null, $now, 15, 3)['state'] === 'ok', 'sync: never-run is stale only once old enough');
 $ok(SyncWatch::assess([$run('success', 99999)], null, $now, 0, 3)['state'] === 'ok', 'sync: interval 0 turns the staleness watch off');
 $ok(SyncWatch::inferInterval([1000, 700, 400, 100]) === 5 && SyncWatch::inferInterval([7200, 3600, 0]) === 60 && SyncWatch::inferInterval([100, 0]) === null, 'sync: interval inferred from the median gap, floored at 5 min');
 $ok(BackupStatus::staleState(26 * 3600, 26) === 'ok' && BackupStatus::staleState(26 * 3600 + 1, 26) === 'stale' && BackupStatus::staleState(null, 26) === 'none', 'backup stale boundary is 26 h');
-$ok(RecoveryAlerts::dueAgain(null, 100) && !RecoveryAlerts::dueAgain(100, 100 + 6 * 3600 - 1) && RecoveryAlerts::dueAgain(100, 100 + 6 * 3600), 'alert de-dupe window is 6 h');
+$ok(RecoveryAlerts::dueAgain(null, 100) && !RecoveryAlerts::dueAgain(100, 100 + 24 * 3600 - 1) && RecoveryAlerts::dueAgain(100, 100 + 24 * 3600), 'alert de-dupe window is 24 h by default');
+$ok(RecoveryAlerts::dueAgain(100, 100 + 6 * 3600, 6) && !RecoveryAlerts::dueAgain(100, 100 + 6 * 3600 - 1, 6), 'alert de-dupe window can be passed (6 h)');
 $ok(RestoreDrill::setupSteps('u', 'p') !== '' && str_contains(RestoreDrill::setupSteps('u', 'p'), 'GRANT ALL PRIVILEGES ON `drill\\_%`.* TO \'u\'@\'localhost\''), 'setup steps carry the drill_% GRANT');
 $ok(preg_match(RestoreDrill::SCRATCH_RE, 'drill_20261009') === 1 && preg_match(RestoreDrill::SCRATCH_RE, 'itflow_scratch') === 0 && preg_match(RestoreDrill::SCRATCH_RE, 'drill_1; DROP') === 0 && preg_match(RestoreDrill::SCRATCH_RE, 'drill_20261009_probe') === 1, 'scratch database names are pattern-locked');
 $ok(in_array('backup.failed', array_column(rivetEventCatalogExtrasForTest(), 'id'), true), 'backup.failed is registered in the event catalog extras');
@@ -144,11 +146,11 @@ $ok($one("SELECT run_ok FROM backup_runs WHERE run_id = $id") === '0' && str_con
 $ok(count($GLOBALS['notified']) === 1 && count($GLOBALS['mailed']) === 1 && $GLOBALS['mailed'][0]['recipient'] === 'admin@example.test' && $GLOBALS['events'] === ['backup.failed'], 'failure: one notification, one email to the admin, one backup.failed event');
 $id2 = BackupStatus::begin($mysqli, 'app_auto');
 BackupStatus::finish($mysqli, $id2, ['ok' => false, 'error' => 'disk full again']);
-$ok(count($GLOBALS['notified']) === 1 && count($GLOBALS['mailed']) === 1, 'a second failure inside 6 h is not re-alerted');
-$q("UPDATE recovery_alerts SET alert_last_sent_at = NOW() - INTERVAL 7 HOUR WHERE alert_key = 'backup.failed'");
+$ok(count($GLOBALS['notified']) === 1 && count($GLOBALS['mailed']) === 1, 'a second failure inside the repeat window is not re-alerted');
+$q("UPDATE recovery_alerts SET alert_last_sent_at = NOW() - INTERVAL 25 HOUR WHERE alert_key = 'backup.failed'");
 $id3 = BackupStatus::begin($mysqli, 'app_auto');
 BackupStatus::finish($mysqli, $id3, ['ok' => false, 'error' => 'still broken']);
-$ok(count($GLOBALS['notified']) === 2 && count($GLOBALS['mailed']) === 2, 'after 6 h the alert repeats');
+$ok(count($GLOBALS['notified']) === 2 && count($GLOBALS['mailed']) === 2, 'after 24 h the alert repeats');
 $id4 = BackupStatus::begin($mysqli, 'app_auto');
 BackupStatus::finish($mysqli, $id4, ['ok' => true, 'file' => 'itflow_y_auto.zip', 'size' => 123, 'sha256' => str_repeat('a', 64)]);
 $ok($one("SELECT COUNT(*) FROM recovery_alerts WHERE alert_key = 'backup.failed'") === '0' && $one("SELECT run_sha256 FROM backup_runs WHERE run_id = $id4") === str_repeat('a', 64), 'a good run clears the failure alert state and stores size/sha256');
@@ -194,7 +196,7 @@ $ok(count($rmm) === 1 && $rmm[0]['state'] === 'stale' && $rmm[0]['alerted'], 'sy
 $n1 = count($GLOBALS['notified']);
 SyncWatch::run($mysqli, true);
 $ok(count($GLOBALS['notified']) === $n1, 'sync watch: same problem a minute later is de-duplicated');
-$q("INSERT INTO rmm_sync_log (integration_id, started_at, finished_at, status, triggered_by) VALUES (901, NOW() - INTERVAL 30 MINUTE, NOW() - INTERVAL 30 MINUTE, 'failed', 0), (901, NOW() - INTERVAL 20 MINUTE, NOW() - INTERVAL 20 MINUTE, 'failed', 0), (901, NOW() - INTERVAL 10 MINUTE, NOW() - INTERVAL 10 MINUTE, 'failed', 0)");
+$q("INSERT INTO rmm_sync_log (integration_id, started_at, finished_at, status, triggered_by, errors) VALUES (901, NOW() - INTERVAL 30 MINUTE, NOW() - INTERVAL 30 MINUTE, 'failed', 0, 'HTTP 500'), (901, NOW() - INTERVAL 20 MINUTE, NOW() - INTERVAL 20 MINUTE, 'failed', 0, 'HTTP 500'), (901, NOW() - INTERVAL 10 MINUTE, NOW() - INTERVAL 10 MINUTE, 'failed', 0, 'HTTP 500')");
 $p = SyncWatch::run($mysqli, true);
 $rmm = array_values(array_filter($p, fn ($x) => $x['source'] === 'rmm'));
 $ok($rmm && $rmm[0]['state'] === 'failing' && in_array('integration.sync_failed', $GLOBALS['events'], true), 'sync watch: three errored runs in a row is "failing" (integration.sync_failed)');
@@ -277,7 +279,7 @@ $ok($drillDbs() === [] && $leftoverDirs() === [] && $r['cleanup_ok'] === true, '
 $ok(count($GLOBALS['notified']) === 1 && in_array('restore_drill.failed', $GLOBALS['events'], true) && count($GLOBALS['mailed']) >= 1, 'a failing drill notifies, emails and emits restore_drill.failed');
 $n1 = count($GLOBALS['notified']);
 (new RestoreDrill($mysqli, $appRoot, $dopts))->run();
-$ok(count($GLOBALS['notified']) === $n1, 'a second failing drill inside 6 h is not re-alerted');
+$ok(count($GLOBALS['notified']) === $n1, 'a second failing drill inside the repeat window is not re-alerted');
 unlink($bad);
 
 $bad = $tamper(function (ZipArchive $z) { $s = json_decode($z->getFromName('table-snapshot.json'), true); $s['core_counts']['clients'] = 400; $z->addFromString('table-snapshot.json', json_encode($s)); });

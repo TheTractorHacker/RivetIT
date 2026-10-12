@@ -10964,3 +10964,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.164'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.164') {
+        // DB 2.6.165: sync-watch controls. ONE new table, recovery_watch_overrides (CREATE TABLE IF NOT EXISTS, nothing existing altered): per integration
+        // a Mute flag, an expected-interval override and a "forget history" cutoff, edited on Admin > Backup. Nothing is switched on: with no rows the watcher behaves
+        // as before, apart from the new dormant rule (a sync whose newest run is over 14 days old is shown as dormant and no longer mailed) and the 24 h repeat window.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `recovery_watch_overrides` (
+          `override_id` int(11) NOT NULL AUTO_INCREMENT,
+          `override_source` varchar(16) NOT NULL,
+          `override_integration_id` int(11) NOT NULL,
+          `override_muted` tinyint(1) NOT NULL DEFAULT 0,
+          `override_expected_interval_s` int(11) DEFAULT NULL,
+          `override_forget_before` datetime DEFAULT NULL,
+          `override_note` varchar(255) NOT NULL DEFAULT '',
+          `override_updated_by` int(11) NOT NULL DEFAULT 0,
+          `override_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`override_id`),
+          UNIQUE KEY `uniq_override_source_integration` (`override_source`,`override_integration_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        if (mysqli_query($mysqli, "SHOW TABLES LIKE 'recovery_watch_overrides'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'recovery_watch_overrides'")) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.165'");
+        }
+    }
