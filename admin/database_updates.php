@@ -10987,3 +10987,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.165'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.165') {
+        // DB 2.6.166: default ticket view. ONE new table, ticket_view_defaults (CREATE TABLE IF NOT EXISTS, nothing existing altered): a person's own
+        // default saved view and, at most, one default for everyone who has none. default_key is "u:<user id>" or "shared"; its UNIQUE key is what keeps
+        // it to one default per person and one shared default (MariaDB has no partial unique index). Nothing is switched on: with no rows the Tickets page
+        // opens exactly as before.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `ticket_view_defaults` (
+          `default_id` int(11) NOT NULL AUTO_INCREMENT,
+          `default_key` varchar(32) NOT NULL,
+          `default_scope` enum('personal','shared') NOT NULL DEFAULT 'personal',
+          `default_user_id` int(11) NOT NULL DEFAULT 0,
+          `default_view_id` int(11) NOT NULL,
+          `default_set_by` int(11) NOT NULL DEFAULT 0,
+          `default_set_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`default_id`),
+          UNIQUE KEY `uniq_default_key` (`default_key`),
+          KEY `idx_default_view` (`default_view_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        if (mysqli_query($mysqli, "SHOW TABLES LIKE 'ticket_view_defaults'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'ticket_view_defaults'")) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.166'");
+        }
+    }

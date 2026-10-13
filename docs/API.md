@@ -282,7 +282,7 @@ stream), and billable charges on a ticket (billing module only).
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/tickets` | List tickets — paged; filterable by `status`, `mine`, `priority`, `onsite`, `category_id`, `client_id`, `contact_id`, `overdue`, `due_today`, plus `search` |
+| GET | `/tickets` | List tickets — paged; filterable by `status`, `mine`, `assigned`, `priority`, `board`, `onsite`, `category_id`, `client_id`, `contact_id`, `overdue`, `due_today`, plus `search`; `priority`, `assigned` (`me`, `unassigned`, agent ids), `board`, `category_id` and `onsite` take a comma list (`priority=high,medium`): OR inside one filter, AND across filters |
 | POST | `/tickets` | Create a ticket (JSON, or multipart to attach files at creation) |
 | GET | `/tickets/{id}` | Ticket detail, including replies and attachments |
 | POST | `/tickets/{id}/reply` | Add a reply, internal note, or portal/client reply (JSON or multipart with files) |
@@ -304,7 +304,7 @@ all bare arrays, all effectively static per instance.
 |---|---|---|
 | GET | `/statuses` | Active ticket statuses (bare array) |
 | GET | `/ticket-categories` | Ticket categories (bare array) |
-| GET | `/ticket-views` | Saved ticket views, pre-translated into list query params (bare array) |
+| GET | `/ticket-views` | Saved ticket views, pre-translated into list query params (bare array). Each item has `id`, `name`, `icon`, `params` (all strings; a view with several priorities, agents, boards or categories gives a comma list: `priority` `high,medium`, `assigned` `me,unassigned,7`, `board` `3,4`, `category_id` `5,6`; a view assigned to only the caller keeps the older `mine` = `1`), `shared` (shared with all agents), `is_default` and `default_scope` (`personal`, `shared` or null): the view that opens by default for the caller |
 
 ### Worksheets
 

@@ -9546,3 +9546,16 @@ CREATE TABLE IF NOT EXISTS `rmm_metric_hourly` (
   PRIMARY KEY (`asset_id`,`metric_key`,`instance`,`hour_start`),
   KEY `idx_hour` (`hour_start`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `ticket_view_defaults` (
+  `default_id` int(11) NOT NULL AUTO_INCREMENT,
+  `default_key` varchar(32) NOT NULL,
+  `default_scope` enum('personal','shared') NOT NULL DEFAULT 'personal',
+  `default_user_id` int(11) NOT NULL DEFAULT 0,
+  `default_view_id` int(11) NOT NULL,
+  `default_set_by` int(11) NOT NULL DEFAULT 0,
+  `default_set_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`default_id`),
+  UNIQUE KEY `uniq_default_key` (`default_key`),
+  KEY `idx_default_view` (`default_view_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

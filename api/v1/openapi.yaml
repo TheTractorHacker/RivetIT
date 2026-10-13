@@ -196,9 +196,11 @@ paths:
         - {$ref: '#/components/parameters/SearchParam'}
         - {$ref: '#/components/parameters/PageParam'}
         - {$ref: '#/components/parameters/LimitParam'}
-        - {name: priority, in: query, schema: {type: string, enum: [low, medium, high, critical]}}
-        - {name: onsite, in: query, schema: {type: integer, enum: [0, 1]}}
-        - {name: category_id, in: query, schema: {type: integer}}
+        - {name: priority, in: query, description: 'One or more of low, medium, high (comma-separated or repeated: high,medium)', schema: {type: string}}
+        - {name: assigned, in: query, description: 'Comma-separated: me, unassigned, and/or agent ids (me,7)', schema: {type: string}}
+        - {name: board, in: query, description: 'Board (top-level category) ids, comma-separated', schema: {type: string}}
+        - {name: onsite, in: query, description: '1 on-site, 0 remote, or both (0,1 = no filter)', schema: {type: string}}
+        - {name: category_id, in: query, description: 'Category ids, comma-separated', schema: {type: string}}
         - {name: client_id, in: query, schema: {type: integer}}
         - {name: contact_id, in: query, schema: {type: integer}}
         - {name: overdue, in: query, schema: {type: integer}}
@@ -2140,7 +2142,13 @@ components:
         id: {type: integer}
         name: {type: string}
         icon: {type: string}
-        params: {type: object, additionalProperties: {type: string}}
+        params:
+          type: object
+          description: Query parameters for /tickets. Multi-value filters are comma-separated (priority "high,medium", assigned "me,unassigned,7", board/category_id "3,4").
+          additionalProperties: {type: string}
+        shared: {type: boolean, description: True when the view is shared with all agents}
+        is_default: {type: boolean, description: True when this is the view that opens by default for the calling user}
+        default_scope: {type: string, nullable: true, enum: [personal, shared], description: Whose default it is (the caller's own, or the one for everyone), null when not the default}
     ClientListItem:
       type: object
       properties:

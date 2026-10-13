@@ -82,8 +82,19 @@ if ($method === 'GET' && $id === null && $resource === 'tickets') {
     $search   = mysqli_real_escape_string($mysqli, $_GET['search'] ?? '');
     $status   = $_GET['status'] ?? 'open'; // open|closed|all
     $mine     = isset($_GET['mine']) ? intval($_GET['mine']) : 0;
-    $priority = mysqli_real_escape_string($mysqli, strtolower($_GET['priority'] ?? ''));
-    $onsite   = isset($_GET['onsite']) && $_GET['onsite'] !== '' ? intval($_GET['onsite']) : -1;
+    // Multi-value filters (comma list or repeated key): priority=high,medium  assigned=me,unassigned,7  board=3,4  category_id=5,6
+    // onsite=0,1. OR inside a filter, AND across filters; all values validated (includes/ticket_filter_sets.php).
+    require_once __DIR__ . '/../../includes/ticket_filter_sets.php';
+    $api_sets = ticketFilterSets([
+        'priority'  => $_GET['priority'] ?? null,
+        'assigned'  => $_GET['assigned'] ?? null,
+        'board'     => $_GET['board'] ?? null,
+        'category'  => $_GET['category_id'] ?? ($_GET['category'] ?? null),
+        'onsite'    => $_GET['onsite'] ?? null,
+        'overdue'   => $_GET['overdue'] ?? null,
+        'due_today' => $_GET['due_today'] ?? null,
+    ], intval($uid));
+    $api_sql = ticketFilterSql($api_sets, 't.');
     $contact_id = isset($_GET['contact_id']) ? intval($_GET['contact_id']) : 0;
     $client_id  = isset($_GET['client_id']) ? intval($_GET['client_id']) : 0;
 
@@ -97,12 +108,16 @@ if ($method === 'GET' && $id === null && $resource === 'tickets') {
     if ($status === 'closed') $where[] = 't.ticket_resolved_at IS NOT NULL';
     if ($mine)                $where[] = "t.ticket_assigned_to = $uid";
     if ($search)              $where[] = "(t.ticket_subject LIKE '%$search%' OR t.ticket_number LIKE '%$search%')";
-    if ($priority)            $where[] = "LOWER(t.ticket_priority) = '$priority'";
-    if ($onsite !== -1)       $where[] = "t.ticket_onsite = $onsite";
+    foreach (['assigned', 'priority', 'board', 'category', 'onsite'] as $api_group) {
+        if ($api_sql[$api_group] !== '') $where[] = substr($api_sql[$api_group], 4); // drop the leading "AND "
+    }
+    // A filter that was asked for but held nothing valid (priority=bogus) matches nothing, as a single bad value always did.
+    foreach (['priority' => 'priority', 'assigned' => 'assigned', 'board' => 'board', 'category' => 'category_id'] as $api_group => $api_param) {
+        if (!$api_sets[$api_group] && ticketFilterTokens($_GET[$api_param] ?? ($api_group === 'category' ? ($_GET['category'] ?? null) : null))) $where[] = '1 = 0';
+    }
     if ($contact_id)          $where[] = "t.ticket_contact_id = $contact_id";
     if ($client_id)           $where[] = "t.ticket_client_id = $client_id";
-    if (isset($_GET['overdue']))   $where[] = "t.ticket_due_at IS NOT NULL AND t.ticket_due_at < NOW() AND t.ticket_resolved_at IS NULL";
-    if (isset($_GET['due_today'])) $where[] = "t.ticket_due_at IS NOT NULL AND DATE(t.ticket_due_at) = CURDATE() AND t.ticket_resolved_at IS NULL";
+    if ($api_sql['due'] !== '')    $where[] = substr($api_sql['due'], 4);
 
     $where_sql = implode(' AND ', $where);
 

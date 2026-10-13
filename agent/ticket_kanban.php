@@ -49,6 +49,11 @@ $sql = mysqli_query(
     LEFT JOIN categories ON ticket_category = category_id
     WHERE $ticket_status_snippet $ticket_assigned_query
     $category_query
+    $board_query
+    $priority_query
+    $onsite_query
+    $stat_query
+    $ticket_tag_query
     $client_query
     AND $ticket_date_query
     AND (

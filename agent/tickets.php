@@ -8,6 +8,23 @@ define('FROM_TICKETS_PAGE', true);
 $sort = "ticket_number";
 $order = "DESC";
 
+// The user's default saved view: opening Tickets with no filter of its own loads it (an explicit filter in the URL always wins).
+// This has to happen before the page shell reads the request, so the bootstrap files it needs are loaded first; they are
+// require_once, so the shell below does not load them twice.
+$ticket_default_view = null;
+if (!isset($_GET['client_id'])) {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+    require_once __DIR__ . '/includes/ticket_view_filters.php';
+    if (lookupUserPermission('module_support') >= 1) {
+        $ticket_default_view = ticketViewApplyDefault($mysqli, (int) $session_user_id, $_GET);
+        if ($ticket_default_view) {
+            $_REQUEST = $_GET + $_REQUEST;
+        }
+    }
+}
+
 // If client_id is in URI then show client Side Bar and client header
 if (isset($_GET['client_id'])) {
     require_once "includes/inc_all_client.php";
@@ -29,21 +46,14 @@ $ticket_date_query = dateRangeSqlBetween(ticketDateFields()[$ticket_date_field][
 
 // Ticket status from GET
 $status_filter_id = '';
-if (isset($_GET['status']) && is_array($_GET['status']) && !empty($_GET['status'])) {
-    // Sanitize each element of the status array
-    $sanitizedStatuses = array();
-    foreach ($_GET['status'] as $status) {
-        // Escape each status to prevent SQL injection
-        $sanitizedStatuses[] = "'" . intval($status) . "'";
-    }
-
-    // Convert the sanitized statuses into a comma-separated string
-    $sanitizedStatusesString = implode(",", $sanitizedStatuses);
-    $ticket_status_snippet = "ticket_status IN ($sanitizedStatusesString)";
+$status_list = isset($_GET['status']) && is_array($_GET['status']) ? ticketFilterIds($_GET['status']) : [];
+if ($status_list) {
+    // Several specific statuses (validated positive integers, capped)
+    $ticket_status_snippet = 'ticket_status IN (' . implode(',', $status_list) . ')';
     $status = '';
-    $status_filter_id = intval($_GET['status'][0]);
+    $status_filter_id = $status_list[0];
 
-} elseif (isset($_GET['status']) && ctype_digit((string) $_GET['status'])) {
+} elseif (isset($_GET['status']) && is_string($_GET['status']) && ctype_digit($_GET['status'])) {
     // Single status selected from the Status filter pill
     $status_filter_id = intval($_GET['status']);
     $status = '';
@@ -51,10 +61,10 @@ if (isset($_GET['status']) && is_array($_GET['status']) && !empty($_GET['status'
 } else {
 
     // TODO: Convert this to use the status IDs
-    if (isset($_GET['status']) && ($_GET['status']) == 'Closed') {
+    if (isset($_GET['status']) && $_GET['status'] === 'Closed') {
         $status = 'Closed';
         $ticket_status_snippet = "ticket_resolved_at IS NOT NULL";
-    } elseif (isset($_GET['status']) && ($_GET['status']) == 'All') {
+    } elseif (isset($_GET['status']) && $_GET['status'] === 'All') {
         // "All Tickets" stat box - genuinely no status filter, open or closed
         $status = 'All';
         $ticket_status_snippet = '1 = 1';
@@ -80,78 +90,38 @@ if (isset($_GET['billable']) && ($_GET['billable']) == '1') {
     $ticket_billable_snippet = '';
 }
 
-// Category Filter
-if (isset($_GET['category']) & !empty($_GET['category'])) {
-    $category_query = 'AND (ticket_category = ' . intval($_GET['category']) . ')';
-    $category_filter = intval($_GET['category']);
-} else {
-    // Default - any
-    $category_query = '';
-    $category_filter = '';
-}
-
-// Board Filter (top-level ticket category group)
-if (isset($_GET['board']) && !empty($_GET['board'])) {
-    $board_filter = intval($_GET['board']);
-    $board_query = "AND ticket_category IN (SELECT category_id FROM categories WHERE category_id = $board_filter OR category_parent = $board_filter)";
-} else {
-    $board_filter = '';
-    $board_query = '';
-}
-
-// Priority Filter
-if (isset($_GET['priority']) && in_array($_GET['priority'], ['Low', 'Medium', 'High'], true)) {
-    $priority_filter = $_GET['priority'];
-    $priority_query = "AND ticket_priority = '$priority_filter'";
-} else {
-    $priority_filter = '';
-    $priority_query = '';
-}
-
-// On-site / Remote filter (used by the On-Site / Remote saved views)
-if (isset($_GET['onsite']) && in_array($_GET['onsite'], ['0', '1'], true)) {
-    $onsite_filter = intval($_GET['onsite']);
-    $onsite_query = "AND ticket_onsite = $onsite_filter";
-} else {
-    $onsite_filter = '';
-    $onsite_query = '';
-}
-
-// Stat-box filters (Overdue / Due Today / On-Site Open) - clicking a stat box applies one of these
-$stat_query = '';
-if (isset($_GET['overdue'])) {
-    $stat_query = "AND ticket_due_at IS NOT NULL AND ticket_due_at < NOW() AND ticket_resolved_at IS NULL";
-} elseif (isset($_GET['due_today'])) {
-    $stat_query = "AND ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE() AND ticket_resolved_at IS NULL";
-}
-
-// Ticket assignment status filter
-// Default - any
-$ticket_assigned_query = '';
-$ticket_assigned_filter_id = '';
-if (isset($_GET['assigned']) & !empty($_GET['assigned'])) {
-    if ($_GET['assigned'] == 'unassigned') {
-        $ticket_assigned_query = 'AND ticket_assigned_to = 0';
-        $ticket_assigned_filter_id = 0;
-    } else {
-        $ticket_assigned_query = 'AND ticket_assigned_to = ' . intval($_GET['assigned']);
-        $ticket_assigned_filter_id = intval($_GET['assigned']);
-    }
-}
+// Multi-value filters (assigned to, priority, board, category, on-site/remote, due): any mix of single values (old links and
+// saved views) and lists (assigned[]=me&assigned[]=7). OR inside a group, AND across groups; see includes/ticket_filter_sets.php.
+$filter_sets = ticketFilterSets($_GET, (int) $session_user_id);
+$filter_sql = ticketFilterSql($filter_sets);
+$category_query = $filter_sql['category'];
+$board_query = $filter_sql['board'];
+$priority_query = $filter_sql['priority'];
+$onsite_query = $filter_sql['onsite'];
+$stat_query = $filter_sql['due'];
+$ticket_assigned_query = $filter_sql['assigned'];
+$category_filter = $filter_sets['category'];
+$board_filter = $filter_sets['board'];
+$priority_filter = $filter_sets['priority'];
+$onsite_filter = $filter_sets['onsite'];
+// "Only one choice" values the stat tiles compare against ('' = not filtering by that)
+$onsite_single = count($onsite_filter) === 1 ? $onsite_filter[0] : '';
+$ticket_assigned_filter_ids = $filter_sets['assigned'];
+$ticket_assigned_filter_id = count($ticket_assigned_filter_ids) === 1 ? $ticket_assigned_filter_ids[0] : ($ticket_assigned_filter_ids ? 'many' : '');
 
 // Project filter
 // Default - any (including tickets without a project)
 $ticket_project_snippet = '';
 $ticket_project_filter_id = '';
-if (isset($_GET['project']) & !empty($_GET['project']) && $_GET['project'] > '0') {
+if (isset($_GET['project']) && is_scalar($_GET['project']) && intval($_GET['project']) > 0) {
     $ticket_project_snippet = 'AND ticket_project_id = ' . intval($_GET['project']);
     $ticket_project_filter_id = intval($_GET['project']);
 }
 
 // Tags Filter
 if (isset($_GET['tags']) && is_array($_GET['tags']) && !empty($_GET['tags'])) {
-    $ticket_tag_filter = array_map('intval', $_GET['tags']);
-    $ticket_tag_filter_string = implode(",", $ticket_tag_filter);
+    $ticket_tag_filter = ticketFilterIds($_GET['tags']);
+    $ticket_tag_filter_string = implode(",", $ticket_tag_filter ?: [0]);
     $ticket_tag_query = "AND ticket_id IN (SELECT ticket_tag_ticket_id FROM ticket_tags WHERE ticket_tag_tag_id IN ($ticket_tag_filter_string))";
 } else {
     $ticket_tag_filter = array();
@@ -260,30 +230,20 @@ if (!$client_url) {
     while ($row = mysqli_fetch_assoc($sql_saved_views)) $_saved_views[] = $row;
 }
 
-// Resolve "assigned=me" to the current user for active-view comparison/links
-function ticketSavedViewQueryForUser($query, $session_user_id) {
-    return str_replace('assigned=me', 'assigned=' . $session_user_id, $query);
-}
+// Default view: which saved views are this user's own default / the shared default, and whether the user may set the shared one.
+$_default_available = ticketViewDefaultsAvailable($mysqli);
+$_default_ids = ticketViewDefaultIds($mysqli, (int) $session_user_id);
+$_can_share_default = lookupUserPermission("module_support") === 3;
+$_effective_default = $_default_available && !$client_url ? ticketViewDefaultFor($mysqli, (int) $session_user_id) : null;
 
 // Is the given saved-view query the one currently active?
 function ticketSavedViewIsActive($query, $session_user_id) {
-    $resolved = ticketSavedViewQueryForUser($query, $session_user_id);
-    parse_str($resolved, $view_params);
+    $view_params = ticketViewParseQuery((string) $query);
 
-    // Compare every relevant filter key, not just the ones present in the
-    // view's query - otherwise a view like "All Unresolved" (status=Open)
-    // would also light up whenever any other view that also sets
-    // status=Open (e.g. "Assigned to me") is active.
-    // Values are normalised so a list (several statuses, several tags) compares by content, not order.
-    $norm = function ($v) {
-        if (is_array($v)) { $v = array_map('strval', $v); sort($v); return implode(',', $v); }
-        return ($v === null || $v === '') ? null : (string) $v;
-    };
-    foreach (['status', 'assigned', 'onsite', 'board', 'category', 'priority', 'tags', 'overdue', 'due_today'] as $key) {
-        $current = $norm($_GET[$key] ?? null);
-        $expected = $norm($view_params[$key] ?? null);
-        if ($current !== $expected) return false;
-    }
+    // Compare every relevant filter, not just the ones present in the view's query - otherwise a view like "All Unresolved"
+    // (status=Open) would also light up whenever any other view that also sets status=Open (e.g. "Assigned to me") is active.
+    // Lists (several statuses, priorities, agents...) compare by content, not order, and "me" equals the viewer's own id.
+    if (ticketFilterSignature($_GET, (int) $session_user_id) !== ticketFilterSignature($view_params, (int) $session_user_id)) return false;
     // Date range (resolved, so a rolling "last7" view and the page showing last7 match) and the date field it applies to
     global $date_range;
     if (dateRangeFromRequest($view_params)->toQuery() !== $date_range->toQuery()) return false;
@@ -529,26 +489,46 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                             $_view_id = intval($_view['ticket_saved_view_id']);
                             $_view_name = nullable_htmlentities($_view['ticket_saved_view_name']);
                             $_view_icon = nullable_htmlentities($_view['ticket_saved_view_icon']) ?: 'fa-filter';
-                            $_view_query = ticketSavedViewQueryForUser($_view['ticket_saved_view_query'], $session_user_id);
+                            $_view_query = (string) $_view['ticket_saved_view_query'];
                             $_view_active = ticketSavedViewIsActive($_view['ticket_saved_view_query'], $session_user_id);
                             $_view_owner = intval($_view['ticket_saved_view_user_id']);
                             $_can_edit = ($_view_owner == $session_user_id) || ($_view_owner == 0 && lookupUserPermission("module_support") === 3);
+                            $_is_personal_default = $_default_ids['personal'] === $_view_id;
+                            $_is_shared_default = $_default_ids['shared'] === $_view_id;
+                            $_csrf = $_SESSION['csrf_token'];
                         ?>
                         <li class="nav-item d-flex align-items-center">
                             <a class="nav-link flex-grow-1 <?= $_view_active ? 'active' : '' ?>" href="?<?= htmlspecialchars($_view_query, ENT_QUOTES) ?>">
-                                <i class="fas fa-fw <?= $_view_icon ?>"></i><span><?= $_view_name ?></span>
+                                <i class="fas fa-fw <?= $_view_icon ?>"></i><span><?= $_view_name ?><?php if ($_is_shared_default) { ?> <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" title="The default for everyone who has not chosen their own">Default for all</span><?php } ?></span>
                             </a>
-                            <?php if ($_can_edit) { ?>
+                            <?php if ($_default_available) { ?>
+                            <a class="saved-view-star <?= $_is_personal_default ? 'is-default' : '' ?>"
+                               href="post.php?<?= $_is_personal_default ? 'clear' : 'set' ?>_ticket_view_default=<?= $_view_id ?>&csrf_token=<?= $_csrf ?>"
+                               title="<?= $_is_personal_default ? 'Your default view: click to clear' : 'Make this my default view' ?>"
+                               aria-label="<?= $_is_personal_default ? 'Clear my default view (currently ' . $_view_name . ')' : 'Make ' . $_view_name . ' my default view' ?>">
+                                <i class="<?= $_is_personal_default ? 'fas' : 'far' ?> fa-fw fa-star"></i>
+                            </a>
+                            <?php } ?>
+                            <?php if ($_can_edit || ($_default_available && $_can_share_default && $_view_owner == 0)) { ?>
                             <div class="dropdown saved-view-actions">
-                                <button class="btn btn-sm btn-link text-secondary p-0 px-1" type="button" data-bs-toggle="dropdown">
+                                <button class="btn btn-sm btn-link text-secondary p-0 px-1" type="button" data-bs-toggle="dropdown" aria-label="Actions for <?= $_view_name ?>">
                                     <i class="fas fa-fw fa-ellipsis-v"></i>
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-right">
-                                    <a class="dropdown-item" href="post.php?move_ticket_saved_view_up=<?= $_view_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-arrow-up me-2"></i>Move Up</a>
-                                    <a class="dropdown-item" href="post.php?move_ticket_saved_view_down=<?= $_view_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-arrow-down me-2"></i>Move Down</a>
-                                    <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/ticket/ticket_saved_view_edit.php?id=<?= $_view_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Rename</a>
+                                    <?php if ($_default_available && $_can_share_default && $_view_owner == 0) { ?>
+                                    <?php if ($_is_shared_default) { ?>
+                                    <a class="dropdown-item" href="post.php?clear_ticket_view_default=<?= $_view_id ?>&scope=shared&csrf_token=<?= $_csrf ?>"><i class="fas fa-fw fa-star-half-alt me-2"></i>Remove default for everyone</a>
+                                    <?php } else { ?>
+                                    <a class="dropdown-item" href="post.php?set_ticket_view_default=<?= $_view_id ?>&scope=shared&csrf_token=<?= $_csrf ?>"><i class="fas fa-fw fa-star-half-alt me-2"></i>Make default for everyone</a>
+                                    <?php } ?>
+                                    <?php } ?>
+                                    <?php if ($_can_edit) { ?>
+                                    <a class="dropdown-item" href="post.php?move_ticket_saved_view_up=<?= $_view_id ?>&csrf_token=<?= $_csrf ?>"><i class="fas fa-fw fa-arrow-up me-2"></i>Move Up</a>
+                                    <a class="dropdown-item" href="post.php?move_ticket_saved_view_down=<?= $_view_id ?>&csrf_token=<?= $_csrf ?>"><i class="fas fa-fw fa-arrow-down me-2"></i>Move Down</a>
+                                    <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/ticket/ticket_saved_view_edit.php?id=<?= $_view_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
                                     <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item text-danger confirm-link" href="post.php?delete_ticket_saved_view=<?= $_view_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
+                                    <a class="dropdown-item text-danger confirm-link" href="post.php?delete_ticket_saved_view=<?= $_view_id ?>&csrf_token=<?= $_csrf ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
+                                    <?php } ?>
                                 </div>
                             </div>
                             <?php } ?>
@@ -567,7 +547,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                             $_board_name = nullable_htmlentities($_board['category_name']);
                         ?>
                         <li class="nav-item">
-                            <a class="nav-link <?= ($board_filter == $_board_id) ? 'active' : '' ?>" href="?<?= $client_url ?>board=<?= $_board_id ?>&status=Open">
+                            <a class="nav-link <?= ($board_filter === [$_board_id]) ? 'active' : '' ?>" href="?<?= $client_url ?>board=<?= $_board_id ?>&status=Open">
                                 <i class="fas fa-fw fa-layer-group"></i><span><?= $_board_name ?></span>
                             </a>
                         </li>
@@ -585,11 +565,11 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
         $_stats = [
             ['label' => 'All Tickets',  'value' => $total_tickets_all,           'href' => '?' . $client_url . 'status=All', 'active' => $status === 'All', 'icon' => 'fa-list', 'color' => '#64748B', 'rgb' => '100,116,139'],
             ['label' => 'Unassigned',   'value' => $total_tickets_unassigned,    'href' => '?' . $client_url . 'assigned=unassigned', 'active' => $ticket_assigned_filter_id === 0, 'icon' => 'fa-user-slash', 'color' => '#F59E0B', 'rgb' => '245,158,11'],
-            ['label' => 'Unresolved',   'value' => $total_tickets_open,          'href' => '?' . $client_url . 'status=Open', 'active' => $status === 'Open' && !isset($_GET['due_today']) && !isset($_GET['overdue']) && $onsite_filter !== 1 && $ticket_assigned_filter_id === '', 'icon' => 'fa-exclamation-circle', 'color' => '#3B82F6', 'rgb' => '59,130,246'],
+            ['label' => 'Unresolved',   'value' => $total_tickets_open,          'href' => '?' . $client_url . 'status=Open', 'active' => $status === 'Open' && !isset($_GET['due_today']) && !isset($_GET['overdue']) && $onsite_single !== 1 && $ticket_assigned_filter_id === '', 'icon' => 'fa-exclamation-circle', 'color' => '#3B82F6', 'rgb' => '59,130,246'],
             ['label' => 'Due Today',    'value' => $total_tickets_due_today,     'href' => '?' . $client_url . 'status=Open&due_today=1', 'active' => isset($_GET['due_today']), 'icon' => 'fa-clock', 'color' => '#D97706', 'rgb' => '217,119,6'],
             ['label' => 'Overdue',      'value' => $total_tickets_overdue,       'href' => '?' . $client_url . 'status=Open&overdue=1', 'active' => isset($_GET['overdue']), 'icon' => 'fa-fire', 'color' => '#EF4444', 'rgb' => '239,68,68'],
-            ['label' => 'On-Site Open', 'value' => $total_tickets_onsite_open,   'href' => '?' . $client_url . 'status=Open&onsite=1', 'active' => $onsite_filter === 1, 'icon' => 'fa-map-marker-alt', 'color' => '#8B5CF6', 'rgb' => '139,92,246'],
-            ['label' => 'My Active',    'value' => $user_active_assigned_tickets,'href' => '?' . $client_url . 'status=Open&assigned=' . $session_user_id, 'active' => $ticket_assigned_filter_id !== '' && intval($ticket_assigned_filter_id) === intval($session_user_id), 'icon' => 'fa-user-check', 'color' => 'var(--color-accent)', 'rgb' => 'var(--color-accent-rgb)'],
+            ['label' => 'On-Site Open', 'value' => $total_tickets_onsite_open,   'href' => '?' . $client_url . 'status=Open&onsite=1', 'active' => $onsite_single === 1, 'icon' => 'fa-map-marker-alt', 'color' => '#8B5CF6', 'rgb' => '139,92,246'],
+            ['label' => 'My Active',    'value' => $user_active_assigned_tickets,'href' => '?' . $client_url . 'status=Open&assigned=' . $session_user_id, 'active' => $ticket_assigned_filter_id === (int) $session_user_id, 'icon' => 'fa-user-check', 'color' => 'var(--color-accent)', 'rgb' => 'var(--color-accent-rgb)'],
         ];
         foreach ($_stats as $_stat) {
         ?>
@@ -602,6 +582,20 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
         </a>
         <?php } ?>
     </div>
+
+    <?php if ($ticket_default_view) { ?>
+    <div class="alert alert-info py-2 d-flex flex-wrap align-items-center gap-2 mb-3 tv-default-banner" role="status">
+        <i class="fas fa-star" aria-hidden="true"></i>
+        <span>Showing <?= $ticket_default_view['default_source'] === 'shared' ? 'the default view' : 'your default view' ?> <strong><?= nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) ?></strong>
+            <span class="text-muted">(<?= nullable_htmlentities(ticketViewDescribe($mysqli, (string) $ticket_default_view['ticket_saved_view_query'])) ?>)</span></span>
+        <a class="ms-auto" href="?status=Open">Show all open tickets</a>
+    </div>
+    <?php } elseif ($_effective_default && !$client_url) { ?>
+    <div class="small text-muted mb-2 tv-default-hint">
+        <i class="far fa-star me-1" aria-hidden="true"></i>Your default view is <strong><?= nullable_htmlentities($_effective_default['ticket_saved_view_name']) ?></strong>.
+        <a href="?">Reset to my default</a>
+    </div>
+    <?php } ?>
 
     <div class="card card-dark">
         <div class="card-header py-2">
@@ -636,63 +630,73 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     <input type="hidden" name="client_id" value="<?= $client_id ?>">
                 <?php } ?>
                 <input type="hidden" name="view" value="<?= nullable_htmlentities($_GET['view'] ?? 'list') ?>">
-                <?php if ($onsite_filter !== '') { ?>
-                <input type="hidden" name="onsite" value="<?= intval($onsite_filter) ?>">
-                <?php } ?>
-                <?php if (isset($_GET['overdue'])) { ?>
-                <input type="hidden" name="overdue" value="1">
-                <?php } ?>
-                <?php if (isset($_GET['due_today'])) { ?>
-                <input type="hidden" name="due_today" value="1">
-                <?php } ?>
 
                 <div class="filter-toolbar">
                 <div class="row align-items-center filter-row-nowrap">
+                    <?php
+                    // Multi-choice filters: each is a button that opens a checkbox list and applies when it closes.
+                    $_opts_boards = [];
+                    while ($row = mysqli_fetch_assoc($sql_boards_filter)) { $_opts_boards[(string) intval($row['category_id'])] = $row['category_name']; }
+                    $_opts_categories = [];
+                    while ($row = mysqli_fetch_assoc($sql_categories_filter)) { $_opts_categories[(string) intval($row['category_id'])] = $row['category_name']; }
+                    $_opts_assigned = ['me' => 'Me', 'unassigned' => 'Unassigned'];
+                    $sql_assign_to = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_type = 1 AND user_archived_at IS NULL ORDER BY user_name ASC");
+                    while ($row = mysqli_fetch_assoc($sql_assign_to)) {
+                        // Yourself is the "Me" choice, not a second entry
+                        if (intval($row['user_id']) !== (int) $session_user_id) { $_opts_assigned[(string) intval($row['user_id'])] = $row['user_name']; }
+                    }
+                    $_sel_assigned = [];
+                    foreach ($ticket_assigned_filter_ids as $_aid) {
+                        $_sel_assigned[] = $_aid === 0 ? 'unassigned' : ($_aid === (int) $session_user_id ? 'me' : (string) $_aid);
+                    }
+                    ?>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="board" data-placeholder="Board" data-searchable="0" style="width:150px;">
-                            <option value="">All Boards</option>
-                            <?php
-                            while ($row = mysqli_fetch_assoc($sql_boards_filter)) {
-                                $board_id = intval($row['category_id']);
-                                $board_name = nullable_htmlentities($row['category_name']);
-                            ?>
-                                <option value="<?= $board_id ?>" <?= $board_filter == $board_id ? 'selected' : '' ?>><?= $board_name ?></option>
-                            <?php } ?>
-                        </select>
+                        <?php ticketFilterCheckGroup('tvp_board', 'Board', 'board[]', $_opts_boards, array_map('strval', $board_filter), ['mode' => 'dropdown', 'autosubmit' => true, 'empty' => 'No boards yet']); ?>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="category" data-placeholder="Category" data-searchable="0" style="width:170px;">
-                            <option value="">All Categories</option>
-                            <?php
-                            while ($row = mysqli_fetch_assoc($sql_categories_filter)) {
-                                $category_id = intval($row['category_id']);
-                                $category_name = nullable_htmlentities($row['category_name']);
-                            ?>
-                                <option <?php if ($category_filter == $category_id) { echo "selected"; } ?> value="<?php echo $category_id; ?>"><?php echo $category_name; ?></option>
-                            <?php } ?>
-                        </select>
+                        <?php ticketFilterCheckGroup('tvp_category', 'Category', 'category[]', $_opts_categories, array_map('strval', $category_filter), ['mode' => 'dropdown', 'autosubmit' => true, 'empty' => 'No categories yet']); ?>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="status" data-placeholder="Status" data-searchable="0" style="width:140px;">
-                            <option value="Open" <?= $status === 'Open' ? 'selected' : '' ?>>All Open</option>
-                            <option value="Closed" <?= $status === 'Closed' ? 'selected' : '' ?>>All Closed</option>
-                            <option value="All" <?= $status === 'All' ? 'selected' : '' ?>>All (Open + Closed)</option>
-                            <?php
-                            while ($row = mysqli_fetch_assoc($sql_ticket_status_pill)) {
-                                $ticket_status_id = intval($row['ticket_status_id']);
-                                $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
-                            ?>
-                                <option value="<?= $ticket_status_id ?>" <?= $status_filter_id == $ticket_status_id ? 'selected' : '' ?>><?= $ticket_status_name ?></option>
-                            <?php } ?>
-                        </select>
+                        <?php
+                        // Status: All open / All closed / Both, or any set of specific statuses (picking one switches off the other kind).
+                        $_status_is_all = $status === 'Open' || $status === 'Closed' || $status === 'All';
+                        $_sel_status_ids = $status_list ?: ($status_filter_id !== '' ? [(int) $status_filter_id] : []);
+                        $_status_summary = $_sel_status_ids ? count($_sel_status_ids) : 0;
+                        ?>
+                        <div class="dropdown tv-ms" data-tv-group data-tv-autosubmit data-tv-exclusive>
+                            <button class="btn btn-outline-secondary dropdown-toggle tv-ms-btn<?= $_status_summary ? ' tv-active' : '' ?>" type="button" id="tvp_status_btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span data-tv-label><?= $_status_summary ? 'Status' : ($status === 'Closed' ? 'Closed' : ($status === 'All' ? 'Open + Closed' : 'Open')) ?></span> <span class="badge bg-primary rounded-pill tv-count" data-tv-count<?= $_status_summary ? '' : ' hidden' ?>><?= $_status_summary ?></span>
+                            </button>
+                            <div class="dropdown-menu tv-ms-menu p-2" aria-labelledby="tvp_status_btn">
+                                <fieldset class="tv-fieldset mb-2">
+                                    <legend class="tv-legend-sm">Show</legend>
+                                    <?php foreach (['Open' => ['All open', 'Open'], 'Closed' => ['All closed', 'Closed'], 'All' => ['All (open + closed)', 'Open + Closed']] as $_sv => $_sl_pair) { $_sl = $_sl_pair[0]; ?>
+                                        <label class="form-check tv-option"><input class="form-check-input" type="radio" name="status" value="<?= $_sv ?>" data-tv-label="<?= $_sl_pair[1] ?>" <?= $status === $_sv ? 'checked' : '' ?>> <span class="form-check-label"><?= $_sl ?></span></label>
+                                    <?php } ?>
+                                </fieldset>
+                                <fieldset class="tv-fieldset">
+                                    <legend class="tv-legend-sm">Or specific statuses</legend>
+                                    <span class="tv-tools"><button type="button" class="btn btn-link btn-sm p-0" data-tv-all>Select all</button><span class="text-muted" aria-hidden="true"> · </span><button type="button" class="btn btn-link btn-sm p-0" data-tv-clear>Clear</button></span>
+                                    <div class="tv-options">
+                                    <?php
+                                    $_si = 0;
+                                    while ($row = mysqli_fetch_assoc($sql_ticket_status_pill)) {
+                                        $ticket_status_id = intval($row['ticket_status_id']);
+                                        $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
+                                        $_si++;
+                                    ?>
+                                        <label class="form-check tv-option" for="tvp_status_<?= $_si ?>"><input class="form-check-input" type="checkbox" id="tvp_status_<?= $_si ?>" name="status[]" value="<?= $ticket_status_id ?>" <?= in_array($ticket_status_id, $_sel_status_ids, true) ? 'checked' : '' ?>> <span class="form-check-label"><?= $ticket_status_name ?></span></label>
+                                    <?php } ?>
+                                    </div>
+                                </fieldset>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="priority" id="priorityFilterSelect" data-placeholder="Priority" data-searchable="0" style="width:150px;">
-                            <option value="">All Priorities</option>
-                            <option value="High" data-dot="high" <?= $priority_filter === 'High' ? 'selected' : '' ?>>High</option>
-                            <option value="Medium" data-dot="medium" <?= $priority_filter === 'Medium' ? 'selected' : '' ?>>Medium</option>
-                            <option value="Low" data-dot="low" <?= $priority_filter === 'Low' ? 'selected' : '' ?>>Low</option>
-                        </select>
+                        <?php ticketFilterCheckGroup('tvp_priority', 'Priority', 'priority[]', ['High' => 'High', 'Medium' => 'Medium', 'Low' => 'Low'], $priority_filter, ['mode' => 'dropdown', 'autosubmit' => true, 'dots' => ['High' => 'high', 'Medium' => 'medium', 'Low' => 'low']]); ?>
+                    </div>
+                    <div class="col-auto mb-2">
+                        <?php ticketFilterCheckGroup('tvp_assigned', 'Assigned to', 'assigned[]', $_opts_assigned, $_sel_assigned, ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                     </div>
                     <div class="col-auto mb-2" style="width:220px;">
                         <div class="input-group">
@@ -724,7 +728,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         </select>
                     </div>
                     <div class="col-auto mb-2">
-                        <a href="?<?= $client_url ?>" class="btn btn-outline-secondary"><i class="fas fa-undo me-1"></i>Reset Filters</a>
+                        <a href="?<?= $client_url ?>" class="btn btn-outline-secondary" <?= $_effective_default ? 'title="Back to your default view: ' . nullable_htmlentities($_effective_default['ticket_saved_view_name']) . '"' : '' ?>><i class="fas fa-undo me-1"></i><?= $_effective_default ? 'Reset to my default' : 'Reset Filters' ?></a>
                     </div>
                     <div class="col-auto mb-2">
                         <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-sliders-h me-1"></i>More Filters</button>
@@ -797,35 +801,14 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     </div>
                 </div>
 
-                <div
-                    class="collapse mt-3
-                        <?php
-                        if (isset($_GET['assigned']) && $_GET['assigned'])
-                            { echo "show"; }
-                        ?>"
-                    id="advancedFilter"
-                >
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Assigned to</label>
-                                <select class="form-control select2 auto-submit-select" name="assigned">
-                                    <option value="" <?php if ($ticket_assigned_filter_id == "") { echo "selected"; } ?>>Any</option>
-                                    <option value="unassigned" <?php if ($ticket_assigned_filter_id == "0") { echo "selected"; } ?>>Unassigned</option>
-
-                                    <?php
-                                    $sql_assign_to = mysqli_query($mysqli, "SELECT * FROM users WHERE user_type = 1 AND user_archived_at IS NULL ORDER BY user_name ASC");
-                                    while ($row = mysqli_fetch_assoc($sql_assign_to)) {
-                                        $user_id = intval($row['user_id']);
-                                        $user_name = nullable_htmlentities($row['user_name']);
-                                        ?>
-                                        <option <?php if ($ticket_assigned_filter_id == $user_id) { echo "selected"; } ?> value="<?php echo $user_id; ?>"><?php echo $user_name; ?></option>
-                                        <?php
-                                    }
-                                    ?>
-
-                                </select>
-                            </div>
+                <?php $_more_open = $filter_sets['onsite'] || $filter_sets['overdue'] || $filter_sets['due_today'] || $ticket_project_filter_id !== ''; ?>
+                <div class="collapse mt-3 <?= $_more_open ? 'show' : '' ?>" id="advancedFilter">
+                    <div class="row align-items-start">
+                        <div class="col-auto mb-2">
+                            <?php ticketFilterCheckGroup('tvp_onsite', 'Where', 'onsite[]', ['1' => 'On-site', '0' => 'Remote'], array_map('strval', $onsite_filter), ['mode' => 'dropdown', 'autosubmit' => true]); ?>
+                        </div>
+                        <div class="col-auto mb-2">
+                            <?php ticketFilterCheckGroup('tvp_due', 'Due', 'due[]', ['overdue' => 'Overdue', 'due_today' => 'Due today'], array_values(array_filter([$filter_sets['overdue'] ? 'overdue' : '', $filter_sets['due_today'] ? 'due_today' : ''])), ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
@@ -879,6 +862,7 @@ if (isset($_GET["view"])) {
     </div>
 
 <script src="../js/bulk_actions.js"></script>
+<script src="../js/ticket_view_filters.js?v=<?= (int) @filemtime(__DIR__ . '/../js/ticket_view_filters.js') ?>"></script>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 $(function () {

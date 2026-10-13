@@ -89,3 +89,25 @@ for ($run = 1; $run <= 2; $run++) {
         $ok($wCols() === $wSql[1] && (int) $one("SELECT COUNT(*) FROM recovery_watch_overrides") === 0, 'replay 2: the missing table is created again with the db.sql columns');
     }
 }
+
+// ---- DB 2.6.166 (default ticket view): one new table, idempotent, equal to db.sql, data kept on replay, the unique key is the one-default rule
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.166', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.166 (' . LATEST_DATABASE_VERSION . ')');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.165') {") !== false && strpos($upd, "'2.6.166'") !== false && substr_count($upd, 'CREATE TABLE IF NOT EXISTS `ticket_view_defaults`') === 1, 'the 2.6.166 step is gated on 2.6.165 and its CREATE is IF NOT EXISTS');
+$dCols = fn () => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='ticket_view_defaults' ORDER BY ordinal_position"), 'column_name');
+preg_match('/CREATE TABLE IF NOT EXISTS `ticket_view_defaults` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $dm);
+preg_match_all('/^  `([a-z_0-9]+)` /m', $dm[1] ?? '', $dSql);
+$ok(($dSql[1] ?? []) !== [] && $dSql[1] === $dCols(), 'db.sql and the migrated schema agree on the columns of ticket_view_defaults');
+$ok((int) $one("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='ticket_view_defaults' AND index_name='uniq_default_key' AND non_unique=0") === 1, 'ticket_view_defaults has the unique key that keeps it to one default per person and one shared default');
+$q("DELETE FROM ticket_view_defaults"); $q("INSERT INTO ticket_view_defaults SET default_key='u:7', default_scope='personal', default_user_id=7, default_view_id=3");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) { $q('DROP TABLE ticket_view_defaults'); }
+    $q("UPDATE settings SET config_current_database_version='2.6.165' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.166 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((int) $one("SELECT default_view_id FROM ticket_view_defaults WHERE default_key='u:7'") === 3 && (int) $one("SELECT COUNT(*) FROM ticket_view_defaults") === 1, 'replay 1: the existing default row is kept');
+    } else {
+        $ok($dCols() === $dSql[1] && (int) $one("SELECT COUNT(*) FROM ticket_view_defaults") === 0, 'replay 2: the missing table is created again with the db.sql columns');
+    }
+}
+$q("DELETE FROM ticket_view_defaults");
