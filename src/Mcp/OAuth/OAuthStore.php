@@ -72,13 +72,118 @@ final class OAuthStore
     public function clients(): array
     {
         $rows = $this->rows("SELECT c.*, d.source_url, d.first_seen_at, d.fetched_at, d.expires_at AS document_expires_at, (d.expires_at > UTC_TIMESTAMP()) AS document_fresh, d.last_error, d.last_error_at,
-                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_grants
+                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_grants,
+                (SELECT COUNT(DISTINCT g.user_id) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_users,
+                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id) AS total_grants,
+                (SELECT MAX(g.last_used_at) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id) AS grant_last_used_at
             FROM mcp_oauth_clients c LEFT JOIN mcp_oauth_client_documents d ON d.client_id = c.client_id ORDER BY c.created_at DESC LIMIT 500");
         foreach ($rows as &$r) {
             $r['redirect_uris'] = json_decode((string) $r['redirect_uris'], true) ?: [];
+            // Last use of any kind: the client's own token requests or a call made with one of its connections.
+            $r['last_activity_at'] = max((string) $r['last_used_at'], (string) $r['grant_last_used_at']) ?: null;
+            $r['duplicate_key'] = self::duplicateKey($r);
         }
+        unset($r);
+        $groups = array_count_values(array_filter(array_column($rows, 'duplicate_key')));
+        foreach ($rows as &$r) {
+            $r['duplicates'] = $r['duplicate_key'] !== null ? $groups[$r['duplicate_key']] - 1 : 0;
+        }
+        unset($r);
 
         return $rows;
+    }
+
+    /**
+     * Clients that are the same application registered more than once share a key: same type, same name, same set of return
+     * addresses. Metadata-document clients are identified by their URL, so they are never duplicates of each other.
+     */
+    public static function duplicateKey(array $client): ?string
+    {
+        if (!in_array($client['registration_type'], ['dynamic', 'manual'], true)) {
+            return null;
+        }
+        $uris = array_values(array_filter((array) $client['redirect_uris'], 'is_string'));
+        sort($uris);
+
+        return hash('sha256', $client['registration_type'] . "\n" . mb_strtolower((string) $client['client_name']) . "\n" . implode("\n", $uris));
+    }
+
+    /**
+     * What deleting a client would end: its live connections and the people behind them, and when it was last used.
+     * @return array{active_grants:int, active_users:int, total_grants:int, last_activity_at:?string}
+     */
+    public function clientUsage(string $id): array
+    {
+        $row = $this->row("SELECT
+                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_grants,
+                (SELECT COUNT(DISTINCT g.user_id) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_users,
+                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id) AS total_grants,
+                GREATEST(COALESCE(c.last_used_at, '1970-01-01'), COALESCE((SELECT MAX(g.last_used_at) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id), '1970-01-01')) AS last_activity_at
+            FROM mcp_oauth_clients c WHERE c.client_id = ?", 's', [$id]) ?? [];
+        $last = (string) ($row['last_activity_at'] ?? '');
+
+        return ['active_grants' => (int) ($row['active_grants'] ?? 0), 'active_users' => (int) ($row['active_users'] ?? 0),
+            'total_grants' => (int) ($row['total_grants'] ?? 0), 'last_activity_at' => $last === '' || str_starts_with($last, '1970-') ? null : $last];
+    }
+
+    /**
+     * Delete the surplus copies of self-registered clients (never an administrator's hand-added client, whose ID may already be
+     * typed into a tool that has not connected yet): only a client that has never had a connection (no grant
+     * row at all) and has never been used, and never the last one of its group, so one copy always stays (the newest). Anything
+     * with a connection, past or present, is untouched. @return int clients deleted
+     */
+    public function deleteUnusedDuplicates(): int
+    {
+        $all = $this->clients();
+        $groups = [];
+        foreach ($all as $c) {
+            if ($c['duplicate_key'] !== null && $c['registration_type'] === 'dynamic') {
+                $groups[$c['duplicate_key']][] = $c;
+            }
+        }
+        $deleted = 0;
+        foreach ($groups as $members) {
+            if (count($members) < 2) {
+                continue;
+            }
+            $unused = array_values(array_filter($members, static fn ($c) => (int) $c['total_grants'] === 0 && $c['last_used_at'] === null && $c['disabled_at'] === null));
+            // clients() is newest first. Keep the newest unused copy when no member of the group is in use at all.
+            $inUse = count($members) - count($unused) > 0;
+            foreach (array_slice($unused, $inUse ? 0 : 1) as $c) {
+                // Re-checked in the statement itself: a grant that appeared a moment ago stops the delete.
+                $n = $this->exec("DELETE FROM mcp_oauth_clients WHERE client_id = ? AND registration_type = 'dynamic' AND last_used_at IS NULL AND disabled_at IS NULL
+                    AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = mcp_oauth_clients.client_id)", 's', [$c['client_id']]);
+                if ($n === 1) {
+                    $this->exec('DELETE FROM mcp_oauth_codes WHERE client_id = ?', 's', [$c['client_id']]);
+                    $deleted++;
+                }
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * A client this address registered a moment ago with the same name and the same return addresses, if any: registering
+     * again returns it instead of making a copy (some clients register several times in one sign-in).
+     */
+    public function recentDuplicateClient(string $name, array $uris, ?string $ip, int $seconds): ?array
+    {
+        if ($ip === null) {
+            return null;
+        }
+        $probe = ['registration_type' => 'dynamic', 'client_name' => $name, 'redirect_uris' => $uris];
+        $want = self::duplicateKey($probe);
+        $rows = $this->rows("SELECT * FROM mcp_oauth_clients WHERE registration_type = 'dynamic' AND created_ip = ? AND disabled_at IS NULL
+            AND created_at > UTC_TIMESTAMP() - INTERVAL ? SECOND ORDER BY created_at DESC LIMIT 20", 'si', [$ip, $seconds]);
+        foreach ($rows as $r) {
+            $r['redirect_uris'] = json_decode((string) $r['redirect_uris'], true) ?: [];
+            if (hash_equals((string) $want, (string) self::duplicateKey($r)) && $r['client_name'] === $name) {
+                return $r;
+            }
+        }
+
+        return null;
     }
 
     public function countClients(): int
@@ -258,13 +363,17 @@ final class OAuthStore
     /**
      * The live access token behind a bearer value, with its consent, client and user. One query so a revoked consent, a
      * disabled client, an expired token or a disabled/removed/non-agent user all answer "no row" at the same moment.
+     * The client's type and document URL come along so the caller can apply the current trust policy too (BuiltinTokenValidator).
      */
     public function liveAccessToken(string $tokenHash): ?array
     {
-        return $this->row("SELECT t.expires_at AS token_expires_at, g.grant_id, g.user_id, g.client_id, g.scope, g.resource, g.last_used_at
+        // ttl_left is computed by the database (UTC against UTC), so no PHP or session time zone is involved.
+        return $this->row("SELECT TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), t.expires_at) AS ttl_left, g.grant_id, g.user_id, g.client_id, g.scope, g.resource, g.last_used_at,
+                c.registration_type, d.source_url
             FROM mcp_oauth_tokens t
             JOIN mcp_oauth_grants g ON g.grant_id = t.grant_id
             JOIN mcp_oauth_clients c ON c.client_id = g.client_id
+            LEFT JOIN mcp_oauth_client_documents d ON d.client_id = c.client_id
             JOIN users u ON u.user_id = g.user_id
             WHERE t.token_hash = ? AND t.token_kind = 'access' AND t.expires_at > UTC_TIMESTAMP()
               AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP() AND c.disabled_at IS NULL

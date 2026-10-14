@@ -172,11 +172,28 @@ if (isset($_POST['delete_mcp_oauth_client'])) {
     $store = new \ITFlow\Mcp\OAuth\OAuthStore($mysqli);
     $client = $store->client((string) ($_POST['client_id'] ?? ''));
     if ($client) {
+        // Read now, at the moment of deleting, not when the page was drawn: connections may have appeared since.
+        $usage = $store->clientUsage($client['client_id']);
+        if ($usage['active_grants'] > 0 && ($_POST['confirm_active_connections'] ?? '') !== '1') {
+            flash_alert('Not deleted: this app has ' . $usage['active_grants'] . ' active connection(s) for ' . $usage['active_users'] . ' person(s). Tick the box to confirm that they should all stop working, or use Disable to keep the app and block it.', 'error');
+            redirect();
+        }
         $store->deleteClient($client['client_id']);
         logAction('Settings', 'Delete', "$session_name deleted a Remote MCP app");
-        AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'delete', 'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" deleted with all its connections');
-        flash_alert('App deleted.');
+        AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'delete',
+            'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" deleted with all its connections',
+            ['active_connections' => $usage['active_grants'], 'people' => $usage['active_users']]);
+        flash_alert('App deleted.' . ($usage['active_grants'] > 0 ? ' ' . $usage['active_grants'] . ' connection(s) ended.' : ''));
     }
+    redirect();
+}
+
+if (isset($_POST['delete_unused_mcp_oauth_duplicates'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $n = (new \ITFlow\Mcp\OAuth\OAuthStore($mysqli))->deleteUnusedDuplicates();
+    logAction('Settings', 'Delete', "$session_name deleted $n unused duplicate Remote MCP app(s)");
+    AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', 'duplicates', 'delete', "Deleted $n unused duplicate MCP app(s) (no connection, never used)", ['count' => $n]);
+    flash_alert($n > 0 ? "Deleted $n unused duplicate app(s). Apps with a connection, or that were ever used, were not touched." : 'No unused duplicates to delete.');
     redirect();
 }
 

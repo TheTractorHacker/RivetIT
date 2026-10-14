@@ -17,7 +17,7 @@ if (!$oauth['active']) {
 OAuthHttp::method(['POST']);
 
 try {
-    if (!OAuthHttp::allow('oauth:revoke:ip:' . OAuthHttp::clientIp(), 120, 60)) {
+    if (!OAuthHttp::allow('oauth:revoke:ip:' . OAuthHttp::clientNet(), 120, 60)) {
         OAuthHttp::tooMany();
     }
     if (OAuthHttp::mediaType() !== 'application/x-www-form-urlencoded') {

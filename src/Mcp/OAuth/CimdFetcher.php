@@ -52,6 +52,7 @@ final class CimdFetcher
             CURLOPT_MAXREDIRS => 0,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTP_CONTENT_DECODING => false,   // never inflate: the 64 KB cap counts what is on the wire, so a compressed bomb cannot expand past it
             CURLOPT_PROXY => '',
             CURLOPT_NOPROXY => '*',
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,

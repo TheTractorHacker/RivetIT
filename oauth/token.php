@@ -17,7 +17,7 @@ if (!$oauth['active']) {
 OAuthHttp::method(['POST']);
 
 try {
-    if (!OAuthHttp::allow('oauth:token:ip:' . OAuthHttp::clientIp(), 120, 60)) {
+    if (!OAuthHttp::allow('oauth:token:ip:' . OAuthHttp::clientNet(), 120, 60)) {
         OAuthHttp::tooMany();
     }
     if (OAuthHttp::mediaType() !== 'application/x-www-form-urlencoded') {
@@ -36,14 +36,14 @@ try {
         OAuthHttp::json(400, ['error' => 'invalid_request', 'error_description' => 'A parameter was sent more than once.']);
     }
     $clientId = $params['values']['client_id'] ?? '';
-    if ($clientId !== '' && !OAuthHttp::allow('oauth:token:client:' . hash('sha256', $clientId), 60, 60)) {
+    // Per address AND client: a bucket per client alone would let anyone who knows a public client_id (Claude's is a published URL)
+    // use it up from anywhere and lock that client's real token requests out.
+    if ($clientId !== '' && !OAuthHttp::allow('oauth:token:client:' . OAuthHttp::clientNet() . ':' . hash('sha256', $clientId), 60, 60)) {
         OAuthHttp::tooMany();
     }
-    // A client_id that is a URL makes this server fetch it (client metadata documents): bound the outbound work per address.
-    if (OAuthService::clientIdIsUrl($clientId) && !OAuthHttp::allow('oauth:cimd:fetch:ip:' . OAuthHttp::clientIp(), 30, 60)) {
-        OAuthHttp::tooMany();
-    }
-    $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
+    // A client_id that is a URL may make this server fetch it (client metadata documents): the fetcher bounds that outbound work.
+    $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url), null,
+        OAuthHttp::limitedFetcher(OAuthConfig::cimd($mysqli)['mode'] === 'any'));
     [$status, $body] = $service->token($params['values']);
     OAuthHttp::json($status, $body, $status === 401 ? ['WWW-Authenticate' => 'Basic realm="RivetIT MCP"'] : []);
 } catch (\Throwable $e) {

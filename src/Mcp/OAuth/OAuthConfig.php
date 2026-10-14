@@ -27,6 +27,7 @@ final class OAuthConfig
     public const CIMD_MODES = ['off', 'hosts', 'any'];
     public const CIMD_DEFAULT_HOSTS = ['claude.ai'];
     public const REGISTER_PER_IP_HOUR = 10;       // successful registrations per address per hour (database count)
+    public const REGISTER_DEDUPE_SECONDS = 600;        // the same address registering the same app again within this time gets its existing client
     public const REGISTER_REQUESTS_PER_IP_HOUR = 30;   // registration requests of any outcome per address per hour (Redis)
 
     public static function issuer(string $baseUrl): string
@@ -37,6 +38,19 @@ final class OAuthConfig
     public static function resource(string $baseUrl): string
     {
         return self::issuer($baseUrl) . '/mcp';
+    }
+
+    /** A time the OAuth tables store (always UTC) as a local time string, for display and for timeAgo(), which expects local time. */
+    public static function localTime(?string $utc): ?string
+    {
+        if ($utc === null || $utc === '') {
+            return null;
+        }
+        try {
+            return (new \DateTimeImmutable($utc, new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            return $utc;
+        }
     }
 
     /** A trusted-host entry as stored: lower-case host with an optional :port, or null when it is not one. */

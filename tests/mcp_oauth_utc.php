@@ -23,4 +23,15 @@ $noCreated = [];
 foreach ($m as $x) { if (strpos($x[2], 'created_at') === false) { $noCreated[] = $x[1]; } }
 echo $noCreated === [] ? "PASS  every OAuth INSERT stamps created_at in UTC ($ins inserts)\n" : 'FAIL  INSERT without created_at: ' . implode(', ', $noCreated) . "\n";
 echo ($count >= 15 ? 'PASS' : 'FAIL') . "  UTC_TIMESTAMP() used ($count places)\n";
-exit($bad === [] && $noCreated === [] && $count >= 15 ? 0 : 1);
+// PHP side: a stored time is UTC, so it must never be parsed with the process time zone (strtotime/new DateTime without 'UTC'),
+// which the app switches to the company zone after sign-in. The token validator asks the database for seconds left instead.
+$parse = [];
+foreach (glob(__DIR__ . '/../src/Mcp/OAuth/*.php') as $f) {
+    foreach (explode("\n", (string) file_get_contents($f)) as $i => $line) {
+        if (preg_match('/^\s*(\*|\/\/)/', $line)) { continue; }
+        if ((str_contains($line, 'strtotime(') && !str_contains($line, "' UTC'")) || preg_match('/new \\?DateTime(Immutable)?\((?!.*UTC)/', $line) || preg_match('/\bdate\(/', $line)) { $parse[] = basename($f) . ':' . ($i + 1) . ': ' . trim($line); }
+    }
+}
+foreach ($parse as $b) { echo "FAIL  stored time parsed with the process time zone: $b\n"; }
+echo $parse === [] ? "PASS  no stored time is parsed with the process time zone in src/Mcp/OAuth\n" : '';
+exit($bad === [] && $noCreated === [] && $count >= 15 && $parse === [] ? 0 : 1);

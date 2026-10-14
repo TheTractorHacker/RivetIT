@@ -208,9 +208,9 @@ function tps_local(?string $utc): ?string
             <?php } foreach ($mcp_connections as $mc) { ?>
                 <tr>
                     <td class="ps-3 small"><?= nullable_htmlentities($mc['client_name']) ?><?php if (($mc['registration_type'] ?? '') === 'metadata' && $mc['source_url']) { ?> <span class="badge bg-secondary">from <?= nullable_htmlentities(parse_url((string) $mc['source_url'], PHP_URL_HOST) ?: '') ?></span><?php } ?> <span class="text-muted"><code><?= nullable_htmlentities($mc['scope']) ?></code></span></td>
-                    <td class="text-muted small"><?= nullable_htmlentities($mc['created_at']) ?></td>
-                    <td class="text-muted small"><?= $mc['last_used_at'] ? timeAgo($mc['last_used_at']) : 'Never' ?></td>
-                    <td class="text-muted small"><?= nullable_htmlentities(substr((string) $mc['expires_at'], 0, 10)) ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities(\ITFlow\Mcp\OAuth\OAuthConfig::localTime($mc['created_at'])) ?></td>
+                    <td class="text-muted small"><?= $mc['last_used_at'] ? timeAgo(\ITFlow\Mcp\OAuth\OAuthConfig::localTime($mc['last_used_at'])) : 'Never' ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities(substr((string) \ITFlow\Mcp\OAuth\OAuthConfig::localTime($mc['expires_at']), 0, 10)) ?></td>
                     <td class="pe-3 text-end">
                         <form action="post.php" method="post" class="mb-0 d-inline">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
