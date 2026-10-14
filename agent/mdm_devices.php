@@ -4,10 +4,13 @@ enforceUserPermission('module_client');
 
 use ITFlow\Integrations\ManageEngine\MdmClientFactory;
 use ITFlow\Integrations\ManageEngine\MdmDeviceStatus;
+use ITFlow\Integrations\ManageEngine\MdmFleet;
 
 /*
- * ManageEngine MDM devices: fleet overview, linked devices, and the review list of devices that matched no asset (or several).
- * Read-only toward ManageEngine. Linking / creating an asset needs module_client level 2 (agent/post/mdm_device.php).
+ * Mobile devices (ManageEngine MDM): fleet overview, linked devices, and the review list of devices that matched no asset (or several).
+ * Read-only toward ManageEngine. Permissions (decided, documented in docs/MANAGEENGINE_MDM.md): the module_client permission already
+ * governs the Intune devices page and the department/asset data these rows point at, so it is reused rather than adding a module (level 1 views,
+ * level 2 links / creates assets, level 3 and administrators configure). Department-scoped users only see their departments' devices.
  */
 
 $mdm = MdmClientFactory::row($mysqli);
@@ -16,7 +19,9 @@ $can_edit = lookupUserPermission('module_client') >= 2;
 $view = ($_GET['view'] ?? '') === 'unmatched' && !$restricted ? 'unmatched' : 'linked';
 $requested_platform = (string) ($_GET['platform'] ?? '');
 $filter_platform = '';   // set below, only to a platform name that really exists in the data
-$filter_state = in_array($_GET['state'] ?? '', ['lost', 'noncompliant', 'stale'], true) ? $_GET['state'] : '';
+$filter_state = in_array($_GET['state'] ?? '', ['lost', 'noncompliant', 'compliant', 'stale'], true) ? $_GET['state'] : '';
+$filter_q = trim((string) ($_GET['q'] ?? ''));
+$filter_older = max(0, min(3650, intval($_GET['older'] ?? 0)));   // last contact older than N days
 $filter_client_id = intval($_GET['client_id'] ?? 0);
 $show_dismissed = !empty($_GET['dismissed']);
 $csrf = $_SESSION['csrf_token'];
@@ -24,10 +29,10 @@ $csrf = $_SESSION['csrf_token'];
 $iid = (int) ($mdm['id'] ?? 0);
 $stale_days = max(1, (int) ($mdm['stale_days'] ?? 7));
 $scope_sql = $restricted ? " AND a.asset_client_id IN ($client_access_string)" : '';
-$noncompliant_sql = '(l.passcode_compliant = 0 OR l.is_rooted = 1)';
-$stale_sql = "(l.last_contact_at IS NOT NULL AND l.last_contact_at < DATE_SUB(NOW(), INTERVAL $stale_days DAY))";
+$noncompliant_sql = MdmFleet::NONCOMPLIANT;
+$stale_sql = MdmFleet::staleSql($stale_days);
 
-$fleet = ['total' => 0, 'noncompliant' => 0, 'stale' => 0, 'lost' => 0, 'unmatched' => 0];
+$fleet = ['total' => 0, 'compliant' => 0, 'noncompliant' => 0, 'stale' => 0, 'lost' => 0, 'unmatched' => 0, 'needs_mapping' => 0];
 $by_platform = [];
 $linked = [];
 $unmatched = [];
@@ -35,15 +40,7 @@ $clients_list = [];
 $mobile_assets = [];
 
 if ($mdm) {
-    $q = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT COUNT(*) AS total, COALESCE(SUM($noncompliant_sql), 0) AS noncompliant, COALESCE(SUM($stale_sql), 0) AS stale, COALESCE(SUM(l.is_lost_mode = 1), 0) AS lost
-         FROM asset_mdm_links l JOIN assets a ON a.asset_id = l.asset_id
-         WHERE l.integration_id = $iid AND a.asset_archived_at IS NULL $scope_sql"
-    ));
-    $fleet = array_map('intval', $q) + $fleet;
-    if (!$restricted) {
-        $fleet['unmatched'] = (int) mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM mdm_unmatched_devices WHERE integration_id = $iid AND dismissed = 0"))[0];
-    }
+    $fleet = MdmFleet::counts($mysqli, $iid, $stale_days, $scope_sql, !$restricted);
     $res = mysqli_query($mysqli,
         "SELECT COALESCE(NULLIF(l.platform, ''), 'unknown') AS p, COUNT(*) AS c FROM asset_mdm_links l JOIN assets a ON a.asset_id = l.asset_id
          WHERE l.integration_id = $iid AND a.asset_archived_at IS NULL $scope_sql GROUP BY p ORDER BY c DESC"
@@ -67,8 +64,17 @@ if ($mdm) {
             $where .= ' AND l.is_lost_mode = 1';
         } elseif ($filter_state === 'noncompliant') {
             $where .= " AND $noncompliant_sql";
+        } elseif ($filter_state === 'compliant') {
+            $where .= " AND NOT $noncompliant_sql AND l.passcode_compliant = 1";
         } elseif ($filter_state === 'stale') {
             $where .= " AND $stale_sql";
+        }
+        if ($filter_older > 0) {
+            $where .= " AND l.last_contact_at IS NOT NULL AND l.last_contact_at < DATE_SUB(NOW(), INTERVAL $filter_older DAY)";
+        }
+        if ($filter_q !== '') {
+            $like = "'%" . mysqli_real_escape_string($mysqli, addcslashes($filter_q, '%_\\')) . "%'";
+            $where .= " AND (l.device_name LIKE $like OR l.serial_number LIKE $like OR l.imei LIKE $like OR l.udid LIKE $like OR l.user_name LIKE $like OR l.user_email LIKE $like OR a.asset_name LIKE $like OR l.model LIKE $like OR l.product_name LIKE $like)";
         }
         if ($filter_client_id) {
             $where .= " AND a.asset_client_id = $filter_client_id";
@@ -100,7 +106,7 @@ if ($mdm) {
     }
 }
 
-$reason_label = ['no_match' => 'No asset has this serial', 'ambiguous' => 'More than one possible asset'];
+$reason_label = ['no_match' => 'No asset matches this device', 'ambiguous' => 'More than one possible asset', 'needs_mapping' => 'Its customer / account has no department yet (Client mapping)'];
 $icon_for = static function (string $platform): string {
     $p = strtolower($platform);
 
@@ -109,7 +115,7 @@ $icon_for = static function (string $platform): string {
 ?>
 
 <div class="d-flex align-items-center mb-3">
-    <h4 class="mb-0 me-auto"><i class="fas fa-tablet-alt me-2"></i>ManageEngine MDM Devices</h4>
+    <h4 class="mb-0 me-auto"><i class="fas fa-tablet-alt me-2"></i>Mobile devices <small class="text-muted">ManageEngine MDM</small></h4>
     <?php if ($session_is_admin) { ?>
         <a href="/admin/settings_integrations.php?tab=devicesync" class="btn btn-secondary btn-sm"><i class="fas fa-cog me-1"></i>Settings</a>
     <?php } ?>
@@ -160,20 +166,24 @@ $icon_for = static function (string $platform): string {
         </select>
         <select name="state" class="form-select form-select-sm w-auto auto-submit-select">
             <option value="">Any state</option>
+            <option value="compliant" <?= $filter_state === 'compliant' ? 'selected' : '' ?>>Compliant</option>
             <option value="noncompliant" <?= $filter_state === 'noncompliant' ? 'selected' : '' ?>>Not compliant</option>
             <option value="lost" <?= $filter_state === 'lost' ? 'selected' : '' ?>>Lost mode</option>
             <option value="stale" <?= $filter_state === 'stale' ? 'selected' : '' ?>>Not seen in <?= $stale_days ?>+ days</option>
         </select>
+        <input type="number" name="older" class="form-control form-control-sm w-auto" style="width:9rem !important" min="0" max="3650" value="<?= $filter_older ?: '' ?>" placeholder="No contact for N days" aria-label="Last contact older than this many days">
+        <input type="search" name="q" class="form-control form-control-sm w-auto" value="<?= nullable_htmlentities($filter_q) ?>" placeholder="Search name, serial, IMEI, user" aria-label="Search">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search me-1"></i>Filter</button>
         <input type="hidden" name="platform" value="<?= htmlspecialchars($filter_platform, ENT_QUOTES) ?>">
-        <?php if ($filter_platform || $filter_state || $filter_client_id) { ?><a href="?" class="btn btn-secondary btn-sm">Clear filters</a><?php } ?>
+        <?php if ($filter_platform || $filter_state || $filter_client_id || $filter_q !== '' || $filter_older) { ?><a href="?" class="btn btn-secondary btn-sm">Clear filters</a><?php } ?>
     </form>
 </div></div>
 
 <div class="card card-dark"><div class="card-body p-0">
 <?php if (!$linked) { ?>
-    <div class="text-center text-muted py-5"><i class="fas fa-tablet-alt fa-3x mb-3"></i><p>No linked devices<?= $filter_platform || $filter_state || $filter_client_id ? ' match these filters' : ' yet. Run a sync from the settings page' ?>.</p></div>
+    <div class="text-center text-muted py-5"><i class="fas fa-tablet-alt fa-3x mb-3"></i><p>No linked devices<?= $filter_platform || $filter_state || $filter_client_id || $filter_q !== '' || $filter_older ? ' match these filters' : ' yet. Run a sync from the settings page' ?>.</p></div>
 <?php } else { ?>
-    <table class="table table-hover table-sm mb-0">
+    <div class="table-responsive"><table class="table table-hover table-sm mb-0">
         <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
             <tr><th class="ps-3">Status</th><th>Device</th><th>Department</th><th>OS</th><th>User</th><th>Battery</th><th>Last contact</th><th></th></tr>
         </thead>
@@ -194,20 +204,20 @@ $icon_for = static function (string $platform): string {
             </tr>
         <?php } ?>
         </tbody>
-    </table>
+    </table></div>
 <?php } ?>
 </div></div>
 
 <?php } else { ?>
 <div class="d-flex mb-2">
-    <p class="text-muted small me-auto mb-0">These devices exist in ManageEngine but matched no asset by serial number, IMEI or UDID, or matched more than one. Nothing was created. Pick what to do with each.</p>
+    <p class="text-muted small me-auto mb-0">These devices exist in ManageEngine but matched no asset by serial number, IMEI, UDID or name, matched more than one, or belong to a customer / account that has no department yet (<a href="/admin/settings_integrations.php?tab=rmm#client-mapping">Client mapping</a>). Pick what to do with each.</p>
     <a class="btn btn-sm btn-outline-secondary" href="?view=unmatched<?= $show_dismissed ? '' : '&dismissed=1' ?>"><?= $show_dismissed ? 'Show active' : 'Show ignored' ?></a>
 </div>
 <div class="card card-dark"><div class="card-body p-0">
 <?php if (!$unmatched) { ?>
     <div class="text-center text-muted py-5"><i class="fas fa-check-circle fa-3x mb-3"></i><p>Nothing to review.</p></div>
 <?php } else { ?>
-    <table class="table table-sm mb-0 align-middle">
+    <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
         <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
             <tr><th class="ps-3">Device</th><th>Why</th><th>User</th><th>Last contact</th><th>Action</th></tr>
         </thead>
@@ -254,7 +264,7 @@ $icon_for = static function (string $platform): string {
             </tr>
         <?php } ?>
         </tbody>
-    </table>
+    </table></div>
 <?php } ?>
 </div></div>
 <?php } ?>

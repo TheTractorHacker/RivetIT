@@ -1,27 +1,64 @@
-# ManageEngine Mobile Device Manager Plus (cloud): read-only device sync
+# ManageEngine Mobile Device Manager Plus: read-only device sync (on-premises and cloud)
 
-**Live-tenant behaviour is unverified.** This integration was written from ManageEngine's published API documentation and tested
-only against a local mock (`tests/mock/manageengine_mdm_mock.php`). No real ManageEngine or Zoho account was used. Treat the first
-live sync as a test, using the checklist at the end. Section "What the docs did not say" lists every fact that could not be confirmed.
+**Live-server behaviour is unverified.** This integration was written from ManageEngine's published API documentation and tested only against a
+local mock (`tests/mock/manageengine_mdm_mock.php`). No real ManageEngine server or Zoho account was used. Treat the first live sync as a test, using the
+checklist at the end. The section "What the docs did not say" lists every behaviour that was taken from the documentation only or assumed.
 
-It covers the **cloud** edition (Zoho sign-in). The on-premises edition (API key, your own server URL) and the MSP edition are not supported.
+Two editions are supported: **on-premises** (your own server, an API key) and **cloud** (Zoho sign-in). Either can be the **MSP edition** (one
+server, many customers). Infrastructure > Assets stays the single inventory: a device either links to an existing asset or creates one; there is no second
+device list.
 
 ## What it does
 
-- Lists your managed devices (iPads, Android tablets and phones, and anything else MDM Plus manages) and links each one to a RivetIT asset
-  **by serial number** (IMEI and UDID are tried when a device has no usable serial).
-- Shows the result on the asset page (a ManageEngine MDM panel), on the assets list (a small MDM badge), on a fleet page
-  (Endpoints > MDM Devices: counts by platform, not compliant or lost, not seen in N days, unmatched) and on the training kiosk
-  Devices list (an MDM status chip for a device whose asset is linked).
-- **Read only.** It never locks, wipes, or changes a device, and never writes to ManageEngine. The code has no such call. Remote
-  actions (lock, lost mode, wipe) are a possible later version; they would need write scopes that this version never requests.
-- **Never writes an asset's own fields.** A sync only reads `assets` and writes its own link tables. A device that matches no asset
-  (or more than one) goes to a review list; a person chooses **Create asset** or **Link to existing asset** (or Ignore).
+- Lists your managed devices (iPads, iPhones, Android phones and tablets, anything else MDM Plus manages) and links each one to a RivetIT asset, in this order:
+  an existing link, **serial number**, **IMEI**, **UDID**, then a **unique asset with the same name in the device's department**.
+- Creates an asset when nothing matches (switch **Create a Phone / Tablet asset**, on for a new connection; an upgraded connection keeps it off): type **Phone**
+  for iPhones and Android phones, **Tablet** for iPads and Android tablets, **Laptop** for Windows / macOS / ChromeOS, **Display** for TV platforms,
+  **Other** otherwise. Name, serial (the IMEI when there is no serial), make, model and OS come from the device.
+- **Never overwrites what a person typed.** Make, model and OS go through the same rule the RMM and Intune syncs use (`asset_sync_state`): a field is written when
+  it is blank or still holds the value the last sync wrote; a human edit is left alone for good. The device's user becomes the asset's contact only when exactly
+  one non-archived contact of the asset's department has that e-mail address, and never replaces a contact a person chose (the Intune rule).
+- Shows the result on the asset page (an MDM card: status, compliance, last contact, OS, owner type, enrolled date, user, groups, battery, storage, link to the
+  console), on the assets list (a small MDM badge), and on **Mobile devices** (menu group "Managed devices"): counts, filters (department, platform, state:
+  compliant / not compliant / lost / not seen, last contact older than N days, search by name, serial, IMEI, UDID, user, model), and the review list.
+- **Read only.** It never locks, wipes, locates or changes a device and never writes to ManageEngine. The code has no such call. Lock, lost mode and wipe are
+  planned for later as approved jobs; they would need write permissions that this version never requests.
 - Off by default. Nothing is requested from ManageEngine until an administrator saves a connection and switches it on.
+
+## Permissions (decision)
+
+The existing `module_client` permission is reused instead of adding a module: it already governs the Intune devices page and the departments and assets these
+rows point at, and a new module would have to be added to every role matrix (Admin and Technician must not change). Level 1 sees the list and the asset card,
+level 2 links, creates, ignores and unlinks, level 3 and administrators configure the connection (settings, Test connection, Sync now). A user limited to some
+departments only sees those departments' devices and never the review list.
 
 ## Set it up
 
-### 1. Create a Zoho self client (once)
+### On-premises edition (API key)
+
+1. On the MDM server: **Admin** tab > **Integrations** > **API Key Generation** > **Generate Key**; give it an application and service name and the permissions it
+   needs (read access to devices: list, details and summary; for MSP also customers). The key is valid **6 months**.
+2. In RivetIT, Administration > Integrations > Device Sync > ManageEngine: Edition **On-premises**, **Server address** `https://mdm.example.com:8383` (scheme, host
+   and optional port only; RivetIT adds `/api/v1/mdm`), **API key**, **API key expires on** (the date 6 months from generation: RivetIT warns 30 days before and
+   when it has expired, as a notification once a day, and on this page), then Save, **Test connection** (shows the device count) and **Sync now**.
+3. The key goes in the `Authorization` header only (the docs: "API key can be passed only in header"), is stored encrypted, and is never shown, logged or audited.
+4. **Private networks.** The address must be https. An MDM server on a private LAN (10.x, 172.16-31.x, 192.168.x) is refused until that network is listed under
+   **Administration > Webhooks > Allowed internal networks**: the same list and the same RivetCore URL policy webhooks use (public addresses always pass; loopback,
+   link-local and cloud-metadata addresses can never be allowed). The connection is pinned to the vetted address, so DNS cannot be changed between the check and
+   the request. The check runs when saving and on every sync.
+5. **Self-signed certificates.** On-premises servers often have one. Turn **Verify the server's TLS certificate** off only for a certificate you trust; the default is on.
+6. A new key: generate it, paste it, change the expiry date, Save. The old one stops working when it expires or is revoked (HTTP 401: "rejected the API key").
+
+### MSP edition (either edition of the connection)
+
+Tick **MSP edition**. A sync then reads the customer list and fetches each customer's devices with that customer's id in the `X-CUSTOMER` request header. Each
+customer name goes through the shared **Client mapping** queue (Administration > Integrations > RMM > Client mapping): an exact department-name match is used
+as before, a saved mapping wins, **Ignore** skips the customer on purpose, and a name that matches nothing waits there (its devices wait in the review list as
+"needs_mapping") until you map it. The **Default department** catches customers that have no mapping. Without MSP, the default department is used for every new
+asset; without a default there is one queue entry for the whole account. The queue entries of this integration are keyed by the negative of its own id, so they
+can never collide with an RMM integration's.
+
+### Cloud edition: 1. Create a Zoho self client (once)
 
 ManageEngine's cloud MDM signs API calls with a Zoho OAuth token. A *self client* is the Zoho feature for "my own script calls my own
 account": no redirect URL, no user in the loop.
@@ -97,8 +134,33 @@ For each device, stored in `asset_mdm_links` (matched) or `mdm_unmatched_devices
 | Supervised, passcode compliant, rooted, battery level, storage total and available, registered time, unregistered time | device details | `GET /api/v1/mdm/devices/{id}` |
 | Last contact time, group names | device summary | `GET /api/v1/mdm/devices/{id}/summary` |
 
-Not stored, deliberately: the raw responses (the details response contains an `apn_password` field), tokens, location, installed apps,
-profiles. Nothing here is a secret, but only the fields above are ever kept.
+Also stored: the MSP customer id and name (MSP only) and `raw_json`, a small allow-listed subset of the device record (id, platform, OS, model, product, ownership,
+removed / lost / supervised flags, battery, registered / unregistered / last-contact times, summary counts). Not stored, deliberately: the raw responses (the details
+response contains an `apn_password` field), tokens, location, installed apps, profiles.
+
+### Field mapping (what the code relies on, and where the docs show it)
+
+| RivetIT field | ManageEngine field | Docs page (section) |
+|---|---|---|
+| link id | `device_id` (string, 16 digits: never a PHP int) | Devices > Get all devices (response) |
+| asset name | `device_name` | same |
+| asset serial / match key | `serial_number` (then `imei`, `udid`) | same; `imei` also inside `sims[]` of Get device details |
+| asset type | `model`, `product_name`, `platform_type` (iOS / Android / Windows) | same |
+| asset make | derived: Apple for iOS / iPad / iPhone / macOS, else the leading vendor word of `product_name` | (derived) |
+| asset model | `model`, else `product_name` | same |
+| asset OS | `platform_type` + `os_version` | same |
+| contact | `user.user_email` (matched to a contact of the department) | same (`user` object) |
+| ownership | `owned_by` (1 corporate, 2 personal) | same (filter description) |
+| removed | `is_removed` (marked deprecated in the attribute table; example shows a boolean) | same |
+| lost mode | `is_lost_mode_enabled` | same |
+| supervised, battery, storage, registered / unregistered | `is_supervised`, `battery_level`, `device_capacity`, `available_device_capacity`, `registered_time`, `unregistered_time` | Get device details |
+| passcode / root | `security.passcode_complaint` (sic), `security.device_rooted` | Get device details |
+| last contact, groups | `last_contact_time`, `group[].group_name` | Get device summary (scope MDMDeviceMgmt) |
+| paging | `limit`, `offset`; `metadata.total_record_count`; `paging.next` (never followed) | Pagination page (default 50, no stated maximum) |
+| MSP customers | `customers[].customer_id`, `customer_name` | MSP API > Customers > Get Customer list |
+| MSP scope | request header `X-CUSTOMER: <customer_id>` | MSP API examples (every device example sends it) |
+| on-prem auth | `Authorization: {api_key}`, key valid 6 months | API Key page |
+| cloud auth | `Authorization: Zoho-oauthtoken <token>` | OAuth page |
 
 How the status badge is decided (`MdmDeviceStatus::classify`, one place for every screen): *Not enrolled* if removed or unregistered;
 *Lost mode* if the lost-mode flag is on; *Not compliant* if the passcode is reported non-compliant or the device is rooted; *Not seen N+
@@ -107,18 +169,23 @@ and root state: ManageEngine's own compliance policies (geofence, fence policy) 
 
 ### Matching rules
 
-1. A device already linked (same ManageEngine device id) just has its row refreshed.
+1. A device already linked (same ManageEngine device id) just has its row refreshed (and its asset's blank fields filled, never a human edit overwritten).
 2. Otherwise the device's **serial number** is compared with `assets.asset_serial` (case-insensitive, non-archived assets only).
 3. With no serial, or no asset with that serial: the **IMEI**, then the **UDID**, are compared with `assets.asset_serial` too (people record a
    phone's IMEI as its serial). Wi-Fi MAC is not used: the documented endpoints do not return it.
-4. Blank or placeholder values ("unknown", "0", anything under four characters) are never match keys.
-5. **Ambiguous means unmatched.** Two assets with the same serial, one serial on two live devices, or an asset that is already linked to
+4. Still nothing, and the device's department is known: exactly one asset with the **same name** (case-insensitive) in that department that is not already linked to
+   another live device. Two assets with that name is ambiguous. Without a department the name is never used (names repeat across departments).
+5. Blank or placeholder values ("unknown", "0", anything under four characters) are never match keys.
+6. **Ambiguous means unmatched.** Two assets with the same serial, one serial on two live devices, or an asset that is already linked to
    a different live device: nothing is linked and the device waits in the review list with the reason (and the candidate asset ids).
-6. A device that was re-enrolled (new ManageEngine id, old one gone from the list) takes over the existing link in place.
-7. A device marked removed in ManageEngine keeps its link, shown as *Not enrolled*; a removed device with no link is skipped.
+7. A device that was re-enrolled (new ManageEngine id, old one gone from the list) takes over the existing link in place.
+8. A device marked removed in ManageEngine keeps its link, shown as *Not enrolled*; a removed device with no link is skipped.
 
-The review list is Endpoints > MDM Devices > Needs review. **Link to existing asset** lists unlinked tablet and phone assets (candidates
-preselected); **Create asset** makes one asset (type Tablet for an iPad or tablet model, otherwise Mobile Phone; name, serial, model and
+Nothing matched, so: with **Create assets** on and a department resolved (MSP customer mapping, the default department, or a name match to a department) the asset is
+created; with no department yet the device waits as `needs_mapping`; with Create assets off it waits as `no_match`.
+
+The review list is Managed devices > Mobile devices > Needs review. **Link to existing asset** lists unlinked tablet and phone assets (candidates
+preselected); **Create asset** makes one asset (type Tablet for an iPad or tablet model, otherwise Phone; name, serial, model and
 OS from the device, in the department you choose); **Ignore** hides a device until you restore it. Linking needs the Departments module
 at level 2 and access to the asset's department. **Unlink** (asset page) removes a link; the next sync links it again if the serial still
 matches.
@@ -141,8 +208,16 @@ matches.
 - **Audit.** Saving settings, Test connection, Sync now, linking, creating an asset from a device, ignoring and unlinking are written to the
   action log (and the structured audit trail for the settings ones). Secrets, tokens and the Authorization header are never logged; the
   audit text names only *which* secret was replaced.
-- **Not wired into the recovery "sync watch"** (the stale/failing alert for RMM, Intune, UniFi): a stalled MDM sync shows in the sync log
-  on the settings page and in the application log, but sends no alert. A possible follow-up.
+- **Recovery sync watch.** The sync is registered with the watcher that alerts on failing or stale integration syncs (Administration > Backup > Integration sync
+  watch, source `mdm`): its own expected interval is the connection's *Sync every* setting (stale after three times that; failing after the configured number of
+  consecutive real errors; Mute, interval override and Forget history work as for the others). Every failed run, including a refused server address, writes a
+  `mdm_sync_log` row so the watcher sees it.
+- **Stale devices (off by default).** *Retire assets whose MDM device is gone or removed for N days* (7 to 3650, default 30) archives an asset only when every MDM
+  link of it has left the MDM list for N days, or the MDM reports it removed / unenrolled and it was last heard from N days ago, and the asset has no RMM link. A
+  device that is merely quiet but still enrolled is never retired. Retired assets use the same review queue as the RMM rule (Integrations > RMM > Stale assets: Restore
+  / Confirm), are never deleted, and come back by themselves when the device is enrolled again. Retirement runs only after a successful complete run that listed devices.
+- **API key expiry** is a date the administrator enters (the MDM server does not report it); see the on-premises section.
+- **Response size.** A response over 8 MB is refused (`Unexpected response`) instead of being buffered.
 
 ## Troubleshooting
 
@@ -157,6 +232,11 @@ matches.
 | *Could not reach ManageEngine* | The server cannot reach the data center host over HTTPS (firewall, DNS). |
 | Every device is in the review list | The serials in Assets do not match the serials ManageEngine reports. Check one device side by side (iPad serials are the 10 to 12 character Apple serial, not the UDID). |
 | A device is ambiguous | Two assets share the serial, or two live ManageEngine records do. Fix the duplicate, or use Link to existing asset. |
+| *rejected the API key (HTTP 401)* | On-premises: key wrong, revoked or past its 6 months. Generate a new one and paste it. |
+| *That MDM server address is not allowed* | The server is on a private network that is not in Webhooks > Allowed internal networks, or it is loopback / link-local, or not https. |
+| *TLS / could not reach* with a self-signed certificate | Turn off *Verify the server's TLS certificate* (only for a certificate you trust). |
+| MSP: *no customers* or *403* on the customer list | The key / token lacks the customer permission (cloud scope `MDMOnDemand.MDMAdmin.READ`), or the server is not the MSP edition. |
+| Devices wait as *needs_mapping* | The customer (or the whole account) has no department: Client mapping queue, or set a default department. |
 | Device was retired in ManageEngine but still shows | It shows *Not enrolled* and keeps its link by design; Unlink it on the asset page. |
 
 ## What the docs did not say (assumptions, all in code and testable)
@@ -197,12 +277,31 @@ Could **not** be confirmed, and how the code copes:
 - **Response wrapping.** The docs show `devices` as a top-level array in the list and a bare object for details and summary; the client also
   accepts a `device` / `summary` wrapper in case an edition wraps them.
 
+### Added with on-premises / MSP (docs only, nothing verified live)
+
+- **On-premises API key**: the header is `Authorization: {api_key}` exactly as generated (API Key page); the 6-month validity is from the docs. Whether an expired key
+  answers 401 (assumed) or another code is unknown. RivetIT cannot read the expiry from the server, hence the date you enter. The key's permission names are not
+  documented on the pages read; "read access to devices" is the intent.
+- **On-premises base path**: `{ServerURL}/api/v1/mdm` (introduction page: "On-Premises {ServerURL}/", and the device endpoint path). The device-endpoint examples on
+  the MSP introduction show `/api/v1/devices` once; the standard pages show `/api/v1/mdm/devices`, which is what is used.
+- **MSP scoping**: the `X-CUSTOMER` header appears in the examples of the Customers and Devices pages, but the docs say nothing about when it is required or what
+  happens without it. The customer list is documented as `GET /customers` (scope `MDMOnDemand.MDMAdmin.READ`); this client calls `/api/v1/mdm/customers` (the
+  prefix is an assumption). Whether the on-premises MSP server uses the same header and path is not documented. A server answering the customer list with 403
+  fails the run with a clear message.
+- **`device_type` and other filters** exist in the docs but are not used; Phone / Tablet is decided from `model`, `product_name` and `platform_type` (heuristics:
+  `iPad`, "tablet", "tab", `SM-T*` / `SM-X*` are tablets).
+- **API version**: no version field or header is documented, so Test connection shows the device count only.
+- **Device console deep link**: no per-device URL is documented; the asset card links to the console's address (on-premises server, or the data center host), not the device.
+- **Customer-scoped paging, `Retry-After` and 429 on on-premises servers** are assumed to behave as the cloud docs describe.
+- A real server may order, cap or wrap responses differently; the mock was written from the same pages and therefore shares their gaps.
+
 ## Checklist for the first live sync
 
-1. Settings saved, **Test connection** green with "inventory ok, device management ok" (a red message names the missing scope).
+0. On-premises: the server address is allowed (see above) and the expiry date is entered. MSP: the customer list shows up in Client mapping after the first sync.
+1. Settings saved, **Test connection** green with "inventory ok, device management ok" (a red message names the missing scope) and a device count.
 2. **Sync now.** Open the settings page: the sync log shows the device count. It should equal the number of devices in the ManageEngine console
    (excluding removed ones). If it is exactly 50, the paging assumption above is wrong: stop and report it.
-3. Endpoints > MDM Devices: pick one linked iPad, compare the battery, last contact, groups and passcode status with the ManageEngine
+3. Managed devices > Mobile devices: pick one linked iPad, compare the battery, last contact, groups and passcode status with the ManageEngine
    console. Check an unmatched device's serial against the console.
 4. Check a device you know is in lost mode, and one that is not compliant, shows the badge.
 5. Look at the application log (Admin > Logs) after the first scheduled run: *ManageEngine MDM sync complete* with no warnings.
@@ -210,12 +309,17 @@ Could **not** be confirmed, and how the code copes:
 
 ## Files
 
-`src/Integrations/ManageEngine/` (data centers, client, token store, mapper, sync service, status helper), `admin/includes/mdm_settings_panel.php` (the form, on Integrations > Device Sync)
-and `admin/post/settings_manageengine_mdm.php`, `agent/mdm_devices.php` and `agent/post/mdm_device.php`, the panel in
-`agent/asset_details.php`, the badge in `agent/assets.php`, the status chip in `agent/js/training_devices.js` (data from
-`KioskAdminActions::kioskList`), the cron block in `cron/cron.php`, DB 2.6.168 in `admin/database_updates.php` and `db.sql` (four new
-tables: `manageengine_mdm_integrations`, `asset_mdm_links`, `mdm_unmatched_devices`, `mdm_sync_log`; the secret columns are registered in
-`src/Crypto/ColumnRegistry.php` for key rotation). Tests: `tests/manageengine_mdm_client.php`, `tests/manageengine_mdm_sync.php`,
-`tests/manageengine_mdm_web.php`, with the mock in `tests/mock/manageengine_mdm_mock.php`.
+`src/Integrations/ManageEngine/` (`MdmClient` interface, `ManageEngineMdmClient` for both editions, `MdmClientFactory` with the server-address policy, `DataCenters`, token store,
+`MdmDeviceMapper`, `MdmSyncService`, `MdmStale`, `MdmFleet`, `MdmDeviceStatus`), `src/Integrations/ClientMap.php` (shared queue), `src/Assets/AssetInventorySync.php` (no-overwrite writes),
+`src/Recovery/SyncWatch.php` (watcher), `admin/includes/mdm_settings_panel.php` and `admin/post/settings_manageengine_mdm.php`, `agent/mdm_devices.php` and
+`agent/post/mdm_device.php`, the card in `agent/asset_details.php`, the badge in `agent/assets.php`, the cron block in `cron/cron.php`, DB 2.6.168 (four tables) and 2.6.169
+(columns for edition, key, MSP, mapping, retirement; `customer_id`, `customer_name`, `raw_json`; `devices_created`) in `admin/database_updates.php` and `db.sql`. The secret
+columns (`client_secret_enc`, `refresh_token_enc`, `token_cache_enc`, `api_key_enc`) are registered in `src/Crypto/ColumnRegistry.php`; `tests/crypto_registry_scan.php` fails when any
+`*_enc` column of the schema is neither registered nor explicitly excluded.
 
-Config-only overrides for testing against a mock (never in the web UI): `RIVETIT_MDM_BASE_URL` and `RIVETIT_MDM_ACCOUNTS_URL` in `config.php`.
+Tests: `tests/manageengine_mdm_client.php`, `_sync.php`, `_onprem.php`, `_web.php`, `_code_exchange.php`, `tests/crypto_registry_scan.php`, the mock in
+`tests/mock/manageengine_mdm_mock.php` (cloud, on-premises, MSP customers, pagination caps, 401, 429, malformed and oversized bodies), and the browser smoke
+`tests/browser/mdm_smoke.mjs` with `mdm_seed.php`.
+
+Config-only overrides for testing against a mock (never in the web UI): `RIVETIT_MDM_BASE_URL` and `RIVETIT_MDM_ACCOUNTS_URL` (cloud hosts) and
+`RIVETIT_MDM_ALLOW_HTTP_LOOPBACK` (allows plain http to a loopback host; set only in a test rig's `config.php`, never in production).

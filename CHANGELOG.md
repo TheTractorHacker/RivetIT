@@ -6,6 +6,23 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.46] RivetIT: ManageEngine MDM on-premises and MSP, phones and tablets in Assets
+
+**DB 2.6.169** (idempotent, additive: `ADD COLUMN IF NOT EXISTS` on the integration's own tables only; the nearly full `settings` table is untouched; every default keeps an existing connection behaving as before: cloud edition, no asset creation, no retirement). Builds on the cloud-only ManageEngine MDM sync of 26.10.45 and earlier; there is still one inventory (Infrastructure > Assets). Setup, field mapping and every docs-only assumption: `docs/MANAGEENGINE_MDM.md`. **Nothing here has been run against a real ManageEngine server** (local mock only).
+
+- **On-premises edition**: server address plus API key in the `Authorization` header only (stored encrypted, never shown or logged), an **expiry date** the administrator enters with a notification 30 days before and when expired, Test connection (shows the device count). The server address is vetted by RivetCore's URL policy like a webhook URL: https only, public addresses, plus the networks listed under Administration > Webhooks > Allowed internal networks for a server on a private LAN; loopback, link-local and metadata addresses never; the connection is pinned to the vetted address. Optional TLS verification off for a trusted self-signed certificate. Plain http is accepted only to loopback behind an explicit test constant.
+- **MSP edition** (either edition): customers are listed and each one's devices fetched with the `X-CUSTOMER` header; each customer name goes through the shared **Client mapping** queue (saved mapping, exact department name, ignore, or wait as needs mapping). A default department catches the rest.
+- **Client**: `MdmClient` interface + `ManageEngineMdmClient` (cloud OAuth and on-premises key), response size cap (8 MB), pagination with a page cap, 429 / 5xx backoff, 401 handling per edition (no refresh loop for a key), no logging.
+- **Assets**: match order existing link, serial, IMEI, UDID, then a unique same-named asset in the device's department; a device matching nothing creates a **Phone** or **Tablet** asset (Laptop / Display / Other by platform) when *Create assets* is on (new connections; upgraded ones keep it off). Make, model and OS go through `asset_sync_state` (a human edit is never overwritten) and the user becomes the contact when exactly one contact of the department has the e-mail (the Intune rule).
+- **Stale devices** (off by default): archive an asset whose MDM device is gone or removed for N days (never a merely quiet device, never an RMM-managed asset), into the existing review queue; restored automatically when the device returns.
+- **Recovery sync watch**: the MDM sync is registered (source `mdm`) with its own expected interval (the connection's sync interval); failed runs, including a refused server address, always write a `mdm_sync_log` row. Mute / interval override / Forget history work.
+- **UI**: the Endpoints menu group is now **Managed devices** (label only; ids, URLs and permissions unchanged) with **Mobile devices**: compliance, department, platform, last-contact-older-than-N-days filters, search, review list with the needs-mapping reason; the asset card shows owner type, enrolled date, customer and a console link; a settings form with an edition switch. Permission: `module_client` reused (documented), no new module.
+- **Security**: `api_key_enc` added to the rewrap registry; new `tests/crypto_registry_scan.php` fails when any `*_enc` column in `db.sql` or the migrated schema is neither registered nor explicitly excluded.
+- **Tests**: new `tests/manageengine_mdm_onprem.php` (91 checks), `tests/crypto_registry_scan.php`, `tests/browser/mdm_smoke.mjs`; `_web.php` +46, mock extended (on-prem key, MSP customers, malformed and oversized bodies). Fixed a baseline bug in a client test (`array_unique` key order).
+- **Not verified**: no live ManageEngine server or Zoho account; the MSP customer-list path, the on-premises 401 behaviour, key permission names, per-device console URL and an API version field are not documented (see the doc's list).
+
+### Also in this release (previously unreleased)
+
 ### ManageEngine MDM: paste the Zoho code, no curl
 
 - The ManageEngine MDM form has a **One-time code from Zoho** box. Paste the code from the Zoho API console (Self Client > Generate Code) with the client ID and secret and click Save: RivetIT exchanges it for the refresh token itself and stores only the token, encrypted. Pasting that code into the Refresh token box (which gives Zoho `invalid_code`) is now explained in the form and the docs. `tests/manageengine_mdm_code_exchange.php` covers the exchange against a local mock.

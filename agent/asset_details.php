@@ -492,12 +492,12 @@ if (isset($_GET['asset_id'])) {
         <?php endif; ?>
 
         <?php
-        // ManageEngine MDM: cached device data from the read-only cloud sync (separate from Intune above). Never contacts ManageEngine.
+        // ManageEngine MDM: cached device data from the read-only sync (separate from Intune above). Never contacts ManageEngine.
         $mdm_link = null;
         $mdm_stale_days = 7;
         if (lookupUserPermission('module_client') >= 1) {
             try {
-                $mdm_link = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT l.*, i.stale_days, i.enabled AS mdm_enabled FROM asset_mdm_links l JOIN manageengine_mdm_integrations i ON i.id = l.integration_id WHERE l.asset_id = $asset_id LIMIT 1"));
+                $mdm_link = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT l.*, i.stale_days, i.enabled AS mdm_enabled, i.edition AS mdm_edition, i.server_url AS mdm_server_url, i.data_center AS mdm_data_center FROM asset_mdm_links l JOIN manageengine_mdm_integrations i ON i.id = l.integration_id WHERE l.asset_id = $asset_id LIMIT 1"));
             } catch (\Throwable $e) {
                 $mdm_link = null;   // tables not installed yet
             }
@@ -526,11 +526,25 @@ if (isset($_GET['asset_id'])) {
                             <?php if ($mdm_link['battery_level'] !== null) { ?>&bull;&nbsp;<i class="fas fa-battery-half mx-1"></i><?= (int) $mdm_link['battery_level'] ?>%<?php } ?>
                             <?php if ($mdm_free !== null) { ?>&bull;&nbsp;<i class="fas fa-hdd mx-1"></i><?= $mdm_free ?>% storage free<?php } ?>
                             <?php if ($mdm_link['last_contact_at']) { ?>&bull;&nbsp;<i class="fas fa-clock mx-1"></i>Last contact: <?= nullable_htmlentities($mdm_link['last_contact_at']) ?><?php } ?>
+                            <?php if ($mdm_link['owned_by']) { ?>&bull;&nbsp;<i class="fas fa-briefcase mx-1"></i><?= nullable_htmlentities(ucfirst($mdm_link['owned_by'])) ?>-owned<?php } ?>
+                            <?php if ($mdm_link['registered_at']) { ?>&bull;&nbsp;<i class="fas fa-calendar-check mx-1"></i>Enrolled: <?= nullable_htmlentities(substr((string) $mdm_link['registered_at'], 0, 10)) ?><?php } ?>
+                            <?php if ($mdm_link['customer_name']) { ?>&bull;&nbsp;<i class="fas fa-building mx-1"></i><?= nullable_htmlentities($mdm_link['customer_name']) ?><?php } ?>
                             &bull;&nbsp;Synced <?= nullable_htmlentities($mdm_link['last_sync']) ?>
                         </div>
                     </div>
                     <div>
-                        <a href="/agent/mdm_devices.php" class="btn btn-sm btn-outline-secondary">MDM devices</a>
+                        <?php
+                        // The console's own address: the on-premises server URL, or the data center's MDM host. The documentation gives no per-device URL, so this opens the console, not the device.
+                        $mdm_console = '';
+                        if (($mdm_link['mdm_edition'] ?? '') === 'onprem') {
+                            $mdm_console = (string) $mdm_link['mdm_server_url'];
+                        } elseif (\ITFlow\Integrations\ManageEngine\DataCenters::isValid((string) $mdm_link['mdm_data_center'])) {
+                            $mdm_console = \ITFlow\Integrations\ManageEngine\DataCenters::mdmBase((string) $mdm_link['mdm_data_center']);
+                        }
+                        if ($mdm_console !== '' && preg_match('#^https://#i', $mdm_console)) { ?>
+                        <a href="<?= nullable_htmlentities($mdm_console) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary" title="Open the MDM console"><i class="fas fa-external-link-alt me-1"></i>Console</a>
+                        <?php } ?>
+                        <a href="/agent/mdm_devices.php" class="btn btn-sm btn-outline-secondary">Mobile devices</a>
                         <?php if (lookupUserPermission('module_client') >= 2) { ?>
                         <form action="post.php" method="post" class="d-inline">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">

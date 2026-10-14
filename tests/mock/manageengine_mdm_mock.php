@@ -14,6 +14,9 @@
  *   GET  /api/v1/mdm/devices/{id}      state.details[id] (404 {"error_code":"COM0008",...} when absent)
  *   GET  /api/v1/mdm/devices/{id}/summary   state.summaries[id]
  *   POST /__state  body JSON merged into the state (__reset clears), GET /__log every request seen (method, path, query, auth, form keys)
+ * On-premises edition: state.onprem=true makes the Authorization header value be compared with state.api_key (default onprem-good-key); there is no token endpoint.
+ * MSP edition: state.customers (list) answers GET /api/v1/mdm/customers; state.customer_devices maps an X-CUSTOMER header value to that customer's device list.
+ *   state.malformed (truncated JSON) and state.oversize (bytes of padding) test the client's response checks.
  * State switches: max_limit (the server caps `limit`, like a default page of 50), devices (list rows), details, summaries, ignore_offset (server ignores offset: always page 1), foreign_next (paging.next
  *   points at another host), no_paging (no metadata/paging object), fail_status (every API call answers it), fail_once (list of statuses
  *   consumed one per API call), retry_after, summary_forbidden (summary calls 403 COM0013-style), unauthorized_once (next API call 401),
@@ -51,12 +54,12 @@ $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 parse_str(file_get_contents('php://input'), $form);
 // The log never holds a secret value: only which form keys were present, and the (random-looking) access token used.
 file_put_contents($logFile, json_encode(['method' => $method, 'path' => $path, 'query' => $_SERVER['QUERY_STRING'] ?? '', 'auth' => $auth, 'form_keys' => array_keys($form),
-    'grant_type' => $form['grant_type'] ?? null, 'time' => microtime(true)]) . "\n", FILE_APPEND | LOCK_EX);
+    'x_customer' => $_SERVER['HTTP_X_CUSTOMER'] ?? null, 'grant_type' => $form['grant_type'] ?? null, 'time' => microtime(true)]) . "\n", FILE_APPEND | LOCK_EX);
 
 $s0 = st_read($stateFile);
 if (!empty($s0['slow'])) { usleep((int) ($s0['slow'] * 1000000)); }
 
-if ($path === '/oauth/v2/token' && $method === 'POST') {
+if ($path === '/oauth/v2/token' && $method === 'POST' && empty($s0['onprem'])) {
     $gate = with_state($stateFile, function (array &$s) {
         if (($s['token_429'] ?? 0) > 0) { $s['token_429']--; return '429'; }
         return '';
@@ -74,7 +77,10 @@ if ($path === '/oauth/v2/token' && $method === 'POST') {
 
 if (!str_starts_with($path, '/api/v1/mdm/')) { return reply(404, ['error_code' => 'COM0008', 'error_description' => 'Unknown resource']); }
 if ($method !== 'GET') { return reply(405, ['error_code' => 'COM0001', 'error_description' => 'Method not implemented']); }
-if (!preg_match('/^Zoho-oauthtoken at-(\d+)$/', $auth) || !empty($s0['revoke_tokens'])) {
+$onprem = !empty($s0['onprem']);   // on-premises edition: the API key itself is the Authorization header value (state.api_key), no OAuth, no token endpoint
+$authOk = $onprem ? (($s0['api_key'] ?? 'onprem-good-key') !== '' && hash_equals((string) ($s0['api_key'] ?? 'onprem-good-key'), $auth) && empty($s0['revoke_tokens']))
+    : (preg_match('/^Zoho-oauthtoken at-(\d+)$/', $auth) && empty($s0['revoke_tokens']));
+if (!$authOk) {
     return reply(401, ['error_code' => 'COM0013', 'error_description' => 'Not authorized or invalid auth token', 'localized_error_description' => 'x']);
 }
 
@@ -92,7 +98,16 @@ if ($gate) {
 }
 if (!empty($s0['html'])) { return reply(200, '<html>maintenance</html>'); }
 
+if ($path === '/api/v1/mdm/customers') {
+    // MSP edition: GET customers -> {"customers":[{customer_id,customer_name,...}]} (the path prefix is an assumption, see docs/MANAGEENGINE_MDM.md)
+    return empty($s0['customers']) ? reply(403, ['error_code' => 'COM0013', 'error_description' => 'not an MSP server']) : reply(200, ['customers' => $s0['customers']]);
+}
 $devices = $s0['devices'] ?? [];
+if (isset($s0['customer_devices'])) {   // MSP edition: the X-CUSTOMER header picks the customer
+    $devices = $s0['customer_devices'][$_SERVER['HTTP_X_CUSTOMER'] ?? ''] ?? [];
+}
+if (!empty($s0['malformed']) && $path === '/api/v1/mdm/devices') { return reply(200, '{"devices": [ {"device_id": "1", "devi'); }
+if (!empty($s0['oversize']) && $path === '/api/v1/mdm/devices') { return reply(200, '{"devices":[],"pad":"' . str_repeat('A', (int) $s0['oversize']) . '"}'); }
 if ($path === '/api/v1/mdm/devices') {
     $limit = max(1, min(!empty($s0['max_limit']) ? (int) $s0['max_limit'] : 1000, (int) ($_GET['limit'] ?? 50)));
     $offset = !empty($s0['ignore_offset']) ? 0 : max(0, (int) ($_GET['offset'] ?? 0));

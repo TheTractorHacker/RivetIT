@@ -519,7 +519,7 @@ foreach ($section_pages as $key => $pages) {
                 <li class="nav-item dropdown mt-2<?php echo $section_open['endpoint'] ? ' active' : ''; ?>">
                     <a href="#nav-group-endpoints" class="nav-link dropdown-toggle<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-endpoints" aria-expanded="<?php echo $section_open['endpoint'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
-                        <span class="nav-link-title">Endpoints</span>
+                        <span class="nav-link-title">Managed devices</span>
                     </a>
                     <div class="dropdown-menu<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" id="nav-group-endpoints">
                         <?php if ($nav_intune) { ?>
@@ -531,7 +531,7 @@ foreach ($section_pages as $key => $pages) {
                         <?php if ($nav_mdm) { ?>
                         <a href="/agent/mdm_devices.php" class="dropdown-item<?php if ($current_page == "mdm_devices.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-tablet-alt"></i></span>
-                            <span class="text-truncate">MDM Devices</span>
+                            <span class="text-truncate">Mobile devices</span>
                         </a>
                         <?php } ?>
                         <?php if ($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) { ?>

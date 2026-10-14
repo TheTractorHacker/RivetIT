@@ -28,7 +28,7 @@ $q("INSERT INTO clients SET client_id=1, client_name='Dept A', client_type=''");
 
 $sessdir = sys_get_temp_dir() . '/mdm_walk_sess_' . getmypid(); @mkdir($sessdir, 0700);
 $prepend = sys_get_temp_dir() . '/mdm_walk_prepend_' . getmypid() . '.php';
-file_put_contents($prepend, "<?php\ndefine('RIVETIT_MDM_BASE_URL', " . var_export($base, true) . ");\ndefine('RIVETIT_MDM_ACCOUNTS_URL', " . var_export($base, true) . ");\n");
+file_put_contents($prepend, "<?php\ndefine('RIVETIT_MDM_ALLOW_HTTP_LOOPBACK', true);\ndefine('RIVETIT_MDM_BASE_URL', " . var_export($base, true) . ");\ndefine('RIVETIT_MDM_ACCOUNTS_URL', " . var_export($base, true) . ");\n");
 $sock = stream_socket_server('tcp://127.0.0.1:0', $en, $es); $webPort = (int) explode(':', stream_socket_get_name($sock, false))[1]; fclose($sock);
 $weblog = sys_get_temp_dir() . "/mdm_walk_$webPort.log";
 $web = proc_open([PHP_BINARY, '-d', 'display_errors=0', '-d', 'log_errors=1', '-d', "error_log=$weblog", '-d', "session.save_path=$sessdir", '-d', "auto_prepend_file=$prepend", '-S', "127.0.0.1:$webPort", '-t', $root],
@@ -225,7 +225,7 @@ $w2('tech'); $ok((int) $one("SELECT COUNT(*) FROM asset_mdm_links WHERE id=$link
 $r = w('admin', 'GET', $D);
 $ok(strpos($r['body'], 'ManageEngine MDM: ') === false, 'after unlinking the panel is gone');
 $r = w('admin', 'GET', '/agent/clients.php');
-$ok($r['code'] === 200 && strpos($r['body'], 'href="/agent/mdm_devices.php"') !== false && strpos($r['body'], 'MDM Devices') !== false, 'navigation: "MDM Devices" appears while the integration is on');
+$ok($r['code'] === 200 && strpos($r['body'], 'href="/agent/mdm_devices.php"') !== false && strpos($r['body'], 'Mobile devices') !== false && strpos($r['body'], 'Managed devices') !== false, 'navigation: the "Managed devices" group lists "Mobile devices" while the integration is on');
 $q('UPDATE manageengine_mdm_integrations SET enabled=0');
 $r = w('admin', 'GET', '/agent/clients.php');
 $ok($r['code'] === 200 && strpos($r['body'], 'href="/agent/mdm_devices.php"') === false, 'navigation: the entry is gone while the integration is off');
@@ -244,4 +244,119 @@ $ok(MdmDeviceStatus::forAssets($db, [$a2]) === [], 'kiosk helper: nothing while 
 $q('RENAME TABLE asset_mdm_links TO asset_mdm_links_hidden');
 $ok(MdmDeviceStatus::forAssets($db, [$a2]) === [], 'kiosk helper: a missing table (database update pending) is an empty result, not an error');
 $q('RENAME TABLE asset_mdm_links_hidden TO asset_mdm_links');
+// =====================================================================================================================================
+// release 26.10.46: on-premises edition through the settings form, the Mobile devices filters, MSP, the asset card
+// =====================================================================================================================================
+$q('DELETE FROM manageengine_mdm_integrations'); mdm_clean(); $q('DELETE FROM integration_client_map'); $q('DELETE FROM contacts'); $reset();
+$mock(['onprem' => true]); mdm_seed_mock($mock, 4, [3 => ['detail' => ['security' => ['passcode_complaint' => false, 'device_rooted' => false]], 'summary' => ['last_contact_time' => (time() - 40 * 86400) * 1000]]]);
+$mock(['onprem' => true]);
+$on = ['save_mdm_connection' => 1, 'edition' => 'onprem', 'server_url' => $base, 'api_key' => 'onprem-good-key', 'api_key_expires_on' => date('Y-m-d', strtotime('+12 days')), 'tls_verify' => '1',
+    'enabled' => '1', 'sync_interval_minutes' => 15, 'stale_days' => 7, 'enrich_details' => '1', 'auto_create_assets' => '1', 'default_client_id' => 1, 'stale_retire_days' => 30];
+$r = w('admin', 'GET', $S);
+$ok(strpos($r['body'], 'name="edition"') !== false && strpos($r['body'], 'name="server_url"') !== false && strpos($r['body'], 'name="api_key_expires_on"') !== false && strpos($r['body'], 'name="msp_mode"') !== false && strpos($r['body'], 'name="default_client_id"') !== false, 'on-prem form: edition, server address, API key expiry, MSP switch and default department are on the page');
+$ok(strpos($r['body'], 'MDMOnDemand.MDMAdmin.READ') !== false && strpos($r['body'], 'Webhooks') !== false, 'on-prem form: the MSP scope and the allowed-networks hint are explained');
+$ok(!preg_match('/name="stale_retire_enabled"[^>]*checked/', $r['body']), 'on-prem form: stale-device retirement is off by default');
+foreach (['tech', 'viewer'] as $who) { $post($who, $on); $ok($row() === null, "on-prem: non-admin ($who) cannot save"); }
+$post('admin', ['server_url' => 'http://mdm.example.com'] + $on);
+$ok($row() === null, 'on-prem: a plain http server address is refused');
+$post('admin', ['server_url' => 'https://169.254.169.254'] + $on);
+$ok($row() === null, 'on-prem: the cloud-metadata address is refused');
+$post('admin', ['server_url' => 'https://10.9.9.9:8383'] + $on);
+$ok($row() === null, 'on-prem: a private-network server is refused while no internal network is allowed');
+$post('admin', ['api_key' => ''] + $on);
+$ok($row() === null, 'on-prem: switching on without an API key is refused');
+$post('admin', ['api_key_expires_on' => '2026-13-45'] + $on);
+$ok($row() === null, 'on-prem: a malformed expiry date is refused');
+$post('admin', ['default_client_id' => 99999] + $on);
+$ok($row() === null, 'on-prem: a default department that does not exist is refused');
+$post('admin', $on);
+$o = $row();
+$ok($o && $o['edition'] === 'onprem' && $o['server_url'] === $base && (int) $o['auto_create_assets'] === 1 && (int) $o['default_client_id'] === 1 && $o['api_key_expires_on'] === date('Y-m-d', strtotime('+12 days')) && (int) $o['stale_retire_enabled'] === 0, 'on-prem: a valid save stores edition, server, expiry, mapping options');
+$ok(decryptSetting($o['api_key_enc']) === 'onprem-good-key' && strpos($o['api_key_enc'], 'onprem-good-key') === false, 'on-prem: the API key is stored encrypted');
+$r = w('admin', 'GET', $S);
+$ok(strpos($r['body'], 'onprem-good-key') === false && strpos($r['body'], $o['api_key_enc']) === false && strpos($r['body'], 'Stored. Leave blank to keep it') !== false, 'on-prem: the page never echoes the key or its ciphertext');
+$ok(strpos($r['body'], 'expires on ' . date('Y-m-d', strtotime('+12 days'))) !== false && strpos($r['body'], '12 days') !== false, 'on-prem: the 30-day expiry warning shows on the page');
+$post('admin', ['api_key' => ''] + $on);
+$ok(decryptSetting($row()['api_key_enc']) === 'onprem-good-key', 'on-prem: a blank API key keeps the stored one');
+$logs = json_encode($rows("SELECT * FROM logs")) . json_encode($rows("SELECT * FROM audit_events"));
+$ok(strpos($logs, 'onprem-good-key') === false && strpos($logs, 'onprem') !== false, 'on-prem: the audit trail names the edition but never the key');
+$post('admin', ['test_mdm_connection' => 1]);
+$t = $row();
+$ok((int) $t['last_test_success'] === 1 && (int) $t['last_test_devices'] === 4, 'on-prem: Test connection through the handler stores the device count (4)');
+$r = w('admin', 'GET', $S);
+$ok(strpos($r['body'], 'Last test: Success') !== false, 'on-prem: the page shows the successful test');
+$q("UPDATE manageengine_mdm_integrations SET api_key_enc='" . $esc(encryptSetting('revoked-key-VALUE77')) . "'");
+$post('admin', ['test_mdm_connection' => 1]);
+$t = $row();
+$ok((int) $t['last_test_success'] === 0 && $t['last_test_error_code'] === 'auth_failed' && strpos((string) $t['last_test_error'], 'revoked-key-VALUE77') === false, 'on-prem: a rejected key is stored as auth_failed without the key');
+$post('admin', $on);
+$post('admin', ['sync_mdm_now' => 1]);
+$lr = $db->query('SELECT * FROM mdm_sync_log ORDER BY id DESC LIMIT 1')->fetch_assoc();
+$ok($lr['status'] === 'success' && (int) $lr['devices_total'] === 4 && (int) $lr['devices_created'] === 4 && (int) $one('SELECT COUNT(*) FROM assets WHERE asset_client_id=1') === 4, 'on-prem: Sync now creates the four assets in the default department');
+$types = array_column($rows('SELECT asset_type FROM assets'), 'asset_type');
+$ok(array_unique($types) === ['Tablet'], 'on-prem: iPads become Tablet assets');
+$lg = json_encode($rows('SELECT * FROM mdm_sync_log')) . json_encode($rows('SELECT * FROM logs')) . json_encode($rows('SELECT * FROM audit_events'));
+$ok(strpos($lg, 'onprem-good-key') === false, 'on-prem: the key is in no sync log, action log or audit row');
+
+// ---- Mobile devices page: filters, search, counts, XSS, scope
+$q("UPDATE asset_mdm_links SET device_name='<script>alert(1)</script>Evil' WHERE mdm_device_id='9007199254740002'");
+$q("UPDATE asset_mdm_links SET user_name='Zed Zebra' WHERE mdm_device_id='9007199254740004'");
+$r = w('admin', 'GET', $A);
+$ok($r['code'] === 200 && strpos($r['body'], 'Mobile devices') !== false && strpos($r['body'], '<script>alert(1)</script>') === false && strpos($r['body'], '&lt;script&gt;alert(1)&lt;/script&gt;Evil') !== false, 'devices page: titled Mobile devices, device names are escaped');
+$cnt = fn (string $body) => preg_match_all('/class="fw-bold" href="\/agent\/asset_details\.php/', $body);
+$ok($cnt($r['body']) === 4, 'devices page: all four linked devices listed');
+$r = w('admin', 'GET', $A . '?state=noncompliant');
+$ok($cnt($r['body']) === 1 && strpos($r['body'], 'DMPX0000003') !== false, 'filter: not compliant shows only the device that reports a failing passcode');
+$r = w('admin', 'GET', $A . '?state=compliant');
+$ok($cnt($r['body']) === 3, 'filter: compliant shows the other three');
+$r = w('admin', 'GET', $A . '?older=30');
+$ok($cnt($r['body']) === 1 && strpos($r['body'], 'DMPX0000003') !== false, 'filter: last contact older than 30 days shows only the device not heard from in 40 days');
+$r = w('admin', 'GET', $A . '?older=60');
+$ok($cnt($r['body']) === 0, 'filter: nothing is older than 60 days');
+$r = w('admin', 'GET', $A . '?q=Zebra');
+$ok($cnt($r['body']) === 1 && strpos($r['body'], 'DMPX0000004') !== false, 'search: by user name');
+$r = w('admin', 'GET', $A . '?q=' . urlencode('DMPX0000001'));
+$ok($cnt($r['body']) === 1, 'search: by serial number');
+$r = w('admin', 'GET', $A . '?q=' . urlencode("100%' OR 1=1 -- "));
+$ok($r['code'] === 200 && $cnt($r['body']) === 0, 'search: LIKE wildcards and SQL in the box match nothing and break nothing');
+$r = w('admin', 'GET', $A . '?client_id=2');
+$ok($cnt($r['body']) === 0, 'filter: department filter (no device is in department 2)');
+$r = w('admin', 'GET', $A . '?older=abc&state=zzz&platform=zzz');
+$ok($r['code'] === 200 && $cnt($r['body']) === 4, 'filters: junk values are ignored');
+$r = w('deptb', 'GET', $A);
+$ok($r['code'] === 200 && $cnt($r['body']) === 0 && strpos($r['body'], 'Needs review') === false, 'scope: a user limited to another department sees none of these devices and no review tab');
+$ok(\ITFlow\Integrations\ManageEngine\MdmFleet::counts($db, (int) $row()['id'], 7) === ['total' => 4, 'compliant' => 3, 'noncompliant' => 1, 'stale' => 1, 'lost' => 0, 'unmatched' => 0, 'needs_mapping' => 0], 'counts: the dashboard helper returns total, compliant, not compliant, stale, lost and review counts');
+
+// ---- the asset card
+$aid = (int) $one("SELECT asset_id FROM asset_mdm_links WHERE mdm_device_id='9007199254740001'");
+$r = w('admin', 'GET', "/agent/asset_details.php?client_id=1&asset_id=$aid");
+$ok($r['code'] === 200 && strpos($r['body'], 'ManageEngine MDM: ') !== false && strpos($r['body'], 'Corporate-owned') !== false && strpos($r['body'], 'Enrolled: 2025-01-01') !== false, 'asset card: ownership and enrolled date show');
+$ok(strpos($r['body'], 'href="' . $base . '"') === false, 'asset card: a plain-http server address is never linked');
+$q("UPDATE manageengine_mdm_integrations SET server_url='https://mdm.example.com:8383'");
+$r = w('admin', 'GET', "/agent/asset_details.php?client_id=1&asset_id=$aid");
+$ok(strpos($r['body'], 'href="https://mdm.example.com:8383"') !== false && strpos($r['body'], 'rel="noopener noreferrer"') !== false, 'asset card: a Console link to the on-premises server address (new tab, noopener)');
+$q("UPDATE manageengine_mdm_integrations SET server_url='$base'");
+$q("UPDATE manageengine_mdm_integrations SET edition='cloud', data_center='eu'");
+$r = w('admin', 'GET', "/agent/asset_details.php?client_id=1&asset_id=$aid");
+$ok(strpos($r['body'], 'href="https://mdm.manageengine.eu"') !== false, 'asset card: the cloud edition links the data center host');
+$q("UPDATE manageengine_mdm_integrations SET edition='onprem'");
+
+// ---- MSP through the page + the shared mapping queue
+mdm_clean(); $reset();
+$mock(['onprem' => true, 'customers' => [['customer_id' => '11', 'customer_name' => 'Nowhere Ltd']], 'customer_devices' => ['11' => [mdm_list_row(71)]]]);
+$post('admin', ['msp_mode' => '1', 'default_client_id' => 0] + $on);
+$ok((int) $row()['msp_mode'] === 1 && (int) $row()['default_client_id'] === 0, 'MSP: switch and no-default saved');
+$post('admin', ['sync_mdm_now' => 1]);
+$ok($one("SELECT reason FROM mdm_unmatched_devices WHERE mdm_device_id='9007199254740071'") === 'needs_mapping', 'MSP: a customer without a department leaves its device in the review list as needs_mapping');
+$r = w('admin', 'GET', $A . '?view=unmatched');
+$ok(strpos($r['body'], 'no department yet') !== false && strpos($r['body'], 'client-mapping') !== false, 'MSP: the review list explains it and links to Client mapping');
+$r = w('admin', 'GET', '/admin/settings_integrations.php?tab=rmm');
+$ok(strpos($r['body'], 'Nowhere Ltd') !== false && strpos($r['body'], 'ManageEngine MDM') !== false, 'MSP: the customer is in the shared Client mapping queue, labelled ManageEngine MDM');
+$r = w('admin', 'GET', $S);
+$ok(strpos($r['body'], '1 customer / account name need a department') !== false, 'MSP: the connection panel counts what is waiting');
+$mid = (int) $one("SELECT map_id FROM integration_client_map WHERE external_name='Nowhere Ltd'");
+$post('admin', ['map_integration_client' => 1, 'map_id' => $mid, 'client_id' => 2]);
+$post('admin', ['sync_mdm_now' => 1]);
+$ok((int) $one("SELECT a.asset_client_id FROM asset_mdm_links l JOIN assets a ON a.asset_id=l.asset_id WHERE l.mdm_device_id='9007199254740071'") === 2, 'MSP: after the administrator maps the customer in the existing queue, the next sync creates the asset in that department');
+
 $ok(strpos((string) @file_get_contents($weblog), 'Fatal') === false, 'the web server log has no PHP fatal error from any of the above');

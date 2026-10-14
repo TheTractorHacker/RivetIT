@@ -38,14 +38,14 @@ $sw_alert_ts = function (string $key) use ($mysqli): ?string {
     </div>
     <div class="card-body">
         <p class="text-muted small mb-2">
-            Watches every enabled RMM, Intune and UniFi integration through its sync log. <strong>Failing</strong>: its last
+            Watches every enabled RMM, Intune, UniFi and ManageEngine MDM integration through its sync log. <strong>Failing</strong>: its last
             <?= (int) RecoverySettings::get($mysqli, 'sync_error_threshold') ?> runs all ended in a real error. <strong>Stale</strong>: no run in three times its expected interval.
             <strong>Dormant</strong>: its newest run is more than <?= (int) RecoverySettings::get($mysqli, 'sync_dormant_days') ?> days old, so it is treated as no longer running and nothing is mailed.
             <strong>Muted</strong>: you silenced it. A problem is mailed at most once every <?= RecoveryAlerts::repeatHours($mysqli) ?> hours, and a recovery once.
-            A sync run by an external script should write to <code>rmm_sync_log</code> / <code>unifi_sync_log</code>, or you can declare how often it runs here.
+            A sync run by an external script should write to <code>rmm_sync_log</code> / <code>unifi_sync_log</code> / <code>mdm_sync_log</code>, or you can declare how often it runs here.
         </p>
         <?php if ($sw_rows === []): ?>
-            <div class="text-muted">No enabled RMM, Intune or UniFi integration to watch.</div>
+            <div class="text-muted">No enabled RMM, Intune, UniFi or ManageEngine MDM integration to watch.</div>
         <?php else: ?>
         <div class="mb-2">
             <?php foreach ($sw_badge as $st => [$cls, $txt]): if (empty($sw_counts[$st])) { continue; } ?>

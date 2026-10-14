@@ -11,6 +11,8 @@ namespace ITFlow\Integrations;
  * name match the syncs always used, then the "needs mapping" queue. A name that matches nothing is no longer skipped silently: it is
  * queued once (with how many devices carry it and one example), and an administrator maps it to a department or marks it ignored
  * (Administration > Integrations > RMM). The next sync uses the answer.
+ *
+ * integration_id is an rmm_integrations id; ManageEngine MDM uses the NEGATIVE id of its own connection (MdmDeviceMapper::mapKey), so the two can never collide.
  */
 final class ClientMap
 {
@@ -27,7 +29,7 @@ final class ClientMap
     public function resolve(int $integrationId, string $externalName, string $sampleHost = ''): array
     {
         $externalName = trim($externalName);
-        if ($externalName === '' || $integrationId < 1) {
+        if ($externalName === '' || $integrationId === 0) {
             return ['client_id' => 0, 'source' => 'pending'];
         }
         $key = $integrationId . '|' . mb_strtolower($externalName);
@@ -89,7 +91,7 @@ final class ClientMap
             return [];
         }
         $out = [];
-        $res = $this->db->query("SELECT m.*, i.name AS integration_name, c.client_name FROM integration_client_map m LEFT JOIN rmm_integrations i ON i.id = m.integration_id
+        $res = $this->db->query("SELECT m.*, COALESCE(i.name, CASE WHEN m.integration_id < 0 THEN 'ManageEngine MDM' END) AS integration_name, c.client_name FROM integration_client_map m LEFT JOIN rmm_integrations i ON i.id = m.integration_id
             LEFT JOIN clients c ON c.client_id = m.client_id WHERE m.map_status = '$status' ORDER BY m.last_seen_at DESC, m.map_id DESC LIMIT 500");
         while ($res && ($r = $res->fetch_assoc())) {
             $out[] = $r;

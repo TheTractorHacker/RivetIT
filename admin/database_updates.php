@@ -11162,3 +11162,42 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.168'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.168') {
+        // DB 2.6.169: ManageEngine MDM - on-premises (API key) edition, MSP customers, asset creation and the stale-device review. Additive and idempotent: columns are added with
+        // ADD COLUMN IF NOT EXISTS to the integration's own tables (never to the nearly full settings table). Defaults keep every existing row exactly as it behaved (cloud edition,
+        // no asset creation, no retirement). The device-id/customer columns hold what the MDM reports; raw_json is a small allow-listed subset of the device record (no secrets).
+        mysqli_query($mysqli, "ALTER TABLE `manageengine_mdm_integrations`
+            ADD COLUMN IF NOT EXISTS `edition` varchar(10) NOT NULL DEFAULT 'cloud' AFTER `enabled`,
+            ADD COLUMN IF NOT EXISTS `server_url` varchar(300) NOT NULL DEFAULT '' AFTER `edition`,
+            ADD COLUMN IF NOT EXISTS `api_key_enc` text DEFAULT NULL AFTER `server_url`,
+            ADD COLUMN IF NOT EXISTS `api_key_expires_on` date DEFAULT NULL AFTER `api_key_enc`,
+            ADD COLUMN IF NOT EXISTS `api_key_warned_on` date DEFAULT NULL AFTER `api_key_expires_on`,
+            ADD COLUMN IF NOT EXISTS `tls_verify` tinyint(1) NOT NULL DEFAULT 1 AFTER `api_key_warned_on`,
+            ADD COLUMN IF NOT EXISTS `msp_mode` tinyint(1) NOT NULL DEFAULT 0 AFTER `tls_verify`,
+            ADD COLUMN IF NOT EXISTS `default_client_id` int(11) NOT NULL DEFAULT 0 AFTER `msp_mode`,
+            ADD COLUMN IF NOT EXISTS `auto_create_assets` tinyint(1) NOT NULL DEFAULT 0 AFTER `default_client_id`,
+            ADD COLUMN IF NOT EXISTS `stale_retire_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `auto_create_assets`,
+            ADD COLUMN IF NOT EXISTS `stale_retire_days` int(11) NOT NULL DEFAULT 30 AFTER `stale_retire_enabled`,
+            ADD COLUMN IF NOT EXISTS `last_test_devices` int(11) DEFAULT NULL AFTER `last_test_error_code`");
+        foreach (['asset_mdm_links', 'mdm_unmatched_devices'] as $mdm_t) {
+            mysqli_query($mysqli, "ALTER TABLE `$mdm_t`
+                ADD COLUMN IF NOT EXISTS `customer_id` varchar(40) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `customer_name` varchar(200) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `raw_json` text DEFAULT NULL");
+        }
+        mysqli_query($mysqli, "ALTER TABLE `mdm_unmatched_devices` MODIFY `reason` varchar(20) NOT NULL DEFAULT 'no_match'");
+        mysqli_query($mysqli, "ALTER TABLE `mdm_sync_log` ADD COLUMN IF NOT EXISTS `devices_created` int(11) DEFAULT 0 AFTER `devices_matched`");
+
+        $mdm_cols_ok = true;
+        foreach ([['manageengine_mdm_integrations', 'edition'], ['manageengine_mdm_integrations', 'api_key_enc'], ['manageengine_mdm_integrations', 'stale_retire_days'], ['manageengine_mdm_integrations', 'last_test_devices'],
+                  ['asset_mdm_links', 'raw_json'], ['mdm_unmatched_devices', 'customer_id'], ['mdm_sync_log', 'devices_created']] as [$mdm_t, $mdm_c]) {
+            $mdm_res = mysqli_query($mysqli, "SHOW COLUMNS FROM `$mdm_t` LIKE '$mdm_c'");
+            if (!$mdm_res || mysqli_num_rows($mdm_res) === 0) {
+                $mdm_cols_ok = false;
+            }
+        }
+        if ($mdm_cols_ok) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.169'");
+        }
+    }
