@@ -545,6 +545,24 @@ if (isset($_GET['asset_id'])) {
                         <a href="<?= nullable_htmlentities($mdm_console) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary" title="Open the MDM console"><i class="fas fa-external-link-alt me-1"></i>Console</a>
                         <?php } ?>
                         <a href="/agent/mdm_devices.php" class="btn btn-sm btn-outline-secondary">Mobile devices</a>
+                        <?php
+                        // Offer to set the assigned contact from the MDM user: only while the owner has "Assign contact from MDM user" on and
+                        // only when it would really change something (an empty Assigned To, or overwrite on). Same gate as the post handler.
+                        $mdm_assign_offer = ['status' => ''];
+                        if (lookupUserPermission('module_client') >= 2 && !($client_access_string && !$session_is_admin)) {
+                            try {
+                                $mdm_assign_settings = \ITFlow\Integrations\ManageEngine\MdmMappingSettings::load($mysqli, (int) $mdm_link['integration_id']);
+                                $mdm_assign_offer = (new \ITFlow\Integrations\ManageEngine\MdmUserContactMapper($mysqli, (int) $mdm_link['integration_id']))->evaluate((int) $mdm_link['id'], $mdm_assign_settings);
+                            } catch (\Throwable $e) {
+                                $mdm_assign_offer = ['status' => ''];
+                            }
+                        }
+                        if ($mdm_assign_offer['status'] === 'assign') { ?>
+                        <form action="post.php" method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">
+                            <button type="submit" name="assign_mdm_contact_asset" class="btn btn-sm btn-outline-primary" title="The device user is mapped to a contact. Set Assigned To from it."><i class="fas fa-user-check me-1"></i>Set contact from MDM user</button>
+                        </form>
+                        <?php } ?>
                         <?php if (lookupUserPermission('module_client') >= 2) { ?>
                         <form action="post.php" method="post" class="d-inline">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">

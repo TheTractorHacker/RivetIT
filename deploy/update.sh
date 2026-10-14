@@ -86,7 +86,8 @@ Steps performed, in order: pre-update backup (or confirmed skip) -> git
 pull via scripts/update_cli.php --update (run as that file's owner) ->
 composer install (if composer.json exists) -> database migrations via
 scripts/update_cli.php --update_db -> php-fpm reload (auto-detected) -> web server
-routes (deploy/apply-web-routes.sh: backup, nginx -t, reload only if it passes).
+routes check (a dry run, and only from a root-owned copy of deploy/apply-web-routes.sh;
+otherwise it prints the command: update.sh never changes nginx itself).
 EOF
 }
 
@@ -248,37 +249,75 @@ reload_php_fpm() {
     success "${php_fpm_svc} reloaded."
 }
 
-# apply_web_routes(): a release can need a new nginx route (Remote MCP sign-in, kiosk links, ...). The routes live in one shared file
-# that deploy/apply-web-routes.sh keeps current (backup, nginx -t, reload only if it passes, automatic rollback), so an update never
-# leaves a server missing a route. Never fatal: if it cannot run or the site needs a manual step, say so and print the exact command.
+# The trust check below is the same text as in deploy/apply-web-routes.sh (tests/web_routes_trust.php keeps them identical).
+# BEGIN trust-check
+# rivetit_path_trusted PATH: succeeds only when PATH, what it resolves to, and every parent directory of both are owned by root
+# and not writable by group or others. On failure it prints why. (Test hook: a non-root test run may name another trusted owner.)
+rivetit_path_trusted() {
+    local p="$1" want=0 stop="/" q d u m
+    if [[ "${RIVETIT_ROUTES_TEST_NONROOT:-}" == "1" && "${EUID}" -ne 0 ]]; then want="${RIVETIT_TRUST_UID:-0}"; stop="${RIVETIT_TRUST_STOP:-/}"; fi
+    [[ "${p}" == /* ]] || { echo "not an absolute path: ${p}"; return 1; }
+    for q in "${p}" "$(readlink -f -- "${p}" 2>/dev/null || echo "${p}")"; do
+        [[ -e "${q}" ]] || { echo "missing: ${q}"; return 1; }
+        d="${q}"
+        while :; do
+            read -r u m < <(stat -c '%u %a' -- "${d}")
+            [[ "${u}" == "${want}" ]] || { echo "${d} is not owned by root"; return 1; }
+            if (( (8#${m} & 8#022) != 0 )); then echo "${d} is writable by group or others (mode ${m})"; return 1; fi
+            [[ "${d}" == "/" || "${d}" == "${stop}" ]] && break
+            d="$(dirname -- "${d}")"
+        done
+    done
+    return 0
+}
+# END trust-check
+
+# apply_web_routes(): a release can need a new nginx route (Remote MCP sign-in, kiosk links, ...). Routes live in one shared file that
+# deploy/apply-web-routes.sh keeps current. THIS SCRIPT NEVER APPLIES THEM, because it runs as root and the app tree is normally owned
+# by the web user: it will only run the apply tool when the tool and everything it loads (and every parent directory) is root-owned and
+# not group/world writable, and then only as a DRY RUN that shows the diff and prints the exact command to apply it after a human has
+# read it. Otherwise it just prints the command. Never fatal.
 apply_web_routes() {
-    local script="${APP_DIR}/deploy/apply-web-routes.sh" domain cmd rc=0
+    local domain cmd rc=0 cand why f untrusted="" tool_dir script="" out
     domain="$(sed -n "s/^\\\$config_base_url = ['\"]\\([^'\"]*\\)['\"];.*/\\1/p" "${APP_DIR}/config.php" 2>/dev/null | head -n1)"
     domain="${domain%%:*}"
     if ! command_exists nginx || [[ ! -d /etc/nginx/sites-enabled ]]; then
         info "Web server routes: nginx is not managed here (Docker/Apache install?); skipping."
         return 0
     fi
-    if [[ ! -f "${script}" ]]; then
+    if [[ ! -f "${APP_DIR}/deploy/apply-web-routes.sh" ]]; then
         info "Web server routes: this release has no deploy/apply-web-routes.sh; skipping."
         return 0
     fi
     if [[ -z "${domain}" || ! "${domain}" =~ ^[A-Za-z0-9.-]+$ ]]; then
-        warn "Web server routes: could not read this site's domain from ${APP_DIR}/config.php. Run when ready: sudo ${script} --domain <your domain>"
+        warn "Web server routes: could not read this site's domain from ${APP_DIR}/config.php. When ready, review with: sudo ${APP_DIR}/deploy/apply-web-routes.sh --domain <your domain> --dry-run"
         return 0
     fi
-    cmd="sudo ${script} --domain ${domain}"
-    if [[ "${EUID}" -ne 0 ]]; then
-        warn "Web server routes: not running as root, so they were not checked. Run: ${cmd}"
+    cmd="sudo ${APP_DIR}/deploy/apply-web-routes.sh --domain ${domain} --dry-run"
+    # A root-owned copy (apply-web-routes.sh --install-root-copy) or a root-owned checkout may be run; a web-writable one may not.
+    for cand in /usr/local/lib/rivetit "${APP_DIR}"; do
+        untrusted=""
+        for f in deploy/apply-web-routes.sh deploy/lib/web_routes_tool.php src/Ops/NginxConf.php src/Ops/WebRoutes.php src/Ops/WebRoutesConverter.php deploy/templates/rivetit-locations.conf; do
+            if ! why="$(rivetit_path_trusted "${cand}/${f}")"; then untrusted="${why}"; break; fi
+        done
+        if [[ -z "${untrusted}" ]]; then script="${cand}/deploy/apply-web-routes.sh"; break; fi
+    done
+    if [[ "$(id -u)" -ne 0 || -z "${script}" ]]; then
+        warn "Web server routes were NOT applied by this update (on purpose: ${untrusted:-not running as root}). A release may add routes; review and apply them with:"
+        warn "    ${cmd}"
+        warn "  (then the --yes-diff-sha command it prints). To make this automatic-to-review, install a root-owned copy once: sudo ${APP_DIR}/deploy/apply-web-routes.sh --install-root-copy"
         return 0
     fi
-    announce "Bringing the web server routes up to date (deploy/apply-web-routes.sh)."
-    "${script}" --domain "${domain}" || rc=$?
-    case "${rc}" in
-        0) success "Web server routes are current." ;;
-        3) warn "Web server routes: the site's nginx file needs a manual change (steps printed above). Re-check with: ${cmd} --check" ;;
-        *) warn "Web server routes could NOT be applied automatically (exit ${rc}; nothing was left half-changed). The update itself is complete. Look at the message above, then run: ${cmd} --dry-run" ;;
-    esac
+    announce "Checking the web server routes with the root-owned tool (dry run, nothing is changed)."
+    out="$("${script}" --domain "${domain}" --dry-run 2>&1)" || rc=$?
+    printf '%s\n' "${out}"
+    if [[ "${rc}" -ne 0 ]]; then
+        warn "Web server routes could not be checked (exit ${rc}). The update itself is complete. Look at the message above, then run: ${cmd}"
+    elif grep -q '^DIFF-SHA: ' <<< "${out}"; then
+        warn "The web server routes are out of date. Read the diff above, then apply it with the command printed above (--yes-diff-sha ...). This update did not change nginx."
+    else
+        success "Web server routes are current."
+    fi
     return 0
 }
 

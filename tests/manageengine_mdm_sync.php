@@ -300,7 +300,7 @@ foreach ($tables as $t) {
     preg_match('/CREATE TABLE IF NOT EXISTS `' . $t . '` \((.*?)\n\s*\) ENGINE/s', $upd, $mm);
     preg_match_all('/^\s*`([a-z_0-9]+)` /m', $mm[1] ?? '', $cols3);
     // 2.6.168 created the table; 2.6.169 added columns with ADD COLUMN IF NOT EXISTS (a column only db.sql or only the migration knows is a drift)
-    $b169 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.168') {"));
+    $b169 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.169') {"));
     $b169 = substr($b169, 0, (int) strpos($b169, "\n    }\n"));
     $added = [];
     if (preg_match_all('/ALTER TABLE `(?:' . $t . ')`(.*?)"\);/s', $b169, $alt)) {
@@ -308,11 +308,12 @@ foreach ($tables as $t) {
     }
     $expected = array_merge($cols3[1], in_array($t, ['asset_mdm_links', 'mdm_unmatched_devices'], true) ? ['customer_id', 'customer_name', 'raw_json'] : [], $t === 'manageengine_mdm_integrations' || $t === 'mdm_sync_log' ? $added : []);
     $a1 = array_unique($expected); sort($a1); $a2 = $cols2[1]; sort($a2);
-    $ok($a1 === $a2, "the migrations (2.6.168 create + 2.6.169 add columns) and db.sql define the same columns for $t");
+    $ok($a1 === $a2, "the migrations (2.6.168 create + 2.6.170 add columns) and db.sql define the same columns for $t");
 }
 $ok(strpos($sql, 'uca1400') === false, 'db.sql carries no uca1400 collation');
 $blockStart = strpos($upd, "if (\$rivetit_db_version() == '2.6.167') {");
-$block = substr($upd, $blockStart, (int) strpos(substr($upd, $blockStart), "if (\$rivetit_db_version() == '2.6.168') {"));
+$blockEnd = strpos($upd, "if (\$rivetit_db_version() == '2.6.168') {");
+$block = substr($upd, $blockStart, $blockEnd !== false ? $blockEnd - $blockStart : null);
 $ok($blockStart !== false && strpos($block, "'2.6.168'") !== false, 'the migration is gated 2.6.167 -> 2.6.168');
 $ok(substr_count($block, 'CREATE TABLE IF NOT EXISTS') === 4 && stripos($block, 'ALTER TABLE') === false && stripos($block, 'DROP ') === false, 'the migration only adds four tables (IF NOT EXISTS): no ALTER, no DROP, the nearly full settings table is not touched');
 $ok(stripos($block, 'INSERT INTO') === false, 'the migration inserts no row: the integration is off until an administrator saves a connection');

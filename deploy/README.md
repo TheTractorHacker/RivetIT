@@ -517,12 +517,14 @@ either way, because the authenticated endpoints do not depend on the deny.
 Keeps the web server's routes (nginx) in step with the app so nobody hand-edits nginx again: one
 command backs up, converts an older inline vhost safely (or declines and prints exact manual steps),
 installs the shared routes file, runs `nginx -t`, reloads only if it passes and rolls everything back
-otherwise. Idempotent; `--dry-run` shows a diff, `--check` exits 2 when out of date. `update.sh` runs
-it for you. Full guide: [`docs/WEB_ROUTES.md`](../docs/WEB_ROUTES.md).
+otherwise. Nothing from the app tree runs as root (the PHP analysis is dropped to the unprivileged user, and
+root validates its output strictly), and a human confirms the diff (`y/N`, or `--yes-diff-sha <hash>` from a
+`--dry-run`). Idempotent; `--dry-run` shows a diff, `--check` exits 2 when out of date. `update.sh` only
+checks (dry run, from a root-owned copy) and prints the command; `--install-root-copy` sets that copy up. Full guide: [`docs/WEB_ROUTES.md`](../docs/WEB_ROUTES.md).
 
 ```bash
-sudo deploy/apply-web-routes.sh --domain rivetit.example.com --dry-run   # look first
-sudo deploy/apply-web-routes.sh --domain rivetit.example.com
+sudo deploy/apply-web-routes.sh --domain rivetit.example.com --dry-run   # look first (prints DIFF-SHA)
+sudo deploy/apply-web-routes.sh --domain rivetit.example.com             # shows the diff, asks y/N
 ```
 
 ## Security model

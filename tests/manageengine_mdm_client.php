@@ -178,6 +178,6 @@ $c = $mk(); $c->listAllDevices(); $c->getDevice((string) (9007199254740000 + 1))
 $methods = []; foreach ($log() as $e) { $methods[str_starts_with($e['path'], '/api/') ? 'api' : 'token'][$e['method']] = true; }
 $ok(array_keys($methods['api']) === ['GET'] && array_keys($methods['token']) === ['POST'], 'read-only: every API request is a GET; the only POST is the token refresh');
 $src = file_get_contents("$root/src/Integrations/ManageEngine/ManageEngineMdmClient.php");
-$ok(preg_match_all("/send\('(\w+)'/", $src, $m) && array_values(array_unique($m[1])) === ['POST', 'GET'], 'the client source has exactly two request sites: the token POST and the GET');
+$ok(preg_match_all("/send\('(\w+)'/", $src, $m) && array_values(array_unique($m[1])) === ['POST', 'GET'] && count(array_filter($m[1], fn($v) => $v === 'POST')) === 2 && substr_count($src, "this->accountsBase . '/oauth/v2/token'") === 2, 'the client source has only the Zoho token POSTs (refresh, and the one-time code exchange) and the GET');
 $code = php_strip_whitespace("$root/src/Integrations/ManageEngine/ManageEngineMdmClient.php");   // comments removed
 $ok(strpos($code, 'DELETE') === false && strpos($code, 'PUT') === false && stripos($code, 'wipe') === false && stripos($code, 'lock_device') === false, 'no wipe/lock/delete code path exists in the client');

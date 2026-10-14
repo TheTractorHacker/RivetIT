@@ -158,6 +158,11 @@ if (isset($_POST['save_mdm_connection'])) {
         mysqli_stmt_close($stmt);
     }
 
+    // Disabling the integration switches the master "Allow MDM to write asset fields" switch off again (it must be turned on deliberately).
+    if (!$enabled) {
+        \ITFlow\Integrations\ManageEngine\MdmMappingSettings::switchWritesOff($mysqli, $id);
+    }
+
     // Only fact names go in the audit trail: which fields changed, never their values.
     logAction("Settings", "Edit", "$session_name saved the ManageEngine MDM integration (" . ($enabled ? 'enabled' : 'disabled') . ", $edition edition" . ($msp ? ', MSP' : '') . ($edition === 'cloud' ? ", data center $data_center_log" : '') . ($changed ? '; replaced ' . implode(' and ', $changed) : '') . ")");
     \ITFlow\Audit\AuditService::record('integration.manageengine_mdm.save', $session_user_id, 'manageengine_mdm_integration', $id, 'success', ($enabled ? 'enabled' : 'disabled') . ', ' . $edition . ($changed ? '; replaced ' . implode(' and ', $changed) : ''));
@@ -220,5 +225,63 @@ if (isset($_POST['sync_mdm_now'])) {
         logAction("Settings", "Edit", "$session_name ran a ManageEngine MDM sync that failed" . ($run['error_code'] ? " ({$run['error_code']})" : ""));
         flash_alert(nullable_htmlentities($run['message']), 'error');
     }
+    redirect();
+}
+
+/*
+ * Mapping options (Integrations > Device Sync > "Mapping options"): assign contact from the MDM user, the master "Allow MDM to write asset
+ * fields" switch and the per-field map. ADMINS ONLY (the master switch lets a sync change asset fields). Every option is off until saved on.
+ * "Preview" uses the values in the form (saved or not), writes nothing, and only stores the result in the admin's own session for display.
+ */
+if (isset($_POST['save_mdm_mapping']) || isset($_POST['preview_mdm_field_writes'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    if (!$session_is_admin) {
+        flash_alert('Only an administrator can change the MDM mapping options.', 'error');
+        redirect();
+    }
+
+    $row = MdmClientFactory::row($mysqli);
+    if (!$row || !\ITFlow\Integrations\ManageEngine\MdmMappingSettings::schemaReady($mysqli)) {
+        flash_alert('Save the ManageEngine MDM connection first (and run the database update if it is pending).', 'error');
+        redirect();
+    }
+    $iid = intval($row['id']);
+
+    $raw_map = [];
+    foreach (\ITFlow\Integrations\ManageEngine\MdmMappingSettings::FIELDS as $field_key => $field_def) {
+        $raw_map[$field_key] = [
+            'target' => (string) ($_POST['fm_target'][$field_key] ?? 'panel'),
+            'mode' => (string) ($_POST['fm_mode'][$field_key] ?? ''),
+        ];
+    }
+    $field_map = \ITFlow\Integrations\ManageEngine\MdmMappingSettings::cleanFieldMap($raw_map);
+    $assign = isset($_POST['assign_contact']) && $_POST['assign_contact'] === '1';
+    $overwrite = isset($_POST['assign_contact_overwrite']) && $_POST['assign_contact_overwrite'] === '1';
+    $allow_writes = isset($_POST['allow_asset_writes']) && $_POST['allow_asset_writes'] === '1';
+
+    if (isset($_POST['preview_mdm_field_writes'])) {
+        $plan = (new \ITFlow\Integrations\ManageEngine\MdmFieldWriter($mysqli, $iid))->plan(['field_map' => $field_map] + \ITFlow\Integrations\ManageEngine\MdmMappingSettings::defaults());
+        $_SESSION['mdm_field_preview'] = [
+            'at' => date('Y-m-d H:i:s'), 'master_on' => $allow_writes, 'enabled' => (int) $row['enabled'] === 1, 'examined' => $plan['examined'],
+            'total' => count($plan['changes']), 'changes' => array_slice($plan['changes'], 0, 200),
+            'skipped_total' => count($plan['skipped']), 'skipped' => array_slice($plan['skipped'], 0, 50),
+        ];
+        logAction("Settings", "View", "$session_name previewed ManageEngine MDM asset field writes (" . count($plan['changes']) . " change(s), nothing written)");
+        flash_alert('Preview ready below. Nothing was written.');
+        redirect();
+    }
+
+    // The master switch stays off while the integration is disabled.
+    if ((int) $row['enabled'] !== 1) {
+        $allow_writes = false;
+    }
+    \ITFlow\Integrations\ManageEngine\MdmMappingSettings::save($mysqli, $iid, $assign, $overwrite, $allow_writes, $field_map, intval($session_user_id));
+    $written_fields = implode(', ', array_keys($field_map));
+    logAction("Settings", "Edit", "$session_name saved the ManageEngine MDM mapping options (assign contact " . ($assign ? ($overwrite ? 'on, overwrite on' : 'on') : 'off') . ", asset writes " . ($allow_writes ? 'ON' : 'off') . ($written_fields !== '' ? ", fields to write: $written_fields" : '') . ")");
+    \ITFlow\Audit\AuditService::record('integration.manageengine_mdm.mapping_save', $session_user_id, 'manageengine_mdm_integration', $iid, 'success', ($allow_writes ? 'asset writes on' : 'asset writes off') . ($assign ? ', assign contact on' : ''));
+    unset($_SESSION['mdm_field_preview']);
+    flash_alert('Mapping options saved' . (((int) $row['enabled'] !== 1 && isset($_POST['allow_asset_writes'])) ? '. Asset writes stay off while the integration is disabled.' : ''));
     redirect();
 }

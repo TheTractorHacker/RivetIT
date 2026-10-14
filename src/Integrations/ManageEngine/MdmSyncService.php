@@ -65,6 +65,7 @@ final class MdmSyncService
             }
             $stats = $mapper->syncDevices($devices);
             $mapper->pruneUnmatched(array_column($devices, 'mdm_device_id'));
+            $stats['notes'] = self::applyMapping($mysqli, $id, $logId, $triggeredBy, $warnings);
             $stats['warnings'] = $warnings;
             $stats['retired'] = $stats['restored'] = 0;
             if ($stats['errors'] === [] && $devices !== [] && (int) ($row['stale_retire_enabled'] ?? 0) === 1) {
@@ -152,6 +153,48 @@ final class MdmSyncService
         }
 
         return (int) floor(($t - strtotime(date('Y-m-d') . ' 00:00:00')) / 86400);
+    }
+
+    /**
+     * The mapping options (docs/MANAGEENGINE_MDM.md), after the devices are linked and refreshed. Everything here is OFF by default and
+     * a problem in it never fails the run (it becomes a warning):
+     *   1. note every device user in the user -> contact table, auto-mapping exact e-mail matches (own table only);
+     *   2. "Assign contact from MDM user" (only when switched on): fill empty asset contacts, history recorded;
+     *   3. field mapping (only when the master "Allow MDM to write asset fields" switch is on): write the chosen fields, one log line.
+     *
+     * @param list<string> $warnings
+     * @return list<string> notes for the sync log (counts)
+     */
+    private static function applyMapping(\mysqli $mysqli, int $integrationId, int $logId, int $triggeredBy, array &$warnings): array
+    {
+        $notes = [];
+        if (!MdmMappingSettings::schemaReady($mysqli)) {
+            return $notes;   // database update 2.6.169 not run yet: nothing to apply
+        }
+        $settings = MdmMappingSettings::load($mysqli, $integrationId);
+        try {
+            $users = new MdmUserContactMapper($mysqli, $integrationId);
+            $u = $users->refresh();
+            if ($u['auto_mapped'] > 0) {
+                $notes[] = "{$u['auto_mapped']} MDM user(s) mapped to a contact by e-mail";
+            }
+            if ($settings['assign_contact']) {
+                $c = $users->assignAll($settings, $triggeredBy);
+                $notes[] = 'asset contacts set from MDM users: ' . ($c['assign'] ?? 0) . ' (kept existing ' . ($c['kept_existing'] ?? 0) . ', needs mapping ' . ($c['no_mapping'] ?? 0) . ')';
+            }
+        } catch (\Throwable $e) {
+            $warnings[] = 'user mapping skipped: ' . $e->getMessage();
+        }
+        if ($settings['allow_asset_writes']) {
+            try {
+                $w = (new MdmFieldWriter($mysqli, $integrationId))->apply($settings, $logId, $triggeredBy);
+                $notes[] = $w['blocked'] !== '' ? 'asset field writes: none (' . $w['blocked'] . ')' : "asset field writes: {$w['written']} field(s) on {$w['assets']} asset(s)" . ($w['skipped'] ? ", {$w['skipped']} skipped" : '');
+            } catch (\Throwable $e) {
+                $warnings[] = 'asset field writes failed: ' . $e->getMessage();
+            }
+        }
+
+        return $notes;
     }
 
     /**
