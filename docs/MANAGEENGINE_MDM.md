@@ -15,8 +15,9 @@ It covers the **cloud** edition (Zoho sign-in). The on-premises edition (API key
   Devices list (an MDM status chip for a device whose asset is linked).
 - **Read only.** It never locks, wipes, or changes a device, and never writes to ManageEngine. The code has no such call. Remote
   actions (lock, lost mode, wipe) are a possible later version; they would need write scopes that this version never requests.
-- **Never writes an asset's own fields.** A sync only reads `assets` and writes its own link tables. A device that matches no asset
-  (or more than one) goes to a review list; a person chooses **Create asset** or **Link to existing asset** (or Ignore).
+- **By default never writes an asset's own fields.** A sync only reads `assets` and writes its own link tables. A device that matches no
+  asset (or more than one) goes to a review list; a person chooses **Create asset** or **Link to existing asset** (or Ignore). Three
+  optional mapping features (see "Mapping options") can change that, and every one of them is **off until an administrator switches it on**.
 - Off by default. Nothing is requested from ManageEngine until an administrator saves a connection and switches it on.
 
 ## Set it up
@@ -123,6 +124,94 @@ OS from the device, in the department you choose); **Ignore** hides a device unt
 at level 2 and access to the asset's department. **Unlink** (asset page) removes a link; the next sync links it again if the serial still
 matches.
 
+## Mapping options
+
+Three optional features sit on top of the sync. They never talk to ManageEngine (they only use data a sync already stored), they are all
+**off or non-destructive by default**, and every change they make to an asset goes through the same history and audit trail as a manual edit.
+
+| Safety default | Where | What it means |
+|---|---|---|
+| Assign contact from MDM user: **off** | Integrations > Device Sync > Mapping options | No asset's Assigned To is ever set from a device user. Mapping users to contacts only records the mapping. |
+| ...overwrite: **off** | same | Even when on, only an **empty** Assigned To is filled. |
+| Allow MDM to write asset fields (master switch): **off** | same, administrators only | No asset column is written, whatever the field table says. Switched off again when the integration is disabled. |
+| Every field: **Show in the MDM panel only** | field table | The current behaviour: shown in the MDM panel, no asset write. |
+| "Write to asset" mode: **Fill only when empty** | field table | Never replaces something a person typed. |
+| Mapping screen and user mapping | Endpoints > MDM Devices | Closed to a department-scoped non-admin on every action, single or bulk. |
+
+With no database row (a fresh install, or before the 2.6.169 database update) every option reads as off and a sync behaves exactly as before.
+
+### A. MDM user to RivetIT contact
+
+ManageEngine reports each device's user in the device list as `user.user_name` and `user.user_email` (these are the only user fields the sync
+reads and stores; the documented shape also has a user id, but it is not stored, so it cannot be a key). RivetIT keys an MDM user by the
+lower-cased **e-mail**; a device user with no e-mail is keyed by `name:` + the lower-cased name, and a device with no user adds nothing.
+
+- After every sync (and on **Rescan users**) each user seen on a linked or unmatched device is recorded in `mdm_user_contact_map`.
+  A user is **auto-mapped** when exactly one live (non-archived) contact has that e-mail, compared exactly and ignoring case. When several
+  contacts share the address, the departments of the user's linked assets narrow it down, and it is mapped only if that leaves exactly one.
+  Otherwise the user waits in **Needs mapping**. An auto-mapping whose contact is later archived goes back to Needs mapping.
+- **Endpoints > MDM Devices > Users to contacts** lists the users (Needs mapping by default, Mapped, Ignored, All, with search). For a user in
+  Needs mapping pick a contact with the search-as-you-type picker (it is narrowed to the department of the user's device when the device's
+  asset has one, and the server enforces the same rule) and press **Map**, or press **Ignore**. A choice made by a person is never changed by
+  a later rescan or sync; **Clear mapping** puts the user back in Needs mapping.
+- **Assign contact from MDM user** (administrators switch it on under Mapping options): for a linked device whose user is mapped, the asset's
+  Assigned To is set to the mapped contact only when it is **empty** (unless "Overwrite" is also on), only when the contact belongs to the
+  asset's department (an asset with no department takes any contact), and never for an ignored, unmapped or archived contact. The change
+  is recorded through `AssetAssignmentService::recordChangeIfNeeded` (assignment history) plus an asset history line and an audit event.
+  It runs after each sync, from **Assign contacts now** (with a **Preview** that changes nothing) on the Users page, and from the
+  **Set contact from MDM user** button on the asset's MDM panel (shown only when it would really change something).
+
+### B. Mapping screen (device to asset, by hand and in bulk)
+
+**Endpoints > MDM Devices > Mapping** lists every MDM device: linked, unmatched and ignored, with the asset it is linked to now, a search box
+(name, serial, IMEI, UDID, user, asset), filters (state, platform, department) and a per-row asset picker (search-as-you-type, flags assets
+that already have a device).
+
+- Per row: **Link** (unmatched), **Re-link** (move a linked device to another asset), **Unlink**, **Ignore** / **Restore**.
+- Bulk: tick rows and press **Link** (each ticked row uses the asset chosen on that row), **Unlink**, **Ignore** or **Restore**. A request is
+  capped at 500 rows.
+- **Propose matches** suggests assets for unmatched devices by loose similarity of serial (or IMEI / UDID) and name (typo-tolerant, spaces and
+  punctuation ignored, at least 60 percent). A suggestion only fills that row's asset box; it is **never** applied automatically.
+- **One asset, one MDM link.** Linking a device to an asset that already has another device is refused with the device's name and an
+  explanation. Tick **Replace an existing link** to move the asset to the chosen device; the device that held it goes back to the review list
+  (reason *Unlinked by a person*, its data kept). Two rows in one bulk request choosing the same asset conflict the same way.
+- **Unlink** moves the device to the review list (so it stays visible) instead of dropping it; as before, the next sync links it again if its
+  serial still matches an asset. **Ignore** applies to unmatched devices only (a linked device must be unlinked first).
+- **Access.** Needs the Clients module at level 2 and is closed to a department-scoped non-admin on every action (the page falls back to their
+  own department list, the POST handler refuses, the asset search returns nothing). Each action also checks access to the department of every
+  asset it touches (the asset a device is linked to now and the one it is being linked to), CSRF on every form, and every change is written to
+  the action log (names and ids only, never a secret).
+
+### C. Field mapping
+
+Under Integrations > Device Sync > **Mapping options**, a table lists the MDM fields (device name, model, OS and version, serial, IMEI, UDID,
+battery, storage, last contact, passcode compliant, supervised, group) against a target. Every field starts at **Show in the MDM panel only**.
+Only the fields that have a matching asset column can be switched to **Write to asset**:
+
+| MDM field | Asset column | Modes |
+|---|---|---|
+| Device name | `asset_name` | fill only when empty |
+| Model (falls back to the product name) | `asset_model` | fill only when empty, or always overwrite |
+| OS and version (e.g. `iOS 17.5.1`) | `asset_os` | fill only when empty, or always overwrite |
+| Serial number | `asset_serial` | fill only when empty (skipped when another live asset already has that serial) |
+
+The others (IMEI, UDID, battery, storage, last contact, passcode, supervised, group) have no asset column and stay in the MDM panel.
+
+- **Nothing writes** unless the master switch **Allow MDM to write asset fields** is on (administrators only; the checkbox is greyed out and
+  stored off while the integration is disabled, and disabling the integration switches it off again). With the switch off the table is only a
+  stored preference.
+- When on, each sync writes the marked fields onto the asset of every linked device that is still enrolled. A blank ManageEngine value never
+  blanks a field. "Fill only when empty" never replaces a typed value (and the update itself re-checks, so a value typed during the run is
+  kept). "Always overwrite" replaces the asset's value whenever ManageEngine reports a different one, so it undoes a manual edit at the next
+  sync. Intune and RMM syncs can write the same columns; do not map the same column from two sources in overwrite mode.
+- **Preview changes (no writes)** uses the values in the form (saved or not), lists every asset that would change with the current and the new
+  value, and writes nothing (not the settings either); the result is shown once.
+- **What is recorded.** Each written field adds a row to `mdm_field_write_log` (asset, field, column, mode, old value, new value, the sync run,
+  who), an asset history line ("ManageEngine MDM sync set model from 'x' to 'y'") and an audit event. The sync log line for the run counts
+  them ("asset field writes: N field(s) on M asset(s)"), and another counts contacts set; both lines appear only while their option is on.
+  Only device attributes ever appear in these records, never a token or secret. A failure in the mapping step becomes a warning; it never
+  fails the sync.
+
 ## Limits and behaviour you should know
 
 - **Rate limits.** The docs publish only the error (`COM0002`, HTTP 429, "API limit exceeded"), no number. The client waits out
@@ -138,7 +227,7 @@ matches.
 - **Failures keep old data.** A failed run changes no device rows; the last good data stays and the sync log (settings page, last eight
   runs) says what failed: *Sign-in failed*, *Scope missing*, *Throttled*, *Could not reach ManageEngine*, *ManageEngine error*,
   *Unexpected response*, *Time limit reached*.
-- **Audit.** Saving settings, Test connection, Sync now, linking, creating an asset from a device, ignoring and unlinking are written to the
+- **Audit.** Saving settings (including the mapping options), Test connection, Sync now, linking, creating an asset from a device, ignoring, unlinking and every mapping action are written to the
   action log (and the structured audit trail for the settings ones). Secrets, tokens and the Authorization header are never logged; the
   audit text names only *which* secret was replaced.
 - **Not wired into the recovery "sync watch"** (the stale/failing alert for RMM, Intune, UniFi): a stalled MDM sync shows in the sync log
@@ -157,6 +246,9 @@ matches.
 | *Could not reach ManageEngine* | The server cannot reach the data center host over HTTPS (firewall, DNS). |
 | Every device is in the review list | The serials in Assets do not match the serials ManageEngine reports. Check one device side by side (iPad serials are the 10 to 12 character Apple serial, not the UDID). |
 | A device is ambiguous | Two assets share the serial, or two live ManageEngine records do. Fix the duplicate, or use Link to existing asset. |
+| A field is not being written to the asset | Check, in order: the master switch (and that the integration is enabled), that the field is set to *Write to asset*, the mode (fill-only skips a non-empty value), and that the device is still enrolled. **Preview** shows what a run would do. |
+| A user stays in Needs mapping | No contact has that exact e-mail, more than one does and the device's department does not pick one, or the device user has no e-mail. Map it by hand on the Users page. |
+| Linking is refused ("only one MDM link") | The asset already has another device. Tick **Replace an existing link** to move it. |
 | Device was retired in ManageEngine but still shows | It shows *Not enrolled* and keeps its link by design; Unlink it on the asset page. |
 
 ## What the docs did not say (assumptions, all in code and testable)
@@ -194,6 +286,9 @@ Could **not** be confirmed, and how the code copes:
 - **Zoho token errors.** Zoho is known to answer token errors with HTTP 200 and `{"error": "..."}`; the client treats any answer without an
   `access_token` as a sign-in failure, and Zoho's "too many requests" text as throttling.
 - **Rate limits.** No numeric limit is published for the MDM API (only the 429 / `COM0002` error).
+- **User id.** The documented device list shape shows the user as `user_name`, `user_id` and `user_email`; only name and e-mail are read, and
+  no user id is stored, so a user with no e-mail is identified by the name. Whether real tenants fill `user_email` for every enrolled
+  device (for example on shared or kiosk iPads) is unconfirmed.
 - **Response wrapping.** The docs show `devices` as a top-level array in the list and a bare object for details and summary; the client also
   accepts a `device` / `summary` wrapper in case an edition wraps them.
 
@@ -211,11 +306,15 @@ Could **not** be confirmed, and how the code copes:
 ## Files
 
 `src/Integrations/ManageEngine/` (data centers, client, token store, mapper, sync service, status helper), `admin/includes/mdm_settings_panel.php` (the form, on Integrations > Device Sync)
-and `admin/post/settings_manageengine_mdm.php`, `agent/mdm_devices.php` and `agent/post/mdm_device.php`, the panel in
+and `admin/post/settings_manageengine_mdm.php`, `agent/mdm_devices.php` and `agent/post/mdm_device.php`, the mapping screens (`agent/includes/mdm_mapping_view.php`, `agent/includes/mdm_users_view.php`,
+`agent/js/mdm_mapping.js`, `agent/post/mdm_mapping.php`, the `mdm_search_assets` branch of `agent/ajax.php`) with `MdmMappingSettings`, `MdmUserContactMapper`,
+`MdmDeviceMapping`, `MdmMatchSuggester` and `MdmFieldWriter` in `src/Integrations/ManageEngine/`, the panel in
 `agent/asset_details.php`, the badge in `agent/assets.php`, the status chip in `agent/js/training_devices.js` (data from
 `KioskAdminActions::kioskList`), the cron block in `cron/cron.php`, DB 2.6.168 in `admin/database_updates.php` and `db.sql` (four new
 tables: `manageengine_mdm_integrations`, `asset_mdm_links`, `mdm_unmatched_devices`, `mdm_sync_log`; the secret columns are registered in
-`src/Crypto/ColumnRegistry.php` for key rotation). Tests: `tests/manageengine_mdm_client.php`, `tests/manageengine_mdm_sync.php`,
-`tests/manageengine_mdm_web.php`, with the mock in `tests/mock/manageengine_mdm_mock.php`.
+`src/Crypto/ColumnRegistry.php` for key rotation) and DB 2.6.169 (three more new tables, nothing existing altered: `mdm_mapping_settings`,
+`mdm_user_contact_map`, `mdm_field_write_log`). Tests: `tests/manageengine_mdm_client.php`, `tests/manageengine_mdm_sync.php`,
+`tests/manageengine_mdm_web.php`, `tests/manageengine_mdm_mapping.php` (services) and `tests/manageengine_mdm_mapping_web.php` (HTTP: every new action
+for every kind of person), with the mock in `tests/mock/manageengine_mdm_mock.php`.
 
 Config-only overrides for testing against a mock (never in the web UI): `RIVETIT_MDM_BASE_URL` and `RIVETIT_MDM_ACCOUNTS_URL` in `config.php`.
