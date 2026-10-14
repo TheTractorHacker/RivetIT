@@ -64,7 +64,7 @@ button.go{background:var(--accent);color:var(--accent-fg);border-color:var(--acc
 </style>
 CSS;
 
-if (!OAuthHttp::allow('oauth:authorize:ip:' . OAuthHttp::clientIp(), 120, 60)) {
+if (!OAuthHttp::allow('oauth:authorize:ip:' . OAuthHttp::clientNet(), 120, 60)) {
     $render_error('Too many requests. Wait a minute and try again.', 429);
 }
 
@@ -74,12 +74,16 @@ if ($raw === null || strlen($raw) > 16384) {
     $render_error('The request is too large.', 413);
 }
 $params = OAuthService::parseParams($raw);
-$service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
-// A client_id that is a URL makes this server fetch it (client metadata documents): bound the outbound work per address.
-if (OAuthService::clientIdIsUrl((string) ($params['values']['client_id'] ?? '')) && !OAuthHttp::allow('oauth:cimd:fetch:ip:' . OAuthHttp::clientIp(), 20, 60)) {
-    $render_error('Too many requests. Wait a minute and try again.', 429);
+// A client_id that is a URL may make this server fetch it (client metadata documents): the fetcher bounds that outbound work.
+$cimd_policy = OAuthConfig::cimd($mysqli);
+$service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url), null,
+    OAuthHttp::limitedFetcher($cimd_policy['mode'] === 'any'));
+try {
+    $request = $service->validateAuthorizationRequest($params);
+} catch (\Throwable $e) {
+    error_log('MCP OAuth authorize failed: ' . $e::class);   // the class only: a driver message can carry SQL
+    $render_error('The server could not check this request. Try again shortly.', 500);
 }
-$request = $service->validateAuthorizationRequest($params);
 
 if (!$request['ok']) {
     if (isset($request['fatal'])) {
@@ -105,12 +109,17 @@ if ($method === 'POST') {
         $render_error('This page expired. Go back to the application and start the connection again.', 403);
     }
     $decision = $params['values']['decision'] ?? '';
-    if ($decision === 'approve') {
-        $url = $service->approve($request, $user_id);
-    } elseif ($decision === 'deny') {
-        $url = $service->deny($request, $user_id);
-    } else {
-        $render_error('Choose Allow or Deny.');
+    try {
+        if ($decision === 'approve') {
+            $url = $service->approve($request, $user_id);
+        } elseif ($decision === 'deny') {
+            $url = $service->deny($request, $user_id);
+        } else {
+            $render_error('Choose Allow or Deny.');
+        }
+    } catch (\Throwable $e) {
+        error_log('MCP OAuth consent failed: ' . $e::class);
+        $render_error('The server could not record your choice. Nothing was shared. Try again shortly.', 500);
     }
     session_write_close();
     http_response_code(303);
@@ -131,7 +140,7 @@ $host = OAuthService::redirectHost($request['redirect_uri']);
 $cimd = $client['registration_type'] === 'metadata';
 $cimd_authority = $cimd ? (string) (ClientMetadata::checkUrl((string) $client['source_url'])['authority'] ?? '') : '';
 // In "any host" mode a host the administrator did not list is an unverified application; a listed host was vetted by them.
-$cimd_unverified = $cimd && !ClientMetadata::hostListed($cimd_authority, OAuthConfig::cimd($mysqli)['hosts']);
+$cimd_unverified = $cimd && !ClientMetadata::hostListed($cimd_authority, $cimd_policy['hosts']);
 $loopback = (bool) preg_match('/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/', $host);
 $csrf_token = (string) ($_SESSION['csrf_token'] ?? '');
 $user_label = trim((string) ($session_name ?? '')) !== '' ? (string) $session_name : (string) ($session_email ?? 'you');

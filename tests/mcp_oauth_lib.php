@@ -15,7 +15,7 @@ if (!preg_match('/scratch|test/i', (string) getenv('RIVETIT_TEST_DB_NAME'))) { f
 require_once __DIR__ . '/../vendor/autoload.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$mysqli = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME'));
+$mysqli = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME'), null, getenv('RIVETIT_TEST_DB_SOCKET') ?: null);
 
 /** config.php must point at the same scratch database the test seeds: the server child reads it. */
 function oa_config(): array

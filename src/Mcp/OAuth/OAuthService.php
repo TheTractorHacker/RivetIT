@@ -259,10 +259,10 @@ final class OAuthService
         return ClientMetadata::checkDocument($doc, $url);
     }
 
-    /** At most 3 audit rows per failing document in 10 minutes, so unauthenticated requests cannot flood the log. */
+    /** At most 3 audit rows per failing document and 30 in all per 10 minutes, so unauthenticated requests cannot flood the log. */
     private function auditCimdFailure(string $id, string $url, string $authority, string $reason): void
     {
-        if (!OAuthHttp::allow('oauth:cimd:audit:' . hash('sha256', $url), 3, 600)) {
+        if (!OAuthHttp::allow('oauth:cimd:audit:' . hash('sha256', $url), 3, 600) || !OAuthHttp::allow('oauth:cimd:audit:all', 30, 600)) {
             return;
         }
         $this->audit('mcp.oauth_cimd_fetch_failed', null, 'mcp_oauth_client', $id, 'fetch',
@@ -300,12 +300,29 @@ final class OAuthService
             return $err(400, 'invalid_client_metadata', 'response_types may only contain code.');
         }
         $name = $meta['client_name'] ?? 'Unnamed application';
-        if (!is_string($name) || !self::validUtf8($name)) {
+        if (!is_string($name) || !ClientMetadata::plainText($name)) {
             return $err(400, 'invalid_client_metadata', 'client_name must be plain text.');
         }
         $name = mb_substr(trim($name), 0, 100);
         if ($name === '') {
             $name = 'Unnamed application';
+        }
+
+        // Some clients register several times in one sign-in (Claude did five times). The same address asking again within a few
+        // minutes for the same name and the same return addresses gets the client it already has: nothing new is created, the
+        // metadata is identical to what that caller itself just supplied, and a different name, address or return address never matches.
+        $same = $this->store->recentDuplicateClient($name, $uris, $ip, OAuthConfig::REGISTER_DEDUPE_SECONDS);
+        if ($same !== null) {
+            return [201, [
+                'client_id' => $same['client_id'],
+                'client_id_issued_at' => (int) (strtotime((string) $same['created_at'] . ' UTC') ?: time()),
+                'client_name' => $same['client_name'],
+                'redirect_uris' => $same['redirect_uris'],
+                'token_endpoint_auth_method' => 'none',
+                'grant_types' => array_values($grantTypes),
+                'response_types' => ['code'],
+                'scope' => OAuthConfig::SCOPE,
+            ]];
         }
 
         if ($this->store->countClients() >= OAuthConfig::MAX_CLIENTS) {
@@ -338,8 +355,8 @@ final class OAuthService
     public function registerManual(string $name, array $uris, ?string $wantedId, int $adminUserId): array
     {
         $name = mb_substr(trim($name), 0, 100);
-        if ($name === '' || !self::validUtf8($name)) {
-            return [false, 'Enter a name for the client.'];
+        if ($name === '' || !ClientMetadata::plainText($name)) {
+            return [false, 'Enter a plain-text name for the client.'];
         }
         $uris = array_values(array_unique(array_filter(array_map('trim', $uris), static fn ($u) => $u !== '')));
         if ($uris === [] || count($uris) > OAuthConfig::MAX_REDIRECT_URIS) {

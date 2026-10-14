@@ -71,6 +71,29 @@ final class OAuthHttp
         return is_string($ip) && $ip !== '' ? substr($ip, 0, 64) : 'unknown';
     }
 
+    /**
+     * The key rate limits count an address under: the address itself for IPv4, the /64 for IPv6 (one subscriber usually owns a
+     * whole /64, so counting single IPv6 addresses would let one machine take a fresh bucket per request).
+     * It rests on getIP(): REMOTE_ADDR, or the forwarded address only when Administration > Network path says how many proxies to trust.
+     */
+    public static function clientNet(): string
+    {
+        return self::netKey(self::clientIp());
+    }
+
+    public static function netKey(string $ip): string
+    {
+        if (!str_contains($ip, ':')) {
+            return $ip;
+        }
+        $bin = @inet_pton($ip);
+        if ($bin === false) {
+            return $ip;
+        }
+
+        return (string) inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+    }
+
     /** Fixed-window limit on the shared Redis; allowed when Redis is down (an abuse guard, not an access control). */
     public static function allow(string $bucket, int $limit, int $windowSeconds): bool
     {
@@ -85,6 +108,35 @@ final class OAuthHttp
         } catch (\Throwable) {
             return true;
         }
+    }
+
+    /**
+     * The fetcher the endpoints hand to OAuthService: it counts only fetches that really go out (a cached document costs
+     * nothing), per address and in all, so unauthenticated requests cannot turn this server into a request cannon.
+     * With Redis down the counters cannot be kept: in "any host" mode (the target is arbitrary) a fetch is then refused,
+     * in "hosts" mode (the target is a host the administrator trusts) it goes ahead.
+     *
+     * @return callable(string):array CimdFetcher::fetch() result shape
+     */
+    public static function limitedFetcher(bool $failClosedWithoutRedis): callable
+    {
+        return static function (string $url) use ($failClosedWithoutRedis): array {
+            $refuse = ['ok' => false, 'kind' => 'unavailable', 'error' => 'too many metadata fetches right now'];
+            if ($failClosedWithoutRedis) {
+                try {
+                    if ((new \ITFlow\Core\Adapter\Redis\GlobalRedisClientProvider())->client() === null) {
+                        return ['ok' => false, 'kind' => 'unavailable', 'error' => 'fetch limits unavailable'];
+                    }
+                } catch (\Throwable) {
+                    return ['ok' => false, 'kind' => 'unavailable', 'error' => 'fetch limits unavailable'];
+                }
+            }
+            if (!self::allow('oauth:cimd:fetch:net:' . self::clientNet(), 20, 60) || !self::allow('oauth:cimd:fetch:all', 120, 60)) {
+                return $refuse;
+            }
+
+            return CimdFetcher::fetch($url);
+        };
     }
 
     public static function tooMany(): never

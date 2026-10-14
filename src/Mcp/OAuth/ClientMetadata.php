@@ -117,15 +117,46 @@ final class ClientMetadata
             }
         }
         $name = $doc['client_name'] ?? null;
-        $clean = null;
-        if (is_string($name) && mb_check_encoding($name, 'UTF-8') && !preg_match('/[\x00-\x1f\x7f]/', $name)) {
-            $clean = mb_substr(trim($name), 0, 100);
-            if ($clean === '') {
-                $clean = null;
-            }
+        $clean = is_string($name) && self::plainText($name) ? mb_substr(trim($name), 0, 100) : null;
+        if ($clean === '') {
+            $clean = null;
         }
 
         return ['ok' => true, 'name' => $clean, 'redirect_uris' => array_values(array_unique($uris))];
+    }
+
+    /**
+     * Is $text plain, honest display text: valid UTF-8 with no control characters and no invisible formatting characters
+     * (zero-width and bidirectional overrides, U+202E and friends), which could make a name read as something else on the
+     * approval screen. Names that fail are replaced by the host name (documents) or refused (registration).
+     */
+    public static function plainText(string $text): bool
+    {
+        return mb_check_encoding($text, 'UTF-8') && !preg_match('/[\x00-\x1f\x7f]/', $text) && !preg_match('/[\p{Cf}\p{Zl}\p{Zp}\p{Co}\p{Cn}]/u', $text);
+    }
+
+    /**
+     * Is a client still allowed under the CURRENT trust policy? Checked on every MCP request and every token request, so
+     * switching the policy off or removing a host cuts existing connections at once, not when the access token expires.
+     * A registered or administrator-added client does not depend on the policy (switching self-registration off only stops
+     * new registrations). A metadata-document client needs the mode not to be off and, in "hosts" mode, its host to be listed.
+     *
+     * @param array{mode:string, hosts:list<string>} $policy from OAuthConfig::cimd()
+     */
+    public static function policyAllows(string $registrationType, ?string $sourceUrl, array $policy): bool
+    {
+        if ($registrationType !== 'metadata') {
+            return true;
+        }
+        if ($policy['mode'] === 'off' || $sourceUrl === null || $sourceUrl === '') {
+            return false;
+        }
+        $shape = self::checkUrl($sourceUrl);
+        if (!$shape['ok']) {
+            return false;
+        }
+
+        return $policy['mode'] === 'any' || self::hostListed($shape['authority'], $policy['hosts']);
     }
 
     /** Seconds a document may be reused, from its Cache-Control header, clamped to MIN_TTL..MAX_TTL. */

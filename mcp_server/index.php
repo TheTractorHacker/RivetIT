@@ -115,6 +115,22 @@ $session_dir = sys_get_temp_dir() . '/rivetit-mcp-sessions-' . substr(hash('sha2
 if (!is_dir($session_dir)) {
     @mkdir($session_dir, 0700, true);
 }
+// The name is predictable and the system temp directory is shared: use the directory only if it is a real directory (not a
+// link) owned by this web user and closed to everyone else. Otherwise another local user could have planted it to read or
+// forge protocol sessions. Fail closed rather than fall back.
+$session_stat = @lstat($session_dir);
+if ($session_stat !== false && ($session_stat['mode'] & 0170000) === 0040000 && function_exists('posix_geteuid') && $session_stat['uid'] === posix_geteuid()) {
+    @chmod($session_dir, 0700);   // ours: close it to others if an earlier version made it group-readable
+    clearstatcache(true, $session_dir);
+    $session_stat = @lstat($session_dir);
+}
+if ($session_stat === false || ($session_stat['mode'] & 0170000) !== 0040000
+    || (function_exists('posix_geteuid') && $session_stat['uid'] !== posix_geteuid())
+    || ($session_stat['mode'] & 0077) !== 0) {
+    error_log('MCP session directory is missing, not owned by the web user or open to others');
+    http_response_code(503);
+    exit;
+}
 $server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION)
     ->setSession(new Mcp\Server\Session\FileSessionStore($session_dir, 3600)))->build();
 $response = $server->run($transport);
