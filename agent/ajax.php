@@ -809,6 +809,45 @@ if (isset($_GET['search_contacts'])) {
 }
 
 /*
+ * Asset search for the ManageEngine MDM mapping screen (agent/mdm_devices.php?view=mapping, agent/js/mdm_mapping.js). Read-only GET.
+ * Needs module_client level 2 (the level the mapping actions need) and, like those actions, is closed to a department-scoped
+ * non-admin: it would otherwise list assets of departments the person cannot see. Live (non-archived) assets only; says which device
+ * an asset is already linked to, so the screen can warn about a conflict before the person submits.
+ */
+if (isset($_GET['mdm_search_assets'])) {
+    enforceUserPermission('module_client', 2);
+    header('Content-Type: application/json');
+
+    $response = ['assets' => []];
+    $raw_query = trim((string) ($_GET['q'] ?? ''));
+    if (($client_access_string && !$session_is_admin) || mb_strlen($raw_query) < 2) {
+        echo json_encode($response);
+        exit;
+    }
+    $query = mysqli_real_escape_string($mysqli, $raw_query);
+    $res = mysqli_query(
+        $mysqli,
+        "SELECT a.asset_id, a.asset_name, a.asset_serial, a.asset_type, c.client_name, l.device_name AS linked_device
+         FROM assets a
+         LEFT JOIN clients c ON c.client_id = a.asset_client_id
+         LEFT JOIN asset_mdm_links l ON l.asset_id = a.asset_id
+         WHERE a.asset_archived_at IS NULL
+           AND (a.asset_name LIKE '%$query%' OR a.asset_serial LIKE '%$query%' OR a.asset_tag LIKE '%$query%')
+         ORDER BY a.asset_name ASC LIMIT 20"
+    );
+    while ($res && ($row = mysqli_fetch_assoc($res))) {
+        $response['assets'][] = [
+            'asset_id' => intval($row['asset_id']),
+            'label' => $row['asset_name'] . ($row['asset_serial'] ? ' (SN ' . $row['asset_serial'] . ')' : '') . ' #' . intval($row['asset_id'])
+                . ($row['client_name'] ? ' - ' . $row['client_name'] : ''),
+            'linked_to' => $row['linked_device'] !== null ? ($row['linked_device'] !== '' ? $row['linked_device'] : 'another device') : '',
+        ];
+    }
+    echo json_encode($response);
+    exit;
+}
+
+/*
  * Inline edit on the Assets list (agent/js/asset_inline_edit.js): changes ONE
  * of Assigned To / Location / Status / Department on one asset, without the
  * Edit modal. JSON in, JSON out - so every failure below answers with a JSON

@@ -36,6 +36,10 @@ if ($mdm) {
     }
     $unmatched_count = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM mdm_unmatched_devices WHERE integration_id = $iid AND dismissed = 0"))[0] ?? 0);
 }
+$map_ready = $mdm && \ITFlow\Integrations\ManageEngine\MdmMappingSettings::schemaReady($mysqli);
+$map_settings = $mdm ? \ITFlow\Integrations\ManageEngine\MdmMappingSettings::load($mysqli, (int) $mdm['id']) : \ITFlow\Integrations\ManageEngine\MdmMappingSettings::defaults();
+$mdm_preview = $_SESSION['mdm_field_preview'] ?? null;   // one-time display of the last dry run
+unset($_SESSION['mdm_field_preview']);
 $csrf = $_SESSION['csrf_token'];
 ?>
 
@@ -139,6 +143,109 @@ $csrf = $_SESSION['csrf_token'];
     </div>
 </div>
 
+<?php if ($mdm && $map_ready) { ?>
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h4 class="card-title mb-0"><i class="fas fa-fw fa-exchange-alt me-2"></i>Mapping options</h4>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">
+            Everything here is <strong>off</strong> until you switch it on. By default a sync only reads assets and shows ManageEngine's values in the MDM panel.
+            Mapping devices to assets by hand, and users to contacts, is on the
+            <a href="/agent/mdm_devices.php?view=mapping">Mapping</a> and <a href="/agent/mdm_devices.php?view=users">Users to contacts</a> pages under Endpoints &gt; MDM Devices.
+        </p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+
+            <h5 class="mt-2">Assign contact from MDM user</h5>
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" name="assign_contact" value="1" id="mdm_assign_contact" <?= $map_settings['assign_contact'] ? 'checked' : '' ?>>
+                <label class="form-check-label" for="mdm_assign_contact">Set the asset's assigned contact from the device's user (the user must be mapped to a contact)</label>
+            </div>
+            <div class="form-check form-switch mb-1 ms-4">
+                <input type="checkbox" class="form-check-input" name="assign_contact_overwrite" value="1" id="mdm_assign_overwrite" <?= $map_settings['assign_contact_overwrite'] ? 'checked' : '' ?>>
+                <label class="form-check-label" for="mdm_assign_overwrite">Overwrite a contact that is already set (otherwise only an empty Assigned To is filled)</label>
+            </div>
+            <div class="form-text mb-3">The contact must be in the asset's department. Assignment history is recorded like a manual change.</div>
+
+            <h5>Field mapping</h5>
+            <div class="alert alert-warning small">
+                <strong>Warning:</strong> with the master switch below on, every sync writes the fields you mark &quot;Write to asset&quot; onto the linked asset, for every linked device.
+                &quot;Fill only when empty&quot; never replaces something a person typed. &quot;Always overwrite&quot; replaces the asset's value whenever ManageEngine reports a different one,
+                so a manual edit is undone at the next sync. Use <strong>Preview</strong> first: it lists exactly what would change and writes nothing.
+                Intune and RMM syncs can write the same asset columns; do not map the same column from two sources in overwrite mode.
+            </div>
+            <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>MDM field</th><th>Target</th><th>When writing to the asset</th></tr></thead>
+                <tbody>
+                <?php foreach (\ITFlow\Integrations\ManageEngine\MdmMappingSettings::FIELDS as $fk => $fd) {
+                    $cfg = $map_settings['field_map'][$fk] ?? null; ?>
+                    <tr>
+                        <td><?= nullable_htmlentities($fd['label']) ?></td>
+                        <td>
+                            <select class="form-select form-select-sm" name="fm_target[<?= nullable_htmlentities($fk) ?>]">
+                                <option value="panel">Show in the MDM panel only</option>
+                                <?php if ($fd['asset'] !== null) { ?><option value="asset" <?= $cfg ? 'selected' : '' ?>>Write to asset: <?= nullable_htmlentities($fd['asset_label']) ?></option><?php } ?>
+                            </select>
+                        </td>
+                        <td>
+                            <?php if ($fd['asset'] === null) { ?>
+                                <span class="text-muted small">No matching asset column</span>
+                            <?php } else { ?>
+                                <select class="form-select form-select-sm" name="fm_mode[<?= nullable_htmlentities($fk) ?>]">
+                                    <option value="fill_empty" <?= ($cfg['mode'] ?? '') !== 'overwrite' ? 'selected' : '' ?>>Fill only when empty</option>
+                                    <?php if (in_array('overwrite', $fd['modes'], true)) { ?><option value="overwrite" <?= ($cfg['mode'] ?? '') === 'overwrite' ? 'selected' : '' ?>>Always overwrite</option><?php } ?>
+                                </select>
+                            <?php } ?>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+            </div>
+
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" name="allow_asset_writes" value="1" id="mdm_allow_writes" <?= $map_settings['allow_asset_writes'] ? 'checked' : '' ?> <?= $mdm_enabled ? '' : 'disabled' ?>>
+                <label class="form-check-label" for="mdm_allow_writes"><strong>Allow MDM to write asset fields</strong> (master switch, administrators only)</label>
+            </div>
+            <div class="form-text mb-3">Off by default, and switched off again whenever the integration is disabled. With it off nothing above is written, whatever the table says.</div>
+
+            <button type="submit" name="save_mdm_mapping" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save mapping options</button>
+            <button type="submit" name="preview_mdm_field_writes" class="btn btn-secondary"><i class="fas fa-search me-2"></i>Preview changes (no writes)</button>
+        </form>
+
+        <?php if ($mdm_preview) { ?>
+            <hr>
+            <h5>Preview from <?= nullable_htmlentities($mdm_preview['at']) ?>: <?= (int) $mdm_preview['total'] ?> change(s) on the <?= (int) $mdm_preview['examined'] ?> linked, enrolled asset(s) examined. Nothing was written.</h5>
+            <?php if (!$mdm_preview['master_on'] || !$mdm_preview['enabled']) { ?><div class="alert alert-info small">The master switch is off or the integration is disabled, so a sync would write nothing right now. This is what it would do once switched on.</div><?php } ?>
+            <?php if ($mdm_preview['changes']) { ?>
+            <div class="table-responsive"><table class="table table-sm">
+                <thead><tr><th>Asset</th><th>Field</th><th>Mode</th><th>Now</th><th>Would become</th></tr></thead>
+                <tbody>
+                <?php foreach ($mdm_preview['changes'] as $c) { ?>
+                    <tr>
+                        <td><a href="/agent/asset_details.php?client_id=<?= (int) $c['client_id'] ?>&asset_id=<?= (int) $c['asset_id'] ?>"><?= nullable_htmlentities($c['asset_name']) ?></a></td>
+                        <td><?= nullable_htmlentities($c['label']) ?></td>
+                        <td><?= $c['mode'] === 'fill_empty' ? 'fill when empty' : 'overwrite' ?></td>
+                        <td class="text-muted"><?= $c['old'] === '' ? '(empty)' : nullable_htmlentities($c['old']) ?></td>
+                        <td><?= nullable_htmlentities($c['new']) ?></td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table></div>
+            <?php if ($mdm_preview['total'] > count($mdm_preview['changes'])) { ?><div class="text-muted small">Showing the first <?= count($mdm_preview['changes']) ?> of <?= (int) $mdm_preview['total'] ?>.</div><?php } ?>
+            <?php } ?>
+            <?php foreach ($mdm_preview['skipped'] as $c) { ?>
+                <div class="small text-muted">Skipped: <?= nullable_htmlentities($c['asset_name']) ?>, <?= nullable_htmlentities(strtolower($c['label'])) ?>: <?= nullable_htmlentities($c['reason']) ?></div>
+            <?php } ?>
+        <?php } ?>
+    </div>
+</div>
+<?php } elseif ($mdm) { ?>
+    <div class="alert alert-warning">The MDM mapping tables are not installed yet. Run Admin &rarr; Update &rarr; Update Database to get the mapping options.</div>
+<?php } ?>
+
 <?php if ($mdm) { ?>
 <div class="card mb-3">
     <div class="card-header py-2 d-flex align-items-center">
@@ -162,7 +269,7 @@ $csrf = $_SESSION['csrf_token'];
                         <td class="text-end"><?= (int) $l['devices_updated'] ?></td>
                         <td class="text-end"><?= (int) $l['devices_unmatched'] ?></td>
                         <td><?= (int) $l['triggered_by'] === 0 ? 'schedule' : 'manual' ?></td>
-                        <td class="small text-muted"><?= nullable_htmlentities(mb_substr((string) $l['errors'], 0, 160)) ?></td>
+                        <td class="small text-muted"><?= nullable_htmlentities(mb_substr((string) $l['errors'], 0, 300)) ?></td>
                     </tr>
                 <?php } ?>
                 </tbody>

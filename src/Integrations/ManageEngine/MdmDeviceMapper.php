@@ -323,11 +323,15 @@ final class MdmDeviceMapper
         return (int) mysqli_insert_id($this->db);
     }
 
-    /** @param array{total:int,updated:int,matched:int,unmatched:int,skipped:int,errors:list<string>} $stats */
+    /** @param array{total:int,updated:int,matched:int,unmatched:int,skipped:int,errors:list<string>,notes?:list<string>,warnings?:list<string>} $stats */
     public function finishSyncLog(int $logId, array $stats): void
     {
         $status = empty($stats['errors']) ? 'success' : 'failed';
-        $errors = $this->esc(substr(implode('; ', array_merge($stats['errors'], array_map(static fn (string $w): string => 'warning: ' . $w, $stats['warnings'] ?? []))), 0, 4000));
+        $errors = $this->esc(substr(implode('; ', array_merge(
+            $stats['errors'],
+            array_map(static fn (string $n): string => 'note: ' . $n, $stats['notes'] ?? []),
+            array_map(static fn (string $w): string => 'warning: ' . $w, $stats['warnings'] ?? [])
+        )), 0, 4000));
         $this->query(
             "UPDATE mdm_sync_log SET finished_at=NOW(), status='$status', devices_total={$stats['total']}, devices_updated={$stats['updated']},"
             . " devices_matched={$stats['matched']}, devices_unmatched={$stats['unmatched']}, devices_skipped={$stats['skipped']}, errors='$errors' WHERE id=$logId"

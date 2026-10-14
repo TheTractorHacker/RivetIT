@@ -4,16 +4,23 @@ enforceUserPermission('module_client');
 
 use ITFlow\Integrations\ManageEngine\MdmClientFactory;
 use ITFlow\Integrations\ManageEngine\MdmDeviceStatus;
+use ITFlow\Integrations\ManageEngine\MdmMappingSettings;
 
 /*
- * ManageEngine MDM devices: fleet overview, linked devices, and the review list of devices that matched no asset (or several).
+ * ManageEngine MDM devices: fleet overview, linked devices, the review list of devices that matched no asset (or several), the Mapping screen
+ * (every device, per-row and bulk link / unlink / ignore, propose matches) and Users to contacts. The last three are closed to a
+ * department-scoped non-admin (they span departments); their POST handler is agent/post/mdm_mapping.php.
  * Read-only toward ManageEngine. Linking / creating an asset needs module_client level 2 (agent/post/mdm_device.php).
  */
 
 $mdm = MdmClientFactory::row($mysqli);
 $restricted = ($client_access_string && !$session_is_admin);
 $can_edit = lookupUserPermission('module_client') >= 2;
-$view = ($_GET['view'] ?? '') === 'unmatched' && !$restricted ? 'unmatched' : 'linked';
+$map_ready = MdmMappingSettings::schemaReady($mysqli);
+$view = in_array($_GET['view'] ?? '', ['unmatched', 'mapping', 'users'], true) && !$restricted ? $_GET['view'] : 'linked';
+if (in_array($view, ['mapping', 'users'], true) && !$map_ready) {
+    $view = 'linked';   // database update 2.6.169 not run yet
+}
 $requested_platform = (string) ($_GET['platform'] ?? '');
 $filter_platform = '';   // set below, only to a platform name that really exists in the data
 $filter_state = in_array($_GET['state'] ?? '', ['lost', 'noncompliant', 'stale'], true) ? $_GET['state'] : '';
@@ -81,7 +88,7 @@ if ($mdm) {
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $linked[] = $r;
         }
-    } else {
+    } elseif ($view === 'unmatched') {
         $res = mysqli_query($mysqli, "SELECT * FROM mdm_unmatched_devices WHERE integration_id = $iid AND dismissed = " . ($show_dismissed ? 1 : 0) . ' ORDER BY device_name ASC LIMIT 1000');
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $unmatched[] = $r;
@@ -100,7 +107,7 @@ if ($mdm) {
     }
 }
 
-$reason_label = ['no_match' => 'No asset has this serial', 'ambiguous' => 'More than one possible asset'];
+$reason_label = ['no_match' => 'No asset has this serial', 'ambiguous' => 'More than one possible asset', 'unlinked' => 'Unlinked by a person'];
 $icon_for = static function (string $platform): string {
     $p = strtolower($platform);
 
@@ -147,9 +154,13 @@ $icon_for = static function (string $platform): string {
 <ul class="nav nav-tabs mb-2">
     <li class="nav-item"><a class="nav-link <?= $view === 'linked' ? 'active' : '' ?>" href="?">Linked devices</a></li>
     <?php if (!$restricted) { ?><li class="nav-item"><a class="nav-link <?= $view === 'unmatched' ? 'active' : '' ?>" href="?view=unmatched">Needs review (<?= $fleet['unmatched'] ?>)</a></li><?php } ?>
+    <?php if (!$restricted && $map_ready) { ?>
+        <li class="nav-item"><a class="nav-link <?= $view === 'mapping' ? 'active' : '' ?>" href="?view=mapping"><i class="fas fa-exchange-alt me-1"></i>Mapping</a></li>
+        <li class="nav-item"><a class="nav-link <?= $view === 'users' ? 'active' : '' ?>" href="?view=users"><i class="fas fa-user-check me-1"></i>Users to contacts</a></li>
+    <?php } ?>
 </ul>
 
-<?php if ($view === 'linked') { ?>
+<?php if ($view === 'mapping') { require __DIR__ . '/includes/mdm_mapping_view.php'; } elseif ($view === 'users') { require __DIR__ . '/includes/mdm_users_view.php'; } elseif ($view === 'linked') { ?>
 <div class="card card-dark mb-2"><div class="card-body py-2">
     <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
         <select name="client_id" class="form-select form-select-sm w-auto auto-submit-select">

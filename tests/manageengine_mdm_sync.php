@@ -303,7 +303,8 @@ foreach ($tables as $t) {
 }
 $ok(strpos($sql, 'uca1400') === false, 'db.sql carries no uca1400 collation');
 $blockStart = strpos($upd, "if (\$rivetit_db_version() == '2.6.167') {");
-$block = substr($upd, $blockStart);
+$blockEnd = strpos($upd, "if (\$rivetit_db_version() == '2.6.168') {");
+$block = substr($upd, $blockStart, $blockEnd !== false ? $blockEnd - $blockStart : null);
 $ok($blockStart !== false && strpos($block, "'2.6.168'") !== false, 'the migration is gated 2.6.167 -> 2.6.168');
 $ok(substr_count($block, 'CREATE TABLE IF NOT EXISTS') === 4 && stripos($block, 'ALTER TABLE') === false && stripos($block, 'DROP ') === false, 'the migration only adds four tables (IF NOT EXISTS): no ALTER, no DROP, the nearly full settings table is not touched');
 $ok(stripos($block, 'INSERT INTO') === false, 'the migration inserts no row: the integration is off until an administrator saves a connection');

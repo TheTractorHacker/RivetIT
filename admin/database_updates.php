@@ -11162,3 +11162,67 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.168'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.168') {
+        // DB 2.6.169: ManageEngine MDM mapping options (docs/MANAGEENGINE_MDM.md). THREE new tables, nothing existing altered (the settings table and the MDM link tables are not touched):
+        // mdm_mapping_settings (per integration: assign contact from MDM user, overwrite, master "allow MDM to write asset fields" switch, per-field map as JSON; every switch OFF by default),
+        // mdm_user_contact_map (MDM user key = email, else user name -> RivetIT contact, or ignored) and mdm_field_write_log (one row per asset field an MDM sync wrote: old and new value).
+        // No row is inserted: with no settings row every option is off.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_mapping_settings` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `assign_contact` tinyint(1) NOT NULL DEFAULT 0,
+          `assign_contact_overwrite` tinyint(1) NOT NULL DEFAULT 0,
+          `allow_asset_writes` tinyint(1) NOT NULL DEFAULT 0,
+          `field_map` text DEFAULT NULL,
+          `updated_by` int(11) DEFAULT NULL,
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `integration` (`integration_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_user_contact_map` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `user_key` varchar(200) NOT NULL,
+          `user_name` varchar(200) DEFAULT NULL,
+          `user_email` varchar(200) DEFAULT NULL,
+          `contact_id` int(11) DEFAULT NULL,
+          `ignored` tinyint(1) NOT NULL DEFAULT 0,
+          `source` varchar(10) NOT NULL DEFAULT '',
+          `mapped_by` int(11) DEFAULT NULL,
+          `created_at` datetime DEFAULT current_timestamp(),
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `integration_user` (`integration_id`,`user_key`),
+          KEY `idx_contact` (`contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_field_write_log` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `sync_log_id` int(11) NOT NULL DEFAULT 0,
+          `asset_id` int(11) NOT NULL,
+          `field_key` varchar(40) NOT NULL,
+          `asset_column` varchar(40) NOT NULL,
+          `mode` varchar(12) NOT NULL DEFAULT 'fill_empty',
+          `old_value` varchar(255) DEFAULT NULL,
+          `new_value` varchar(255) DEFAULT NULL,
+          `written_by` int(11) NOT NULL DEFAULT 0,
+          `written_at` datetime DEFAULT current_timestamp(),
+          PRIMARY KEY (`id`),
+          KEY `idx_asset` (`asset_id`),
+          KEY `idx_sync_log` (`sync_log_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $mdm_map_ok = true;
+        foreach (['mdm_mapping_settings', 'mdm_user_contact_map', 'mdm_field_write_log'] as $mdm_map_table) {
+            $mdm_map_res = mysqli_query($mysqli, "SHOW TABLES LIKE '$mdm_map_table'");
+            if (!$mdm_map_res || mysqli_num_rows($mdm_map_res) === 0) {
+                $mdm_map_ok = false;
+            }
+        }
+        if ($mdm_map_ok) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.169'");
+        }
+    }
