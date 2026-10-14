@@ -11030,6 +11030,131 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
         if (mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'")) > 0) {
+
+        // DB 2.6.167: ManageEngine Mobile Device Manager Plus (cloud) read-only device sync. FOUR new tables, nothing existing altered (the settings table is not touched):
+        // manageengine_mdm_integrations (the one connection: data center key, client id, encrypted client secret / refresh token / cached access token, interval, enable switch;
+        // OFF by default), asset_mdm_links (device linked to an asset), mdm_unmatched_devices (the review list) and mdm_sync_log. No row is inserted: the integration stays off
+        // until an administrator saves a connection and switches it on (Admin > Integrations > ManageEngine MDM).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `manageengine_mdm_integrations` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `enabled` tinyint(1) NOT NULL DEFAULT 0,
+          `data_center` varchar(4) NOT NULL DEFAULT 'us',
+          `client_id` varchar(200) NOT NULL DEFAULT '',
+          `client_secret_enc` text DEFAULT NULL,
+          `refresh_token_enc` text DEFAULT NULL,
+          `token_cache_enc` text DEFAULT NULL,
+          `token_expires_at` datetime DEFAULT NULL,
+          `sync_interval_minutes` int(11) NOT NULL DEFAULT 60,
+          `enrich_details` tinyint(1) NOT NULL DEFAULT 1,
+          `stale_days` int(11) NOT NULL DEFAULT 7,
+          `last_test_at` datetime DEFAULT NULL,
+          `last_test_success` tinyint(1) DEFAULT NULL,
+          `last_test_error` varchar(500) DEFAULT NULL,
+          `last_test_error_code` varchar(40) DEFAULT NULL,
+          `last_sync_at` datetime DEFAULT NULL,
+          `created_at` datetime DEFAULT current_timestamp(),
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `asset_mdm_links` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `asset_id` int(11) NOT NULL,
+          `integration_id` int(11) NOT NULL,
+          `mdm_device_id` varchar(40) NOT NULL,
+          `match_method` varchar(20) DEFAULT NULL,
+          `device_name` varchar(200) DEFAULT NULL,
+          `platform` varchar(30) DEFAULT NULL,
+          `os_version` varchar(100) DEFAULT NULL,
+          `model` varchar(200) DEFAULT NULL,
+          `product_name` varchar(200) DEFAULT NULL,
+          `serial_number` varchar(200) DEFAULT NULL,
+          `udid` varchar(100) DEFAULT NULL,
+          `imei` varchar(100) DEFAULT NULL,
+          `enrollment_status` varchar(20) DEFAULT NULL,
+          `is_supervised` tinyint(1) DEFAULT NULL,
+          `passcode_compliant` tinyint(1) DEFAULT NULL,
+          `is_lost_mode` tinyint(1) DEFAULT NULL,
+          `is_rooted` tinyint(1) DEFAULT NULL,
+          `owned_by` varchar(20) DEFAULT NULL,
+          `user_name` varchar(200) DEFAULT NULL,
+          `user_email` varchar(200) DEFAULT NULL,
+          `group_names` varchar(500) DEFAULT NULL,
+          `battery_level` int(11) DEFAULT NULL,
+          `storage_total` bigint(20) DEFAULT NULL,
+          `storage_available` bigint(20) DEFAULT NULL,
+          `registered_at` datetime DEFAULT NULL,
+          `last_contact_at` datetime DEFAULT NULL,
+          `last_sync` datetime DEFAULT NULL,
+          `created_at` datetime DEFAULT current_timestamp(),
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `asset_integration` (`asset_id`,`integration_id`),
+          UNIQUE KEY `integration_device` (`integration_id`,`mdm_device_id`),
+          KEY `idx_serial` (`serial_number`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_unmatched_devices` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `mdm_device_id` varchar(40) NOT NULL,
+          `reason` varchar(20) NOT NULL DEFAULT 'no_match',
+          `candidate_asset_ids` varchar(200) DEFAULT NULL,
+          `dismissed` tinyint(1) NOT NULL DEFAULT 0,
+          `device_name` varchar(200) DEFAULT NULL,
+          `platform` varchar(30) DEFAULT NULL,
+          `os_version` varchar(100) DEFAULT NULL,
+          `model` varchar(200) DEFAULT NULL,
+          `product_name` varchar(200) DEFAULT NULL,
+          `serial_number` varchar(200) DEFAULT NULL,
+          `udid` varchar(100) DEFAULT NULL,
+          `imei` varchar(100) DEFAULT NULL,
+          `enrollment_status` varchar(20) DEFAULT NULL,
+          `is_supervised` tinyint(1) DEFAULT NULL,
+          `passcode_compliant` tinyint(1) DEFAULT NULL,
+          `is_lost_mode` tinyint(1) DEFAULT NULL,
+          `is_rooted` tinyint(1) DEFAULT NULL,
+          `owned_by` varchar(20) DEFAULT NULL,
+          `user_name` varchar(200) DEFAULT NULL,
+          `user_email` varchar(200) DEFAULT NULL,
+          `group_names` varchar(500) DEFAULT NULL,
+          `battery_level` int(11) DEFAULT NULL,
+          `storage_total` bigint(20) DEFAULT NULL,
+          `storage_available` bigint(20) DEFAULT NULL,
+          `registered_at` datetime DEFAULT NULL,
+          `last_contact_at` datetime DEFAULT NULL,
+          `first_seen_at` datetime DEFAULT current_timestamp(),
+          `last_seen_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `integration_device` (`integration_id`,`mdm_device_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_sync_log` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `started_at` datetime DEFAULT current_timestamp(),
+          `finished_at` datetime DEFAULT NULL,
+          `status` varchar(20) DEFAULT 'running',
+          `devices_total` int(11) DEFAULT 0,
+          `devices_updated` int(11) DEFAULT 0,
+          `devices_matched` int(11) DEFAULT 0,
+          `devices_unmatched` int(11) DEFAULT 0,
+          `devices_skipped` int(11) DEFAULT 0,
+          `errors` text DEFAULT NULL,
+          `error_code` varchar(40) DEFAULT NULL,
+          `triggered_by` int(11) DEFAULT 0,
+          PRIMARY KEY (`id`),
+          KEY `idx_integration_started` (`integration_id`,`started_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $mdm_tables_ok = true;
+        foreach (['manageengine_mdm_integrations', 'asset_mdm_links', 'mdm_unmatched_devices', 'mdm_sync_log'] as $mdm_table) {
+            $mdm_res = mysqli_query($mysqli, "SHOW TABLES LIKE '$mdm_table'");
+            if (!$mdm_res || mysqli_num_rows($mdm_res) === 0) {
+                $mdm_tables_ok = false;
+            }
+        }
+        if ($mdm_tables_ok) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.167'");
         }
     }
