@@ -1,7 +1,7 @@
 # ManageEngine Mobile Device Manager Plus: read-only device sync (on-premises and cloud)
 
-**Live-server behaviour is unverified.** This integration was written from ManageEngine's published API documentation and tested only against a
-local mock (`tests/mock/manageengine_mdm_mock.php`). No real ManageEngine server or Zoho account was used. Treat the first live sync as a test, using the
+**Live-server behaviour is mostly unverified.** This integration was written from ManageEngine's published API documentation and tested against a
+local mock (`tests/mock/manageengine_mdm_mock.php`). One first live run of the cloud edition happened (it showed that `is_removed` arrives as the string `"false"`, now handled); the **on-premises edition, MSP mode, asset creation and stale-device retirement have never run against a real server**. Treat the first live sync as a test, using the
 checklist at the end. The section "What the docs did not say" lists every behaviour that was taken from the documentation only or assumed.
 
 Two editions are supported: **on-premises** (your own server, an API key) and **cloud** (Zoho sign-in). Either can be the **MSP edition** (one

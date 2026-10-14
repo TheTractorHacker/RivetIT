@@ -215,7 +215,7 @@ final class MdmSyncService
             $id = (string) ($row['device_id'] ?? '');
             $detail = null;
             $summary = null;
-            $removed = !empty($row['is_removed']);
+            $removed = filter_var($row['is_removed'] ?? false, FILTER_VALIDATE_BOOLEAN);   // the API sends the string "false"
             if ($id !== '' && !$removed && time() < $deadline - 5) {
                 if ($detailOn) {
                     try {
