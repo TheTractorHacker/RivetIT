@@ -67,7 +67,8 @@ final class MdmDeviceMapper
             }
         }
         $owned = $list['owned_by'] ?? ($detail['owned_by'] ?? null);
-        $removed = !empty($list['is_removed']);
+        // ManageEngine sends this as the STRING "false" (seen on a live tenant): empty() would call every device removed.
+        $removed = $bool($list['is_removed'] ?? null) === 1;
         $unregistered = isset($detail['unregistered_time']) && is_numeric($detail['unregistered_time']) && (float) $detail['unregistered_time'] > 0;
 
         return [

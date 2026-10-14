@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### ManageEngine MDM: devices were all skipped as "removed"
+
+- First live sync found ManageEngine sends `is_removed` as the string `"false"`; the sync tested it with `empty()`, so every device counted as removed and was skipped (4 devices seen, 0 linked, 0 needing review). It now reads the flag as a real boolean (`"false"`, `"0"` and missing mean not removed). `tests/manageengine_mdm_is_removed.php` covers it.
+
 ### ManageEngine MDM: mapping options (user to contact, device to asset screen, field mapping), DB 2.6.169
 
 Three owner-chosen mapping features for the ManageEngine MDM integration. **Everything is off or non-destructive by default**; a sync with no saved options behaves exactly as before and still never writes an asset field. Details and safety defaults in `docs/MANAGEENGINE_MDM.md` ("Mapping options").
