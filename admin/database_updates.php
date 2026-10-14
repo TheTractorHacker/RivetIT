@@ -11030,8 +11030,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
         if (mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'")) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.167'");
+        }
+    }
 
-        // DB 2.6.167: ManageEngine Mobile Device Manager Plus (cloud) read-only device sync. FOUR new tables, nothing existing altered (the settings table is not touched):
+    if ($rivetit_db_version() == '2.6.167') {
+        // DB 2.6.168: ManageEngine Mobile Device Manager Plus (cloud) read-only device sync. FOUR new tables, nothing existing altered (the settings table is not touched):
         // manageengine_mdm_integrations (the one connection: data center key, client id, encrypted client secret / refresh token / cached access token, interval, enable switch;
         // OFF by default), asset_mdm_links (device linked to an asset), mdm_unmatched_devices (the review list) and mdm_sync_log. No row is inserted: the integration stays off
         // until an administrator saves a connection and switches it on (Admin > Integrations > ManageEngine MDM).
@@ -11155,6 +11159,6 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             }
         }
         if ($mdm_tables_ok) {
-            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.167'");
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.168'");
         }
     }

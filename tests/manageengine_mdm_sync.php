@@ -283,9 +283,9 @@ $ok(!preg_match('/"at-\d+"|Zoho-oauthtoken/', $dump2), 'no access token or Autho
 $ok(strpos(file_get_contents("$root/src/Crypto/ColumnRegistry.php"), "['manageengine_mdm_integrations', 'id', ['client_secret_enc', 'refresh_token_enc', 'token_cache_enc']]") !== false, 'the secret columns are registered for key rotation (ColumnRegistry)');
 
 // =====================================================================================================================================
-// migration 2.6.167 and db.sql
+// migration 2.6.168 and db.sql
 require_once "$root/includes/database_version.php";
-$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.167', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.167 (' . LATEST_DATABASE_VERSION . ')');
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.168', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.168 (' . LATEST_DATABASE_VERSION . ')');
 $tables = ['manageengine_mdm_integrations', 'asset_mdm_links', 'mdm_unmatched_devices', 'mdm_sync_log'];
 $sql = file_get_contents("$root/db.sql");
 $upd = file_get_contents("$root/admin/database_updates.php");
@@ -302,9 +302,9 @@ foreach ($tables as $t) {
     $ok($cols3[1] === $cols2[1], "the migration and db.sql define the same columns for $t");
 }
 $ok(strpos($sql, 'uca1400') === false, 'db.sql carries no uca1400 collation');
-$blockStart = strpos($upd, "if (\$rivetit_db_version() == '2.6.166') {");
+$blockStart = strpos($upd, "if (\$rivetit_db_version() == '2.6.167') {");
 $block = substr($upd, $blockStart);
-$ok($blockStart !== false && strpos($block, "'2.6.167'") !== false, 'the migration is gated 2.6.166 -> 2.6.167');
+$ok($blockStart !== false && strpos($block, "'2.6.168'") !== false, 'the migration is gated 2.6.167 -> 2.6.168');
 $ok(substr_count($block, 'CREATE TABLE IF NOT EXISTS') === 4 && stripos($block, 'ALTER TABLE') === false && stripos($block, 'DROP ') === false, 'the migration only adds four tables (IF NOT EXISTS): no ALTER, no DROP, the nearly full settings table is not touched');
 $ok(stripos($block, 'INSERT INTO') === false, 'the migration inserts no row: the integration is off until an administrator saves a connection');
 $ok((int) $one('SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=\'manageengine_mdm_integrations\' AND column_name=\'enabled\' AND column_default=\'0\'') === 1, 'enabled defaults to 0 (off by default)');
@@ -314,7 +314,7 @@ $iid = mdm_save_row(['client_id' => '1000.KEEPME']);
 $a = $mkAsset('Replay asset', 'DMPX0000099'); $mapper = new MdmDeviceMapper($db, $iid); $mapper->syncDevices([$dev(99)]);
 $prev = $one("SELECT config_current_database_version FROM settings WHERE company_id=1");
 for ($run = 1; $run <= 2; $run++) {
-    $q("UPDATE settings SET config_current_database_version='2.6.166' WHERE company_id=1");
+    $q("UPDATE settings SET config_current_database_version='2.6.167' WHERE company_id=1");
     $out = shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
     $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "update run $run lands on the latest version");
     $ok($one('SELECT client_id FROM manageengine_mdm_integrations') === '1000.KEEPME' && (int) $one('SELECT COUNT(*) FROM manageengine_mdm_integrations') === 1 && (int) $one('SELECT COUNT(*) FROM asset_mdm_links') === 1, "run $run keeps the saved connection and the links");

@@ -14,7 +14,7 @@
  *   GET  /api/v1/mdm/devices/{id}      state.details[id] (404 {"error_code":"COM0008",...} when absent)
  *   GET  /api/v1/mdm/devices/{id}/summary   state.summaries[id]
  *   POST /__state  body JSON merged into the state (__reset clears), GET /__log every request seen (method, path, query, auth, form keys)
- * State switches: devices (list rows), details, summaries, ignore_offset (server ignores offset: always page 1), foreign_next (paging.next
+ * State switches: max_limit (the server caps `limit`, like a default page of 50), devices (list rows), details, summaries, ignore_offset (server ignores offset: always page 1), foreign_next (paging.next
  *   points at another host), no_paging (no metadata/paging object), fail_status (every API call answers it), fail_once (list of statuses
  *   consumed one per API call), retry_after, summary_forbidden (summary calls 403 COM0013-style), unauthorized_once (next API call 401),
  *   html (API answers 200 with HTML), revoke_tokens (every issued token becomes invalid -> 401), slow (sleep seconds before answering).
@@ -94,7 +94,7 @@ if (!empty($s0['html'])) { return reply(200, '<html>maintenance</html>'); }
 
 $devices = $s0['devices'] ?? [];
 if ($path === '/api/v1/mdm/devices') {
-    $limit = max(1, min(1000, (int) ($_GET['limit'] ?? 50)));
+    $limit = max(1, min(!empty($s0['max_limit']) ? (int) $s0['max_limit'] : 1000, (int) ($_GET['limit'] ?? 50)));
     $offset = !empty($s0['ignore_offset']) ? 0 : max(0, (int) ($_GET['offset'] ?? 0));
     $slice = array_slice($devices, $offset, $limit);
     $out = ['devices' => $slice];

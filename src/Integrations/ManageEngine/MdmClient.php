@@ -115,8 +115,10 @@ class MdmClient
     }
 
     /**
-     * Every device, page by page (limit/offset). Stops on a short page, on a page with no new device id (a server that ignores
-     * offset would otherwise loop forever), when the response says there is no next page, or at the page cap.
+     * Every device, page by page (limit/offset; the next offset is the number of devices collected so far, so a server that caps
+     * `limit` below ours, for example at its default of 50, is still read completely). Stops on a page with no new device id (a
+     * server that ignores offset would otherwise loop forever), on a short page that does not say more follow, when the
+     * response says there is no next page, or at the page cap.
      *
      * @return list<array<string,mixed>>
      */
@@ -125,8 +127,7 @@ class MdmClient
         $all = [];
         $seen = [];
         for ($page = 0; $page < $this->maxPages; $page++) {
-            $offset = $page * $this->pageSize;
-            $data = $this->getJson('/api/v1/mdm/devices', ['limit' => $this->pageSize, 'offset' => $offset]);
+            $data = $this->getJson('/api/v1/mdm/devices', ['limit' => $this->pageSize, 'offset' => count($all)]);
             $this->stats['pages']++;
             $rows = self::deviceRows($data);
             $new = 0;
@@ -139,15 +140,20 @@ class MdmClient
                 $all[] = $row;
                 $new++;
             }
-            if (count($rows) < $this->pageSize || $new === 0) {
+            if ($new === 0) {
                 return $all;
             }
             $total = self::totalCount($data);
-            if ($total !== null && count($all) >= $total) {
+            if ($total !== null && count($all) >= $total && count($rows) < $this->pageSize) {
                 return $all;
             }
-            // A "paging" object that exists but has no "next" link means the last page. The link itself is never requested.
-            if (isset($data['paging']) && is_array($data['paging']) && empty($data['paging']['next'])) {
+            // The "paging" object says whether more follow (its "next" link itself is never requested). With no such object a
+            // short page is the last one.
+            if (isset($data['paging']) && is_array($data['paging'])) {
+                if (empty($data['paging']['next'])) {
+                    return $all;
+                }
+            } elseif (count($rows) < $this->pageSize && ($total === null || count($all) >= $total)) {
                 return $all;
             }
         }

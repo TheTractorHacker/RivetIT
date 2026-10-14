@@ -99,6 +99,10 @@ $ok(count($all) === 150 && !in_array('/evil/api/v1/mdm/devices', $paths, true) &
 $reset(); mdm_seed_mock($mock, 250); $mock(['ignore_offset' => true]);
 $c = $mk(['page_size' => 100]); $all = $c->listAllDevices();
 $ok(count($all) === 100 && $c->stats()['pages'] === 2, 'a server that ignores offset cannot loop forever: stops when a page brings no new device id');
+$reset(); mdm_seed_mock($mock, 120); $mock(['max_limit' => 50]);
+$c = $mk(['page_size' => 100]); $all = $c->listAllDevices();
+$qs = array_values(array_map(fn ($e) => $e['query'], array_filter($log(), fn ($e) => $e['path'] === '/api/v1/mdm/devices')));
+$ok(count($all) === 120 && $qs === ['limit=100&offset=0', 'limit=100&offset=50', 'limit=100&offset=100'], 'a server that caps limit at 50 is still read completely (offset advances by what was received): ' . implode(' | ', $qs));
 $reset(); mdm_seed_mock($mock, 130); $mock(['no_paging' => true]);
 $c = $mk(['page_size' => 100]); $ok(count($c->listAllDevices()) === 130, 'works without a metadata/paging object (stops on a short page)');
 $reset(); mdm_seed_mock($mock, 500);
