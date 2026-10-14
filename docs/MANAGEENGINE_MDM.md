@@ -35,7 +35,9 @@ account": no redirect URL, no user in the loop.
    - **Time duration**: the longest offered (the code is single use and short lived; you exchange it in the next step).
    - **Scope description**: anything, for example "RivetIT read-only device sync".
    - Click **Create** and copy the generated **code** (do not close the page until step 4 is done).
-4. Exchange the code for a refresh token. Run this once from any machine (use your data center's accounts host, see the table below),
+4. **Easiest:** skip this step. Paste the code from step 3 into the **One-time code from Zoho** box on the RivetIT form (with the client ID and secret) and click Save: RivetIT exchanges it for the refresh token itself and stores only the token. Do this within a few minutes; the code works once. (The code is not the refresh token: pasting it into the Refresh token box gives `invalid_code`.)
+
+   Or exchange it yourself: Run this once from any machine (use your data center's accounts host, see the table below),
    replacing the three placeholders. The refresh token is in the answer; the access token in it is not needed.
 
    ```

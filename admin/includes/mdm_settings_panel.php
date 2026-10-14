@@ -87,6 +87,15 @@ $csrf = $_SESSION['csrf_token'];
                     <label class="form-label" for="mdm_refresh_token">Refresh token</label>
                     <input type="password" class="form-control" name="refresh_token" id="mdm_refresh_token" autocomplete="new-password" placeholder="<?= $mdm_has_refresh ? 'Stored. Leave blank to keep it' : 'Enter refresh token' ?>">
                 </div>
+                <div class="col-12">
+                    <label class="form-label" for="mdm_auth_code">One-time code from Zoho <span class="text-muted fw-normal">(easier than a refresh token)</span></label>
+                    <input type="password" class="form-control" name="auth_code" id="mdm_auth_code" autocomplete="off" placeholder="1000.xxxxxxxx.xxxxxxxx (paste the code from the Generate Code tab, then Save straight away)">
+                    <div class="form-text">
+                        Instead of a refresh token, paste the <strong>code</strong> from the Zoho API console (Self Client &rarr; Generate Code) together with the client ID and secret above and click Save:
+                        <?= htmlspecialchars(APP_NAME) ?> exchanges it for the refresh token and stores only that (encrypted). A code works once and expires within minutes, so generate it right before saving.
+                        Never paste the code into the Refresh token box.
+                    </div>
+                </div>
             </div>
 
             <div class="row g-3 mt-0">

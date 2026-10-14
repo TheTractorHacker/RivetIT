@@ -264,6 +264,32 @@ class MdmClient
         return $this->accessToken;
     }
 
+    /**
+     * One-time setup helper: exchanges the single-use code from the Zoho API console ("Generate Code" tab of a Self Client) for the
+     * long-lived refresh token, so nobody has to run curl. The code is short lived and works once. Returns the refresh token; the
+     * caller stores it encrypted and never shows it. Errors are worded for a person: a used or expired code is by far the common one.
+     */
+    public function exchangeAuthorizationCode(string $code): string
+    {
+        $form = http_build_query([
+            'code' => $code,
+            'client_id' => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'grant_type' => 'authorization_code',
+        ]);
+        [$status, , $body] = $this->send('POST', $this->accountsBase . '/oauth/v2/token', ['Content-Type: application/x-www-form-urlencoded'], $form);
+        $data = json_decode($body, true);
+        if ($status === 200 && is_array($data) && !empty($data['refresh_token']) && is_string($data['refresh_token'])) {
+            return $data['refresh_token'];
+        }
+        $reason = is_array($data) ? (string) ($data['error'] ?? $data['error_description'] ?? "HTTP $status") : "HTTP $status";
+        $reason = substr(preg_replace('/[^A-Za-z0-9 _.,:;()\/-]/', '', trim((string) strtok($reason, "\r\n"))) ?? '', 0, 80);
+        if ($status === 200 && is_array($data) && !empty($data['access_token']) && empty($data['refresh_token'])) {
+            $reason = 'no refresh token came back; this code was probably already used. Generate a new code';
+        }
+        throw new MdmException('Zoho did not accept the code (' . $reason . '). Codes work once and expire within minutes: generate a new one in the Zoho API console and paste it straight away. Also check the data center, client id and client secret.', MdmException::AUTH_FAILED, $status);
+    }
+
     private function forgetToken(): void
     {
         $this->accessToken = null;

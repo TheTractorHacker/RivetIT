@@ -8,7 +8,9 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
  */
 
 use ITFlow\Integrations\ManageEngine\DataCenters;
+use ITFlow\Integrations\ManageEngine\MdmClient;
 use ITFlow\Integrations\ManageEngine\MdmClientFactory;
+use ITFlow\Integrations\ManageEngine\MdmException;
 use ITFlow\Integrations\ManageEngine\MdmSyncService;
 
 if (isset($_POST['save_mdm_connection'])) {
@@ -34,6 +36,32 @@ if (isset($_POST['save_mdm_connection'])) {
     $existing = MdmClientFactory::row($mysqli);
     $secret = trim((string) ($_POST['client_secret'] ?? ''));
     $refresh = trim((string) ($_POST['refresh_token'] ?? ''));
+
+    // A one-time code from the Zoho API console can be pasted instead of a refresh token: exchange it here and keep only the token.
+    $auth_code = trim((string) ($_POST['auth_code'] ?? ''));
+    if ($auth_code !== '') {
+        if (!preg_match('/^[A-Za-z0-9._-]{10,300}$/', $auth_code)) {
+            flash_alert('That does not look like a Zoho code. Paste the code from the Generate Code tab, nothing else.', 'error');
+            redirect();
+        }
+        $code_secret = $secret !== '' ? $secret : ($existing && !empty($existing['client_secret_enc']) ? decryptSetting((string) $existing['client_secret_enc']) : '');
+        if ($client_id === '' || $code_secret === '') {
+            flash_alert('Enter the client id and client secret as well, then paste the code.', 'error');
+            redirect();
+        }
+        try {
+            $options = [];
+            if (defined('RIVETIT_MDM_ACCOUNTS_URL')) {
+                $options['accounts_base'] = RIVETIT_MDM_ACCOUNTS_URL;
+            }
+            $refresh = (new MdmClient($data_center, $client_id, $code_secret, '', null, $options))->exchangeAuthorizationCode($auth_code);
+        } catch (MdmException $e) {
+            \ITFlow\Audit\AuditService::record('integration.manageengine_mdm.code_exchange', $session_user_id, 'manageengine_mdm_integration', intval($existing['id'] ?? 0), 'failed', null);
+            flash_alert(nullable_htmlentities($e->getMessage()), 'error');
+            redirect();
+        }
+        \ITFlow\Audit\AuditService::record('integration.manageengine_mdm.code_exchange', $session_user_id, 'manageengine_mdm_integration', intval($existing['id'] ?? 0), 'success', null);
+    }
 
     $has_secret = $secret !== '' || ($existing && !empty($existing['client_secret_enc']));
     $has_refresh = $refresh !== '' || ($existing && !empty($existing['refresh_token_enc']));
