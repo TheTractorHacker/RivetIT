@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../functions.php';
 
+use ITFlow\Mcp\OAuth\ClientMetadata;
 use ITFlow\Mcp\OAuth\OAuthConfig;
 use ITFlow\Mcp\OAuth\OAuthHttp;
 use ITFlow\Mcp\OAuth\OAuthService;
@@ -74,11 +75,15 @@ if ($raw === null || strlen($raw) > 16384) {
 }
 $params = OAuthService::parseParams($raw);
 $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
+// A client_id that is a URL makes this server fetch it (client metadata documents): bound the outbound work per address.
+if (OAuthService::clientIdIsUrl((string) ($params['values']['client_id'] ?? '')) && !OAuthHttp::allow('oauth:cimd:fetch:ip:' . OAuthHttp::clientIp(), 20, 60)) {
+    $render_error('Too many requests. Wait a minute and try again.', 429);
+}
 $request = $service->validateAuthorizationRequest($params);
 
 if (!$request['ok']) {
     if (isset($request['fatal'])) {
-        $render_error($request['fatal']);
+        $render_error($request['fatal'], (int) ($request['status'] ?? 400));
     }
     // The client and redirect URI are verified: report the error to the client (RFC 6749 4.1.2.1), with state and iss.
     header('Location: ' . $service->redirectUrl($request['redirect_uri'], ['error' => $request['error'], 'error_description' => $request['description']], $request['state']));
@@ -123,6 +128,10 @@ $access = [
 ];
 $client = $request['client'];
 $host = OAuthService::redirectHost($request['redirect_uri']);
+$cimd = $client['registration_type'] === 'metadata';
+$cimd_authority = $cimd ? (string) (ClientMetadata::checkUrl((string) $client['source_url'])['authority'] ?? '') : '';
+// In "any host" mode a host the administrator did not list is an unverified application; a listed host was vetted by them.
+$cimd_unverified = $cimd && !ClientMetadata::hostListed($cimd_authority, OAuthConfig::cimd($mysqli)['hosts']);
 $loopback = (bool) preg_match('/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/', $host);
 $csrf_token = (string) ($_SESSION['csrf_token'] ?? '');
 $user_label = trim((string) ($session_name ?? '')) !== '' ? (string) $session_name : (string) ($session_email ?? 'you');
@@ -142,9 +151,18 @@ header('Content-Type: text/html; charset=utf-8');
 <main class="card">
     <h1>Allow &ldquo;<?= $h($client['client_name']) ?>&rdquo; to read <?= $h($app_name) ?>?</h1>
     <p>Signed in as <span class="who"><?= $h($user_label) ?></span>.</p>
+    <?php if ($cimd) { ?>
+        <p><strong>Requested by <?= $h($cimd_authority) ?></strong></p>
+        <?php if ($cimd_unverified) { ?>
+            <div class="warn"><strong>Unverified application.</strong> Your administrator allows any website to identify an application, and has not vetted <?= $h($cimd_authority) ?>. Only continue if you started this connection yourself and recognise that address.</div>
+        <?php } ?>
+        <p class="muted">The application calls itself &ldquo;<?= $h($client['client_name']) ?>&rdquo;; <?= $h($app_name) ?> cannot verify that name. What you can rely on is the address above: the application published its details there.
+            After you decide, your browser goes back to <strong><?= $h($host) ?></strong>.</p>
+    <?php } else { ?>
     <p class="muted">The application calls itself &ldquo;<?= $h($client['client_name']) ?>&rdquo;; <?= $h($app_name) ?> cannot verify that name.
         <?= $client['registration_type'] === 'manual' ? 'An administrator added this application.' : 'It registered itself on ' . $h(substr((string) $client['created_at'], 0, 10)) . '.' ?>
         After you decide, your browser goes back to <strong><?= $h($host) ?></strong>.</p>
+    <?php } ?>
     <?php if ($loopback) { ?>
         <div class="warn">That address is on <strong>this computer</strong> (a desktop or command-line tool). Only continue if you just started that tool yourself.</div>
     <?php } ?>

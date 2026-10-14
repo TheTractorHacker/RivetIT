@@ -8,5 +8,6 @@ require_once __DIR__ . '/settings_rmm_mapping.php';   // client mapping queue + 
 require_once __DIR__ . '/settings_comet.php';
 require_once __DIR__ . '/settings_unifi.php';
 require_once __DIR__ . '/settings_directory_sync.php';
+require_once __DIR__ . '/settings_manageengine_mdm.php';   // Device Sync tab hosts the ManageEngine MDM connection form
 // The Odoo tab hosts the employee-link and nightly-sync forms; their handlers live in the compliance file.
 require_once __DIR__ . '/settings_training_compliance.php';

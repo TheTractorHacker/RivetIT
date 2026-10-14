@@ -283,6 +283,16 @@
                 chips
             ]);
             body.appendChild(head);
+            if (k.mdm) {
+                var m = k.mdm;
+                var mdmBits = [];
+                if (m.battery !== null && m.battery !== undefined) { mdmBits.push(m.battery + '% battery'); }
+                if (m.last_contact) { mdmBits.push('last contact ' + m.last_contact); }
+                body.appendChild(el('div', { class: 'small mt-2 d-flex align-items-center gap-2', dataset: { kioskMdm: m.state } }, [
+                    el('span', { class: 'badge bg-' + (m.class === 'danger' ? 'danger' : (m.class === 'warning' ? 'warning' : (m.class === 'success' ? 'success' : 'secondary'))) + '-lt' }, [icon('fa-tablet-alt', 'me-1'), 'MDM: ' + m.label]),
+                    el('span', { class: 'text-secondary', text: mdmBits.join(' · ') })
+                ]));
+            }
             if (k.temporary && live) {
                 var leftMs = k.expires_at ? new Date(k.expires_at).getTime() - Date.now() : 0;
                 var soon = !k.expired && leftMs < 3600000;

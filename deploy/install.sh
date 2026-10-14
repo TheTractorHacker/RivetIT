@@ -724,6 +724,15 @@ EOF
         info "Shared rate-limit zone already present at ${rate_limit_conf}; leaving as-is."
     fi
 
+    # The routes (every `location`) are ONE shared file the vhost pulls in with a single include; deploy/apply-web-routes.sh keeps it,
+    # and every older vhost, current from then on. Installed before the vhost so `nginx -t` below can read it.
+    local routes_template="${TEMPLATES_DIR}/rivetit-locations.conf"
+    local routes_dest="/etc/nginx/snippets/rivetit-locations.conf"
+    [[ -f "${routes_template}" ]] || die "Routes template not found at ${routes_template} (expected alongside nginx-vhost.conf.template under deploy/templates/)."
+    backup_if_exists "${routes_dest}"
+    install -m 644 -o root -g root "${routes_template}" "${routes_dest}"
+    info "Installed the shared web-server routes: ${routes_dest} (update later with: sudo ${SCRIPT_DIR}/apply-web-routes.sh --domain ${DOMAIN})"
+
     backup_if_exists "${vhost_available}"
 
     info "Rendering nginx vhost for ${DOMAIN} (mode: $([[ "${PROXY_MODE}" -eq 1 ]] && echo proxy || echo direct-tls))..."

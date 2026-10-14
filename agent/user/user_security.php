@@ -207,7 +207,7 @@ function tps_local(?string $utc): ?string
                 <tr><td colspan="5" class="text-muted text-center py-3">No AI tools are connected.</td></tr>
             <?php } foreach ($mcp_connections as $mc) { ?>
                 <tr>
-                    <td class="ps-3 small"><?= nullable_htmlentities($mc['client_name']) ?> <span class="text-muted"><code><?= nullable_htmlentities($mc['scope']) ?></code></span></td>
+                    <td class="ps-3 small"><?= nullable_htmlentities($mc['client_name']) ?><?php if (($mc['registration_type'] ?? '') === 'metadata' && $mc['source_url']) { ?> <span class="badge bg-secondary">from <?= nullable_htmlentities(parse_url((string) $mc['source_url'], PHP_URL_HOST) ?: '') ?></span><?php } ?> <span class="text-muted"><code><?= nullable_htmlentities($mc['scope']) ?></code></span></td>
                     <td class="text-muted small"><?= nullable_htmlentities($mc['created_at']) ?></td>
                     <td class="text-muted small"><?= $mc['last_used_at'] ? timeAgo($mc['last_used_at']) : 'Never' ?></td>
                     <td class="text-muted small"><?= nullable_htmlentities(substr((string) $mc['expires_at'], 0, 10)) ?></td>

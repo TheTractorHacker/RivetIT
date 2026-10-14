@@ -21,7 +21,7 @@ $section_pages = [
     'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
-    'endpoint'      => ['intune_devices.php', 'rmm_dashboard.php', 'rmm_fleet.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php',
+    'endpoint'      => ['intune_devices.php', 'mdm_devices.php', 'rmm_dashboard.php', 'rmm_fleet.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php',
         // RMM Phase 2 and 3 pages (shown only while the module and the sub-switch are on)
         'rmm_policies.php', 'rmm_script_library.php', 'rmm_schedules.php', 'rmm_approvals.php', 'rmm_fields.php', 'rmm_agent_alerts.php', 'rmm_maintenance.php', 'rmm_escalations.php',
         // RMM Phase 8 (sub-switch `logs`)
@@ -514,7 +514,8 @@ foreach ($section_pages as $key => $pages) {
                 <?php } ?>
 
                 <?php $nav_intune = $config_module_enable_intune && lookupUserPermission("module_client") >= 1; // roles audit P1i ?>
-                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $nav_intune) { ?>
+                <?php $nav_mdm = false; try { $nav_mdm = lookupUserPermission("module_client") >= 1 && \ITFlow\Integrations\ManageEngine\MdmClientFactory::isEnabled($mysqli); } catch (\Throwable $e) { $nav_mdm = false; } // ManageEngine MDM: only while switched on ?>
+                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $nav_intune || $nav_mdm) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['endpoint'] ? ' active' : ''; ?>">
                     <a href="#nav-group-endpoints" class="nav-link dropdown-toggle<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-endpoints" aria-expanded="<?php echo $section_open['endpoint'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
@@ -525,6 +526,12 @@ foreach ($section_pages as $key => $pages) {
                         <a href="/agent/intune_devices.php" class="dropdown-item<?php if ($current_page == "intune_devices.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-laptop"></i></span>
                             <span class="text-truncate">Intune Devices</span>
+                        </a>
+                        <?php } ?>
+                        <?php if ($nav_mdm) { ?>
+                        <a href="/agent/mdm_devices.php" class="dropdown-item<?php if ($current_page == "mdm_devices.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-tablet-alt"></i></span>
+                            <span class="text-truncate">MDM Devices</span>
                         </a>
                         <?php } ?>
                         <?php if ($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) { ?>

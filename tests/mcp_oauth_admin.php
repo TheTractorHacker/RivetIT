@@ -97,6 +97,35 @@ $ok(!$live($gTom), 'a person removes their own connection');
 $sec2 = oa_http('GET', '/agent/user/user_security.php', ['jar' => $tom]);
 $ok(!str_contains($sec2['body'], 'Claude (page test)'), '... and it disappears from their list');
 
+echo "== client metadata documents: the trust policy page ==\n";
+use ITFlow\Mcp\OAuth\OAuthConfig;
+$mysqli->query("DELETE FROM mcp_oauth_config WHERE setting_key IN ('cimd_mode','cimd_hosts')");
+$cim = fn() => OAuthConfig::cimd($mysqli);
+$ok($cim() === ['mode' => 'off', 'hosts' => ['claude.ai']], 'default: mode off, trusted hosts claude.ai');
+$page = oa_http('GET', '/admin/settings_mcp.php', ['jar' => $admin]);
+$ok(str_contains($page['body'], 'Client ID Metadata Documents') && str_contains($page['body'], 'Trust Claude (claude.ai)') && str_contains($page['body'], 'Any https website'), 'the page offers the three modes and the Trust Claude button');
+$post('/admin/post.php', ['csrf_token' => 'forged', 'trust_claude_cimd' => 1]);
+$ok($cim()['mode'] === 'off', 'a forged CSRF token changes nothing');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'save_mcp_cimd_mode' => 1, 'cimd_mode' => 'bogus']);
+$ok($cim()['mode'] === 'off', 'an unknown mode is ignored');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'trust_claude_cimd' => 1]);
+$ok($cim() === ['mode' => 'hosts', 'hosts' => ['claude.ai']], 'Trust Claude: one click sets "listed hosts" with claude.ai');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'add_mcp_cimd_host' => 1, 'cimd_host' => 'Example.COM']);
+$ok($cim()['hosts'] === ['claude.ai', 'example.com'], 'add a host (lower-cased)');
+foreach (['https://evil.example/x', 'a b', '', 'bad_host', "x.com\nevil.com", str_repeat('a', 120) . '.com'] as $badHost) {
+    $post('/admin/post.php', ['csrf_token' => $csrf, 'add_mcp_cimd_host' => 1, 'cimd_host' => $badHost]);
+}
+$ok($cim()['hosts'] === ['claude.ai', 'example.com'], 'malformed hosts (scheme, spaces, underscore, newline, too long) are refused');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'remove_mcp_cimd_host' => 1, 'cimd_host' => 'example.com']);
+$ok($cim()['hosts'] === ['claude.ai'], 'remove a host');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'save_mcp_cimd_mode' => 1, 'cimd_mode' => 'any']);
+$ok($cim()['mode'] === 'any', 'any https host can be chosen');
+$page = oa_http('GET', '/admin/settings_mcp.php', ['jar' => $admin]);
+$ok(str_contains($page['body'], 'unverified application') && str_contains($page['body'], 'value="any" checked'), 'any host comes with a plain warning');
+$post('/admin/post.php', ['csrf_token' => $csrf, 'save_mcp_cimd_mode' => 1, 'cimd_mode' => 'off']);
+$ok($cim()['mode'] === 'off', 'and back to off');
+$ok(in_array('mcp.oauth_settings_changed', array_column($mysqli->query("SELECT event_type FROM audit_events WHERE summary LIKE '%metadata document policy%'")->fetch_all(MYSQLI_ASSOC), 'event_type'), true), 'every change is audited');
+
 echo "== audit trail ==\n";
 $ev = array_column($mysqli->query("SELECT DISTINCT event_type FROM audit_events WHERE event_type LIKE 'mcp.oauth_%'")->fetch_all(MYSQLI_ASSOC), 'event_type');
 foreach (['mcp.oauth_settings_changed', 'mcp.oauth_client_registered', 'mcp.oauth_client_disabled', 'mcp.oauth_client_enabled', 'mcp.oauth_client_deleted', 'mcp.oauth_grant_revoked'] as $e) {

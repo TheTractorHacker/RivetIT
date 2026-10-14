@@ -105,7 +105,9 @@ sudo deploy/install.sh --help
    (`SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, LOCK TABLES, CREATE
    TEMPORARY TABLES` on that one database — nothing global, no `SUPER`/`FILE`/`GRANT OPTION`).
 5. **Certificate + nginx vhost** — bootstraps a self-signed certificate (needed before `nginx -t` will
-   accept a config referencing it), renders `templates/nginx-vhost.conf.template` for your domain, and
+   accept a config referencing it), installs the shared routes file
+   (`templates/rivetit-locations.conf` -> `/etc/nginx/snippets/rivetit-locations.conf`), renders
+   `templates/nginx-vhost.conf.template` (the per-site part) for your domain, and
    either runs certbot (direct-TLS mode) or leaves the self-signed cert in place long-term (`--proxy-mode`
    or `--skip-tls`).
 6. **PHP-FPM + MariaDB hardening** — applies `templates/php-hardening.ini` and
@@ -487,9 +489,10 @@ template and imports `db.sql`, so it starts in the finished state.
    neither importer produces; those images need re-inserting through the editor).
 3. **Add the `/uploads/kb/` deny to nginx and reload.** Until this lands the old unauthenticated path is
    still open, so the defect is not actually closed; after it lands, the authenticated endpoints are the
-   only way to the bytes. The block is already in `templates/nginx-vhost.conf.template`, so instances
+   only way to the bytes. The block is already in `templates/rivetit-locations.conf`, so instances
    built by `install.sh` from this version have it; an existing hand-maintained vhost (or a shared
-   `snippets/` include) needs it added by hand:
+   `snippets/` include) gets it with `sudo deploy/apply-web-routes.sh --domain <domain>` (see
+   [`docs/WEB_ROUTES.md`](../docs/WEB_ROUTES.md)); by hand it is:
 
    ```nginx
    location ^~ /uploads/kb/ {
@@ -508,6 +511,19 @@ Rolling back is step 3 in reverse (remove the block, `nginx -t`, reload); the mi
 either way, because the authenticated endpoints do not depend on the deny.
 
 ---
+
+## apply-web-routes.sh
+
+Keeps the web server's routes (nginx) in step with the app so nobody hand-edits nginx again: one
+command backs up, converts an older inline vhost safely (or declines and prints exact manual steps),
+installs the shared routes file, runs `nginx -t`, reloads only if it passes and rolls everything back
+otherwise. Idempotent; `--dry-run` shows a diff, `--check` exits 2 when out of date. `update.sh` runs
+it for you. Full guide: [`docs/WEB_ROUTES.md`](../docs/WEB_ROUTES.md).
+
+```bash
+sudo deploy/apply-web-routes.sh --domain rivetit.example.com --dry-run   # look first
+sudo deploy/apply-web-routes.sh --domain rivetit.example.com
+```
 
 ## Security model
 

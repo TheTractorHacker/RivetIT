@@ -249,7 +249,7 @@ function oa_seed_user(mysqli $db, int $id, string $name, string $email, string $
 
 function oa_clean(mysqli $db): void
 {
-    foreach (['mcp_oauth_tokens', 'mcp_oauth_grants', 'mcp_oauth_codes', 'mcp_oauth_clients'] as $t) { $db->query("DELETE FROM $t"); }
+    foreach (['mcp_oauth_tokens', 'mcp_oauth_grants', 'mcp_oauth_codes', 'mcp_oauth_client_documents', 'mcp_oauth_clients'] as $t) { $db->query("DELETE FROM $t"); }
     $db->query("DELETE FROM audit_events WHERE event_type LIKE 'mcp.oauth_%'");
 }
 

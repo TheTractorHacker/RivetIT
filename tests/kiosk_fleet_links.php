@@ -410,7 +410,7 @@ if ($up) {
 if (is_resource($proc)) { proc_terminate($proc); proc_close($proc); }
 
 // ---------------------------------------------------------------- repo templates carry the same hop for nginx
-foreach (['deploy/templates/nginx-vhost.conf.template', 'docker/nginx.conf'] as $f) {
+foreach (['deploy/templates/rivetit-locations.conf', 'docker/nginx.conf'] as $f) {
     $t = (string) file_get_contents("$root/$f");
     $ok(strpos($t, 'rvkf1_[A-Za-z0-9_-]{43}') !== false && strpos($t, 'return 302 "/kiosk/#e=$1&sn=$2";') !== false, "$f redirects /kiosk/?e= to the fragment without logging");
 }

@@ -106,6 +106,15 @@ final class KioskAdminActions
                 'revoke_reason' => $r['kiosk_revoke_reason'],
             ];
         }
+        // ManageEngine MDM status of each device's asset, when the MDM sync is on and has linked it (read-only, no user data; empty otherwise).
+        if (Access::canAssets()) {
+            $mdm = \ITFlow\Integrations\ManageEngine\MdmDeviceStatus::forAssets($db, array_map(static fn (array $k): int => (int) ($k['asset']['id'] ?? 0), $out));
+            foreach ($out as $i => $k) {
+                if ($k['asset'] !== null && isset($mdm[$k['asset']['id']])) {
+                    $out[$i]['mdm'] = $mdm[$k['asset']['id']];
+                }
+            }
+        }
         $ks = KioskSettings::fromDb($db);
         return [
             'kiosks' => $out,
