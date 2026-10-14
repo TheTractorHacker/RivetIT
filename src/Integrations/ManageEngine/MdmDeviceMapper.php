@@ -224,7 +224,7 @@ final class MdmDeviceMapper
                 if (!empty($this->config['auto_create'])) {
                     $assetId = $this->insertAsset($d, $client['client_id']);
                     $this->linkAsset($assetId, $d, 'created');
-                    $this->syncAssetFields($assetId, $d);
+                    $this->syncAssetFields($assetId, $d, true);
                     $this->query("DELETE FROM mdm_unmatched_devices WHERE integration_id=$iid AND mdm_device_id='$idEsc'");
                     $this->auditCreate($assetId, $d, $client['client_id']);
 
@@ -363,8 +363,11 @@ final class MdmDeviceMapper
     }
 
     /** Make / model / OS onto the asset and the user as its contact, never over a human edit. A failure never fails the device. */
-    private function syncAssetFields(int $assetId, array $d): void
+    private function syncAssetFields(int $assetId, array $d, bool $force = false): void
     {
+        if (!$force && empty($this->config['auto_create'])) {
+            return;   // "Create and maintain assets" is off: a sync writes nothing on an asset (the behaviour of every earlier release)
+        }
         try {
             $this->assetSync ??= new \ITFlow\Assets\AssetInventorySync($this->db);
             $this->assetSync->apply($assetId, self::assetFacts($d), 'manageengine_mdm');
@@ -532,7 +535,7 @@ final class MdmDeviceMapper
         }
         $assetId = $this->insertAsset($u, $clientId);
         $this->linkAsset($assetId, $u, 'created');
-        $this->syncAssetFields($assetId, $u);
+        $this->syncAssetFields($assetId, $u, true);   // a person asked for this new asset
         $this->query('DELETE FROM mdm_unmatched_devices WHERE id=' . (int) $u['id']);
 
         return ['ok' => true, 'message' => 'Asset created and linked.', 'asset_id' => $assetId];

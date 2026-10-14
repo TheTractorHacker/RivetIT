@@ -12,10 +12,10 @@ device list.
 
 - Lists your managed devices (iPads, iPhones, Android phones and tablets, anything else MDM Plus manages) and links each one to a RivetIT asset, in this order:
   an existing link, **serial number**, **IMEI**, **UDID**, then a **unique asset with the same name in the device's department**.
-- Creates an asset when nothing matches (switch **Create a Phone / Tablet asset**, on for a new connection; an upgraded connection keeps it off): type **Phone**
+- Creates an asset when nothing matches (switch **Create and maintain assets**, on for a new connection; an upgraded connection keeps it off, and with it off a sync writes nothing on an asset, as before): type **Phone**
   for iPhones and Android phones, **Tablet** for iPads and Android tablets, **Laptop** for Windows / macOS / ChromeOS, **Display** for TV platforms,
   **Other** otherwise. Name, serial (the IMEI when there is no serial), make, model and OS come from the device.
-- **Never overwrites what a person typed.** Make, model and OS go through the same rule the RMM and Intune syncs use (`asset_sync_state`): a field is written when
+- **Never overwrites what a person typed.** With **Create and maintain assets** on, make, model and OS go through the same rule the RMM and Intune syncs use (`asset_sync_state`): a field is written when
   it is blank or still holds the value the last sync wrote; a human edit is left alone for good. The device's user becomes the asset's contact only when exactly
   one non-archived contact of the asset's department has that e-mail address, and never replaces a contact a person chose (the Intune rule).
 - Shows the result on the asset page (an MDM card: status, compliance, last contact, OS, owner type, enrolled date, user, groups, battery, storage, link to the

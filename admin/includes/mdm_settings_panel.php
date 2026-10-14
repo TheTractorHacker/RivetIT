@@ -179,7 +179,7 @@ $csrf = $_SESSION['csrf_token'];
                 </div>
                 <div class="col-md-6 d-flex align-items-center"><div class="form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="auto_create_assets" value="1" id="mdm_auto_create" <?= $mdm_auto_create ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="mdm_auto_create">Create a Phone / Tablet asset for a device that matches none (otherwise it waits for review)</label>
+                    <label class="form-check-label" for="mdm_auto_create">Create and maintain assets: a device that matches none gets a Phone / Tablet asset, and linked assets keep make, model, OS and contact in step with the MDM, never over a person's edit (off: devices wait for review and a sync writes nothing on an asset)</label>
                 </div></div>
                 <div class="col-md-6"><div class="form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="stale_retire_enabled" value="1" id="mdm_retire" <?= $mdm_retire ? 'checked' : '' ?>>

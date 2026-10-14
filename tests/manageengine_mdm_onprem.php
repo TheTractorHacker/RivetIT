@@ -212,6 +212,16 @@ $q('DELETE FROM integration_client_map'); $q('DELETE FROM mdm_unmatched_devices'
 $st = $M(['auto_create' => false, 'default_client_id' => 0])->syncDevices([$dev(41)]);
 $ok($st['unmatched'] === 1 && $st['created'] === 0 && (int) $one('SELECT COUNT(*) FROM assets') === $before && $one('SELECT reason FROM mdm_unmatched_devices') === 'no_match' && (int) $one('SELECT COUNT(*) FROM integration_client_map') === 0, 'create off: the device waits for review (no_match) and nothing is queued or created');
 
+// "Create and maintain assets" off: a matched asset is linked but NOTHING on it is written (the behaviour of every earlier release)
+$q("INSERT INTO assets SET asset_type='Tablet', asset_name='Untouched', asset_serial='DMPX0000091', asset_make='', asset_model='', asset_os='', asset_status='Active', asset_client_id=801");
+$q("INSERT INTO contacts SET contact_id=9101, contact_name='U', contact_email='user91@example.test', contact_client_id=801");
+$st = $M(['auto_create' => false])->syncDevices([$dev(91)]);
+$ua = $asset("asset_serial='DMPX0000091'");
+$ok($st['matched'] === 1 && $ua['asset_make'] === '' && $ua['asset_model'] === '' && $ua['asset_os'] === '' && (int) $ua['asset_contact_id'] === 0, 'switch off: the asset is linked but its make, model, OS and contact stay as they were');
+$st = $M(['auto_create' => true])->syncDevices([$dev(91)]);
+$ua = $asset("asset_serial='DMPX0000091'");
+$ok($st['updated'] === 1 && $ua['asset_make'] === 'Apple' && (int) $ua['asset_contact_id'] === 9101, 'switch on: the next sync fills the blanks and the unique contact');
+
 // =====================================================================================================================================
 // D. stale retirement (off by default, review queue shared with the RMM rule)
 foreach (['asset_mdm_links', 'mdm_unmatched_devices', 'assets', 'asset_retire_queue', 'asset_rmm_links'] as $t) { $q("DELETE FROM $t"); }
