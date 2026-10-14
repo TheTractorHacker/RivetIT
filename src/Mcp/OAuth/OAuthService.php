@@ -15,12 +15,16 @@ final class OAuthService
     private OAuthStore $store;
     /** @var callable(string,?int,?string,mixed,string,?string,array):void */
     private $audit;
+    /** @var callable(string):array fetches a client metadata document; defaults to CimdFetcher::fetch (tests inject their own) */
+    private $cimdFetcher;
 
     /**
      * @param callable|null $audit (event, actorUserId, entityType, entityId, action, summary, metadata); defaults to the audit service
+     * @param callable|null $cimdFetcher (url): CimdFetcher::fetch() result shape
      */
-    public function __construct(private \mysqli $db, private string $issuer, private string $resource, ?callable $audit = null)
+    public function __construct(private \mysqli $db, private string $issuer, private string $resource, ?callable $audit = null, ?callable $cimdFetcher = null)
     {
+        $this->cimdFetcher = $cimdFetcher ?? CimdFetcher::fetch(...);
         $this->store = new OAuthStore($db);
         $this->audit = $audit ?? static function (string $event, ?int $actor, ?string $type, $id, string $action, ?string $summary, array $meta): void {
             try {
@@ -115,7 +119,7 @@ final class OAuthService
     /* ------------------------------------------------------------------ discovery */
 
     /** RFC 8414 authorization server metadata. */
-    public function metadata(bool $registrationEnabled): array
+    public function metadata(bool $registrationEnabled, bool $cimdSupported = false): array
     {
         $meta = [
             'issuer' => $this->issuer,
@@ -133,8 +137,136 @@ final class OAuthService
         if ($registrationEnabled) {
             $meta['registration_endpoint'] = $this->issuer . '/oauth/register.php';
         }
+        if ($cimdSupported) {
+            // draft-ietf-oauth-client-id-metadata-document: a client_id may be the https URL of the client's own metadata document
+            $meta['client_id_metadata_document_supported'] = true;
+        }
 
         return $meta;
+    }
+
+    /* ------------------------------------------------------------------ client lookup (registered clients and metadata documents) */
+
+    /** The internal client ID for a client_id as a client sends it: a metadata-document URL maps to its hash ID, anything else is itself. */
+    public static function canonicalClientId(string $clientId): string
+    {
+        return ClientMetadata::looksLikeUrl($clientId) ? ClientMetadata::internalId($clientId) : $clientId;
+    }
+
+    public static function clientIdIsUrl(string $clientId): bool
+    {
+        return ClientMetadata::looksLikeUrl($clientId);
+    }
+
+    /** Longer than any client_id the endpoints read: a registered ID, or a metadata-document URL. */
+    public static function clientIdTooLong(string $clientId): bool
+    {
+        return strlen($clientId) > (ClientMetadata::looksLikeUrl($clientId) ? ClientMetadata::MAX_URL : 64);
+    }
+
+    /**
+     * Find the client a request names. A registered client ID is a database lookup. A client_id that is a URL is a metadata
+     * document (CIMD): refused unless the administrator allows it and the host is trusted, served from the cached copy while it
+     * is fresh, otherwise fetched and validated again. Any failure answers no client (fail closed); nothing is stored for a
+     * document that does not validate.
+     *
+     * @return array{ok:true, client:array}|array{ok:false, kind:'unknown'|'unavailable', message:string}
+     */
+    public function resolveClient(string $clientId): array
+    {
+        $unknown = static fn (string $m = 'This application is not registered with RivetIT, or has been disabled.'): array => ['ok' => false, 'kind' => 'unknown', 'message' => $m];
+        if ($clientId === '' || self::clientIdTooLong($clientId)) {
+            return $unknown();
+        }
+        if (!ClientMetadata::looksLikeUrl($clientId)) {
+            $client = $this->store->client($clientId);
+            // A metadata-document client is only ever reached through its URL, never by its internal ID.
+            if (!$client || $client['disabled_at'] !== null || $client['registration_type'] === 'metadata') {
+                return $unknown();
+            }
+
+            return ['ok' => true, 'client' => $client];
+        }
+
+        $policy = OAuthConfig::cimd($this->db);
+        if ($policy['mode'] === 'off') {
+            return $unknown();
+        }
+        $shape = ClientMetadata::checkUrl($clientId);
+        if (!$shape['ok']) {
+            return $unknown('The application identifies itself with an address that is not an acceptable client ID.');
+        }
+        if ($policy['mode'] === 'hosts' && !ClientMetadata::hostListed($shape['authority'], $policy['hosts'])) {
+            return $unknown('This application\'s host is not one your administrator trusts to identify applications.');
+        }
+        $id = ClientMetadata::internalId($clientId);
+        $client = $this->store->client($id);
+        if ($client && $client['disabled_at'] !== null) {
+            return $unknown();
+        }
+        $doc = $client ? $this->store->cimdDocument($id) : null;
+        if ($client && $doc && (int) $doc['fresh'] === 1 && hash_equals((string) $doc['source_url'], $clientId)) {
+            $client['source_url'] = $clientId;
+
+            return ['ok' => true, 'client' => $client];
+        }
+
+        $fetched = ($this->cimdFetcher)($clientId);
+        $verdict = $fetched['ok'] ? $this->judgeDocument($fetched['body'], $clientId) : ['ok' => false, 'error' => $fetched['error']];
+        if (!$verdict['ok']) {
+            $kind = $fetched['ok'] ? 'invalid' : $fetched['kind'];
+            if ($client) {
+                $this->store->recordCimdFailure($id, $verdict['error']);
+            }
+            $this->auditCimdFailure($id, $clientId, $shape['authority'], $verdict['error']);
+
+            return ['ok' => false, 'kind' => $kind === 'unavailable' ? 'unavailable' : 'unknown',
+                'message' => $kind === 'unavailable' ? 'The application\'s metadata document could not be fetched right now.'
+                    : 'The application\'s metadata document is not acceptable.'];
+        }
+        if (!$client && $this->store->countMetadataClients() >= ClientMetadata::MAX_CLIENTS) {
+            $this->store->purgeUnusedMetadataClients(3600);
+            if ($this->store->countMetadataClients() >= ClientMetadata::MAX_CLIENTS) {
+                return ['ok' => false, 'kind' => 'unavailable', 'message' => 'Too many applications are known. Ask your RivetIT administrator.'];
+            }
+        }
+        $name = $verdict['name'] ?? $shape['host'];
+        $ttl = ClientMetadata::cacheTtl($fetched['cache_control']);
+        $new = $this->store->saveCimd($id, $clientId, $name, $verdict['redirect_uris'], $fetched['body'], $ttl);
+        if ($new) {
+            $this->audit('mcp.oauth_client_registered', null, 'mcp_oauth_client', $id, 'create',
+                'MCP client "' . mb_substr($name, 0, 60) . '" first seen through its metadata document on ' . $shape['authority'],
+                ['source' => 'metadata_document', 'host' => $shape['authority'], 'redirect_hosts' => array_map([self::class, 'redirectHost'], $verdict['redirect_uris'])]);
+        }
+        $client = $this->store->client($id);
+        if (!$client) {
+            return $unknown();
+        }
+        $client['source_url'] = $clientId;
+
+        return ['ok' => true, 'client' => $client];
+    }
+
+    /** @return array{ok:true, name:?string, redirect_uris:list<string>}|array{ok:false, error:string} */
+    private function judgeDocument(string $body, string $url): array
+    {
+        try {
+            $doc = json_decode($body, true, 16, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return ['ok' => false, 'error' => 'the document is not valid JSON'];
+        }
+
+        return ClientMetadata::checkDocument($doc, $url);
+    }
+
+    /** At most 3 audit rows per failing document and 30 in all per 10 minutes, so unauthenticated requests cannot flood the log. */
+    private function auditCimdFailure(string $id, string $url, string $authority, string $reason): void
+    {
+        if (!OAuthHttp::allow('oauth:cimd:audit:' . hash('sha256', $url), 3, 600) || !OAuthHttp::allow('oauth:cimd:audit:all', 30, 600)) {
+            return;
+        }
+        $this->audit('mcp.oauth_cimd_fetch_failed', null, 'mcp_oauth_client', $id, 'fetch',
+            'Client metadata document from ' . $authority . ' refused: ' . $reason, ['host' => $authority, 'reason' => mb_substr($reason, 0, 100)]);
     }
 
     /* ------------------------------------------------------------------ registration (RFC 7591) */
@@ -168,12 +300,29 @@ final class OAuthService
             return $err(400, 'invalid_client_metadata', 'response_types may only contain code.');
         }
         $name = $meta['client_name'] ?? 'Unnamed application';
-        if (!is_string($name) || !self::validUtf8($name)) {
+        if (!is_string($name) || !ClientMetadata::plainText($name)) {
             return $err(400, 'invalid_client_metadata', 'client_name must be plain text.');
         }
         $name = mb_substr(trim($name), 0, 100);
         if ($name === '') {
             $name = 'Unnamed application';
+        }
+
+        // Some clients register several times in one sign-in (Claude did five times). The same address asking again within a few
+        // minutes for the same name and the same return addresses gets the client it already has: nothing new is created, the
+        // metadata is identical to what that caller itself just supplied, and a different name, address or return address never matches.
+        $same = $this->store->recentDuplicateClient($name, $uris, $ip, OAuthConfig::REGISTER_DEDUPE_SECONDS);
+        if ($same !== null) {
+            return [201, [
+                'client_id' => $same['client_id'],
+                'client_id_issued_at' => (int) (strtotime((string) $same['created_at'] . ' UTC') ?: time()),
+                'client_name' => $same['client_name'],
+                'redirect_uris' => $same['redirect_uris'],
+                'token_endpoint_auth_method' => 'none',
+                'grant_types' => array_values($grantTypes),
+                'response_types' => ['code'],
+                'scope' => OAuthConfig::SCOPE,
+            ]];
         }
 
         if ($this->store->countClients() >= OAuthConfig::MAX_CLIENTS) {
@@ -206,8 +355,8 @@ final class OAuthService
     public function registerManual(string $name, array $uris, ?string $wantedId, int $adminUserId): array
     {
         $name = mb_substr(trim($name), 0, 100);
-        if ($name === '' || !self::validUtf8($name)) {
-            return [false, 'Enter a name for the client.'];
+        if ($name === '' || !ClientMetadata::plainText($name)) {
+            return [false, 'Enter a plain-text name for the client.'];
         }
         $uris = array_values(array_unique(array_filter(array_map('trim', $uris), static fn ($u) => $u !== '')));
         if ($uris === [] || count($uris) > OAuthConfig::MAX_REDIRECT_URIS) {
@@ -240,25 +389,30 @@ final class OAuthService
      *
      * @param array{values:array<string,string>,duplicates:list<string>} $params from parseParams()
      * @return array{ok:true, client:array, redirect_uri:string, scope:string, state:?string, challenge:string, resource:string}
-     *       |array{ok:false, fatal:string}
+     *       |array{ok:false, fatal:string, status:int}
      *       |array{ok:false, redirect_uri:string, state:?string, error:string, description:string}
      */
     public function validateAuthorizationRequest(array $params): array
     {
         $v = $params['values'];
-        $fatal = static fn (string $m): array => ['ok' => false, 'fatal' => $m];
+        $fatal = static fn (string $m): array => ['ok' => false, 'fatal' => $m, 'status' => 400];
 
-        $clientId = $v['client_id'] ?? '';
-        $client = $clientId !== '' && strlen($clientId) <= 64 ? $this->store->client($clientId) : null;
-        if (!$client || $client['disabled_at'] !== null) {
-            return $fatal('This application is not registered with RivetIT, or has been disabled.');
+        $found = $this->resolveClient($v['client_id'] ?? '');
+        if (!$found['ok']) {
+            return ['ok' => false, 'fatal' => $found['message'], 'status' => $found['kind'] === 'unavailable' ? 503 : 400];
         }
+        $client = $found['client'];
         $redirect = $v['redirect_uri'] ?? '';
-        // Exact string match against the registration; nothing is normalised, no prefix or port wildcard.
+        // Exact string match against the registration; nothing is normalised, no prefix or port wildcard. The one exception is a
+        // loopback entry in a client metadata document, which matches on any port (RFC 8252 section 7.3).
         $matched = false;
-        foreach ($client['redirect_uris'] as $registered) {
-            if (is_string($registered) && $redirect !== '' && hash_equals($registered, $redirect)) {
-                $matched = true;
+        if ($client['registration_type'] === 'metadata') {
+            $matched = $redirect !== '' && ClientMetadata::redirectMatches($client['redirect_uris'], $redirect);
+        } else {
+            foreach ($client['redirect_uris'] as $registered) {
+                if (is_string($registered) && $redirect !== '' && hash_equals($registered, $redirect)) {
+                    $matched = true;
+                }
             }
         }
         if (!$matched) {
@@ -344,13 +498,17 @@ final class OAuthService
     public function token(array $p): array
     {
         $clientId = $p['client_id'] ?? '';
-        if (isset($p['client_secret']) || isset($p['client_assertion']) || $clientId === '' || strlen($clientId) > 64) {
+        if (isset($p['client_secret']) || isset($p['client_assertion']) || $clientId === '' || self::clientIdTooLong($clientId)) {
             return self::tokenError('invalid_client', 'This server only has public clients: send client_id and no secret.', 401);
         }
-        $client = $this->store->client($clientId);
-        if (!$client || $client['disabled_at'] !== null) {
-            return self::tokenError('invalid_client', 'Unknown or disabled client.', 401);
+        $found = $this->resolveClient($clientId);
+        if (!$found['ok']) {
+            // A metadata document that cannot be fetched right now is a retryable failure, not a rejected client.
+            return $found['kind'] === 'unavailable'
+                ? self::tokenError('temporarily_unavailable', 'The client metadata document could not be fetched. Try again shortly.', 503)
+                : self::tokenError('invalid_client', 'Unknown or disabled client.', 401);
         }
+        $client = $found['client'];
         if (isset($p['resource']) && !hash_equals($this->resource, $p['resource'])) {
             return self::tokenError('invalid_target', 'The resource must be ' . $this->resource . '.');
         }
@@ -486,9 +644,10 @@ final class OAuthService
         if ($token === '' || strlen($token) > 200) {
             return self::tokenError('invalid_request', 'token is required.');
         }
-        if (isset($p['client_secret']) || $clientId === '' || strlen($clientId) > 64) {
+        if (isset($p['client_secret']) || $clientId === '' || self::clientIdTooLong($clientId)) {
             return self::tokenError('invalid_client', 'This server only has public clients: send client_id and no secret.', 401);
         }
+        $clientId = self::canonicalClientId($clientId);   // revoking never needs the document: a metadata-document URL maps to its stored ID
         $row = $this->store->token(OAuthStore::hash($token));
         $grant = $row ? $this->store->grant((int) $row['grant_id']) : null;
         if ($grant && hash_equals((string) $grant['client_id'], $clientId) && $this->store->revokeGrant((int) $grant['grant_id'], 'revoked_by_client')) {

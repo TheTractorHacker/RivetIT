@@ -575,8 +575,9 @@ function rivetRmmScrLibraryPage(array $vm, array $ctx): string
     if ($perm['admin']) {   // rc.13: the starter pack is administrators only (the page and Core check again)
         $new = '<a class="btn btn-outline-primary btn-sm" href="' . RIVET_RMM_STARTER_PAGE . '" id="scr-starter-link"><i class="fas fa-box-open me-1" aria-hidden="true"></i>Starter pack</a> ' . $new;
     }
-    $o = rivetRmmAutoHeader('Script library', 'file-code', $new,
+    $o = rivetRmmAutoHeader('Scripts', 'file-code', $new,
         'Scripts you can run on your devices, or schedule. Every change to the text makes a new, signed version: the older ones stay readable and a schedule or a pending approval keeps the version it was set up with.');
+    $o .= rivetRmmScrTabs('library', $ctx['mysqli']);
     $o .= '<form method="get" action="' . $self . '" class="card card-dark mb-3"><div class="card-body"><div class="row g-2 align-items-end">'
         . '<div class="col-md-4"><label class="form-label" for="scr_q">Search</label><input class="form-control" type="search" id="scr_q" name="q" maxlength="100" value="' . rmmH($f['q']) . '" placeholder="Name or description"></div>'
         . '<div class="col-md-2"><label class="form-label" for="scr_lang">Language</label><select class="form-select" id="scr_lang" name="language"><option value="">Any</option>';
@@ -1510,7 +1511,7 @@ function rivetRmmScrDeviceSection(array $vm, \mysqli $mysqli, string $csrf): str
     $blocks = '';
     foreach ($fits as $i => $s) {
         $id = (int) $s['script_id'];
-        $d = rivetRmmScrApi($ctx, 'GET', ['scripts', $id]);
+        $d = rivetRmmScrDetailCached($ctx, $id);
         $cur = $d['ok'] ? (array) ($d['data']['script']['current'] ?? []) : [];
         $opts .= '<option value="' . $id . '" data-destructive="' . ($s['destructive'] ? '1' : '0') . '"' . ($i === 0 ? ' selected' : '') . '>' . rmmH($s['name'] . ' (' . rivetRmmScrLanguage((string) $s['language']) . ', v' . (int) $s['current_version'] . ')') . '</option>';
         $blocks .= '<div class="col-12" data-rmm-when="#rmm-ds-script=' . $id . '"><input type="hidden" name="script_version" value="' . (int) $s['current_version'] . '">'
@@ -1534,6 +1535,352 @@ function rivetRmmScrDeviceSection(array $vm, \mysqli $mysqli, string $csrf): str
     $js = is_file(dirname(__DIR__) . '/js/rmm_scr.js') ? filemtime(dirname(__DIR__) . '/js/rmm_scr.js') : time();
 
     return rivetRmmUiCard($title, 'file-code', $body, 'primary', '', false, 'rmm-library-run') . '<script src="/js/rmm_scr.js?v=' . (int) $js . '" defer></script>';
+}
+
+// ------------------------------------------------------------------ the asset page: the "Run script" dialog (library scripts, one place to run anything)
+
+/** One script's detail from the technician API, memoised for the request (the Run script dialog and the Jobs-tab card both need it). @return array{ok:bool,data:array<string,mixed>} */
+function rivetRmmScrDetailCached(array $ctx, int $id, bool $forget = false): array
+{
+    static $memo = [];
+    if ($forget) {
+        $memo = [];
+
+        return ['ok' => false, 'data' => []];
+    }
+    $k = (int) $ctx['uid'] . ':' . $id;
+    if (!isset($memo[$k])) {
+        $r = rivetRmmScrApi($ctx, 'GET', ['scripts', $id]);
+        $memo[$k] = ['ok' => $r['ok'], 'data' => $r['data']];
+    }
+
+    return $memo[$k];
+}
+
+/** Drop the request's memoised script details (after a write). */
+function rivetRmmScrDetailForget(int $uid): void
+{
+    rivetRmmScrDetailCached(['uid' => $uid], 0, true);
+}
+
+/**
+ * The library scripts the Run script dialog offers for one device platform: the not-retired scripts whose platform matches, each with its current version's
+ * parameter definitions. Reads only through the technician API as the viewer (Core's client scoping and ability checks apply). Cosmetic gating only: Core
+ * decides again when the form is posted. Empty (and no query) unless the `scripts` sub-switch is on and the viewer may run saved scripts.
+ *
+ * @return array{on:bool,scripts:list<array<string,mixed>>,error:string,truncated:bool}
+ */
+function rivetRmmScrDeviceLibrary(\mysqli $mysqli, int $userId, string $userName, string $platform, array $perm, int $max = 60): array
+{
+    $out = ['on' => false, 'scripts' => [], 'error' => '', 'truncated' => false];
+    if (empty($perm['run_saved']) || !in_array($platform, ['windows', 'linux'], true) || !rivetRmmFeatureOn('scripts', $mysqli)) {
+        return $out;
+    }
+    $out['on'] = true;
+    $ctx = ['uid' => $userId, 'name' => $userName, 'mysqli' => $mysqli, 'perm' => $perm, 'csrf' => ''];
+    $r = rivetRmmScrApi($ctx, 'GET', ['scripts'], ['limit' => '200']);
+    if (!$r['ok']) {
+        $out['error'] = $r['error'] !== '' ? $r['error'] : 'The script library could not be read.';
+
+        return $out;
+    }
+    foreach ((array) ($r['data']['data'] ?? []) as $s) {
+        if (($s['platform'] ?? '') !== $platform || !empty($s['retired'])) {
+            continue;
+        }
+        if (count($out['scripts']) >= $max) {
+            $out['truncated'] = true;
+            break;
+        }
+        $d = rivetRmmScrDetailCached($ctx, (int) $s['script_id']);
+        $cur = $d['ok'] ? (array) ($d['data']['script']['current'] ?? []) : [];
+        $info = rivetRmmStarterTagInfo((array) ($s['tags'] ?? []));
+        $out['scripts'][] = ['id' => (int) $s['script_id'], 'name' => (string) $s['name'], 'description' => (string) ($s['description'] ?? ''), 'language' => (string) $s['language'],
+            'version' => (int) $s['current_version'], 'starter' => $info['starter'], 'risk' => $info['risk'], 'tags' => $info['rest'], 'destructive' => !empty($s['destructive']),
+            'requires_approval' => !empty($s['requires_approval']), 'params' => (array) ($cur['params'] ?? []), 'timeout_s' => (int) ($s['timeout_s'] ?? 0)];
+    }
+    usort($out['scripts'], static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+
+    return $out;
+}
+
+/** Is this parameter the "dry run" switch the starter pack's changing scripts carry? */
+function rivetRmmScrIsDryRun(array $p): bool
+{
+    return (string) ($p['type'] ?? '') === 'bool' && in_array((string) $p['name'], ['dry_run', 'dryrun'], true);
+}
+
+/**
+ * The typed parameter form of one script in the Run script dialog. Unlike rivetRmmScrParamInputs (the schedule and card form) a bool is a checkbox that always
+ * sends an explicit true or false, the dry run switch is labelled in plain words and defaults ON, and every field carries its validation hint.
+ * Names are `param[<name>]`, the shape rivetRmmScrReadParams reads.
+ *
+ * @param list<array<string,mixed>> $schema
+ */
+function rivetRmmRunParamInputs(array $schema, string $idp): string
+{
+    if ($schema === []) {
+        return '<p class="text-muted small mb-0">This script takes no parameters.</p>';
+    }
+    $bools = $rest = '';
+    foreach ($schema as $p) {
+        $name = (string) $p['name'];
+        $id = $idp . '_' . $name;
+        $label = (string) ($p['label'] ?? '') !== '' ? (string) $p['label'] : $name;
+        $type = (string) ($p['type'] ?? 'string');
+        $req = !empty($p['required']);
+        $desc = (string) ($p['description'] ?? '');
+        $hintId = $id . '_h';
+        $hints = [];
+        $f = 'name="param[' . rmmH($name) . ']" id="' . rmmH($id) . '"' . ($desc !== '' || $type !== 'bool' ? ' aria-describedby="' . rmmH($hintId) . '"' : '');
+        if ($type === 'bool') {
+            $dry = rivetRmmScrIsDryRun($p);
+            $on = $dry ? ($p['default'] ?? true) !== false : !empty($p['default']);
+            $bools .= '<div class="form-check mb-2"><input type="hidden" name="param[' . rmmH($name) . ']" value="false"><input class="form-check-input" type="checkbox" value="true" ' . $f . ($on ? ' checked' : '') . '>'
+                . '<label class="form-check-label' . ($dry ? ' fw-semibold' : '') . '" for="' . rmmH($id) . '">' . ($dry ? 'Dry run (nothing is changed)' : rmmH($label)) . '</label>'
+                . ($dry ? '<div class="form-text" id="' . rmmH($hintId) . '">Report what the script would do without changing anything. Untick it to make the change for real.' . ($desc !== '' ? ' ' . rmmH($desc) : '') . '</div>'
+                    : ($desc !== '' ? '<div class="form-text" id="' . rmmH($hintId) . '">' . rmmH($desc) . '</div>' : '')) . '</div>';
+            continue;
+        }
+        $o = '<div class="mb-2"><label class="form-label" for="' . rmmH($id) . '">' . rmmH($label) . ($req ? ' <span class="text-danger" aria-hidden="true">*</span><span class="visually-hidden">(required)</span>' : ' <span class="text-muted small">(optional)</span>') . '</label>';
+        $reqAttr = $req ? ' required' : '';
+        if ($type === 'int') {
+            $o .= '<input class="form-control" type="number" step="1" ' . $f . (isset($p['min']) ? ' min="' . (int) $p['min'] . '"' : '') . (isset($p['max']) ? ' max="' . (int) $p['max'] . '"' : '') . $reqAttr
+                . (array_key_exists('default', $p) ? ' placeholder="' . rmmH((string) $p['default']) . '"' : '') . '>';
+            $hints[] = 'Whole number' . (isset($p['min'], $p['max']) ? ', ' . (int) $p['min'] . ' to ' . (int) $p['max'] : (isset($p['min']) ? ', at least ' . (int) $p['min'] : (isset($p['max']) ? ', at most ' . (int) $p['max'] : '')));
+        } elseif ($type === 'choice') {
+            $o .= '<select class="form-select" ' . $f . $reqAttr . '><option value="">' . (array_key_exists('default', $p) ? 'Default (' . rmmH((string) $p['default']) . ')' : 'Choose...') . '</option>';
+            foreach ((array) ($p['choices'] ?? []) as $c) {
+                $o .= '<option value="' . rmmH((string) $c) . '">' . rmmH((string) $c) . '</option>';
+            }
+            $o .= '</select>';
+        } elseif ($type === 'secret') {
+            $o .= '<input class="form-control" type="password" autocomplete="new-password" ' . $f . ' maxlength="' . (int) ($p['max_length'] ?? 256) . '"' . $reqAttr . '>';
+            $hints[] = 'A secret is never stored in the job or shown in its output. If this script needs approval, type a placeholder such as {{field.name}} instead of the secret itself';
+        } else {
+            $o .= '<input class="form-control" type="text" ' . $f . ' maxlength="' . (int) ($p['max_length'] ?? 256) . '"' . $reqAttr . (array_key_exists('default', $p) ? ' placeholder="' . rmmH((string) $p['default']) . '"' : '') . '>';
+            if (isset($p['max_length'])) {
+                $hints[] = 'Up to ' . (int) $p['max_length'] . ' characters';
+            }
+        }
+        if (array_key_exists('default', $p) && $type !== 'choice') {
+            $hints[] = 'Default: ' . (string) $p['default'];
+        }
+        $o .= '<div class="form-text" id="' . rmmH($hintId) . '">' . ($desc !== '' ? rmmH($desc) . ($hints !== [] ? '. ' : '') : '') . rmmH(implode('. ', $hints)) . ($desc !== '' || $hints !== [] ? '.' : '') . '</div></div>';
+        $rest .= $o;
+    }
+
+    return ($bools !== '' ? '<fieldset class="mb-2"><legend class="form-label small text-muted mb-1">Options</legend>' . $bools . '</fieldset>' : '') . $rest;
+}
+
+/**
+ * The "Script library" part of the Run script dialog: a search box, a select of the scripts that run on this device (grouped by risk class), and one parameter form
+ * per script (only the chosen one is enabled, so only its values are posted). Submits to the same handler as the Jobs-tab card (agent/post/rmm_automation_scr.php,
+ * action run_script), which keeps the CSRF, client scoping and ability checks; js/rmm_panel.js only switches blocks and filters the list.
+ *
+ * @param array{on:bool,scripts:list<array<string,mixed>>,error:string,truncated:bool} $lib
+ */
+function rivetRmmScrRunDialogLibrary(array $vm, array $lib, string $csrf): string
+{
+    $ret = '/agent/asset_details.php?asset_id=' . (int) $vm['asset_id'] . '#rmm-jobs';
+    $groups = ['read_only' => 'Read only (nothing is changed)', 'changes_system' => 'Changes the system', 'disruptive' => 'Disruptive', '' => 'Your own scripts (no risk class)'];
+    $by = [];
+    foreach ($lib['scripts'] as $s) {
+        $by[(string) ($s['risk'] ?? '')][] = $s;
+    }
+    $first = 0;
+    foreach (array_keys($groups) as $risk) {
+        if (!empty($by[(string) $risk])) {
+            $first = (int) $by[(string) $risk][0]['id'];
+            break;
+        }
+    }
+    $opts = '';
+    foreach ($groups as $risk => $label) {
+        if (empty($by[$risk])) {
+            continue;
+        }
+        $opts .= '<optgroup label="' . rmmH($label) . '" data-risk="' . rmmH((string) $risk) . '">';
+        foreach ($by[$risk] as $s) {
+            $search = mb_strtolower($s['name'] . ' ' . $s['description'] . ' ' . implode(' ', $s['tags']));
+            $opts .= '<option value="' . (int) $s['id'] . '" data-search="' . rmmH($search) . '"' . ((int) $s['id'] === $first ? ' selected' : '') . '>' . rmmH($s['name'] . ' (' . rivetRmmScrLanguage($s['language']) . ', v' . $s['version'] . ')') . '</option>';
+        }
+        $opts .= '</optgroup>';
+    }
+    $blocks = '';
+    foreach ($lib['scripts'] as $s) {
+        $id = (int) $s['id'];
+        $chips = ($s['starter'] ? '<span class="badge text-bg-primary rmm-starter-badge me-1"><i class="fas fa-box-open me-1" aria-hidden="true"></i>Starter</span>' : '')
+            . ($s['risk'] !== null ? rivetRmmStarterRiskPill((string) $s['risk']) . ' ' : '') . ($s['requires_approval'] ? rivetRmmUiPill('warn', 'Needs approval') . ' ' : '') . ($s['destructive'] ? rivetRmmUiPill('crit', 'Destructive') . ' ' : '');
+        $tags = '';
+        foreach ($s['tags'] as $t) {
+            $tags .= '<span class="badge text-bg-light border me-1">' . rmmH($t) . '</span>';
+        }
+        $inner = '<input type="hidden" name="script_version" value="' . (int) $s['version'] . '">'
+            . '<div class="mb-2">' . $chips . $tags . '</div>' . ($s['description'] !== '' ? '<p class="small text-muted mb-2">' . rmmH($s['description']) . '</p>' : '')
+            . '<div class="rmm-run-lib-params">' . rivetRmmRunParamInputs((array) $s['params'], 'rmm_rl' . $id) . '</div>'
+            . ($s['requires_approval'] ? '<div class="alert alert-info small py-2 mb-2" role="note"><i class="fas fa-user-check me-1" aria-hidden="true"></i>This script needs approval. Nothing runs yet: the request goes to the approvals queue and a second person approves it.</div>' : '')
+            . ($s['destructive'] ? '<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="rmm_rl' . $id . '_confirm" required><label class="form-check-label" for="rmm_rl' . $id . '_confirm">'
+                . 'I confirm this destructive script may run now on ' . rmmH($vm['hostname']) . '.</label></div>' : '');
+        if ($id !== $first) {
+            // every block but the chosen one starts disabled: its fields are neither validated nor posted; js/rmm_panel.js swaps them when another script is picked
+            $inner = (string) preg_replace('~<(input|select|textarea)\b~', '<$1 disabled', $inner);
+        }
+        $blocks .= '<div class="rmm-run-lib-block" data-script-id="' . $id . '"' . ($id === $first ? '' : ' hidden') . '>' . $inner . '</div>';
+    }
+
+    return '<form id="rmm-run-lib-form" method="post" action="/agent/post/' . RIVET_RMM_SCR_HANDLER . '.php" class="rmm-run-pane" data-rmm-run-pane="library">' . rivetRmmAutoHidden($csrf, $ret)
+        . '<input type="hidden" name="action" value="run_script"><input type="hidden" name="device_id" value="' . (int) $vm['device_id'] . '">'
+        . '<div class="modal-body"><div class="row g-2">'
+        . '<div class="col-12"><label class="form-label" for="rmm-run-lib-q">Find a script</label><input class="form-control" type="search" id="rmm-run-lib-q" autocomplete="off" placeholder="Name, tag or description" aria-controls="rmm-run-lib-script">'
+        . '<div class="visually-hidden" id="rmm-run-lib-count" role="status" aria-live="polite"></div></div>'
+        . '<div class="col-12"><label class="form-label" for="rmm-run-lib-script">Script</label><select class="form-select" id="rmm-run-lib-script" name="library_script_id" size="' . min(8, max(3, count($lib['scripts']) + count($by))) . '" aria-describedby="rmm-run-lib-help">' . $opts . '</select>'
+        . '<div class="form-text" id="rmm-run-lib-help">' . count($lib['scripts']) . ' script' . (count($lib['scripts']) === 1 ? '' : 's') . ' for ' . ($vm['platform'] === 'linux' ? 'Linux' : 'Windows') . ' devices, grouped by what they can do to the device.'
+        . ($lib['truncated'] ? ' The list is cut short: use Scripts to find the rest.' : '') . '</div></div>'
+        . '<div class="col-12" id="rmm-run-lib-detail" aria-live="polite">' . $blocks . '</div>'
+        . '<div class="col-md-4"><label class="form-label" for="rmm-run-lib-timeout">Timeout, seconds</label><input class="form-control" type="number" min="1" id="rmm-run-lib-timeout" name="timeout_s" placeholder="script default"></div>'
+        . '</div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="submit" class="btn btn-primary" id="rmm-run-lib-go"><i class="fas fa-play me-1" aria-hidden="true"></i>Queue job</button></div></form>';
+}
+
+// ------------------------------------------------------------------ one Scripts area: the library tab, the "Synced from <provider>" tab and the legacy import
+
+const RIVET_RMM_SCR_LIBRARY_PAGE = '/agent/rmm_script_library.php';
+const RIVET_RMM_SCR_LEGACY_PAGE = '/agent/rmm_scripts.php';
+const RIVET_RMM_SCR_IMPORT_NOTE = 'imported from legacy Scripts';
+
+/** The default RMM integration's name for labels ("Synced from Tactical RMM"); "RMM" when none is configured. */
+function rivetRmmScrLegacyProviderName(\mysqli $mysqli): string
+{
+    $name = 'RMM';
+    $iid = (int) ($GLOBALS['config_rmm_default_integration_id'] ?? 0);
+    if ($iid > 0) {
+        $r = mysqli_query($mysqli, 'SELECT name, type FROM rmm_integrations WHERE id = ' . $iid . ' LIMIT 1');
+        $row = $r ? mysqli_fetch_assoc($r) : null;
+        if ($row) {
+            $name = $row['name'] ?: (['tactical_rmm' => 'Tactical RMM', 'level' => 'Level.io', 'action1' => 'Action1', 'sophos_central' => 'Sophos Central'][$row['type']] ?? 'RMM');
+        }
+    }
+
+    return $name;
+}
+
+/** The legacy list (agent/rmm_scripts.php, table rmm_scripts) has a tab only when it holds rows or a vendor RMM integration is configured to sync scripts into it. */
+function rivetRmmScrLegacyVisible(\mysqli $mysqli): bool
+{
+    if ((int) ($GLOBALS['config_rmm_default_integration_id'] ?? 0) > 0) {
+        return true;
+    }
+    $r = mysqli_query($mysqli, 'SELECT 1 FROM rmm_scripts LIMIT 1');
+
+    return $r !== false && mysqli_fetch_row($r) !== null;
+}
+
+/** The tab strip of the one Scripts area. '' unless BOTH tabs exist (the library switch is on and the legacy list is visible): one source needs no tabs. */
+function rivetRmmScrTabs(string $active, \mysqli $mysqli): string
+{
+    if (!rivetRmmFeatureOn('scripts', $mysqli) || !rivetRmmScrLegacyVisible($mysqli)) {
+        return '';
+    }
+    $tab = static fn (string $key, string $href, string $icon, string $label): string => '<li class="nav-item"><a class="nav-link' . ($active === $key ? ' active' : '') . '" href="' . $href . '"'
+        . ($active === $key ? ' aria-current="page"' : '') . '><i class="fas fa-' . $icon . ' me-1" aria-hidden="true"></i>' . rmmH($label) . '</a></li>';
+
+    return '<nav aria-label="Scripts"><ul class="nav nav-tabs mb-3" id="rmm-scripts-tabs">' . $tab('library', RIVET_RMM_SCR_LIBRARY_PAGE, 'file-code', 'Library')
+        . $tab('legacy', RIVET_RMM_SCR_LEGACY_PAGE, 'cloud-download-alt', 'Synced from ' . rivetRmmScrLegacyProviderName($mysqli)) . '</ul></nav>';
+}
+
+/** The Core language of a legacy script_type, or null when the library cannot hold it (CMD). */
+function rivetRmmScrLegacyLanguage(string $type): ?string
+{
+    return ['powershell' => 'powershell', 'ps1' => 'powershell', 'bash' => 'bash', 'shell' => 'bash', 'sh' => 'bash', 'python' => 'python'][strtolower(trim($type))] ?? null;
+}
+
+/** Body hash as the library stores it (line endings normalised the way the editor posts them). */
+function rivetRmmScrBodyHash(string $body): string
+{
+    return hash('sha256', str_replace("\r\n", "\n", $body));
+}
+
+/** A legacy category as a library tag (lower case words joined by -, at most 30 characters), or ''. */
+function rivetRmmScrCategoryTag(string $category): string
+{
+    return substr(trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($category)), '-'), 0, 30);
+}
+
+/**
+ * The scripts created by hand on the legacy list (no vendor script id, a body) and whether each is already in the library (same name and same text, retired or not).
+ *
+ * @return list<array{id:int,name:string,category:string,description:string,language:?string,body:string,imported_as:int}>
+ */
+function rivetRmmScrLegacyManual(array $ctx, \mysqli $mysqli): array
+{
+    $rows = [];
+    $q = mysqli_query($mysqli, "SELECT id, name, category, description, script_type, script_body FROM rmm_scripts WHERE (tactical_script_id IS NULL OR tactical_script_id = 0) AND script_body IS NOT NULL AND script_body <> '' ORDER BY name, id LIMIT 500");
+    while ($q && ($r = mysqli_fetch_assoc($q))) {
+        $rows[] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'category' => (string) $r['category'], 'description' => (string) $r['description'],
+            'language' => rivetRmmScrLegacyLanguage((string) $r['script_type']), 'body' => (string) $r['script_body'], 'imported_as' => 0];
+    }
+    if ($rows === []) {
+        return [];
+    }
+    $byName = [];
+    $l = rivetRmmScrApi($ctx, 'GET', ['scripts'], ['limit' => '200', 'include_retired' => '1']);
+    foreach ($l['ok'] ? (array) ($l['data']['data'] ?? []) : [] as $s) {
+        $byName[(string) $s['name']][] = (int) $s['script_id'];
+    }
+    foreach ($rows as &$r) {
+        $hash = rivetRmmScrBodyHash($r['body']);
+        foreach ($byName[$r['name']] ?? [] as $sid) {
+            $d = rivetRmmScrDetailCached($ctx, $sid);
+            if ($d['ok'] && (string) ($d['data']['script']['current']['body_sha256'] ?? '') === $hash) {
+                $r['imported_as'] = $sid;
+                break;
+            }
+        }
+    }
+    unset($r);
+
+    return $rows;
+}
+
+/**
+ * One-time import of hand-made legacy scripts into the library, through the technician API (so Core signs every version, applies its size and parameter rules,
+ * and audits). Idempotent: a script whose name and text are already in the library is skipped. Tags come from the old category; the risk class tag is the one
+ * picked (default changes_system); `requires_approval` and `destructive` follow the starter pack's defaults for that class (a disruptive script needs approval).
+ *
+ * @param list<int> $ids legacy row ids to import (empty = every one not yet imported)
+ * @return array{created:int,skipped:int,failed:list<string>}
+ */
+function rivetRmmScrImportLegacy(array $ctx, \mysqli $mysqli, array $ids, string $risk): array
+{
+    $risk = in_array($risk, ['read_only', 'changes_system', 'disruptive'], true) ? $risk : 'changes_system';
+    $out = ['created' => 0, 'skipped' => 0, 'failed' => []];
+    foreach (rivetRmmScrLegacyManual($ctx, $mysqli) as $row) {
+        if ($ids !== [] && !in_array($row['id'], $ids, true)) {
+            continue;
+        }
+        if ($row['imported_as'] > 0) {
+            $out['skipped']++;
+            continue;
+        }
+        if ($row['language'] === null) {
+            $out['failed'][] = $row['name'] . ': the library has no CMD language.';
+            continue;
+        }
+        $cat = rivetRmmScrCategoryTag($row['category']);
+        $body = ['name' => mb_substr($row['name'], 0, 90), 'description' => mb_substr($row['description'], 0, 300), 'language' => $row['language'], 'body' => str_replace("\r\n", "\n", $row['body']),
+            'note' => RIVET_RMM_SCR_IMPORT_NOTE . ' (#' . $row['id'] . ')', 'tags' => array_values(array_filter([$cat, 'imported', 'risk:' . $risk])),
+            'requires_approval' => $risk === 'disruptive', 'destructive' => $risk === 'disruptive', 'params' => []];
+        $r = rivetRmmScrApi($ctx, 'POST', ['scripts'], [], $body);
+        if ($r['ok']) {
+            $out['created']++;
+            rivetRmmScrDetailForget((int) $ctx['uid']);
+        } else {
+            $out['failed'][] = $row['name'] . ': ' . ($r['error'] !== '' ? $r['error'] : 'the library refused it.');
+        }
+    }
+
+    return $out;
 }
 
 /**

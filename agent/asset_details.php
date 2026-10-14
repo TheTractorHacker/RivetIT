@@ -491,6 +491,58 @@ if (isset($_GET['asset_id'])) {
         </div>
         <?php endif; ?>
 
+        <?php
+        // ManageEngine MDM: cached device data from the read-only cloud sync (separate from Intune above). Never contacts ManageEngine.
+        $mdm_link = null;
+        $mdm_stale_days = 7;
+        if (lookupUserPermission('module_client') >= 1) {
+            try {
+                $mdm_link = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT l.*, i.stale_days, i.enabled AS mdm_enabled FROM asset_mdm_links l JOIN manageengine_mdm_integrations i ON i.id = l.integration_id WHERE l.asset_id = $asset_id LIMIT 1"));
+            } catch (\Throwable $e) {
+                $mdm_link = null;   // tables not installed yet
+            }
+        }
+        if ($mdm_link):
+            $mdm_stale_days = max(1, (int) $mdm_link['stale_days']);
+            $mdm_st = \ITFlow\Integrations\ManageEngine\MdmDeviceStatus::classify($mdm_link, $mdm_stale_days);
+            $mdm_free = \ITFlow\Integrations\ManageEngine\MdmDeviceStatus::storageFreePercent($mdm_link);
+            $mdm_os_lower = strtolower((string) $mdm_link['platform']);
+            $mdm_os_icon = str_contains($mdm_os_lower, 'android') ? 'fa-android' : (str_contains($mdm_os_lower, 'ios') || str_contains($mdm_os_lower, 'ipad') ? 'fa-apple' : 'fa-mobile-alt');
+        ?>
+        <div class="card card-dark mb-2" style="border-left:5px solid <?= $mdm_st['class'] === 'danger' ? '#dc3545' : ($mdm_st['class'] === 'warning' ? '#ffc107' : '#0d6efd') ?>; border-radius:4px;">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center flex-wrap" style="gap:8px">
+                    <div class="mr-auto me-auto">
+                        <strong class="h5 mb-0"><i class="fas fa-tablet-alt me-1"></i>ManageEngine MDM: <?= nullable_htmlentities($mdm_link['device_name'] ?: $asset_name) ?></strong>
+                        <span class="badge text-bg-<?= $mdm_st['class'] ?> ms-2"><?= nullable_htmlentities($mdm_st['label']) ?></span>
+                        <?php if ($mdm_link['is_supervised'] !== null && (int) $mdm_link['is_supervised'] === 1) { ?><span class="badge text-bg-info ms-1">Supervised</span><?php } ?>
+                        <?php if ($mdm_link['passcode_compliant'] !== null) { ?><span class="badge text-bg-<?= (int) $mdm_link['passcode_compliant'] ? 'success' : 'danger' ?> ms-1"><i class="fas fa-lock me-1"></i>Passcode <?= (int) $mdm_link['passcode_compliant'] ? 'compliant' : 'not compliant' ?></span><?php } ?>
+                        <?php if ((int) $mdm_link['is_lost_mode'] === 1) { ?><span class="badge text-bg-danger ms-1">Lost mode on</span><?php } ?>
+                        <div class="text-muted small mt-1">
+                            <i class="fab <?= $mdm_os_icon ?> me-1"></i><?= nullable_htmlentities(trim($mdm_link['platform'] . ' ' . $mdm_link['os_version'])) ?>
+                            <?php if ($mdm_link['model']) { ?>&bull;&nbsp;<?= nullable_htmlentities($mdm_link['model']) ?><?php } ?>
+                            <?php if ($mdm_link['user_name'] || $mdm_link['user_email']) { ?>&bull;&nbsp;<i class="fas fa-user mx-1"></i><?= nullable_htmlentities($mdm_link['user_name'] ?: $mdm_link['user_email']) ?><?php } ?>
+                            <?php if ($mdm_link['group_names']) { ?>&bull;&nbsp;<i class="fas fa-users mx-1"></i><?= nullable_htmlentities($mdm_link['group_names']) ?><?php } ?>
+                            <?php if ($mdm_link['battery_level'] !== null) { ?>&bull;&nbsp;<i class="fas fa-battery-half mx-1"></i><?= (int) $mdm_link['battery_level'] ?>%<?php } ?>
+                            <?php if ($mdm_free !== null) { ?>&bull;&nbsp;<i class="fas fa-hdd mx-1"></i><?= $mdm_free ?>% storage free<?php } ?>
+                            <?php if ($mdm_link['last_contact_at']) { ?>&bull;&nbsp;<i class="fas fa-clock mx-1"></i>Last contact: <?= nullable_htmlentities($mdm_link['last_contact_at']) ?><?php } ?>
+                            &bull;&nbsp;Synced <?= nullable_htmlentities($mdm_link['last_sync']) ?>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/agent/mdm_devices.php" class="btn btn-sm btn-outline-secondary">MDM devices</a>
+                        <?php if (lookupUserPermission('module_client') >= 2) { ?>
+                        <form action="post.php" method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">
+                            <button type="submit" name="unlink_mdm_device" class="btn btn-sm btn-outline-danger confirm-link" title="Remove link"><i class="fas fa-unlink"></i></button>
+                        </form>
+                        <?php } ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <style>
             #asset-details-content { font-size: 1.05rem; }
             #asset-details-content .small,

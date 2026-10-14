@@ -320,13 +320,19 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         }
     }
 
-    // ---- saved scripts for the run dialog (PowerShell only: Linux has no script jobs in Phase 0)
+    // ---- saved scripts for the run dialog (the legacy `rmm_scripts` table: PowerShell only)
     $saved = [];
     if ($perm['run_saved'] && $platform === 'windows') {
-        $s = mysqli_query($mysqli, "SELECT id, name FROM rmm_scripts WHERE enabled = 1 AND script_type = 'powershell' AND script_body IS NOT NULL AND script_body <> '' ORDER BY name LIMIT 300");
+        $s = mysqli_query($mysqli, "SELECT id, name, tactical_script_id FROM rmm_scripts WHERE enabled = 1 AND script_type = 'powershell' AND script_body IS NOT NULL AND script_body <> '' ORDER BY name LIMIT 300");
         while ($s && ($r = mysqli_fetch_assoc($s))) {
             $saved[] = $r;
         }
+    }
+
+    // ---- the script library for the run dialog (RMM Phase 2 `scripts` switch; no query unless it is on, the viewer may run saved scripts and the device is usable)
+    $library = ['on' => false, 'scripts' => [], 'error' => '', 'truncated' => false];
+    if ($dev['revoked_at'] === null && $dev['retired_at'] === null && $dev['link_state'] === 'linked' && function_exists('rivetRmmScrDeviceLibrary')) {
+        $library = rivetRmmScrDeviceLibrary($mysqli, $userId, (string) ($GLOBALS['session_name'] ?? ''), $platform, $perm);
     }
 
     // ---- gauges (a reading the agent could not take stays null)
@@ -499,6 +505,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'mesh_install' => is_array($view['mesh_install'] ?? null) ? $view['mesh_install'] : null,   // rc.16: {available, agent_supports, installed}, present only while a pushed install is available
         'remote_sessions' => $sessions,
         'saved_scripts' => $saved,
+        'library' => $library,
         'banners' => $banners,
         'match_reason_text' => (string) ($view['match_reason_text'] ?? ''),
         'update_state' => $view['update_state'] ?? null,

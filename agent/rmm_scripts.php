@@ -1,23 +1,20 @@
 <?php
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
+require_once dirname(__DIR__) . '/includes/rmm_scr_ui.php';   // the one Scripts area: tab strip, provider name, the import into the library
 
 $categories = ['Maintenance', 'Repair', 'Inventory', 'Security', 'Software Install'];
 $filter_cat  = sanitizeInput($_GET['category'] ?? '');
 $filter_q    = sanitizeInput($_GET['q'] ?? '');
 
 // Resolve the default RMM integration so sync labels name the real provider.
-$rmm_default_provider_name = 'RMM';
-if (!empty($config_rmm_default_integration_id)) {
-    $rmm_intg = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT name, type FROM rmm_integrations WHERE id=" . intval($config_rmm_default_integration_id) . " LIMIT 1"
-    ));
-    if ($rmm_intg) {
-        $rmm_default_provider_name = $rmm_intg['name'] ?: (
-            ['tactical_rmm' => 'Tactical RMM', 'level' => 'Level.io',
-             'action1' => 'Action1', 'sophos_central' => 'Sophos Central'][$rmm_intg['type']] ?? 'RMM'
-        );
-    }
+$rmm_default_provider_name = rivetRmmScrLegacyProviderName($mysqli);
+
+// One Scripts area: with the library switch on and nothing synced or created here (no rows, no vendor RMM), this page has nothing of its own, so the old URL
+// lands on the Library tab (the query string, such as a search, goes along).
+$scripts_library_on = rivetRmmFeatureOn('scripts', $mysqli);
+if ($scripts_library_on && $_SERVER['REQUEST_METHOD'] === 'GET' && !rivetRmmScrLegacyVisible($mysqli)) {
+    redirect(RIVET_RMM_SCR_LIBRARY_PAGE . (($_SERVER['QUERY_STRING'] ?? '') !== '' ? '?' . $_SERVER['QUERY_STRING'] : ''));
 }
 
 // Handle add/edit/delete
@@ -51,6 +48,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token'])) {
             flash_alert('Script created');
         }
         redirect();
+    }
+
+    if (isset($_POST['import_legacy'])) {
+        // One-time copy of the hand-made scripts into the library: administrators only, at the level that may write script bodies, and only while the library is on.
+        enforceUserPermission('module_rmm_scripts', \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::WRITE_LEVEL);
+        $imp_perm = $scripts_library_on ? rivetRmmAutoPerm($mysqli, (int) $session_user_id) : ['admin' => false];
+        if (!$imp_perm['admin']) {
+            flash_alert('Only an RMM administrator can import scripts into the library, and the library has to be switched on.', 'danger');
+            redirect(RIVET_RMM_SCR_LEGACY_PAGE);
+        }
+        $imp_ctx = ['uid' => (int) $session_user_id, 'name' => (string) $session_name, 'mysqli' => $mysqli, 'perm' => $imp_perm, 'csrf' => ''];
+        $imp_ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), static fn (int $i): bool => $i > 0));
+        $imp = rivetRmmScrImportLegacy($imp_ctx, $mysqli, $imp_ids, (string) ($_POST['risk'] ?? 'changes_system'));
+        logAction('RMM', 'Script Import', "$session_name imported {$imp['created']} legacy script(s) into the library ({$imp['skipped']} already there, " . count($imp['failed']) . ' refused)');
+        $imp_msg = $imp['created'] . ' script' . ($imp['created'] === 1 ? '' : 's') . ' imported into the library' . ($imp['skipped'] > 0 ? ', ' . $imp['skipped'] . ' already there' : '') . '.';
+        if ($imp['failed'] !== []) {
+            $imp_msg .= ' Not imported: ' . implode(' ', array_slice($imp['failed'], 0, 3));
+        }
+        flash_alert($imp_msg, $imp['failed'] !== [] && $imp['created'] === 0 ? 'danger' : 'success');
+        redirect(RIVET_RMM_SCR_LEGACY_PAGE);
     }
 
     if (isset($_POST['delete_script'])) {
@@ -115,7 +132,7 @@ $sql_runs = mysqli_query($mysqli,
 ?>
 
 <div class="d-flex align-items-center mb-3">
-    <h4 class="mb-0 mr-auto"><i class="fas fa-code me-2"></i>Script Library</h4>
+    <h4 class="mb-0 mr-auto"><i class="fas fa-code me-2"></i>Scripts</h4>
     <?php if (\ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::canWriteBodies((int) lookupUserPermission('module_rmm_scripts'))): ?>
     <button id="syncScriptsBtn" class="btn btn-info btn-sm me-2 js-sync-scripts">
         <i class="fas fa-cloud-download-alt me-1"></i>Sync from <?= nullable_htmlentities($rmm_default_provider_name) ?>
@@ -128,12 +145,51 @@ $sql_runs = mysqli_query($mysqli,
 <div id="syncBar" class="alert alert-info d-none mb-3">
     <i class="fas fa-spinner fa-spin me-2"></i><span id="syncBarText">Syncing scripts...</span>
 </div>
+<?php
+echo rivetRmmScrTabs('legacy', $mysqli);   // Library | Synced from <provider>: '' when the library is off
+// The hand-made scripts of this list and whether each is already in the library (administrators; the library switch on).
+$legacy_manual = [];
+$legacy_imported = [];
+$legacy_can_import = false;
+if ($scripts_library_on) {
+    $legacy_perm = rivetRmmAutoPerm($mysqli, (int) $session_user_id);
+    $legacy_ctx = ['uid' => (int) $session_user_id, 'name' => (string) $session_name, 'mysqli' => $mysqli, 'perm' => $legacy_perm, 'csrf' => ''];
+    $legacy_manual = rivetRmmScrLegacyManual($legacy_ctx, $mysqli);
+    foreach ($legacy_manual as $lm) {
+        if ($lm['imported_as'] > 0) { $legacy_imported[$lm['id']] = $lm['imported_as']; }
+    }
+    $legacy_todo = array_filter($legacy_manual, static fn (array $m): bool => $m['imported_as'] === 0 && $m['language'] !== null);
+    $legacy_can_import = $legacy_perm['admin'] && \ITFlow\Core\Adapter\Endpoint\ScriptLibraryPolicy::canWriteBodies((int) lookupUserPermission('module_rmm_scripts')) && $legacy_todo !== [];
+}
+if ($legacy_can_import): ?>
+<div class="card card-dark mb-3" id="legacy-import">
+    <div class="card-body py-3">
+        <form method="post" class="row g-2 align-items-end" aria-label="Import into the library">
+            <input type="hidden" name="csrf_token" value="<?= nullable_htmlentities($_SESSION['csrf_token']) ?>">
+            <input type="hidden" name="import_legacy" value="1">
+            <div class="col-lg-6">
+                <strong><i class="fas fa-file-import me-1" aria-hidden="true"></i>Import into the library</strong>
+                <div class="small text-muted"><?= count($legacy_todo) ?> script<?= count($legacy_todo) === 1 ? '' : 's' ?> created here can be copied into the library, where they get signed versions, parameters, schedules and approvals. Scripts already in the library are skipped, and the ones here stay.</div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <label class="form-label small mb-1" for="legacy-import-risk">Risk class</label>
+                <select class="form-select form-select-sm" id="legacy-import-risk" name="risk">
+                    <option value="changes_system" selected>Changes the system</option>
+                    <option value="read_only">Read only</option>
+                    <option value="disruptive">Disruptive (needs approval)</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-lg-3"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-file-import me-1" aria-hidden="true"></i>Import <?= count($legacy_todo) ?></button></div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Category + search filter bar -->
 <div class="card card-dark mb-2">
     <div class="card-body py-2">
         <form method="get" class="d-flex flex-wrap align-items-center" style="gap:6px">
-            <div class="btn-group btn-group-sm me-2">
+            <div class="btn-group btn-group-sm me-2 flex-wrap">
                 <a href="?<?= $filter_q ? 'q='.urlencode($filter_q) : '' ?>"
                    class="btn <?= !$filter_cat ? 'btn-secondary' : 'btn-outline-secondary' ?>">
                     All <span class="badge text-bg-light ms-1"><?= $total_count ?></span>
@@ -170,7 +226,7 @@ $sql_runs = mysqli_query($mysqli,
             <?php endif; ?>
         </div>
         <?php else: ?>
-        <table class="table table-sm table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-hover mb-0">
             <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
                 <tr>
                     <th class="ps-3">Name</th>
@@ -213,6 +269,9 @@ $sql_runs = mysqli_query($mysqli,
                 <td><?= $scr['enabled']
                     ? '<span class="badge text-bg-success">Active</span>'
                     : '<span class="badge text-bg-secondary">Disabled</span>' ?>
+                    <?php if (isset($legacy_imported[$sid])): ?>
+                    <a class="badge text-bg-info text-decoration-none" href="<?= RIVET_RMM_SCR_LIBRARY_PAGE ?>?script_id=<?= (int) $legacy_imported[$sid] ?>" title="This script is in the library">Imported</a>
+                    <?php endif; ?>
                 </td>
                 <td class="text-end pe-2" style="white-space:nowrap">
                     <?php if (lookupUserPermission('module_rmm_scripts') >= 1): ?>
@@ -241,7 +300,7 @@ $sql_runs = mysqli_query($mysqli,
             </tr>
             <?php endwhile; ?>
             </tbody>
-        </table>
+        </table></div>
         <?php endif; ?>
     </div>
 </div>

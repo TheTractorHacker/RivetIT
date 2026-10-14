@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../functions.php';
 
+use ITFlow\Mcp\OAuth\ClientMetadata;
 use ITFlow\Mcp\OAuth\OAuthConfig;
 use ITFlow\Mcp\OAuth\OAuthHttp;
 use ITFlow\Mcp\OAuth\OAuthService;
@@ -63,7 +64,7 @@ button.go{background:var(--accent);color:var(--accent-fg);border-color:var(--acc
 </style>
 CSS;
 
-if (!OAuthHttp::allow('oauth:authorize:ip:' . OAuthHttp::clientIp(), 120, 60)) {
+if (!OAuthHttp::allow('oauth:authorize:ip:' . OAuthHttp::clientNet(), 120, 60)) {
     $render_error('Too many requests. Wait a minute and try again.', 429);
 }
 
@@ -73,12 +74,20 @@ if ($raw === null || strlen($raw) > 16384) {
     $render_error('The request is too large.', 413);
 }
 $params = OAuthService::parseParams($raw);
-$service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
-$request = $service->validateAuthorizationRequest($params);
+// A client_id that is a URL may make this server fetch it (client metadata documents): the fetcher bounds that outbound work.
+$cimd_policy = OAuthConfig::cimd($mysqli);
+$service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url), null,
+    OAuthHttp::limitedFetcher($cimd_policy['mode'] === 'any'));
+try {
+    $request = $service->validateAuthorizationRequest($params);
+} catch (\Throwable $e) {
+    error_log('MCP OAuth authorize failed: ' . $e::class);   // the class only: a driver message can carry SQL
+    $render_error('The server could not check this request. Try again shortly.', 500);
+}
 
 if (!$request['ok']) {
     if (isset($request['fatal'])) {
-        $render_error($request['fatal']);
+        $render_error($request['fatal'], (int) ($request['status'] ?? 400));
     }
     // The client and redirect URI are verified: report the error to the client (RFC 6749 4.1.2.1), with state and iss.
     header('Location: ' . $service->redirectUrl($request['redirect_uri'], ['error' => $request['error'], 'error_description' => $request['description']], $request['state']));
@@ -100,12 +109,17 @@ if ($method === 'POST') {
         $render_error('This page expired. Go back to the application and start the connection again.', 403);
     }
     $decision = $params['values']['decision'] ?? '';
-    if ($decision === 'approve') {
-        $url = $service->approve($request, $user_id);
-    } elseif ($decision === 'deny') {
-        $url = $service->deny($request, $user_id);
-    } else {
-        $render_error('Choose Allow or Deny.');
+    try {
+        if ($decision === 'approve') {
+            $url = $service->approve($request, $user_id);
+        } elseif ($decision === 'deny') {
+            $url = $service->deny($request, $user_id);
+        } else {
+            $render_error('Choose Allow or Deny.');
+        }
+    } catch (\Throwable $e) {
+        error_log('MCP OAuth consent failed: ' . $e::class);
+        $render_error('The server could not record your choice. Nothing was shared. Try again shortly.', 500);
     }
     session_write_close();
     http_response_code(303);
@@ -123,6 +137,10 @@ $access = [
 ];
 $client = $request['client'];
 $host = OAuthService::redirectHost($request['redirect_uri']);
+$cimd = $client['registration_type'] === 'metadata';
+$cimd_authority = $cimd ? (string) (ClientMetadata::checkUrl((string) $client['source_url'])['authority'] ?? '') : '';
+// In "any host" mode a host the administrator did not list is an unverified application; a listed host was vetted by them.
+$cimd_unverified = $cimd && !ClientMetadata::hostListed($cimd_authority, $cimd_policy['hosts']);
 $loopback = (bool) preg_match('/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/', $host);
 $csrf_token = (string) ($_SESSION['csrf_token'] ?? '');
 $user_label = trim((string) ($session_name ?? '')) !== '' ? (string) $session_name : (string) ($session_email ?? 'you');
@@ -142,9 +160,18 @@ header('Content-Type: text/html; charset=utf-8');
 <main class="card">
     <h1>Allow &ldquo;<?= $h($client['client_name']) ?>&rdquo; to read <?= $h($app_name) ?>?</h1>
     <p>Signed in as <span class="who"><?= $h($user_label) ?></span>.</p>
+    <?php if ($cimd) { ?>
+        <p><strong>Requested by <?= $h($cimd_authority) ?></strong></p>
+        <?php if ($cimd_unverified) { ?>
+            <div class="warn"><strong>Unverified application.</strong> Your administrator allows any website to identify an application, and has not vetted <?= $h($cimd_authority) ?>. Only continue if you started this connection yourself and recognise that address.</div>
+        <?php } ?>
+        <p class="muted">The application calls itself &ldquo;<?= $h($client['client_name']) ?>&rdquo;; <?= $h($app_name) ?> cannot verify that name. What you can rely on is the address above: the application published its details there.
+            After you decide, your browser goes back to <strong><?= $h($host) ?></strong>.</p>
+    <?php } else { ?>
     <p class="muted">The application calls itself &ldquo;<?= $h($client['client_name']) ?>&rdquo;; <?= $h($app_name) ?> cannot verify that name.
         <?= $client['registration_type'] === 'manual' ? 'An administrator added this application.' : 'It registered itself on ' . $h(substr((string) $client['created_at'], 0, 10)) . '.' ?>
         After you decide, your browser goes back to <strong><?= $h($host) ?></strong>.</p>
+    <?php } ?>
     <?php if ($loopback) { ?>
         <div class="warn">That address is on <strong>this computer</strong> (a desktop or command-line tool). Only continue if you just started that tool yourself.</div>
     <?php } ?>

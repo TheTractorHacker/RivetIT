@@ -111,3 +111,24 @@ for ($run = 1; $run <= 2; $run++) {
     }
 }
 $q("DELETE FROM ticket_view_defaults");
+
+// ---- DB 2.6.167 (OAuth client metadata documents): one new table, idempotent, equal to db.sql, data kept on replay
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.167', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.167 (' . LATEST_DATABASE_VERSION . ')');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.166') {") !== false && strpos($upd, "'2.6.167'") !== false && substr_count($upd, 'CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents`') === 1, 'the 2.6.167 step is gated on 2.6.166 and its CREATE is IF NOT EXISTS');
+$cdCols = fn () => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='mcp_oauth_client_documents' ORDER BY ordinal_position"), 'column_name');
+preg_match('/CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $cm);
+preg_match_all('/^  `([a-z_0-9]+)` /m', $cm[1] ?? '', $cSql);
+$ok(($cSql[1] ?? []) !== [] && $cSql[1] === $cdCols(), 'db.sql and the migrated schema agree on the columns of mcp_oauth_client_documents');
+$q("DELETE FROM mcp_oauth_client_documents"); $q("INSERT INTO mcp_oauth_client_documents SET client_id='cimd_replaytest', source_url='https://example.com/c/x', document='{}', fetched_at=NOW(), expires_at=NOW()");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) { $q('DROP TABLE mcp_oauth_client_documents'); }
+    $q("UPDATE settings SET config_current_database_version='2.6.166' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.167 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((int) $one("SELECT COUNT(*) FROM mcp_oauth_client_documents WHERE client_id='cimd_replaytest'") === 1, 'replay 1: the existing document row is kept');
+    } else {
+        $ok($cdCols() === $cSql[1] && (int) $one("SELECT COUNT(*) FROM mcp_oauth_client_documents") === 0, 'replay 2: the missing table is created again with the db.sql columns');
+    }
+}
+$q("DELETE FROM mcp_oauth_client_documents");

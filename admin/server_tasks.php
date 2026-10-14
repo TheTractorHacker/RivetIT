@@ -2,9 +2,13 @@
 require_once "includes/inc_all_admin.php";
 
 use ITFlow\Ops\ServerStatus;
+use ITFlow\Ops\WebRouteCheck;
 
-$status_service = new ServerStatus($mysqli, realpath(__DIR__ . '/..'), function_exists('getRedisClient') ? getRedisClient() : null);
-$groups = $status_service->run();
+$app_root = realpath(__DIR__ . '/..');
+// The route self-check asks this site's own public address a few questions; cached for a few minutes, never blocks the page for long.
+$web_routes = WebRouteCheck::forApp($app_root, (string) ($config_base_url ?? ''), $mysqli);
+$status_service = new ServerStatus($mysqli, $app_root, function_exists('getRedisClient') ? getRedisClient() : null, '/usr/local/sbin/rivetit-cron-schedule', null, '/etc/rivetit', $web_routes);
+$groups = $status_service->run(isset($_GET['recheck']));
 $sum = ServerStatus::summarize($groups);
 $tasks = $status_service->rootTasks();
 $badge = ['ok' => 'success', 'warn' => 'warning', 'fail' => 'danger'];
@@ -17,7 +21,7 @@ $overall = $sum['fail'] ? ['Needs attention', 'danger'] : ($sum['warn'] ? ['Most
         <span class="badge bg-<?= $overall[1] ?> fs-6"><?= $overall[0] ?></span>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-2">Everything that used to need a terminal to check, in one place. <?= (int) $sum['ok'] ?> OK, <?= (int) $sum['warn'] ?> to review, <?= (int) $sum['fail'] ?> failing. Reload the page to check again.</p>
+        <p class="text-muted mb-2">Everything that used to need a terminal to check, in one place. <?= (int) $sum['ok'] ?> OK, <?= (int) $sum['warn'] ?> to review, <?= (int) $sum['fail'] ?> failing. Reload the page to check again (the web server route check is cached for a few minutes; <a href="?recheck=1">check it now</a>).</p>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-sm btn-outline-secondary" href="/admin/update.php"><i class="fas fa-download me-1"></i>Update</a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/backup.php"><i class="fas fa-cloud-upload-alt me-1"></i>Backups</a>

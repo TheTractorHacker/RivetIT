@@ -15,7 +15,7 @@ if (!preg_match('/scratch|test/i', (string) getenv('RIVETIT_TEST_DB_NAME'))) { f
 require_once __DIR__ . '/../vendor/autoload.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$mysqli = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME'));
+$mysqli = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER'), getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME'), null, getenv('RIVETIT_TEST_DB_SOCKET') ?: null);
 
 /** config.php must point at the same scratch database the test seeds: the server child reads it. */
 function oa_config(): array
@@ -249,7 +249,7 @@ function oa_seed_user(mysqli $db, int $id, string $name, string $email, string $
 
 function oa_clean(mysqli $db): void
 {
-    foreach (['mcp_oauth_tokens', 'mcp_oauth_grants', 'mcp_oauth_codes', 'mcp_oauth_clients'] as $t) { $db->query("DELETE FROM $t"); }
+    foreach (['mcp_oauth_tokens', 'mcp_oauth_grants', 'mcp_oauth_codes', 'mcp_oauth_client_documents', 'mcp_oauth_clients'] as $t) { $db->query("DELETE FROM $t"); }
     $db->query("DELETE FROM audit_events WHERE event_type LIKE 'mcp.oauth_%'");
 }
 

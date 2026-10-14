@@ -25,7 +25,7 @@ use RivetCore\Rmm\Http\RmmRequest;
 /** Which sub-switch each page needs, the plain-language name used in the "switched off" notice, and the Administration anchor. */
 const RIVET_RMM_AUTO_FEATURES = [
     'policies' => 'Policies',
-    'scripts' => 'The script library, schedules and approvals',
+    'scripts' => 'Scripts, schedules and approvals',
     'alerting' => 'Alerting',
 ];
 

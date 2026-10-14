@@ -98,6 +98,47 @@ if (isset($_POST['save_mcp_oauth_settings'])) {
     redirect();
 }
 
+if (isset($_POST['trust_claude_cimd']) || isset($_POST['save_mcp_cimd_mode']) || isset($_POST['add_mcp_cimd_host']) || isset($_POST['remove_mcp_cimd_host'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    if (!OAuthConfig::load($mysqli)['schema_ready']) {
+        flash_alert('Run the database update first.', 'error');
+        redirect();
+    }
+    $cimd = OAuthConfig::cimd($mysqli);
+    $mode = $cimd['mode'];
+    $hosts = $cimd['hosts'];
+    $what = '';
+    if (isset($_POST['trust_claude_cimd'])) {
+        $mode = 'hosts';
+        $hosts = array_values(array_unique(array_merge($hosts, ['claude.ai'])));
+        $what = 'trusted claude.ai';
+    } elseif (isset($_POST['save_mcp_cimd_mode'])) {
+        $mode = in_array($_POST['cimd_mode'] ?? '', OAuthConfig::CIMD_MODES, true) ? $_POST['cimd_mode'] : $mode;
+        $what = 'set the mode to ' . $mode;
+    } elseif (isset($_POST['add_mcp_cimd_host'])) {
+        $host = OAuthConfig::normalizeHost((string) ($_POST['cimd_host'] ?? ''));
+        if ($host === null) {
+            flash_alert('Enter a host name such as example.com (no https:// and no path).', 'error');
+            redirect();
+        }
+        $hosts = array_values(array_unique(array_merge($hosts, [$host])));
+        $what = 'added host ' . $host;
+    } else {
+        $host = OAuthConfig::normalizeHost((string) ($_POST['cimd_host'] ?? ''));
+        $hosts = array_values(array_filter($hosts, static fn ($h) => $h !== $host));
+        $what = 'removed host ' . (string) $host;
+    }
+    if (strlen(implode(',', $hosts)) > 250) {
+        flash_alert('That is too many hosts. Remove one first.', 'error');
+        redirect();
+    }
+    OAuthConfig::setCimd($mysqli, $mode, $hosts);
+    logAction('Settings', 'Edit', "$session_name changed Remote MCP client metadata documents ($what)");
+    AuditService::record('mcp.oauth_settings_changed', (int) $session_user_id, 'settings', 'mcp_oauth', 'update', 'Remote MCP client metadata document policy changed: ' . $what, ['cimd_mode' => $mode, 'cimd_hosts' => $hosts]);
+    flash_alert('Client metadata document settings saved.');
+    redirect();
+}
+
 if (isset($_POST['add_mcp_oauth_client'])) {
     validateCSRFToken($_POST['csrf_token']);
     $uris = preg_split('/\R/', (string) ($_POST['redirect_uris'] ?? '')) ?: [];
@@ -131,11 +172,28 @@ if (isset($_POST['delete_mcp_oauth_client'])) {
     $store = new \ITFlow\Mcp\OAuth\OAuthStore($mysqli);
     $client = $store->client((string) ($_POST['client_id'] ?? ''));
     if ($client) {
+        // Read now, at the moment of deleting, not when the page was drawn: connections may have appeared since.
+        $usage = $store->clientUsage($client['client_id']);
+        if ($usage['active_grants'] > 0 && ($_POST['confirm_active_connections'] ?? '') !== '1') {
+            flash_alert('Not deleted: this app has ' . $usage['active_grants'] . ' active connection(s) for ' . $usage['active_users'] . ' person(s). Tick the box to confirm that they should all stop working, or use Disable to keep the app and block it.', 'error');
+            redirect();
+        }
         $store->deleteClient($client['client_id']);
         logAction('Settings', 'Delete', "$session_name deleted a Remote MCP app");
-        AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'delete', 'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" deleted with all its connections');
-        flash_alert('App deleted.');
+        AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', $client['client_id'], 'delete',
+            'MCP app "' . mb_substr($client['client_name'], 0, 60) . '" deleted with all its connections',
+            ['active_connections' => $usage['active_grants'], 'people' => $usage['active_users']]);
+        flash_alert('App deleted.' . ($usage['active_grants'] > 0 ? ' ' . $usage['active_grants'] . ' connection(s) ended.' : ''));
     }
+    redirect();
+}
+
+if (isset($_POST['delete_unused_mcp_oauth_duplicates'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $n = (new \ITFlow\Mcp\OAuth\OAuthStore($mysqli))->deleteUnusedDuplicates();
+    logAction('Settings', 'Delete', "$session_name deleted $n unused duplicate Remote MCP app(s)");
+    AuditService::record('mcp.oauth_client_deleted', (int) $session_user_id, 'mcp_oauth_client', 'duplicates', 'delete', "Deleted $n unused duplicate MCP app(s) (no connection, never used)", ['count' => $n]);
+    flash_alert($n > 0 ? "Deleted $n unused duplicate app(s). Apps with a connection, or that were ever used, were not touched." : 'No unused duplicates to delete.');
     redirect();
 }
 

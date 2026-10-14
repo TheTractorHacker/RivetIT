@@ -5,6 +5,7 @@ use ITFlow\Mcp\McpConfig;
 use ITFlow\Mcp\McpIdentityLinks;
 use ITFlow\Mcp\OAuth\OAuthConfig;
 use ITFlow\Mcp\OAuth\OAuthStore;
+use ITFlow\Ops\WebRouteCheck;
 
 $mcp = McpConfig::load($mysqli);
 $mcp_url = 'https://' . $config_base_url . '/mcp';
@@ -12,9 +13,35 @@ $tables_ready = false;
 try { $tables_ready = (bool) $mysqli->query("SHOW TABLES LIKE 'mcp_unlinked_identities'")->fetch_row(); } catch (Throwable $e) {}
 
 $oauth = OAuthConfig::load($mysqli);   // the built-in OAuth server (RivetIT as its own authorization server)
+$cimd = OAuthConfig::cimd($mysqli);    // trust policy for client metadata documents
 $oauth_clients = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->clients() : [];
+$unused_duplicates = 0;   // surplus unused self-registered copies: what "Delete unused duplicates" would remove
+$seen_dup_groups = [];
+foreach ($oauth_clients as $c0) {
+    if ($c0['duplicates'] > 0 && $c0['registration_type'] === 'dynamic') {
+        $seen_dup_groups[$c0['duplicate_key']]['n'] = ($seen_dup_groups[$c0['duplicate_key']]['n'] ?? 0) + 1;
+        $unusedCopy = (int) $c0['total_grants'] === 0 && $c0['last_used_at'] === null && $c0['disabled_at'] === null;
+        $seen_dup_groups[$c0['duplicate_key']]['unused'] = ($seen_dup_groups[$c0['duplicate_key']]['unused'] ?? 0) + ($unusedCopy ? 1 : 0);
+    }
+}
+foreach ($seen_dup_groups as $g0) {
+    $unused_duplicates += $g0['unused'] - ($g0['unused'] === $g0['n'] ? 1 : 0);
+}
 $oauth_grants = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->activeGrants() : [];
 $as_metadata_url = 'https://' . $config_base_url . '/.well-known/oauth-authorization-server';
+
+// Built-in sign-in needs the web server to answer the authorization-server metadata URL; when it does not (an old nginx vhost without
+// the route), Claude cannot connect. Cached for a few minutes; the check never raises and stays silent when it cannot judge.
+$route_banner = null;
+if ($oauth['schema_ready'] && $oauth['active']) {
+    $route_check = WebRouteCheck::forApp(realpath(__DIR__ . '/..'), (string) $config_base_url, $mysqli);
+    $route_result = $route_check->run(false, ['mcp', 'mcp_resource_metadata', 'mcp_authserver_metadata']);
+    foreach ($route_result['missing'] as $route_missing) {
+        if ($route_missing['id'] === 'mcp_authserver_metadata') {
+            $route_banner = $route_check->command();
+        }
+    }
+}
 
 $mcp_state = !$mcp['schema_ready'] || !$tables_ready || !$oauth['schema_ready'] ? ['Update needed', 'warning']
     : (!$mcp['enabled'] ? ['Off', 'secondary']
@@ -42,6 +69,15 @@ $csrf = $_SESSION['csrf_token'];
         <?php if (!$mcp['schema_ready'] || !$tables_ready || !$oauth['schema_ready']) { ?>
             <div class="alert alert-warning mb-0">Run the database update first (Administration &rarr; Updates), then reload this page.</div>
         <?php } else { ?>
+
+        <?php if ($route_banner !== null) { ?>
+            <div class="alert alert-danger">
+                <strong>Built-in sign-in is on, but the web server does not answer <code><?= nullable_htmlentities($as_metadata_url) ?></code>.</strong>
+                Claude and other MCP apps cannot connect until it does: the web server is missing a route. On the server, as root, run:
+                <pre class="border rounded p-2 small mt-2 mb-0" style="white-space:pre-wrap"><?= nullable_htmlentities($route_banner) ?></pre>
+                <span class="small">It backs up the nginx files it changes, tests the result, reloads only if the test passes and puts everything back otherwise. See Administration &rarr; Server status.</span>
+            </div>
+        <?php } ?>
 
         <?php if ($mcp['killed']) { ?>
             <div class="alert alert-danger">The server has <code>RIVETIT_MCP_ENABLED=0</code> set, which keeps Remote MCP off whatever this page says.</div>
@@ -101,7 +137,7 @@ $csrf = $_SESSION['csrf_token'];
             </div>
             <div class="form-check form-switch mb-3">
                 <input type="checkbox" class="form-check-input" id="mcp_oauth_registration" name="mcp_oauth_registration" value="1" <?= $oauth['registration'] ? 'checked' : '' ?>>
-                <label class="form-check-label" for="mcp_oauth_registration">Let MCP apps register themselves (Claude needs this). Off: you add each app below and give it its client ID.</label>
+                <label class="form-check-label" for="mcp_oauth_registration">Let MCP apps register themselves. Off (recommended): you add each app below and give it its client ID, or let Claude identify itself with its published document (below). Switching this off only stops <em>new</em> registrations; apps already registered, and their connections, keep working.</label>
             </div>
             <button type="submit" name="save_mcp_oauth_settings" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save</button>
         </form>
@@ -131,10 +167,10 @@ $csrf = $_SESSION['csrf_token'];
                 <?php foreach ($oauth_grants as $g) { ?>
                     <tr>
                         <td><strong><?= nullable_htmlentities($g['user_name'] ?? 'Removed user') ?></strong><div class="text-muted small"><?= nullable_htmlentities($g['user_email'] ?? '') ?></div></td>
-                        <td><?= nullable_htmlentities($g['client_name']) ?><div class="text-muted small"><code><?= nullable_htmlentities($g['scope']) ?></code></div></td>
-                        <td class="small text-nowrap"><?= nullable_htmlentities($g['created_at']) ?></td>
-                        <td class="small text-nowrap"><?= $g['last_used_at'] ? timeAgo($g['last_used_at']) : 'Never' ?></td>
-                        <td class="small text-nowrap"><?= nullable_htmlentities(substr((string) $g['expires_at'], 0, 10)) ?></td>
+                        <td><?= nullable_htmlentities($g['client_name']) ?><?php if ($g['registration_type'] === 'metadata' && $g['source_url']) { ?> <span class="badge bg-secondary">from <?= nullable_htmlentities(parse_url((string) $g['source_url'], PHP_URL_HOST) ?: '') ?></span><?php } ?><div class="text-muted small"><code><?= nullable_htmlentities($g['scope']) ?></code></div></td>
+                        <td class="small text-nowrap"><?= nullable_htmlentities(OAuthConfig::localTime($g['created_at'])) ?></td>
+                        <td class="small text-nowrap"><?= $g['last_used_at'] ? timeAgo(OAuthConfig::localTime($g['last_used_at'])) : 'Never' ?></td>
+                        <td class="small text-nowrap"><?= nullable_htmlentities(substr((string) OAuthConfig::localTime($g['expires_at']), 0, 10)) ?></td>
                         <td class="text-end">
                             <form action="post.php" method="post" data-confirm-submit="Revoke this connection? The app loses access immediately.">
                                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
@@ -146,6 +182,46 @@ $csrf = $_SESSION['csrf_token'];
                 <?php } ?>
                 </tbody></table></div>
         <?php } ?>
+    </div>
+</div>
+
+<div class="card mb-3" id="client-metadata">
+    <div class="card-header py-3 d-flex align-items-center justify-content-between">
+        <h4 class="card-title mb-0"><i class="fas fa-fw fa-id-card me-2"></i>Client ID Metadata Documents</h4>
+        <span class="badge bg-<?= $cimd['mode'] === 'off' ? 'secondary' : ($cimd['mode'] === 'any' ? 'warning text-dark' : 'success') ?>"><?= $cimd['mode'] === 'off' ? 'Off' : ($cimd['mode'] === 'any' ? 'Any website' : 'Listed hosts') ?></span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Lets an application identify itself with the address of a metadata document it publishes, instead of registering itself first. Claude does this: its published identity is <code>https://claude.ai/oauth/mcp-oauth-client-metadata</code>, so people see that the request really comes from claude.ai. RivetIT fetches the document itself (https only, public addresses only, no redirects, 64 KB, 5 seconds) and shows the document's host, not its self-chosen name, on the approval screen. See docs/REMOTE_MCP.md.</p>
+        <form action="post.php" method="post" class="mb-3">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <button type="submit" name="trust_claude_cimd" class="btn btn-outline-success"><i class="fa fa-check me-2"></i>Trust Claude (claude.ai)</button>
+            <span class="form-text ms-2">Allows only hosts in the list below, and adds claude.ai to it.</span>
+        </form>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_off" value="off" <?= $cimd['mode'] === 'off' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_off">Off (default): applications must register themselves or be added by you</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_hosts" value="hosts" <?= $cimd['mode'] === 'hosts' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_hosts">Only the hosts listed below</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_any" value="any" <?= $cimd['mode'] === 'any' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_any">Any https website</label></div>
+            <div class="alert alert-warning py-2 mt-2">&ldquo;Any https website&rdquo; lets anyone on the internet create an application entry here, by pointing a sign-in link at a page they control. People still have to sign in and approve, and the approval screen shows an &ldquo;unverified application&rdquo; notice for hosts not in the list, but the name an application gives itself is whatever its author chose. Prefer the listed hosts.</div>
+            <button type="submit" name="save_mcp_cimd_mode" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save</button>
+        </form>
+        <hr>
+        <h5 class="mb-2">Trusted hosts</h5>
+        <?php if (!$cimd['hosts']) { ?><p class="text-muted">No hosts listed, so &ldquo;Only the hosts listed&rdquo; allows nothing.</p><?php } ?>
+        <?php foreach ($cimd['hosts'] as $cimd_host) { ?>
+            <form action="post.php" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                <input type="hidden" name="cimd_host" value="<?= nullable_htmlentities($cimd_host) ?>">
+                <span class="badge bg-light text-dark border fs-6"><?= nullable_htmlentities($cimd_host) ?></span>
+                <button type="submit" name="remove_mcp_cimd_host" class="btn btn-sm btn-outline-danger ms-1" aria-label="Remove <?= nullable_htmlentities($cimd_host) ?>"><i class="fa fa-times"></i></button>
+            </form>
+        <?php } ?>
+        <form action="post.php" method="post" class="row g-2 mt-1" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-auto"><input type="text" class="form-control" name="cimd_host" maxlength="100" placeholder="example.com" aria-label="Host to trust" required></div>
+            <div class="col-auto"><button type="submit" name="add_mcp_cimd_host" class="btn btn-outline-primary"><i class="fa fa-plus me-2"></i>Add host</button></div>
+        </form>
+        <div class="form-text">A host name, optionally with a port (a different port is a different host). Turning this off or removing a host takes effect at once, everywhere: the apps that identified themselves from that host cannot sign in again, cannot refresh, and their existing connections stop working on the very next request (nothing waits for an access token to run out). The connections stay listed and work again if you trust the host again. To end one for good, Revoke the connection.</div>
     </div>
 </div>
 
@@ -161,28 +237,53 @@ $csrf = $_SESSION['csrf_token'];
                 <?php foreach ($oauth_clients as $c) { ?>
                     <tr>
                         <td><strong><?= nullable_htmlentities($c['client_name']) ?></strong>
-                            <span class="badge bg-<?= $c['registration_type'] === 'manual' ? 'info' : 'secondary' ?> ms-1"><?= $c['registration_type'] === 'manual' ? 'Added by you' : 'Registered itself' ?></span>
+                            <span class="badge bg-<?= $c['registration_type'] === 'manual' ? 'info' : ($c['registration_type'] === 'metadata' ? 'primary' : 'secondary') ?> ms-1"><?= $c['registration_type'] === 'manual' ? 'Added by you' : ($c['registration_type'] === 'metadata' ? 'Metadata document' : 'Registered itself') ?></span>
                             <?php if ($c['disabled_at']) { ?><span class="badge bg-danger ms-1">Disabled</span><?php } ?>
+                            <?php if ($c['duplicates'] > 0) { ?><span class="badge bg-warning text-dark ms-1" title="Same name and return addresses as <?= (int) $c['duplicates'] ?> other app(s)"><?= (int) $c['duplicates'] ?> duplicate<?= $c['duplicates'] > 1 ? 's' : '' ?></span><?php } ?>
+                            <?php if ($c['registration_type'] === 'metadata') { ?>
+                                <div class="small text-break">Source: <code><?= nullable_htmlentities($c['source_url'] ?? '(removed)') ?></code></div>
+                                <div class="text-muted small">First seen <?= nullable_htmlentities(OAuthConfig::localTime($c['first_seen_at'] ?? $c['created_at'])) ?>; fetched <?= $c['fetched_at'] ? timeAgo(OAuthConfig::localTime($c['fetched_at'])) : 'never' ?>;
+                                    <?= !empty($c['document_fresh']) ? 'cached until ' . nullable_htmlentities(OAuthConfig::localTime($c['document_expires_at'])) : 'cache expired (fetched again on next use)' ?></div>
+                                <?php if (!empty($c['last_error'])) { ?><div class="small text-danger">Last problem: <?= nullable_htmlentities($c['last_error']) ?> (<?= nullable_htmlentities(OAuthConfig::localTime($c['last_error_at'])) ?>)</div><?php } ?>
+                            <?php } else { ?>
                             <div class="text-muted small text-break"><code><?= nullable_htmlentities($c['client_id']) ?></code></div>
-                            <div class="text-muted small"><?= (int) $c['active_grants'] ?> active connection(s)</div></td>
+                            <?php } ?>
+                            <div class="small <?= (int) $c['active_grants'] > 0 ? 'fw-semibold' : 'text-muted' ?>"><?= (int) $c['active_grants'] ?> active connection(s) for <?= (int) $c['active_users'] ?> person(s)</div></td>
                         <td class="small text-break"><?php foreach ($c['redirect_uris'] as $u) { ?><div><?= nullable_htmlentities($u) ?></div><?php } ?></td>
-                        <td class="small text-nowrap"><?= nullable_htmlentities($c['created_at']) ?></td>
-                        <td class="small text-nowrap"><?= $c['last_used_at'] ? timeAgo($c['last_used_at']) : 'Never' ?></td>
+                        <td class="small text-nowrap"><?= nullable_htmlentities(OAuthConfig::localTime($c['created_at'])) ?></td>
+                        <td class="small text-nowrap"><?= $c['last_activity_at'] ? timeAgo(OAuthConfig::localTime($c['last_activity_at'])) : 'Never' ?></td>
                         <td class="text-end text-nowrap">
                             <form action="post.php" method="post" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                                 <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
                                 <button type="submit" name="toggle_mcp_oauth_client" class="btn btn-sm btn-outline-secondary"><?= $c['disabled_at'] ? 'Enable' : 'Disable' ?></button>
                             </form>
-                            <form action="post.php" method="post" class="d-inline" data-confirm-submit="Delete this app and end every connection it has?">
-                                <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-                                <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
-                                <button type="submit" name="delete_mcp_oauth_client" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
+                            <?php if ((int) $c['active_grants'] > 0) { ?>
+                                <form action="post.php" method="post" class="d-inline-block text-start" style="max-width:15rem">
+                                    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                                    <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
+                                    <div class="form-check small"><input class="form-check-input" type="checkbox" name="confirm_active_connections" value="1" id="del_<?= nullable_htmlentities(substr($c['client_id'], 0, 20)) ?>" required>
+                                        <label class="form-check-label" for="del_<?= nullable_htmlentities(substr($c['client_id'], 0, 20)) ?>">End <?= (int) $c['active_grants'] ?> active connection(s) of <?= (int) $c['active_users'] ?> person(s), last used <?= $c['last_activity_at'] ? nullable_htmlentities(timeAgo(OAuthConfig::localTime($c['last_activity_at']))) : 'never' ?></label></div>
+                                    <button type="submit" name="delete_mcp_oauth_client" class="btn btn-sm btn-outline-danger mt-1">Delete</button>
+                                </form>
+                            <?php } else { ?>
+                                <form action="post.php" method="post" class="d-inline" data-confirm-submit="Delete this app? It has no active connections (last used: <?= $c['last_activity_at'] ? nullable_htmlentities(timeAgo(OAuthConfig::localTime($c['last_activity_at']))) : 'never' ?>).<?= $c['registration_type'] === 'metadata' ? ' It can appear again the next time it connects while its host is trusted; use Disable to block it for good.' : '' ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                                    <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
+                                    <button type="submit" name="delete_mcp_oauth_client" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                            <?php } ?>
                         </td>
                     </tr>
                 <?php } ?>
                 </tbody></table></div>
+            <?php if ($unused_duplicates > 0) { ?>
+                <form action="post.php" method="post" class="mb-4" data-confirm-submit="Delete <?= (int) $unused_duplicates ?> unused duplicate app(s)? Only copies with no connection that were never used are removed; one copy of each app always stays.">
+                    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                    <button type="submit" name="delete_unused_mcp_oauth_duplicates" class="btn btn-outline-warning"><i class="fa fa-broom me-2"></i>Delete <?= (int) $unused_duplicates ?> unused duplicate(s)</button>
+                    <span class="form-text ms-2">Apps with a connection, or that were ever used, are never touched.</span>
+                </form>
+            <?php } ?>
         <?php } ?>
         <h5 class="mb-2">Add an app yourself</h5>
         <form action="post.php" method="post" autocomplete="off">

@@ -2160,6 +2160,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
+    <?php require __DIR__ . '/includes/mdm_settings_panel.php'; ?>
+
 </div><!-- /#tab-devicesync -->
 
 </div><!-- /.tab-content -->

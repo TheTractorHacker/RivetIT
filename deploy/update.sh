@@ -85,7 +85,8 @@ Options:
 Steps performed, in order: pre-update backup (or confirmed skip) -> git
 pull via scripts/update_cli.php --update (run as that file's owner) ->
 composer install (if composer.json exists) -> database migrations via
-scripts/update_cli.php --update_db -> php-fpm reload (auto-detected).
+scripts/update_cli.php --update_db -> php-fpm reload (auto-detected) -> web server
+routes (deploy/apply-web-routes.sh: backup, nginx -t, reload only if it passes).
 EOF
 }
 
@@ -247,6 +248,40 @@ reload_php_fpm() {
     success "${php_fpm_svc} reloaded."
 }
 
+# apply_web_routes(): a release can need a new nginx route (Remote MCP sign-in, kiosk links, ...). The routes live in one shared file
+# that deploy/apply-web-routes.sh keeps current (backup, nginx -t, reload only if it passes, automatic rollback), so an update never
+# leaves a server missing a route. Never fatal: if it cannot run or the site needs a manual step, say so and print the exact command.
+apply_web_routes() {
+    local script="${APP_DIR}/deploy/apply-web-routes.sh" domain cmd rc=0
+    domain="$(sed -n "s/^\\\$config_base_url = ['\"]\\([^'\"]*\\)['\"];.*/\\1/p" "${APP_DIR}/config.php" 2>/dev/null | head -n1)"
+    domain="${domain%%:*}"
+    if ! command_exists nginx || [[ ! -d /etc/nginx/sites-enabled ]]; then
+        info "Web server routes: nginx is not managed here (Docker/Apache install?); skipping."
+        return 0
+    fi
+    if [[ ! -f "${script}" ]]; then
+        info "Web server routes: this release has no deploy/apply-web-routes.sh; skipping."
+        return 0
+    fi
+    if [[ -z "${domain}" || ! "${domain}" =~ ^[A-Za-z0-9.-]+$ ]]; then
+        warn "Web server routes: could not read this site's domain from ${APP_DIR}/config.php. Run when ready: sudo ${script} --domain <your domain>"
+        return 0
+    fi
+    cmd="sudo ${script} --domain ${domain}"
+    if [[ "${EUID}" -ne 0 ]]; then
+        warn "Web server routes: not running as root, so they were not checked. Run: ${cmd}"
+        return 0
+    fi
+    announce "Bringing the web server routes up to date (deploy/apply-web-routes.sh)."
+    "${script}" --domain "${domain}" || rc=$?
+    case "${rc}" in
+        0) success "Web server routes are current." ;;
+        3) warn "Web server routes: the site's nginx file needs a manual change (steps printed above). Re-check with: ${cmd} --check" ;;
+        *) warn "Web server routes could NOT be applied automatically (exit ${rc}; nothing was left half-changed). The update itself is complete. Look at the message above, then run: ${cmd} --dry-run" ;;
+    esac
+    return 0
+}
+
 main() {
     parse_args "$@"
     require_root "$@"
@@ -270,6 +305,7 @@ main() {
     # Existing installs gain the dedicated Redis instance on their next update (idempotent, never fatal).
     ensure_rivetit_redis "${SCRIPT_DIR}/templates"
     reload_php_fpm
+    apply_web_routes
 
     success "=== Update complete for ${APP_DIR} ==="
 }

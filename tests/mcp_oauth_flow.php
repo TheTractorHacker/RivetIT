@@ -420,7 +420,7 @@ echo "== rate limit on registration ==\n";
 $clearLimits();
 $q("DELETE FROM mcp_oauth_clients WHERE created_ip = '127.0.0.1'");
 $codes = [];
-for ($i = 0; $i < 13; $i++) { $codes[] = oa_register()[0]['code']; }
+for ($i = 0; $i < 13; $i++) { $codes[] = oa_register(["client_name" => "Test Client $i"])[0]["code"]; }   // distinct names: an identical re-registration is deduplicated, not counted
 $ok(array_slice($codes, 0, 10) === array_fill(0, 10, 201) && $codes[10] === 429, 'the 11th registration from one address within an hour is 429');
 $clearLimits();
 $q("DELETE FROM mcp_oauth_clients WHERE created_ip = '127.0.0.1'");

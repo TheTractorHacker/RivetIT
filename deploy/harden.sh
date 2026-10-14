@@ -578,6 +578,15 @@ EOF
 
     VHOST_DEST=""
     if [[ -n "$DOMAIN" ]]; then
+        # The rendered vhost below pulls ALL its locations in from one shared file (see docs/WEB_ROUTES.md); it must exist before
+        # `nginx -t`, and is the same file deploy/apply-web-routes.sh keeps current for every vhost on the box.
+        ROUTES_DEST="/etc/nginx/snippets/rivetit-locations.conf"
+        if [[ ! -f "$ROUTES_DEST" ]] || ! cmp -s "${TEMPLATES_DIR}/rivetit-locations.conf" "$ROUTES_DEST"; then
+            deploy_file "${TEMPLATES_DIR}/rivetit-locations.conf" "$ROUTES_DEST" 0644
+            NGINX_CHANGED=true
+        else
+            log "Already up to date: $ROUTES_DEST"
+        fi
         PHP_SOCK_FOR_VHOST="$PHP_SOCK"
         VHOST_DEST="/etc/nginx/sites-available/${DOMAIN}.conf"
         VHOST_TMP="$(mktemp)"
