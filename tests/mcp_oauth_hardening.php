@@ -390,4 +390,18 @@ unlink($sdir);
 @rmdir($decoy);
 $ok($mcpCode($sTok)['code'] === 200 && (fileperms($sdir) & 0777) === 0700, 'with no directory in the way, it is created private and used');
 
+echo "== 9. a session id is not an identity ==\n";
+$mk('rvtc_sessclient02', 'Sess2', ['http://127.0.0.1:8765/callback'], 'dynamic', 0);
+$a = $connect('rvtc_sessclient02', 'http://127.0.0.1:8765/callback', $alice);
+$t = $connect('rvtc_sessclient02', 'http://127.0.0.1:8765/callback', $tom);
+$aTok = $a['tok']['json']['access_token'] ?? '';
+$tTok = $t['tok']['json']['access_token'] ?? '';
+[$aSession] = oa_mcp_open($aTok);
+$mineA = oa_tool($aTok, $aSession, 'rivetit_my_profile');
+$mineT = oa_tool($tTok, $aSession, 'rivetit_my_profile');   // Tom's token on Alice's protocol session id
+$ok(($mineA['data']['id'] ?? null) === 9101, 'precondition: Alice\'s session answers as Alice');
+$ok(($mineT['data']['id'] ?? null) === 9102, 'Tom\'s token sent with Alice\'s session id still answers as Tom: identity comes from the bearer token on every request, never from the session');
+$ok(oa_mcp($tTok, 'tools/list', [], '00000000-0000-4000-8000-000000000000')['code'] >= 400, 'an unknown (guessed) session id is refused');
+$ok(oa_mcp(null, 'tools/list', [], $aSession)['code'] === 401, 'a valid session id without a token is refused');
+
 oa_finish();
