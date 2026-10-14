@@ -8,7 +8,7 @@ continues unchanged.
 
 ### ManageEngine MDM settings on the Integrations page
 
-- **Integrations > Device Sync** now has the full ManageEngine MDM connection form (data center, client ID/secret, refresh token, sync options, Save / Test connection / Sync now) and the recent-syncs list, directly under Intune. The form is one shared panel (`admin/includes/mdm_settings_panel.php`) used by both this tab and Settings > Connections & data > ManageEngine MDM; saves from the Integrations page are routed by `admin/post/settings_integrations.php`.
+- **Integrations > Device Sync** now has the full ManageEngine MDM connection form (data center, client ID/secret, refresh token, sync options, Save / Test connection / Sync now) and the recent-syncs list, directly under Intune. It is no longer listed under Settings > Connections & data; the old page address redirects to the Device Sync tab, and the settings search points there. The form is one shared panel (`admin/includes/mdm_settings_panel.php`) used by both this tab and Settings > Connections & data > ManageEngine MDM; saves from the Integrations page are routed by `admin/post/settings_integrations.php`.
 
 ### Remote MCP: metadata-document fetch prefers IPv4
 

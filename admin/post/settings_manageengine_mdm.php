@@ -3,7 +3,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 /*
  * ManageEngine Mobile Device Manager Plus (cloud) - connection settings, Test connection and Sync now.
- * Loaded by admin/post.php from the Referer (admin/settings_manageengine_mdm.php), admins only. Same permission as the Intune/Microsoft
+ * Loaded through admin/post/settings_integrations.php (the form is on Integrations > Device Sync), admins only. Same permission as the Intune/Microsoft
  * settings (module_client level 3). Secrets are encrypted with encryptSetting() and never put in a flash message, log line or audit row.
  */
 

@@ -111,14 +111,14 @@ $icon_for = static function (string $platform): string {
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 me-auto"><i class="fas fa-tablet-alt me-2"></i>ManageEngine MDM Devices</h4>
     <?php if ($session_is_admin) { ?>
-        <a href="/admin/settings_manageengine_mdm.php" class="btn btn-secondary btn-sm"><i class="fas fa-cog me-1"></i>Settings</a>
+        <a href="/admin/settings_integrations.php?tab=devicesync" class="btn btn-secondary btn-sm"><i class="fas fa-cog me-1"></i>Settings</a>
     <?php } ?>
 </div>
 
 <?php if (!$mdm || !(int) $mdm['enabled']) { ?>
     <div class="card card-dark"><div class="card-body text-center text-muted py-5">
         <i class="fas fa-tablet-alt fa-3x mb-3"></i>
-        <p>The ManageEngine MDM integration is not switched on.<?= $session_is_admin ? ' Set it up in <a href="/admin/settings_manageengine_mdm.php">Admin &rarr; ManageEngine MDM</a>.' : ' Ask an administrator to set it up.' ?></p>
+        <p>The ManageEngine MDM integration is not switched on.<?= $session_is_admin ? ' Set it up in <a href="/admin/settings_integrations.php?tab=devicesync">Admin &rarr; Integrations &rarr; Device Sync</a>.' : ' Ask an administrator to set it up.' ?></p>
     </div></div>
 <?php } else { ?>
 

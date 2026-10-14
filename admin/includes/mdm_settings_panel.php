@@ -1,7 +1,7 @@
 <?php
 /*
  * ManageEngine MDM connection panel: the form (save / test / sync now) and the recent-syncs card.
- * Shared by admin/settings_manageengine_mdm.php and the Device Sync tab of admin/settings_integrations.php.
+ * Rendered on the Device Sync tab of admin/settings_integrations.php (admin/settings_manageengine_mdm.php now only redirects there).
  * Posts to post.php; admin/post/settings_integrations.php fans out to admin/post/settings_manageengine_mdm.php.
  * Runs in its own closure so it cannot clobber the including page's variables.
  */

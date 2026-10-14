@@ -54,7 +54,7 @@ function w(string $who, string $method, string $path, array $post = [], ?string 
     $raw = curl_exec($ch); $hs = curl_getinfo($ch, CURLINFO_HEADER_SIZE); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
     return ['code' => $code, 'body' => substr((string) $raw, $hs), 'head' => substr((string) $raw, 0, $hs)];
 }
-$S = '/admin/settings_manageengine_mdm.php';
+$S = '/admin/settings_integrations.php?tab=devicesync';
 $post = fn (string $who, array $f) => w($who, 'POST', '/admin/post.php', $f + ['csrf_token' => $GLOBALS['csrf']], $S);
 $row = fn () => MdmClientFactory::row($db);
 

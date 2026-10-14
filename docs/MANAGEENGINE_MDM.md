@@ -51,7 +51,7 @@ account": no redirect URL, no user in the loop.
 
 ### 2. Enter it in RivetIT
 
-Admin > Settings > Connections & data > **ManageEngine MDM** (`/admin/settings_manageengine_mdm.php`; administrators only).
+Admin > **Integrations** > **Device Sync** tab, ManageEngine MDM section (`/admin/settings_integrations.php?tab=devicesync`; administrators only).
 
 | Field | What to enter |
 |---|---|
@@ -208,7 +208,7 @@ Could **not** be confirmed, and how the code copes:
 
 ## Files
 
-`src/Integrations/ManageEngine/` (data centers, client, token store, mapper, sync service, status helper), `admin/settings_manageengine_mdm.php`
+`src/Integrations/ManageEngine/` (data centers, client, token store, mapper, sync service, status helper), `admin/includes/mdm_settings_panel.php` (the form, on Integrations > Device Sync)
 and `admin/post/settings_manageengine_mdm.php`, `agent/mdm_devices.php` and `agent/post/mdm_device.php`, the panel in
 `agent/asset_details.php`, the badge in `agent/assets.php`, the status chip in `agent/js/training_devices.js` (data from
 `KioskAdminActions::kioskList`), the cron block in `cron/cron.php`, DB 2.6.168 in `admin/database_updates.php` and `db.sql` (four new

@@ -1,8 +1,4 @@
 <?php
-require_once "includes/inc_all_admin.php";
-enforceUserPermission('module_admin');
-
-require_once __DIR__ . '/includes/mdm_settings_panel.php';
-?>
-
-<?php require_once "../includes/footer.php"; ?>
+// The ManageEngine MDM settings moved to Admin > Integrations > Device Sync. Old bookmarks and links land there.
+header('Location: /admin/settings_integrations.php?tab=devicesync', true, 302);
+exit;
