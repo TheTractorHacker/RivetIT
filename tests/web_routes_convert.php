@@ -103,7 +103,7 @@ $rc = $conv->convert(file_get_contents("$fx/beta/vhost-c.conf"), $snipOpts);
 $ok($rc['status'] === 'manual' && $rc['content'] === file_get_contents("$fx/beta/vhost-c.conf") && str_contains(implode(' ', $rc['reasons']), 'more than one PHP socket'), 'shared snippet: vhost C uses two PHP sockets, so it is NOT converted until told which one');
 $rc2 = $conv->convert(file_get_contents("$fx/beta/vhost-c.conf"), $snipOpts + ['sock' => '/run/php/php8.5-fpm.sock']);
 $ok($rc2['status'] === 'changed' && $locKeys($rc2['content']) === [] && !str_contains($rc2['content'], 'itflow-locations') && substr_count($rc2['content'], 'set $rivetit_php unix:/run/php/php8.5-fpm.sock;') === 1, 'shared snippet: with --php-sock vhost C converts; its hand-added /mcp blocks are replaced by the shared ones');
-$ok(!array_key_exists('snippets', ['x' => 1]) && $conv->convert($a)['status'] === 'manual', 'shared snippet: when the snippet file cannot be read the vhost is not touched');
+$ok($conv->convert($a)['status'] === 'manual', 'shared snippet: when the snippet file cannot be read the vhost is not touched');
 
 // ---------------------------------------------------------------- refusals: never loosen, never guess
 $base = $mwa;

@@ -310,9 +310,10 @@ final class WebRouteCheck
     private function cacheRead(string $key): ?array
     {
         $f = $this->cacheFile($key);
-        if (!is_file($f) || filemtime($f) < $this->now - $this->ttl) { return null; }
+        if (!is_file($f)) { return null; }
         $j = json_decode((string) @file_get_contents($f), true);
-        return is_array($j) && isset($j['state']) ? $j : null;
+        // age comes from the result's own timestamp, not the file's mtime (same clock as this object, testable)
+        return is_array($j) && isset($j['state'], $j['at']) && (int) $j['at'] >= $this->now - $this->ttl ? $j : null;
     }
 
     private function cacheWrite(string $key, array $res): void

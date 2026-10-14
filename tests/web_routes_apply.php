@@ -93,7 +93,6 @@ $ok($rc === 0 && str_contains($out, 'current'), '--check: exit 0 once current');
 $s1 = snapshot($d);
 [$rc, $out] = apply($d, ['--domain', 'mwa.example.test']);
 $ok($rc === 0 && str_contains($out, 'already up to date') && snapshot($d) === $s1 && !reloaded($d), 'second run: no-op, nothing rewritten, NO reload');
-$ok(count(glob("$d/backup-*")) === 0 || true, 'second run: (no new backup needed)');
 // the app's routes file moves on (a newer release): only that file is rewritten, nothing else touched
 file_put_contents("$d/snippets/rivetit-locations.conf", $routes . "\n# stale local edit\n");
 [$rc, $out] = apply($d, ['--check', '--domain', 'mwa.example.test']);

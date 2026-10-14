@@ -150,6 +150,12 @@ $ok(substr_count($site, "\n    location ") === 0, 'the per-site template no long
 $ok(strpos($site, 'include snippets/rivetit-locations.conf;') !== false && strpos($site, '# BEGIN RIVETIT ROUTES') !== false && strpos($site, '# END RIVETIT ROUTES') !== false, 'the per-site template has the managed include block');
 $ok(strpos($site, '# __PROXY_MODE_BLOCK__') !== false, 'the install.sh sentinel is still there');
 
+// ---------------------------------------------------------------- docs read the same list
+$doc = file_get_contents("$root/docs/WEB_ROUTES.md");
+$missingInDoc = array_filter($ids, fn($id) => !str_contains($doc, '| `' . $id . '` |'));
+$ok($missingInDoc === [], 'docs/WEB_ROUTES.md lists every registry entry (regenerate its table when the registry changes)' . ($missingInDoc ? ': ' . implode(', ', $missingInDoc) : ''));
+$ok(str_contains($doc, 'apply-web-routes.sh --domain') && str_contains($doc, '--dry-run') && str_contains($doc, '--rollback') && str_contains($doc, 'Docker') && str_contains($doc, 'Apache') && str_contains($doc, 'Adding a route'), 'the doc covers the one command, dry run, rollback, Docker/Apache and how to add a route');
+
 // ---------------------------------------------------------------- install.sh wiring
 $inst = file_get_contents("$root/deploy/install.sh");
 $ok(strpos($inst, 'rivetit-locations.conf') !== false && strpos($inst, '/etc/nginx/snippets/rivetit-locations.conf') !== false, 'install.sh installs the shared routes file');

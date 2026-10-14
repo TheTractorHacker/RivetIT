@@ -137,5 +137,5 @@ The Devices tab shows each device's last-seen time and browser, so a copy that s
 
 ## Ops notes (live server)
 
-- nginx must deny `/kiosk/includes/` on the live vhost (`location ^~ /kiosk/includes/ { deny all; }`). The repo mirrors are `docker/nginx.conf` and `deploy/templates/nginx-vhost.conf.template`.
+- nginx must deny `/kiosk/includes/` on the live vhost (`location ^~ /kiosk/includes/ { deny all; }`). The repo mirrors are `docker/nginx.conf` and `deploy/templates/rivetit-locations.conf`; `sudo deploy/apply-web-routes.sh --domain <domain>` brings a live vhost up to date (docs/WEB_ROUTES.md).
 - `config.php` must define `$config_settings_enc_key`. Every PIN, setup code, slip and kiosk CSRF key is derived from it. Rotating it invalidates every training PIN and code, and everyone then needs a new slip.

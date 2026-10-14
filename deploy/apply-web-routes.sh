@@ -287,7 +287,6 @@ main() {
 
     # 2. plan each vhost -----------------------------------------------------
     local i=0 out result includes sock_opt name any_includes=0 vhost_changes=0
-    local -A V_RESULT=()
     for f in "${uniq[@]}"; do
         i=$((i + 1))
         name="$(basename "${f}")"
@@ -298,7 +297,6 @@ main() {
         out="$(php "${TOOL}" "${targs[@]}")" || die "Could not analyse ${f}."
         result="$(sed -n 's/^RESULT: //p' <<< "${out}")"
         includes="$(sed -n 's/^INCLUDES: //p' <<< "${out}")"
-        V_RESULT[$f]="${result}"
         [[ "${includes}" == "yes" ]] && any_includes=1
         info "${f}: ${result}"
         sed -n 's/^REMOVED: /    replaced by the shared routes: /p; s/^KEPT: /    left alone (not a RivetIT route): /p; s/^NOTE: /    note: /p' <<< "${out}"
@@ -328,7 +326,7 @@ main() {
         if [[ ! -e "${dest}" ]] || ! cmp -s "${ROUTES_FILE}" "${dest}"; then
             CH_DEST+=("${dest}"); CH_NEW+=("${ROUTES_FILE}")
         fi
-        if ! grep -rEqs '^[[:space:]]*limit_req_zone[[:space:]].*zone=itflow_login:' "${NGINX_DIR}" 2>/dev/null; then
+        if ! grep -rEqs --include='*.conf' '^[[:space:]]*limit_req_zone[[:space:]].*zone=itflow_login:' "${NGINX_DIR}" 2>/dev/null; then
             zone_dest="${NGINX_DIR%/}/conf.d/itflow-rate-limit.conf"
             printf '%s\n' '# Shared across every RivetIT vhost on this box, written by deploy/apply-web-routes.sh (same file deploy/install.sh writes).' \
                 '# Do not duplicate this zone name in another file under conf.d/ - nginx refuses to start if it is defined twice.' \
