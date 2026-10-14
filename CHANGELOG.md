@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Remote MCP: metadata-document fetch prefers IPv4
+
+- Fetching a client metadata document (Claude's published identity) pinned every vetted address of the host, IPv4 and IPv6. On a server whose IPv6 route does not work the fetch failed with "could not connect" and the consent page said the metadata document could not be fetched. The fetch now pins IPv4 addresses when the host has any and uses IPv6 only for an IPv6-only host (`tests/mcp_oauth_cimd_pin.php`).
+
 ### Remote MCP OAuth: created_at stamped in UTC too
 
 - Follow-up to the expiry fix: every `mcp_oauth_*` INSERT now sets `created_at` with `UTC_TIMESTAMP()` instead of the column default, so the registration rate limit and the code-lifetime arithmetic compare like with like on a database whose zone is not UTC. The Connected AI tools and Registered apps lists now show these times in UTC. `tests/mcp_oauth_utc.php` guards it.

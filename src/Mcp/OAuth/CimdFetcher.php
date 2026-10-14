@@ -38,10 +38,7 @@ final class CimdFetcher
         if ($ch === false) {
             return $fail('unavailable', 'curl_init failed');
         }
-        $resolve = [];
-        foreach ($target['ips'] as $ip) {
-            $resolve[] = $target['host'] . ':' . $target['port'] . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip);
-        }
+        $resolve = self::pinList($target['host'], (int) $target['port'], $target['ips']);
         $body = '';
         $tooBig = false;
         $headers = [];
@@ -105,5 +102,24 @@ final class CimdFetcher
         }
 
         return ['ok' => true, 'body' => $body, 'cache_control' => $headers['cache-control'] ?? null];
+    }
+
+    /**
+     * CURLOPT_RESOLVE entries for the already-vetted addresses. IPv4 only when the host has any: many servers have an IPv6 route
+     * that does not work, and pinning both families made curl fail with "could not connect" (found live fetching
+     * claude.ai from mwa). IPv6 is used only for a host that has no IPv4 address. Every address was vetted as public first.
+     *
+     * @param list<string> $ips
+     * @return list<string>
+     */
+    public static function pinList(string $host, int $port, array $ips): array
+    {
+        $v4 = array_values(array_filter($ips, static fn(string $ip): bool => !str_contains($ip, ':')));
+        $use = $v4 !== [] ? $v4 : array_values($ips);
+        $out = [];
+        foreach ($use as $ip) {
+            $out[] = $host . ':' . $port . ':' . (str_contains($ip, ':') ? '[' . $ip . ']' : $ip);
+        }
+        return $out;
     }
 }
