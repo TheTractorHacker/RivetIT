@@ -514,7 +514,8 @@ foreach ($section_pages as $key => $pages) {
                 <?php } ?>
 
                 <?php $nav_intune = $config_module_enable_intune && lookupUserPermission("module_client") >= 1; // roles audit P1i ?>
-                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $nav_intune) { ?>
+                <?php $nav_mdm = false; try { $nav_mdm = lookupUserPermission("module_client") >= 1 && \ITFlow\Integrations\ManageEngine\MdmClientFactory::isEnabled($mysqli); } catch (\Throwable $e) { $nav_mdm = false; } // ManageEngine MDM: only while switched on ?>
+                <?php if (($config_module_enable_rmm && lookupUserPermission("module_rmm") >= 1) || $nav_intune || $nav_mdm) { ?>
                 <li class="nav-item dropdown mt-2<?php echo $section_open['endpoint'] ? ' active' : ''; ?>">
                     <a href="#nav-group-endpoints" class="nav-link dropdown-toggle<?php echo $section_open['endpoint'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-endpoints" aria-expanded="<?php echo $section_open['endpoint'] ? 'true' : 'false'; ?>">
                         <span class="nav-link-icon"><i class="fas fa-desktop"></i></span>
