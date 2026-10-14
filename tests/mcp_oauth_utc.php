@@ -17,5 +17,10 @@ foreach (explode("\n", $src) as $i => $line) {
 foreach ($bad as $b) { echo "FAIL  NOW() on a UTC column, line $b\n"; }
 echo $bad === [] ? "PASS  no NOW() on expires/used/revoked/last_used/disabled columns\n" : '';
 $count = substr_count($src, 'UTC_TIMESTAMP()');
+// every INSERT must stamp created_at explicitly (a DEFAULT CURRENT_TIMESTAMP follows the session zone)
+$ins = preg_match_all('/INSERT INTO mcp_oauth_(clients|codes|grants|tokens) \(([^)]*)\)/', $src, $m, PREG_SET_ORDER);
+$noCreated = [];
+foreach ($m as $x) { if (strpos($x[2], 'created_at') === false) { $noCreated[] = $x[1]; } }
+echo $noCreated === [] ? "PASS  every OAuth INSERT stamps created_at in UTC ($ins inserts)\n" : 'FAIL  INSERT without created_at: ' . implode(', ', $noCreated) . "\n";
 echo ($count >= 15 ? 'PASS' : 'FAIL') . "  UTC_TIMESTAMP() used ($count places)\n";
-exit($bad === [] && $count >= 15 ? 0 : 1);
+exit($bad === [] && $noCreated === [] && $count >= 15 ? 0 : 1);

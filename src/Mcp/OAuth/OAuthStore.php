@@ -54,8 +54,8 @@ final class OAuthStore
     public function createClient(string $id, string $name, array $redirectUris, string $type, ?string $ip, ?int $byUser): void
     {
         $json = json_encode(array_values($redirectUris), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $this->exec('INSERT INTO mcp_oauth_clients (client_id, client_name, redirect_uris, registration_type, created_ip, created_by_user_id)
-            VALUES (?, ?, ?, ?, ?, ?)', 'sssssi', [$id, $name, $json, $type, $ip, $byUser]);
+        $this->exec('INSERT INTO mcp_oauth_clients (client_id, client_name, redirect_uris, registration_type, created_ip, created_by_user_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())', 'sssssi', [$id, $name, $json, $type, $ip, $byUser]);
     }
 
     public function client(string $id): ?array
@@ -158,8 +158,8 @@ final class OAuthStore
     public function insertCode(string $codeHash, string $clientId, int $userId, string $redirectUri, string $challenge, string $scope, string $resource): void
     {
         $ttl = OAuthConfig::CODE_TTL;
-        $this->exec('INSERT INTO mcp_oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, resource, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND)', 'ssissssi',
+        $this->exec('INSERT INTO mcp_oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, resource, expires_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND, UTC_TIMESTAMP())', 'ssissssi',
             [$codeHash, $clientId, $userId, $redirectUri, $challenge, $scope, $resource, $ttl]);
     }
 
@@ -186,8 +186,8 @@ final class OAuthStore
     public function createGrant(string $clientId, int $userId, string $scope, string $resource, string $originCodeHash): int
     {
         $days = OAuthConfig::GRANT_DAYS;
-        $this->exec('INSERT INTO mcp_oauth_grants (client_id, user_id, scope, resource, origin_code_hash, expires_at)
-            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? DAY)', 'sisssi', [$clientId, $userId, $scope, $resource, $originCodeHash, $days]);
+        $this->exec('INSERT INTO mcp_oauth_grants (client_id, user_id, scope, resource, origin_code_hash, expires_at, created_at)
+            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? DAY, UTC_TIMESTAMP())', 'sisssi', [$clientId, $userId, $scope, $resource, $originCodeHash, $days]);
 
         return (int) $this->db->insert_id;
     }
@@ -229,7 +229,7 @@ final class OAuthStore
 
     public function insertToken(string $tokenHash, int $grantId, string $kind, int $ttlSeconds): void
     {
-        $this->exec('INSERT INTO mcp_oauth_tokens (token_hash, grant_id, token_kind, expires_at) VALUES (?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND)',
+        $this->exec('INSERT INTO mcp_oauth_tokens (token_hash, grant_id, token_kind, expires_at, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND, UTC_TIMESTAMP())',
             'sisi', [$tokenHash, $grantId, $kind, $ttlSeconds]);
     }
 

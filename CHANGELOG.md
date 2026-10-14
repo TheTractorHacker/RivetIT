@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Remote MCP OAuth: created_at stamped in UTC too
+
+- Follow-up to the expiry fix: every `mcp_oauth_*` INSERT now sets `created_at` with `UTC_TIMESTAMP()` instead of the column default, so the registration rate limit and the code-lifetime arithmetic compare like with like on a database whose zone is not UTC. The Connected AI tools and Registered apps lists now show these times in UTC. `tests/mcp_oauth_utc.php` guards it.
+
 ### Remote MCP sign-in: fix "authorization code is invalid" (time zone)
 
 - The built-in OAuth server wrote code, token and consent expiry times with the database's `NOW()`. The consent page runs under the app's company-local time zone and the token endpoint does not, so on a server whose company time zone differs from the database default (UTC) every code looked expired by the time the client redeemed it and Claude's connection failed with a 400 `invalid_grant`. All expiry/usage columns now use `UTC_TIMESTAMP()`. `tests/mcp_oauth_utc.php` guards it.
