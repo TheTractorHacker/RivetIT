@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.49] RivetIT — RivetCore 1.0.0-rc.19 (first Windows run: eight defects fixed)
+
+**Deploy notes:** back up the database, pull this tag, `composer install --no-dev` (RivetCore **1.0.0-rc.19**). **No database change** (DB stays 2.6.172; rc.19 has no Core migration) and no cron change. After the update: publish the agent **0.7.1** from the Agent page and rebuild the MSI template with it, then install the starter pack's update (pack **1.0.1**) from the Starter pack page.
+
+- **Alerting tab: thresholds for policy checks.** The threshold endpoints (`GET`/`PUT endpoint_devices/{id}/checks/{key}/thresholds`) answered `404` for every check a policy delivers (the whole starter pack), so the asset page Alerting tab showed no editor for them and an override could not be saved. Core now also looks in the device's effective policy; the editor renders and an override saves for a policy-defined check.
+- **Starter pack 1.0.1.** `battery-report`, `defender-status`, `defender-update-signatures` and `disk-health` print `unknown` / `n/a` / a note instead of Windows sentinel values (71582788 minutes, 65535 days, a bare `/`).
+- **Agent 0.7.1 (Windows), found by running the agent on a real Windows 11 machine:** a junction inside an allowed file-transfer folder could reach files outside it (fixed; update agents 0.6.0 and older if file transfer is on, it is off by default); scripts that call `ping`, `whoami`, `w32tm` and similar failed or reported success with empty sections (the job environment lacked `PATHEXT`, `COMPUTERNAME`, `ComSpec`); PowerShell error output arrived as `#< CLIXML` XML; `proc_kill` reported success before the process ended; service checks failed with "Access is denied" on `Dnscache` and `mpssvc`; the `av` check now accepts a third-party antivirus Windows Security Center lists as on. Full evidence: RivetCore `docs/rmm/WINDOWS_VERIFICATION.md`.
+- **Tests:** `tests/rmm_ui_p23_c_alerting.php` (a policy with a thresholds check assigned to a device through the real handler: the thresholds API answers, the Alerting tab renders the editor, an override saves, shows and clears; a check no list or policy defines, and a device the policy does not reach, are still refused). The test fails on rc.18 and passes on rc.19.
+
 ## [26.10.48] RivetIT — the Remote button finds the device (MeshCentral node ids)
 
 **Deploy notes:** back up the database, pull this tag, `composer install --no-dev` (RivetCore **1.0.0-rc.18**), then run the database update (Administration > Updates or `php scripts/update_cli.php --update_db`). **DB 2.6.172**: Core migration `0027_rmm_mesh_node_ids` rewrites the stored MeshCentral node ids to one form (data only, no schema change, idempotent). No cron change.

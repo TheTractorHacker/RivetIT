@@ -424,6 +424,54 @@ ini_set('error_log', $rc14Prev === false ? '' : (string) $rc14Prev);
 $rmm->settings()->update(['checks_json' => json_encode($alrOrigChecks)]);
 $fresh();
 
+// ============================================================ RivetCore 1.0.0-rc.19 regression: a check that only a POLICY defines has thresholds
+// Found on a real Windows device that received the starter workstation policy: GET/PUT endpoint_devices/{id}/checks/{key}/thresholds answered 404 for every check the
+// policy delivered, because Core only looked in the global check list. The Alerting tab of the asset page then showed no editor, and an override could not be saved.
+// Real-shaped data: the policy is created and assigned through the real handler (rmm_automation_pol.php), the device reports the check through the real check-in.
+$rc19Feat0 = $rmm->settings()->features();
+$rc19Feat = $rc19Feat0;
+$rc19Feat['policies'] = true;
+$rmm->admin()->saveSettings($admin, ['features_json' => $rc19Feat]);
+$fresh();
+rivetRmmForgetAccess();
+$rc19Post = fn (array $f) => web($wb, 'POST', '/agent/post/rmm_automation_pol.php', $SS['admin'], $f + ['csrf_token' => 'csrftok1']);
+$rc19Page = '/agent/asset_details.php?asset_id=' . $alrAsset['ALR2'];
+$ok(!in_array('rc19_pol_cpu', array_column($rmm->settings()->checks(), 'key'), true), 'rc.19: the check is not in the global check list (only a policy will define it)');
+[$c] = $rc19Post(['action' => 'save_policy', 'policy_id' => 0, 'name' => 'RC19 policy checks', 'description' => '', 'enabled' => '1',
+    'chk' => [0 => ['key' => 'rc19_pol_cpu', 'mode' => 'override', 'type' => 'cpu', 'interval_s' => '60', 'p' => ['cpu' => ['window_s' => '5']],
+        'th' => ['warn_op' => 'gt', 'warn_val' => '80', 'crit_op' => 'gt', 'crit_val' => '95', 'hysteresis' => '5', 'for_samples' => '2', 'for_minutes' => '', 'ignore' => '']]]]);
+$rc19Pid = (int) $one("SELECT policy_id FROM rmm_policies WHERE name='RC19 policy checks'");
+$ok($c === 302 && $rc19Pid > 0, 'rc.19: a policy with a thresholds check is created through the real handler');
+$rc19Post(['action' => 'assign_policy', 'policy_id' => $rc19Pid, 'as_type' => 'device', 'as_id_device' => $alrDev['ALR2'], 'priority' => '50']);
+$ok((int) $one("SELECT COUNT(*) FROM rmm_policy_assignments WHERE policy_id=$rc19Pid AND scope_type='device' AND scope_id={$alrDev['ALR2']}") === 1, 'rc.19: the policy is assigned to the device');
+$fresh();
+[$c] = ea_checkin($alrTok['ALR2'], ['capabilities' => ['check:cpu', 'policies'], 'checks' => [['key' => 'rc19_pol_cpu', 'status' => 'ok', 'detail' => 'load 10', 'value' => 10.0]]]);
+$ok($c === 200, 'rc.19: the device reports the policy check through the real check-in (' . $c . ')');
+$t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$alrDev['ALR2'], 'checks', 'rc19_pol_cpu', 'thresholds']);
+$ok($t['ok'] === true && ($t['data']['check_key'] ?? '') === 'rc19_pol_cpu' && ($t['data']['defined']['warn']['value'] ?? null) === 80 && ($t['data']['defined']['crit']['value'] ?? null) === 95,
+    'rc.19: GET checks/rc19_pol_cpu/thresholds answers ok with the limits the policy defines (was 404 before rc.19)');
+[$c, $body] = web($wb, 'GET', $rc19Page, $SS['admin']);
+$ok($c === 200 && str_contains($body, '<code class="rmm-mono">rc19_pol_cpu</code>') && str_contains($body, 'name="check_key" value="rc19_pol_cpu"') && str_contains($body, 'name="warn_value"') && str_contains($body, 'value="save_thresholds"'),
+    'rc.19: the asset page Alerting tab renders the thresholds editor for a policy-defined check');
+$rc19Thr = ['action' => 'save_thresholds', 'device_id' => $alrDev['ALR2'], 'check_key' => 'rc19_pol_cpu', 'warn_op' => 'gt', 'warn_value' => '60', 'crit_op' => 'gt', 'crit_value' => '85', 'hysteresis' => '5', 'for_samples' => '2', 'for_minutes' => '0',
+    'return' => $rc19Page . '#rmm-alerting'];
+[$c, , $hd] = $alrPost('admin', $rc19Thr);
+$ov = json_decode((string) $one("SELECT override_json FROM rmm_check_eval WHERE device_id={$alrDev['ALR2']} AND check_key='rc19_pol_cpu'"), true);
+$ok($c === 302 && str_contains($alrLoc($hd), '#rmm-alerting') && ($ov['warn']['value'] ?? null) === 60 && ($ov['crit']['value'] ?? null) === 85, 'rc.19: a threshold override for the policy check is saved through the handler (was refused before rc.19)');
+[$c, $body] = web($wb, 'GET', $rc19Page, $SS['admin']);
+$ok(str_contains($body, 'value="clear_thresholds"') && str_contains($body, 'Changed for this device') && str_contains($body, 'Warning when above 60'), 'rc.19: the tab shows the override of the policy check');
+[$c, , $hd] = $alrPost('admin', ['action' => 'clear_thresholds', 'device_id' => $alrDev['ALR2'], 'check_key' => 'rc19_pol_cpu']);
+$ok($one("SELECT override_json FROM rmm_check_eval WHERE device_id={$alrDev['ALR2']} AND check_key='rc19_pol_cpu'") === null, 'rc.19: the override of the policy check is removed again');
+$t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$alrDev['ALR2'], 'checks', 'rc19_not_a_check', 'thresholds']);
+$ok($t['ok'] === false, 'rc.19: a check that neither the list nor a policy defines is still a plain refusal');
+$t = rivetRmmAutoApi($db, 1, 'admin', 'GET', [$alrDev['ALR3'], 'checks', 'rc19_pol_cpu', 'thresholds']);
+$ok($t['ok'] === false, 'rc.19: the policy check has no thresholds endpoint on a device the policy does not reach');
+$rc19Post(['action' => 'delete_policy', 'policy_id' => $rc19Pid]);
+$q("DELETE FROM rmm_policy_assignments WHERE policy_id=$rc19Pid"); $q("DELETE FROM rmm_policy_versions WHERE policy_id=$rc19Pid"); $q("DELETE FROM rmm_policies WHERE policy_id=$rc19Pid");
+$rmm->admin()->saveSettings($admin, ['features_json' => $rc19Feat0]);
+$fresh();
+rivetRmmForgetAccess();
+
 $rmm->admin()->disable($admin); $fresh();
 $a = $questions();
 $o1 = [rivetRmmEnabled($db) || rivetRmmFeatureOn("alerting", $db) ? true : null];
