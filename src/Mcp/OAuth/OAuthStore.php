@@ -130,12 +130,12 @@ final class OAuthStore
         $json = json_encode(array_values($redirectUris), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $new = $this->client($internalId) === null;
         if ($new) {
-            $this->exec("INSERT INTO mcp_oauth_clients (client_id, client_name, redirect_uris, registration_type) VALUES (?, ?, ?, 'metadata')", 'sss', [$internalId, $name, $json]);
+            $this->exec("INSERT INTO mcp_oauth_clients (client_id, client_name, redirect_uris, registration_type, created_at) VALUES (?, ?, ?, 'metadata', UTC_TIMESTAMP())", 'sss', [$internalId, $name, $json]);
         } else {
             $this->exec("UPDATE mcp_oauth_clients SET client_name = ?, redirect_uris = ? WHERE client_id = ? AND registration_type = 'metadata'", 'sss', [$name, $json, $internalId]);
         }
-        $this->exec('INSERT INTO mcp_oauth_client_documents (client_id, source_url, document, fetched_at, expires_at)
-            VALUES (?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ? SECOND)
+        $this->exec('INSERT INTO mcp_oauth_client_documents (client_id, source_url, document, first_seen_at, fetched_at, expires_at)
+            VALUES (?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ? SECOND)
             ON DUPLICATE KEY UPDATE source_url = VALUES(source_url), document = VALUES(document), fetched_at = UTC_TIMESTAMP(),
                 expires_at = UTC_TIMESTAMP() + INTERVAL ? SECOND, last_error = NULL, last_error_at = NULL', 'sssii', [$internalId, $url, $rawDocument, $ttl, $ttl]);
 

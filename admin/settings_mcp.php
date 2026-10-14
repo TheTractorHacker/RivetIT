@@ -207,7 +207,7 @@ $csrf = $_SESSION['csrf_token'];
                             <?php if ($c['registration_type'] === 'metadata') { ?>
                                 <div class="small text-break">Source: <code><?= nullable_htmlentities($c['source_url'] ?? '(removed)') ?></code></div>
                                 <div class="text-muted small">First seen <?= nullable_htmlentities($c['first_seen_at'] ?? $c['created_at']) ?>; fetched <?= $c['fetched_at'] ? timeAgo($c['fetched_at']) : 'never' ?>;
-                                    <?= $c['document_expires_at'] && strtotime((string) $c['document_expires_at']) > time() ? 'cached until ' . nullable_htmlentities($c['document_expires_at']) : 'cache expired (fetched again on next use)' ?></div>
+                                    <?= !empty($c['document_fresh']) ? 'cached until ' . nullable_htmlentities($c['document_expires_at']) : 'cache expired (fetched again on next use)' ?></div>
                                 <?php if (!empty($c['last_error'])) { ?><div class="small text-danger">Last problem: <?= nullable_htmlentities($c['last_error']) ?> (<?= nullable_htmlentities($c['last_error_at']) ?>)</div><?php } ?>
                             <?php } else { ?>
                             <div class="text-muted small text-break"><code><?= nullable_htmlentities($c['client_id']) ?></code></div>

@@ -294,7 +294,7 @@ foreach (['/c/nocc' => 3600, '/c/noStore' => 300, '/c/long' => 86400] as $p => $
     $got = $d ? strtotime($d['expires_at']) - strtotime($d['fetched_at']) : -1;
     $ok(abs($got - $want) <= 5, "$p: cache lifetime $want s (no header: 1 h; no-store/max-age=0: floor 5 min; huge max-age: ceiling 24 h), got $got");
 }
-$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = NOW() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
+$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
 $serve('/c/valid', $good(['client_name' => 'Renamed Claude', 'redirect_uris' => ['https://claude.example/cb', 'http://127.0.0.1/callback']]));
 $probe($cValid, $LOOP);
 $ok($hitsOf('/c/valid') === $h + 1 && $clientRow($cValid)['client_name'] === 'Renamed Claude' && count($clientRow($cValid)['redirect_uris']) === 2, 'after expiry the document is fetched again and the name and redirect list are refreshed');
@@ -302,23 +302,23 @@ $ok($audits('mcp.oauth_client_registered') === 1 + 3, 'a refetch is not a first 
 $r = $probe($cValid, 'http://localhost:3118/callback');
 $ok($r['code'] === 400, 'the removed localhost entry no longer matches');
 $serve('/c/valid', $good());
-$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = NOW() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
+$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
 $run = $connect($cValid, $LOOP);
 $liveRefresh = $run['tok']['json']['refresh_token'] ?? '';
 $ok(($run['tok']['code'] ?? 0) === 200, 'refetched and working again');
 $serve('/c/valid', ['status' => 500, 'headers' => $json, 'body' => '{}']);
-$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = NOW() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
+$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
 $r = $probe($cValid, $LOOP);
 $ok($r['code'] === 503, 'expired copy and the fetch fails: authorization fails closed');
 $t = oa_token(['grant_type' => 'refresh_token', 'client_id' => $cValid, 'refresh_token' => $liveRefresh]);
 $ok($t['code'] === 503 && ($t['json']['error'] ?? '') === 'temporarily_unavailable', 'expired copy and the fetch fails: the token endpoint fails closed with a retryable 503 (the refresh token is not burned)');
 $ok(!empty($docRow($cValid)['last_error']), 'the failure is recorded on the app for the administrator');
 $serve('/c/valid', $good(['client_id' => 'https://elsewhere.example/c/valid']));
-$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = NOW() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
+$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
 $t = oa_token(['grant_type' => 'refresh_token', 'client_id' => $cValid, 'refresh_token' => $liveRefresh]);
 $ok($t['code'] === 401 && ($t['json']['error'] ?? '') === 'invalid_client', 'a document that now names a different client_id is refused at the token endpoint (invalid_client)');
 $serve('/c/valid', $good());
-$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = NOW() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
+$mysqli->query("UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP() - INTERVAL 1 SECOND WHERE client_id = '" . $internal($cValid) . "'");
 $t = oa_token(['grant_type' => 'refresh_token', 'client_id' => $cValid, 'refresh_token' => $liveRefresh]);
 $ok($t['code'] === 200, 'once the host serves a valid document again the same refresh token still works');
 $liveAccess = $t['json']['access_token'] ?? '';
@@ -373,8 +373,8 @@ $ok($sec['code'] === 200 && str_contains($sec['body'], 'Connected AI tools') && 
 
 echo "== housekeeping ==\n";
 $oldUnused = $urlOf('/c/long');
-$mysqli->query("UPDATE mcp_oauth_clients SET created_at = NOW() - INTERVAL 30 DAY WHERE client_id = '" . $internal($oldUnused) . "'");
-$mysqli->query("UPDATE mcp_oauth_clients SET created_at = NOW() - INTERVAL 30 DAY WHERE client_id = '" . $internal($urlOf('/c/nocc')) . "'");
+$mysqli->query("UPDATE mcp_oauth_clients SET created_at = UTC_TIMESTAMP() - INTERVAL 30 DAY WHERE client_id = '" . $internal($oldUnused) . "'");
+$mysqli->query("UPDATE mcp_oauth_clients SET created_at = UTC_TIMESTAMP() - INTERVAL 30 DAY WHERE client_id = '" . $internal($urlOf('/c/nocc')) . "'");
 $store->setClientDisabled($internal($urlOf('/c/nocc')), true);
 $store->purgeUnusedMetadataClients(7 * 86400);
 $ok($clientRow($oldUnused) === null && $docRow($oldUnused) === null, 'an old, never-used metadata client (and its document) is purged');
