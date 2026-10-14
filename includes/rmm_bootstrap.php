@@ -225,7 +225,8 @@ function rivetRmmAutoNav(?int $userId = null): array
 {
     $all = [
         ['policies', '/agent/rmm_policies.php', 'Policies', 'fa-sliders-h', ['rmm_policies.php'], 'automation'],
-        ['scripts', '/agent/rmm_script_library.php', 'Script library', 'fa-file-code', ['rmm_script_library.php'], 'automation'],
+        // one Scripts entry: the library tab, and the legacy list's tab (rmm_scripts.php, "Synced from <provider>") live under it
+        ['scripts', '/agent/rmm_script_library.php', 'Scripts', 'fa-file-code', ['rmm_script_library.php', 'rmm_scripts.php'], 'automation'],
         // RivetCore 1.0.0-rc.13: the starter pack (administrators; the entry is left out for anyone else when the caller names the user, and the page checks again)
         ['scripts', '/agent/rmm_starter_pack.php', 'Starter pack', 'fa-box-open', ['rmm_starter_pack.php'], 'automation'],
         ['scripts', '/agent/rmm_schedules.php', 'Schedules', 'fa-clock', ['rmm_schedules.php'], 'automation'],

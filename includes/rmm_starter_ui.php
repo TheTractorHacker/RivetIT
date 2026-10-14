@@ -297,7 +297,7 @@ function rivetRmmStarterPage(array $vm, array $ctx): string
     $q = array_filter(['platform' => $f['platform'], 'tag' => $f['tag'], 'q' => $f['q']], static fn ($v): bool => $v !== '');
     $queryString = http_build_query($q + ($f['risk'] === [] ? [] : ['risk' => $f['risk']]));
     $returnTo = $self . ($queryString !== '' && preg_match('~^[A-Za-z0-9_=&%.\-\[\]+]*$~', $queryString) === 1 ? '?' . $queryString : '');
-    $back = '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_script_library.php"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>Script library</a>';
+    $back = '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_script_library.php"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>Scripts</a>';
     $o = rivetRmmAutoHeader('Starter pack', 'box-open', $back,
         'Ready-made scripts, check templates and policy drafts for a new install. Nothing is installed until you tick items and press Install. Every script is signed with this installation\'s key, every change to the system has a dry run that is on by default, and a script you edit later is never overwritten by the pack.');
     if ($vm['error'] !== '') {

@@ -78,29 +78,99 @@
         if (b) { b.addEventListener('click', function (e) { e.preventDefault(); collect(); }); }
     });
 
-    // ---- run a script
+    // ---- run a script: one dialog, three sources ("What to run": the script library, a saved script, free-form text). The library pane is a plain form post to
+    // agent/post/rmm_automation_scr.php (the Jobs-tab card's handler); this code only switches panes, filters the list and swaps the chosen script's parameter block.
+    var type = document.getElementById('rmm-run-type');
+    var libForm = document.getElementById('rmm-run-lib-form');
     var runForm = document.getElementById('rmm-run-form');
+    var platform = panel.getAttribute('data-platform');
+    function syncRunPane() {
+        var kind = type ? type.value : '';
+        if (libForm) { libForm.hidden = kind !== 'library'; }
+        if (runForm) {
+            runForm.hidden = kind === 'library';
+            var sw = document.getElementById('rmm-run-saved-wrap');
+            var tw = document.getElementById('rmm-run-text-wrap');
+            if (sw) { sw.classList.toggle('d-none', kind !== 'saved'); }
+            if (tw) { tw.classList.toggle('d-none', kind !== 'text'); }
+        }
+    }
+    if (type) {
+        type.addEventListener('change', function () {
+            syncRunPane();
+            // a pane that held the focus was just hidden: keep the focus inside the dialog (Esc and Tab must still reach it)
+            var act = document.activeElement;
+            if (type.tagName === 'SELECT' && (!act || act === document.body || (act.closest && act.closest('[hidden]')))) { type.focus(); }
+        });
+        syncRunPane();
+    }
+
+    if (libForm) {
+        var search = document.getElementById('rmm-run-lib-q');
+        var pick = document.getElementById('rmm-run-lib-script');
+        var count = document.getElementById('rmm-run-lib-count');
+        var goLib = document.getElementById('rmm-run-lib-go');
+        var snapshot = Array.prototype.map.call(pick.querySelectorAll('optgroup'), function (g) {
+            return { label: g.getAttribute('label'), risk: g.getAttribute('data-risk'), options: Array.prototype.map.call(g.querySelectorAll('option'), function (o) {
+                return { value: o.value, text: o.textContent, search: o.getAttribute('data-search') || '' };
+            }) };
+        });
+        var showBlock = function () {
+            Array.prototype.forEach.call(libForm.querySelectorAll('.rmm-run-lib-block'), function (b) {
+                var on = b.getAttribute('data-script-id') === pick.value;
+                b.hidden = !on;
+                Array.prototype.forEach.call(b.querySelectorAll('input, select, textarea'), function (i) { i.disabled = !on; });
+            });
+            if (goLib) { goLib.disabled = pick.value === ''; }
+        };
+        var render = function () {
+            var q = (search.value || '').toLowerCase().trim();
+            var keep = pick.value;
+            var n = 0;
+            while (pick.firstChild) { pick.removeChild(pick.firstChild); }
+            snapshot.forEach(function (g) {
+                var g2 = null;
+                g.options.forEach(function (o) {
+                    if (q !== '' && o.search.indexOf(q) === -1) { return; }
+                    if (!g2) { g2 = document.createElement('optgroup'); g2.label = g.label; g2.setAttribute('data-risk', g.risk); pick.appendChild(g2); }
+                    var el = document.createElement('option');
+                    el.value = o.value; el.textContent = o.text; el.setAttribute('data-search', o.search);
+                    if (o.value === keep) { el.selected = true; }
+                    g2.appendChild(el); n++;
+                });
+            });
+            if (n > 0 && pick.selectedIndex < 0) { pick.selectedIndex = 0; }
+            count.textContent = n === 0 ? 'No script matches.' : n + (n === 1 ? ' script matches.' : ' scripts match.');
+            showBlock();
+        };
+        search.addEventListener('input', render);
+        pick.addEventListener('change', showBlock);
+        libForm.addEventListener('submit', function (e) {
+            if (pick.value === '') { e.preventDefault(); say('Pick a script first.', false); return; }
+            if (goLib) { window.setTimeout(function () { goLib.disabled = true; }, 0); }   // one submit only (the page reloads on the answer)
+        });
+        var libModal = document.getElementById('rmmRunModal');
+        if (libModal) { libModal.addEventListener('shown.bs.modal', function () { if (type && type.value === 'library') { search.focus(); } }); }
+        showBlock();
+    }
+
     if (runForm) {
-        var type = document.getElementById('rmm-run-type');
         var destr = document.getElementById('rmm-run-destructive');
         var cwrap = document.getElementById('rmm-run-confirm-wrap');
         var cbox = document.getElementById('rmm-run-confirm');
-        var sync = function () {
-            if (!type) { return; }
-            document.getElementById('rmm-run-saved-wrap').classList.toggle('d-none', type.value !== 'saved');
-            document.getElementById('rmm-run-text-wrap').classList.toggle('d-none', type.value !== 'powershell');
-            cwrap.classList.toggle('d-none', !destr.checked);
-        };
-        if (type) { type.addEventListener('change', sync); destr.addEventListener('change', sync); sync(); }
+        var syncDestr = function () { cwrap.classList.toggle('d-none', !destr.checked); };
+        destr.addEventListener('change', syncDestr); syncDestr();
         runForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            if (!type) { return; }
+            if (!type || type.value === 'library') { return; }
             if (destr.checked && !cbox.checked) { say('Confirm the destructive script first.', false); return; }
-            var data = { type: 'powershell', timeout_s: document.getElementById('rmm-run-timeout').value, destructive: destr.checked ? '1' : '', confirm: destr.checked && cbox.checked ? '1' : '' };
+            // free-form text is the Core job type of the device's platform: powershell (Windows) or shell (Linux)
+            var data = { type: platform === 'linux' ? 'shell' : 'powershell', timeout_s: document.getElementById('rmm-run-timeout').value, destructive: destr.checked ? '1' : '', confirm: destr.checked && cbox.checked ? '1' : '' };
             if (type.value === 'saved') { data.script_id = document.getElementById('rmm-run-saved').value; } else { data.script = document.getElementById('rmm-run-text').value; }
-            document.getElementById('rmm-run-go').disabled = true;
-            post('submit_job', data).then(function (d) { hideModal('rmmRunModal'); afterQueued(d, 'Script job'); document.getElementById('rmm-run-go').disabled = false; })
-                .catch(function () { hideModal('rmmRunModal'); say('Network error.', false); document.getElementById('rmm-run-go').disabled = false; });
+            var goBtn = document.getElementById('rmm-run-go');
+            goBtn.disabled = true;
+            post('submit_job', data).then(function (d) { hideModal('rmmRunModal'); afterQueued(d, 'Script job'); goBtn.disabled = false; })
+                .catch(function () { hideModal('rmmRunModal'); say('Network error.', false); goBtn.disabled = false; });
         });
     }
 

@@ -543,7 +543,8 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Download installer</span>
                         </a>
                         <?php } ?>
-                        <?php foreach (rivetRmmAutoNav((int) $session_user_id) as $nav_auto) { // policies / scripts / alerting sub-switches (state file; no query) ?>
+                        <?php foreach (rivetRmmAutoNav((int) $session_user_id) as $nav_auto) { // policies / scripts / alerting sub-switches (state file; no query)
+                            if ($nav_auto['href'] === '/agent/rmm_script_library.php') { $nav_scripts_unified = true; } // the one Scripts entry (library + legacy tabs) ?>
                         <a href="<?php echo nullable_htmlentities($nav_auto['href']); ?>" class="dropdown-item<?php if (in_array($current_page, $nav_auto['pages'], true)) { echo ' active'; } ?>">
                             <span class="dropdown-item-icon"><i class="fas <?php echo nullable_htmlentities($nav_auto['icon']); ?>"></i></span>
                             <span class="text-truncate"><?php echo nullable_htmlentities($nav_auto['label']); ?></span>
@@ -558,10 +559,12 @@ foreach ($section_pages as $key => $pages) {
                             <span class="dropdown-item-icon"><i class="fas fa-bell"></i></span>
                             <span class="text-truncate">RMM Alerts</span>
                         </a>
+                        <?php if (empty($nav_scripts_unified)) { // with the library on, the Scripts entry above already covers this page (its second tab) ?>
                         <a href="/agent/rmm_scripts.php" class="dropdown-item<?php if ($current_page == 'rmm_scripts.php') { echo ' active'; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-code"></i></span>
                             <span class="text-truncate">Scripts</span>
                         </a>
+                        <?php } ?>
                         <a href="/agent/rmm_checks.php" class="dropdown-item<?php if ($current_page == 'rmm_checks.php') { echo ' active'; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-heartbeat"></i></span>
                             <span class="text-truncate">Check Policies</span>

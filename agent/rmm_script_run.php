@@ -32,7 +32,7 @@ $badge = ['completed'=>'success','failed'=>'danger','running'=>'warning','pendin
         <i class="fas fa-desktop me-1"></i><?= nullable_htmlentities($run['asset_name']) ?>
     </a>
     <a href="/agent/rmm_scripts.php" class="btn btn-secondary btn-sm">
-        <i class="fas fa-arrow-left me-1"></i>Script Library
+        <i class="fas fa-arrow-left me-1"></i>Scripts
     </a>
 </div>
 

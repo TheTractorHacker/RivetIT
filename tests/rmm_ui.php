@@ -86,9 +86,9 @@ $ok(substr_count($nvStrip, 'disabled') >= 3 && str_contains($nvStrip, 'Available
 $lin = $panel('LNX1', 'admin');
 $ok($lin['platform'] === 'linux' && $lin['saved_scripts'] === [], 'LNX1: a Linux device, no saved-script list');
 $linStrip = rivetRmmUiStrip($lin);
-$ok(str_contains($linStrip, 'fa-linux') && !str_contains($linStrip, 'fa-windows') && str_contains($linStrip, 'id="rmm-act-script" data-bs-toggle="modal" data-bs-target="#rmmRunModal" disabled') && str_contains($linStrip, 'Linux devices can collect inventory and reboot')
-    && preg_match('/id="rmm-act-reboot"[^>]*>/', $linStrip, $m) === 1 && !str_contains($m[0], 'disabled'), 'LNX1: Linux icon (no Windows), Run script disabled with the reason, Reboot enabled');
-$ok(!str_contains(rivetRmmUiDialogs($lin), 'rmmRunModal') && str_contains(rivetRmmUiDialogs($lin), 'rmmRebootModal'), 'LNX1: no script dialog is rendered, the reboot dialog is');
+$ok(str_contains($linStrip, 'fa-linux') && !str_contains($linStrip, 'fa-windows') && preg_match('/id="rmm-act-script"[^>]*>/', $linStrip, $m0) === 1 && !str_contains($m0[0], 'disabled') && !str_contains($linStrip, 'Linux devices can collect inventory and reboot')
+    && preg_match('/id="rmm-act-reboot"[^>]*>/', $linStrip, $m) === 1 && !str_contains($m[0], 'disabled'), 'LNX1: Linux icon (no Windows), Run script enabled (shell text, library scripts), Reboot enabled');
+$ok(str_contains(rivetRmmUiDialogs($lin), 'rmmRunModal') && str_contains(rivetRmmUiDialogs($lin), 'Shell (type or paste)') && str_contains(rivetRmmUiDialogs($lin), 'rmmRebootModal'), 'LNX1: the script dialog (shell text) and the reboot dialog are rendered');
 $pend = rivetRmmUiPanel($db, $A['WIN1'], 1);   // pending approval has no asset; simulate the asset link of a device that dropped back to approval
 $q("UPDATE endpoint_agent_devices SET link_state='pending_approval', match_reason='ambiguous' WHERE device_id=" . $D['OFFL']);
 $pend = $panel('OFFL');

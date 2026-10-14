@@ -63,6 +63,13 @@
 .rmm-trend { position: relative; }   /* the visually-hidden text inside is absolutely positioned: keep it inside the scrolling table container, or it widens the page */
 .rmm-trend summary { cursor: pointer; color: var(--if-muted); }
 
+/* The Run script dialog: two panes (library / free-form) that each wrap their own body and footer, so the body still scrolls inside the dialog. */
+.rmm-run-pane { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.rmm-run-pane[hidden] { display: none; }
+.rmm-run-pane > .modal-body { overflow-y: auto; }
+#rmm-run-lib-script { max-height: 14rem; }
+#rmm-run-lib-detail:empty { display: none; }
+
 /* Phone width: the strip stacks (identity, then the action row wrapping), tables sit in their own scroll container. */
 @media (max-width: 767.98px) {
   .rmm-strip-row { align-items: flex-start !important; }
