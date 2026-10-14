@@ -11010,3 +11010,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.166'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.166') {
+        // DB 2.6.167: OAuth Client ID Metadata Documents for the Remote MCP built-in sign-in (docs/REMOTE_MCP.md). ONE new table, mcp_oauth_client_documents
+        // (CREATE TABLE IF NOT EXISTS, nothing existing altered): the validated, cached copy of a client's published document, keyed by the internal client ID
+        // of its mcp_oauth_clients row (registration_type 'metadata'). The trust policy (cimd_mode, cimd_hosts) lives in mcp_oauth_config. Nothing is switched
+        // on: the mode defaults to off, so no document is ever fetched until an administrator enables it.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents` (
+          `client_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+          `source_url` varchar(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+          `document` mediumtext NOT NULL,
+          `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+          `fetched_at` datetime NOT NULL,
+          `expires_at` datetime NOT NULL,
+          `last_error` varchar(100) DEFAULT NULL,
+          `last_error_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`client_id`),
+          KEY `idx_mcp_oauth_client_documents_expires` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        if (mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'mcp_oauth_client_documents'")) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.167'");
+        }
+    }

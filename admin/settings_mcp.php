@@ -12,6 +12,7 @@ $tables_ready = false;
 try { $tables_ready = (bool) $mysqli->query("SHOW TABLES LIKE 'mcp_unlinked_identities'")->fetch_row(); } catch (Throwable $e) {}
 
 $oauth = OAuthConfig::load($mysqli);   // the built-in OAuth server (RivetIT as its own authorization server)
+$cimd = OAuthConfig::cimd($mysqli);    // trust policy for client metadata documents
 $oauth_clients = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->clients() : [];
 $oauth_grants = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->activeGrants() : [];
 $as_metadata_url = 'https://' . $config_base_url . '/.well-known/oauth-authorization-server';
@@ -131,7 +132,7 @@ $csrf = $_SESSION['csrf_token'];
                 <?php foreach ($oauth_grants as $g) { ?>
                     <tr>
                         <td><strong><?= nullable_htmlentities($g['user_name'] ?? 'Removed user') ?></strong><div class="text-muted small"><?= nullable_htmlentities($g['user_email'] ?? '') ?></div></td>
-                        <td><?= nullable_htmlentities($g['client_name']) ?><div class="text-muted small"><code><?= nullable_htmlentities($g['scope']) ?></code></div></td>
+                        <td><?= nullable_htmlentities($g['client_name']) ?><?php if ($g['registration_type'] === 'metadata' && $g['source_url']) { ?> <span class="badge bg-secondary">from <?= nullable_htmlentities(parse_url((string) $g['source_url'], PHP_URL_HOST) ?: '') ?></span><?php } ?><div class="text-muted small"><code><?= nullable_htmlentities($g['scope']) ?></code></div></td>
                         <td class="small text-nowrap"><?= nullable_htmlentities($g['created_at']) ?></td>
                         <td class="small text-nowrap"><?= $g['last_used_at'] ? timeAgo($g['last_used_at']) : 'Never' ?></td>
                         <td class="small text-nowrap"><?= nullable_htmlentities(substr((string) $g['expires_at'], 0, 10)) ?></td>
@@ -149,6 +150,46 @@ $csrf = $_SESSION['csrf_token'];
     </div>
 </div>
 
+<div class="card mb-3" id="client-metadata">
+    <div class="card-header py-3 d-flex align-items-center justify-content-between">
+        <h4 class="card-title mb-0"><i class="fas fa-fw fa-id-card me-2"></i>Client ID Metadata Documents</h4>
+        <span class="badge bg-<?= $cimd['mode'] === 'off' ? 'secondary' : ($cimd['mode'] === 'any' ? 'warning text-dark' : 'success') ?>"><?= $cimd['mode'] === 'off' ? 'Off' : ($cimd['mode'] === 'any' ? 'Any website' : 'Listed hosts') ?></span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Lets an application identify itself with the address of a metadata document it publishes, instead of registering itself first. Claude does this: its published identity is <code>https://claude.ai/oauth/mcp-oauth-client-metadata</code>, so people see that the request really comes from claude.ai. RivetIT fetches the document itself (https only, public addresses only, no redirects, 64 KB, 5 seconds) and shows the document's host, not its self-chosen name, on the approval screen. See docs/REMOTE_MCP.md.</p>
+        <form action="post.php" method="post" class="mb-3">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <button type="submit" name="trust_claude_cimd" class="btn btn-outline-success"><i class="fa fa-check me-2"></i>Trust Claude (claude.ai)</button>
+            <span class="form-text ms-2">Allows only hosts in the list below, and adds claude.ai to it.</span>
+        </form>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_off" value="off" <?= $cimd['mode'] === 'off' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_off">Off (default): applications must register themselves or be added by you</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_hosts" value="hosts" <?= $cimd['mode'] === 'hosts' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_hosts">Only the hosts listed below</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="cimd_mode" id="cimd_any" value="any" <?= $cimd['mode'] === 'any' ? 'checked' : '' ?>><label class="form-check-label" for="cimd_any">Any https website</label></div>
+            <div class="alert alert-warning py-2 mt-2">&ldquo;Any https website&rdquo; lets anyone on the internet create an application entry here, by pointing a sign-in link at a page they control. People still have to sign in and approve, and the approval screen shows an &ldquo;unverified application&rdquo; notice for hosts not in the list, but the name an application gives itself is whatever its author chose. Prefer the listed hosts.</div>
+            <button type="submit" name="save_mcp_cimd_mode" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save</button>
+        </form>
+        <hr>
+        <h5 class="mb-2">Trusted hosts</h5>
+        <?php if (!$cimd['hosts']) { ?><p class="text-muted">No hosts listed, so &ldquo;Only the hosts listed&rdquo; allows nothing.</p><?php } ?>
+        <?php foreach ($cimd['hosts'] as $cimd_host) { ?>
+            <form action="post.php" method="post" class="d-inline-block me-2 mb-2">
+                <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+                <input type="hidden" name="cimd_host" value="<?= nullable_htmlentities($cimd_host) ?>">
+                <span class="badge bg-light text-dark border fs-6"><?= nullable_htmlentities($cimd_host) ?></span>
+                <button type="submit" name="remove_mcp_cimd_host" class="btn btn-sm btn-outline-danger ms-1" aria-label="Remove <?= nullable_htmlentities($cimd_host) ?>"><i class="fa fa-times"></i></button>
+            </form>
+        <?php } ?>
+        <form action="post.php" method="post" class="row g-2 mt-1" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="col-auto"><input type="text" class="form-control" name="cimd_host" maxlength="100" placeholder="example.com" aria-label="Host to trust" required></div>
+            <div class="col-auto"><button type="submit" name="add_mcp_cimd_host" class="btn btn-outline-primary"><i class="fa fa-plus me-2"></i>Add host</button></div>
+        </form>
+        <div class="form-text">A host name, optionally with a port (a different port is a different host). Turning this off or removing a host stops new approvals and refreshes at once; access tokens already issued last at most 15 minutes. To cut a connection now, Disable the app or Revoke the connection.</div>
+    </div>
+</div>
+
 <div class="card mb-3">
     <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-puzzle-piece me-2"></i>Registered apps <span class="badge bg-secondary"><?= count($oauth_clients) ?></span></h4></div>
     <div class="card-body">
@@ -161,9 +202,16 @@ $csrf = $_SESSION['csrf_token'];
                 <?php foreach ($oauth_clients as $c) { ?>
                     <tr>
                         <td><strong><?= nullable_htmlentities($c['client_name']) ?></strong>
-                            <span class="badge bg-<?= $c['registration_type'] === 'manual' ? 'info' : 'secondary' ?> ms-1"><?= $c['registration_type'] === 'manual' ? 'Added by you' : 'Registered itself' ?></span>
+                            <span class="badge bg-<?= $c['registration_type'] === 'manual' ? 'info' : ($c['registration_type'] === 'metadata' ? 'primary' : 'secondary') ?> ms-1"><?= $c['registration_type'] === 'manual' ? 'Added by you' : ($c['registration_type'] === 'metadata' ? 'Metadata document' : 'Registered itself') ?></span>
                             <?php if ($c['disabled_at']) { ?><span class="badge bg-danger ms-1">Disabled</span><?php } ?>
+                            <?php if ($c['registration_type'] === 'metadata') { ?>
+                                <div class="small text-break">Source: <code><?= nullable_htmlentities($c['source_url'] ?? '(removed)') ?></code></div>
+                                <div class="text-muted small">First seen <?= nullable_htmlentities($c['first_seen_at'] ?? $c['created_at']) ?>; fetched <?= $c['fetched_at'] ? timeAgo($c['fetched_at']) : 'never' ?>;
+                                    <?= $c['document_expires_at'] && strtotime((string) $c['document_expires_at']) > time() ? 'cached until ' . nullable_htmlentities($c['document_expires_at']) : 'cache expired (fetched again on next use)' ?></div>
+                                <?php if (!empty($c['last_error'])) { ?><div class="small text-danger">Last problem: <?= nullable_htmlentities($c['last_error']) ?> (<?= nullable_htmlentities($c['last_error_at']) ?>)</div><?php } ?>
+                            <?php } else { ?>
                             <div class="text-muted small text-break"><code><?= nullable_htmlentities($c['client_id']) ?></code></div>
+                            <?php } ?>
                             <div class="text-muted small"><?= (int) $c['active_grants'] ?> active connection(s)</div></td>
                         <td class="small text-break"><?php foreach ($c['redirect_uris'] as $u) { ?><div><?= nullable_htmlentities($u) ?></div><?php } ?></td>
                         <td class="small text-nowrap"><?= nullable_htmlentities($c['created_at']) ?></td>
@@ -174,7 +222,7 @@ $csrf = $_SESSION['csrf_token'];
                                 <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
                                 <button type="submit" name="toggle_mcp_oauth_client" class="btn btn-sm btn-outline-secondary"><?= $c['disabled_at'] ? 'Enable' : 'Disable' ?></button>
                             </form>
-                            <form action="post.php" method="post" class="d-inline" data-confirm-submit="Delete this app and end every connection it has?">
+                            <form action="post.php" method="post" class="d-inline" data-confirm-submit="Delete this app and end every connection it has?<?= $c['registration_type'] === 'metadata' ? ' It can appear again the next time it connects while its host is trusted; use Disable to block it for good.' : '' ?>">
                                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                                 <input type="hidden" name="client_id" value="<?= nullable_htmlentities($c['client_id']) ?>">
                                 <button type="submit" name="delete_mcp_oauth_client" class="btn btn-sm btn-outline-danger">Delete</button>

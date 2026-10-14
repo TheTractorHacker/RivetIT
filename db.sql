@@ -9559,3 +9559,16 @@ CREATE TABLE IF NOT EXISTS `ticket_view_defaults` (
   UNIQUE KEY `uniq_default_key` (`default_key`),
   KEY `idx_default_view` (`default_view_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents` (
+  `client_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `source_url` varchar(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `document` mediumtext NOT NULL,
+  `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `fetched_at` datetime NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `last_error` varchar(100) DEFAULT NULL,
+  `last_error_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`client_id`),
+  KEY `idx_mcp_oauth_client_documents_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

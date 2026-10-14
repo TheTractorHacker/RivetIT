@@ -71,9 +71,9 @@ final class OAuthStore
     /** @return list<array<string,mixed>> */
     public function clients(): array
     {
-        $rows = $this->rows("SELECT c.*,
+        $rows = $this->rows("SELECT c.*, d.source_url, d.first_seen_at, d.fetched_at, d.expires_at AS document_expires_at, (d.expires_at > UTC_TIMESTAMP()) AS document_fresh, d.last_error, d.last_error_at,
                 (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_grants
-            FROM mcp_oauth_clients c ORDER BY c.created_at DESC LIMIT 500");
+            FROM mcp_oauth_clients c LEFT JOIN mcp_oauth_client_documents d ON d.client_id = c.client_id ORDER BY c.created_at DESC LIMIT 500");
         foreach ($rows as &$r) {
             $r['redirect_uris'] = json_decode((string) $r['redirect_uris'], true) ?: [];
         }
@@ -88,7 +88,7 @@ final class OAuthStore
 
     public function registrationsFromIp(string $ip, int $seconds): int
     {
-        return (int) ($this->row('SELECT COUNT(*) AS n FROM mcp_oauth_clients WHERE created_ip = ? AND created_at > NOW() - INTERVAL ? SECOND',
+        return (int) ($this->row('SELECT COUNT(*) AS n FROM mcp_oauth_clients WHERE created_ip = ? AND created_at > UTC_TIMESTAMP() - INTERVAL ? SECOND',
             'si', [$ip, $seconds])['n'] ?? 0);
     }
 
@@ -104,7 +104,48 @@ final class OAuthStore
         $this->exec('DELETE t FROM mcp_oauth_tokens t JOIN mcp_oauth_grants g ON g.grant_id = t.grant_id WHERE g.client_id = ?', 's', [$id]);
         $this->exec('DELETE FROM mcp_oauth_grants WHERE client_id = ?', 's', [$id]);
         $this->exec('DELETE FROM mcp_oauth_codes WHERE client_id = ?', 's', [$id]);
+        $this->exec('DELETE FROM mcp_oauth_client_documents WHERE client_id = ?', 's', [$id]);
         $this->exec('DELETE FROM mcp_oauth_clients WHERE client_id = ?', 's', [$id]);
+    }
+
+    /* ------------------------------------------------------------------ client metadata documents (CIMD) */
+
+    /** The cached document row of a metadata-document client, with whether it is still fresh by the database clock. */
+    public function cimdDocument(string $internalId): ?array
+    {
+        return $this->row('SELECT *, (expires_at > UTC_TIMESTAMP()) AS fresh FROM mcp_oauth_client_documents WHERE client_id = ?', 's', [$internalId]);
+    }
+
+    public function countMetadataClients(): int
+    {
+        return (int) ($this->row("SELECT COUNT(*) AS n FROM mcp_oauth_clients WHERE registration_type = 'metadata'")['n'] ?? 0);
+    }
+
+    /**
+     * Store a validated document: creates the client on first sight, otherwise refreshes its name and redirect list (the
+     * administrator's disabled flag and the grants are never touched). @return bool true when the client is new
+     */
+    public function saveCimd(string $internalId, string $url, string $name, array $redirectUris, string $rawDocument, int $ttl): bool
+    {
+        $json = json_encode(array_values($redirectUris), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $new = $this->client($internalId) === null;
+        if ($new) {
+            $this->exec("INSERT INTO mcp_oauth_clients (client_id, client_name, redirect_uris, registration_type) VALUES (?, ?, ?, 'metadata')", 'sss', [$internalId, $name, $json]);
+        } else {
+            $this->exec("UPDATE mcp_oauth_clients SET client_name = ?, redirect_uris = ? WHERE client_id = ? AND registration_type = 'metadata'", 'sss', [$name, $json, $internalId]);
+        }
+        $this->exec('INSERT INTO mcp_oauth_client_documents (client_id, source_url, document, fetched_at, expires_at)
+            VALUES (?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ? SECOND)
+            ON DUPLICATE KEY UPDATE source_url = VALUES(source_url), document = VALUES(document), fetched_at = UTC_TIMESTAMP(),
+                expires_at = UTC_TIMESTAMP() + INTERVAL ? SECOND, last_error = NULL, last_error_at = NULL', 'sssii', [$internalId, $url, $rawDocument, $ttl, $ttl]);
+
+        return $new;
+    }
+
+    /** A fetch or validation failure on a known client: its cached copy is expired at once (fail closed) and the reason kept for the administrator. */
+    public function recordCimdFailure(string $internalId, string $reason): void
+    {
+        $this->exec('UPDATE mcp_oauth_client_documents SET expires_at = UTC_TIMESTAMP(), last_error = ?, last_error_at = UTC_TIMESTAMP() WHERE client_id = ?', 'ss', [mb_substr($reason, 0, 100), $internalId]);
     }
 
     public function touchClient(string $id): void
@@ -247,9 +288,10 @@ final class OAuthStore
     public function activeGrants(?int $userId = null, int $limit = 200): array
     {
         $sql = "SELECT g.grant_id, g.client_id, g.user_id, g.scope, g.created_at, g.last_used_at, g.expires_at,
-                c.client_name, c.redirect_uris, u.user_name, u.user_email
+                c.client_name, c.redirect_uris, c.registration_type, d.source_url, u.user_name, u.user_email
             FROM mcp_oauth_grants g
             JOIN mcp_oauth_clients c ON c.client_id = g.client_id
+            LEFT JOIN mcp_oauth_client_documents d ON d.client_id = c.client_id
             LEFT JOIN users u ON u.user_id = g.user_id
             WHERE g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()";
         $types = '';
@@ -271,12 +313,24 @@ final class OAuthStore
         $this->exec('DELETE FROM mcp_oauth_tokens WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY');
         $this->exec('DELETE FROM mcp_oauth_grants WHERE (revoked_at IS NOT NULL AND revoked_at < UTC_TIMESTAMP() - INTERVAL 30 DAY) OR expires_at < UTC_TIMESTAMP() - INTERVAL 30 DAY');
         $this->purgeUnusedClients(7 * 86400);
+        $this->purgeUnusedMetadataClients(7 * 86400);
+    }
+
+    /** Metadata-document clients nobody ever approved or used, once older than $seconds (an administrator-disabled one is kept). */
+    public function purgeUnusedMetadataClients(int $seconds): void
+    {
+        $where = "registration_type = 'metadata' AND created_at < UTC_TIMESTAMP() - INTERVAL ? SECOND AND last_used_at IS NULL AND disabled_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = mcp_oauth_clients.client_id)";
+        $this->exec("DELETE d FROM mcp_oauth_client_documents d JOIN mcp_oauth_clients c ON c.client_id = d.client_id
+            WHERE c.registration_type = 'metadata' AND c.created_at < UTC_TIMESTAMP() - INTERVAL ? SECOND AND c.last_used_at IS NULL AND c.disabled_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = c.client_id)", 'i', [$seconds]);
+        $this->exec('DELETE FROM mcp_oauth_clients WHERE ' . $where, 'i', [$seconds]);
     }
 
     /** Self-registered clients nobody ever approved, once they are older than $seconds. */
     public function purgeUnusedClients(int $seconds): void
     {
-        $this->exec("DELETE FROM mcp_oauth_clients WHERE registration_type = 'dynamic' AND created_at < NOW() - INTERVAL ? SECOND
+        $this->exec("DELETE FROM mcp_oauth_clients WHERE registration_type = 'dynamic' AND created_at < UTC_TIMESTAMP() - INTERVAL ? SECOND
             AND last_used_at IS NULL AND NOT EXISTS (SELECT 1 FROM mcp_oauth_grants g WHERE g.client_id = mcp_oauth_clients.client_id)", 'i', [$seconds]);
     }
 }

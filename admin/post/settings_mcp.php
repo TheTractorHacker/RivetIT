@@ -98,6 +98,47 @@ if (isset($_POST['save_mcp_oauth_settings'])) {
     redirect();
 }
 
+if (isset($_POST['trust_claude_cimd']) || isset($_POST['save_mcp_cimd_mode']) || isset($_POST['add_mcp_cimd_host']) || isset($_POST['remove_mcp_cimd_host'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    if (!OAuthConfig::load($mysqli)['schema_ready']) {
+        flash_alert('Run the database update first.', 'error');
+        redirect();
+    }
+    $cimd = OAuthConfig::cimd($mysqli);
+    $mode = $cimd['mode'];
+    $hosts = $cimd['hosts'];
+    $what = '';
+    if (isset($_POST['trust_claude_cimd'])) {
+        $mode = 'hosts';
+        $hosts = array_values(array_unique(array_merge($hosts, ['claude.ai'])));
+        $what = 'trusted claude.ai';
+    } elseif (isset($_POST['save_mcp_cimd_mode'])) {
+        $mode = in_array($_POST['cimd_mode'] ?? '', OAuthConfig::CIMD_MODES, true) ? $_POST['cimd_mode'] : $mode;
+        $what = 'set the mode to ' . $mode;
+    } elseif (isset($_POST['add_mcp_cimd_host'])) {
+        $host = OAuthConfig::normalizeHost((string) ($_POST['cimd_host'] ?? ''));
+        if ($host === null) {
+            flash_alert('Enter a host name such as example.com (no https:// and no path).', 'error');
+            redirect();
+        }
+        $hosts = array_values(array_unique(array_merge($hosts, [$host])));
+        $what = 'added host ' . $host;
+    } else {
+        $host = OAuthConfig::normalizeHost((string) ($_POST['cimd_host'] ?? ''));
+        $hosts = array_values(array_filter($hosts, static fn ($h) => $h !== $host));
+        $what = 'removed host ' . (string) $host;
+    }
+    if (strlen(implode(',', $hosts)) > 250) {
+        flash_alert('That is too many hosts. Remove one first.', 'error');
+        redirect();
+    }
+    OAuthConfig::setCimd($mysqli, $mode, $hosts);
+    logAction('Settings', 'Edit', "$session_name changed Remote MCP client metadata documents ($what)");
+    AuditService::record('mcp.oauth_settings_changed', (int) $session_user_id, 'settings', 'mcp_oauth', 'update', 'Remote MCP client metadata document policy changed: ' . $what, ['cimd_mode' => $mode, 'cimd_hosts' => $hosts]);
+    flash_alert('Client metadata document settings saved.');
+    redirect();
+}
+
 if (isset($_POST['add_mcp_oauth_client'])) {
     validateCSRFToken($_POST['csrf_token']);
     $uris = preg_split('/\R/', (string) ($_POST['redirect_uris'] ?? '')) ?: [];

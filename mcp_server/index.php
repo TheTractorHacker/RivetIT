@@ -46,7 +46,7 @@ if ($builtin && $path === '/.well-known/oauth-authorization-server') {
     }
     $as = new ITFlow\Mcp\OAuth\OAuthService($mysqli, $issuer, $audience);
     header('Content-Type: application/json');
-    echo json_encode($as->metadata($oauth_state['registration']), JSON_UNESCAPED_SLASHES);
+    echo json_encode($as->metadata($oauth_state['registration'], ITFlow\Mcp\OAuth\OAuthConfig::cimd($mysqli)['mode'] !== 'off'), JSON_UNESCAPED_SLASHES);
     exit;
 }
 if (!in_array($path, ['/mcp', '/.well-known/oauth-protected-resource'], true)) {

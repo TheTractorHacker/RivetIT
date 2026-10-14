@@ -39,6 +39,10 @@ try {
     if ($clientId !== '' && !OAuthHttp::allow('oauth:token:client:' . hash('sha256', $clientId), 60, 60)) {
         OAuthHttp::tooMany();
     }
+    // A client_id that is a URL makes this server fetch it (client metadata documents): bound the outbound work per address.
+    if (OAuthService::clientIdIsUrl($clientId) && !OAuthHttp::allow('oauth:cimd:fetch:ip:' . OAuthHttp::clientIp(), 30, 60)) {
+        OAuthHttp::tooMany();
+    }
     $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url));
     [$status, $body] = $service->token($params['values']);
     OAuthHttp::json($status, $body, $status === 401 ? ['WWW-Authenticate' => 'Basic realm="RivetIT MCP"'] : []);
