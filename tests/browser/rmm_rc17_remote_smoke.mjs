@@ -97,6 +97,10 @@ await T('setup: the Linux server with its Mesh node, remote tools on, the mock M
   assert(FX.dev > 0 && FX.asset > 0, 'fixture: ' + out);
   const e = extra(31, null);
   assert(e.hide === 31 && e.hide_tools === null, 'extra: ' + JSON.stringify(e));
+  // rc.18: the device's stored node id is the hex form an agent reports; the launch must still carry the 64-character URL form
+  const hx = JSON.parse(execFileSync('php', ['tests/browser/rmm_rc17_extra.php', 'hexnode', String(FX.dev)], { encoding: 'utf8', env: process.env, timeout: 60000 }).split('\n').find((l) => l.startsWith('{')));
+  FX.nodeUrl = hx.url;
+  assert(FX.nodeUrl.length === 64 && FX.nodeUrl.includes('@') && FX.nodeUrl.includes('$'), 'hex fixture: ' + JSON.stringify(hx));
 });
 
 await T('Remote button: a new tab exists at once (before the launch answers), then goes to the Mesh URL with login, gotonode, viewmode=11 and hide=31', async () => {
@@ -115,8 +119,9 @@ await T('Remote button: a new tab exists at once (before the launch answers), th
   const t = await waitTab((x) => x.url.startsWith(`http://127.0.0.1:${MESH_PORT}/`), 'the Mesh tab');
   assert(t.id === blank.id, 'the SAME tab was navigated (not a second one)');
   const q = parseQuery(t.url);
-  assert(typeof q.login === 'string' && q.login.length > 40 && /^node\/\//.test(q.gotonode) && q.viewmode === '11' && q.hide === '31', 'URL: ' + t.url.replace(/login=[^&]+/, 'login=...'));
+  assert(typeof q.login === 'string' && q.login.length > 40 && q.gotonode === FX.nodeUrl && q.viewmode === '11' && q.hide === '31', 'URL: ' + t.url.replace(/login=[^&]+/, 'login=...'));
   assert(/&viewmode=11&hide=31$/.test(t.url), 'parameter order: ' + t.url.slice(-40));
+  assert(t.url.includes('&gotonode=' + FX.nodeUrl + '&viewmode=11'), 'gotonode is the 64-character URL form, @ and $ literal, no node// prefix: ' + t.url.replace(/login=[^&]+/, 'login=...'));
   const after = await p.eval(`window.__opens`);
   assert(after.length === 1, 'window.open was called ' + after.length + ' times (expected the one blank tab)');
   await sleep(300);
@@ -154,7 +159,7 @@ await T('the browser refuses the tab: an "Open remote session" link is shown (ta
   const l = await p.eval(`(()=>{const a=document.querySelector('a.rmm-open-session-link');return {href:a.href,target:a.target,rel:a.rel,text:a.textContent,msg:document.getElementById('rmm-msg').innerText}})()`);
   assert(l.target === '_blank' && /noopener/.test(l.rel) && l.text === 'Open remote session' && /blocked/.test(l.msg), 'link: ' + JSON.stringify({ ...l, href: l.href.slice(0, 60) }));
   const q = parseQuery(l.href);
-  assert(q.viewmode === '11' && q.hide === '31' && q.login && q.gotonode, 'link URL: ' + l.href.slice(0, 120));
+  assert(q.viewmode === '11' && q.hide === '31' && q.login && q.gotonode === FX.nodeUrl, 'link URL: ' + l.href.slice(0, 120));
   assert((await others()).length === 0, 'a tab appeared although the browser refused it');
   // the link works: a real click on it (a user gesture of its own) opens the session
   await p.eval(`delete window.open; true`);

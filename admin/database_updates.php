@@ -11280,3 +11280,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.171'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.171') {
+        // DB 2.6.172: RivetCore 1.0.0-rc.18 (MeshCentral node ids in their URL form). Core Migration0027MeshNodeIds rewrites endpoint_agent_mesh_nodes.mesh_node_id and
+        // endpoint_agent_mesh_agents.node_id to the canonical node//<64 characters> (an id reported as 96 hex characters is the same node; the launch link needs the 64-character form).
+        // Data only, no DDL: idempotent, unparseable values are left alone, a duplicate keeps the manual mapping and flags the automatic one as conflict. Core owns it, so this step runs the
+        // Core runner (it skips applied ids). Skipped (version NOT advanced, so it retries) until a package that ships migration 0027 is installed. Launch and conflict detection
+        // already cope with the old spellings, so nothing breaks while it waits.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0027MeshNodeIds::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.172'");
+        }
+    }

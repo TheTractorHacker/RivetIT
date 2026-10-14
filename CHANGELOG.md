@@ -6,6 +6,16 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.48] RivetIT — the Remote button finds the device (MeshCentral node ids)
+
+**Deploy notes:** back up the database, pull this tag, `composer install --no-dev` (RivetCore **1.0.0-rc.18**), then run the database update (Administration > Updates or `php scripts/update_cli.php --update_db`). **DB 2.6.172**: Core migration `0027_rmm_mesh_node_ids` rewrites the stored MeshCentral node ids to one form (data only, no schema change, idempotent). No cron change.
+
+- **Bug fixed: Remote opened the MeshCentral home page instead of the device.** MeshCentral finds a device by its 64-character id (`...?viewmode=11&gotonode=<64 characters>`), but the agent reports the same 48 bytes as 96 hex characters and the link carried `node//<hex>`. The link is now `<mesh>/?login=<token>&gotonode=<64 characters>&viewmode=11&hide=31`; every stored form (hex, 64 characters, `node//` either) is converted when the link is built, so it works even before the database update.
+- **Paste whatever you have.** The MeshCentral node field (Remote card, legacy device page) accepts the address bar of the device in MeshCentral, `node//...`, the 64 characters after `gotonode=`, or 96 hex characters, and shows `node//` plus 64 characters. Help text: "In MeshCentral open the device and copy the address bar, or paste the node id."
+- **Same node, one mapping.** An agent that reports the node in hex and a hand-typed 64-character id are the same node: conflict detection compares them as such.
+- **Not verified on a live MeshCentral** with this exact link; the shape is the one MeshCentral shows in its own address bar. See RivetCore's `docs/rmm/REMOTE_AND_LOGS.md`.
+- **Tests:** `tests/rmm_ui_p68_remote.php` (the launch URL carries the 64-character form for a device whose stored id was hex, on every view; a pasted address is saved canonical), `tests/rmm_ui.php` (field help), `tests/endpoint_agent_migration.php` (DB 2.6.172 step), `tests/browser/rmm_rc17_remote_smoke.mjs` extended.
+
 ## [26.10.47] RivetIT — the Remote button opens the remote screen in a new tab
 
 **Deploy notes:** back up the database, pull this tag, `composer install --no-dev` (RivetCore **1.0.0-rc.17**), then run the database update (Administration > Updates or `php scripts/update_cli.php --update_db`). **DB 2.6.171**: Core migration `0026_rmm_mesh_hide` adds two columns to `endpoint_agent_mesh_settings` (`mesh_hide` default 31, `mesh_hide_tools` empty); nothing else is touched. No cron change.

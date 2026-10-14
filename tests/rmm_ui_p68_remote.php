@@ -479,6 +479,30 @@ foreach (['desktop' => 11, 'terminal' => 12, 'files' => 13] as $view => $mode) {
     [$c, $qs, $url] = $hideQ($view);
     $ok($c === 200 && ($qs['hide'] ?? null) === '31' && ($qs['viewmode'] ?? null) === (string) $mode && isset($qs['login'], $qs['gotonode']) && str_ends_with($url, '&viewmode=' . $mode . '&hide=31'), "Mesh $view: the default launch URL ends with &viewmode=$mode&hide=31");
 }
+// ---- RivetCore 1.0.0-rc.18: gotonode carries MeshCentral's 64-character URL form, whatever form the node id was stored in
+do {
+    $rawNode = random_bytes(48);
+    $nodeUrl = strtr(rtrim(base64_encode($rawNode), '='), '+/', '@$');
+} while (!str_contains($nodeUrl, '@') || !str_contains($nodeUrl, '$'));
+$nodeHex = bin2hex($rawNode);
+$devNodeSql = "device_id = " . (int) $remDev['REM1'];
+$prevNode = $rows("SELECT mesh_node_id FROM endpoint_agent_mesh_nodes WHERE $devNodeSql")[0]['mesh_node_id'] ?? null;
+$q("UPDATE endpoint_agent_mesh_nodes SET mesh_node_id = 'node//$nodeHex' WHERE $devNodeSql");   // a row as the agent reported it before rc.18
+foreach (['desktop' => 11, 'terminal' => 12, 'files' => 13] as $view => $mode) {
+    [$c, $qs, $url] = $hideQ($view);
+    $ok($c === 200 && ($qs['gotonode'] ?? null) === $nodeUrl && str_contains($url, "&gotonode=$nodeUrl&viewmode=$mode&hide=31"), "Mesh $view: a device stored with the hex id launches with gotonode=<64-character URL form>, @ and \$ literal");
+}
+$ok(!str_contains($hideQ('desktop')[2], 'gotonode=node'), 'the node// prefix is no longer sent in gotonode');
+$r = $rmm->technician()->setMeshNode($admin, $remDev['REM1'], "https://desktop.example.test/?viewmode=11&gotonode=$nodeUrl&=");
+$ok($r->ok && ($rows("SELECT mesh_node_id FROM endpoint_agent_mesh_nodes WHERE $devNodeSql")[0]['mesh_node_id'] ?? null) === "node//$nodeUrl", 'a pasted MeshCentral address is saved as node// plus the 64 characters');
+$r = $rmm->technician()->setMeshNode($admin, $remDev['REM1'], "https://desktop.example.test/?viewmode=11");
+$ok(!$r->ok && ($rows("SELECT mesh_node_id FROM endpoint_agent_mesh_nodes WHERE $devNodeSql")[0]['mesh_node_id'] ?? null) === "node//$nodeUrl", 'an address without gotonode is refused and changes nothing');
+[$c, $body] = $page('admin', 'REM1');
+$ok(str_contains($body, 'copy the address bar') && str_contains($body, 'value="node//' . htmlspecialchars($nodeUrl) . '"'), 'the node field shows the canonical form with the help text');
+if ($prevNode !== null) {
+    $rmm->technician()->setMeshNode($admin, $remDev['REM1'], $prevNode);
+}
+$fresh();
 [, , , $j31] = $hideQ('desktop');
 $ok(isset($j31['success'], $j31['url'], $j31['session_id']) || isset($j31['url'], $j31['session_id']), 'the launch answer keeps its members (url, session_id)');
 [, $mf] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']);

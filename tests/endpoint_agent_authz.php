@@ -67,7 +67,7 @@ $q("DELETE FROM rmm_remote_sessions"); $q("DELETE FROM logs");
 [$c, , $r] = $api('tech', 'POST', "/api/v1/endpoint_devices/$D1/remote", []);
 $ok($c === 200 && isset($r['url'], $r['session_id']), 'mapped online device: launch returns a URL and a safe session id');
 $u = parse_url($r['url']); parse_str($u['query'], $qs);
-$ok(strpos($r['url'], $meshUrl . '/?login=') === 0 && ($qs['gotonode'] ?? '') === 'node//' . str_repeat('A', 24) . $D1, 'URL targets the MeshCentral login-token entry and the LINKED device\'s node');
+$ok(strpos($r['url'], $meshUrl . '/?login=') === 0 && ($qs['gotonode'] ?? '') === str_repeat('A', 24) . $D1, 'URL targets the MeshCentral login-token entry and the LINKED device\'s node');
 $cookie = Mesh::decodeCookie($qs['login'], $KEY);
 $ok($cookie && $cookie['u'] === 'user//rivetit-support' && $cookie['a'] === 3 && abs($cookie['time'] - (time() - 120)) < 30, 'login token decrypts with the key to the limited service account (no admin credential) with a fresh timestamp');
 $ok(strpos($qs['login'], '+') === false && strpos($qs['login'], '/') === false, 'token uses MeshCentral\'s @ and $ substitutions');

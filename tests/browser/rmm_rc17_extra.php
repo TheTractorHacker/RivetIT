@@ -11,6 +11,19 @@
 require dirname(__DIR__) . '/endpoint_agent_lib.php';
 require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
 
+// RivetCore 1.0.0-rc.18: `php tests/browser/rmm_rc17_extra.php hexnode <device id>` stores a fresh random MeshCentral node for the device the way an agent used to report it
+// (node// plus 96 hex characters, written straight to the table) and prints {"url": <the 64-character URL form MeshCentral wants in gotonode>}.
+if (($argv[1] ?? '') === 'hexnode') {
+    $devId = (int) ($argv[2] ?? 0);
+    do {
+        $raw = random_bytes(48);
+        $url = strtr(rtrim(base64_encode($raw), '='), '+/', '@$');
+    } while (!str_contains($url, '@') || !str_contains($url, '$'));
+    $db->query("UPDATE endpoint_agent_mesh_nodes SET mesh_node_id = 'node//" . bin2hex($raw) . "' WHERE device_id = $devId");
+    if ($db->affected_rows !== 1) { fwrite(STDERR, "no mapped node for device $devId\n"); exit(1); }
+    echo json_encode(['url' => $url]) . "\n";
+    exit(0);
+}
 $port = (int) ($argv[1] ?? 0);
 if ($port < 1024) { fwrite(STDERR, "usage: rmm_rc17_extra.php <mesh port> [hide [tools|-]]\n"); exit(2); }
 $rmm = rivetRmmModule($db);

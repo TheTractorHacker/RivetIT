@@ -394,8 +394,8 @@ function rivetRmmUiRemoteCard(array $vm): string
     }
     if ($perm['admin']) {
         $body .= '<div class="card-body border-top py-2"><form id="rmm-mesh-form" class="row g-2 align-items-end"><div class="col-12"><label class="form-label small mb-1" for="rmm-mesh-node">MeshCentral node id (administrators)</label>'
-            . '<input class="form-control form-control-sm font-monospace" id="rmm-mesh-node" name="mesh_node_id" maxlength="200" value="' . rmmH($m['node_id']) . '" placeholder="node//AbCd...">'
-            . '</div><div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Save mapping</button> <span class="small text-muted">Leave empty to clear. A node set here is kept when the Mesh agent reports a different one, unless <em>Let the agent\'s node replace a node I mapped by hand</em> is on in the MeshCentral settings.</span></div></form></div>';
+            . '<input class="form-control form-control-sm font-monospace" id="rmm-mesh-node" name="mesh_node_id" maxlength="2048" value="' . rmmH($m['node_id']) . '" placeholder="node//... or the MeshCentral address of the device" aria-describedby="rmm-mesh-node-help">'
+            . '<div class="form-text" id="rmm-mesh-node-help">In MeshCentral open the device and copy the address bar, or paste the node id. Any form is accepted and shown as <code>node//</code> plus 64 characters.</div></div><div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Save mapping</button> <span class="small text-muted">Leave empty to clear. A node set here is kept when the Mesh agent reports a different one, unless <em>Let the agent\'s node replace a node I mapped by hand</em> is on in the MeshCentral settings.</span></div></form></div>';
     }
     if ($perm['remote'] && $m['configured']) {
         $body .= '<div class="card-header py-1 border-top"><span class="ifm-toolbar-label">Recent sessions</span></div><ul class="list-group list-group-flush">';
