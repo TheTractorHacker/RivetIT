@@ -5,7 +5,7 @@ namespace ITFlow\Mcp\OAuth;
 /**
  * Database access for the built-in OAuth server. Every secret (authorization code, access token, refresh token) is
  * stored as the raw SHA-256 of the value (BINARY(32)); the plain value only ever exists in the response that issues it.
- * All timestamps are the database's own clock (NOW()), so a code, token or consent expires the same way for every request.
+ * All timestamps are the database's own clock (UTC_TIMESTAMP()), so a code, token or consent expires the same way for every request.
  */
 final class OAuthStore
 {
@@ -72,7 +72,7 @@ final class OAuthStore
     public function clients(): array
     {
         $rows = $this->rows("SELECT c.*,
-                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > NOW()) AS active_grants
+                (SELECT COUNT(*) FROM mcp_oauth_grants g WHERE g.client_id = c.client_id AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()) AS active_grants
             FROM mcp_oauth_clients c ORDER BY c.created_at DESC LIMIT 500");
         foreach ($rows as &$r) {
             $r['redirect_uris'] = json_decode((string) $r['redirect_uris'], true) ?: [];
@@ -94,7 +94,7 @@ final class OAuthStore
 
     public function setClientDisabled(string $id, bool $disabled): void
     {
-        $this->exec($disabled ? 'UPDATE mcp_oauth_clients SET disabled_at = NOW() WHERE client_id = ? AND disabled_at IS NULL'
+        $this->exec($disabled ? 'UPDATE mcp_oauth_clients SET disabled_at = UTC_TIMESTAMP() WHERE client_id = ? AND disabled_at IS NULL'
             : 'UPDATE mcp_oauth_clients SET disabled_at = NULL WHERE client_id = ?', 's', [$id]);
     }
 
@@ -109,7 +109,7 @@ final class OAuthStore
 
     public function touchClient(string $id): void
     {
-        $this->exec('UPDATE mcp_oauth_clients SET last_used_at = NOW() WHERE client_id = ?', 's', [$id]);
+        $this->exec('UPDATE mcp_oauth_clients SET last_used_at = UTC_TIMESTAMP() WHERE client_id = ?', 's', [$id]);
     }
 
     /* ------------------------------------------------------------------ codes */
@@ -118,7 +118,7 @@ final class OAuthStore
     {
         $ttl = OAuthConfig::CODE_TTL;
         $this->exec('INSERT INTO mcp_oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, resource, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW() + INTERVAL ? SECOND)', 'ssissssi',
+            VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND)', 'ssissssi',
             [$codeHash, $clientId, $userId, $redirectUri, $challenge, $scope, $resource, $ttl]);
     }
 
@@ -128,7 +128,7 @@ final class OAuthStore
      */
     public function redeemCode(string $codeHash): array
     {
-        $won = $this->exec('UPDATE mcp_oauth_codes SET used_at = NOW() WHERE code_hash = ? AND used_at IS NULL AND expires_at > NOW()', 's', [$codeHash]);
+        $won = $this->exec('UPDATE mcp_oauth_codes SET used_at = UTC_TIMESTAMP() WHERE code_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()', 's', [$codeHash]);
         $row = $this->row('SELECT * FROM mcp_oauth_codes WHERE code_hash = ?', 's', [$codeHash]);
         if (!$row) {
             return ['status' => 'unknown', 'row' => null];
@@ -146,7 +146,7 @@ final class OAuthStore
     {
         $days = OAuthConfig::GRANT_DAYS;
         $this->exec('INSERT INTO mcp_oauth_grants (client_id, user_id, scope, resource, origin_code_hash, expires_at)
-            VALUES (?, ?, ?, ?, ?, NOW() + INTERVAL ? DAY)', 'sisssi', [$clientId, $userId, $scope, $resource, $originCodeHash, $days]);
+            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? DAY)', 'sisssi', [$clientId, $userId, $scope, $resource, $originCodeHash, $days]);
 
         return (int) $this->db->insert_id;
     }
@@ -158,7 +158,7 @@ final class OAuthStore
 
     public function grantIsLive(int $id): bool
     {
-        return $this->row('SELECT grant_id FROM mcp_oauth_grants WHERE grant_id = ? AND revoked_at IS NULL AND expires_at > NOW()', 'i', [$id]) !== null;
+        return $this->row('SELECT grant_id FROM mcp_oauth_grants WHERE grant_id = ? AND revoked_at IS NULL AND expires_at > UTC_TIMESTAMP()', 'i', [$id]) !== null;
     }
 
     public function grantByOriginCode(string $codeHash): ?array
@@ -169,7 +169,7 @@ final class OAuthStore
     /** Revoke a consent and drop every token under it. Returns true when this call is the one that revoked it. */
     public function revokeGrant(int $id, string $reason): bool
     {
-        $n = $this->exec('UPDATE mcp_oauth_grants SET revoked_at = NOW(), revoke_reason = ? WHERE grant_id = ? AND revoked_at IS NULL', 'si', [$reason, $id]);
+        $n = $this->exec('UPDATE mcp_oauth_grants SET revoked_at = UTC_TIMESTAMP(), revoke_reason = ? WHERE grant_id = ? AND revoked_at IS NULL', 'si', [$reason, $id]);
         $this->exec('DELETE FROM mcp_oauth_tokens WHERE grant_id = ?', 'i', [$id]);
 
         return $n === 1;
@@ -188,7 +188,7 @@ final class OAuthStore
 
     public function insertToken(string $tokenHash, int $grantId, string $kind, int $ttlSeconds): void
     {
-        $this->exec('INSERT INTO mcp_oauth_tokens (token_hash, grant_id, token_kind, expires_at) VALUES (?, ?, ?, NOW() + INTERVAL ? SECOND)',
+        $this->exec('INSERT INTO mcp_oauth_tokens (token_hash, grant_id, token_kind, expires_at) VALUES (?, ?, ?, UTC_TIMESTAMP() + INTERVAL ? SECOND)',
             'sisi', [$tokenHash, $grantId, $kind, $ttlSeconds]);
     }
 
@@ -202,7 +202,7 @@ final class OAuthStore
      */
     public function redeemRefresh(string $tokenHash): array
     {
-        $won = $this->exec("UPDATE mcp_oauth_tokens SET used_at = NOW() WHERE token_hash = ? AND token_kind = 'refresh' AND used_at IS NULL AND expires_at > NOW()", 's', [$tokenHash]);
+        $won = $this->exec("UPDATE mcp_oauth_tokens SET used_at = UTC_TIMESTAMP() WHERE token_hash = ? AND token_kind = 'refresh' AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()", 's', [$tokenHash]);
         $row = $this->row("SELECT * FROM mcp_oauth_tokens WHERE token_hash = ? AND token_kind = 'refresh'", 's', [$tokenHash]);
         if (!$row) {
             return ['status' => 'unknown', 'row' => null];
@@ -225,15 +225,15 @@ final class OAuthStore
             JOIN mcp_oauth_grants g ON g.grant_id = t.grant_id
             JOIN mcp_oauth_clients c ON c.client_id = g.client_id
             JOIN users u ON u.user_id = g.user_id
-            WHERE t.token_hash = ? AND t.token_kind = 'access' AND t.expires_at > NOW()
-              AND g.revoked_at IS NULL AND g.expires_at > NOW() AND c.disabled_at IS NULL
+            WHERE t.token_hash = ? AND t.token_kind = 'access' AND t.expires_at > UTC_TIMESTAMP()
+              AND g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP() AND c.disabled_at IS NULL
               AND u.user_type = 1 AND u.user_status = 1 AND u.user_archived_at IS NULL", 's', [$tokenHash]);
     }
 
     /** Recorded at most once a minute per consent, so a busy client does not write on every call. */
     public function touchGrant(int $id): void
     {
-        $this->exec('UPDATE mcp_oauth_grants SET last_used_at = NOW() WHERE grant_id = ? AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL 60 SECOND)', 'i', [$id]);
+        $this->exec('UPDATE mcp_oauth_grants SET last_used_at = UTC_TIMESTAMP() WHERE grant_id = ? AND (last_used_at IS NULL OR last_used_at < UTC_TIMESTAMP() - INTERVAL 60 SECOND)', 'i', [$id]);
     }
 
     public function userIsActiveAgent(int $userId): bool
@@ -251,7 +251,7 @@ final class OAuthStore
             FROM mcp_oauth_grants g
             JOIN mcp_oauth_clients c ON c.client_id = g.client_id
             LEFT JOIN users u ON u.user_id = g.user_id
-            WHERE g.revoked_at IS NULL AND g.expires_at > NOW()";
+            WHERE g.revoked_at IS NULL AND g.expires_at > UTC_TIMESTAMP()";
         $types = '';
         $params = [];
         if ($userId !== null) {
@@ -267,9 +267,9 @@ final class OAuthStore
     /** Remove what can no longer be used. Cheap; run on a small share of requests. */
     public function purge(): void
     {
-        $this->exec('DELETE FROM mcp_oauth_codes WHERE expires_at < NOW() - INTERVAL 1 DAY');
-        $this->exec('DELETE FROM mcp_oauth_tokens WHERE expires_at < NOW() - INTERVAL 7 DAY');
-        $this->exec('DELETE FROM mcp_oauth_grants WHERE (revoked_at IS NOT NULL AND revoked_at < NOW() - INTERVAL 30 DAY) OR expires_at < NOW() - INTERVAL 30 DAY');
+        $this->exec('DELETE FROM mcp_oauth_codes WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 1 DAY');
+        $this->exec('DELETE FROM mcp_oauth_tokens WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY');
+        $this->exec('DELETE FROM mcp_oauth_grants WHERE (revoked_at IS NOT NULL AND revoked_at < UTC_TIMESTAMP() - INTERVAL 30 DAY) OR expires_at < UTC_TIMESTAMP() - INTERVAL 30 DAY');
         $this->purgeUnusedClients(7 * 86400);
     }
 

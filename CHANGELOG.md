@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Remote MCP sign-in: fix "authorization code is invalid" (time zone)
+
+- The built-in OAuth server wrote code, token and consent expiry times with the database's `NOW()`. The consent page runs under the app's company-local time zone and the token endpoint does not, so on a server whose company time zone differs from the database default (UTC) every code looked expired by the time the client redeemed it and Claude's connection failed with a 400 `invalid_grant`. All expiry/usage columns now use `UTC_TIMESTAMP()`. `tests/mcp_oauth_utc.php` guards it.
+
 ## [26.10.44] RivetIT — ticket views: multi-select filters (checkboxes) and a default view
 
 Service Desk ticket filters now take more than one value, and a saved view can be made the default. **DB 2.6.166**: one idempotent step gated on 2.6.165 that creates one new table, `ticket_view_defaults` (`CREATE TABLE IF NOT EXISTS`, nothing existing altered; `db.sql` carries the same table, fresh import and migrated schema compared over all 408 tables with 0 differences). Nothing is switched on by the update; until it runs everything works as before and only the default-view stars and boxes are hidden.
