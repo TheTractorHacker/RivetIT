@@ -11164,7 +11164,110 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.168') {
-        // DB 2.6.169: RivetCore 1.0.0-rc.17 (the Remote button opens the remote screen). Core Migration0026MeshHide: TWO new columns on endpoint_agent_mesh_settings,
+        // DB 2.6.169: ManageEngine MDM mapping options (docs/MANAGEENGINE_MDM.md). THREE new tables, nothing existing altered (the settings table and the MDM link tables are not touched):
+        // mdm_mapping_settings (per integration: assign contact from MDM user, overwrite, master "allow MDM to write asset fields" switch, per-field map as JSON; every switch OFF by default),
+        // mdm_user_contact_map (MDM user key = email, else user name -> RivetIT contact, or ignored) and mdm_field_write_log (one row per asset field an MDM sync wrote: old and new value).
+        // No row is inserted: with no settings row every option is off.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_mapping_settings` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `assign_contact` tinyint(1) NOT NULL DEFAULT 0,
+          `assign_contact_overwrite` tinyint(1) NOT NULL DEFAULT 0,
+          `allow_asset_writes` tinyint(1) NOT NULL DEFAULT 0,
+          `field_map` text DEFAULT NULL,
+          `updated_by` int(11) DEFAULT NULL,
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `integration` (`integration_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_user_contact_map` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `user_key` varchar(200) NOT NULL,
+          `user_name` varchar(200) DEFAULT NULL,
+          `user_email` varchar(200) DEFAULT NULL,
+          `contact_id` int(11) DEFAULT NULL,
+          `ignored` tinyint(1) NOT NULL DEFAULT 0,
+          `source` varchar(10) NOT NULL DEFAULT '',
+          `mapped_by` int(11) DEFAULT NULL,
+          `created_at` datetime DEFAULT current_timestamp(),
+          `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `integration_user` (`integration_id`,`user_key`),
+          KEY `idx_contact` (`contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mdm_field_write_log` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `integration_id` int(11) NOT NULL,
+          `sync_log_id` int(11) NOT NULL DEFAULT 0,
+          `asset_id` int(11) NOT NULL,
+          `field_key` varchar(40) NOT NULL,
+          `asset_column` varchar(40) NOT NULL,
+          `mode` varchar(12) NOT NULL DEFAULT 'fill_empty',
+          `old_value` varchar(255) DEFAULT NULL,
+          `new_value` varchar(255) DEFAULT NULL,
+          `written_by` int(11) NOT NULL DEFAULT 0,
+          `written_at` datetime DEFAULT current_timestamp(),
+          PRIMARY KEY (`id`),
+          KEY `idx_asset` (`asset_id`),
+          KEY `idx_sync_log` (`sync_log_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $mdm_map_ok = true;
+        foreach (['mdm_mapping_settings', 'mdm_user_contact_map', 'mdm_field_write_log'] as $mdm_map_table) {
+            $mdm_map_res = mysqli_query($mysqli, "SHOW TABLES LIKE '$mdm_map_table'");
+            if (!$mdm_map_res || mysqli_num_rows($mdm_map_res) === 0) {
+                $mdm_map_ok = false;
+            }
+        }
+        if ($mdm_map_ok) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.169'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.169') {
+        // DB 2.6.170: ManageEngine MDM - on-premises (API key) edition, MSP customers, asset creation and the stale-device review. Additive and idempotent: columns are added with
+        // ADD COLUMN IF NOT EXISTS to the integration's own tables (never to the nearly full settings table). Defaults keep every existing row exactly as it behaved (cloud edition,
+        // no asset creation, no retirement). The device-id/customer columns hold what the MDM reports; raw_json is a small allow-listed subset of the device record (no secrets).
+        mysqli_query($mysqli, "ALTER TABLE `manageengine_mdm_integrations`
+            ADD COLUMN IF NOT EXISTS `edition` varchar(10) NOT NULL DEFAULT 'cloud' AFTER `enabled`,
+            ADD COLUMN IF NOT EXISTS `server_url` varchar(300) NOT NULL DEFAULT '' AFTER `edition`,
+            ADD COLUMN IF NOT EXISTS `api_key_enc` text DEFAULT NULL AFTER `server_url`,
+            ADD COLUMN IF NOT EXISTS `api_key_expires_on` date DEFAULT NULL AFTER `api_key_enc`,
+            ADD COLUMN IF NOT EXISTS `api_key_warned_on` date DEFAULT NULL AFTER `api_key_expires_on`,
+            ADD COLUMN IF NOT EXISTS `tls_verify` tinyint(1) NOT NULL DEFAULT 1 AFTER `api_key_warned_on`,
+            ADD COLUMN IF NOT EXISTS `msp_mode` tinyint(1) NOT NULL DEFAULT 0 AFTER `tls_verify`,
+            ADD COLUMN IF NOT EXISTS `default_client_id` int(11) NOT NULL DEFAULT 0 AFTER `msp_mode`,
+            ADD COLUMN IF NOT EXISTS `auto_create_assets` tinyint(1) NOT NULL DEFAULT 0 AFTER `default_client_id`,
+            ADD COLUMN IF NOT EXISTS `stale_retire_enabled` tinyint(1) NOT NULL DEFAULT 0 AFTER `auto_create_assets`,
+            ADD COLUMN IF NOT EXISTS `stale_retire_days` int(11) NOT NULL DEFAULT 30 AFTER `stale_retire_enabled`,
+            ADD COLUMN IF NOT EXISTS `last_test_devices` int(11) DEFAULT NULL AFTER `last_test_error_code`");
+        foreach (['asset_mdm_links', 'mdm_unmatched_devices'] as $mdm_t) {
+            mysqli_query($mysqli, "ALTER TABLE `$mdm_t`
+                ADD COLUMN IF NOT EXISTS `customer_id` varchar(40) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `customer_name` varchar(200) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS `raw_json` text DEFAULT NULL");
+        }
+        mysqli_query($mysqli, "ALTER TABLE `mdm_unmatched_devices` MODIFY `reason` varchar(20) NOT NULL DEFAULT 'no_match'");
+        mysqli_query($mysqli, "ALTER TABLE `mdm_sync_log` ADD COLUMN IF NOT EXISTS `devices_created` int(11) DEFAULT 0 AFTER `devices_matched`");
+
+        $mdm_cols_ok = true;
+        foreach ([['manageengine_mdm_integrations', 'edition'], ['manageengine_mdm_integrations', 'api_key_enc'], ['manageengine_mdm_integrations', 'stale_retire_days'], ['manageengine_mdm_integrations', 'last_test_devices'],
+                  ['asset_mdm_links', 'raw_json'], ['mdm_unmatched_devices', 'customer_id'], ['mdm_sync_log', 'devices_created']] as [$mdm_t, $mdm_c]) {
+            $mdm_res = mysqli_query($mysqli, "SHOW COLUMNS FROM `$mdm_t` LIKE '$mdm_c'");
+            if (!$mdm_res || mysqli_num_rows($mdm_res) === 0) {
+                $mdm_cols_ok = false;
+            }
+        }
+        if ($mdm_cols_ok) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.170'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.170') {
+        // DB 2.6.171: RivetCore 1.0.0-rc.17 (the Remote button opens the remote screen). Core Migration0026MeshHide: TWO new columns on endpoint_agent_mesh_settings,
         // mesh_hide tinyint unsigned NOT NULL DEFAULT 31 (MeshCentral's `hide` bitmask for the desktop launch) and mesh_hide_tools tinyint unsigned NULL (terminal and files; NULL =
         // the same). Each is added only when missing, no row is rewritten, nothing is switched on. Core owns the DDL, so this step runs the Core runner (idempotent: it skips
         // applied ids). Skipped (version NOT advanced, so it retries) until a package that ships migration 0026 is installed. Until it is applied launches work and use hide 31.
@@ -11174,6 +11277,6 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
                 \RivetCore\Migration\CoreMigrations::all(),
                 new \RivetCore\Support\SystemClock()
             ))->run();
-            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.169'");
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.171'");
         }
     }

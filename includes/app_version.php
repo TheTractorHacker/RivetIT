@@ -7,4 +7,4 @@
 
 require_once __DIR__ . '/branding.php';
 
-DEFINE("APP_VERSION", "26.10.46");
+DEFINE("APP_VERSION", "26.10.47");

@@ -18,6 +18,7 @@ if (!$cfgText || !preg_match('/\$database\s*=\s*[\'"]' . preg_quote(getenv('RIVE
 mysqli_report(MYSQLI_REPORT_OFF);
 date_default_timezone_set('UTC');
 $_SERVER['DOCUMENT_ROOT'] = $root; $_SERVER['REMOTE_ADDR'] = '127.0.0.1'; $_SERVER['HTTP_USER_AGENT'] = 'mdm-test';
+if (!defined('RIVETIT_MDM_ALLOW_HTTP_LOOPBACK')) { define('RIVETIT_MDM_ALLOW_HTTP_LOOPBACK', true); }   // test rigs only: plain http to the loopback mock
 require_once "$root/config.php";
 require_once "$root/functions.php";
 require_once "$root/vendor/autoload.php";
@@ -27,7 +28,7 @@ $db->query("SET SESSION sql_mode=''");
 $GLOBALS['mysqli'] = $db;
 $session_user_id = 0; $session_ip = '127.0.0.1'; $session_user_agent = 'test';
 
-use ITFlow\Integrations\ManageEngine\MdmClient;
+use ITFlow\Integrations\ManageEngine\ManageEngineMdmClient as MdmClient;
 use ITFlow\Integrations\ManageEngine\MdmException;
 
 $q = fn (string $sql) => $db->query($sql);

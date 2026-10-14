@@ -9578,6 +9578,17 @@ CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents` (
 CREATE TABLE IF NOT EXISTS `manageengine_mdm_integrations` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `edition` varchar(10) NOT NULL DEFAULT 'cloud',
+  `server_url` varchar(300) NOT NULL DEFAULT '',
+  `api_key_enc` text DEFAULT NULL,
+  `api_key_expires_on` date DEFAULT NULL,
+  `api_key_warned_on` date DEFAULT NULL,
+  `tls_verify` tinyint(1) NOT NULL DEFAULT 1,
+  `msp_mode` tinyint(1) NOT NULL DEFAULT 0,
+  `default_client_id` int(11) NOT NULL DEFAULT 0,
+  `auto_create_assets` tinyint(1) NOT NULL DEFAULT 0,
+  `stale_retire_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `stale_retire_days` int(11) NOT NULL DEFAULT 30,
   `data_center` varchar(4) NOT NULL DEFAULT 'us',
   `client_id` varchar(200) NOT NULL DEFAULT '',
   `client_secret_enc` text DEFAULT NULL,
@@ -9591,6 +9602,7 @@ CREATE TABLE IF NOT EXISTS `manageengine_mdm_integrations` (
   `last_test_success` tinyint(1) DEFAULT NULL,
   `last_test_error` varchar(500) DEFAULT NULL,
   `last_test_error_code` varchar(40) DEFAULT NULL,
+  `last_test_devices` int(11) DEFAULT NULL,
   `last_sync_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -9628,6 +9640,9 @@ CREATE TABLE IF NOT EXISTS `asset_mdm_links` (
   `last_sync` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `customer_id` varchar(40) DEFAULT NULL,
+  `customer_name` varchar(200) DEFAULT NULL,
+  `raw_json` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `asset_integration` (`asset_id`,`integration_id`),
   UNIQUE KEY `integration_device` (`integration_id`,`mdm_device_id`),
@@ -9665,6 +9680,9 @@ CREATE TABLE IF NOT EXISTS `mdm_unmatched_devices` (
   `last_contact_at` datetime DEFAULT NULL,
   `first_seen_at` datetime DEFAULT current_timestamp(),
   `last_seen_at` datetime DEFAULT NULL,
+  `customer_id` varchar(40) DEFAULT NULL,
+  `customer_name` varchar(200) DEFAULT NULL,
+  `raw_json` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `integration_device` (`integration_id`,`mdm_device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9678,6 +9696,7 @@ CREATE TABLE IF NOT EXISTS `mdm_sync_log` (
   `devices_total` int(11) DEFAULT 0,
   `devices_updated` int(11) DEFAULT 0,
   `devices_matched` int(11) DEFAULT 0,
+  `devices_created` int(11) DEFAULT 0,
   `devices_unmatched` int(11) DEFAULT 0,
   `devices_skipped` int(11) DEFAULT 0,
   `errors` text DEFAULT NULL,
@@ -9685,4 +9704,51 @@ CREATE TABLE IF NOT EXISTS `mdm_sync_log` (
   `triggered_by` int(11) DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_integration_started` (`integration_id`,`started_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mdm_mapping_settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `integration_id` int(11) NOT NULL,
+  `assign_contact` tinyint(1) NOT NULL DEFAULT 0,
+  `assign_contact_overwrite` tinyint(1) NOT NULL DEFAULT 0,
+  `allow_asset_writes` tinyint(1) NOT NULL DEFAULT 0,
+  `field_map` text DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `integration` (`integration_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mdm_user_contact_map` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `integration_id` int(11) NOT NULL,
+  `user_key` varchar(200) NOT NULL,
+  `user_name` varchar(200) DEFAULT NULL,
+  `user_email` varchar(200) DEFAULT NULL,
+  `contact_id` int(11) DEFAULT NULL,
+  `ignored` tinyint(1) NOT NULL DEFAULT 0,
+  `source` varchar(10) NOT NULL DEFAULT '',
+  `mapped_by` int(11) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `integration_user` (`integration_id`,`user_key`),
+  KEY `idx_contact` (`contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `mdm_field_write_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `integration_id` int(11) NOT NULL,
+  `sync_log_id` int(11) NOT NULL DEFAULT 0,
+  `asset_id` int(11) NOT NULL,
+  `field_key` varchar(40) NOT NULL,
+  `asset_column` varchar(40) NOT NULL,
+  `mode` varchar(12) NOT NULL DEFAULT 'fill_empty',
+  `old_value` varchar(255) DEFAULT NULL,
+  `new_value` varchar(255) DEFAULT NULL,
+  `written_by` int(11) NOT NULL DEFAULT 0,
+  `written_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_asset` (`asset_id`),
+  KEY `idx_sync_log` (`sync_log_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

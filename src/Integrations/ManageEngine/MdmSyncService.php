@@ -22,8 +22,8 @@ final class MdmSyncService
         $id = (int) $row['id'];
         $fail = static fn (string $m, ?string $code = null, int $log = 0, bool $locked = false) => ['ok' => false, 'message' => $m, 'error_code' => $code, 'stats' => null, 'log_id' => $log, 'locked' => $locked];
 
-        if (empty($row['client_secret_enc']) || empty($row['client_id']) || empty($row['refresh_token_enc'])) {
-            return $fail('Save a client id, client secret and refresh token before syncing.');
+        if (!MdmClientFactory::hasCredentials($row)) {
+            return $fail(MdmClientFactory::edition($row) === MdmClientFactory::EDITION_ONPREM ? 'Save the server address and an API key before syncing.' : 'Save a client id, client secret and refresh token before syncing.');
         }
 
         $recent = mysqli_fetch_assoc(mysqli_query($mysqli,
@@ -38,22 +38,48 @@ final class MdmSyncService
             @set_time_limit($timeLimitSeconds + 30);
         }
         $deadline = time() + $timeLimitSeconds;
-        $client = MdmClientFactory::forRow($mysqli, $row, $deadline, $clientOptions);
-        $mapper = new MdmDeviceMapper($mysqli, $id, $triggeredBy);
+        $mapper = new MdmDeviceMapper($mysqli, $id, $triggeredBy, MdmDeviceMapper::configFromRow($row));
+        // The log row exists before anything can fail (including a refused server address), so the sync watcher sees every failed run.
         $logId = $mapper->startSyncLog();
 
         try {
-            $listed = $client->listAllDevices();
+            $client = MdmClientFactory::forRow($mysqli, $row, $deadline, $clientOptions);
             $warnings = [];
-            $devices = self::enrich($client, $listed, !empty($row['enrich_details']), $deadline, $warnings);
+            $devices = [];
+            if ((int) ($row['msp_mode'] ?? 0) === 1) {
+                $customers = $client->listCustomers();
+                if ($customers === []) {
+                    $warnings[] = 'MSP mode is on but ManageEngine returned no customers.';
+                }
+                foreach ($customers as $c) {
+                    $client->setCustomer($c['customer_id']);
+                    foreach (self::enrich($client, $client->listAllDevices(), !empty($row['enrich_details']), $deadline, $warnings) as $dev) {
+                        $dev['customer_id'] = $c['customer_id'];
+                        $dev['customer_name'] = $c['customer_name'];
+                        $devices[] = $dev;
+                    }
+                }
+                $client->setCustomer(null);
+            } else {
+                $devices = self::enrich($client, $client->listAllDevices(), !empty($row['enrich_details']), $deadline, $warnings);
+            }
             $stats = $mapper->syncDevices($devices);
             $mapper->pruneUnmatched(array_column($devices, 'mdm_device_id'));
+            $stats['notes'] = self::applyMapping($mysqli, $id, $logId, $triggeredBy, $warnings);
             $stats['warnings'] = $warnings;
+            $stats['retired'] = $stats['restored'] = 0;
+            if ($stats['errors'] === [] && $devices !== [] && (int) ($row['stale_retire_enabled'] ?? 0) === 1) {
+                $r = (new MdmStale($mysqli))->run($id, max(7, (int) ($row['stale_retire_days'] ?? 30)));
+                $stats['retired'] = $r['retired'];
+                $stats['restored'] = $r['restored'];
+            }
             $mapper->finishSyncLog($logId, $stats);
+            self::audit($triggeredBy, $id, 'success', "{$stats['total']} devices");
 
             return [
                 'ok' => empty($stats['errors']),
-                'message' => "ManageEngine MDM sync complete: {$stats['total']} devices, {$stats['matched']} newly linked, {$stats['updated']} updated, {$stats['unmatched']} need review, {$stats['skipped']} skipped"
+                'message' => "ManageEngine MDM sync complete: {$stats['total']} devices, {$stats['matched']} newly linked, {$stats['created']} assets created, {$stats['updated']} updated, {$stats['unmatched']} need review, {$stats['skipped']} skipped"
+                    . ($stats['retired'] ? ", {$stats['retired']} retired for review" : '')
                     . ($warnings ? ' (' . count($warnings) . ' warning' . (count($warnings) === 1 ? '' : 's') . ')' : ''),
                 'error_code' => null, 'stats' => $stats, 'log_id' => $logId, 'locked' => false,
             ];
@@ -68,8 +94,107 @@ final class MdmSyncService
         $m = mysqli_real_escape_string($mysqli, substr($message, 0, 4000));
         $c = mysqli_real_escape_string($mysqli, $code);
         mysqli_query($mysqli, "UPDATE mdm_sync_log SET finished_at=NOW(), status='failed', errors='$m', error_code='$c' WHERE id=$logId");
+        self::audit($triggeredBy, $id, 'failed', $code);
 
         return $fail($message, $code, $logId);
+    }
+
+    private static function audit(int $userId, int $integrationId, string $outcome, string $detail): void
+    {
+        try {
+            \ITFlow\Audit\AuditService::record('integration.manageengine_mdm.sync', $userId > 0 ? $userId : null, 'manageengine_mdm_integration', $integrationId, $outcome, $detail);
+        } catch (\Throwable) {
+            // auditing never fails a sync
+        }
+    }
+
+    /**
+     * On-premises API keys last 6 months. Within 30 days of the date the administrator entered (and once expired) a notification goes out, at most once a day.
+     * Called by cron every minute; cheap (one comparison).
+     *
+     * @param array<string,mixed> $row
+     * @return 'none'|'warned'|'expired'|'ok'
+     */
+    public static function checkKeyExpiry(\mysqli $mysqli, array $row): string
+    {
+        if (MdmClientFactory::edition($row) !== MdmClientFactory::EDITION_ONPREM || empty($row['api_key_expires_on']) || (int) ($row['enabled'] ?? 0) !== 1) {
+            return 'none';
+        }
+        $days = self::keyDaysLeft($row);
+        if ($days === null || $days > 30) {
+            return 'ok';
+        }
+        if (($row['api_key_warned_on'] ?? '') === date('Y-m-d')) {
+            return $days < 0 ? 'expired' : 'warned';
+        }
+        $id = (int) $row['id'];
+        mysqli_query($mysqli, 'UPDATE manageengine_mdm_integrations SET api_key_warned_on = CURDATE() WHERE id = ' . $id);
+        $title = $days < 0 ? 'ManageEngine MDM API key has expired' : 'ManageEngine MDM API key expires in ' . $days . ' day' . ($days === 1 ? '' : 's');
+        try {
+            if (function_exists('appNotify')) {
+                appNotify($title, 'Generate a new key in the MDM server (Admin > Integrations > API Key Generation) and paste it under Administration > Integrations > Device Sync. Syncs stop when the key expires.', '/admin/settings_integrations.php?tab=devicesync');
+            }
+        } catch (\Throwable) {
+        }
+
+        return $days < 0 ? 'expired' : 'warned';
+    }
+
+    /** Whole days from today to the expiry date the administrator entered (negative = expired), or null when none. @param array<string,mixed> $row */
+    public static function keyDaysLeft(array $row): ?int
+    {
+        $d = (string) ($row['api_key_expires_on'] ?? '');
+        if ($d === '' || $d === '0000-00-00') {
+            return null;
+        }
+        $t = strtotime($d . ' 00:00:00');
+        if ($t === false) {
+            return null;
+        }
+
+        return (int) floor(($t - strtotime(date('Y-m-d') . ' 00:00:00')) / 86400);
+    }
+
+    /**
+     * The mapping options (docs/MANAGEENGINE_MDM.md), after the devices are linked and refreshed. Everything here is OFF by default and
+     * a problem in it never fails the run (it becomes a warning):
+     *   1. note every device user in the user -> contact table, auto-mapping exact e-mail matches (own table only);
+     *   2. "Assign contact from MDM user" (only when switched on): fill empty asset contacts, history recorded;
+     *   3. field mapping (only when the master "Allow MDM to write asset fields" switch is on): write the chosen fields, one log line.
+     *
+     * @param list<string> $warnings
+     * @return list<string> notes for the sync log (counts)
+     */
+    private static function applyMapping(\mysqli $mysqli, int $integrationId, int $logId, int $triggeredBy, array &$warnings): array
+    {
+        $notes = [];
+        if (!MdmMappingSettings::schemaReady($mysqli)) {
+            return $notes;   // database update 2.6.169 not run yet: nothing to apply
+        }
+        $settings = MdmMappingSettings::load($mysqli, $integrationId);
+        try {
+            $users = new MdmUserContactMapper($mysqli, $integrationId);
+            $u = $users->refresh();
+            if ($u['auto_mapped'] > 0) {
+                $notes[] = "{$u['auto_mapped']} MDM user(s) mapped to a contact by e-mail";
+            }
+            if ($settings['assign_contact']) {
+                $c = $users->assignAll($settings, $triggeredBy);
+                $notes[] = 'asset contacts set from MDM users: ' . ($c['assign'] ?? 0) . ' (kept existing ' . ($c['kept_existing'] ?? 0) . ', needs mapping ' . ($c['no_mapping'] ?? 0) . ')';
+            }
+        } catch (\Throwable $e) {
+            $warnings[] = 'user mapping skipped: ' . $e->getMessage();
+        }
+        if ($settings['allow_asset_writes']) {
+            try {
+                $w = (new MdmFieldWriter($mysqli, $integrationId))->apply($settings, $logId, $triggeredBy);
+                $notes[] = $w['blocked'] !== '' ? 'asset field writes: none (' . $w['blocked'] . ')' : "asset field writes: {$w['written']} field(s) on {$w['assets']} asset(s)" . ($w['skipped'] ? ", {$w['skipped']} skipped" : '');
+            } catch (\Throwable $e) {
+                $warnings[] = 'asset field writes failed: ' . $e->getMessage();
+            }
+        }
+
+        return $notes;
     }
 
     /**
@@ -90,7 +215,7 @@ final class MdmSyncService
             $id = (string) ($row['device_id'] ?? '');
             $detail = null;
             $summary = null;
-            $removed = !empty($row['is_removed']);
+            $removed = filter_var($row['is_removed'] ?? false, FILTER_VALIDATE_BOOLEAN);   // the API sends the string "false"
             if ($id !== '' && !$removed && time() < $deadline - 5) {
                 if ($detailOn) {
                     try {
@@ -134,7 +259,7 @@ final class MdmSyncService
     /** True when the saved interval has passed since the last run started (cron calls this every minute). @param array<string,mixed> $row */
     public static function isDue(\mysqli $mysqli, array $row): bool
     {
-        if ((int) ($row['enabled'] ?? 0) !== 1 || empty($row['refresh_token_enc'])) {
+        if ((int) ($row['enabled'] ?? 0) !== 1 || !MdmClientFactory::hasCredentials($row)) {
             return false;
         }
         $interval = max(5, min(1440, (int) ($row['sync_interval_minutes'] ?? 60)));

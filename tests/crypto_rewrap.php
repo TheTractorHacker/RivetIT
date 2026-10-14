@@ -128,8 +128,9 @@ $ok($auditDry >= 1, 'a dry run is audited');
 
 // resumable: stop after one batch of one item, then continue
 $part = $svc->run('software_keys', false, 1, 1);
-$q("DELETE FROM software_keys WHERE software_key_id BETWEEN 950 AND 954");
-foreach ([950, 951, 952] as $i) { $q("INSERT INTO software_keys SET software_key_software_id=899, software_key_id=$i, software_key='" . $esc(encryptSetting("lic-$i")) . "'"); }
+// ids far above the seeded range (900 + one per registered column): adding a column to the registry must not make the seeded rows collide with these
+$q("DELETE FROM software_keys WHERE software_key_id BETWEEN 99950 AND 99954");
+foreach ([99950, 99951, 99952] as $i) { $q("INSERT INTO software_keys SET software_key_software_id=899, software_key_id=$i, software_key='" . $esc(encryptSetting("lic-$i")) . "'"); }
 $part = $svc->run('software_keys', false, 1, 1);
 $ok(count($part) === 1 && !$part[0]->completed && $part[0]->cursor !== null, 'stopping after one batch leaves a cursor');
 $ok((glob("$dir/state/*.json") ?: []) !== [], 'progress is saved in a state file');
@@ -167,8 +168,8 @@ $ok(count($auditRows) >= $seeded && !$leak, 'one audit row per column and run, c
 // ------------------------------------------------------------------ compare-and-set and the capacity guard
 $spec = new ColumnSpec('software_keys', 'software_key_id', 'software_key', 'settings', true);
 $src = new MysqliRewrapSource($db, $spec);
-$cur = (string) $one("SELECT software_key FROM software_keys WHERE software_key_id=950");
-$ok($src->replace('950', 'stale-expectation', 'x') === false && $one("SELECT software_key FROM software_keys WHERE software_key_id=950") === $cur, 'replace is compare-and-set: a stale expectation loses');
+$cur = (string) $one("SELECT software_key FROM software_keys WHERE software_key_id=99950");
+$ok($src->replace('99950', 'stale-expectation', 'x') === false && $one("SELECT software_key FROM software_keys WHERE software_key_id=99950") === $cur, 'replace is compare-and-set: a stale expectation loses');
 $q("DROP TABLE IF EXISTS crypto_narrow_tmp");
 $q("CREATE TABLE crypto_narrow_tmp (id int NOT NULL, v varchar(20) DEFAULT NULL, PRIMARY KEY (id))");
 $q("INSERT INTO crypto_narrow_tmp VALUES (1, 'short')");

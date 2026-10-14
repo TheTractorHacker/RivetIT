@@ -43,7 +43,7 @@ final class ColumnRegistry
             ['unifi_integrations', 'id', ['api_key_enc']],
             ['odoo_integrations', 'odoo_integration_id', ['api_key_enc', 'sso_secret_enc']],
             ['microsoft_integrations', 'microsoft_integration_id', ['client_secret_enc', 'token_cache_enc']],
-            ['manageengine_mdm_integrations', 'id', ['client_secret_enc', 'refresh_token_enc', 'token_cache_enc']],
+            ['manageengine_mdm_integrations', 'id', ['client_secret_enc', 'refresh_token_enc', 'token_cache_enc', 'api_key_enc']],
             ['google_integrations', 'google_integration_id', ['service_account_json_enc']],
             ['accounting_integrations', 'accounting_id', ['accounting_client_secret', 'accounting_access_token', 'accounting_refresh_token']],
             ['mailboxes', 'mailbox_id', ['mailbox_imap_password_enc', 'mailbox_oauth_refresh_token_enc', 'mailbox_oauth_access_token_enc']],

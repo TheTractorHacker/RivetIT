@@ -88,7 +88,7 @@ if (!function_exists('itflow_role_catalog')) {
                 'about' => 'Monitoring dashboards and managed devices.',
                 'setting' => 'rmm',
                 'levels' => [
-                    0 => 'No Endpoints menu.',
+                    0 => 'No Managed devices menu.',
                     1 => 'View the RMM dashboard, devices, checks and the network page.',
                     2 => 'Also edit checks and run patch scans and installs.',
                     3 => 'Same as Modify (nothing extra).',

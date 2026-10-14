@@ -172,7 +172,7 @@ $ok((int) $one("SELECT asset_id FROM asset_mdm_links WHERE mdm_device_id='900719
 $iphone = $dev(72, ['list' => ['model' => 'iPhone 14', 'product_name' => 'iPhone']]);
 $mapper()->syncDevices([$iphone]);
 $r = $mapper()->createAssetFor((int) $one("SELECT id FROM mdm_unmatched_devices WHERE mdm_device_id='9007199254740072'"), 0);
-$ok($one("SELECT asset_type FROM assets WHERE asset_id={$r['asset_id']}") === 'Mobile Phone' && $one("SELECT asset_make FROM assets WHERE asset_id={$r['asset_id']}") === 'Apple', 'Create asset: an iPhone becomes a Mobile Phone, make Apple');
+$ok($one("SELECT asset_type FROM assets WHERE asset_id={$r['asset_id']}") === 'Phone' && $one("SELECT asset_make FROM assets WHERE asset_id={$r['asset_id']}") === 'Apple', 'Create asset: an iPhone becomes a Phone, make Apple');
 
 // =====================================================================================================================================
 // the sync service against the mock
@@ -280,7 +280,7 @@ foreach (['good-secret', 'good-refresh', 'APN-SECRET-VALUE'] as $secret) {
 }
 $dump2 = json_encode($rows("SELECT * FROM asset_mdm_links")) . json_encode($rows("SELECT * FROM mdm_sync_log"));
 $ok(!preg_match('/"at-\d+"|Zoho-oauthtoken/', $dump2), 'no access token or Authorization header in the stored rows');
-$ok(strpos(file_get_contents("$root/src/Crypto/ColumnRegistry.php"), "['manageengine_mdm_integrations', 'id', ['client_secret_enc', 'refresh_token_enc', 'token_cache_enc']]") !== false, 'the secret columns are registered for key rotation (ColumnRegistry)');
+$ok(strpos(file_get_contents("$root/src/Crypto/ColumnRegistry.php"), "['manageengine_mdm_integrations', 'id', ['client_secret_enc', 'refresh_token_enc', 'token_cache_enc', 'api_key_enc']]") !== false, 'the secret columns are registered for key rotation (ColumnRegistry)');
 
 // =====================================================================================================================================
 // migration 2.6.168 and db.sql
@@ -299,11 +299,21 @@ foreach ($tables as $t) {
     // the migration block holds the same DDL as db.sql, statement for statement
     preg_match('/CREATE TABLE IF NOT EXISTS `' . $t . '` \((.*?)\n\s*\) ENGINE/s', $upd, $mm);
     preg_match_all('/^\s*`([a-z_0-9]+)` /m', $mm[1] ?? '', $cols3);
-    $ok($cols3[1] === $cols2[1], "the migration and db.sql define the same columns for $t");
+    // 2.6.168 created the table; 2.6.169 added columns with ADD COLUMN IF NOT EXISTS (a column only db.sql or only the migration knows is a drift)
+    $b169 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.169') {"));
+    $b169 = substr($b169, 0, (int) strpos($b169, "\n    }\n"));
+    $added = [];
+    if (preg_match_all('/ALTER TABLE `(?:' . $t . ')`(.*?)"\);/s', $b169, $alt)) {
+        foreach ($alt[1] as $chunk) { if (preg_match_all('/ADD COLUMN IF NOT EXISTS `([a-z_0-9]+)`/', $chunk, $ac)) { foreach ($ac[1] as $c) { $added[] = $c; } } }
+    }
+    $expected = array_merge($cols3[1], in_array($t, ['asset_mdm_links', 'mdm_unmatched_devices'], true) ? ['customer_id', 'customer_name', 'raw_json'] : [], $t === 'manageengine_mdm_integrations' || $t === 'mdm_sync_log' ? $added : []);
+    $a1 = array_unique($expected); sort($a1); $a2 = $cols2[1]; sort($a2);
+    $ok($a1 === $a2, "the migrations (2.6.168 create + 2.6.170 add columns) and db.sql define the same columns for $t");
 }
 $ok(strpos($sql, 'uca1400') === false, 'db.sql carries no uca1400 collation');
 $blockStart = strpos($upd, "if (\$rivetit_db_version() == '2.6.167') {");
-$block = substr($upd, $blockStart);
+$blockEnd = strpos($upd, "if (\$rivetit_db_version() == '2.6.168') {");
+$block = substr($upd, $blockStart, $blockEnd !== false ? $blockEnd - $blockStart : null);
 $ok($blockStart !== false && strpos($block, "'2.6.168'") !== false, 'the migration is gated 2.6.167 -> 2.6.168');
 $ok(substr_count($block, 'CREATE TABLE IF NOT EXISTS') === 4 && stripos($block, 'ALTER TABLE') === false && stripos($block, 'DROP ') === false, 'the migration only adds four tables (IF NOT EXISTS): no ALTER, no DROP, the nearly full settings table is not touched');
 $ok(stripos($block, 'INSERT INTO') === false, 'the migration inserts no row: the integration is off until an administrator saves a connection');

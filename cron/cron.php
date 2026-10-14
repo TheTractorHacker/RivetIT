@@ -1822,6 +1822,9 @@ if ($ms_integration_row) {
 try {
     require_once dirname(__DIR__) . '/vendor/autoload.php';
     $mdm_row = \ITFlow\Integrations\ManageEngine\MdmClientFactory::row($mysqli);
+    if ($mdm_row) {
+        \ITFlow\Integrations\ManageEngine\MdmSyncService::checkKeyExpiry($mysqli, $mdm_row);   // on-premises API key: reminder 30 days before it expires
+    }
     if ($mdm_row && \ITFlow\Integrations\ManageEngine\MdmSyncService::isDue($mysqli, $mdm_row)) {
         $mdm_run = \ITFlow\Integrations\ManageEngine\MdmSyncService::run($mysqli, $mdm_row, 0, 120);
         if ($mdm_run['locked']) {

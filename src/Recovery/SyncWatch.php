@@ -3,8 +3,8 @@
 namespace ITFlow\Recovery;
 
 /**
- * Alerts for integration syncs that stopped running or keep failing: RMM (rmm_sync_log), Intune (intune_sync_log) and UniFi
- * (unifi_sync_log). Per integration the watcher is in one of five states:
+ * Alerts for integration syncs that stopped running or keep failing: RMM (rmm_sync_log), Intune (intune_sync_log), UniFi
+ * (unifi_sync_log) and ManageEngine MDM (mdm_sync_log). Per integration the watcher is in one of five states:
  *
  *   ok       (shown as "healthy") ran recently and is not failing
  *   stale    no run in 3x its expected interval
@@ -168,6 +168,9 @@ final class SyncWatch
                 "SELECT microsoft_integration_id AS id, 'Microsoft 365' AS name, NULL AS created FROM microsoft_integrations WHERE enabled = 1 AND intune_sync_enabled = 1"],
             ['unifi', 'UniFi', 'unifi_sync_log', 'integration_id',
                 'SELECT id, name, UNIX_TIMESTAMP(created_at) AS created FROM unifi_integrations WHERE enabled = 1'],
+            // ManageEngine MDM: its own expected interval is the integration's configured sync interval (expected_min), used unless an administrator overrides it.
+            ['mdm', 'ManageEngine MDM', 'mdm_sync_log', 'integration_id',
+                "SELECT id, 'ManageEngine MDM' AS name, UNIX_TIMESTAMP(created_at) AS created, sync_interval_minutes AS expected_min FROM manageengine_mdm_integrations WHERE enabled = 1"],
         ];
         $out = [];
         foreach ($sources as [$key, $label, $logTable, $idCol, $listSql]) {
@@ -194,6 +197,9 @@ final class SyncWatch
                 if ($ov && $ov['expected_interval_s'] !== null && (int) $ov['expected_interval_s'] > 0) {
                     $interval = max(1, (int) ceil((int) $ov['expected_interval_s'] / 60));
                     $intervalSource = 'override';
+                } elseif (isset($intg['expected_min']) && (int) $intg['expected_min'] > 0) {
+                    $interval = (int) $intg['expected_min'];
+                    $intervalSource = 'setting';
                 } else {
                     $setting = RecoverySettings::get($db, 'sync_interval_' . $key);
                     if ($setting === 'auto') {

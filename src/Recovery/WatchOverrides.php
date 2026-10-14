@@ -5,11 +5,11 @@ namespace ITFlow\Recovery;
 /**
  * Per-integration controls for the sync watcher (table recovery_watch_overrides, DB 2.6.165): Mute, an expected-interval override
  * (so an external daily script can be declared as "every 24 h") and Forget history. One row per (source, integration id), source
- * being rmm, intune or unifi. Every read is defensive: before the migration there are simply no overrides and nothing throws.
+ * being rmm, intune, unifi or mdm (ManageEngine MDM). Every read is defensive: before the migration there are simply no overrides and nothing throws.
  */
 final class WatchOverrides
 {
-    public const SOURCES = ['rmm', 'intune', 'unifi'];
+    public const SOURCES = ['rmm', 'intune', 'unifi', 'mdm'];
     public const MIN_INTERVAL_S = 60;
     public const MAX_INTERVAL_S = 90 * 86400;
 

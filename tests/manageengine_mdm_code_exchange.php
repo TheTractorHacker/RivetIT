@@ -4,10 +4,11 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
  * MdmClient::exchangeAuthorizationCode() against a LOCAL mock of the Zoho token endpoint. No database, no real network:
  *   php tests/manageengine_mdm_code_exchange.php
  */
-foreach (['MdmException', 'MdmTokenStore', 'InMemoryMdmTokenStore', 'DataCenters', 'ConnectionResult', 'MdmClient'] as $c) {
+foreach (['MdmException', 'MdmTokenStore', 'InMemoryMdmTokenStore', 'DataCenters', 'ConnectionResult', 'MdmClient', 'ManageEngineMdmClient'] as $c) {
     foreach ([__DIR__ . "/../src/Integrations/ManageEngine/$c.php", __DIR__ . "/../src/Integrations/$c.php"] as $f) { if (is_file($f)) { require_once $f; break; } }
 }
-use ITFlow\Integrations\ManageEngine\MdmClient;
+define('RIVETIT_MDM_ALLOW_HTTP_LOOPBACK', true);   // the local mock is plain http on loopback
+use ITFlow\Integrations\ManageEngine\ManageEngineMdmClient as MdmClient;
 use ITFlow\Integrations\ManageEngine\MdmException;
 
 $dir = sys_get_temp_dir() . '/mdm_code_' . getmypid();

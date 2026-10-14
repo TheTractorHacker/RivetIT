@@ -1,6 +1,6 @@
 <?php
 /*
- * ManageEngine MDM client (src/Integrations/ManageEngine/MdmClient.php) against the LOCAL mock: data-center allowlist (SSRF), Zoho token refresh
+ * ManageEngine MDM client (src/Integrations/ManageEngine/ManageEngineMdmClient.php) against the LOCAL mock: data-center allowlist (SSRF), Zoho token refresh
  * and reuse, the Authorization header, paging (limit/offset, a server that ignores offset, a foreign paging.next that must never be followed),
  * rate limit / 5xx / 401 / 403 handling, time limit, read-only (only GETs), secrets never in messages, and the encrypted token store.
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=...scratch... RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/manageengine_mdm_client.php
@@ -8,7 +8,7 @@
 require __DIR__ . '/manageengine_mdm_lib.php';
 
 use ITFlow\Integrations\ManageEngine\DataCenters;
-use ITFlow\Integrations\ManageEngine\MdmClient;
+use ITFlow\Integrations\ManageEngine\ManageEngineMdmClient as MdmClient;
 use ITFlow\Integrations\ManageEngine\MdmException;
 use ITFlow\Integrations\ManageEngine\MysqliMdmTokenStore;
 
@@ -177,7 +177,7 @@ $reset(); mdm_seed_mock($mock, 5);
 $c = $mk(); $c->listAllDevices(); $c->getDevice((string) (9007199254740000 + 1)); $c->getDeviceSummary((string) (9007199254740000 + 1)); $c->testConnection();
 $methods = []; foreach ($log() as $e) { $methods[str_starts_with($e['path'], '/api/') ? 'api' : 'token'][$e['method']] = true; }
 $ok(array_keys($methods['api']) === ['GET'] && array_keys($methods['token']) === ['POST'], 'read-only: every API request is a GET; the only POST is the token refresh');
-$src = file_get_contents("$root/src/Integrations/ManageEngine/MdmClient.php");
-$ok(preg_match_all("/send\('(\w+)'/", $src, $m) && array_unique($m[1]) === ['POST', 'GET'], 'the client source has exactly two request sites: the token POST and the GET');
-$code = php_strip_whitespace("$root/src/Integrations/ManageEngine/MdmClient.php");   // comments removed
+$src = file_get_contents("$root/src/Integrations/ManageEngine/ManageEngineMdmClient.php");
+$ok(preg_match_all("/send\('(\w+)'/", $src, $m) && array_values(array_unique($m[1])) === ['POST', 'GET'] && count(array_filter($m[1], fn($v) => $v === 'POST')) === 2 && substr_count($src, "this->accountsBase . '/oauth/v2/token'") === 2, 'the client source has only the Zoho token POSTs (refresh, and the one-time code exchange) and the GET');
+$code = php_strip_whitespace("$root/src/Integrations/ManageEngine/ManageEngineMdmClient.php");   // comments removed
 $ok(strpos($code, 'DELETE') === false && strpos($code, 'PUT') === false && stripos($code, 'wipe') === false && stripos($code, 'lock_device') === false, 'no wipe/lock/delete code path exists in the client');
