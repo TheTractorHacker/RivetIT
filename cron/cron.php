@@ -1815,6 +1815,29 @@ if ($ms_integration_row) {
 
 /*
  * ###############################################################################################################
+ *  MANAGEENGINE MDM DEVICE SYNC (read-only; off until an administrator saves a connection and switches it on)
+ *  Honors the saved sync interval (cron.php runs more often than that); same service as the Sync now button.
+ * ###############################################################################################################
+ */
+try {
+    require_once dirname(__DIR__) . '/vendor/autoload.php';
+    $mdm_row = \ITFlow\Integrations\ManageEngine\MdmClientFactory::row($mysqli);
+    if ($mdm_row && \ITFlow\Integrations\ManageEngine\MdmSyncService::isDue($mysqli, $mdm_row)) {
+        $mdm_run = \ITFlow\Integrations\ManageEngine\MdmSyncService::run($mysqli, $mdm_row, 0, 120);
+        if ($mdm_run['locked']) {
+            logApp("Cron", "info", "ManageEngine MDM sync skipped: another run is still in progress");
+        } elseif ($mdm_run['stats'] !== null) {
+            logApp("Cron", $mdm_run['ok'] ? "info" : "error", $mdm_run['message']);
+        } else {
+            logApp("Cron", "error", "ManageEngine MDM sync failed" . ($mdm_run['error_code'] ? " [{$mdm_run['error_code']}]" : "") . ": " . $mdm_run['message']);
+        }
+    }
+} catch (\Throwable $e) {
+    logApp("Cron", "error", "ManageEngine MDM sync failed: " . $e->getMessage());
+}
+
+/*
+ * ###############################################################################################################
  *  ODOO DIRECTORY SYNC (Departments + Employees)
  * ###############################################################################################################
  */

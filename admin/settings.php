@@ -53,6 +53,7 @@ $settings_groups = [
         'description' => 'Connect external services and manage data sharing.',
         'items' => [
             ['Integrations', 'RMM, backups, UniFi, and directory sync.', 'settings_integrations.php', 'fa-plug'],
+            ['ManageEngine MDM', 'Read-only device sync from ManageEngine Mobile Device Manager Plus (cloud): iPads and Android tablets.', 'settings_manageengine_mdm.php', 'fa-tablet-alt'],
             ['Endpoint agent', 'The built-in RMM module and Windows agent: the on/off switch, enrollment, devices, jobs, updates and MeshCentral remote access.', 'settings_endpoint_agent.php', 'fa-satellite'],
             ['Calendar sync', 'Connect Outlook calendars.', 'settings_calendar_sync.php', 'fa-calendar-alt'],
             ['Webhooks', 'Send events to other systems.', 'settings_webhooks.php', 'fa-satellite-dish'],

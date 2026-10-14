@@ -68,6 +68,7 @@ $admin_settings_labels = [
     'settings_rmm.php' => 'Integrations',
     'settings_endpoint_agent.php' => 'Endpoint agent',
     'settings_unifi.php' => 'Integrations',
+    'settings_manageengine_mdm.php' => 'Integrations',
 ];
 // A page that lives under an admin area (Maintenance, Ticketing setup, ...) gets that area's breadcrumb below; showing
 // the Settings one as well stacked two breadcrumb rows (settings_redis.php is in both lists).

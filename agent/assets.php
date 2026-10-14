@@ -287,6 +287,26 @@ if ($config_module_enable_rmm && lookupUserPermission('module_rmm') >= 1) {
 }
 $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1;
 
+// ManageEngine MDM: one query for the visible assets, shown as a small badge (read-only data from the cloud sync).
+$mdm_badge_map = [];
+if (lookupUserPermission('module_client') >= 1) {
+    try {
+        $sql_mdm_bulk = mysqli_query($mysqli,
+            "SELECT l.asset_id, l.platform, l.is_lost_mode, l.passcode_compliant, l.is_rooted, l.enrollment_status, l.last_contact_at, i.stale_days
+             FROM asset_mdm_links l JOIN manageengine_mdm_integrations i ON i.id = l.integration_id AND i.enabled = 1
+             WHERE l.asset_id IN (SELECT asset_id FROM assets
+                 LEFT JOIN clients ON asset_client_id=client_id
+                 WHERE $archive_query $client_query
+                 GROUP BY asset_id)"
+        );
+        while ($sql_mdm_bulk && ($mr = mysqli_fetch_assoc($sql_mdm_bulk))) {
+            $mdm_badge_map[(int) $mr['asset_id']] = \ITFlow\Integrations\ManageEngine\MdmDeviceStatus::classify($mr, (int) $mr['stale_days']);
+        }
+    } catch (\Throwable $e) {
+        $mdm_badge_map = [];   // tables not installed yet
+    }
+}
+
 ?>
 
 <div class="col-sm-12 mb-3">
@@ -802,6 +822,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                                                 <?php if ($asset_favorite) { echo "<i class='fas fa-fw fa-star text-warning' title='Favorite'></i>"; } ?>
                                                 <?php if (isset($rmm_status_map[$asset_id])): $rs = $rmm_status_map[$asset_id]; ?>
                                                 <span class="badge badge-<?= $rs === 'online' ? 'success' : 'secondary' ?> ms-1" title="RMM: <?= htmlspecialchars($rs) ?>"><?= $rs === 'online' ? 'Online' : 'Offline' ?></span>
+                                                <?php endif; ?>
+                                                <?php if (isset($mdm_badge_map[$asset_id])): $ms = $mdm_badge_map[$asset_id]; ?>
+                                                <span class="badge badge-<?= $ms['class'] ?> text-bg-<?= $ms['class'] ?> ms-1" title="ManageEngine MDM: <?= htmlspecialchars($ms['label']) ?>"><i class="fas fa-tablet-alt me-1"></i>MDM<?= $ms['state'] === 'ok' || $ms['state'] === 'unknown' ? '' : ': ' . htmlspecialchars($ms['label']) ?></span>
                                                 <?php endif; ?>
                                                 </div>
                                             <div><small class="text-secondary"><?= $asset_description ?></small></div>

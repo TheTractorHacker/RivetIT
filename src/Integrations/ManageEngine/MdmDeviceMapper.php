@@ -49,7 +49,7 @@ final class MdmDeviceMapper
         $bool = static fn ($v): ?int => $v === null ? null : (filter_var($v, FILTER_VALIDATE_BOOLEAN) ? 1 : 0);
         $num = static fn ($v): ?int => (is_numeric($v) && $v >= 0) ? (int) $v : null;
         $ms = static function ($v): ?string {
-            return (is_numeric($v) && (float) $v > 0) ? gmdate('Y-m-d H:i:s', (int) floor((float) $v / 1000)) : null;
+            return (is_numeric($v) && (float) $v > 0) ? date('Y-m-d H:i:s', (int) floor((float) $v / 1000)) : null;
         };
 
         $detail ??= [];
