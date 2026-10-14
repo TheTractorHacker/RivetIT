@@ -36,6 +36,11 @@ if (isset($_GET['client_id'])) {
     $client_url = '';
 }
 
+// The filter helpers (ticketFilterSets(), ticketViewDefaultsAvailable(), ticketViewDefaultIds(), ticketFilterCheckGroup()) are used on
+// EVERY request below, including the department tab (?client_id=N). They were only loaded inside the no-client_id branch at the top,
+// so the department Tickets tab died with "Call to undefined function ticketFilterSets()" (IT-27). require_once: a no-op when loaded.
+require_once __DIR__ . '/includes/ticket_view_filters.php';
+
 // Perms
 enforceUserPermission('module_support');
 
