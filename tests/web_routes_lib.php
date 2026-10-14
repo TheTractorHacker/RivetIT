@@ -6,6 +6,9 @@
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
+require_once __DIR__ . '/../src/Ops/NginxConf.php';
+use ITFlow\Ops\NginxConf;
+
 function wr_root(): string { return dirname(__DIR__); }
 
 function wr_tmpdir(string $tag): string
@@ -75,6 +78,14 @@ function wr_install_vhost(string $dir, string $name, string $text): string
     }, $text);
     $f = "$dir/sites-available/$name";
     file_put_contents($f, $text);
+    $GLOBALS['wr_listen'][$f] = [];
+    foreach (NginxConf::servers(NginxConf::parse($text)) as $srv) {
+        foreach ($srv['children'] as $c) {
+            if ($c['name'] === 'listen' && str_starts_with($c['args'][0], 'unix:')) {
+                $GLOBALS['wr_listen'][$f][in_array('ssl', $c['args'], true) ? 'https' : 'http'] ??= substr($c['args'][0], 5);
+            }
+        }
+    }
     @unlink("$dir/sites-enabled/$name");
     symlink($f, "$dir/sites-enabled/$name");
     return $f;
