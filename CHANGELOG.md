@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### ManageEngine MDM on the Integrations page
+
+- **Integrations > Device Sync** now has a ManageEngine MDM card next to Intune: connection status, linked and waiting-for-review counts, last sync, and buttons to the settings page and the MDM Devices fleet page. It was only reachable from Settings > Connections & data before.
+
 ### Remote MCP: metadata-document fetch prefers IPv4
 
 - Fetching a client metadata document (Claude's published identity) pinned every vetted address of the host, IPv4 and IPv6. On a server whose IPv6 route does not work the fetch failed with "could not connect" and the consent page said the metadata document could not be fetched. The fetch now pins IPv4 addresses when the host has any and uses IPv6 only for an IPv6-only host (`tests/mcp_oauth_cimd_pin.php`).

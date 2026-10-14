@@ -5,6 +5,21 @@ require_once "../includes/comet.php";
 
 $active_tab = in_array($_GET['tab'] ?? '', ['rmm', 'backups', 'firewalls', 'unifi', 'directorysync', 'odoo', 'devicesync']) ? $_GET['tab'] : 'rmm';
 
+// ─── ManageEngine MDM (card on the Device Sync tab; full settings live on settings_manageengine_mdm.php) ───
+$me_mdm = null;
+$me_mdm_linked = 0;
+$me_mdm_unmatched = 0;
+$me_mdm_last_sync = null;
+if (class_exists('\\ITFlow\\Integrations\\ManageEngine\\MdmClientFactory') && ($me_r = @mysqli_query($mysqli, "SHOW TABLES LIKE 'manageengine_mdm_integrations'")) && mysqli_num_rows($me_r) > 0) {
+    $me_mdm = \ITFlow\Integrations\ManageEngine\MdmClientFactory::row($mysqli);
+    if ($me_mdm) {
+        $me_iid = (int) $me_mdm['id'];
+        $me_mdm_linked = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM asset_mdm_links WHERE integration_id = $me_iid"))[0] ?? 0);
+        $me_mdm_unmatched = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM mdm_unmatched_devices WHERE integration_id = $me_iid AND dismissed = 0"))[0] ?? 0);
+        $me_mdm_last_sync = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM mdm_sync_log WHERE integration_id = $me_iid ORDER BY id DESC LIMIT 1")) ?: null;
+    }
+}
+
 // ─── RMM (non-Sophos) ───────────────────────────────────────────────────────
 $sql_rmm_integrations = mysqli_query($mysqli, "SELECT * FROM rmm_integrations WHERE type != 'sophos_central' AND type != 'rivetit_agent' ORDER BY name ASC");
 $sql_rmm_clients      = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
@@ -2157,6 +2172,35 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
             </table>
             </div>
             <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-tablet-alt me-2"></i>ManageEngine MDM (iPads and Android tablets)</h3>
+            <?php if (!$me_mdm || empty($me_mdm['refresh_token_enc'])): ?>
+                <span class="badge text-bg-secondary">No Connection</span>
+            <?php else: ?>
+                <span class="badge <?= (int) $me_mdm['enabled'] === 1 ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= (int) $me_mdm['enabled'] === 1 ? 'Sync Enabled' : 'Connection Saved, Sync Off' ?></span>
+            <?php endif; ?>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">
+                Read-only sync from ManageEngine Mobile Device Manager Plus (cloud). Devices are matched to assets by serial number; nothing is ever locked, wiped or changed on a device.
+            </p>
+            <?php if ($me_mdm && !empty($me_mdm['refresh_token_enc'])): ?>
+                <p class="small mb-2">
+                    <strong><?= $me_mdm_linked ?></strong> linked device<?= $me_mdm_linked === 1 ? '' : 's' ?>
+                    &middot; <strong><?= $me_mdm_unmatched ?></strong> waiting for review
+                    <?php if ($me_mdm_last_sync): ?>
+                        &middot; last sync <?= nullable_htmlentities($me_mdm_last_sync['started_at'] ?? ($me_mdm_last_sync['created_at'] ?? '')) ?>
+                    <?php else: ?>
+                        &middot; no sync yet
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
+            <a href="/admin/settings_manageengine_mdm.php" class="btn btn-primary btn-sm"><i class="fas fa-cog me-1"></i>Open ManageEngine MDM settings</a>
+            <a href="/agent/mdm_devices.php" class="btn btn-secondary btn-sm"><i class="fas fa-tablet-alt me-1"></i>MDM Devices</a>
         </div>
     </div>
 
