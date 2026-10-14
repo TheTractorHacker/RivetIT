@@ -15,38 +15,6 @@ $script = "$root/deploy/apply-web-routes.sh";
 if (wr_nginx_bin() === null) { echo "SKIP  no nginx binary on this machine; apply-web-routes.sh tests need one for nginx -t\n"; exit(0); }
 if (trim((string) shell_exec('command -v openssl')) === '') { echo "SKIP  no openssl\n"; exit(0); }
 
-/** Run the script against a private env. @return array{0:int,1:string} */
-function apply(string $d, array $args, array $env = [], bool $private = true): array
-{
-    $pre = 'RIVETIT_ROUTES_TEST_NONROOT=1 ';
-    foreach ($env as $k => $v) { $pre .= $k . '=' . escapeshellarg($v) . ' '; }
-    $cmd = $pre . escapeshellarg($GLOBALS['script']);
-    if ($private) {
-        $cmd .= ' --nginx-dir ' . escapeshellarg($d) . ' --nginx-conf ' . escapeshellarg("$d/nginx.conf") . ' --reload-cmd ' . escapeshellarg("touch $d/reloaded");
-        if (!in_array('--backup-dir', $args, true) && !preg_grep('~^--backup-dir~', $args) && !in_array('--rollback', $args, true)) {
-            $cmd .= ' --backup-dir ' . escapeshellarg("$d/backup-" . bin2hex(random_bytes(3)));
-        }
-    }
-    foreach ($args as $a) { $cmd .= ' ' . escapeshellarg($a); }
-    exec($cmd . ' 2>&1', $out, $rc);
-    return [$rc, implode("\n", $out)];
-}
-function snapshot(string $d): array
-{
-    $h = [];
-    foreach (['sites-available', 'snippets', 'conf.d'] as $s) {
-        foreach (glob("$d/$s/*") ?: [] as $f) { $h[substr($f, strlen($d))] = md5_file($f); }
-    }
-    ksort($h);
-    return $h;
-}
-function reloaded(string $d, bool $clear = true): bool { $r = file_exists("$d/reloaded"); if ($clear) { @unlink("$d/reloaded"); } return $r; }
-function mkenv(string $tag, array $vhosts, bool $zone = true): string
-{
-    $d = wr_make_env(wr_tmpdir($tag), $zone);
-    foreach ($vhosts as $name => $text) { wr_install_vhost($d, $name, $text); }
-    return $d;
-}
 $cleanup = [];
 $env = function (string $tag, array $vhosts, bool $zone = true) use (&$cleanup): string { $d = mkenv($tag, $vhosts, $zone); $cleanup[] = $d; return $d; };
 
@@ -109,10 +77,11 @@ $ok($ok3, 'after --rollback the original layout still passes nginx -t');
 $d = $env('rb', ['mwa.conf' => $mwa]);
 $before = snapshot($d);
 $bad = "$d/broken-routes.conf";
-file_put_contents($bad, str_replace("location / {\n    try_files \$uri \$uri/ =404;\n}", "location / {\n    try_files \$uri \$uri/ =404;\n    this_is_not_a_directive on;\n}", $routes));
-$ok($bad !== '' && str_contains(file_get_contents($bad), 'this_is_not_a_directive'), 'broken-template fixture really is broken');
+// passes the root-side validator (only allowed directives) but nginx itself rejects it: try_files needs two arguments
+file_put_contents($bad, str_replace("location / {\n    try_files \$uri \$uri/ =404;\n}", "location / {\n    try_files \$uri;\n}", $routes));
+$ok(str_contains(file_get_contents($bad), "try_files \$uri;"), 'broken-template fixture really is broken');
 [$rc, $out] = apply($d, ['--domain', 'mwa.example.test', '--routes-file', $bad]);
-$ok($rc === 1 && str_contains($out, 'nginx rejected the new configuration') && str_contains($out, 'unknown directive') && str_contains($out, 'Rolled back'), 'a template nginx rejects: exit 1, nginx\'s message shown, rolled back');
+$ok($rc === 1 && str_contains($out, 'nginx rejected the new configuration') && str_contains($out, 'try_files') && str_contains($out, 'Rolled back'), 'a template nginx rejects: exit 1, nginx\'s message shown, rolled back');
 $ok(snapshot($d) === $before && !reloaded($d), 'after the failed test every file is byte-identical to before and nginx was never reloaded');
 // reload failure
 [$rc, $out] = apply($d, ['--domain', 'mwa.example.test', '--reload-cmd', 'false']);

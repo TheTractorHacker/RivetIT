@@ -1,12 +1,17 @@
 <?php
 /*
- * Command-line helper for deploy/apply-web-routes.sh. Pure analysis: reads nginx config text, writes only the --out file it is
- * given, never touches nginx, never needs the database or the app's autoloader. All the logic is in src/Ops/WebRoutesConverter.php
+ * Command-line helper for deploy/apply-web-routes.sh. Pure analysis: reads nginx config text, writes nothing to disk (stdout only),
+ * never touches nginx, never needs the database or the app's autoloader. All the logic is in src/Ops/WebRoutesConverter.php
  * (so the tests exercise the same code); this file only wires arguments to it and prints one "KEY: value" line per fact.
  *
- *   php web_routes_tool.php detect  --nginx-dir=/etc/nginx [--domain=D ...] [--all] [--legacy-snippet=NAME ...]
- *   php web_routes_tool.php convert --vhost=FILE --out=FILE --routes=TEMPLATE --nginx-dir=/etc/nginx
+ * IT RUNS AS AN UNPRIVILEGED USER (deploy/apply-web-routes.sh drops privileges with runuser before starting it) and writes NOTHING
+ * to disk: everything goes to stdout, which root has redirected into a file of its own and then validates as untrusted input.
+ *
+ *   php web_routes_tool.php detect        --nginx-dir=/etc/nginx [--domain=D ...] [--all] [--legacy-snippet=NAME ...]
+ *   php web_routes_tool.php registry-keys                         (one nginx location key per line)
+ *   php web_routes_tool.php convert --vhost=FILE --routes=TEMPLATE --nginx-dir=/etc/nginx
  *                                   [--sock=/run/php/phpX.Y-fpm.sock] [--hsts=direct|proxy] [--include=snippets/rivetit-locations.conf]
+ *      prints "KEY: value" report lines, a line "---CONTENT---", then the new vhost text (byte for byte) to the end.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
@@ -101,14 +106,18 @@ if ($cmd === 'detect') {
     exit(0);
 }
 
+if ($cmd === 'registry-keys') {
+    foreach (WebRoutes::keys() as $k) { echo $k, "\n"; }
+    exit(0);
+}
+
 if ($cmd === 'convert') {
     $vhost = (string) $one('vhost');
-    $out = (string) $one('out');
     $routes = (string) $one('routes');
     $dir = (string) $one('nginx-dir', '/etc/nginx');
     $text = wr_read($vhost);
     $rt = wr_read($routes);
-    if ($text === null || $rt === null || $out === '') { fwrite(STDERR, "convert needs readable --vhost and --routes files and an --out file\n"); exit(3); }
+    if ($text === null || $rt === null) { fwrite(STDERR, "convert needs readable --vhost and --routes files\n"); exit(3); }
     $opts = ['sock' => $one('sock'), 'hsts' => $one('hsts'), 'include' => $one('include', 'snippets/' . WebRoutesConverter::ROUTES_BASENAME)];
     if (!in_array($opts['hsts'], [null, 'direct', 'proxy'], true)) { fwrite(STDERR, "--hsts must be direct or proxy\n"); exit(3); }
     $snippets = [];
@@ -117,7 +126,6 @@ if ($cmd === 'convert') {
     } catch (\RuntimeException) { /* the converter reports the parse error itself */ }
     $opts['snippets'] = $snippets;
     $r = (new WebRoutesConverter($rt))->convert($text, $opts);
-    if (file_put_contents($out, $r['content']) === false) { fwrite(STDERR, "Could not write $out\n"); exit(3); }
     echo 'RESULT: ', $r['status'], "\n", 'INCLUDES: ', $r['includes_routes'] ? 'yes' : 'no', "\n";
     if ($r['sock'] !== null) { echo 'SOCK: ', $r['sock'], "\n"; }
     if ($r['hsts'] !== null) { echo 'HSTS: ', $r['hsts'], "\n"; }
@@ -125,6 +133,7 @@ if ($cmd === 'convert') {
     foreach ($r['kept'] as $x) { echo 'KEPT: ', $x, "\n"; }
     foreach ($r['notes'] as $x) { echo 'NOTE: ', $x, "\n"; }
     foreach ($r['reasons'] as $x) { echo 'REASON: ', $x, "\n"; }
+    echo "---CONTENT---\n", $r['content'];
     exit(0);
 }
 

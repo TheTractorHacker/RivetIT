@@ -13,8 +13,9 @@ Now there is **one shared routes file** and **one command** that keeps every ser
 sudo /var/www/<app>/deploy/apply-web-routes.sh --domain <your domain>
 ```
 
-Add `--dry-run` first to see exactly what would change. That is the whole routine; `deploy/update.sh` runs
-it for you after every update, and Administration > Server status tells you when it is needed.
+It shows you the exact diff it would make and asks `y/N` before touching anything (add `--dry-run` to only look).
+That is the whole routine. `deploy/update.sh` does **not** apply routes itself (see "Trust model" below): it
+checks and tells you, and Administration > Server status tells you when it is needed.
 
 ## How it is laid out
 
@@ -43,10 +44,58 @@ The routes file also needs two things nginx cannot put in a `location`: the shar
 (`limit_req_zone ... zone=itflow_login`, created in `/etc/nginx/conf.d/itflow-rate-limit.conf` if the box
 has none) and Debian's `snippets/fastcgi-php.conf` (part of the nginx package).
 
+## Trust model: nothing from the app tree runs as root
+
+The script runs as root, but on most installs the app tree is owned by the web user (www-data). If root ran code
+or installed templates from there, a compromised web user could get root. So:
+
+1. **No code from the app tree runs as root.** The PHP analysis and rendering (`deploy/lib/web_routes_tool.php`,
+   `src/Ops/*`) is started with `runuser -u <the tool's owner>` (or `nobody` when the tool is root-owned). It writes
+   nothing to disk: its stdout goes into a file root created in a fresh `0700` temp directory. Even reading the
+   routes template goes through that unprivileged user. The script sources and executes nothing else from the tree.
+2. **Root does only the privileged part:** backup, write, `nginx -t`, reload, rollback.
+3. **Everything the tree produced is untrusted input to root**, checked by a validator embedded in the script
+   itself before anything is installed:
+   * the routes file may contain only `location` blocks whose keys are in the route registry (all of them, each
+     once) and only the directives the routes use. Anything else is rejected: `include` of any path but the two
+     fastcgi snippets, `load_module`, `lua*`/`*_by_lua*`, `perl*`, `js_*`/`njs`, `proxy_pass`, `alias`, `root`,
+     `rewrite`, `set`, `ssi`, `sub_filter`, a literal `fastcgi_pass` socket (it must be `$rivetit_php`), a script
+     path outside `$document_root`, any `fastcgi_param` but `SCRIPT_FILENAME`/`SCRIPT_NAME`, a header with a
+     request variable, a `return` that is not 403/404 or a redirect to a path on this site;
+   * a converted vhost may differ from the installed one **only** by registry-defined location blocks, an old
+     shared-snippet include, and the managed block (`set $rivetit_php <socket under /run, /var/run or /tmp>`,
+     `set $rivetit_hsts <empty or the standard value>`, `include <the routes file>`): everything else, other
+     locations, other server blocks, every other directive, must be identical.
+4. **A human reviews the diff.** An interactive run prints the diff and its SHA-256 (`DIFF-SHA`) and asks `y/N`.
+   Without a terminal it refuses unless you pass `--yes-diff-sha <hash>` (the hash must match the diff it just
+   computed, so a changed file or template invalidates it) or `--yes` (accepted only if a `--dry-run` within the
+   last hour showed exactly this diff). Typical scripted use: `--dry-run`, read it, then repeat with the printed
+   `--yes-diff-sha`.
+5. **The script file itself** is the one piece of code that runs as root. If a non-root account can write it (or
+   its parent directories), an interactive run warns, and an unattended run refuses unless you pass
+   `--allow-untrusted-script` after reviewing it. `sudo deploy/apply-web-routes.sh --check-trust <path>` tells you
+   whether a path is root-owned with no group/world write bit anywhere up the tree.
+
+### Root-owned copy (recommended where the app tree is web-writable)
+
+```bash
+sudo deploy/apply-web-routes.sh --install-root-copy --dry-run            # lists the six files with their sha256
+sudo deploy/apply-web-routes.sh --install-root-copy --yes-diff-sha <hash>
+sudo /usr/local/lib/rivetit/deploy/apply-web-routes.sh --domain <domain>  # run THAT copy from now on
+```
+
+It copies the script, the tool, the registry/converter classes and the routes template to `/usr/local/lib/rivetit/`
+(root-owned, `755`/`644`; it refuses symlinked sources). Trade-off: that copy is **only as fresh as the last
+root-run install**: after an update that changes a route, the installed template is the old one until you re-run
+`--install-root-copy` (that is a deliberate, reviewed step, which is the point). `update.sh` uses this copy, or a
+root-owned checkout, to do a **dry run only** and tell you whether routes are out of date. With a web-writable
+tree and no root copy it prints the command and does nothing.
+
 ## What the command does
 
 1. Finds the vhost(s): `--domain NAME` (matched against `server_name` in `sites-enabled/` and `conf.d/`),
-   `--vhost FILE` for one you name, or `--all` for every RivetIT vhost on the box.
+   `--vhost FILE` for one you name, or `--all` for every RivetIT vhost on the box. (The unprivileged analysis
+   reads vhost files directly, so they must be world-readable, as the nginx package makes them.)
 2. Reads each vhost with a real nginx-config parser (comments, quotes and braces understood), not text
    matching, and works out the new file. A **first run on an older server** converts the inline vhost:
    it removes only the `location` blocks the routes file now owns (recognised by their modifier and path
@@ -63,26 +112,27 @@ has none) and Debian's `snippets/fastcgi-php.conf` (part of the nginx package).
    uniquely (several sockets in the blocks to replace, or none); `$rivetit_php` is already set by hand
    outside the managed block; or a regex location of yours (`~`, `~*`) sits between the ones that would move
    (nginx tries regex locations in file order, so moving the others past it could change which answers).
-4. Backs up every file it will touch into `/var/backups/rivetit/nginx-<timestamp>/` (or `--backup-dir`),
+4. Validates the result (above), prints the diff and waits for confirmation (above).
+5. Backs up every file it will touch into `/var/backups/rivetit/nginx-<timestamp>/` (or `--backup-dir`),
    with a manifest.
-5. Writes the files (atomically, keeping owner and mode), runs `nginx -t`, and reloads nginx **only if the
+6. Writes the files (atomically, keeping owner and mode), runs `nginx -t`, and reloads nginx **only if the
    test passes**. If the test fails, the reload fails, or anything stops half-way, every file is put back
    automatically and nginx keeps running the old configuration.
-6. Idempotent: when everything is current it says so, writes nothing and does **not** reload nginx.
+7. Idempotent: when everything is current it says so, writes nothing and does **not** reload nginx.
 
 Exit codes: `0` done / already current, `1` failed (nothing half-done; the message says what to look at),
 `2` `--check` found the routes out of date, `3` done, but at least one vhost needs the manual steps printed.
 
-Options: `--dry-run` (unified diff, changes nothing), `--check` (monitoring: exit 2 when out of date),
-`--rollback DIR`, `--php-sock PATH`, `--php-sock-for FILE=PATH`, `--hsts direct|proxy`, `--snippet-dir DIR`,
+Options: `--dry-run` (unified diff and `DIFF-SHA`, changes nothing), `--yes-diff-sha HASH`, `--yes`, `--check`
+(monitoring: exit 2 when out of date), `--rollback DIR`, `--install-root-copy`, `--allow-untrusted-script`, `--php-sock PATH`, `--php-sock-for FILE=PATH`, `--hsts direct|proxy`, `--snippet-dir DIR`,
 `--legacy-snippet NAME`, `--backup-dir DIR`; see `--help`. It must run as root and refuses to run as
 `www-data` (the web user must never be able to rewrite nginx; nothing in the app can).
 
 ### Several sites sharing one routes file (the beta box)
 
 ```bash
-sudo deploy/apply-web-routes.sh --all --dry-run
-sudo deploy/apply-web-routes.sh --all
+sudo deploy/apply-web-routes.sh --all --dry-run            # prints the diff and DIFF-SHA
+sudo deploy/apply-web-routes.sh --all --yes-diff-sha <hash>
 ```
 
 Each vhost keeps its own `set $rivetit_php` line, so sites on different PHP versions work from one file;
@@ -235,7 +285,13 @@ private nginx and asking 79 questions (status and every header identical). Two d
 
 ## Security notes
 
-`apply-web-routes.sh` runs as root and reads PHP and config from the app checkout (`src/Ops/*.php`,
-`deploy/templates/*`). Treat the checkout like any other root-run tooling: keep it free of changes you have
-not reviewed. The web application itself only ever reads the routes file and writes a small cache file in the
-temp directory.
+* The web application only ever reads the routes file and writes a small cache file in the temp directory; nothing
+  in the app can change nginx.
+* `apply-web-routes.sh` is root code. Run it from a root-owned location where you can (see above); on a box with a
+  web-writable tree, read the script (or `git diff` it against a trusted checkout) before running it, and prefer
+  `--install-root-copy`.
+* Left as it is, deliberately: `deploy/update.sh`, `install.sh` and `harden.sh` are themselves root-run scripts in
+  the same tree and carry the same exposure as before; this change only stops the new web-routes tool from
+  adding to it. The validator checks what the tool produced against the registry, not the registry's own
+  semantics: a hostile registry can only name locations, never widen the directive allow-list, and every change
+  is in the diff a human confirms.

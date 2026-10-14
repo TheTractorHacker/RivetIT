@@ -128,3 +128,43 @@ function wr_checker(): array
         function () use (&$fails) { return $fails; },
     ];
 }
+
+/** Run the script against a private env. A real (writing) run is first previewed with --dry-run and then confirmed with the diff hash it
+ *  printed, exactly as a human would, unless $confirm is false (tests of the confirmation gate itself).
+ *  @return array{0:int,1:string} */
+function apply(string $d, array $args, array $env = [], bool $private = true, bool $confirm = true, ?string $script = null): array
+{
+    $writing = !array_intersect($args, ['--dry-run', '--check', '--rollback', '--install-root-copy', '--check-trust']);
+    if ($private && $confirm && $writing) {
+        [$rc0, $out0] = apply($d, array_merge($args, ['--dry-run']), $env, $private, false, $script);
+        if ($rc0 === 0 && preg_match('/^DIFF-SHA: ([0-9a-f]{64})$/m', $out0, $m)) { $args[] = '--yes-diff-sha'; $args[] = $m[1]; }
+    }
+    $pre = 'RIVETIT_ROUTES_TEST_NONROOT=1 ';
+    foreach ($env as $k => $v) { $pre .= $k . '=' . escapeshellarg($v) . ' '; }
+    $cmd = $pre . escapeshellarg($script ?? (wr_root() . '/deploy/apply-web-routes.sh'));
+    if ($private) {
+        $cmd .= ' --nginx-dir ' . escapeshellarg($d) . ' --nginx-conf ' . escapeshellarg("$d/nginx.conf") . ' --reload-cmd ' . escapeshellarg("touch $d/reloaded") . ' --state-dir ' . escapeshellarg("$d/state");
+        if (!preg_grep('~^--backup-dir~', $args) && !in_array('--rollback', $args, true)) {
+            $cmd .= ' --backup-dir ' . escapeshellarg("$d/backup-" . bin2hex(random_bytes(3)));
+        }
+    }
+    foreach ($args as $a) { $cmd .= ' ' . escapeshellarg($a); }
+    exec($cmd . ' 2>&1 </dev/null', $out, $rc);
+    return [$rc, implode("\n", $out)];
+}
+function snapshot(string $d): array
+{
+    $h = [];
+    foreach (['sites-available', 'snippets', 'conf.d'] as $s) {
+        foreach (glob("$d/$s/*") ?: [] as $f) { $h[substr($f, strlen($d))] = md5_file($f); }
+    }
+    ksort($h);
+    return $h;
+}
+function reloaded(string $d, bool $clear = true): bool { $r = file_exists("$d/reloaded"); if ($clear) { @unlink("$d/reloaded"); } return $r; }
+function mkenv(string $tag, array $vhosts, bool $zone = true): string
+{
+    $d = wr_make_env(wr_tmpdir($tag), $zone);
+    foreach ($vhosts as $name => $text) { wr_install_vhost($d, $name, $text); }
+    return $d;
+}
