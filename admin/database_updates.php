@@ -11162,3 +11162,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.168'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.168') {
+        // DB 2.6.169: RivetCore 1.0.0-rc.17 (the Remote button opens the remote screen). Core Migration0026MeshHide: TWO new columns on endpoint_agent_mesh_settings,
+        // mesh_hide tinyint unsigned NOT NULL DEFAULT 31 (MeshCentral's `hide` bitmask for the desktop launch) and mesh_hide_tools tinyint unsigned NULL (terminal and files; NULL =
+        // the same). Each is added only when missing, no row is rewritten, nothing is switched on. Core owns the DDL, so this step runs the Core runner (idempotent: it skips
+        // applied ids). Skipped (version NOT advanced, so it retries) until a package that ships migration 0026 is installed. Until it is applied launches work and use hide 31.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0026MeshHide::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.169'");
+        }
+    }

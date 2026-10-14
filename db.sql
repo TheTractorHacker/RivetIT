@@ -1566,6 +1566,8 @@ CREATE TABLE `endpoint_agent_mesh_settings` (
   `group_id_url` varchar(64) NOT NULL DEFAULT '',
   `server_cert_pin` varchar(96) NOT NULL DEFAULT '',
   `auto_map_overwrite` tinyint(1) NOT NULL DEFAULT 0,
+  `mesh_hide` tinyint(3) unsigned NOT NULL DEFAULT 31,
+  `mesh_hide_tools` tinyint(3) unsigned DEFAULT NULL,
   `agent_ids_json` text DEFAULT NULL,
   `install_args_json` text DEFAULT NULL,
   `updated_by` int(11) NOT NULL DEFAULT 0,

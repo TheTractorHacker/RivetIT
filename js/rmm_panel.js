@@ -175,9 +175,17 @@
     }
 
     // ---- remote session (an offline device asks for an in-page "launch anyway", never window.confirm)
+    // The tab is opened inside the click (a browser blocks one opened after the asynchronous launch call), then sent to the session when the launch answers.
     function openRemote(force) {
+        var L = window.RivetRmmLaunch;
+        var tab = L.begin();
         post('remote', force ? { force: '1' } : {}).then(function (d) {
-            if (d.success) { window.open(d.url, '_blank', 'noopener'); say('Remote session opened.', true); return; }
+            if (d.success && d.url) {
+                if (tab.go(d.url)) { say('Remote session opened.', true); return; }
+                say('Your browser blocked the new tab.', false, L.link(d.url, 'Open remote session'));
+                return;
+            }
+            tab.close();
             if (d.code === 'device_offline' && !force) {
                 var b = document.createElement('button');
                 b.type = 'button'; b.className = 'btn btn-sm btn-outline-danger ms-2'; b.textContent = 'Launch anyway';
@@ -186,7 +194,7 @@
                 return;
             }
             say(d.error || 'Could not start the session.', false);
-        }).catch(function () { say('Network error.', false); });
+        }).catch(function () { tab.close(); say('Network error.', false); });
     }
     ['rmm-act-remote', 'rmm-remote-btn'].forEach(function (id) {
         var b = document.getElementById(id);

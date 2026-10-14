@@ -140,6 +140,12 @@ if (!empty($rmm_ui_scripts)) {
     $__rmm_js = __DIR__ . '/../js/rmm_panel.js';
     echo '<script src="/js/rmm_panel.js?v=' . (file_exists($__rmm_js) ? filemtime($__rmm_js) : time()) . '" defer></script>' . "\n";
 }
+// js/rmm_launch.js (opening a remote session in a tab opened inside the click): the pages that launch one (the asset panel, the agent device page, the Remote tab, the
+// legacy asset page) all load it before their own script. Pages that do not launch a session never request it.
+if (!empty($rmm_ui_scripts) || !empty($rmm_rem_scripts) || !empty($rmm_launch_scripts)) {
+    $__rmm_launch_js = __DIR__ . '/../js/rmm_launch.js';
+    echo '<script src="/js/rmm_launch.js?v=' . (file_exists($__rmm_launch_js) ? filemtime($__rmm_launch_js) : time()) . '" defer></script>' . "\n";
+}
 // js/rmm_automation.js (RMM Phase 2 and 3 pages: policies, script library, schedules, approvals, fields, alerts, maintenance, escalation): only a page that set $rmm_auto_scripts.
 if (!empty($rmm_auto_scripts)) {
     $__rmm_auto_js = __DIR__ . '/../js/rmm_automation.js';

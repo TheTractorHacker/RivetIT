@@ -380,17 +380,18 @@
     // ---------------------------------------------------------------- MeshCentral
     var meshStatus = $('rem-mesh-status');
     function openMesh(view, force) {
+        // The tab is opened inside the click (a browser blocks one opened after the asynchronous launch call), then sent to the session when the launch answers.
+        var L = window.RivetRmmLaunch;
+        var tab = L.begin();
         say(meshStatus, 'Opening the ' + view + ' session...', 'info');
         post('mesh', { view: view, force: force ? '1' : '' }).then(function (d) {
             if (d.success && d.url) {
-                var w = window.open(d.url, '_blank', 'noopener');
-                if (w) { say(meshStatus, 'The session opened in a new tab.', 'success'); return; }
+                if (tab.go(d.url)) { say(meshStatus, 'The session opened in a new tab.', 'success'); return; }
                 say(meshStatus, 'Your browser blocked the new tab. ', 'warning');
-                var a = document.createElement('a');
-                a.href = d.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open the session';
-                meshStatus.appendChild(a);
+                meshStatus.appendChild(L.link(d.url, 'Open remote session'));
                 return;
             }
+            tab.close();
             if (d.code === 'device_offline' && !force) {
                 var b = document.createElement('button');
                 b.type = 'button'; b.className = 'btn btn-sm btn-outline-danger ms-2'; b.textContent = 'Launch anyway';

@@ -1,6 +1,7 @@
 <?php
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
+$rmm_launch_scripts = true;   // includes/footer.php links js/rmm_launch.js (a remote session opens in a tab opened inside the click)
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';   // rc.12: the device's Mesh agent state
@@ -219,13 +220,21 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
     };
     var msg = function (text, ok) { var m = document.getElementById('ea-msg'); m.className = 'alert alert-' + (ok ? 'success' : 'danger'); m.textContent = text; };
     var r = document.getElementById('ea-remote');
-    if (r) r.addEventListener('click', function (force) {
-        post('remote', {}).then(function (d) {
-            if (d.success) { window.open(d.url, '_blank', 'noopener'); msg('Remote session opened.', true); }
-            else if (d.code === 'device_offline' && confirm(d.error + '\n\nLaunch anyway?')) { post('remote', {force: '1'}).then(function (d2) { if (d2.success) { window.open(d2.url, '_blank', 'noopener'); msg('Remote session opened.', true); } else { msg(d2.error, false); } }); }
+    // The tab is opened inside the click (a browser blocks one opened after the asynchronous launch call: js/rmm_launch.js), then sent to the session when the launch answers.
+    var launch = function (force) {
+        var L = window.RivetRmmLaunch, tab = L.begin();
+        post('remote', force ? {force: '1'} : {}).then(function (d) {
+            if (d.success && d.url) {
+                if (tab.go(d.url)) { msg('Remote session opened.', true); return; }
+                msg('Your browser blocked the new tab. ', false); document.getElementById('ea-msg').appendChild(L.link(d.url, 'Open remote session'));
+                return;
+            }
+            tab.close();
+            if (d.code === 'device_offline' && !force && confirm(d.error + '\n\nLaunch anyway?')) { launch(true); }
             else { msg(d.error || 'Could not start the session.', false); }
-        }).catch(function () { msg('Network error.', false); });
-    });
+        }).catch(function () { tab.close(); msg('Network error.', false); });
+    };
+    if (r) r.addEventListener('click', function () { launch(false); });
     var f = document.getElementById('ea-job-form');
     if (f) {
         var type = document.getElementById('ea-type'), destr = document.getElementById('ea-destructive'), cw = document.getElementById('ea-confirm-wrap');

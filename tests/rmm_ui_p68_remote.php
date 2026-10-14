@@ -468,6 +468,60 @@ $ok($c === 409 && ($j['code'] ?? '') === 'device_offline', 'Mesh to an offline d
 $ok($c === 200 && !empty($j['url']), 'Mesh forced while offline: launched');
 [$c, $body] = $page('admin', 'REM1');
 $ok(str_contains($body, 'The device is offline') , 'the offline device is flagged on the tab');
+// ---- RivetCore 1.0.0-rc.17: the launch URL carries MeshCentral's hide parameter (default 31), set from the Mesh card; the tab is opened inside the click
+$hideQ = function (string $view, bool $force = true) use ($remCall, $remDev): array {
+    [$c, $j] = $remCall('admin', 'mesh', ['device_id' => $remDev['REM1'], 'view' => $view] + ($force ? ['force' => '1'] : []));
+    parse_str((string) parse_url((string) ($j['url'] ?? ''), PHP_URL_QUERY), $qs);
+
+    return [$c, $qs, (string) ($j['url'] ?? ''), $j];
+};
+foreach (['desktop' => 11, 'terminal' => 12, 'files' => 13] as $view => $mode) {
+    [$c, $qs, $url] = $hideQ($view);
+    $ok($c === 200 && ($qs['hide'] ?? null) === '31' && ($qs['viewmode'] ?? null) === (string) $mode && isset($qs['login'], $qs['gotonode']) && str_ends_with($url, '&viewmode=' . $mode . '&hide=31'), "Mesh $view: the default launch URL ends with &viewmode=$mode&hide=31");
+}
+[, , , $j31] = $hideQ('desktop');
+$ok(isset($j31['success'], $j31['url'], $j31['session_id']) || isset($j31['url'], $j31['session_id']), 'the launch answer keeps its members (url, session_id)');
+[, $mf] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']);
+$mcard = substr($mf, (int) strpos($mf, 'id="mesh"'), 60000);
+$ok(str_contains($mcard, 'name="mesh_hide"') && str_contains($mcard, 'name="mesh_hide_tools"') && str_contains($mcard, 'name="mesh_hide_present"') && str_contains($mcard, 'Hide MeshCentral interface elements')
+    && str_contains($mcard, '31 = show only the remote screen') && str_contains($mcard, 'click <em>Connect</em>') && preg_match('/name="mesh_hide"[^>]*value="31"/', $mcard) === 1, 'the Mesh card has the hide field (31) with its explanation and the Connect note');
+$hideForm = fn (): array => ['save_mesh_settings' => '1', 'mesh_url' => 'http://127.0.0.1:' . $mesh['port'], 'mesh_domain' => '', 'mesh_account_template' => 'rivetit-support', 'mesh_policy' => 'unattended', 'mesh_token_ttl_s' => '300',
+    'mesh_enabled' => '1', 'mesh_hide_present' => '1', 'mesh_hide' => '31', 'mesh_hide_tools' => ''];
+$hideSave = function (array $over) use ($hideForm, $REF1, $wb, $SS, $fresh, $rmm): void { $__r = web($wb, 'POST', '/admin/post.php', $SS['admin'], array_merge($hideForm(), $over, ['csrf_token' => 'csrftok1']), $REF1); if (getenv('HIDE_DEBUG')) { echo json_encode(array_map(fn ($x) => is_string($x) ? substr($x, 0, 400) : $x, $__r)) . "\n"; } $fresh(); $rmm->meshAgentSettings()->refresh(); };
+$hideSave(['mesh_hide' => '16', 'mesh_hide_tools' => '0']);
+$ok($rmm->meshAgentSettings()->get()['hide'] === 16 && $rmm->meshAgentSettings()->get()['hide_tools'] === 0, 'the form saves the hide values (16, tools 0)');
+[$c, $qs] = $hideQ('desktop');
+$ok(($qs['hide'] ?? null) === '16', 'desktop launch: hide=16 after the change');
+[$c, $qs, $url] = $hideQ('terminal');
+$ok($c === 200 && !isset($qs['hide']) && str_ends_with($url, '&viewmode=12'), 'terminal launch with the tools value 0: no hide parameter at all');
+$hideSave(['mesh_hide' => '0', 'mesh_hide_tools' => '']);
+[, $qs, $url] = $hideQ('desktop');
+$ok(!isset($qs['hide']) && str_ends_with($url, '&viewmode=11'), 'hide 0: the launch URL is the old one (no hide parameter)');
+$hideSave(['mesh_hide' => '300']);
+$ok($rmm->meshAgentSettings()->get()['hide'] === 0, 'an out-of-range value is refused and nothing is changed');
+$hideSave(['mesh_hide' => 'abc', 'mesh_hide_tools' => '9']);
+$ok($rmm->meshAgentSettings()->get()['hide'] === 0 && $rmm->meshAgentSettings()->get()['hide_tools'] === null, 'a non-number is refused and nothing is saved with it');
+$hideSave(['mesh_hide' => '31', 'mesh_hide_tools' => '']);
+[, $qs] = $hideQ('files');
+$ok(($qs['hide'] ?? null) === '31', 'restored: the default again (files follow the desktop value when the tools value is empty)');
+[$c] = web($wb, 'POST', '/admin/post.php', $SS['tech'], array_merge($hideForm(), ['mesh_hide' => '0', 'csrf_token' => 'csrftok1']), $REF1);
+$fresh(); $rmm->meshAgentSettings()->refresh();
+$ok($rmm->meshAgentSettings()->get()['hide'] === 31, 'a technician cannot change the hide value');
+// the click opens the tab first: every page that launches a session links the helper, and no script opens the tab after the asynchronous answer
+[, $ab] = $page('admin', 'REM1');
+$ok(str_contains($ab, '/js/rmm_launch.js?v='), 'the asset page links js/rmm_launch.js');
+$ok(str_contains($ab, '/js/rmm_launch.js') && strpos($ab, '/js/rmm_launch.js') < strpos($ab, '/js/rmm_remote.js'), 'js/rmm_launch.js loads before js/rmm_remote.js');
+foreach (['agent/rmm_agent_device.php', 'agent/rmm_asset.php'] as $__f) {
+    // (the legacy device page redirects to the asset page for a device that has an asset, so its flag is checked in the source)
+    $ok(str_contains((string) file_get_contents("$root/$__f"), '$rmm_launch_scripts = true;'), "$__f asks the footer to link js/rmm_launch.js");
+}
+foreach (['agent/rmm_agent_device.php', 'agent/rmm_asset.php', 'js/rmm_panel.js', 'js/rmm_remote.js'] as $__f) {
+    $src = (string) file_get_contents("$root/$__f");
+    $ok(!preg_match('/window\.open\(\s*(d2?\.url|d\.url)/', $src) && str_contains($src, 'RivetRmmLaunch') && preg_match('/\.begin\(\)[\s\S]*?(post|fetch)\(/', $src) === 1, "$__f: no window.open after the asynchronous answer; the tab is opened first (RivetRmmLaunch.begin())");
+}
+$launchJs = (string) file_get_contents("$root/js/rmm_launch.js");
+$ok(str_contains($launchJs, "window.open('about:blank', '_blank')") && str_contains($launchJs, 'w.opener = null') && str_contains($launchJs, 'location.replace') && str_contains($launchJs, "rel = 'noopener noreferrer'") && str_contains($launchJs, 'Open remote session'),
+    'js/rmm_launch.js: a blank new tab, opener cleared, navigated on the answer, a fallback link');
 // no secret in any page of this device
 [$c, $body] = $page('admin', 'REM1');
 $ok(!str_contains($body, $loginKey) && !str_contains($body, 'login=') && !str_contains($body, 'mesh_login_key') && !str_contains($body, 'viewmode='), 'no Mesh login key, token or launch URL is rendered into the page');

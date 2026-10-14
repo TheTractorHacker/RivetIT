@@ -432,6 +432,14 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($
     // proposal it gets back is only shown (it is saved when the administrator uses it and presses Save).
     $probing = isset($_POST['probe_mesh_pin']);
     $keep = [];
+    // rc.17: the hide values travel only when the card printed them (migration 0026 applied). They are passed on exactly as typed; Core refuses anything but a whole number 0 to 255
+    // (the second one may be empty = same as the desktop) and then writes nothing at all.
+    if (isset($_POST['mesh_hide_present'])) {
+        $in['mesh_hide'] = is_string($_POST['mesh_hide'] ?? null) ? trim($_POST['mesh_hide']) : '';
+        $in['mesh_hide_tools'] = is_string($_POST['mesh_hide_tools'] ?? null) ? trim($_POST['mesh_hide_tools']) : '';
+        $keep['mesh_hide'] = $in['mesh_hide'];
+        $keep['mesh_hide_tools'] = $in['mesh_hide_tools'];
+    }
     if (isset($_POST['mesh_install_present'])) {
         $jsonField = static function (string $k) use (&$keep): ?array {
             $raw = is_string($_POST[$k] ?? null) ? trim($_POST[$k]) : '';

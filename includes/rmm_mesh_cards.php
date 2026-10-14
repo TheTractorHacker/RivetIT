@@ -37,13 +37,39 @@ function rivetRmmMeshInstallView(\RivetCore\Rmm\RmmModule $rmm): ?array
 
     return ['group_id' => $m['group_id'], 'group_id_url' => (string) ($m['group_id_url'] ?? ''), 'server_cert_pin' => $m['server_cert_pin'], 'auto_map_overwrite' => $m['auto_map_overwrite'], 'agent_ids' => $m['agent_ids'], 'install_args' => $m['install_args'],
         'effective_agent_ids' => $t['agent_ids'], 'effective_install_args' => $t['install_args'], 'default_agent_ids' => \RivetCore\Rmm\Mesh\MeshAgentCatalog::DEFAULT_AGENT_IDS,
-        'ready' => $why === null, 'refusal' => (string) $why];
+        'ready' => $why === null, 'refusal' => (string) $why,
+        'hide_available' => $rmm->meshAgentSettings()->hideAvailable(), 'hide' => $m['hide'], 'hide_tools' => $m['hide_tools']];
 }
 
 /** @param array<string,mixed> $v a pretty JSON object, or an empty string for none */
 function rivetRmmMeshJson(array $v): string
 {
     return $v === [] ? '' : (string) json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+}
+
+/**
+ * RivetCore 1.0.0-rc.17: how much of MeshCentral's own interface the new tab shows (Core's `mesh_hide`, MeshCentral's `hide` bitmask, appended to the launch URL).
+ * Printed only when the database has migration 0026 (otherwise Core would refuse the save); Core validates the numbers (0 to 255), this prints and posts them.
+ *
+ * @param array<string,mixed>|null $v rivetRmmMeshInstallView()
+ * @param array<string,mixed> $keep what was typed when Core refused a save
+ */
+function rivetRmmMeshHideFields(?array $v, array $keep = []): string
+{
+    $h = 'rivetRmmMeshH';
+    if ($v === null || empty($v['hide_available'])) {
+        return '';
+    }
+    $hide = (string) ($keep['mesh_hide'] ?? $v['hide']);
+    $tools = (string) ($keep['mesh_hide_tools'] ?? ($v['hide_tools'] === null ? '' : $v['hide_tools']));
+
+    return '<input type="hidden" name="mesh_hide_present" value="1">'
+        . '<div class="col-lg-6"><label class="form-label" for="mc_hide">Hide MeshCentral interface elements <span class="text-muted">(0 to 255)</span></label>'
+        . '<input type="number" class="form-control" id="mc_hide" name="mesh_hide" min="0" max="255" step="1" value="' . $h($hide) . '" aria-describedby="mc_hide_help">'
+        . '<div class="form-text" id="mc_hide_help">31 = show only the remote screen (no MeshCentral header, tabs, footer or device list), 0 = full MeshCentral. It is MeshCentral\'s <code>hide</code> bitmask: 1 header, 2 top bar, 4 footer, 8 titles, 16 left bar and device list, 32 back button. MeshCentral does not connect by itself: click <em>Connect</em> in the new tab. Not yet checked against a live MeshCentral version: if a bit hides something else on yours, change the number.</div></div>'
+        . '<div class="col-lg-6"><label class="form-label" for="mc_hide_tools">Hide for Terminal and Files <span class="text-muted">(optional)</span></label>'
+        . '<input type="number" class="form-control" id="mc_hide_tools" name="mesh_hide_tools" min="0" max="255" step="1" value="' . $h($tools) . '" placeholder="same as the desktop" aria-describedby="mc_hide_tools_help">'
+        . '<div class="form-text" id="mc_hide_tools_help">Empty = the same value as above. 0 opens the Terminal and Files views inside the full MeshCentral interface.</div></div>';
 }
 
 /**

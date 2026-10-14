@@ -1,6 +1,7 @@
 <?php
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
+$rmm_launch_scripts = true;   // includes/footer.php links js/rmm_launch.js (a remote session opens in a tab opened inside the click)
 
 $link_id = intval($_GET['id'] ?? 0);
 if (!$link_id) { flash_alert('No asset specified', 'danger'); redirect('/agent/rmm_assets.php'); }
@@ -439,6 +440,8 @@ const CSRF_TOKEN = '<?= $_SESSION['csrf_token'] ?>';
 const AGENT_ID   = '<?= addslashes($link['tactical_agent_id']) ?>';
 
 function remoteConnect(linkId, type) {
+    // The tab is opened inside the click (a browser blocks one opened after the asynchronous request: js/rmm_launch.js), then sent to the session when the answer arrives.
+    const L = window.RivetRmmLaunch, tab = L.begin();
     fetch('/agent/post/rmm_remote.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -447,12 +450,20 @@ function remoteConnect(linkId, type) {
     .then(r => r.json())
     .then(d => {
         if (d.success && d.url) {
-            window.open(d.url, '_blank', 'noopener,noreferrer');
+            if (!tab.go(d.url)) {
+                const m = document.createElement('div');
+                m.className = 'alert alert-warning mt-2';
+                m.textContent = 'Your browser blocked the new tab. ';
+                m.appendChild(L.link(d.url, 'Open remote session'));
+                const host = document.querySelector('.js-rmm-remote-connect');
+                (host && host.closest('.card-body, .card, .container-fluid') || document.body).prepend(m);
+            }
         } else {
+            tab.close();
             alert('Remote connect failed: ' + (d.error || 'Unknown error'));
         }
     })
-    .catch(() => alert('Network error during remote connect.'));
+    .catch(() => { tab.close(); alert('Network error during remote connect.'); });
 }
 
 function openTactical() {
