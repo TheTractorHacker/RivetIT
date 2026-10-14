@@ -9571,6 +9571,7 @@ CREATE TABLE IF NOT EXISTS `mcp_oauth_client_documents` (
   `last_error_at` datetime DEFAULT NULL,
   PRIMARY KEY (`client_id`),
   KEY `idx_mcp_oauth_client_documents_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `manageengine_mdm_integrations` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

@@ -173,6 +173,20 @@ $ap('nothing', ['create_mdm_asset' => 1, 'unmatched_id' => $u3, 'client_id' => 1
 $ok((int) $one('SELECT COUNT(*) FROM assets') === $assets0, 'a role with no client access cannot create an asset');
 $ap('deptb', ['create_mdm_asset' => 1, 'unmatched_id' => $u3, 'client_id' => 1]);
 $ok((int) $one('SELECT COUNT(*) FROM assets') === $assets0, 'a department-restricted user cannot create an asset in another department');
+// a department-scoped non-admin (deptb, level 3 but limited to Dept B) is refused on EVERY review-list action, even for their own department
+$q("INSERT INTO assets SET asset_type='Tablet', asset_name='deptb target', asset_serial='DEPTB-1', asset_make='x', asset_client_id=2");
+$deptbAsset = (int) $db->insert_id;
+$ap('deptb', ['create_mdm_asset' => 1, 'unmatched_id' => $u3, 'client_id' => 2]);
+$ok((int) $one('SELECT COUNT(*) FROM assets') === $assets0 + 1 && (int) $one("SELECT COUNT(*) FROM mdm_unmatched_devices WHERE id=$u3") === 1, 'scoped user: Create asset is refused even in their own department');
+$ap('deptb', ['link_mdm_unmatched' => 1, 'unmatched_id' => $u3, 'asset_id' => $deptbAsset]);
+$ok((int) $one("SELECT COUNT(*) FROM asset_mdm_links WHERE asset_id=$deptbAsset") === 0 && (int) $one("SELECT COUNT(*) FROM mdm_unmatched_devices WHERE id=$u3") === 1, 'scoped user: Link to existing asset is refused even for an asset in their department');
+$ap('deptb', ['dismiss_mdm_unmatched' => 1, 'unmatched_id' => $u3]);
+$ok((int) $one("SELECT dismissed FROM mdm_unmatched_devices WHERE id=$u3") === 0, 'scoped user: Ignore is refused');
+$q("UPDATE mdm_unmatched_devices SET dismissed=1 WHERE id=$u3");
+$ap('deptb', ['restore_mdm_unmatched' => 1, 'unmatched_id' => $u3]);
+$ok((int) $one("SELECT dismissed FROM mdm_unmatched_devices WHERE id=$u3") === 1, 'scoped user: Restore is refused');
+$q("UPDATE mdm_unmatched_devices SET dismissed=0 WHERE id=$u3");
+$q("DELETE FROM assets WHERE asset_id=$deptbAsset"); $assets0 = (int) $one('SELECT COUNT(*) FROM assets');
 $ap('tech', ['create_mdm_asset' => 1, 'unmatched_id' => $u3, 'client_id' => 1]);
 $ok((int) $one('SELECT COUNT(*) FROM assets') === $assets0 + 1 && (int) $one("SELECT COUNT(*) FROM mdm_unmatched_devices WHERE id=$u3") === 0 && (int) $one("SELECT COUNT(*) FROM asset_mdm_links WHERE mdm_device_id='9007199254740003'") === 1, 'tech (level 3): Create asset makes one asset, links it, clears the review row');
 $ap('viewer', ['link_mdm_unmatched' => 1, 'unmatched_id' => $u4, 'asset_id' => $a2]);

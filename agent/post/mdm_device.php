@@ -10,10 +10,26 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 use ITFlow\Integrations\ManageEngine\MdmClientFactory;
 use ITFlow\Integrations\ManageEngine\MdmDeviceMapper;
 
+/*
+ * The review list holds devices that belong to no department, so (like the page itself, agent/mdm_devices.php) it is closed to a
+ * department-scoped non-admin. Every review-list action calls this right after its permission check.
+ */
+if (!function_exists('mdmRequireUnscopedUser')) {
+    function mdmRequireUnscopedUser(): void
+    {
+        global $client_access_string, $session_is_admin;
+        if ($client_access_string && !$session_is_admin) {
+            flash_alert('You do not have access to the MDM review list.', 'error');
+            redirect();
+        }
+    }
+}
+
 if (isset($_POST['link_mdm_unmatched'])) {
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);
+    mdmRequireUnscopedUser();
 
     $mdm = MdmClientFactory::row($mysqli);
     $unmatched_id = intval($_POST['unmatched_id'] ?? 0);
@@ -37,6 +53,7 @@ if (isset($_POST['create_mdm_asset'])) {
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);
+    mdmRequireUnscopedUser();
 
     $mdm = MdmClientFactory::row($mysqli);
     $unmatched_id = intval($_POST['unmatched_id'] ?? 0);
@@ -59,6 +76,7 @@ if (isset($_POST['dismiss_mdm_unmatched']) || isset($_POST['restore_mdm_unmatche
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);
+    mdmRequireUnscopedUser();
 
     $mdm = MdmClientFactory::row($mysqli);
     $unmatched_id = intval($_POST['unmatched_id'] ?? 0);
