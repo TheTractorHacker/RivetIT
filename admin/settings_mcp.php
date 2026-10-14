@@ -5,6 +5,7 @@ use ITFlow\Mcp\McpConfig;
 use ITFlow\Mcp\McpIdentityLinks;
 use ITFlow\Mcp\OAuth\OAuthConfig;
 use ITFlow\Mcp\OAuth\OAuthStore;
+use ITFlow\Ops\WebRouteCheck;
 
 $mcp = McpConfig::load($mysqli);
 $mcp_url = 'https://' . $config_base_url . '/mcp';
@@ -16,6 +17,19 @@ $cimd = OAuthConfig::cimd($mysqli);    // trust policy for client metadata docum
 $oauth_clients = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->clients() : [];
 $oauth_grants = $oauth['schema_ready'] ? (new OAuthStore($mysqli))->activeGrants() : [];
 $as_metadata_url = 'https://' . $config_base_url . '/.well-known/oauth-authorization-server';
+
+// Built-in sign-in needs the web server to answer the authorization-server metadata URL; when it does not (an old nginx vhost without
+// the route), Claude cannot connect. Cached for a few minutes; the check never raises and stays silent when it cannot judge.
+$route_banner = null;
+if ($oauth['schema_ready'] && $oauth['active']) {
+    $route_check = WebRouteCheck::forApp(realpath(__DIR__ . '/..'), (string) $config_base_url, $mysqli);
+    $route_result = $route_check->run(false, ['mcp', 'mcp_resource_metadata', 'mcp_authserver_metadata']);
+    foreach ($route_result['missing'] as $route_missing) {
+        if ($route_missing['id'] === 'mcp_authserver_metadata') {
+            $route_banner = $route_check->command();
+        }
+    }
+}
 
 $mcp_state = !$mcp['schema_ready'] || !$tables_ready || !$oauth['schema_ready'] ? ['Update needed', 'warning']
     : (!$mcp['enabled'] ? ['Off', 'secondary']
@@ -43,6 +57,15 @@ $csrf = $_SESSION['csrf_token'];
         <?php if (!$mcp['schema_ready'] || !$tables_ready || !$oauth['schema_ready']) { ?>
             <div class="alert alert-warning mb-0">Run the database update first (Administration &rarr; Updates), then reload this page.</div>
         <?php } else { ?>
+
+        <?php if ($route_banner !== null) { ?>
+            <div class="alert alert-danger">
+                <strong>Built-in sign-in is on, but the web server does not answer <code><?= nullable_htmlentities($as_metadata_url) ?></code>.</strong>
+                Claude and other MCP apps cannot connect until it does: the web server is missing a route. On the server, as root, run:
+                <pre class="border rounded p-2 small mt-2 mb-0" style="white-space:pre-wrap"><?= nullable_htmlentities($route_banner) ?></pre>
+                <span class="small">It backs up the nginx files it changes, tests the result, reloads only if the test passes and puts everything back otherwise. See Administration &rarr; Server status.</span>
+            </div>
+        <?php } ?>
 
         <?php if ($mcp['killed']) { ?>
             <div class="alert alert-danger">The server has <code>RIVETIT_MCP_ENABLED=0</code> set, which keeps Remote MCP off whatever this page says.</div>

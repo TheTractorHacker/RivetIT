@@ -3,6 +3,11 @@ require_once "includes/inc_all_admin.php";
 
 require_once "../includes/database_version.php";
 
+// After an update the web server may need a new route (see docs/WEB_ROUTES.md). Cheap on purpose: the routes file on disk plus the last
+// cached self-check, no network here. Nothing in this page can change nginx; the fix is one command run as root.
+$route_check = \ITFlow\Ops\WebRouteCheck::forApp(realpath(__DIR__ . '/..'), (string) $config_base_url, $mysqli);
+$route_hint = $route_check->hint($route_check->cached() ?? ['state' => 'unknown', 'file' => $route_check->fileState(), 'missing' => []]);
+
 $updates = fetchUpdates();
 
 $latest_version      = $updates->latest_version;
@@ -84,6 +89,13 @@ $changelog_link = APP_CHANGELOG_URL !== ''
         <div class="mt-2"><i>Error details: <?php echo htmlspecialchars(implode("\n", $git_fetch_output ?: [])); ?></i></div>
         <?php /* Reuses fetchUpdates()'s already-captured output rather than running a second, unguarded git fetch: on a host where the first needed a timeout wrapper (see fetchUpdates() in functions.php) a second would hang on every load of this warning. */ ?>
         <div class="mt-2">Things to check: is Git installed, is the Git remote correct, and are web server file permissions too strict?<?php if (APP_SUPPORT_URL !== '') { ?> Ask on the <a href="<?= htmlspecialchars(APP_SUPPORT_URL) ?>" class="alert-link" target="_blank" rel="noopener">issue tracker</a> if you need help, and include the relevant PHP error logs and the <?= htmlspecialchars(APP_NAME) ?> debug output.<?php } ?></div>
+    </div>
+<?php } ?>
+
+<?php if ($route_hint !== null) { ?>
+    <div class="alert alert-warning">
+        <strong>Web server routes need attention.</strong> <?= htmlspecialchars($route_hint) ?>
+        <div class="small mt-1">It backs up the nginx files it changes and reloads nginx only if the test passes. <a href="/admin/server_tasks.php" class="alert-link">Server status</a> has the details.</div>
     </div>
 <?php } ?>
 

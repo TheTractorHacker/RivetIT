@@ -16,6 +16,7 @@ final class ServerStatus
         private string $cronHelper = '/usr/local/sbin/rivetit-cron-schedule',
         private ?int $now = null,
         private string $cronConfigDir = '/etc/rivetit',
+        private ?WebRouteCheck $webRoutes = null,
     ) {
         $this->appRoot = realpath($appRoot) ?: rtrim($appRoot, '/');
         $this->now ??= time();
@@ -44,14 +45,28 @@ final class ServerStatus
     }
 
     /** @return list<array{title:string, checks:list<array{status:string,label:string,detail:string}>}> */
-    public function run(): array
+    public function run(bool $refreshRoutes = false): array
     {
-        return [
+        $groups = [
             ['title' => 'Application and database', 'checks' => $this->app()],
             ['title' => 'Storage and backups', 'checks' => $this->storage()],
             ['title' => 'Scheduled work', 'checks' => $this->scheduled()],
             ['title' => 'Redis', 'checks' => $this->redisChecks()],
         ];
+        if ($this->webRoutes !== null) {
+            $groups[] = ['title' => 'Web server', 'checks' => $this->webServer($refreshRoutes)];
+        }
+        return $groups;
+    }
+
+    /** The route self-check (src/Ops/WebRouteCheck.php): cached, bounded, and never able to fail the page. */
+    private function webServer(bool $refresh): array
+    {
+        try {
+            return $this->webRoutes->rows($this->webRoutes->run($refresh));
+        } catch (\Throwable $e) {
+            return [self::c('skip', 'Web server routes', 'The route check could not run (' . substr($e->getMessage(), 0, 100) . ').')];
+        }
     }
 
     /**
@@ -216,6 +231,10 @@ final class ServerStatus
         $app = $q($this->appRoot);
         $extra = $this->cronConfigUnreadable() ? [['title' => 'Let the web server read the Cron Manager registration', 'why' => 'Schedules cannot be edited in the browser until the web server can read the folder that registers this install with the Cron Manager helper. The installer makes it world-readable; here it is root-only.',
                 'command' => 'sudo chmod 755 ' . $this->cronConfigDir, 'caution' => '']] : [];
+        if ($this->webRoutes !== null) {
+            $extra[] = ['title' => 'Bring the web server routes up to date', 'why' => 'New features can need a new nginx route (Remote MCP sign-in, kiosk links, ...). This one command works out which are missing, backs up the nginx files it changes, tests the result and reloads nginx only if the test passes (otherwise it puts everything back). Safe to run again; it does nothing when the routes are current. Add --dry-run first to see exactly what would change.',
+                'command' => $this->webRoutes->command(), 'caution' => ''];
+        }
         return array_merge($extra, [
             ['title' => 'Create the backup passphrase file (once)', 'why' => 'The encrypted backup and the safe update both read their passphrase from a private file. Choose a long passphrase and store a copy somewhere safe: without it the archives cannot be opened.',
                 'command' => "sudo install -m 600 /dev/null /root/rivetit-backup.pass\nsudoedit /root/rivetit-backup.pass", 'caution' => ''],
