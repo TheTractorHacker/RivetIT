@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Incoming (IMAP) and outgoing (SMTP) mail providers no longer change each other
+
+- The Settings > Mail "Connect Microsoft 365" flow belongs to the incoming (IMAP) card, but its callback set **both** `config_imap_provider` and `config_smtp_provider` to Microsoft 365. On a tenant with SMTP AUTH disabled that silently stopped all outgoing mail (ticket notifications failed with "SmtpClientAuthentication is disabled for the Tenant"). The callback now sets the IMAP provider only and says outgoing settings were not changed. `tests/mail_provider_independence.php` fails if any settings update ever sets both providers together.
+
 ### Shared mailboxes: "Connect as a shared mailbox" (Mail.ReadWrite.Shared)
 
 - A Microsoft 365 **shared mailbox** opened through a person's own account can be read with `Mail.Read.Shared` but not changed: the parser connected and then failed with "could not find or create the ITFlow mail folder" because marking read, moving and creating folders in a shared mailbox need `Mail.ReadWrite.Shared`. Admin > Mailboxes > edit now has **Connect / Reconnect as a shared mailbox**, which also requests that scope (ordinary mailboxes keep the narrower consent). Sign in as the person with Full Access to the shared mailbox.

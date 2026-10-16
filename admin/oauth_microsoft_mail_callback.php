@@ -120,9 +120,11 @@ if (!empty($mail_oauth_mailbox_id)) {
     redirect('/admin/mailbox.php');
 }
 
+// This connect flow belongs to the INCOMING (IMAP) card on Settings > Mail, so it sets the IMAP provider only. Outgoing (SMTP) mail
+// is configured separately and can use a different provider (it used to be switched to Microsoft 365 here too, which silently
+// broke sending on installs whose tenant has SMTP AUTH disabled). The Microsoft app credentials and tokens are shared.
 mysqli_query($mysqli, "UPDATE settings SET
     config_imap_provider = 'microsoft_oauth',
-    config_smtp_provider = 'microsoft_oauth',
     config_mail_oauth_refresh_token = '$refresh_token_esc',
     config_mail_oauth_access_token = '$access_token_esc',
     config_mail_oauth_access_token_expires_at = '$expires_at_esc'
@@ -130,5 +132,5 @@ mysqli_query($mysqli, "UPDATE settings SET
 ");
 
 logAction("Settings", "Edit", "$session_name completed Microsoft OAuth connect flow for mail settings");
-flash_alert("Microsoft OAuth connected successfully. Token expires at $expires_at.");
+flash_alert("Microsoft OAuth connected successfully for incoming mail. Outgoing (SMTP) settings were not changed. Token expires at $expires_at.");
 redirect($settings_mail_path);
