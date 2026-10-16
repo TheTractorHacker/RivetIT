@@ -272,6 +272,13 @@ if (isset($_GET['oauth_connect_mailbox_microsoft']) || isset($_POST['oauth_conne
     // Microsoft Graph (Mail.ReadWrite), not the legacy Office 365 Exchange Online IMAP/SMTP
     // API - see admin/oauth_microsoft_mail_callback.php and cron/ticket_email_parser.php.
     $scope = 'offline_access openid profile https://graph.microsoft.com/Mail.ReadWrite';
+    // A shared mailbox is reached through a person's own account (Full Access), and Microsoft treats that as a separate
+    // permission: without Mail.ReadWrite.Shared the mailbox can be read but not marked read or moved (the parser then
+    // fails at its ITFlow folder). Only asked for when the admin picks "as a shared mailbox", so ordinary mailboxes
+    // never get the broader consent.
+    if (($_GET['shared'] ?? $_POST['shared'] ?? '') === '1') {
+        $scope .= ' https://graph.microsoft.com/Mail.ReadWrite.Shared';
+    }
     $_SESSION['mail_oauth_scope'] = $scope;
 
     $authorize_url = MICROSOFT_OAUTH_BASE_URL . rawurlencode($config_mail_oauth_tenant_id) . '/oauth2/v2.0/authorize?'

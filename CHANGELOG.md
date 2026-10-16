@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Shared mailboxes: "Connect as a shared mailbox" (Mail.ReadWrite.Shared)
+
+- A Microsoft 365 **shared mailbox** opened through a person's own account can be read with `Mail.Read.Shared` but not changed: the parser connected and then failed with "could not find or create the ITFlow mail folder" because marking read, moving and creating folders in a shared mailbox need `Mail.ReadWrite.Shared`. Admin > Mailboxes > edit now has **Connect / Reconnect as a shared mailbox**, which also requests that scope (ordinary mailboxes keep the narrower consent). Sign in as the person with Full Access to the shared mailbox.
+
 ### Cron Manager: "Schedule log: 10 days ago" no longer looks like a dead job
 
 - The Cron Manager showed the modification time of a job's log file as "Schedule log", but quiet jobs (the mail queue) print nothing when idle, so a healthy every-5-minutes job read "10 days ago". The label is now "Last log output" with an explanation, and the mail queue job also shows what matters: how many emails are waiting or failed and when the last one was sent.

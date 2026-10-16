@@ -135,6 +135,9 @@ ob_start();
                     <a href="post.php?oauth_connect_mailbox_microsoft=<?= $mailbox_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-primary btn-sm mb-3">
                         <i class="fab fa-fw fa-microsoft me-2"></i>Reconnect Microsoft 365
                     </a>
+                    <a href="post.php?oauth_connect_mailbox_microsoft=<?= $mailbox_id ?>&shared=1&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-secondary btn-sm mb-3 ms-1" title="Use this when the mailbox is a Microsoft 365 shared mailbox that you open through your own account (Full Access)">
+                        <i class="fas fa-fw fa-users me-2"></i>Reconnect as a shared mailbox
+                    </a>
                 <?php } else { ?>
                     <div class="alert alert-warning py-2 mb-3">
                         <i class="fas fa-exclamation-triangle me-1"></i>Not connected yet. Save any changes above first, then click Connect.
@@ -142,8 +145,11 @@ ob_start();
                     <a href="post.php?oauth_connect_mailbox_microsoft=<?= $mailbox_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-primary btn-sm mb-3">
                         <i class="fab fa-fw fa-microsoft me-2"></i>Connect Microsoft 365
                     </a>
+                    <a href="post.php?oauth_connect_mailbox_microsoft=<?= $mailbox_id ?>&shared=1&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-secondary btn-sm mb-3 ms-1" title="Use this when the mailbox is a Microsoft 365 shared mailbox that you open through your own account (Full Access)">
+                        <i class="fas fa-fw fa-users me-2"></i>Connect as a shared mailbox
+                    </a>
                 <?php } ?>
-                <small class="form-text text-muted d-block mb-3">Uses the shared app registration configured under <a href="settings_mail.php" target="_blank">Settings &gt; Mail</a>.</small>
+                <small class="form-text text-muted d-block mb-3">Uses the shared app registration configured under <a href="settings_mail.php" target="_blank">Settings &gt; Mail</a>. For a <strong>shared mailbox</strong> (one you open with Full Access from your own account, not its own login) use the shared-mailbox button and sign in as the person who has that access; it also asks for <code>Mail.ReadWrite.Shared</code>.</small>
             <?php } elseif ($mb_type === 'google_oauth') { ?>
                 <?php
                 // google_oauth has no working OAuth connect flow yet (no button links here from anywhere,
