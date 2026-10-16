@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Cron Manager: "Schedule log: 10 days ago" no longer looks like a dead job
+
+- The Cron Manager showed the modification time of a job's log file as "Schedule log", but quiet jobs (the mail queue) print nothing when idle, so a healthy every-5-minutes job read "10 days ago". The label is now "Last log output" with an explanation, and the mail queue job also shows what matters: how many emails are waiting or failed and when the last one was sent.
+
 ### Test email greeted everyone as "Chap"
 
 - Admin > Mail settings > Send test email always set the recipient name to the hardcoded "Chap" (a leftover from the original ITFlow code). It now uses your own name when you send the test to your own address, and the address itself otherwise.

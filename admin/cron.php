@@ -131,13 +131,19 @@ $last_run = mysqli_fetch_assoc(mysqli_query($mysqli,
                                 <span class="text-muted"><?= nullable_htmlentities($cron_ago($run['finished_at'])) ?></span><br>
                             <?php endif; ?>
                             <?php if ($log_path && $log['mtime']): ?>
-                                Schedule log: <?= nullable_htmlentities($cron_ago($log['mtime'])) ?>
+                                <span title="Quiet jobs print nothing when there is nothing to do or to report, so this time is when the log file last changed, not when the job last ran.">Last log output: <?= nullable_htmlentities($cron_ago($log['mtime'])) ?></span>
                             <?php elseif ($log_path): ?>
                                 <span class="text-muted">No log output yet</span>
                             <?php elseif ($run['exit'] === null): ?>
                                 <span class="text-muted">No log file configured</span>
                             <?php endif; ?>
                         <?php endif; ?>
+                        <?php if ($script_file === 'mail_queue.php' && !$run['running']):
+                            // The log of this job only changes when it fails or prints something, so show what actually matters: mail moving.
+                            $mq = @mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT SUM(email_status IN (0,1)) AS waiting, SUM(email_status = 2) AS failed, MAX(CASE WHEN email_status = 3 THEN email_sent_at END) AS last_sent FROM email_queue"));
+                            if ($mq): ?>
+                            <div class="mt-1 text-muted">Mail queue: <?= (int) $mq['waiting'] ?> waiting, <?= (int) $mq['failed'] ?> failed<?= $mq['last_sent'] ? ', last sent ' . nullable_htmlentities($cron_ago(strtotime($mq['last_sent']))) : ', nothing sent yet' ?></div>
+                        <?php endif; endif; ?>
                         <?php $shown = $run['lines'] ?: $log['lines']; if ($shown): ?>
                             <details class="mt-1"><summary class="text-muted">Latest output</summary>
                                 <pre class="small mb-0 text-break" style="white-space:pre-wrap;max-height:11rem;overflow:auto"><?= nullable_htmlentities(implode("\n", $shown)) ?></pre></details>
