@@ -271,6 +271,10 @@ if (isset($_POST['test_email_smtp'])) {
     }
 
     $email_to = sanitizeInput($_POST['email_to']);
+    // Greet the person by name when the test goes to their own address; otherwise just use the address itself.
+    $email_to_name = (isset($session_email, $session_name) && strcasecmp(trim((string) $session_email), trim((string) $_POST['email_to'])) === 0)
+        ? sanitizeInput($session_name)
+        : $email_to;
     $subject = "Test email from " . APP_NAME;
     $body = "This is a test email from " . htmlspecialchars(APP_NAME) . ". If you are reading this, it worked!";
 
@@ -279,7 +283,7 @@ if (isset($_POST['test_email_smtp'])) {
             'from' => $email_from,
             'from_name' => $email_from_name,
             'recipient' => $email_to,
-            'recipient_name' => 'Chap',
+            'recipient_name' => $email_to_name,
             'subject' => $subject,
             'body' => $body
         ]

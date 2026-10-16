@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Test email greeted everyone as "Chap"
+
+- Admin > Mail settings > Send test email always set the recipient name to the hardcoded "Chap" (a leftover from the original ITFlow code). It now uses your own name when you send the test to your own address, and the address itself otherwise.
+
 ## [26.10.49] RivetIT — RivetCore 1.0.0-rc.19 (first Windows run: eight defects fixed)
 
 **Deploy notes:** back up the database, pull this tag, `composer install --no-dev` (RivetCore **1.0.0-rc.19**). **No database change** (DB stays 2.6.172; rc.19 has no Core migration) and no cron change. After the update: publish the agent **0.7.1** from the Agent page and rebuild the MSI template with it, then install the starter pack's update (pack **1.0.1**) from the Starter pack page.
