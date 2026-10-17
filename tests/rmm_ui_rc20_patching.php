@@ -448,6 +448,40 @@ $ok($c === 200 && $one("SELECT state FROM rmm_approvals WHERE approval_id=$apprI
 [$c, $j] = $ptJson('admin', ['action' => 'unassign_policy', 'policy_id' => $twoId, 'assignment_id' => (int) $one("SELECT assignment_id FROM rmm_patch_assignments WHERE policy_id=$twoId")]);
 $q("DELETE FROM rmm_patch_policies WHERE policy_id=$twoId");
 
+// ---- hostile text from the device and from people is text on every page: hostname, scan error, install detail, a second-person summary
+$hostHost = '<img src=x onerror=alert(3)> H"q\'s&';
+$q("INSERT INTO assets SET asset_type='Server', asset_name='PTHOST', asset_make='Dell', asset_serial='SER-PTHOST', asset_client_id=1, asset_status='Active'");
+$hostAsset = (int) $db->insert_id;
+[$c, , $j] = ea_enroll($S['enroll']['A'], ea_dev(['serial' => 'SER-PTHOST', 'hostname' => $hostHost, 'os' => 'windows', 'os_version' => 'Windows 11 23H2']));
+$hostDev = (int) ($j['device_id'] ?? 0);
+$hostTok = (string) ($j['device_token'] ?? '');
+ea_checkin($hostTok, ['capabilities' => $ptCaps]);
+[$c] = $ptJson('admin', ['action' => 'scan', 'device_id' => $hostDev]);
+$job = $ptJobOf($hostTok, 'patch_scan');
+$bad = (string) json_encode(['v' => 1, 'ok' => true, 'manager' => 'wua', 'scanned_at' => gmdate('Y-m-d\TH:i:s\Z'), 'scan_state' => 'partial', 'wu_state' => 'running', 'reboot_pending' => false, 'last_install_at' => null, 'truncated' => false, 'total' => 1,
+    'updates' => [['id' => $GU['host'], 'kb' => 'KB1', 'title' => $hostile, 'kind' => 'critical', 'severity' => 'critical', 'size' => 1, 'reboot_required' => false, 'released_at' => null, 'eula_accepted' => false, 'categories' => [], 'current' => $hostile, 'version' => $hostile]]]);
+$r = $job === null ? [0] : $ptReport($hostTok, $job, 'succeeded', $bad);
+$q("UPDATE rmm_patch_available SET first_seen_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 40 DAY) WHERE device_id=$hostDev");
+$q("UPDATE rmm_patch_scans SET error=" . "'" . $esc($hostile) . "' WHERE device_id=$hostDev");
+$q("INSERT INTO rmm_patch_history SET device_id=$hostDev, client_id=1, update_id='" . $GU['host'] . "', title='" . $esc($hostile) . "', action='install', result='failed', code='x', detail='" . $esc($hostile) . "', at=UTC_TIMESTAMP()");
+$noRaw = fn (string $body) => !preg_match('/<img src=x|<script>alert\(1\)<\/script>|<b onmouse/', $body);
+[$c, $body] = web($wb, 'GET', '/agent/asset_details.php?asset_id=' . $hostAsset . '&pt_status=all', $SS['admin']);
+$ok($c === 200 && $noRaw($body) && str_contains($body, '&lt;script&gt;alert(1)&lt;/script&gt;') && str_contains($body, 'Install history'), 'hostile title, version, scan error and install detail are escaped on the Patches tab');
+[$c, $body] = $ptGet('admin', '/agent/rmm_patches.php');
+$ok($c === 200 && $noRaw($body) && str_contains($body, '&lt;img src=x onerror=alert(3)&gt;'), 'the hostile hostname is escaped on the compliance page');
+[$c, $body] = $ptGet('admin', '/agent/rmm_patch_updates.php?status=available');
+$ok($c === 200 && $noRaw($body), 'and on the approvals page');
+[$c, $j] = $ptJson('admin', ['action' => 'save_policy', 'name' => 'Two <script>alert(1)</script>', 'enabled' => '1', 's_two_person' => '1']);
+$hostPol = (int) $one("SELECT policy_id FROM rmm_patch_policies WHERE name LIKE 'Two <script>%'");
+[$c] = $ptJson('admin', ['action' => 'assign_policy', 'policy_id' => $hostPol, 'asg_type' => 'device', 'asg_id_device' => $hostDev]);
+[$c, $j] = $ptJson('admin', ['action' => 'approve', 'device_id' => $hostDev, 'update_ids' => [$GU['host']]]);
+[$c, $body] = $ptGet('admin', '/agent/rmm_patch_updates.php');
+$ok($c === 200 && $noRaw($body) && str_contains($body, 'Waiting for a second person'), 'the second-person request (its summary carries the hostname) is escaped');
+[$c, $body] = $ptGet('admin', '/agent/rmm_patch_policies.php?policy_id=' . $hostPol);
+$ok($c === 200 && $noRaw($body) && str_contains($body, 'Two &lt;script&gt;alert(1)&lt;/script&gt;') && str_contains($body, '&lt;img src=x onerror=alert(3)&gt;'), 'the policy name and the device label of its assignment are escaped');
+$q("DELETE FROM rmm_approvals WHERE kind='patch' AND state='pending_approval'");
+$q("DELETE FROM rmm_patch_policies WHERE policy_id=$hostPol"); $q("DELETE FROM rmm_patch_assignments WHERE policy_id=$hostPol");
+
 // ---- the unknown and the malformed
 [$c, $j] = $ptJson('admin', ['action' => 'format_disk']);
 $ok($c === 422 && ($j['error'] ?? '') === 'Unknown action.', 'an unknown action is refused');

@@ -402,7 +402,7 @@ function rivetRmmPatDeviceHtml(array $vm, array $dv): string
 
     // ---- the updates (one form: tick rows, then approve / decline / install the ticked ones)
     $assetBase = ['asset_id' => $assetId];
-    $filter = '<form method="get" action="/agent/asset_details.php" class="row g-2 align-items-end mb-2 rmm-pat-filter">';
+    $filter = '<form method="get" action="/agent/asset_details.php#rmm-patches" class="row g-2 align-items-end mb-2 rmm-pat-filter">';
     foreach ($assetBase as $k => $v) {
         $filter .= '<input type="hidden" name="' . rmmH($k) . '" value="' . (int) $v . '">';
     }
@@ -440,7 +440,7 @@ function rivetRmmPatDeviceHtml(array $vm, array $dv): string
             $table .= '<div class="p-3 border-top d-flex flex-wrap align-items-center" style="gap:6px">' . rivetRmmPatDecisionButtons($perm, $vm, $self) . '</div>';
         }
     }
-    $formOpen = $perm['manage'] ? '<form method="post" action="/agent/post/' . RIVET_RMM_PAT_HANDLER . '.php" id="pat-dev-form" data-rmm-once="0">' . rivetRmmAutoHidden($csrf, $self) . '<input type="hidden" name="device_id" value="' . $dev . '">' : '<div id="pat-dev-form">';
+    $formOpen = $perm['manage'] ? '<form method="post" action="/agent/post/' . RIVET_RMM_PAT_HANDLER . '.php" id="pat-dev-form">' . rivetRmmAutoHidden($csrf, $self) . '<input type="hidden" name="device_id" value="' . $dev . '">' : '<div id="pat-dev-form">';
     $formClose = $perm['manage'] ? '</form>' : '</div>';
     $pager = rivetRmmPatPager($f['page'], (int) $dv['total'], RIVET_RMM_PAT_PAGE, static fn (int $p): string => rivetRmmPatTabUrl($assetId, $f, ['page' => $p]));
     $o .= $filter . '<div class="card card-dark mb-3">' . $formOpen . $table . $formClose . '</div>' . $pager;
@@ -514,7 +514,7 @@ function rivetRmmPatPolicyBox(array $p): string
     }
     $win = (array) ($p['window'] ?? []);
     $winText = match ((string) ($win['mode'] ?? 'none')) {
-        'daily' => rmmH(($win['days'] ?? '') . ' at ' . ($win['start'] ?? '') . ' for ' . (int) ($win['minutes'] ?? 0) . ' min (' . ($win['tz'] ?? 'UTC') . ')'),
+        'daily' => rmmH((is_array($win['days'] ?? null) ? implode(',', $win['days']) : (string) ($win['days'] ?? '')) . ' at ' . ($win['start'] ?? '') . ' for ' . (int) ($win['minutes'] ?? 0) . ' min (' . ($win['tz'] ?? 'UTC') . ')'),
         'maintenance' => 'only while a chosen maintenance window is open',
         default => 'any time',
     };
@@ -1072,9 +1072,9 @@ function rivetRmmPatRingsCard(array $vm): string
     $e = $vm['edit_ring'];
     $form = '';
     if ($can) {
-        $form = '<form method="post" action="/agent/post/' . RIVET_RMM_PAT_HANDLER . '.php" class="p-3 border-top" data-rmm-once="1">' . rivetRmmAutoHidden($csrf, $self . '#rings') . '<input type="hidden" name="action" value="save_ring"><input type="hidden" name="ring_id" value="' . (int) ($e['ring_id'] ?? 0) . '">'
+        $form = '<form method="post" action="/agent/post/' . RIVET_RMM_PAT_HANDLER . '.php" class="p-3 border-top" data-rmm-once="1" id="ring-form">' . rivetRmmAutoHidden($csrf, $self . '#rings') . '<input type="hidden" name="action" value="save_ring"><input type="hidden" name="ring_id" value="' . (int) ($e['ring_id'] ?? 0) . '">'
             . '<h6 class="mb-2">' . ($e !== null ? 'Change ring' : 'New ring') . '</h6><div class="row g-2 align-items-end">'
-            . '<div class="col-md-3"><label class="form-label small" for="rg_name">Name</label><input class="form-control form-control-sm" id="rg_name" name="name" maxlength="39" pattern="[a-z][a-z0-9_-]{0,38}" required value="' . rmmH($e['name'] ?? '') . '"><div class="form-text">Lower case, digits, - or _.</div></div>'
+            . '<div class="col-md-3"><label class="form-label small" for="rg_name">Name</label><input class="form-control form-control-sm" id="rg_name" name="name" maxlength="39" pattern="[a-z][a-z0-9_\-]{0,38}" required value="' . rmmH($e['name'] ?? '') . '"><div class="form-text">Lower case, digits, - or _.</div></div>'
             . '<div class="col-md-2"><label class="form-label small" for="rg_delay">Delay (days)</label><input class="form-control form-control-sm" type="number" min="0" max="365" id="rg_delay" name="delay_days" required value="' . (int) ($e['delay_days'] ?? 0) . '"></div>'
             . '<div class="col-md-2"><label class="form-label small" for="rg_ord">Sort order</label><input class="form-control form-control-sm" type="number" min="0" max="100000" id="rg_ord" name="sort_order" value="' . (int) ($e['sort_order'] ?? 100) . '"></div>'
             . '<div class="col-md-3"><label class="form-label small" for="rg_desc">Description</label><input class="form-control form-control-sm" id="rg_desc" name="description" maxlength="200" value="' . rmmH($e['description'] ?? '') . '"></div>'
