@@ -392,6 +392,60 @@ $patchLive = $patchNum('patch_live_install', 0) === 1;
 </div>
 
 <?php
+// RivetCore 1.0.0-rc.21 (RMM Phase 5, software deployment): one sub-switch (`software_deploy`, off by default), its limits and a SEPARATE switch for live installs. The cost text is Core's own wording
+// (docs/rmm/SOFTWARE_DEPLOY.md section 9).
+$swOn = !empty($cfg['features']['software_deploy']);
+$swLim = (array) $cfg['limits'];
+$swNum = static fn (string $key, int $def): int => (int) ($swLim[$key] ?? $def);
+$swLive = $swNum('software_live_install', 0) === 1;
+?>
+<div class="card mb-3" id="software-deployment">
+    <div class="card-header"><h4 class="card-title mb-0">Software deployment <?= $swOn ? '<span class="badge text-bg-success ms-2">On</span>' : '<span class="badge text-bg-secondary ms-2">Off</span>' ?><?= $swOn && $swLive ? '<span class="badge text-bg-warning ms-2">Live installs on</span>' : '' ?></h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Install what you assigned, check that it is there, show the difference. You keep a catalog of packages (each version pinned: a package name from the machine's own signed repositories, or a Windows installer with its https address, SHA-256 and size), allow the hosts installers may come from, and assign a package to a scope. The agent reports what each machine has; the scheduler fills the difference, only where it is allowed and never faster than the limits below. Needs an agent of RivetCore 1.0.0-rc.21 or later; older agents are never offered a software job. Switching it off stops it within one check-in and keeps everything you created.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="border rounded p-3 mb-3">
+                <div class="form-check form-switch mb-2">
+                    <input type="checkbox" class="form-check-input" id="ea_sw_software" name="feature_software_deploy" value="1" <?= $swOn ? 'checked' : '' ?> aria-describedby="ea_sw_software_h">
+                    <label class="form-check-label fw-semibold" for="ea_sw_software">Software deployment (<code>software_deploy</code>)</label>
+                </div>
+                <p class="small text-muted mb-0" id="ea_sw_software_h"><strong>Cost:</strong> Software deployment keeps a catalog of packages. Once you assign a package, every device in that scope is asked what it has about once a day (a short read-only check) and the answer is stored. Nothing is installed until you switch on live installs; until then you only see what would be installed.</p>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sd_detect">Ask each device what it has every (seconds)</label>
+                    <input type="number" class="form-control" id="ea_sd_detect" name="software_detect_interval_s" min="3600" max="604800" value="<?= $swNum('software_detect_interval_s', 86400) ?>">
+                    <div class="form-text">3,600 to 604,800. Default 86,400 (a day); spread so a fleet never answers at once.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sd_max">Most installs at once (whole fleet)</label>
+                    <input type="number" class="form-control" id="ea_sd_max" name="software_max_installs" min="1" max="10000" value="<?= $swNum('software_max_installs', 25) ?>">
+                    <div class="form-text">Default 25.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sd_maxc">Most installs at once (one department)</label>
+                    <input type="number" class="form-control" id="ea_sd_maxc" name="software_max_installs_per_client" min="1" max="1000" value="<?= $swNum('software_max_installs_per_client', 5) ?>">
+                    <div class="form-text">Default 5.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sd_hist">Keep install history (days)</label>
+                    <input type="number" class="form-control" id="ea_sd_hist" name="software_deploy_history_days" min="30" max="3650" value="<?= $swNum('software_deploy_history_days', 365) ?>">
+                    <div class="form-text">Default 365.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_sd_batch">Devices per scheduler step</label>
+                    <input type="number" class="form-control" id="ea_sd_batch" name="software_batch" min="10" max="5000" value="<?= $swNum('software_batch', 100) ?>">
+                    <div class="form-text">Halved automatically when the server is busy. Default 100.</div></div>
+            </div>
+            <h6 class="mt-4">Live installs by schedule</h6>
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" class="form-check-input" id="ea_sd_live" name="software_live_install" value="1" <?= $swLive ? 'checked' : '' ?> aria-describedby="ea_sd_live_h">
+                <label class="form-check-label" for="ea_sd_live">Let the scheduler install and remove for real (<code>software_live_install</code>)</label>
+                <div class="form-text" id="ea_sd_live_h">Off (the default): the scheduler only queues a dry run (one a day per device and package) that shows what it would do and changes nothing. On: devices that are missing an assigned package get a real install, one rollout ring after another, inside the limits above and outside any "leave this device alone" window; a package that needs a second person still waits for one. A technician with the deploy grant can still start a manual install on one device either way. <strong>The Windows install paths (MSI, EXE, the hash-pinned download) have never been run on a real machine</strong> (Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring, then a small package.</div>
+            </div>
+            <div class="form-check mb-3" id="ea_sd_ack_wrap">
+                <input type="checkbox" class="form-check-input" id="ea_sd_ack" name="accept_software_live" value="1">
+                <label class="form-check-label" for="ea_sd_ack">I understand that live installs change software on devices, I have run a dry run first, and I accept the risk. (Needed only when switching live installs on; the change is written to the audit log with my name.)</label>
+            </div>
+            <button type="submit" name="save_software_settings" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save software deployment settings</button>
+            <?php if ($swOn) { ?><a class="btn btn-outline-secondary ms-2" href="/agent/rmm_software.php"><i class="fas fa-box-open me-1"></i>Open the software catalog</a><?php } ?>
+        </form>
+    </div>
+</div>
+
+<?php
 // RivetCore 1.0.0-rc.11 (RMM Phases 6 and 8 and the scale work): the data for the cards below is read here, the cards are printed by rivetRmmUiScaleCards() (includes/rmm_scale_cards.php).
 // Each part is off by default and is guarded so this page still loads on a database that has not been updated yet.
 $rmm_scale_scripts = true;

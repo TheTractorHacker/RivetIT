@@ -210,7 +210,11 @@ switch (rivetRmmAutoStr('action', 40)) {
         if (!$approve) {
             rivetRmmAutoDone($r, 'Request rejected.', $ret);
         }
-        if (isset($res['created'])) {
+        if (array_key_exists('applied', $res) && !isset($res['created'])) {
+            // a software request (kind `software`): either a run for one device or an assignment that waited for a second person
+            $msg = isset($res['assignment_id']) ? ($res['applied'] ? 'Approved. The assignment is live; devices in its scope are looked at by the next housekeeping pass.' : 'Approved, but the assignment was already gone or already decided.')
+                : ($res['applied'] ? 'Approved. The software job is queued and the device picks it up at its next check-in.' : 'Approved, but no job was queued' . (!empty($res['reason']) ? ': ' . (string) $res['reason'] : '') . '.');
+        } elseif (isset($res['created'])) {
             $msg = 'Approved. ' . (int) $res['created'] . ' job' . ((int) $res['created'] === 1 ? '' : 's') . ' queued' . (isset($res['device_count']) ? ' for ' . (int) $res['device_count'] . ' device' . ((int) $res['device_count'] === 1 ? '' : 's') : '') . '.';
             $sk = (int) ($res['skipped_denied'] ?? 0) + (int) ($res['skipped_error'] ?? 0);
             $msg .= $sk > 0 ? ' ' . $sk . ' skipped.' : '';

@@ -254,6 +254,65 @@ if (isset($_POST['save_patch_settings'])) {
     ea_flash_result($r, 'Patch management settings saved.' . (isset($in['features_json']) ? ' Patch management is now ' . ($wantOn ? 'on' : 'off') . '.' : ''));
 }
 
+// RMM Phase 5 (RivetCore 1.0.0-rc.21, software deployment): the `software_deploy` sub-switch and its five limits. RmmAdmin::saveSettings() (rmm.admin) validates the ranges and audits; this
+// only reads the form. Switching LIVE installs on needs an explicit acknowledgement (the scheduler would otherwise only queue dry runs) and is audited by name; only values that changed are written.
+if (isset($_POST['save_software_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $cur = $rmm->readModel()->settingsSummary();
+    $in = [];
+    $features = $cur['features'];
+    $wantOn = !empty($_POST['feature_software_deploy']);
+    if ($wantOn !== !empty($features['software_deploy'])) {
+        $features['software_deploy'] = $wantOn;
+        $in['features_json'] = $features;
+    }
+    $stored = is_string($cur['limits_json'] ?? null) && $cur['limits_json'] !== '' ? json_decode($cur['limits_json'], true) : [];
+    $stored = is_array($stored) ? $stored : [];
+    $changedLimit = false;
+    foreach (['software_detect_interval_s', 'software_max_installs', 'software_max_installs_per_client', 'software_deploy_history_days', 'software_batch'] as $k) {
+        if (!isset($_POST[$k]) || !is_string($_POST[$k]) || preg_match('/^\d{1,9}$/', trim($_POST[$k])) !== 1) {
+            continue;
+        }
+        $v = (int) trim($_POST[$k]);
+        if ($v !== (int) ($cur['limits'][$k] ?? -1)) {
+            $stored[$k] = $v;   // out of range is refused by Core with its own message
+            $changedLimit = true;
+        }
+    }
+    $wantLive = !empty($_POST['software_live_install']) ? 1 : 0;
+    $liveChanged = $wantLive !== (int) ($cur['limits']['software_live_install'] ?? 0);
+    if ($liveChanged) {
+        if ($wantLive === 1 && empty($_POST['accept_software_live'])) {
+            flash_alert('Tick the acknowledgement to switch live software installs on. Nothing was saved.', 'error');
+            redirect();
+        }
+        if ($wantLive === 1 && !$wantOn) {
+            flash_alert('Switch software deployment on first. Nothing was saved.', 'error');
+            redirect();
+        }
+        $stored['software_live_install'] = $wantLive;
+        $changedLimit = true;
+    }
+    if ($changedLimit) {
+        $in['limits_json'] = $stored;
+    }
+    if ($in === []) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    $r = $ea_admin->saveSettings($ea_who, $in);
+    if ($r->ok) {
+        $rmm->syncState();
+        if ($liveChanged) {
+            logAction('RMM', 'Settings Changed', "$session_name switched software deployment live installs " . ($wantLive === 1 ? 'ON (acknowledged)' : 'off'));
+        }
+        if (isset($in['features_json'])) {
+            logAction('RMM', 'Settings Changed', "$session_name switched software deployment " . ($wantOn ? 'ON' : 'off'));
+        }
+    }
+    ea_flash_result($r, 'Software deployment settings saved.' . (isset($in['features_json']) ? ' Software deployment is now ' . ($wantOn ? 'on' : 'off') . '.' : ''));
+}
+
 // ---------------------------------------------------------------- agent binaries and per-department installers
 
 if (isset($_POST['upload_agent_binary'])) {

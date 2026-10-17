@@ -213,6 +213,7 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
     <link rel="stylesheet" href="/css/itflow_rmm_remote.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_remote.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_logs.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_logs.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_patches.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_patches.css') ?>">
+    <link rel="stylesheet" href="/css/itflow_rmm_software.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_software.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_scale.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_scale.css') ?>">
 
     <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*.

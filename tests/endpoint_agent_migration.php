@@ -170,3 +170,43 @@ for ($run = 1; $run <= 2; $run++) {
             'replay 2: the eight missing tables are created again with the db.sql columns, the migration is recorded and the default rings are seeded');
     }
 }
+
+// ---- DB 2.6.174 (RivetCore 1.0.0-rc.21, software deployment): Core migration 0029 creates eight rmm_* deployment tables through the Core runner; db.sql carries the same tables
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.174', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.174 (' . LATEST_DATABASE_VERSION . ')');
+$swTables = ['rmm_deploy_state', 'rmm_package_assignments', 'rmm_package_history', 'rmm_package_installs', 'rmm_package_jobs', 'rmm_package_versions', 'rmm_packages', 'rmm_software_hosts'];
+$step174 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.173') {"));
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.173') {") !== false && strpos($step174, "'2.6.174'") !== false && strpos($step174, 'Migration0029SoftwareDeploy') !== false && strpos($step174, '\\RivetCore\\Migration\\MigrationRunner') !== false
+    && strpos($step174, 'mysqli_query($mysqli, "CREATE') === false && strpos($step174, 'mysqli_query($mysqli, \'CREATE') === false && strpos($step174, 'class_exists(\\RivetCore\\Rmm\\Migration\\Migration0029SoftwareDeploy::class)') !== false,
+    'the 2.6.174 step is gated on 2.6.173, runs the Core runner (MigrationRunner, CoreMigrations::all()), writes no DDL of its own and waits for a package that ships migration 0029');
+$ok(preg_match('/"rivet\/rivet-core": "\^1\.0\.0-rc\.(\d+)"/', file_get_contents("$root/composer.json"), $rcm21) === 1 && (int) $rcm21[1] >= 21, 'composer.json requires RivetCore 1.0.0-rc.21 or newer');
+$swCols = fn (string $t) => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='$t' ORDER BY ordinal_position"), 'column_name');
+$swSqlCols = [];
+foreach ($swTables as $t) {
+    $ok(preg_match('/CREATE TABLE `' . $t . '` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $pm) === 1, "db.sql defines $t");
+    preg_match_all('/^  `([a-z_0-9]+)` /m', $pm[1] ?? '', $pc);
+    $swSqlCols[$t] = $pc[1] ?? [];
+    $ok($swSqlCols[$t] !== [] && $swSqlCols[$t] === $swCols($t), "db.sql and the migrated schema agree on the columns of $t");
+    $ok((string) $one("SELECT table_collation FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'") === 'utf8mb4_general_ci', "$t is utf8mb4_general_ci");
+}
+$ok(strpos($sql, 'uca1400') === false, 'db.sql carries no uca1400 collation');
+$ok((int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0029_rmm_software_deploy'") === 1, 'the Core runner recorded 0029_rmm_software_deploy');
+$ok((int) $one('SELECT COUNT(*) FROM rmm_packages') === 0 && (int) $one('SELECT COUNT(*) FROM rmm_software_hosts') === 0, 'migration 0029 inserts no row');
+$q("INSERT INTO rmm_software_hosts SET host='keep.example.com', note='kept', created_by=1, created_at=UTC_TIMESTAMP()");
+$q("INSERT INTO rmm_packages SET name='keep-pkg', publisher='', description='', enabled=1, two_person=1, created_by=1, created_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) {
+        foreach ($swTables as $t) { $q("DROP TABLE `$t`"); }
+        $q("DELETE FROM rivet_core_migrations WHERE migration_id='0029_rmm_software_deploy'");
+    }
+    $q("UPDATE settings SET config_current_database_version='2.6.173' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.174 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((int) $one("SELECT COUNT(*) FROM rmm_software_hosts WHERE host='keep.example.com'") === 1 && (int) $one("SELECT two_person FROM rmm_packages WHERE name='keep-pkg'") === 1, 'replay 1 (tables present): the host and the package a person created are kept, nothing duplicated');
+    } else {
+        $same = true;
+        foreach ($swTables as $t) { $same = $same && $swCols($t) === $swSqlCols[$t]; }
+        $ok($same && (int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0029_rmm_software_deploy'") === 1 && (int) $one('SELECT COUNT(*) FROM rmm_packages') === 0,
+            'replay 2: the eight missing tables are created again with the db.sql columns and the migration is recorded; no row is inserted');
+    }
+}

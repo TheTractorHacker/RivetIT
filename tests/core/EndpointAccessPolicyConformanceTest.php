@@ -9,7 +9,7 @@ use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Testing\AccessPolicyConformanceTestCase;
 
 /**
- * EndpointAccessPolicy: the twelve rmm.* abilities over RivetIT's roles. Roles as in tests/endpoint_agent_lib.php: an administrator, a full technician
+ * EndpointAccessPolicy: the fifteen rmm.* abilities over RivetIT's roles. Roles as in tests/endpoint_agent_lib.php: an administrator, a full technician
  * (rmm 3, scripts 3, remote 1), a viewer (rmm 1), a reboot-only technician (scripts 2) and a module-only login (rmm 3, scripts 3, remote 1 but no client/support/assets).
  */
 final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceTestCase
@@ -65,6 +65,11 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['tech'], RmmAbility::PATCH_VIEW, 'client', 3], [$u['tech'], RmmAbility::PATCH_MANAGE, 'client', 3], [$u['tech'], RmmAbility::PATCH_INSTALL, 'client', 3],
             [$u['reboot'], RmmAbility::PATCH_VIEW, 'client', 3], [$u['reboot'], RmmAbility::PATCH_MANAGE, 'client', 3],
             [$u['viewer'], RmmAbility::PATCH_VIEW, 'client', 3], [$u['moduleonly'], RmmAbility::PATCH_VIEW, 'client', 3],
+            // RMM Phase 5 (rc.21, software deployment): view like device.view, manage like job.run_saved, deploy (assignments, a real install) needs scripts level 3
+            [$u['admin'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['admin'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['admin'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
+            [$u['tech'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['tech'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['tech'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
+            [$u['reboot'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['reboot'], RmmAbility::SOFTWARE_MANAGE, 'client', 3],
+            [$u['viewer'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['moduleonly'], RmmAbility::SOFTWARE_VIEW, 'client', 3],
         ];
     }
 
@@ -90,6 +95,12 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['moduleonly'], RmmAbility::PATCH_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::PATCH_INSTALL, 'client', 3],
             [$u['disabled'], RmmAbility::PATCH_VIEW, 'client', 3], [$u['disabled'], RmmAbility::PATCH_MANAGE, 'client', 3], [$u['disabled'], RmmAbility::PATCH_INSTALL, 'client', 3],
             [null, RmmAbility::PATCH_VIEW, 'client', 3], [999999, RmmAbility::PATCH_MANAGE, 'client', 3],
+            // software deployment: a viewer reads only; a level 2 script technician edits the catalog and dry-runs but cannot deploy; a module-only login reads only (never manage or deploy);
+            // an inactive account and nobody have nothing
+            [$u['viewer'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['viewer'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3], [$u['reboot'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
+            [$u['moduleonly'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
+            [$u['disabled'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['disabled'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['disabled'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
+            [null, RmmAbility::SOFTWARE_VIEW, 'client', 3], [999999, RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
         ];
     }
 

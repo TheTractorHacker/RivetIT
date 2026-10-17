@@ -36,6 +36,14 @@ use RivetCore\Rmm\Authz\RmmAbility;
  *                                            (it changes software on the machine); a level 2 script technician can approve and dry-run but not install.
  *                                            Administrators have all three (level 3 everywhere). Nothing existing changes: before RivetCore rc.20 these were unknown abilities.
  *
+ *   rmm.software.view (RMM Phase 5)          like rmm.device.view: module_rmm >= 1 (a module-only login may read the catalog, the deployment state and the report, as it may read the device)
+ *   rmm.software.manage (RMM Phase 5)         like rmm.job.run_saved: view + module_rmm_scripts >= 2, and not a module-only login. Edit the catalog (packages and their immutable versions, fleet-wide,
+ *                                             so Core also wants access to every department), ask a device what it has, run a DRY RUN. Changes nothing on a machine.
+ *   rmm.software.deploy (RMM Phase 5)         changes machines, now or later: assignments, a REAL install or removal, and deciding a software approval: view + module_rmm_scripts >= 3, and never a
+ *                                             module-only login. Stronger than rmm.job.reboot on purpose (same bar as rmm.patch.install); a level 2 script technician can edit the catalog and
+ *                                             dry-run but not install. The allowed installer host list stays rmm.admin (administrators only). Lowering a package's two-person flag is rmm.admin too.
+ *                                             Administrators have all three (level 3 everywhere). Nothing existing changes: before RivetCore rc.21 these were unknown abilities.
+ *
  * An inactive account (disabled, archived, or not an agent user) is denied everything. The client scope (user_client_permissions) is the
  * tenancy adapter's job, not this policy's; an ability the policy does not know is denied.
  */
@@ -73,7 +81,7 @@ final class EndpointAccessPolicy implements AccessPolicyInterface
         if (itflow_profile_level($p, 'module_rmm') < 1) {
             return false;
         }
-        if ($ability === RmmAbility::DEVICE_VIEW || $ability === RmmAbility::PATCH_VIEW) {
+        if ($ability === RmmAbility::DEVICE_VIEW || $ability === RmmAbility::PATCH_VIEW || $ability === RmmAbility::SOFTWARE_VIEW) {
             return true;
         }
         if (itflow_profile_is_limited($p)) {
@@ -82,8 +90,8 @@ final class EndpointAccessPolicy implements AccessPolicyInterface
 
         return match ($ability) {
             RmmAbility::JOB_RUN_SCRIPT => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
-            RmmAbility::JOB_RUN_SAVED, RmmAbility::JOB_REBOOT, RmmAbility::PATCH_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 2,
-            RmmAbility::PATCH_INSTALL => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
+            RmmAbility::JOB_RUN_SAVED, RmmAbility::JOB_REBOOT, RmmAbility::PATCH_MANAGE, RmmAbility::SOFTWARE_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 2,
+            RmmAbility::PATCH_INSTALL, RmmAbility::SOFTWARE_DEPLOY => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
             RmmAbility::REMOTE_LAUNCH => itflow_profile_level($p, 'module_rmm_remote_connect') >= 1,
             RmmAbility::ALERT_MANAGE => itflow_profile_level($p, 'module_rmm') >= 2,
             RmmAbility::REMOTE_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 3 && itflow_profile_level($p, 'module_rmm_remote_connect') >= 1 && $this->level3MayManageRemote(),

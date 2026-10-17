@@ -587,9 +587,9 @@ $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asse
 // ---- events: catalog entries and the adapter
 $extra = array_column(rivetEventCatalogExtras(), 'id');
 $all = RivetCore\Rmm\RmmEvent::all();
-$ok(array_diff($all, $extra) === [] && count($all) === 29 && in_array('rmm.patch.install_failed', $extra, true) && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true)
+$ok(array_diff($all, $extra) === [] && count($all) === 32 && in_array('rmm.deploy.failed', $extra, true) && in_array('rmm.patch.install_failed', $extra, true) && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true)
     && in_array('rmm.mesh.agent_installed', $extra, true) && in_array('rmm.mesh.node_conflict', $extra, true) && in_array('rmm.starter.installed', $extra, true),
-    'every rmm.* event id (29, incl. the five rmm.patch.* events, rmm.file.transferred, rmm.log.rule_matched, rmm.mesh.agent_installed, rmm.mesh.node_conflict and rmm.starter.installed) is in the picker\'s catalog extras');
+    'every rmm.* event id (32, incl. the three rmm.deploy.* events, the five rmm.patch.* events, rmm.file.transferred, rmm.log.rule_matched, rmm.mesh.agent_installed, rmm.mesh.node_conflict and rmm.starter.installed) is in the picker\'s catalog extras');
 $ids = rivetEventCatalogIds();
 $ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
 $grp = rivetEventCatalogData()['groups'];
@@ -654,6 +654,15 @@ $rmm->admin()->enable($admin);
 foreach (glob(__DIR__ . '/rmm_ui_rc20_*.php') ?: [] as $__rc20) {
     echo "---- " . basename($__rc20) . "\n";
     require $__rc20;
+}
+
+// ============================================================ RivetCore 1.0.0-rc.21 (RMM Phase 5, software deployment): the sections live in tests/rmm_ui_rc21_*.php
+// Same contract as the fragments above (shared variables, module on, run in file-name order). The `software_deploy` sub-switch is OFF at the start of each fragment; a fragment switches it on
+// through the Administration handler and puts it back OFF (and live installs off). Placed right after the rc.20 block, before the fragments that end the script.
+$rmm->admin()->enable($admin);
+foreach (glob(__DIR__ . '/rmm_ui_rc21_*.php') ?: [] as $__rc21) {
+    echo "---- " . basename($__rc21) . "\n";
+    require $__rc21;
 }
 
 // ============================================================ RivetCore 1.0.0-rc.16 (the pushed MeshCentral agent install, the MSI installer): the sections live in tests/rmm_ui_rc16_*.php

@@ -11312,3 +11312,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.173'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.173') {
+        // DB 2.6.174: RivetCore 1.0.0-rc.21 (RMM Phase 5, software deployment). Core Migration0029SoftwareDeploy (0029_rmm_software_deploy) creates eight tables, all CREATE TABLE IF NOT EXISTS,
+        // nothing existing altered and no row inserted: rmm_software_hosts, rmm_packages, rmm_package_versions, rmm_package_assignments, rmm_package_installs, rmm_package_history,
+        // rmm_package_jobs and rmm_deploy_state. Core owns it, so this step runs the Core runner (it skips applied ids; an earlier step may already have applied 0029 when its runner ran with this
+        // package, which is harmless). Skipped (version NOT advanced, so it retries) until a package that ships migration 0029 is installed. The tables are empty and cost nothing until the
+        // `software_deploy` sub-switch is turned on (off by default); even then nothing is installed until an administrator lists an installer host, adds a package and assigns it, and live
+        // installs (the limit software_live_install) stay off until they are switched on separately.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0029SoftwareDeploy::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.174'");
+        }
+    }

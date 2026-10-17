@@ -62,7 +62,7 @@ state file exists - which every switch change, the update step and the cron bloc
 
 ## 3. Permissions
 
-No new permission keys; the twelve Core abilities map onto the existing RMM module grants in `EndpointAccessPolicy`, with the rules the old
+No new permission keys; the fifteen Core abilities map onto the existing RMM module grants in `EndpointAccessPolicy`, with the rules the old
 `ITFlow\EndpointAgent\Authz` applied (Administrator and Technician behaviour is unchanged):
 
 | Ability | Needs |
@@ -77,6 +77,9 @@ No new permission keys; the twelve Core abilities map onto the existing RMM modu
 | `rmm.patch.view` (RivetCore 1.0.0-rc.20: patch status, history, compliance, policies) | like `rmm.device.view`: `module_rmm` >= 1 (a module-only login may read) |
 | `rmm.patch.manage` (scan, approve, decline, dry run, approval rules, rings and patch policies) | like `rmm.job.run_saved`: view, `module_rmm_scripts` >= 2, not a module-only login. Rings and patch policies apply to every department, so Core also requires access to every department for them; approval rules of a restricted user are limited to their own departments |
 | `rmm.patch.install` (a real installation) | view, `module_rmm_scripts` >= 3, not a module-only login: stronger than reboot on purpose, so a level 2 script technician approves and dry-runs but cannot install. A restart after patching also needs `rmm.job.reboot`; the second person who approves a request needs `rmm.job.approve` |
+| `rmm.software.view` (RivetCore 1.0.0-rc.21: the catalog, assignments, deployment state, history and report) | like `rmm.device.view`: `module_rmm` >= 1 (a module-only login may read) |
+| `rmm.software.manage` (edit the catalog, ask a device what it has, a dry run) | like `rmm.job.run_saved`: view, `module_rmm_scripts` >= 2, not a module-only login. The catalog is fleet-wide, so Core also requires access to every department to change it |
+| `rmm.software.deploy` (assignments, a real install or removal, deciding a software approval) | view, `module_rmm_scripts` >= 3, not a module-only login: stronger than reboot on purpose (same bar as `rmm.patch.install`), so a level 2 script technician edits the catalog and dry-runs but cannot deploy. The allowed installer host list and lowering a package's two-person flag stay `rmm.admin`; the second person who approves a request needs `rmm.job.approve` |
 
 An inactive account (disabled, archived, not an agent user) is denied everything. Department access (`EndpointTenancy::visibleClientIds()`):
 administrators and users with no `user_client_permissions` row see every department; otherwise only the listed ones, plus devices without a department.
@@ -329,3 +332,32 @@ events). The REST routes (`endpoint_devices/{id}/patches...`, `endpoint_devices/
 (the Windows scan has, read only; Linux apt is proven end to end on a container with real systemd and real apt); dnf, yum and zypper have never run on a real host. Keep `patch_live_install` off until you have done that.
 **Verified here:** the pages, handlers and REST routes over HTTP with a simulated device (`tests/rmm_ui_rc20_patching.php`, loaded by `tests/rmm_ui.php`), the migration and its replays (`tests/endpoint_agent_migration.php`), the three abilities
 (`tests/core/EndpointAccessPolicyConformanceTest.php`).
+
+## 16. Software deployment (RivetCore 1.0.0-rc.21, RMM Phase 5, DB 2.6.174)
+
+**Install what you assigned, check that it is there, show the difference.** An administrator keeps a catalog of packages; a package is assigned to a scope (everyone, a department, a site, a group, a tag, one device); the agent reports what each machine has
+(`software_detect`, read only); the scheduler fills the difference (`software_install`, install or remove one package), only where it is allowed and never faster than the limits; a report shows deployed against expected and exports CSV. The model, the safety
+defaults and what is not done are in rivet-core `docs/rmm/SOFTWARE_DEPLOY.md`. Everything is **off by default**: the sub-switch is Core's `software_deploy` (`RmmSettings::FEATURES`), set under Administration > Settings > Endpoint agent > **Software deployment**,
+which shows Core's cost text, and **live installs are a second, separate switch** (`software_live_install`, off): until it is on the scheduler only queues dry runs. An agent that does not announce `software:detect` / `software:install` is never offered a
+software job, and the golden transcripts replay unchanged.
+
+| Piece | Where | Needs |
+| --- | --- | --- |
+| Migration | DB step 2.6.174 runs the Core runner (`0029_rmm_software_deploy`): eight tables `rmm_software_hosts`, `rmm_packages`, `rmm_package_versions`, `rmm_package_assignments`, `rmm_package_installs`, `rmm_package_history`, `rmm_package_jobs`, `rmm_deploy_state` (`CREATE TABLE IF NOT EXISTS`, nothing existing altered, no row inserted). `db.sql` carries the tables. Skipped, and retried, until a package that ships 0029 is installed | |
+| Deployment block of the Software tab | `includes/rmm_sw_ui.php` (`rivetRmmSwPanelSection()`), `agent/post/rmm_software_deploy.php`, `js/rmm_software.js`: what the device should have and has (state per package: compliant, scheduled, pending, failed, missing, still present, not detected), Detect now, dry run, install and remove with their confirmations, install history. The asset page's existing software inventory stays below it | module + `software_deploy` + `rmm.software.view`; buttons by `manage` / `deploy` |
+| Software catalog | `agent/rmm_software.php`: packages (on/off, second person), their **immutable** versions (apt or dnf package name; msi or exe with https address, SHA-256, size, silent arguments, product code and detection rule), retire/restore, and the allowed installer hosts | view; `rmm.software.manage` (all departments); hosts: `rmm.admin` |
+| Software assignments | `agent/rmm_software_assignments.php`: assign a package (optionally one version) to a scope, remove an assignment (uninstalls nothing), requests that wait for a second person, the ring explanation | view; `rmm.software.deploy` |
+| Software report | `agent/rmm_software_report.php` and `agent/rmm_software_report_csv.php`: deployed against expected by package, department, ring or device, filters, and a CSV (a cell that starts with `= + - @` is prefixed with an apostrophe) | `rmm.software.view` |
+| Approvals | a `two_person` package makes every assignment and every real run wait for a different user; the ordinary Approvals page lists them as kind **Software** and the assignments page shows them with Approve / Reject / Cancel | `rmm.software.deploy` + `rmm.job.approve` |
+| Administration card | `admin/settings_endpoint_agent.php`, `admin/post/settings_endpoint_agent.php`: the switch, five limits and **live installs by schedule** (acknowledgement required, audited by name) | administrator |
+| Menu | Endpoints: Software catalog, Software assignments, Software report, each only while the module and `software_deploy` are on and the user holds the ability | |
+
+Every action is authorised on the server on every call by Core's `DeployActions` through the technician API (`rivetRmmAutoApi()`): role, the device's department, the ability, the switch, the confirmations (a real run needs `confirm`), the two-person rule and
+the audit. Another department's device is the same 404 as a missing one. **Nothing the agent runs is typed in the edition**: the forms carry ids and the choice install / remove / dry run; the address, hash, arguments and package name of a job are rebuilt by
+Core from the catalog row (extra fields in a request are ignored, and a test proves it). Events `rmm.deploy.started`, `.finished`, `.failed` are on the event bus and in the picker (32 `rmm.*` events).
+
+**Roll-out.** Publish an agent built from rc.21, switch software deployment on, allow the installer host (Windows only; apt and dnf need none), add a small package and a version, assign it to a pilot ring or one device, read the dry run, then install on one
+machine. **The Windows paths (MSI and EXE, the hash-pinned download, the registry reads) have never been run on a real machine**; Linux apt is proven end to end on a container with real systemd and real apt; dnf and yum are fixtures only. Keep
+`software_live_install` off until you have done that.
+**Verified here:** the pages, handlers, CSV and REST routes over HTTP with a simulated device (`tests/rmm_ui_rc21_software.php`, loaded by `tests/rmm_ui.php`), the migration and its replays (`tests/endpoint_agent_migration.php`), the three abilities
+(`tests/core/EndpointAccessPolicyConformanceTest.php`), and a real-browser smoke (`tests/browser/rmm_rc21_software_smoke.mjs`).
