@@ -162,7 +162,7 @@ check('the custom template form has the editor above the fold, encoding, cheat-s
 check('Slack and Teams keep their routing filters (in Advanced); platforms without chat routing do not show them', 'name="webhook_min_priority"' in advanced(forms['slack']) and 'name="webhook_min_priority"' in advanced(forms['teams']) and 'name="webhook_min_priority"' in advanced(forms['ntfy']) and 'name="webhook_min_priority"' not in forms['n8n'])
 s, gjs = req('/admin/modals/webhook/webhook_guide.php?dest=n8n')   # req() unwraps the modal's {content}
 s, gds = req('/admin/modals/webhook/webhook_guide.php?dest=discord')
-check('the guide slide-over is loaded lazily from the catalog (steps, notes, docs link, verify tabs); the page itself does not embed it', 'Copy the Production URL' in gjs and 'Things to know' in gjs and 'https://docs.n8n.io/' in gjs and 'data-bs-toggle="tab"' in gjs and 'Copy the Production URL' not in forms['n8n'] and 'data-wz-guide=' in forms['n8n'])
+check('the guide slide-over is loaded lazily from the catalog (steps, notes, docs link, verify tabs); the page itself does not embed it', 'Copy the Production URL' in gjs and 'Things to know' in gjs and any(urllib.parse.urlparse(h).scheme == 'https' and urllib.parse.urlparse(h).hostname == 'docs.n8n.io' for h in re.findall(r'href=["\']([^"\']+)["\']', gjs)) and 'data-bs-toggle="tab"' in gjs and 'Copy the Production URL' not in forms['n8n'] and 'data-wz-guide=' in forms['n8n'])
 check('a platform that cannot verify signatures says so instead of showing snippets', 'cannot check a signature' in gds)
 check('the guide endpoint refuses an unknown platform', req('/admin/modals/webhook/webhook_guide.php?dest=nope')[0] == 404)
 
