@@ -132,3 +132,41 @@ for ($run = 1; $run <= 2; $run++) {
     }
 }
 $q("DELETE FROM mcp_oauth_client_documents");
+
+// ---- DB 2.6.173 (RivetCore 1.0.0-rc.20, patch management): Core migration 0028 creates eight rmm_patch_* tables through the Core runner; db.sql carries the same tables
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.173', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.173 (' . LATEST_DATABASE_VERSION . ')');
+$patchTables = ['rmm_patch_assignments', 'rmm_patch_available', 'rmm_patch_history', 'rmm_patch_jobs', 'rmm_patch_policies', 'rmm_patch_rings', 'rmm_patch_rules', 'rmm_patch_scans'];
+$step173 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.172') {"));
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.172') {") !== false && strpos($step173, "'2.6.173'") !== false && strpos($step173, 'Migration0028Patching') !== false && strpos($step173, '\\RivetCore\\Migration\\MigrationRunner') !== false
+    && strpos($step173, 'mysqli_query($mysqli, "CREATE') === false && strpos($step173, 'mysqli_query($mysqli, \'CREATE') === false && strpos($step173, 'class_exists(\\RivetCore\\Rmm\\Migration\\Migration0028Patching::class)') !== false, 'the 2.6.173 step is gated on 2.6.172, runs the Core runner (Migration0028Patching) only when the package ships it, and has no DDL of its own');
+$ok(preg_match('/"rivet\/rivet-core": "\^1\.0\.0-rc\.(\d+)"/', file_get_contents("$root/composer.json"), $rcm) === 1 && (int) $rcm[1] >= 20, 'composer.json requires RivetCore 1.0.0-rc.20 or newer');
+$patchCols = fn (string $t) => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='$t' ORDER BY ordinal_position"), 'column_name');
+$patchSqlCols = [];
+foreach ($patchTables as $t) {
+    $ok(preg_match('/CREATE TABLE `' . $t . '` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $pm) === 1, "db.sql defines $t");
+    preg_match_all('/^  `([a-z_0-9]+)` /m', $pm[1] ?? '', $pc);
+    $patchSqlCols[$t] = $pc[1] ?? [];
+    $ok($patchSqlCols[$t] !== [] && $patchSqlCols[$t] === $patchCols($t), "db.sql and the migrated schema agree on the columns of $t");
+    $ok((string) $one("SELECT table_collation FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'") === 'utf8mb4_general_ci', "$t is utf8mb4_general_ci");
+}
+$ok((int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0028_rmm_patching'") === 1, 'the Core runner recorded 0028_rmm_patching');
+$ok($one("SELECT GROUP_CONCAT(CONCAT(name, ':', delay_days) ORDER BY delay_days) FROM rmm_patch_rings") === 'pilot:0,broad:7,last:14', 'the three default rings are seeded (pilot 0, broad 7, last 14 days)');
+$q("INSERT INTO rmm_patch_history SET device_id=9001, client_id=1, update_id='replay-keep', title='keep', action='install', result='installed', code='', detail='', at=UTC_TIMESTAMP()");
+$q("UPDATE rmm_patch_rings SET delay_days=9 WHERE name='broad'");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) {
+        foreach ($patchTables as $t) { $q("DROP TABLE `$t`"); }
+        $q("DELETE FROM rivet_core_migrations WHERE migration_id='0028_rmm_patching'");
+    }
+    $q("UPDATE settings SET config_current_database_version='2.6.172' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.173 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((int) $one("SELECT COUNT(*) FROM rmm_patch_history WHERE update_id='replay-keep'") === 1 && (int) $one("SELECT delay_days FROM rmm_patch_rings WHERE name='broad'") === 9 && (int) $one('SELECT COUNT(*) FROM rmm_patch_rings') === 3, 'replay 1: existing history and an edited ring are kept, no ring is added twice');
+    } else {
+        $same = true;
+        foreach ($patchTables as $t) { $same = $same && $patchCols($t) === $patchSqlCols[$t]; }
+        $ok($same && (int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0028_rmm_patching'") === 1 && (int) $one('SELECT COUNT(*) FROM rmm_patch_rings') === 3 && (int) $one('SELECT COUNT(*) FROM rmm_patch_history') === 0,
+            'replay 2: the eight missing tables are created again with the db.sql columns, the migration is recorded and the default rings are seeded');
+    }
+}

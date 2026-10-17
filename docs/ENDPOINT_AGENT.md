@@ -62,7 +62,7 @@ state file exists - which every switch change, the update step and the cron bloc
 
 ## 3. Permissions
 
-No new permission keys; the nine Core abilities map onto the existing RMM module grants in `EndpointAccessPolicy`, with the rules the old
+No new permission keys; the twelve Core abilities map onto the existing RMM module grants in `EndpointAccessPolicy`, with the rules the old
 `ITFlow\EndpointAgent\Authz` applied (Administrator and Technician behaviour is unchanged):
 
 | Ability | Needs |
@@ -73,6 +73,10 @@ No new permission keys; the nine Core abilities map onto the existing RMM module
 | `rmm.remote.launch` | view, `module_rmm_remote_connect` >= 1, not a module-only login |
 | `rmm.device.manage`, `rmm.token.manage`, `rmm.binary.publish`, `rmm.admin` | administrator (`role_is_admin`) |
 | `rmm.remote.manage` (RivetCore 1.0.0-rc.11: service and process managers, downloading a file from a device, the Mesh terminal and files views) | administrator; a role with `module_rmm_scripts` >= 3 **and** `module_rmm_remote_connect` >= 1 only while Administration > Endpoint agent > Remote tools has "Level 3 script users with remote access may use the remote tools" on (`settings.config_rmm_remote_manage_lvl3`, off by default); never a module-only login. Sending a file **to** a device and the remote-tools settings stay `rmm.admin` (administrators only), reading collected logs needs `rmm.device.view` + `rmm.job.run_saved`, log rules `rmm.alert.manage` |
+
+| `rmm.patch.view` (RivetCore 1.0.0-rc.20: patch status, history, compliance, policies) | like `rmm.device.view`: `module_rmm` >= 1 (a module-only login may read) |
+| `rmm.patch.manage` (scan, approve, decline, dry run, approval rules, rings and patch policies) | like `rmm.job.run_saved`: view, `module_rmm_scripts` >= 2, not a module-only login. Rings and patch policies apply to every department, so Core also requires access to every department for them; approval rules of a restricted user are limited to their own departments |
+| `rmm.patch.install` (a real installation) | view, `module_rmm_scripts` >= 3, not a module-only login: stronger than reboot on purpose, so a level 2 script technician approves and dry-runs but cannot install. A restart after patching also needs `rmm.job.reboot`; the second person who approves a request needs `rmm.job.approve` |
 
 An inactive account (disabled, archived, not an agent user) is denied everything. Department access (`EndpointTenancy::visibleClientIds()`):
 administrators and users with no `user_client_permissions` row see every department; otherwise only the listed ones, plus devices without a department.
@@ -299,3 +303,29 @@ values are written) and the read-only **Performance and capacity** panel on the 
 **The node id (RivetCore 1.0.0-rc.18).** `gotonode` is the node's 64-character MeshCentral id **without** the `node//` prefix (what the device page's address bar shows after `gotonode=`), `@` and `$` literal, e.g. `...?login=<token>&gotonode=<64 characters>&viewmode=11&hide=31`. The agent reports the same 48 bytes as 96 hex characters, which MeshCentral does not find; every stored form is converted when the link is built and when an id is saved or reported, and migration `0027_rmm_mesh_node_ids` rewrites the stored ids to `node//<64 characters>`. In the Mesh node field paste the address bar of the device in MeshCentral, the node id, or the 64 characters. **Not verified against a live MeshCentral server** with this exact link.
 
 **Connect.** MeshCentral does not connect by itself from a URL (its page only selects the device and the view): the tab shows the Desktop with MeshCentral's own **Connect** button. **Not verified on a live MeshCentral:** `tests/browser/rmm_rc17_remote_smoke.mjs` runs against a mock Mesh server, and the `hide` bits are from MeshCentral's source, not from a live server of every version.
+
+## 15. Patch management (RivetCore 1.0.0-rc.20, RMM Phase 4, DB 2.6.173)
+
+**Detect first, install gated.** A device reports which updates it is missing (agent 0.8.0, job `patch_scan`, read only, nothing downloaded); a person or a rule approves them; an installation (`patch_install`) happens only for approved
+updates, only where a patch policy allows it, only inside an install window and never faster than the limits. The agent never restarts a machine by itself. The model, the safety defaults and what is not done are in rivet-core
+`docs/rmm/PATCHING.md`. Everything is **off by default**: the sub-switch is Core's `patching` (`RmmSettings::FEATURES`), set under Administration > Settings > Endpoint agent > **Patch management**, which shows Core's cost text.
+An agent that does not announce `patch:scan` / `patch:install` is never offered a patch job, and the golden transcripts replay unchanged.
+
+| Piece | Where | Needs |
+| --- | --- | --- |
+| Migration | DB step 2.6.173 runs the Core runner (`0028_rmm_patching`): eight `rmm_patch_*` tables (`CREATE TABLE IF NOT EXISTS`, nothing existing altered, the three default rings pilot 0 / broad 7 / last 14 days seeded when there is none). `db.sql` carries the tables. Skipped, and retried, until a package that ships 0028 is installed | |
+| Patches tab of the asset page | `includes/rmm_pat_ui.php` (`rivetRmmPatPanelSection()`), `agent/post/rmm_patching.php`, `js/rmm_patches.js`: scan state, missing updates with kind, severity, size and status, filters, tick boxes with Approve / Decline / Dry run / Install, the effective patch policy, install history | module + `patching` + `rmm.patch.view`; buttons by `manage` / `install` |
+| Patch compliance | `agent/rmm_patches.php`: devices, compliant percentage, overdue, never scanned, scan out of date, restart pending, failed installs, by department / site / group, the devices to look at (linked to their Patches tab), the ring distribution | `rmm.patch.view` |
+| Patch approvals | `agent/rmm_patch_updates.php`: updates still waiting for a decision (or approved / declined / failed), one row per update id across the fleet, approve or decline across a department; requests that wait for a second person (kind `patch` of the ordinary approvals queue; the Approvals page lists them too) | view; `rmm.patch.manage` to decide; `rmm.job.approve` for the second person |
+| Patch policies | `agent/rmm_patch_policies.php`: policies (ring, approval mode and days per kind, installs by schedule, daily or maintenance-window install window with a time zone, restart policy, longest install, second person), where each applies (everything, department, site, group, tag, device), rings, approval rules | view; `rmm.patch.manage` (policies and rings: access to every department) |
+| Administration card | `admin/settings_endpoint_agent.php`, `admin/post/settings_endpoint_agent.php`: the switch, the six limits, and **live installs by schedule** (`patch_live_install`, off by default; switching it on needs an acknowledgement and is audited) | administrator |
+| Menu | Endpoints: Patch compliance, Patch approvals, Patch policies, each only while the module and `patching` are on and the user holds the ability | |
+
+Every action is authorised on the server on every call by Core's `PatchActions` through the technician API (`rivetRmmAutoApi()`): role, the device's department, the ability, the switch, the confirmations (a real install needs `confirm`, a restart afterwards
+its own confirmation and `rmm.job.reboot`). Another department's device is the same 404 as a missing one. Events `rmm.patch.scan_completed`, `.approved`, `.install_started`, `.install_finished`, `.install_failed` are on the event bus and in the picker (29 `rmm.*`
+events). The REST routes (`endpoint_devices/{id}/patches...`, `endpoint_devices/patches...`, `endpoint_devices/patch_policies...`) need no routing here; `api/v1/endpoint_devices.php` hands them to Core.
+
+**Roll-out.** Publish agent 0.8.0, switch patching on, let the first scans arrive, put a few machines in a pilot ring, approve by hand, read a dry run, then install on one machine. **The Windows install path has never been run on a real machine**
+(the Windows scan has, read only; Linux apt is proven end to end on a container with real systemd and real apt); dnf, yum and zypper have never run on a real host. Keep `patch_live_install` off until you have done that.
+**Verified here:** the pages, handlers and REST routes over HTTP with a simulated device (`tests/rmm_ui_rc20_patching.php`, loaded by `tests/rmm_ui.php`), the migration and its replays (`tests/endpoint_agent_migration.php`), the three abilities
+(`tests/core/EndpointAccessPolicyConformanceTest.php`).

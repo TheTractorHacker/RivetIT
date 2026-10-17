@@ -159,7 +159,7 @@ if (!empty($rmm_auto_scripts)) {
 }
 // RMM Phase 6 and 8 and the scale settings (RivetCore 1.0.0-rc.11): one script per area, linked only by a page that set its flag ($rmm_rem_scripts: the Remote tab of the asset
 // page; $rmm_log_scripts: the Logs tab and the Logs and Log rules pages; $rmm_scale_scripts: the RMM administration page; $rmm_mesh_push_scripts, RivetCore 1.0.0-rc.16: the pushed Mesh agent install buttons and the fleet's bulk dialog).
-foreach (['rmm_rem_scripts' => 'rmm_remote.js', 'rmm_log_scripts' => 'rmm_logs.js', 'rmm_scale_scripts' => 'rmm_scale.js', 'rmm_mesh_push_scripts' => 'rmm_mesh_push.js'] as $__flag => $__file) {
+foreach (['rmm_rem_scripts' => 'rmm_remote.js', 'rmm_log_scripts' => 'rmm_logs.js', 'rmm_pat_scripts' => 'rmm_patches.js', 'rmm_scale_scripts' => 'rmm_scale.js', 'rmm_mesh_push_scripts' => 'rmm_mesh_push.js'] as $__flag => $__file) {
     if (!empty($$__flag) && is_file(__DIR__ . '/../js/' . $__file)) {
         echo '<script src="/js/' . $__file . '?v=' . filemtime(__DIR__ . '/../js/' . $__file) . '" defer></script>' . "\n";
     }

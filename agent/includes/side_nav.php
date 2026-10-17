@@ -25,7 +25,9 @@ $section_pages = [
         // RMM Phase 2 and 3 pages (shown only while the module and the sub-switch are on)
         'rmm_policies.php', 'rmm_script_library.php', 'rmm_schedules.php', 'rmm_approvals.php', 'rmm_fields.php', 'rmm_agent_alerts.php', 'rmm_maintenance.php', 'rmm_escalations.php',
         // RMM Phase 8 (sub-switch `logs`)
-        'rmm_logs.php', 'rmm_log_rules.php'],
+        'rmm_logs.php', 'rmm_log_rules.php',
+        // RMM Phase 4 (sub-switch `patching`)
+        'rmm_patches.php', 'rmm_patch_updates.php', 'rmm_patch_policies.php'],
     'backups'       => ['backups.php'],
 ];
 $section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php', 'training_settings.php']);

@@ -202,6 +202,58 @@ if (isset($_POST['save_automation_settings'])) {
     ea_flash_result(ActionResult::ok('Saved.'), implode(' ', $messages));
 }
 
+// RMM Phase 4 (RivetCore 1.0.0-rc.20, patch management): the `patching` sub-switch and its seven limits. RmmAdmin::saveSettings() (rmm.admin) validates the ranges and audits; this
+// only reads the form. Switching LIVE installs on needs an explicit acknowledgement (the scheduler would otherwise only queue dry runs); only values that changed are written.
+if (isset($_POST['save_patch_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $cur = $rmm->readModel()->settingsSummary();
+    $in = [];
+    $features = $cur['features'];
+    $wantOn = !empty($_POST['feature_patching']);
+    if ($wantOn !== !empty($features['patching'])) {
+        $features['patching'] = $wantOn;
+        $in['features_json'] = $features;
+    }
+    $stored = is_string($cur['limits_json'] ?? null) && $cur['limits_json'] !== '' ? json_decode($cur['limits_json'], true) : [];
+    $stored = is_array($stored) ? $stored : [];
+    $changedLimit = false;
+    foreach (['patch_scan_interval_s', 'patch_overdue_days', 'patch_max_installs', 'patch_max_installs_per_client', 'patch_history_days', 'patch_batch'] as $k) {
+        if (!isset($_POST[$k]) || !is_string($_POST[$k]) || preg_match('/^\d{1,9}$/', trim($_POST[$k])) !== 1) {
+            continue;
+        }
+        $v = (int) trim($_POST[$k]);
+        if ($v !== (int) ($cur['limits'][$k] ?? -1)) {
+            $stored[$k] = $v;   // out of range is refused by Core with its own message
+            $changedLimit = true;
+        }
+    }
+    $wantLive = !empty($_POST['patch_live_install']) ? 1 : 0;
+    $liveChanged = $wantLive !== (int) ($cur['limits']['patch_live_install'] ?? 0);
+    if ($liveChanged) {
+        if ($wantLive === 1 && empty($_POST['accept_patch_live'])) {
+            flash_alert('Tick the acknowledgement to switch live installs on. Nothing was saved.', 'error');
+            redirect();
+        }
+        $stored['patch_live_install'] = $wantLive;
+        $changedLimit = true;
+    }
+    if ($changedLimit) {
+        $in['limits_json'] = $stored;
+    }
+    if ($in === []) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    $r = $ea_admin->saveSettings($ea_who, $in);
+    if ($r->ok) {
+        $rmm->syncState();
+        if ($liveChanged) {
+            logAction('RMM', 'Settings Changed', "$session_name switched patch management live installs " . ($wantLive === 1 ? 'ON' : 'off'));
+        }
+    }
+    ea_flash_result($r, 'Patch management settings saved.' . (isset($in['features_json']) ? ' Patch management is now ' . ($wantOn ? 'on' : 'off') . '.' : ''));
+}
+
 // ---------------------------------------------------------------- agent binaries and per-department installers
 
 if (isset($_POST['upload_agent_binary'])) {

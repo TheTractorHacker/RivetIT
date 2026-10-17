@@ -11296,3 +11296,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.172'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.172') {
+        // DB 2.6.173: RivetCore 1.0.0-rc.20 (RMM Phase 4, patch management). Core Migration0028Patching (0028_rmm_patching) creates eight tables, all CREATE TABLE IF NOT EXISTS, nothing existing
+        // altered: rmm_patch_scans, rmm_patch_available, rmm_patch_history, rmm_patch_rings (seeded pilot 0 / broad 7 / last 14 days when empty), rmm_patch_policies, rmm_patch_assignments,
+        // rmm_patch_rules and rmm_patch_jobs. Core owns it, so this step runs the Core runner (it skips applied ids; an earlier step may already have applied 0028 when its runner ran with this
+        // package, which is harmless). Skipped (version NOT advanced, so it retries) until a package that ships migration 0028 is installed. The tables are empty and cost nothing until the
+        // `patching` sub-switch is turned on (off by default) and a device that announces patch:scan reports a scan.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0028Patching::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.173'");
+        }
+    }

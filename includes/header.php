@@ -212,6 +212,7 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
     <!-- RMM Phase 6 and 8 and the scale settings (RivetCore 1.0.0-rc.11): the Remote tab, the Logs pages and the Administration scale panel. Same layer, same rules. -->
     <link rel="stylesheet" href="/css/itflow_rmm_remote.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_remote.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_logs.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_logs.css') ?>">
+    <link rel="stylesheet" href="/css/itflow_rmm_patches.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_patches.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_scale.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_scale.css') ?>">
 
     <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*.

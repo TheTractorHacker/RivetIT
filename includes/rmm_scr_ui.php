@@ -1321,7 +1321,7 @@ const RIVET_RMM_SCR_APPROVAL_STATES = ['pending_approval', 'approved', 'rejected
 function rivetRmmScrApprovalsView(array $ctx, array $get): array
 {
     $state = is_string($get['state'] ?? null) && in_array($get['state'], RIVET_RMM_SCR_APPROVAL_STATES, true) ? $get['state'] : 'pending_approval';
-    $kind = is_string($get['kind'] ?? null) && in_array($get['kind'], ['run', 'schedule'], true) ? $get['kind'] : '';
+    $kind = is_string($get['kind'] ?? null) && in_array($get['kind'], ['run', 'schedule', 'patch'], true) ? $get['kind'] : '';
     $vm = ['state' => $state, 'kind' => $kind, 'page' => max(1, (int) ($get['page'] ?? 1)), 'items' => [], 'total' => 0, 'error' => '', 'names' => [], 'pending' => 0, 'detail' => []];
     $q = ['limit' => (string) RIVET_RMM_SCR_PAGE, 'offset' => (string) (($vm['page'] - 1) * RIVET_RMM_SCR_PAGE)];
     if ($state !== 'all') {
@@ -1400,8 +1400,8 @@ function rivetRmmScrApprovalsPage(array $vm, array $ctx): string
     foreach ($words as $k => $w) {
         $o .= '<option value="' . $k . '"' . ($vm['state'] === $k ? ' selected' : '') . '>' . $w . '</option>';
     }
-    $o .= '</select></div><div class="col-md-3"><label class="form-label" for="apr_kind">Kind</label><select class="form-select" id="apr_kind" name="kind"><option value="">Run or schedule</option><option value="run"' . ($vm['kind'] === 'run' ? ' selected' : '')
-        . '>A run</option><option value="schedule"' . ($vm['kind'] === 'schedule' ? ' selected' : '') . '>A schedule</option></select></div><div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Filter</button></div></div></div></form>';
+    $o .= '</select></div><div class="col-md-3"><label class="form-label" for="apr_kind">Kind</label><select class="form-select" id="apr_kind" name="kind"><option value="">Any kind</option><option value="run"' . ($vm['kind'] === 'run' ? ' selected' : '')
+        . '>A run</option><option value="schedule"' . ($vm['kind'] === 'schedule' ? ' selected' : '') . '>A schedule</option><option value="patch"' . ($vm['kind'] === 'patch' ? ' selected' : '') . '>Patch updates</option></select></div><div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Filter</button></div></div></div></form>';
     if ($vm['error'] !== '') {
         return $o . '<div class="alert alert-danger" role="alert">' . rmmH($vm['error']) . '</div>';
     }
@@ -1415,7 +1415,7 @@ function rivetRmmScrApprovalsPage(array $vm, array $ctx): string
         $by = $vm['names'][(int) $a['requested_by']] ?? ('user #' . (int) $a['requested_by']);
         $mine = (int) $a['requested_by'] === $ctx['uid'];
         $decided = $a['decided_by'] ? ($vm['names'][(int) $a['decided_by']] ?? 'user #' . (int) $a['decided_by']) : '';
-        $rows .= '<tr id="approval-' . $id . '"><td class="ps-3">' . rmmH($a['summary']) . '</td><td>' . ($a['kind'] === 'schedule' ? 'Schedule' : 'Run') . '</td><td>' . rmmH($by) . '<div class="small text-muted">' . rivetRmmUiTime((string) $a['requested_at']) . '</div></td>'
+        $rows .= '<tr id="approval-' . $id . '"><td class="ps-3">' . rmmH($a['summary']) . '</td><td>' . ($a['kind'] === 'schedule' ? 'Schedule' : ($a['kind'] === 'patch' ? 'Patch updates' : 'Run')) . '</td><td>' . rmmH($by) . '<div class="small text-muted">' . rivetRmmUiTime((string) $a['requested_at']) . '</div></td>'
             . '<td>' . (int) $a['device_count'] . '</td><td>' . ($pending ? rivetRmmScrTimeBoth((string) $a['expires_at']) : '<span class="text-muted">' . rivetRmmAutoUtc((string) $a['expires_at']) . '</span>') . '</td><td>' . rivetRmmAutoStatePill((string) $a['state']) . '</td>'
             . '<td>' . ($decided !== '' ? rmmH($decided) . '<div class="small text-muted">' . rivetRmmAutoUtc($a['decided_at']) . '</div>' : '<span class="text-muted">-</span>') . (!empty($a['decision_note']) ? '<div class="small">' . rmmH((string) $a['decision_note']) . '</div>' : '') . '</td></tr>';
         if ($pending) {
@@ -1463,7 +1463,8 @@ function rivetRmmScrApprovalActions(array $a, bool $mine, array $perm, string $c
         if ($mine) {
             $o .= '<span class="text-muted small align-self-center"><i class="fas fa-ban me-1" aria-hidden="true"></i>You cannot approve your own request</span><button type="button" class="btn btn-sm btn-success" disabled>Approve</button>';
         } else {
-            $sentence = 'Approve this request? ' . $a['summary'] . '. It reaches ' . (int) $a['device_count'] . ' device' . ((int) $a['device_count'] === 1 ? '' : 's') . ($d !== null && $d['script_name'] !== '' ? ', running "' . $d['script_name'] . '" version ' . $d['version'] : '')
+            $sentence = $a['kind'] === 'patch' ? 'Approve this request? ' . $a['summary'] . '. It approves updates on ' . (int) $a['device_count'] . ' device' . ((int) $a['device_count'] === 1 ? '' : 's') . '; nothing is installed by approving, installation follows the patch policy.'
+                : 'Approve this request? ' . $a['summary'] . '. It reaches ' . (int) $a['device_count'] . ' device' . ((int) $a['device_count'] === 1 ? '' : 's') . ($d !== null && $d['script_name'] !== '' ? ', running "' . $d['script_name'] . '" version ' . $d['version'] : '')
                 . '. A run is queued right away, as ' . $by . '.';
             $o = '<form method="post" action="/agent/post/' . RIVET_RMM_SCR_HANDLER . '.php" class="mt-3" data-rmm-once="1">' . rivetRmmAutoHidden($csrf, $self . '?state=pending_approval') . '<input type="hidden" name="action" value="decide_approval"><input type="hidden" name="approval_id" value="' . $id . '">'
                 . '<div class="row g-2 align-items-end"><div class="col-md-6"><label class="form-label" for="apr_note_' . $id . '">Note (optional, kept with the decision)</label><input class="form-control" type="text" id="apr_note_' . $id . '" name="note" maxlength="300"></div>'

@@ -336,6 +336,62 @@ $autoLimits = (array) $cfg['limits'];
 </div>
 
 <?php
+// RivetCore 1.0.0-rc.20 (RMM Phase 4, patch management): one sub-switch (`patching`, off by default) and its limits. The cost text is Core's own wording (docs/rmm/PATCHING.md section 9).
+$patchOn = !empty($cfg['features']['patching']);
+$patchLim = (array) $cfg['limits'];
+$patchNum = static fn (string $key, int $def): int => (int) ($patchLim[$key] ?? $def);
+$patchLive = $patchNum('patch_live_install', 0) === 1;
+?>
+<div class="card mb-3" id="patch-management">
+    <div class="card-header"><h4 class="card-title mb-0">Patch management <?= $patchOn ? '<span class="badge text-bg-success ms-2">On</span>' : '<span class="badge text-bg-secondary ms-2">Off</span>' ?></h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Detect first, install gated. A device reports which updates it is missing; a person (or a rule you write) approves them; an installation happens only for approved updates, only where a patch policy allows it, only inside the install window, and never faster than the limits below. The agent never restarts a machine by itself. Needs an agent of RivetCore 1.0.0-rc.20 or later (0.8.0); older agents are never offered a patch job. Switching it off stops it within one check-in and keeps everything you created.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="border rounded p-3 mb-3">
+                <div class="form-check form-switch mb-2">
+                    <input type="checkbox" class="form-check-input" id="ea_sw_patching" name="feature_patching" value="1" <?= $patchOn ? 'checked' : '' ?> aria-describedby="ea_sw_patching_h">
+                    <label class="form-check-label fw-semibold" for="ea_sw_patching">Patch management (<code>patching</code>)</label>
+                </div>
+                <p class="small text-muted mb-0" id="ea_sw_patching_h"><strong>Cost:</strong> Patch management asks every device for its list of missing updates about once a day (a short read-only check, no download) and keeps that list and the install history in the database. It installs nothing by itself until you assign a patch policy that allows it, approve updates, and switch on live installs.</p>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_scan">Scan each device every (seconds)</label>
+                    <input type="number" class="form-control" id="ea_pt_scan" name="patch_scan_interval_s" min="3600" max="604800" value="<?= $patchNum('patch_scan_interval_s', 86400) ?>">
+                    <div class="form-text">3,600 to 604,800. Default 86,400 (a day); spread so a fleet never scans at once.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_over">Overdue after (days)</label>
+                    <input type="number" class="form-control" id="ea_pt_over" name="patch_overdue_days" min="1" max="365" value="<?= $patchNum('patch_overdue_days', 14) ?>">
+                    <div class="form-text">A critical or security update missing longer than this makes a device non-compliant. Default 14.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_max">Most installs at once (whole fleet)</label>
+                    <input type="number" class="form-control" id="ea_pt_max" name="patch_max_installs" min="1" max="10000" value="<?= $patchNum('patch_max_installs', 25) ?>">
+                    <div class="form-text">Default 25.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_maxc">Most installs at once (one department)</label>
+                    <input type="number" class="form-control" id="ea_pt_maxc" name="patch_max_installs_per_client" min="1" max="1000" value="<?= $patchNum('patch_max_installs_per_client', 5) ?>">
+                    <div class="form-text">Default 5.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_hist">Keep install history (days)</label>
+                    <input type="number" class="form-control" id="ea_pt_hist" name="patch_history_days" min="30" max="3650" value="<?= $patchNum('patch_history_days', 365) ?>">
+                    <div class="form-text">Default 365.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_pt_batch">Devices per scheduler step</label>
+                    <input type="number" class="form-control" id="ea_pt_batch" name="patch_batch" min="10" max="5000" value="<?= $patchNum('patch_batch', 100) ?>">
+                    <div class="form-text">Halved automatically when the server is busy. Default 100.</div></div>
+            </div>
+            <h6 class="mt-4">Live installs by schedule</h6>
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" class="form-check-input" id="ea_pt_live" name="patch_live_install" value="1" <?= $patchLive ? 'checked' : '' ?> aria-describedby="ea_pt_live_h">
+                <label class="form-check-label" for="ea_pt_live">Let the scheduler install approved updates for real (<code>patch_live_install</code>)</label>
+                <div class="form-text" id="ea_pt_live_h">Off (the default): the scheduler only queues a dry run (one a day per device) that lists what it would install and changes nothing. On: for devices whose patch policy has installs enabled, approved updates are installed inside the install window. A technician with the install grant can still start a manual install on one device either way. <strong>The Windows install path has never been run on a real machine</strong> (the Windows scan has; Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring.</div>
+            </div>
+            <div class="form-check mb-3" id="ea_pt_ack_wrap">
+                <input type="checkbox" class="form-check-input" id="ea_pt_ack" name="accept_patch_live" value="1">
+                <label class="form-check-label" for="ea_pt_ack">I understand that live installs change software on devices, I have run a dry run first, and I accept the risk. (Needed only when switching live installs on.)</label>
+            </div>
+            <button type="submit" name="save_patch_settings" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save patch management settings</button>
+            <?php if ($patchOn) { ?><a class="btn btn-outline-secondary ms-2" href="/agent/rmm_patches.php"><i class="fas fa-shield-alt me-1"></i>Open patch compliance</a><?php } ?>
+        </form>
+    </div>
+</div>
+
+<?php
 // RivetCore 1.0.0-rc.11 (RMM Phases 6 and 8 and the scale work): the data for the cards below is read here, the cards are printed by rivetRmmUiScaleCards() (includes/rmm_scale_cards.php).
 // Each part is off by default and is guarded so this page still loads on a database that has not been updated yet.
 $rmm_scale_scripts = true;
