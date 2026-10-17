@@ -127,25 +127,50 @@ export class Page {
     if (r.exceptionDetails) throw new Error('eval: ' + (r.exceptionDetails.exception?.description || r.exceptionDetails.text));
     return r.result.value;
   }
+  // Run a function IN THE PAGE with the given arguments passed as values (Runtime.callFunctionOn), never spliced into source text.
+  // `fn` is a function (its source is sent) or a function-expression string; it runs with `this` = window and may be async.
+  async call(fn, ...args) {
+    const g = await this.send('Runtime.evaluate', { expression: 'globalThis', returnByValue: false });
+    if (g.exceptionDetails || !g.result?.objectId) throw new Error('call: no global object');
+    const r = await this.send('Runtime.callFunctionOn', {
+      objectId: g.result.objectId, functionDeclaration: String(fn),
+      arguments: args.map((value) => (value === undefined ? {} : { value })),
+      returnByValue: true, awaitPromise: true, userGesture: true,
+    });
+    if (r.exceptionDetails) throw new Error('eval: ' + (r.exceptionDetails.exception?.description || r.exceptionDetails.text));
+    return r.result.value;
+  }
   url() { return this.eval('location.href'); }
-  async waitFor(expr, { timeout = 8000, label } = {}) {
+  // `expr` is a JS expression string, or a function run in the page with `args` passed as values (preferred when a value is involved)
+  async waitFor(expr, { timeout = 8000, label, args = [] } = {}) {
     const end = Date.now() + timeout; let last;
+    if (typeof expr === 'function') { const fn = expr; expr = label || 'condition'; var probe = () => this.call(fn, ...args); }
+    else { var probe = () => this.eval(`!!(${expr})`); }
     while (Date.now() < end) {
-      try { last = await this.eval(`!!(${expr})`); if (last) return true; } catch (e) { last = e.message; }
+      try { last = await probe(); if (last) return true; } catch (e) { last = e.message; }
       await sleep(100);
     }
     throw new Error(`waitFor timed out: ${label || expr}`);
   }
-  async waitSel(sel, o) { return this.waitFor(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return false;const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'})()`, { ...o, label: 'visible ' + sel }); }
-  exists(sel) { return this.eval(`!!document.querySelector(${JSON.stringify(sel)})`); }
-  visible(sel) { return this.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return false;const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'})()`); }
+  async waitSel(sel, o) {
+    const timeout = o?.timeout ?? 8000, end = Date.now() + timeout;
+    while (Date.now() < end) {
+      try { if (await this.visible(sel)) return true; } catch { /* retry */ }
+      await sleep(100);
+    }
+    throw new Error(`waitFor timed out: ${o?.label || 'visible ' + sel}`);
+  }
+  exists(sel) { return this.call((s) => !!document.querySelector(s), sel); }
+  visible(sel) { return this.call((s) => { const e = document.querySelector(s); if (!e) return false; const r = e.getBoundingClientRect(); const c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== 'hidden' && c.display !== 'none'; }, sel); }
   async centre(sel, timeout = 8000) {
     // Scroll into view, return the centre of the first VISIBLE match (selector may be a CSS list). Retries while it appears.
     const end = Date.now() + timeout;
     for (;;) {
-      const r = await this.eval(`(()=>{const els=[...document.querySelectorAll(${JSON.stringify(sel)})];
-        const e=els.find(x=>{const b=x.getBoundingClientRect();const s=getComputedStyle(x);return b.width>0&&b.height>0&&s.visibility!=='hidden'&&s.display!=='none'});
-        if(!e)return null;e.scrollIntoView({block:'center',inline:'center',behavior:'instant'});const b=e.getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2}})()`);
+      const r = await this.call((s) => {
+        const els = [...document.querySelectorAll(s)];
+        const e = els.find((x) => { const b = x.getBoundingClientRect(); const c = getComputedStyle(x); return b.width > 0 && b.height > 0 && c.visibility !== 'hidden' && c.display !== 'none'; });
+        if (!e) return null; e.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      }, sel);
       if (r) return r;
       if (Date.now() > end) throw new Error('not visible: ' + sel);
       await sleep(150);
@@ -164,13 +189,17 @@ export class Page {
   async hover(sel) { const { x, y } = await this.centre(sel); await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); }
   // click the first visible element whose text matches (exact trimmed text or regex) inside optional scope selector
   async clickText(text, scope = 'body', tags = 'a,button,[role=button],label,li,.dropdown-item,span,div') {
-    const found = await this.eval(`(()=>{const re=${text instanceof RegExp ? `new RegExp(${JSON.stringify(text.source)},${JSON.stringify(text.flags)})` : 'null'};const t=${JSON.stringify(text instanceof RegExp ? '' : text)};
-      const root=document.querySelector(${JSON.stringify(scope)});if(!root)return false;
-      const els=[...root.querySelectorAll(${JSON.stringify(tags)})].filter(e=>{const b=e.getBoundingClientRect();const s=getComputedStyle(e);if(!(b.width>0&&b.height>0&&s.visibility!=='hidden'))return false;
-        const tx=(e.innerText||e.value||'').trim().replace(/\\s+/g,' ');return re?re.test(tx):tx===t});
+    const found = await this.call((reSrc, reFlags, t, scopeSel, tagSel) => {
+      const re = reSrc === null ? null : new RegExp(reSrc, reFlags);
+      const root = document.querySelector(scopeSel); if (!root) return false;
+      const els = [...root.querySelectorAll(tagSel)].filter((e) => {
+        const b = e.getBoundingClientRect(); const c = getComputedStyle(e); if (!(b.width > 0 && b.height > 0 && c.visibility !== 'hidden')) return false;
+        const tx = (e.innerText || e.value || '').trim().replace(/\s+/g, ' '); return re ? re.test(tx) : tx === t;
+      });
       // prefer the deepest (smallest) match
-      els.sort((a,b)=>a.getBoundingClientRect().width*a.getBoundingClientRect().height-b.getBoundingClientRect().width*b.getBoundingClientRect().height);
-      const e=els[0];if(!e)return false;e.setAttribute('data-smoke-target','1');return true})()`);
+      els.sort((a, b) => a.getBoundingClientRect().width * a.getBoundingClientRect().height - b.getBoundingClientRect().width * b.getBoundingClientRect().height);
+      const e = els[0]; if (!e) return false; e.setAttribute('data-smoke-target', '1'); return true;
+    }, text instanceof RegExp ? text.source : null, text instanceof RegExp ? text.flags : null, text instanceof RegExp ? '' : text, scope, tags);
     if (!found) throw new Error('no visible element with text ' + text + ' in ' + scope);
     try { await this.click('[data-smoke-target="1"]'); } finally { await this.eval(`document.querySelectorAll('[data-smoke-target]').forEach(e=>e.removeAttribute('data-smoke-target'))`); }
   }
@@ -183,16 +212,16 @@ export class Page {
     for (;;) {
       await sleep(200);
       try {
-        if (await this.eval(`performance.timeOrigin !== ${origin} && document.readyState !== 'loading'`)) break;
+        if (await this.call((o) => performance.timeOrigin !== o && document.readyState !== 'loading', origin)) break;
       } catch { /* execution context gone mid-navigation */ }
       if (Date.now() > end) throw new Error('page did not navigate after clicking ' + sel);
     }
     await sleep(300);
   }
-  async focus(sel) { await this.eval(`document.querySelector(${JSON.stringify(sel)}).focus()`); }
+  async focus(sel) { await this.call((s) => document.querySelector(s).focus(), sel); }
   async type(sel, text, { clear = true } = {}) {
     await this.click(sel);
-    if (clear) await this.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(e&&'value' in e){e.select&&e.select();}})()`);
+    if (clear) await this.call((s) => { const e = document.querySelector(s); if (e && 'value' in e) { e.select && e.select(); } }, sel);
     if (clear) await this.press('Backspace');
     await this.send('Input.insertText', { text });
     await sleep(80);

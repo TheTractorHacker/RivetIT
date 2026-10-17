@@ -61,17 +61,17 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await p.clickNav('button[name=edit_your_user_preferences]');
 };
 // count window.confirm / alert calls (the panel must use in-page dialogs only)
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
 
 
-const setSelect = (sel, value) => p.eval(`(()=>{const s=document.querySelector(${JSON.stringify(sel)});s.value=${JSON.stringify(value)};s.dispatchEvent(new Event('change',{bubbles:true}));return s.value})()`);
-const selectText = (sel, text) => p.eval(`(()=>{const s=document.querySelector(${JSON.stringify(sel)});const o=[...s.options].find(x=>x.textContent.trim()===${JSON.stringify(text)});if(!o)return null;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));return o.value})()`);
+const setSelect = (sel, value) => p.call((a0,a1)=>{const s=document.querySelector(a0);s.value=a1;s.dispatchEvent(new Event('change',{bubbles:true}));return s.value}, sel, value);
+const selectText = (sel, text) => p.call((a0,a1)=>{const s=document.querySelector(a0);const o=[...s.options].find(x=>x.textContent.trim()===a1);if(!o)return null;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));return o.value}, sel, text);
 const FL = `((document.querySelector('#toast-container')||{}).innerText||'')`;   // the app shows flash messages as toasts
-const flash = async () => { await p.waitFor(`${FL}.length > 0`, { label: 'a flash message' }).catch(() => {}); return p.eval(FL); };
+const flash = async () => { await p.waitFor(() => ((document.querySelector('#toast-container') || {}).innerText || '').length > 0, { label: 'a flash message' }).catch(() => {}); return p.eval(FL); };
 const submit = (form) => p.clickNav(`${form} button[type=submit]:not([name=clear])`);
 const confirmGo = async () => { await p.waitSel('#rmmAutoConfirm.show'); await sleep(450); await p.clickNav('#rmmAutoConfirmGo'); };
 
@@ -204,13 +204,13 @@ await T('fields: define, set a department value, the secret is write-only', asyn
   await selectText(`#${fid} select[name=scope_id]`, 'Dept A');
   await p.clickNav(`#${fid} form button.btn-primary`);
   await p.waitSel(`#${fid} table`);
-  assert(/10\.0\.0\.1/.test(await p.eval(`document.getElementById('${fid}').innerText`)), 'value not listed');
+  assert(/10\.0\.0\.1/.test(await p.call((a0)=>(document.getElementById(''+a0+'').innerText), fid)), 'value not listed');
   const sid = await p.eval(`[...document.querySelectorAll('section[id^=fld-]')].filter(s=>/^fld-\\d+$/.test(s.id)).find(s=>/api_secret/.test(s.innerText)).id`);
   await p.type(`#${sid} input[name=value]`, 'S3cret-Smoke-Value');
   await p.clickNav(`#${sid} form button.btn-primary`);
   await p.waitSel(`#${sid} table`);
   const st = await bodyText();
-  assert(!/S3cret-Smoke-Value/.test(await p.eval(`document.documentElement.outerHTML`)) && /Set/.test(await p.eval(`document.getElementById('${sid}').innerText`)), 'secret leaked or not marked as set');
+  assert(!/S3cret-Smoke-Value/.test(await p.eval(`document.documentElement.outerHTML`)) && /Set/.test(await p.call((a0)=>(document.getElementById(''+a0+'').innerText), sid)), 'secret leaked or not marked as set');
   await shot('fields-desktop-light');
 });
 await T('asset page: the Policy and fields tab shows the policy source and sets a device value', async () => {

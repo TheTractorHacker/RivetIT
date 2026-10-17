@@ -63,19 +63,19 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await p.clickNav('button[name=edit_your_user_preferences]');
 };
 // count window.confirm / alert calls (the panel must use in-page dialogs only)
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
 
 
-const pick = (sel, val) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.value=${JSON.stringify(String(val))};e.dispatchEvent(new Event('change',{bubbles:true}));return e.value})()`);
-const optionValue = (sel, text) => p.eval(`(()=>{const o=[...document.querySelector(${JSON.stringify(sel)}).options].find(x=>x.text.includes(${JSON.stringify(text)}));return o?o.value:null})()`);
-const setBody = (text) => p.eval(`(()=>{const e=document.getElementById('scr_body');e.value=${JSON.stringify(text)};e.dispatchEvent(new Event('input',{bubbles:true}));return e.value.length})()`);
+const pick = (sel, val) => p.call((a0,a1)=>{const e=document.querySelector(a0);e.value=a1;e.dispatchEvent(new Event('change',{bubbles:true}));return e.value}, sel, String(val));
+const optionValue = (sel, text) => p.call((a0,a1)=>{const o=[...document.querySelector(a0).options].find(x=>x.text.includes(a1));return o?o.value:null}, sel, text);
+const setBody = (text) => p.call((a0)=>{const e=document.getElementById('scr_body');e.value=a0;e.dispatchEvent(new Event('input',{bubbles:true}));return e.value.length}, text);
 const SECRET = 'SMOKE-SECRET-123';
 const saved = {};
-const waitText = (re, label) => p.waitFor(`/${re}/.test(document.body.innerText) || /${re}/.test(document.documentElement.innerHTML)`, { timeout: 12000, label: label || String(re) });
+const waitText = (re, label) => p.waitFor((a0)=>(new RegExp(a0).test(document.body.innerText) || new RegExp(a0).test(document.documentElement.innerHTML)), { args: [re], timeout: 12000, label: label || String(re) });
 const flash = () => p.eval(`(document.documentElement.innerHTML.match(/toastr\\["[a-z]+"\\]\\("([^"]*)"\\)/)||[])[1]||''`);
 const submitNav = async (sel) => { await p.clickNav(sel); };
 const confirmDialog = async () => { await p.waitSel('#rmmAutoConfirm.show'); await sleep(450); };
@@ -167,7 +167,7 @@ await T('run panel: confirmation dialog names script, version and target; the jo
   assert((await p.eval('window.__dialogs')) === 0, 'window.confirm/alert was used');
   await p.click('#rmmAutoConfirmGo');
   await waitText('1 job queued for 1 device', 'flash: job queued');
-  assert(!(await p.eval(`document.documentElement.outerHTML.includes(${JSON.stringify(SECRET)})`)), 'the secret is in the page');
+  assert(!(await p.call((a0)=>(document.documentElement.outerHTML.includes(a0)), SECRET)), 'the secret is in the page');
   await waitText('LNX1', 'the run is listed');
 });
 await T('run panel: a single device needs no dialog', async () => {
@@ -214,7 +214,7 @@ await T('approvals: a request made by someone else is approved through the dialo
   assert(/Needs sign-off/.test(await bodyText()), 'request not listed');
   await p.click(`#approval-${saved.extra.approval_id} + tr summary`);
   await p.waitSel(`#approval-${saved.extra.approval_id} + tr pre`);
-  assert(/preview-line <not-html>/.test(await p.eval(`document.querySelector('#approval-${saved.extra.approval_id} + tr pre').textContent`)), 'script preview');
+  assert(/preview-line <not-html>/.test(await p.call((a0)=>(document.querySelector('#approval-'+a0+' + tr pre').textContent), saved.extra.approval_id)), 'script preview');
   await shot('approvals-desktop-light');
   await p.type(`#apr_note_${saved.extra.approval_id}`, 'ok to go');
   await p.click(`#approval-${saved.extra.approval_id} + tr button[value=approve]`);
@@ -269,7 +269,7 @@ await T('schedules: create (form, cron toggle, validation), list, detail', async
   await p.waitSel('#sch-form');
   assert((await p.eval(`document.getElementById('sch_name').value`)) === 'Smoke hourly' && (await p.eval(`document.getElementById('sch_cron').value`)) === '99 * * * *' && (await p.eval(`document.getElementById('sch_kind').value`)) === 'cron'
     && (await p.eval(`document.getElementById('sch_script').value`)) === sidv && (await p.eval(`document.querySelector('#tgt_type').value`)) === 'client', 'the form lost what was typed after a refusal');
-  assert((await p.eval(`document.getElementById('sch_p${sidv}_greeting').value`)) === 'scheduled', 'the parameter value was lost');
+  assert((await p.call((a0)=>(document.getElementById('sch_p'+a0+'_greeting').value), sidv)) === 'scheduled', 'the parameter value was lost');
   await pick('#sch_kind', 'interval');
   await p.type('#sch_iv', '1');
   await pick('#sch_ivu', 'hour');

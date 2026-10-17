@@ -57,15 +57,15 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await p.clickNav('button[name=edit_your_user_preferences]');
 };
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
-const setVal = (sel, v) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)throw new Error('no ${sel}');e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value})()`);
+const setVal = (sel, v) => p.call((a0,a1)=>{const e=document.querySelector(a0);if(!e)throw new Error('no '+a0+'');e.value=a1;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value}, sel, v);
 const unlabeled = () => p.eval(`[...document.querySelectorAll('main input, main select, main textarea, .page-body input, .page-body select, .page-body textarea')].filter(e=>{
   if(e.type==='hidden'||e.disabled)return false;const r=e.getBoundingClientRect();if(!(r.width>0&&r.height>0))return false;
   const lab=(e.labels&&e.labels.length)||e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.getAttribute('title');return !lab}).map(e=>e.name||e.id||e.tagName)`);
-const flash = async (re, label) => p.waitFor(`/${re.source}/i.test(document.body.innerText)`, { label: label || String(re) });
+const flash = async (re, label) => p.waitFor((a0)=>(new RegExp(a0,'i').test(document.body.innerText)), { args: [re.source], label: label || String(re) });
 const pad = (n) => String(n).padStart(2, '0');
 const utcInput = (offsetMin) => { const d = new Date(Date.now() + offsetMin * 60000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
 const extra = (mode) => JSON.parse(execFileSync('php', ['-d', 'display_errors=0', 'tests/browser/rmm_p68_logs_extra.php', process.env.SEED_JSON, mode], { cwd: process.cwd(), env: process.env, encoding: 'utf8' }).trim().split('\n').filter((l) => l.startsWith('{')).pop());

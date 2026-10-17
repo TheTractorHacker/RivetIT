@@ -47,7 +47,7 @@ async function shot(name) {
 }
 // a screenshot of one element (a dialog, a card)
 async function shotEl(name, sel) {
-  const r = await p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;const b=e.getBoundingClientRect();return {x:Math.max(0,b.left+scrollX),y:Math.max(0,b.top+scrollY),w:Math.ceil(b.width),h:Math.min(Math.ceil(b.height),4000)}})()`);
+  const r = await p.call((a0)=>{const e=document.querySelector(a0);if(!e)return null;const b=e.getBoundingClientRect();return {x:Math.max(0,b.left+scrollX),y:Math.max(0,b.top+scrollY),w:Math.ceil(b.width),h:Math.min(Math.ceil(b.height),4000)}}, sel);
   if (!r) throw new Error('no element ' + sel);
   const { data } = await p.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: r.x, y: r.y, width: r.w, height: r.h, scale: 1 } });
   writeFileSync(join(shotDir, name + '.png'), Buffer.from(data, 'base64'));
@@ -65,11 +65,11 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await p.clickNav('button[name=edit_your_user_preferences]');
 };
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
-const setVal = (sel, v) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)throw new Error('no ${sel}');e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+const setVal = (sel, v) => p.call((a0,a1)=>{const e=document.querySelector(a0);if(!e)throw new Error('no '+a0+'');e.value=a1;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}, sel, v);
 const unlabeled = () => p.eval(`[...document.querySelectorAll('#rmm-pane-remote input, #rmm-pane-remote select, #rmm-pane-remote textarea, #rmmRemUpload input, #rmmRemConfirm input')].filter(e=>{
   if(e.type==='hidden'||e.disabled)return false;
   const lab=(e.labels&&e.labels.length)||e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.getAttribute('title');return !lab}).map(e=>e.name||e.id||e.tagName)`);
@@ -109,7 +109,7 @@ const signIn = async (email, password) => {
   await p.clickNav('button[name=login], button[type=submit]');
   assert(!/login\.php/.test(await p.url()), 'still on the login page');
 };
-const text = (sel) => p.eval(`(document.querySelector(${JSON.stringify(sel)})||{}).innerText||''`);
+const text = (sel) => p.call((a0)=>((document.querySelector(a0)||{}).innerText||''), sel);
 
 // ------------------------------------------------------------------------------------------------ sign in and fixtures
 await T('login: real form signs in', async () => { await signIn(EMAIL, PASSWORD); }, { allowHttp: [/\/agent\/clients\.php/] });
@@ -403,8 +403,8 @@ await T('technician: has the tab and the download, but no upload control; the se
   const t = await text('#rmm-pane-remote');
   assert(/Request file/.test(t) && /Only an administrator can send a file to a device/.test(t), 'tech view: ' + t.slice(0, 300));
   assert(!(await p.exists('[data-bs-target="#rmmRemUpload"]')) && !(await p.exists('#rmmRemUpload')), 'the upload control is drawn for a technician');
-  const r = await p.eval(`(async()=>{const fd=new FormData();fd.append('action','xfer_upload');fd.append('device_id','${FX.dev}');fd.append('csrf_token',document.getElementById('rmm-remote-tools').getAttribute('data-csrf'));fd.append('path','/srv/data/x.bin');fd.append('confirm','1');
-    fd.append('file',new Blob(['hello']),'x.bin');const x=await fetch('/agent/post/rmm_remote_tools.php',{method:'POST',body:fd,credentials:'same-origin'});return {s:x.status,j:await x.json()}})()`);
+  const r = await p.call(async (a0)=>{const fd=new FormData();fd.append('action','xfer_upload');fd.append('device_id',''+a0+'');fd.append('csrf_token',document.getElementById('rmm-remote-tools').getAttribute('data-csrf'));fd.append('path','/srv/data/x.bin');fd.append('confirm','1');
+    fd.append('file',new Blob(['hello']),'x.bin');const x=await fetch('/agent/post/rmm_remote_tools.php',{method:'POST',body:fd,credentials:'same-origin'});return {s:x.status,j:await x.json()}}, FX.dev);
   assert(r.s === 403 && r.j.success === false && /Administrator/.test(r.j.error), 'forged upload: ' + JSON.stringify(r));
   await shot('remote-tab-technician-desktop-light');
 }, { allowHttp: [/rmm_remote_tools\.php/] });
