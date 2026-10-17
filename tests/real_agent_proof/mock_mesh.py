@@ -33,6 +33,6 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
 s = http.server.ThreadingHTTPServer((host, port), H)
-c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); c.load_cert_chain(cert, key)
+c = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH); c.minimum_version = ssl.TLSVersion.TLSv1_2; c.load_cert_chain(cert, key)
 s.socket = c.wrap_socket(s.socket, server_side=True)
 s.serve_forever()
