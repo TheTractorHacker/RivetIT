@@ -18,6 +18,12 @@ use RivetCore\Rmm\Authz\RmmAbility;
 /** The Administration anchor of the binaries card (where an administrator publishes the agent). */
 const RIVET_RMM_BINARIES_URL = '/admin/settings_endpoint_agent.php#binaries';
 
+/** The full "Add device / Build installer" page (RivetIT 26.10.52): .exe, .msi, the silent-install commands, the Linux command and the Linux packages. */
+const RIVET_RMM_ADD_DEVICE_URL = '/agent/rmm_add_device.php';
+
+/** The Administration anchor of the Agent updates card (where an administrator publishes a release from GitHub). */
+const RIVET_RMM_AGENT_UPDATES_URL = '/admin/settings_endpoint_agent.php#agent-updates';
+
 /** The Administration anchor of the MSI template card (RivetCore 1.0.0-rc.16). */
 const RIVET_RMM_MSI_URL = '/admin/settings_endpoint_agent.php#msi-templates';
 
@@ -284,7 +290,7 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="modal-header"><h5 class="modal-title" id="rmmInstallerTitle"><i class="fas fa-download me-2" aria-hidden="true"></i>Add device</h5>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
         . '<div class="modal-body">'
-        . '<p class="text-muted small mb-3">Pick the department, then download an installer that already knows your server and the department. Nothing to type on the PC.</p>'
+        . '<p class="text-muted small mb-3">Pick the department, then download an installer that already knows your server and the department. Nothing to type on the PC. <a href="' . $h(RIVET_RMM_ADD_DEVICE_URL) . '">Need the MSI commands or the Linux packages? Open the full Add device page.</a></p>'
         . $problem . $none . $msiWarn
         . '<ul class="nav nav-pills mb-3" role="tablist" aria-label="Operating system">'
         . '<li class="nav-item" role="presentation"><button type="button" class="nav-link active" id="rmm-inst-tab-windows" role="tab" aria-selected="true" aria-controls="rmm-inst-panel" data-os="windows"><i class="fab fa-windows me-1" aria-hidden="true"></i>Windows</button></li>'
@@ -313,7 +319,8 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="mt-3" id="rmm-inst-windows-next"><h6 class="mb-1">What happens next</h6><div class="small" id="rmm-inst-steps">' . $steps . '</div>'
         . '<div class="alert alert-success mt-3 mb-0 d-none" id="rmm-inst-done" role="status"></div></div>'
         . '<div class="mt-3 d-none" id="rmm-inst-linux-out"><h6 class="mb-1">Run this as root on the Linux machine</h6>'
-        . '<p class="small text-muted mb-2">Unpack <code>rivetit-agent-linux-<span id="rmm-inst-linux-arch">amd64</span>.tar.gz</code> from the agent release, then run these lines from that folder. The token is a secret and is shown only once: do not paste it into tickets or chat.</p>'
+        . '<p class="small text-muted mb-2" id="rmm-inst-linux-intro">Unpack <code>rivetit-agent-linux-<span id="rmm-inst-linux-arch">amd64</span>.tar.gz</code> from the agent release, then run these lines from that folder. The token is a secret and is shown only once: do not paste it into tickets or chat.</p>'
+        . '<p class="small text-muted mb-2 d-none" id="rmm-inst-linux-self">Nothing to unpack: this downloads <code>install-linux.sh</code> and the agent <span id="rmm-inst-linux-selfver"></span>, checks both against the SHA-256 recorded on this server, and installs. The token is a secret and is shown only once: do not paste it into tickets or chat.</p>'
         . '<div class="position-relative"><pre class="border rounded p-2 small mb-1" style="max-height:16rem;overflow:auto;white-space:pre-wrap;word-break:break-all" id="rmm-inst-linux-cmd" tabindex="0"></pre></div>'
         . '<button type="button" class="btn btn-outline-secondary btn-sm" id="rmm-inst-copy"><i class="fas fa-copy me-1" aria-hidden="true"></i><span>Copy command</span></button> '
         . '<span class="small text-muted" id="rmm-inst-linux-meta"></span></div>'

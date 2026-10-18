@@ -22,9 +22,21 @@ foreach ($tables as $t) {
     $ok($cols[1] === $live, "db.sql and the migrated schema agree on the columns of $t");
 }
 $upd = file_get_contents("$root/admin/database_updates.php");
+/** One `if ($rivetit_db_version() == 'x') { ... }` step of the updater, cut out brace-aware (a later step must not leak into an earlier step's checks). */
+$stepBlock = function (string $gate) use ($upd): string {
+    $start = strpos($upd, "if (\$rivetit_db_version() == '$gate') {");
+    if ($start === false) { return ''; }
+    $open = strpos($upd, '{', $start);
+    $depth = 0;
+    for ($i = $open, $n = strlen($upd); $i < $n; $i++) {
+        if ($upd[$i] === '{') { $depth++; } elseif ($upd[$i] === '}' && --$depth === 0) { return substr($upd, $start, $i - $start + 1); }
+    }
+
+    return substr($upd, $start);
+};
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.144') {") !== false && strpos($upd, "'2.6.145'") !== false, 'the migration is gated 2.6.144 -> 2.6.145');
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.145') {") !== false && strpos($upd, "'2.6.146'") !== false, 'the deployment migration is gated 2.6.145 -> 2.6.146');
-$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables), 'every migration CREATE is IF NOT EXISTS (idempotent)');
+$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables) + 2, 'every migration CREATE is IF NOT EXISTS (idempotent; the +2 are the Agent updates tables of 2.6.175)');
 $ok(strpos($upd, 'ALTER TABLE `settings` ADD COLUMN') === false || strpos(substr($upd, strpos($upd, "== '2.6.144'"), strpos($upd, "== '2.6.147'") - strpos($upd, "== '2.6.144'")), 'ALTER TABLE `settings`') === false, 'the 2.6.144 to 2.6.146 blocks add no column to the nearly full settings table');
 
 // run the migration again on top of live data: nothing is lost or duplicated
@@ -136,7 +148,7 @@ $q("DELETE FROM mcp_oauth_client_documents");
 // ---- DB 2.6.173 (RivetCore 1.0.0-rc.20, patch management): Core migration 0028 creates eight rmm_patch_* tables through the Core runner; db.sql carries the same tables
 $ok(version_compare(LATEST_DATABASE_VERSION, '2.6.173', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.173 (' . LATEST_DATABASE_VERSION . ')');
 $patchTables = ['rmm_patch_assignments', 'rmm_patch_available', 'rmm_patch_history', 'rmm_patch_jobs', 'rmm_patch_policies', 'rmm_patch_rings', 'rmm_patch_rules', 'rmm_patch_scans'];
-$step173 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.172') {"));
+$step173 = $stepBlock('2.6.172');
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.172') {") !== false && strpos($step173, "'2.6.173'") !== false && strpos($step173, 'Migration0028Patching') !== false && strpos($step173, '\\RivetCore\\Migration\\MigrationRunner') !== false
     && strpos($step173, 'mysqli_query($mysqli, "CREATE') === false && strpos($step173, 'mysqli_query($mysqli, \'CREATE') === false && strpos($step173, 'class_exists(\\RivetCore\\Rmm\\Migration\\Migration0028Patching::class)') !== false, 'the 2.6.173 step is gated on 2.6.172, runs the Core runner (Migration0028Patching) only when the package ships it, and has no DDL of its own');
 $ok(preg_match('/"rivet\/rivet-core": "\^1\.0\.0-rc\.(\d+)"/', file_get_contents("$root/composer.json"), $rcm) === 1 && (int) $rcm[1] >= 20, 'composer.json requires RivetCore 1.0.0-rc.20 or newer');
@@ -174,7 +186,7 @@ for ($run = 1; $run <= 2; $run++) {
 // ---- DB 2.6.174 (RivetCore 1.0.0-rc.21, software deployment): Core migration 0029 creates eight rmm_* deployment tables through the Core runner; db.sql carries the same tables
 $ok(version_compare(LATEST_DATABASE_VERSION, '2.6.174', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.174 (' . LATEST_DATABASE_VERSION . ')');
 $swTables = ['rmm_deploy_state', 'rmm_package_assignments', 'rmm_package_history', 'rmm_package_installs', 'rmm_package_jobs', 'rmm_package_versions', 'rmm_packages', 'rmm_software_hosts'];
-$step174 = substr($upd, (int) strpos($upd, "if (\$rivetit_db_version() == '2.6.173') {"));
+$step174 = $stepBlock('2.6.173');
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.173') {") !== false && strpos($step174, "'2.6.174'") !== false && strpos($step174, 'Migration0029SoftwareDeploy') !== false && strpos($step174, '\\RivetCore\\Migration\\MigrationRunner') !== false
     && strpos($step174, 'mysqli_query($mysqli, "CREATE') === false && strpos($step174, 'mysqli_query($mysqli, \'CREATE') === false && strpos($step174, 'class_exists(\\RivetCore\\Rmm\\Migration\\Migration0029SoftwareDeploy::class)') !== false,
     'the 2.6.174 step is gated on 2.6.173, runs the Core runner (MigrationRunner, CoreMigrations::all()), writes no DDL of its own and waits for a package that ships migration 0029');
@@ -208,5 +220,43 @@ for ($run = 1; $run <= 2; $run++) {
         foreach ($swTables as $t) { $same = $same && $swCols($t) === $swSqlCols[$t]; }
         $ok($same && (int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id='0029_rmm_software_deploy'") === 1 && (int) $one('SELECT COUNT(*) FROM rmm_packages') === 0,
             'replay 2: the eight missing tables are created again with the db.sql columns and the migration is recorded; no row is inserted');
+    }
+}
+
+
+// ---- DB 2.6.175 (RivetIT 26.10.52, Agent updates): two RivetIT-owned tables, endpoint_agent_feed (one row) and endpoint_agent_linux_assets; db.sql carries the same tables
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.175', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.175 (' . LATEST_DATABASE_VERSION . ')');
+$feedTables = ['endpoint_agent_feed', 'endpoint_agent_linux_assets'];
+$step175 = $stepBlock('2.6.174');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.174') {") !== false && strpos($step175, "'2.6.175'") !== false && strpos($step175, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_feed`') !== false && strpos($step175, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_assets`') !== false
+    && strpos($step175, 'DROP ') === false && strpos($step175, 'ALTER ') === false,
+    'the 2.6.175 step is gated on 2.6.174, only creates the two tables IF NOT EXISTS (no DROP, no ALTER) and advances the version only when both exist');
+$feedCols = fn (string $t) => array_column($rows("SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='$t' ORDER BY ordinal_position"), 'column_name');
+$feedSqlCols = [];
+foreach ($feedTables as $t) {
+    $ok(preg_match('/CREATE TABLE IF NOT EXISTS `' . $t . '` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $pm) === 1, "db.sql defines $t");
+    preg_match_all('/^  `([a-z_0-9]+)` /m', $pm[1] ?? '', $pc);
+    $feedSqlCols[$t] = $pc[1] ?? [];
+    $ok($feedSqlCols[$t] !== [] && $feedSqlCols[$t] === $feedCols($t), "db.sql and the migrated schema agree on the columns of $t");
+    $ok((string) $one("SELECT table_collation FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'") === 'utf8mb4_general_ci', "$t is utf8mb4_general_ci");
+}
+$ok((int) $one('SELECT COUNT(*) FROM endpoint_agent_feed') === 1 && (string) $one('SELECT repo FROM endpoint_agent_feed WHERE id = 1') === 'TheTractorHacker/rivet-core', 'the feed table has its one row, pointing at the default repository');
+$q("UPDATE endpoint_agent_feed SET repo='someone/kept-fork' WHERE id = 1");
+$q("INSERT INTO endpoint_agent_linux_assets SET version='0.0.1', kind='script', arch='', filename='keep.sh', url='https://github.com/x/y/keep.sh', sha256='" . str_repeat('a', 64) . "', size_bytes=1, created_by=1");
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) {
+        foreach ($feedTables as $t) { $q("DROP TABLE `$t`"); }
+    }
+    $q("UPDATE settings SET config_current_database_version='2.6.174' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.175 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((string) $one('SELECT repo FROM endpoint_agent_feed WHERE id = 1') === 'someone/kept-fork' && (int) $one("SELECT COUNT(*) FROM endpoint_agent_linux_assets WHERE filename='keep.sh'") === 1 && (int) $one('SELECT COUNT(*) FROM endpoint_agent_feed') === 1,
+            'replay 1 (tables present): the configured repository and a recorded Linux file are kept, nothing duplicated');
+    } else {
+        $same = true;
+        foreach ($feedTables as $t) { $same = $same && $feedCols($t) === $feedSqlCols[$t]; }
+        $ok($same && (int) $one('SELECT COUNT(*) FROM endpoint_agent_feed') === 1 && (string) $one('SELECT repo FROM endpoint_agent_feed WHERE id = 1') === 'TheTractorHacker/rivet-core' && (int) $one('SELECT COUNT(*) FROM endpoint_agent_linux_assets') === 0,
+            'replay 2: the two missing tables are created again with the db.sql columns and the feed row is seeded with the default repository');
     }
 }

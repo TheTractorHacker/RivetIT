@@ -180,6 +180,9 @@
             return res.json().then(function (d) {
                 if (!res.ok || !d || !d.success) { throw new Error((d && d.error) || 'The command could not be created.'); }
                 cmdBox.textContent = d.command;
+                $('rmm-inst-linux-intro').classList.toggle('d-none', !!d.self_contained);   // 26.10.52: with the Linux files recorded the command downloads and checks everything itself
+                $('rmm-inst-linux-self').classList.toggle('d-none', !d.self_contained);
+                $('rmm-inst-linux-selfver').textContent = d.agent_version ? '(' + d.agent_version + ')' : '';
                 $('rmm-inst-linux-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + d.expires_at + ' UTC.'
                     + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent (the command holds your Mesh device group id: keep it secret).' : '');
                 linOut.classList.remove('d-none');

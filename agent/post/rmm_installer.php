@@ -10,7 +10,11 @@ if (defined('FROM_POST_HANDLER')) return;
  *   action=linux      RmmAdmin::deploymentCommands(): an audited token and the one install snippet for Linux (JSON, no binary download).
  *   Both take the optional install_mesh_agent=1 (the tick-box "Also install the MeshCentral agent", off by default): passed as the trailing bool; Core refuses with its
  *   own text when MeshCentral is off or not configured and creates no token.
+ *   action=windows_commands  RmmAdmin::deploymentCommands(): an audited token and the silent-install commands for Windows (PowerShell for the .exe, and with format=msi the msiexec / PowerShell /
+ *                     properties / uninstall commands of the MSI) as JSON, for the Add device page (RivetIT 26.10.52).
  *   action=locations  the department's locations for the modal's select (JSON).
+ *   The Linux answer (RivetIT 26.10.52) is a self-contained command when the Linux files of an agent release are recorded (Administration > Endpoint agent > Agent updates): it downloads
+ *   install-linux.sh and the agent, checks both against the SHA-256 recorded on this server and installs; otherwise Core's own text (unpack the tarball first). It also lists the packages.
  *
  * POST with the session CSRF token only. Hiding the button is cosmetic; every decision is Core's.
  */
@@ -86,7 +90,7 @@ if ($inst_action === 'locations') {
     exit;
 }
 
-if (!in_array($inst_action, ['download', 'linux'], true)) {
+if (!in_array($inst_action, ['download', 'linux', 'windows_commands'], true)) {
     inst_fail(422, 'invalid', 'Unknown action.', $inst_json);
 }
 
@@ -106,19 +110,93 @@ if (!in_array($format, ['exe', 'msi'], true)) {
     inst_fail(422, 'invalid', 'Choose the installer format: exe or msi.', $inst_json);
 }
 $args[] = $inst_action === 'linux' ? 'exe' : $format;
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
 
-if ($inst_action === 'linux') {
+/**
+ * A Linux install command for a server that has no Windows agent published (RivetIT 26.10.52). Returns an error text, or the Core-shaped result and Core's snippet text.
+ *
+ * @param array<int,mixed> $args the argument list of RmmAdmin::deploymentCommands()
+ * @return array{result:\RivetCore\Rmm\Technician\ActionResult,command:string}|string
+ */
+function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm\Authz\RmmPrincipal $who, \mysqli $mysqli, array $args, string $actor)
+{
+    [$clientId, $locationId, $ring, $ttl, $uses, $label, $arch, $mesh] = $args;
+    $summary = $rmm->readModel()->settingsSummary();
+    if ($summary['service_base'] === null) {
+        return 'Set the service URL to an https:// address first.';
+    }
+    $q = mysqli_query($mysqli, 'SELECT client_name FROM clients WHERE client_id = ' . (int) $clientId . ' AND client_archived_at IS NULL');
+    $client = $q ? mysqli_fetch_assoc($q) : null;
+    if (!$client) {
+        return 'Choose the department the devices belong to.';
+    }
+    if ($locationId > 0 && !in_array($locationId, array_column(rivetRmmInstallerLocations($mysqli, $clientId), 'id'), true)) {
+        $locationId = 0;
+    }
+    $meshBlock = null;
+    if ($mesh) {
+        $why = $rmm->meshAgents()->installRefusal();
+        if ($why !== null) {
+            return $why;
+        }
+        $meshBlock = $rmm->meshAgents()->installBlock();
+    }
+    $t = $rmm->technician()->createToken($who, $clientId, $locationId, $ring, $ttl, $uses, $label !== '' ? $label : 'Linux install ' . bin2hex(random_bytes(3)));
+    if (!$t->ok) {
+        return $t->message;
+    }
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ' . (int) $t->data['token_id'])) ?: [];
+    $dept = \RivetCore\Rmm\Enrollment\DeviceValidator::cleanText((string) $client['client_name'], 200) ?? ('Department ' . $clientId);
+    $cmd = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet((string) $summary['service_base'], (string) $t->data['token'], $arch, $dept, ($summary['ca_pem'] ?? '') !== '' ? (string) $summary['ca_pem'] : null, $meshBlock);
+    logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires {$row['expires_at']} UTC", $clientId);
+
+    return ['result' => \RivetCore\Rmm\Technician\ActionResult::ok('Enrollment token created.', 201, 'created', ['token' => $row, 'token_plain' => $t->data['token'], 'department' => $dept]), 'command' => $cmd];
+}
+
+if ($inst_action === 'windows_commands') {
     $r = $admin->deploymentCommands($who, ...$args);
     if (!$r->ok) {
         inst_fail($r->http, $r->code, $r->message, true);
     }
     $cmds = $r->data['commands'] ?? null;
-    if (!is_array($cmds) || !isset($cmds['linux'])) {
+    if (!is_array($cmds) || !isset($cmds['powershell'])) {
         inst_fail(422, 'invalid', 'Set the service URL to an https:// address first.', true);
     }
     header('Content-Type: application/json');
     header('Cache-Control: no-store');
-    echo json_encode(['success' => true, 'command' => $cmds['linux'], 'department' => $r->data['department'], 'arch' => $args[6],
+    echo json_encode(['success' => true, 'department' => $r->data['department'], 'arch' => $args[6], 'format' => $format, 'filename' => $cmds['filename'], 'powershell' => $cmds['powershell'],
+        'msi' => isset($cmds['msi']) && is_array($cmds['msi']) ? $cmds['msi'] : null, 'detection' => $cmds['detection'] ?? null,
+        'expires_at' => $r->data['token']['expires_at'] ?? null, 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
+    exit;
+}
+
+if ($inst_action === 'linux') {
+    $r = $admin->deploymentCommands($who, ...$args);
+    $linuxCommand = null;
+    if (!$r->ok && str_contains($r->message, 'No agent binary is published')) {
+        // Core's issue() wants a published WINDOWS agent for the architecture even for a Linux command, which never uses it. A Linux-only install must not be blocked by that:
+        // make the token through the ordinary token action (same ability and department check, audited by Core) and write the snippet with Core's own text builder.
+        $fb = inst_linux_without_binary($rmm, $who, $mysqli, $args, (string) $session_name);
+        if (is_string($fb)) {
+            inst_fail(422, 'invalid', $fb, true);
+        }
+        $r = $fb['result'];
+        $linuxCommand = $fb['command'];
+    }
+    if (!$r->ok) {
+        inst_fail($r->http, $r->code, $r->message, true);
+    }
+    $cmds = $r->data['commands'] ?? null;
+    $core = $linuxCommand ?? (is_array($cmds) && isset($cmds['linux']) ? (string) $cmds['linux'] : null);
+    if ($core === null) {
+        inst_fail(422, 'invalid', 'Set the service URL to an https:// address first.', true);
+    }
+    $lin = rivetAgentFeedLinuxAssets($mysqli);
+    $lc = rivetAgentFeedLinuxCommand($core, $lin, $args[6]);
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    echo json_encode(['success' => true, 'command' => $lc['command'], 'self_contained' => $lc['self_contained'], 'agent_version' => $lc['version'], 'packages' => rivetAgentFeedLinuxPackages($lin, $args[6]),
+        'department' => $r->data['department'], 'arch' => $args[6],
         'expires_at' => $r->data['token']['expires_at'] ?? null, 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
     exit;
 }

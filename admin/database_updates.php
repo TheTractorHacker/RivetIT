@@ -11329,3 +11329,53 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.174'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.174') {
+        // DB 2.6.175: RivetIT 26.10.52, Administration > Endpoint agent > Agent updates. Two RivetIT-owned tables, both CREATE TABLE IF NOT EXISTS, nothing existing altered:
+        // endpoint_agent_feed (one row: the GitHub repository to read agent releases from, the cached release list, its ETag and the last error / rate-limit time) and
+        // endpoint_agent_linux_assets (the Linux files of a published agent release: install script, binary, tarball, .deb, .rpm, with their SHA-256; the Add device page builds the Linux
+        // command from them). Both are empty and cost nothing until an administrator presses "Check for updates". The version advances only when both tables exist.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_feed` (
+          `id` tinyint(4) NOT NULL DEFAULT 1,
+          `repo` varchar(140) NOT NULL DEFAULT 'TheTractorHacker/rivet-core',
+          `releases_json` mediumtext DEFAULT NULL,
+          `etag` varchar(200) NOT NULL DEFAULT '',
+          `fetched_at` datetime DEFAULT NULL,
+          `checked_at` datetime DEFAULT NULL,
+          `last_error` varchar(500) NOT NULL DEFAULT '',
+          `rate_reset_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_assets` (
+          `asset_id` int(11) NOT NULL AUTO_INCREMENT,
+          `version` varchar(40) NOT NULL,
+          `kind` varchar(12) NOT NULL,
+          `arch` varchar(10) NOT NULL DEFAULT '',
+          `filename` varchar(160) NOT NULL,
+          `url` varchar(500) NOT NULL,
+          `sha256` char(64) NOT NULL,
+          `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+          `sha_source` varchar(20) NOT NULL DEFAULT 'SHA256SUMS',
+          `active` tinyint(1) NOT NULL DEFAULT 1,
+          `is_current` tinyint(1) NOT NULL DEFAULT 0,
+          `created_by` int(11) NOT NULL DEFAULT 0,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`asset_id`),
+          UNIQUE KEY `uniq_version_kind_arch` (`version`,`kind`,`arch`),
+          KEY `idx_current` (`is_current`,`active`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "INSERT IGNORE INTO `endpoint_agent_feed` (`id`) VALUES (1)");
+
+        $feed_ok = true;
+        foreach (['endpoint_agent_feed', 'endpoint_agent_linux_assets'] as $feed_table) {
+            $feed_res = mysqli_query($mysqli, "SHOW TABLES LIKE '$feed_table'");
+            if (!$feed_res || mysqli_num_rows($feed_res) === 0) {
+                $feed_ok = false;
+            }
+        }
+        if ($feed_ok) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.175'");
+        }
+    }

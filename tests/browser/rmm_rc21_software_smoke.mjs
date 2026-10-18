@@ -246,7 +246,7 @@ await T('asset page: a dry run from the row shows "Would install" in the history
   const t = await p.eval(`document.getElementById('rmm-deployment').innerText`);
   assert(/Install history/.test(t) && /Would install/.test(t) && /Dry run/.test(t), 'history: ' + t.slice(0, 300));
 });
-await T('asset page: Run for real needs the confirmation box (the button stays off until ticked) and the dialog; then the device installs and the package is Compliant', async () => {
+await T('asset page: Install / remove now needs the confirmation box (the button stays off until ticked) and the dialog; then the device installs and the package is Compliant', async () => {
   await go(`/agent/asset_details.php?asset_id=${fx.asset['SSMOKE-LNX']}#rmm-software`);
   await p.waitSel('#sw-run-form');
   await p.eval(`document.querySelector('#sw-run-form').closest('details').open = true`);

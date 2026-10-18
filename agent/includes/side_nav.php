@@ -21,7 +21,7 @@ $section_pages = [
     'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
-    'endpoint'      => ['intune_devices.php', 'mdm_devices.php', 'rmm_dashboard.php', 'rmm_fleet.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php',
+    'endpoint'      => ['intune_devices.php', 'mdm_devices.php', 'rmm_dashboard.php', 'rmm_fleet.php', 'rmm_add_device.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php',
         // RMM Phase 2 and 3 pages (shown only while the module and the sub-switch are on)
         'rmm_policies.php', 'rmm_script_library.php', 'rmm_schedules.php', 'rmm_approvals.php', 'rmm_fields.php', 'rmm_agent_alerts.php', 'rmm_maintenance.php', 'rmm_escalations.php',
         // RMM Phase 8 (sub-switch `logs`)
@@ -552,6 +552,10 @@ foreach ($section_pages as $key => $pages) {
                         <a href="/agent/rmm_fleet.php?installer=1" class="dropdown-item">
                             <span class="dropdown-item-icon"><i class="fas fa-download"></i></span>
                             <span class="text-truncate">Download installer</span>
+                        </a>
+                        <a href="/agent/rmm_add_device.php" class="dropdown-item<?php if ($current_page == 'rmm_add_device.php') { echo ' active'; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-tools"></i></span>
+                            <span class="text-truncate">Add device / Build installer</span>
                         </a>
                         <?php } ?>
                         <?php foreach (rivetRmmAutoNav((int) $session_user_id) as $nav_auto) { // policies / scripts / alerting sub-switches (state file; no query)

@@ -418,7 +418,7 @@ function rivetRmmSwRunForm(array $vm, array $dv, string $self): string
         $o .= '<div class="border-top mt-3 pt-2"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="sw_conf" name="confirm" value="1"><label class="form-check-label small" for="sw_conf">I confirm this package may be installed or removed on '
             . rmmH($vm['hostname']) . ' now</label></div><button type="submit" name="action" value="run" class="btn btn-sm btn-warning" data-sw-needs-confirm="#sw_conf" data-rmm-confirm="Install or remove the chosen package on ' . rmmH($vm['hostname'])
             . ' now? This changes software on the machine. The agent runs only what the catalog pins (a hash-checked installer, or a package from the machine\'s own repositories) and never restarts the device. The Windows paths have not been run on a real machine: try a dry run first." data-rmm-confirm-label="Run now">'
-            . '<i class="fas fa-download me-1" aria-hidden="true"></i>Run for real</button><span class="small text-muted ms-2">A dry run shows what would happen and changes nothing.</span></div>';
+            . '<i class="fas fa-download me-1" aria-hidden="true"></i>Install / remove now</button><span class="small text-muted ms-2">A dry run shows what would happen and changes nothing. &ldquo;Install / remove now&rdquo; acts on this one device only and does not need the live-installs switch in Administration (that switch only lets the scheduler install by itself on many devices); you confirm it and it is audited.</span></div>';
     } else {
         $o .= '<p class="small text-muted mt-2 mb-0">Your role can run a dry run but not install or remove for real.</p>';
     }

@@ -379,7 +379,7 @@ $patchLive = $patchNum('patch_live_install', 0) === 1;
             <div class="form-check form-switch mb-2">
                 <input type="checkbox" class="form-check-input" id="ea_pt_live" name="patch_live_install" value="1" <?= $patchLive ? 'checked' : '' ?> aria-describedby="ea_pt_live_h">
                 <label class="form-check-label" for="ea_pt_live">Let the scheduler install approved updates for real (<code>patch_live_install</code>)</label>
-                <div class="form-text" id="ea_pt_live_h">Off (the default): the scheduler only queues a dry run (one a day per device) that lists what it would install and changes nothing. On: for devices whose patch policy has installs enabled, approved updates are installed inside the install window. A technician with the install grant can still start a manual install on one device either way. <strong>The Windows install path has never been run on a real machine</strong> (the Windows scan has; Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring.</div>
+                <div class="form-text" id="ea_pt_live_h">Off (the default): the scheduler only queues a dry run (one a day per device) that lists what it would install and changes nothing. On: for devices whose patch policy has installs enabled, approved updates are installed inside the install window. <strong>This switch is only for the scheduler.</strong> A technician with the install grant can always use <em>Install now</em> on ONE device (they confirm it and it is audited), switch or no switch. <strong>The Windows install path has never been run on a real machine</strong> (the Windows scan has; Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring.</div>
             </div>
             <div class="form-check mb-3" id="ea_pt_ack_wrap">
                 <input type="checkbox" class="form-check-input" id="ea_pt_ack" name="accept_patch_live" value="1">
@@ -433,7 +433,7 @@ $swLive = $swNum('software_live_install', 0) === 1;
             <div class="form-check form-switch mb-2">
                 <input type="checkbox" class="form-check-input" id="ea_sd_live" name="software_live_install" value="1" <?= $swLive ? 'checked' : '' ?> aria-describedby="ea_sd_live_h">
                 <label class="form-check-label" for="ea_sd_live">Let the scheduler install and remove for real (<code>software_live_install</code>)</label>
-                <div class="form-text" id="ea_sd_live_h">Off (the default): the scheduler only queues a dry run (one a day per device and package) that shows what it would do and changes nothing. On: devices that are missing an assigned package get a real install, one rollout ring after another, inside the limits above and outside any "leave this device alone" window; a package that needs a second person still waits for one. A technician with the deploy grant can still start a manual install on one device either way. <strong>The Windows install paths (MSI, EXE, the hash-pinned download) have never been run on a real machine</strong> (Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring, then a small package.</div>
+                <div class="form-text" id="ea_sd_live_h">Off (the default): the scheduler only queues a dry run (one a day per device and package) that shows what it would do and changes nothing. On: devices that are missing an assigned package get a real install, one rollout ring after another, inside the limits above and outside any "leave this device alone" window; a package that needs a second person still waits for one. <strong>This switch is only for the scheduler.</strong> A technician with the deploy grant can always use <em>Install / remove now</em> on ONE device (they confirm it and it is audited), switch or no switch. <strong>The Windows install paths (MSI, EXE, the hash-pinned download) have never been run on a real machine</strong> (Linux apt is proven end to end): try a dry run first, then one machine in the pilot ring, then a small package.</div>
             </div>
             <div class="form-check mb-3" id="ea_sd_ack_wrap">
                 <input type="checkbox" class="form-check-input" id="ea_sd_ack" name="accept_software_live" value="1">
@@ -508,7 +508,12 @@ if ($__flags['enabled']) {
 }
 $scaleCtx['ext'] = ['flags' => $__flags, 'buffer' => $__buf];
 echo rivetRmmUiScaleCards($scaleCtx);
+
+// RivetIT 26.10.52: the Agent updates card (GitHub releases -> Publish). Everything it does goes through the same publish code as the cards below.
+require_once dirname(__DIR__) . '/includes/rmm_agent_feed_ui.php';
+echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleOn, 'service_ok' => $cfg['service_base'] !== null]);
 ?>
+<script src="/js/rmm_agent_feed.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_agent_feed.js') ?>" defer></script>
 
 <div class="card mb-3" id="binaries">
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
@@ -606,7 +611,7 @@ echo rivetRmmUiScaleCards($scaleCtx);
 <div class="card mb-3" id="deployment">
     <div class="card-header"><h4 class="card-title mb-0">Deployment: per-department installer</h4></div>
     <div class="card-body">
-        <p class="small mb-2"><i class="fas fa-lightbulb me-1 text-warning" aria-hidden="true"></i>Quicker: <a href="/agent/rmm_fleet.php?installer=1">Endpoints &gt; Agent Fleet &gt; Add device</a> does the same in one dialog, for any department you can see.</p>
+        <p class="small mb-2"><i class="fas fa-lightbulb me-1 text-warning" aria-hidden="true"></i>Quicker: <a href="/agent/rmm_fleet.php?installer=1">Endpoints &gt; Agent Fleet &gt; Add device</a> does the same in one dialog, for any department you can see, and <a href="/agent/rmm_add_device.php">Add device / Build installer</a> also gives the MSI, the silent-install commands, the Linux command and the Linux packages.</p>
         <p class="small text-muted">Creates an enrollment token for the department and gives you an installer that already contains the server address, the token, the department and (if set) your CA certificate. Run it on a Windows PC as administrator and the agent installs and enrolls itself. Each click creates a new audited token.</p>
         <?php
         $dep_problems = [];

@@ -301,14 +301,15 @@ $inst = $rows("SELECT * FROM rmm_package_installs WHERE device_id={$swDev['SWLNX
 $ok($c === 200 && $inst !== null && (int) $inst['installed'] === 0 && $inst['detected_at'] !== null && $swCount('rmm_package_installs', "device_id={$swDev['SWLNX']} AND package_id=999999") === 0, 'the answer is applied to the package that was asked about; a package nobody asked about is ignored');
 [$c, $body] = $swHtml('admin', 'SWLNX');
 $ok(str_contains($body, 'SWP htop') && str_contains($body, 'Missing') && str_contains($body, 'not installed') && str_contains($body, 'value="dry_run"') && str_contains($body, 'Install...') && str_contains($body, 'Remove...') && str_contains($body, 'Detect now') && $swNoInline($body), 'SWLNX block (administrator): the expected package, state Missing, quick dry run, install and remove links, Detect now');
+$ok(str_contains($body, 'Install / remove now') && str_contains($body, 'does not need the live-installs switch') && str_contains($body, 'name="confirm"') && str_contains($body, 'data-rmm-confirm='), 'SWLNX block (administrator): the button is \"Install / remove now\", says it needs no live-install switch, and keeps the confirmation box and dialog');
 [, $vwBody] = $swHtml('viewer', 'SWLNX');
 $ok(str_contains($vwBody, 'SWP htop') && !str_contains($vwBody, 'Detect now') && !str_contains($vwBody, 'value="dry_run"') && !str_contains($vwBody, 'sw-run-form') && str_contains($vwBody, 'Your role can read software deployment but not change it'), 'SWLNX block (viewer): read only, no buttons');
 $rbBody = rivetRmmSwPanelSection(rivetRmmUiPanel($db, $swAsset['SWLNX'], $USER['rebootonly']), $db, 'csrftok1');
-$ok(str_contains($rbBody, 'sw-run-form') && str_contains($rbBody, 'value="dry_run"') && !str_contains($rbBody, 'Run for real') && !str_contains($rbBody, 'Install...'), 'SWLNX block (level 2 script technician): dry run only, no install section');
+$ok(str_contains($rbBody, 'sw-run-form') && str_contains($rbBody, 'value="dry_run"') && !str_contains($rbBody, 'Install / remove now') && !str_contains($rbBody, 'Install...'), 'SWLNX block (level 2 script technician): dry run only, no install section');
 [$c, $mb] = $swHtml('moduleonly', 'SWLNX');
-$ok(!str_contains($mb, 'sw-run-form') && !str_contains($mb, 'Run for real') && !str_contains($mb, 'Detect now'), 'SWLNX block (module-only login): never any controls');
+$ok(!str_contains($mb, 'sw-run-form') && !str_contains($mb, 'Install / remove now') && !str_contains($mb, 'Detect now'), 'SWLNX block (module-only login): never any controls');
 [$c, $pb] = $swHtml('admin', 'SWLNX', '&sw_pkg=' . $pHtop . '&sw_action=uninstall');
-$ok(preg_match('/<option value="' . $pHtop . '" selected>/', $pb) === 1 && preg_match('/<option value="uninstall" selected>/', $pb) === 1 && str_contains($pb, 'Run for real'), 'the Remove... link preselects the package and the action in the run form');
+$ok(preg_match('/<option value="' . $pHtop . '" selected>/', $pb) === 1 && preg_match('/<option value="uninstall" selected>/', $pb) === 1 && str_contains($pb, 'Install / remove now'), 'the Remove... link preselects the package and the action in the run form');
 [$c, $pb] = $swHtml('admin', 'SWLNX', '&sw_pkg=%22%3E%3Cx&sw_action=%22%3E%3Cb%3E');
 $ok(!str_contains($pb, '"><x') && !str_contains($pb, '"><b>'), 'hostile sw_pkg / sw_action values are not echoed');
 
@@ -343,10 +344,13 @@ $ok($c === 403 && $swJobOf($swTok['SWLNX'], 'software_install') === null, 'a vie
 $ok($c === 404 && $swJobOf($swTok['SWLNX'], 'software_install') === null, 'a Dept B user cannot install on a Dept A device (' . $c . ')');
 [$c, $j] = $swJson('tech', ['action' => 'run', 'device_id' => $swDev['SWOLD'], 'package_id' => (string) $pHtop, 'confirm' => '1']);
 $ok(in_array($c, [409, 422], true) && $swCount('endpoint_agent_jobs', "device_id={$swDev['SWOLD']} AND type='software_install'") === 0, 'a real run on a device that cannot do it queues nothing (' . $c . ')');
+// RivetIT 26.10.52: "Install / remove now" on ONE device never needs the global live-install switch. It is OFF here, and a technician with the deploy grant installs anyway.
+$ok($rmm->settings()->limits()['software_live_install'] === 0, 'precondition: the global live-install switch (software_live_install) is OFF');
 [$c, $j] = $swJson('tech', ['action' => 'run', 'device_id' => $swDev['SWLNX'], 'package_id' => (string) $pHtop, 'package_action' => 'install', 'confirm' => '1']);
 $inst = $swJobOf($swTok['SWLNX'], 'software_install');
 $ip = $swParams($inst);
-$ok($c === 200 && $inst !== null && ($ip['mode'] ?? '') === 'run' && ($ip['pkg'] ?? '') === 'htop' && !isset($ip['version']) && ($ip['action'] ?? '') === 'install' && $swAudit('Software Job Queued') === 1, 'a technician with the deploy grant installs for real: the job carries the catalog\'s package name, no address and no hash (' . json_encode($ip) . ')');
+$ok($c === 200 && $inst !== null && ($ip['mode'] ?? '') === 'run' && ($ip['pkg'] ?? '') === 'htop' && !isset($ip['version']) && ($ip['action'] ?? '') === 'install' && $swAudit('Software Job Queued') === 1, 'a technician with the deploy grant installs for real with the live-install switch OFF: the job carries the catalog\'s package name, no address and no hash, and it is audited once (' . json_encode($ip) . ')');
+$ok($rmm->settings()->limits()['software_live_install'] === 0, 'and the global switch is still off afterwards');
 [$c] = $swReport($swTok['SWLNX'], $inst, 'succeeded', json_encode(['v' => 1, 'ok' => true, 'result' => 'installed', 'code' => '', 'detail' => 'htop 3.3.0 installed', 'version' => '3.3.0', 'reboot_required' => false]));
 $ir = $rows("SELECT * FROM rmm_package_installs WHERE device_id={$swDev['SWLNX']} AND package_id=$pHtop")[0] ?? [];
 $ok((int) ($ir['installed'] ?? 0) === 1 && ($ir['installed_version'] ?? '') === '3.3.0' && (int) ($ir['satisfied'] ?? 0) === 1 && ($ir['last_result'] ?? '') === 'installed', 'the install result is applied: installed, satisfied, version 3.3.0');

@@ -9623,6 +9623,43 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
 INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1);
 
 --
+-- Agent updates feed (GitHub release list cache and repository) and recorded Linux assets, DB 2.6.175
+--
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_feed` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `repo` varchar(140) NOT NULL DEFAULT 'TheTractorHacker/rivet-core',
+  `releases_json` mediumtext DEFAULT NULL,
+  `etag` varchar(200) NOT NULL DEFAULT '',
+  `fetched_at` datetime DEFAULT NULL,
+  `checked_at` datetime DEFAULT NULL,
+  `last_error` varchar(500) NOT NULL DEFAULT '',
+  `rate_reset_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_assets` (
+  `asset_id` int(11) NOT NULL AUTO_INCREMENT,
+  `version` varchar(40) NOT NULL,
+  `kind` varchar(12) NOT NULL,
+  `arch` varchar(10) NOT NULL DEFAULT '',
+  `filename` varchar(160) NOT NULL,
+  `url` varchar(500) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  `size_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `sha_source` varchar(20) NOT NULL DEFAULT 'SHA256SUMS',
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `is_current` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`asset_id`),
+  UNIQUE KEY `uniq_version_kind_arch` (`version`,`kind`,`arch`),
+  KEY `idx_current` (`is_current`,`active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT IGNORE INTO `endpoint_agent_feed` (`id`) VALUES (1);
+
+--
 -- Recovery: backup status, restore drill results, alert de-duplication and settings, DB 2.6.153
 --
 

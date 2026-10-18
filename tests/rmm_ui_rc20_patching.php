@@ -154,15 +154,16 @@ $ok((int) $one('SELECT COUNT(*) FROM rmm_patch_available WHERE device_id=' . $pt
 [$c, $body] = $ptHtml('admin', 'PTWIN');
 $ok($c === 200 && str_contains($body, 'PT critical rollup') && str_contains($body, 'PT security fix') && str_contains($body, 'Waiting for a decision') && str_contains($body, 'Windows Update') && str_contains($body, 'Compliant'), 'PTWIN tab: updates, status pills, the manager and the verdict');
 $ok(!str_contains($body, '<script>alert(1)') && !str_contains($body, '<img src=x') && str_contains($body, '&lt;script&gt;alert(1)&lt;/script&gt;') && !str_contains($body, 'KB<b>1</b>'), 'PTWIN tab: a hostile update title and KB are escaped');
-$ok(preg_match('/<button[^>]*name="action" value="approve"/', $body) === 1 && preg_match('/name="update_ids\[\]" value="' . $GU['crit'] . '"/', $body) === 1 && str_contains($body, 'Install for real') && str_contains($body, 'data-rmm-confirm='), 'PTWIN tab (administrator): tick boxes, approve / decline / dry run, the install section with its confirmation dialog');
+$ok(preg_match('/<button[^>]*name="action" value="approve"/', $body) === 1 && preg_match('/name="update_ids\[\]" value="' . $GU['crit'] . '"/', $body) === 1 && str_contains($body, 'Install now') && str_contains($body, 'data-rmm-confirm='), 'PTWIN tab (administrator): tick boxes, approve / decline / dry run, the install section with its confirmation dialog');
+$ok(str_contains($body, 'id="pat_now_note"') && str_contains($body, 'does not need the live-installs switch') && str_contains($body, 'id="pat_conf"') && str_contains($body, 'Install now</button>'), 'PTWIN tab: \"Install now\" says it needs no live-install switch and keeps the confirmation box and the dialog');
 [, $viewerBody] = $ptHtml('viewer', 'PTWIN');
 $ok(str_contains($viewerBody, 'PT critical rollup') && !str_contains($viewerBody, 'name="update_ids[]"') && !str_contains($viewerBody, 'value="approve"') && !str_contains($viewerBody, 'Scan now') && str_contains($viewerBody, 'Your role can read patch status but not change it'), 'PTWIN tab (viewer): the list is read only, no tick boxes, no buttons');
 $rbBody = rivetRmmPatPanelSection(rivetRmmUiPanel($db, $ptAsset['PTWIN'], $USER['rebootonly']), $db, 'csrftok1');   // (this role cannot open the asset page itself; the section is what the page embeds)
-$ok(str_contains($rbBody, 'value="approve"') && !str_contains($rbBody, 'Install for real'), 'PTWIN tab (level 2 script technician): approve and dry run, no install section');
+$ok(str_contains($rbBody, 'value="approve"') && !str_contains($rbBody, 'Install now'), 'PTWIN tab (level 2 script technician): approve and dry run, no install section');
 [$c, $nb] = $ptHtml('deptb', 'PTWIN');
 $ok(!str_contains($nb, 'PT critical rollup') && !str_contains($nb, 'rmm-tab-patches'), 'PTWIN tab (Dept B user): nothing of a Dept A device');
 [$c, $mb] = $ptHtml('moduleonly', 'PTWIN');
-$ok(!str_contains($mb, 'value="approve"') && !str_contains($mb, 'Install for real'), 'PTWIN tab (module-only login): never any controls');
+$ok(!str_contains($mb, 'value="approve"') && !str_contains($mb, 'Install now'), 'PTWIN tab (module-only login): never any controls');
 [, $fb] = $ptHtml('admin', 'PTWIN', '&pt_kind=security');
 $ok(str_contains($fb, 'PT security fix') && !str_contains($fb, 'PT optional update'), 'tab filter: kind=security shows only that kind');
 [, $fb] = $ptHtml('admin', 'PTWIN', '&pt_q=rollup&pt_status=available');
@@ -213,12 +214,16 @@ $ok($c === 422 && str_contains((string) ($j['error'] ?? ''), 'confirmation box')
 $ok($c === 422 && $ptJobOf($ptTok['PTWIN'], 'patch_install') === null, 'a restart after patching needs its own confirmation (' . $c . ')');
 [$c, $j] = $ptJson('deptb', ['action' => 'install', 'device_id' => $ptDev['PTWIN'], 'confirm' => '1']);
 $ok($c === 404 && $ptJobOf($ptTok['PTWIN'], 'patch_install') === null, 'a Dept B user cannot install on a Dept A device (' . $c . ')');
+// RivetIT 26.10.52: "Install now" on ONE device never needs the global live-install switch. It is OFF here, and a technician with the install grant installs anyway; the switch only gates the scheduler.
+$ok($rmm->settings()->limits()['patch_live_install'] === 0, 'precondition: the global live-install switch (patch_live_install) is OFF');
+$ptAuditBefore = $ptAudit('Patch Install Queued');
 [$c, $j] = $ptJson('tech', ['action' => 'install', 'device_id' => $ptDev['PTWIN'], 'confirm' => '1', 'update_ids' => [$GU['crit']]]);
 $inst = $ptJobOf($ptTok['PTWIN'], 'patch_install');
 $instP = json_decode(json_encode($inst), true)['params'] ?? [];
 $ok($c === 200 && $inst !== null && ($instP['mode'] ?? '') === 'install' && ($instP['ids'] ?? '') === $GU['crit'], 'a technician with the install ability installs one named approved update (' . json_encode($instP) . ')');
 $ptInstOut = (string) json_encode(['v' => 1, 'ok' => true, 'mode' => 'install', 'manager' => 'wua', 'reboot_required' => false, 'truncated' => false,
     'results' => [['id' => $GU['crit'], 'title' => 'PT critical rollup', 'result' => 'installed', 'code' => 0, 'detail' => 'installed', 'reboot_required' => false]]]);
+$ok($c === 200 && $ptAudit('Patch Install Queued') === $ptAuditBefore + 1 && ($rmm->settings()->limits()['patch_live_install'] ?? 1) === 0, '"Install now" with the live-install switch OFF: queued as a real install on that one device, audited once, and the switch is still off');
 [$c] = $ptReport($ptTok['PTWIN'], $inst, 'succeeded', $ptInstOut);
 $ok($ptUpd($ptDev['PTWIN'], $GU['crit'])['status'] === 'installed' && $ptUpd($ptDev['PTWIN'], $GU['sec'])['status'] === 'approved' && $ptAudit('Patch Install Queued') >= 1, 'the install result marks that update installed; the other approved update is untouched; the install is audited');
 [, $body] = $ptHtml('admin', 'PTWIN');

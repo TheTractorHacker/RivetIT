@@ -33,6 +33,89 @@ $ea_admin = $rmm->admin();
 $ea_tech = $rmm->technician();
 $ea_who = rivetRmmPrincipal((int) $session_user_id, (string) $session_name);
 
+/*
+ * Agent updates (RivetIT 26.10.52): the GitHub release feed card. `agent_feed` names the action: check (read the release list), save_repo, plan / step (JSON, one file at a time so the page can show
+ * progress), publish (the no-JavaScript path: every file in one request). All of them are administrator only (admin/post.php runs this file only for an administrator, and RmmAdmin checks
+ * rmm.binary.publish again for what it stores), CSRF-checked, and audited. The rules (what may be contacted, checksums before storing) are in includes/rmm_agent_feed.php.
+ */
+if (isset($_POST['agent_feed'])) {
+    require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed.php';
+    require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed_ui.php';
+    $af_action = (string) $_POST['agent_feed'];
+    $af_json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+    $af_reply = static function (bool $ok, string $message, array $extra = [], int $http = 200) use ($af_json): void {
+        if ($af_json) {
+            http_response_code($http);
+            header('Content-Type: application/json');
+            header('Cache-Control: no-store');
+            echo json_encode(['success' => $ok, 'message' => $message] + $extra);
+            exit;
+        }
+        flash_alert(nullable_htmlentities($message), $ok ? 'success' : 'error');
+        redirect('settings_endpoint_agent.php#agent-updates');
+        exit;
+    };
+    $af_tok = $_POST['csrf_token'] ?? null;
+    if (!is_string($af_tok) || $af_tok === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $af_tok)) {
+        $af_reply(false, 'Invalid CSRF token. Reload the page and try again.', [], 403);
+    }
+    $af_opt = rivetAgentFeedOptions(['ring' => $_POST['ring'] ?? 'stable', 'rollout_pct' => $_POST['rollout_pct'] ?? 100, 'activate' => isset($_POST['activate']), 'offer' => isset($_POST['offer'])]);
+    $af_tag = is_string($_POST['tag'] ?? null) ? trim($_POST['tag']) : '';
+    $af_card = static fn (): string => rivetAgentFeedCard($mysqli, $rmm, ['csrf' => (string) $_SESSION['csrf_token'], 'module_on' => $rmm->enabled(), 'service_ok' => $rmm->readModel()->settingsSummary()['service_base'] !== null]);
+    switch ($af_action) {
+        case 'check':
+            $af = rivetAgentFeedRefresh($mysqli, true);
+            logAction('Endpoint Agent', 'Agent Feed Checked', "$session_name pressed Check for updates (" . ($af['ok'] ? 'ok' : 'failed') . '): ' . $af['message']);
+            $af_reply($af['ok'], $af['message'], $af_json ? ['html' => $af_card()] : []);
+            // no break: af_reply exits
+
+        case 'save_repo':
+            $repo = is_string($_POST['repo'] ?? null) ? trim($_POST['repo']) : '';
+            if ($repo !== RIVET_AGENT_FEED_DEFAULT_REPO && empty($_POST['confirm_repo'])) {
+                $af_reply(false, 'Tick "I trust this repository" to use a repository other than ' . RIVET_AGENT_FEED_DEFAULT_REPO . '. Nothing was saved.', [], 422);
+            }
+            $old = rivetAgentFeedRepo($mysqli);
+            $err = rivetAgentFeedSetRepo($mysqli, $repo);
+            if ($err !== null) {
+                $af_reply(false, $err, [], 422);
+            }
+            logAction('Endpoint Agent', 'Agent Feed Repository Changed', "$session_name changed the agent release repository from $old to $repo");
+            $af_reply(true, 'Saved. Press "Check for updates" to read the releases of ' . $repo . '.', $af_json ? ['html' => $af_card()] : []);
+
+        case 'plan':
+            $rel = rivetAgentFeedFindRelease($mysqli, $af_tag);
+            if ($rel === null) {
+                $af_reply(false, 'That release is not in the list. Press "Check for updates" first.', [], 404);
+            }
+            $af_reply(true, 'Plan for ' . $af_tag, ['tag' => $af_tag, 'steps' => array_map(static fn (array $p): array => ['asset' => $p['asset'], 'kind' => $p['kind'], 'arch' => $p['arch'], 'store' => $p['store'], 'size' => $p['size'], 'label' => rivetAgentFeedKindLabel($p['kind'], $p['arch'])], rivetAgentFeedPlan($rel))]);
+
+        case 'step':
+            $asset = is_string($_POST['asset'] ?? null) ? trim($_POST['asset']) : '';
+            $lk = mysqli_query($mysqli, "SELECT GET_LOCK('" . RIVET_AGENT_FEED_LOCK . "', 0)");
+            if (!$lk || (int) mysqli_fetch_row($lk)[0] !== 1) {
+                $af_reply(false, 'Another publish is running. Wait for it to finish.', ['status' => 'refused', 'asset' => $asset], 409);
+            }
+            try {
+                $sr = rivetAgentFeedStep($mysqli, $rmm, $ea_who, $af_tag, $asset, $af_opt);
+            } finally {
+                mysqli_query($mysqli, "SELECT RELEASE_LOCK('" . RIVET_AGENT_FEED_LOCK . "')");
+            }
+            $af_reply($sr['ok'], $sr['message'], ['status' => $sr['status'], 'asset' => $sr['asset']], $sr['ok'] ? 200 : ($sr['status'] === 'failed' ? 502 : 422));
+
+        case 'finish':   // the page's script says every step ran: one audit line for the whole publish and the refreshed card
+            logAction('Endpoint Agent', 'Agent Feed Publish', "$session_name published $af_tag from the Agent updates card (" . substr(preg_replace('/[^\x20-\x7e]/', '?', (string) ($_POST['summary'] ?? '')), 0, 300) . ')');
+            $af_reply(true, 'Done.', ['html' => $af_card()]);
+
+        case 'publish':
+            $pr = rivetAgentFeedPublishAll($mysqli, $rmm, $ea_who, $af_tag, $af_opt);
+            $lines = array_map(static fn (array $s): string => ($s['ok'] ? 'OK: ' : 'NOT DONE: ') . $s['message'], $pr['steps']);
+            $af_reply($pr['ok'], $pr['message'] . ($lines ? ' ' . implode(' ', $lines) : ''), $af_json ? ['steps' => $pr['steps'], 'html' => $af_card()] : []);
+
+        default:
+            $af_reply(false, 'Unknown action.', [], 422);
+    }
+}
+
 // The module switch (Administration > Endpoint agent > RMM module). Works while the module is off: turning it on is one of its operations.
 if (isset($_POST['rmm_module_switch'])) {
     validateCSRFToken($_POST['csrf_token']);
