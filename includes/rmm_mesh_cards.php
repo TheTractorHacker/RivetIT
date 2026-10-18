@@ -41,6 +41,8 @@ function rivetRmmMeshInstallView(\RivetCore\Rmm\RmmModule $rmm): ?array
         'hide_available' => $rmm->meshAgentSettings()->hideAvailable(), 'hide' => $m['hide'], 'hide_tools' => $m['hide_tools']];
 }
 
+const RIVET_RMM_MESH_PLATFORMS = ['windows/amd64', 'windows/386', 'windows/arm64', 'windows/arm', 'linux/amd64', 'linux/386', 'linux/arm64', 'linux/arm'];
+
 /** @param array<string,mixed> $v a pretty JSON object, or an empty string for none */
 function rivetRmmMeshJson(array $v): string
 {
@@ -134,15 +136,27 @@ function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): 
     foreach ($v['effective_install_args'] as $k => $a) {
         $args .= '<tr><td class="font-monospace">' . $h($k) . '</td><td class="font-monospace">' . $h(implode(' ', $a)) . '</td><td>' . (isset($v['install_args'][$k]) ? '<span class="badge text-bg-warning">corrected</span>' : '<span class="text-muted">built in</span>') . '</td></tr>';
     }
-    $o .= '<div class="col-12"><details id="mesh-install-advanced"' . (($keep['mesh_agent_ids'] ?? '') !== '' || ($keep['mesh_install_args'] ?? '') !== '' ? ' open' : '') . '><summary class="small fw-bold">Advanced: agent ids and install arguments</summary>'
+    $idFields = '';
+    foreach (RIVET_RMM_MESH_PLATFORMS as $plat) {
+        $fid = 'mc_aid_' . str_replace('/', '_', $plat);
+        $cur = isset($keep['mesh_aid']) ? (string) ($keep['mesh_aid'][str_replace('/', '_', $plat)] ?? '') : (isset($v['agent_ids'][$plat]) ? (string) (int) $v['agent_ids'][$plat] : '');
+        $idFields .= '<div class="col-sm-6"><label class="form-label small mb-1" for="' . $fid . '">' . $h($plat) . '</label><input type="number" class="form-control form-control-sm" id="' . $fid . '" name="mesh_aid[' . $h(str_replace('/', '_', $plat)) . ']" min="1" max="255" step="1" value="' . $h($cur) . '"'
+            . ' placeholder="' . $h((string) (\RivetCore\Rmm\Mesh\MeshAgentCatalog::DEFAULT_AGENT_IDS[$plat] ?? '')) . '"></div>';
+    }
+    $argFields = '';
+    foreach (['windows' => 'Windows', 'linux' => 'Linux'] as $os => $word) {
+        $cur = isset($keep['mesh_args']) ? (string) ($keep['mesh_args'][$os] ?? '') : implode(' ', (array) ($v['install_args'][$os] ?? []));
+        $argFields .= '<div class="col-12"><label class="form-label small mb-1" for="mc_args_' . $os . '">' . $word . '</label><input type="text" class="form-control form-control-sm font-monospace" id="mc_args_' . $os . '" name="mesh_args[' . $os . ']" maxlength="400" spellcheck="false" autocomplete="off" value="' . $h($cur) . '" placeholder="' . $h(implode(' ', \RivetCore\Rmm\Mesh\MeshAgentCatalog::DEFAULT_INSTALL_ARGS[$os])) . '"></div>';
+    }
+    $o .= '<div class="col-12"><details id="mesh-install-advanced"' . (isset($keep['mesh_aid']) || isset($keep['mesh_args']) ? ' open' : '') . '><summary class="small fw-bold">Advanced: agent ids and install arguments</summary>'
         . '<div class="alert alert-warning small mt-2" role="note"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>' . $h(RIVET_RMM_MESH_VERIFY_WARNING) . ' The Windows ARM64 agent id (36) is the least certain.</div>'
-        . '<div class="row g-3"><div class="col-lg-6"><label class="form-label" for="mc_ids">Agent id corrections <span class="text-muted">(JSON, empty = none)</span></label>'
-        . '<textarea class="form-control font-monospace small" id="mc_ids" name="mesh_agent_ids" rows="5" spellcheck="false" aria-describedby="mc_ids_help" placeholder="{&quot;windows/arm64&quot;: 36}">' . $h((string) ($keep['mesh_agent_ids'] ?? rivetRmmMeshJson($v['agent_ids']))) . '</textarea>'
-        . '<div class="form-text" id="mc_ids_help">An object of <code>windows/amd64</code>-style keys (windows or linux; amd64, 386, arm64, arm) to MeshCentral agent ids between 1 and 255. Listed in MeshCentral under My Server, Mesh Agents. They travel inside the installer, so a correction needs no new agent.</div>'
+        . '<div class="row g-3"><div class="col-lg-6"><div class="fw-semibold mb-1" id="mc_ids_h">Agent id for each platform</div>'
+        . '<div class="form-text mb-2" id="mc_ids_help">Leave a box empty to use the built-in id shown in grey. Fill it in only if MeshCentral lists a different number (whole number from 1 to 255, under My Server, Mesh Agents). The ids travel inside the installer, so a correction needs no new agent.</div>'
+        . '<div class="row g-2" role="group" aria-labelledby="mc_ids_h">' . $idFields . '</div>'
         . '<div class="table-responsive mt-2"><table class="table table-sm small mb-0"><caption class="visually-hidden">Agent ids an installer carries</caption><thead><tr><th scope="col">Platform</th><th scope="col">Agent id</th><th scope="col">Source</th></tr></thead><tbody>' . $ids . '</tbody></table></div></div>'
-        . '<div class="col-lg-6"><label class="form-label" for="mc_args">Install argument corrections <span class="text-muted">(JSON, empty = none)</span></label>'
-        . '<textarea class="form-control font-monospace small" id="mc_args" name="mesh_install_args" rows="5" spellcheck="false" aria-describedby="mc_args_help" placeholder="{&quot;windows&quot;: [&quot;-fullinstall&quot;]}">' . $h((string) ($keep['mesh_install_args'] ?? rivetRmmMeshJson($v['install_args']))) . '</textarea>'
-        . '<div class="form-text" id="mc_args_help">An object of <code>windows</code> / <code>linux</code> to a list of simple arguments (letters, digits and <code>= _ . : / @ -</code>). Windows default <code>-fullinstall</code>, Linux <code>-install</code>.</div>'
+        . '<div class="col-lg-6"><div class="fw-semibold mb-1" id="mc_args_h">Install arguments for each system</div>'
+        . '<div class="form-text mb-2" id="mc_args_help">Leave a box empty to use the built-in arguments (Windows <code>-fullinstall</code>, Linux <code>-install</code>). Otherwise type the arguments separated by spaces; only simple ones are accepted (letters, digits and <code>= _ . : / @ -</code>), at most 8.</div>'
+        . '<div class="row g-2" role="group" aria-labelledby="mc_args_h">' . $argFields . '</div>'
         . '<div class="table-responsive mt-2"><table class="table table-sm small mb-0"><caption class="visually-hidden">Install arguments an installer carries</caption><thead><tr><th scope="col">Platform</th><th scope="col">Arguments</th><th scope="col">Source</th></tr></thead><tbody>' . $args . '</tbody></table></div></div></div></details></div>';
     $o .= '<div class="col-12 small ' . ($v['ready'] ? 'text-success' : 'text-muted') . '" id="mesh-install-ready" role="status">' . ($v['ready'] ? '<i class="fas fa-check-circle me-1" aria-hidden="true"></i>Ready: the tick-box appears in the installer dialogs.' : 'Not ready: ' . $h($v['refusal'])) . '</div>';
 

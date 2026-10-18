@@ -3,6 +3,7 @@ require_once "includes/inc_all_admin.php";
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';       // rc.12: the Mesh agent install settings (printed in the MeshCentral card) and the device's Mesh state
+require_once dirname(__DIR__) . '/includes/rmm_check_schedule_ui.php';   // 26.10.53: the plain-language check options
 require_once dirname(__DIR__) . '/includes/rmm_installer.php';       // rivetRmmInstallerMesh(): is the optional MeshCentral agent tick-box offered
 require_once dirname(__DIR__) . '/includes/rmm_scale_cards.php';   // RivetCore 1.0.0-rc.11 cards (remote tools, file transfer, logs, scale, partitioning, external store)
 
@@ -56,7 +57,6 @@ $curBin = $read->currentBinaries();
 $uploadLimit = $read->uploadLimit();
 $releases = $read->releases(30);
 $counts = $read->fleetCounts();
-$checksText = json_encode($cfg['checks'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 $badge = ['online' => 'success', 'offline' => 'danger', 'stale' => 'secondary', 'never' => 'secondary'];
 $serviceUrlHint = 'https://' . $config_base_url;
 ?>
@@ -215,11 +215,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
                     <textarea class="form-control font-monospace" id="ea_ca" name="ca_pem" rows="4" maxlength="8000" placeholder="-----BEGIN CERTIFICATE-----"><?= $h($cfg['ca_pem'] ?? '') ?></textarea>
                     <div class="form-text">Only for servers whose certificate is issued by a private CA. Per-department installers embed it so the agent trusts this server. Leave empty when the certificate comes from a public CA. Public information, not a secret.</div>
                 </div>
-                <div class="col-12">
-                    <label class="form-label" for="ea_checks">Check schedule delivered to agents (JSON)</label>
-                    <textarea class="form-control font-monospace" id="ea_checks" name="checks_json" rows="9"><?= $h($checksText) ?></textarea>
-                    <div class="form-text">Types: <code>service</code>, <code>disk</code>, <code>pending_reboot</code>, <code>script</code> (bounded, at most 8 KiB and 60 s). Every entry is signed. Leave empty to restore the defaults.</div>
-                </div>
+                <div class="col-12"><?= rivetCsRender(rivetCsStateFromChecks((array) $cfg['checks'])) ?></div>
                 <div class="col-12">
                     <label class="form-label" for="ea_co">Coexistence and ownership policy (shown to technicians)</label>
                     <textarea class="form-control" id="ea_co" name="coexistence_policy" rows="3" maxlength="4000"><?= $h($cfg['coexistence_policy']) ?></textarea>
@@ -513,6 +509,7 @@ echo rivetRmmUiScaleCards($scaleCtx);
 require_once dirname(__DIR__) . '/includes/rmm_agent_feed_ui.php';
 echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleOn, 'service_ok' => $cfg['service_base'] !== null]);
 ?>
+<script src="/js/rmm_check_schedule.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_check_schedule.js') ?>" defer></script>
 <script src="/js/rmm_agent_feed.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_agent_feed.js') ?>" defer></script>
 
 <div class="card mb-3" id="binaries">

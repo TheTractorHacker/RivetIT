@@ -27,7 +27,7 @@ $meshBase = function (): array {
 $meshForm = function (array $over = [], bool $install = true) use ($meshBase): array {
     $f = array_filter($meshBase(), fn ($v) => $v !== null) + ['save_mesh_settings' => '1'];
     if ($install) {
-        $f += ['mesh_install_present' => '1', 'mesh_group_id' => '', 'mesh_server_cert_pin' => '', 'mesh_agent_ids' => '', 'mesh_install_args' => ''];
+        $f += ['mesh_install_present' => '1', 'mesh_group_id' => '', 'mesh_server_cert_pin' => '', 'mesh_aid' => [], 'mesh_args' => []];
     }
 
     return array_filter($over + $f, fn ($v) => $v !== null);
@@ -45,7 +45,7 @@ $ok($g0['group_id'] === '' && $g0['server_cert_pin'] === '' && $g0['auto_map_ove
 $card = $cardOf($page);
 $ok($c === 200 && $card !== '', 'the Administration page has the MeshCentral card');
 foreach (['name="mesh_group_id"' => 'device group id', 'name="mesh_server_cert_pin"' => 'certificate pin', 'name="probe_mesh_pin"' => 'Read it from the server', 'name="mesh_auto_map_overwrite"' => 'overwrite switch',
-    'name="mesh_agent_ids"' => 'agent id corrections', 'name="mesh_install_args"' => 'install argument corrections', 'name="mesh_install_present"' => 'install fields marker'] as $needle => $what) {
+    'name="mesh_aid[windows_arm64]"' => 'agent id correction (plain field)', 'name="mesh_args[windows]"' => 'install argument correction (plain field)', 'name="mesh_install_present"' => 'install fields marker'] as $needle => $what) {
     $ok(str_contains($card, $needle), "the card has the $what field");
 }
 $ok(str_contains($card, 'Read it from the server') && str_contains($card, 'trust on first use'), 'the pin help explains the button (trust on first use)');
@@ -151,26 +151,33 @@ $ok(!str_contains($cardOf($page), 'value="not-a-pin"'), 'the kept values are sho
 $ok($mstate()['group_id'] === bin2hex($raw48), 'an invalid group id is refused and the stored one stays');
 [$c, $page] = $adminPageM();
 $ok(str_contains($page, 'The Mesh device group id must be the meshid from the MeshCentral download address'), 'the group id refusal text is Core\'s');
-[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_agent_ids' => '[1,2,3]']));
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => 'not-an-array']));
 [$c, $page] = $adminPageM();
-$ok(str_contains($page, 'must each be a JSON object') && $mstate()['agent_ids'] === [], 'a JSON list for the agent id corrections is refused before Core is asked');
-[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_agent_ids' => '{"windows/arm64": 999}']));
+$ok(str_contains($page, 'were not sent correctly') && $mstate()['agent_ids'] === [], 'agent id boxes sent as something else than fields are refused before Core is asked');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => ['windows_arm64' => '999']]));
 [$c, $page] = $adminPageM();
-$ok(str_contains($page, 'mesh_agent_ids must be an object') && $mstate()['agent_ids'] === [], 'an agent id out of range is Core\'s refusal');
-[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_install_args' => '{"windows": ["-fullinstall; calc"]}']));
+$ok(str_contains($page, 'Agent id for windows/arm64: type a whole number from 1 to 255') && $mstate()['agent_ids'] === [] && str_contains($cardOf($page), 'value="999"'), 'an agent id out of range is refused in plain words, nothing is saved, and what was typed is kept in the box');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => ['windows_arm64' => '12abc']]));
 [$c, $page] = $adminPageM();
-$ok(str_contains($page, 'mesh_install_args must be an object') && $mstate()['install_args'] === [], 'an install argument with shell syntax is refused');
-[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_agent_ids' => '{"windows/arm64": 36, "linux/amd64": 6}', 'mesh_install_args' => '{"linux": ["-install", "--installPath=/opt/mesh"]}']));
+$ok(str_contains($page, 'whole number from 1 to 255') && $mstate()['agent_ids'] === [], 'a non-numeric agent id is refused');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => ['evil/os' => '5']]));
+$ok($mstate()['agent_ids'] === [], 'a platform that is not in the list is ignored (closed set), nothing saved');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_args' => ['windows' => '-fullinstall; calc']]));
+[$c, $page] = $adminPageM();
+$ok(str_contains($page, 'Install arguments for windows: use at most 8 simple arguments') && $mstate()['install_args'] === [], 'an install argument with shell syntax is refused in plain words');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_args' => ['linux' => '-a -b -c -d -e -f -g -h -i']]));
+$ok($mstate()['install_args'] === [], 'more than 8 install arguments are refused');
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => ['windows_arm64' => '36', 'linux_amd64' => '6'], 'mesh_args' => ['linux' => '-install --installPath=/opt/mesh', 'windows' => '']]));
 $g = $mstate();
 ksort($g['agent_ids']);
-$ok($g['agent_ids'] == ['linux/amd64' => 6, 'windows/arm64' => 36] && $g['install_args'] === ['linux' => ['-install', '--installPath=/opt/mesh']], 'the advanced corrections are saved as typed');
+$ok($g['agent_ids'] == ['linux/amd64' => 6, 'windows/arm64' => 36] && $g['install_args'] === ['linux' => ['-install', '--installPath=/opt/mesh']], 'the corrections are saved from the plain fields');
 [$c, $page] = $adminPageM();
 $card = $cardOf($page);
-$ok(str_contains($card, '<span class="badge text-bg-warning">corrected</span>') && str_contains($card, '--installPath=/opt/mesh') && str_contains($card, '&quot;windows/arm64&quot;: 36'), 'the card shows the corrections in the textareas and marks the corrected rows');
+$ok(str_contains($card, '<span class="badge text-bg-warning">corrected</span>') && str_contains($card, '--installPath=/opt/mesh') && str_contains($card, 'name="mesh_aid[windows_arm64]" min="1" max="255" step="1" value="36"'), 'the card shows the corrections in the plain fields and marks the corrected rows');
 $ok(str_contains($card, '<td class="font-monospace">windows/amd64</td><td>4</td>') && str_contains($card, '<span class="text-muted">built in</span>'), 'the effective table lists the built-in ids too');
-[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_agent_ids' => '', 'mesh_install_args' => '']));
+[$c] = $adm1($meshForm(['mesh_group_id' => bin2hex($raw48), 'mesh_aid' => [], 'mesh_args' => []]));
 $g = $mstate();
-$ok($g['agent_ids'] === [] && $g['install_args'] === [], 'empty corrections clear them');
+$ok($g['agent_ids'] === [] && $g['install_args'] === [], 'empty boxes clear the corrections');
 
 // the old form (a page printed before the update, or any client that does not send the install fields) leaves them alone
 [$c] = $adm1($meshForm(['mesh_domain' => 'corp'], false));

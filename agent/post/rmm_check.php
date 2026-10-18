@@ -164,9 +164,15 @@ if ($action === 'save_policy') {
     $check_type  = sanitizeInput($_POST['check_type'] ?? '');
     $warn        = intval($_POST['warning_threshold'] ?? 0) ?: 'NULL';
     $crit        = intval($_POST['critical_threshold'] ?? 0) ?: 'NULL';
-    $interval    = intval($_POST['check_interval'] ?? 120);
+    $interval    = max(30, min(86400, intval($_POST['check_interval'] ?? 120)));
     $description = sanitizeInput($_POST['description'] ?? '');
-    $params      = sanitizeInput($_POST['check_params'] ?? '{}');
+    // 26.10.53: the extra settings come from plain fields (pp[...]); a raw check_params field is not read. The stored JSON is built here.
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_policy_check_params.php';
+    [$built, $params_err] = rivetPolicyCheckParams($check_type, $_POST['pp'] ?? []);
+    if ($built === null) {
+        echo json_encode(['success' => false, 'error' => $params_err]); exit;
+    }
+    $params      = json_encode($built === [] ? new stdClass() : $built);
     $enabled     = isset($_POST['enabled']) ? 1 : 0;
     $edit_id     = intval($_POST['edit_id'] ?? 0);
 

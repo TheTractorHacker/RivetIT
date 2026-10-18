@@ -248,14 +248,59 @@ foreach ($platform_order as $plat):
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="text-muted small">Check Interval (seconds)</label>
-                    <input type="number" class="form-control form-control-sm" id="p_interval" value="120" min="30">
+                    <label class="text-muted small" for="p_interval">How often to check</label>
+                    <select class="form-control form-control-sm" id="p_interval">
+                        <option value="60">Every minute</option>
+                        <option value="120" selected>Every 2 minutes</option>
+                        <option value="300">Every 5 minutes</option>
+                        <option value="600">Every 10 minutes</option>
+                        <option value="900">Every 15 minutes</option>
+                        <option value="1800">Every 30 minutes</option>
+                        <option value="3600">Every hour</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label class="text-muted small" id="p_params_label">Extra Parameters (JSON)</label>
-                    <input type="text" class="form-control form-control-sm font-monospace" id="p_params"
-                           placeholder='{"disk":"C"}'>
-                    <small class="text-muted" id="p_params_hint">For disk checks: {"disk":"C"}. For service: {"svc_name":"spooler","restart_if_stopped":true}. For ping: {"ip":"8.8.8.8"}</small>
+                <div class="pp-sec" data-types="diskspace">
+                    <div class="form-group">
+                        <label class="text-muted small" for="pp_disk">Drive to watch</label>
+                        <input type="text" class="form-control form-control-sm" id="pp_disk" maxlength="2" value="C" placeholder="C">
+                        <small class="text-muted">The drive letter on Windows, for example C. Use / for Linux and macOS.</small>
+                    </div>
+                </div>
+                <div class="pp-sec" data-types="ping">
+                    <div class="form-group">
+                        <label class="text-muted small" for="pp_ip">Address to ping</label>
+                        <input type="text" class="form-control form-control-sm" id="pp_ip" maxlength="253" value="8.8.8.8" placeholder="8.8.8.8 or a host name">
+                    </div>
+                    <div class="form-group">
+                        <label class="text-muted small" for="pp_failures">Alert after this many failed pings in a row</label>
+                        <select class="form-control form-control-sm" id="pp_failures"><option>1</option><option>2</option><option>3</option><option selected>5</option><option>10</option></select>
+                    </div>
+                </div>
+                <div class="pp-sec" data-types="winsvc">
+                    <div class="form-group">
+                        <label class="text-muted small" for="pp_svc_name">Service to watch</label>
+                        <input type="text" class="form-control form-control-sm" id="pp_svc_name" maxlength="128" placeholder="Spooler">
+                        <small class="text-muted">The short service name shown in Windows Services.</small>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="pp_restart"><label class="form-check-label" for="pp_restart">Start it again by itself if it has stopped</label>
+                    </div>
+                </div>
+                <div class="pp-sec" data-types="eventlog">
+                    <div class="row">
+                        <div class="col-6 form-group"><label class="text-muted small" for="pp_log_name">Which log</label>
+                            <select class="form-control form-control-sm" id="pp_log_name"><option>Application</option><option>System</option><option>Security</option><option>Setup</option></select></div>
+                        <div class="col-6 form-group"><label class="text-muted small" for="pp_event_type">Kind of event</label>
+                            <select class="form-control form-control-sm" id="pp_event_type"><option value="ERROR">Error</option><option value="WARNING">Warning</option><option value="INFO">Information</option><option value="AUDIT_FAILURE">Audit failure</option><option value="AUDIT_SUCCESS">Audit success</option></select></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 form-group"><label class="text-muted small" for="pp_event_id">Event number (optional)</label>
+                            <input type="number" class="form-control form-control-sm" id="pp_event_id" min="1" max="65535" placeholder="any"></div>
+                        <div class="col-4 form-group"><label class="text-muted small" for="pp_fail_count">Alert after this many events</label>
+                            <input type="number" class="form-control form-control-sm" id="pp_fail_count" min="1" max="1000" value="1"></div>
+                        <div class="col-4 form-group"><label class="text-muted small" for="pp_search_last_days">Look back (days)</label>
+                            <input type="number" class="form-control form-control-sm" id="pp_search_last_days" min="1" max="365" value="1"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="text-muted small">Description</label>
@@ -318,6 +363,10 @@ function confirmAction(message, callback) {
 }
 
 function doPushPolicy(policyId, cb) {
+    document.querySelectorAll('.pp-sec').forEach(sec => sec.querySelectorAll('input,select').forEach(f => {
+        if (f.disabled) { return; }
+        params['pp[' + f.id.substring(3) + ']'] = f.type === 'checkbox' ? (f.checked ? '1' : '') : f.value;
+    }));
     fetch('/agent/post/rmm_check.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -400,8 +449,8 @@ function openNewPolicy() {
     document.getElementById('p_type').value = 'diskspace';
     document.getElementById('p_warn').value = '80';
     document.getElementById('p_crit').value = '90';
-    document.getElementById('p_interval').value = '120';
-    document.getElementById('p_params').value = '{"disk":"C"}';
+    setInterval_(120);
+    fillParams({});
     document.getElementById('p_description').value = '';
     document.getElementById('p_enabled').checked = true;
     updateParamsHint();
@@ -416,25 +465,45 @@ function editPolicy(pol) {
     document.getElementById('p_type').value        = pol.check_type;
     document.getElementById('p_warn').value        = pol.warning_threshold || '';
     document.getElementById('p_crit').value        = pol.critical_threshold || '';
-    document.getElementById('p_interval').value    = pol.check_interval;
-    document.getElementById('p_params').value      = pol.check_params || '{}';
+    setInterval_(pol.check_interval);
+    var pj = {}; try { pj = JSON.parse(pol.check_params || '{}') || {}; } catch (e) { pj = {}; }
+    fillParams(pj);
     document.getElementById('p_description').value = pol.description || '';
     document.getElementById('p_enabled').checked   = pol.enabled == 1;
     updateParamsHint();
     $('#policyModal').modal('show');
 }
 
+// The extra settings are plain fields per kind of check; the server builds the stored settings from them (agent/post/rmm_check.php). Nobody types JSON.
+function setInterval_(sec) {
+    const sel = document.getElementById('p_interval');
+    const v = String(parseInt(sec, 10) || 120);
+    if (!Array.prototype.some.call(sel.options, o => o.value === v)) {
+        const o = document.createElement('option'); o.value = v;
+        o.textContent = (v % 60 === 0 ? 'Every ' + (v / 60) + ' minutes' : 'Every ' + v + ' seconds') + ' (current)'; sel.appendChild(o);
+    }
+    sel.value = v;
+}
+function fillParams(pj) {
+    const set = (id, val) => { document.getElementById(id).value = val; };
+    set('pp_disk', pj.disk || 'C');
+    set('pp_ip', pj.ip || '8.8.8.8');
+    set('pp_failures', String(pj.failures || 5));
+    set('pp_svc_name', pj.svc_name || '');
+    document.getElementById('pp_restart').checked = !!pj.restart_if_stopped;
+    set('pp_log_name', pj.log_name || 'Application');
+    set('pp_event_type', pj.event_type || 'ERROR');
+    set('pp_event_id', pj.event_id ? String(pj.event_id) : '');
+    set('pp_fail_count', String(pj.fail_count || 1));
+    set('pp_search_last_days', String(pj.search_last_days || 1));
+}
 function updateParamsHint() {
     const type = document.getElementById('p_type').value;
-    const hints = {
-        diskspace: '{"disk":"C"}  — use "/" for Linux/macOS',
-        cpuload:   'No extra params needed',
-        memory:    'No extra params needed',
-        ping:      '{"ip":"8.8.8.8"}',
-        winsvc:    '{"svc_name":"spooler","restart_if_stopped":true}',
-        eventlog:  '{"log_name":"Application","event_type":"ERROR","fail_count":1,"search_last_days":1}',
-    };
-    document.getElementById('p_params_hint').textContent = hints[type] || '';
+    document.querySelectorAll('.pp-sec').forEach(sec => {
+        const on = sec.getAttribute('data-types').split(' ').includes(type);
+        sec.style.display = on ? '' : 'none';
+        sec.querySelectorAll('input,select').forEach(f => { f.disabled = !on; });
+    });
     const noThresh = ['ping','winsvc','eventlog'].includes(type);
     document.getElementById('threshold_row').style.display = noThresh ? 'none' : '';
 }
@@ -450,7 +519,6 @@ function savePolicy() {
         warning_threshold:  document.getElementById('p_warn').value,
         critical_threshold: document.getElementById('p_crit').value,
         check_interval:     document.getElementById('p_interval').value,
-        check_params:       document.getElementById('p_params').value,
         description:        document.getElementById('p_description').value,
         enabled:            document.getElementById('p_enabled').checked ? '1' : '',
     };

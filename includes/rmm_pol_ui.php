@@ -267,14 +267,10 @@ function rivetRmmPolBuildSettings(array $in, array $catalog): array
         $params = [];
         $spec = $catalog[$type] ?? ['fields' => [], 'legacy' => in_array($type, RIVET_RMM_POL_LEGACY_TYPES, true), 'reports_value' => false];
         if (!empty($spec['legacy'])) {
-            $json = trim((string) ($row['params_json'] ?? ''));
-            if ($json !== '') {
-                $dec = json_decode($json, true);
-                if (!is_array($dec) || ($dec !== [] && array_is_list($dec))) {
-                    $errors[] = "Check $key: the extra settings must be a JSON object such as {\"name\": \"Spooler\"}.";
-                } else {
-                    $params = $dec;
-                }
+            // 26.10.53: the older check types have plain fields too (no JSON). Unknown fields are refused; blanks are left out.
+            [$params, $lgErr] = rivetRmmPolLegacyParams($type, $row['lg'][$type] ?? []);
+            if ($lgErr !== null) {
+                $errors[] = "Check $key: $lgErr";
             }
         } else {
             $own = is_array($row['p'][$type] ?? null) ? $row['p'][$type] : [];
@@ -397,6 +393,116 @@ function rivetRmmPolFormModel(array $settings): array
     return $m;
 }
 
+/** Known plain fields of the four older check types: field => [kind, label, hint]. */
+const RIVET_RMM_POL_LEGACY_FIELDS = [
+    'service' => ['name' => ['str', 'Service name', 'The short service name, for example Spooler.'], 'expected' => ['enum:running,stopped', 'It should be', 'Running unless you say otherwise.'],
+        'startup' => ['enum:auto,manual,disabled', 'Its start type should be', 'Leave on "any" to not check the start type.']],
+    'disk' => ['mount' => ['str', 'Disk', 'A drive such as C: or a path such as /. Empty means every disk.'], 'warn_free_pct' => ['int:1:99', 'Warn below (% free)', 'Empty uses the built-in 20.'],
+        'fail_free_pct' => ['int:1:99', 'Critical below (% free)', 'Empty uses the built-in 10.'], 'warn_free_gb' => ['int:1:100000', 'Warn below (GB free)', 'Optional.'],
+        'fail_free_gb' => ['int:1:100000', 'Critical below (GB free)', 'Optional.']],
+    'pending_reboot' => [],
+    'script' => ['script' => ['text', 'Commands to run', 'PowerShell on Windows, shell on Linux. At most 8 KiB. Exit code 0 is fine, 1 a warning, anything else critical. Runs with full rights on every device the policy reaches.'],
+        'timeout_s' => ['enum:10,30,60', 'Give up after (seconds)', 'At most 60.']],
+];
+
+/**
+ * The stored settings of an older check type from the plain fields (no JSON). Closed set of fields; blank means "not set".
+ *
+ * @return array{0:array<string,mixed>,1:?string}
+ */
+function rivetRmmPolLegacyParams(string $type, mixed $in): array
+{
+    $spec = RIVET_RMM_POL_LEGACY_FIELDS[$type] ?? [];
+    $in = is_array($in) ? $in : [];
+    $out = [];
+    foreach ($in as $k => $v) {
+        if (!isset($spec[$k]) || !is_string($v)) {
+            return [[], 'the form sent a setting that does not belong to this kind of check.'];
+        }
+    }
+    foreach ($spec as $name => [$kind, $label]) {
+        $v = trim((string) ($in[$name] ?? ''));
+        if ($name === 'script') {
+            $v = str_replace(["\r\n", "\r"], "\n", (string) ($in[$name] ?? ''));
+        }
+        if ($v === '' || ($name === 'startup' && $v === 'any')) {
+            continue;
+        }
+        if (str_starts_with($kind, 'int:')) {
+            [, $lo, $hi] = explode(':', $kind);
+            if (preg_match('/^\d{1,9}$/', $v) !== 1 || (int) $v < (int) $lo || (int) $v > (int) $hi) {
+                return [[], "$label must be a whole number from $lo to $hi."];
+            }
+            $out[$name] = (int) $v;
+        } elseif (str_starts_with($kind, 'enum:')) {
+            if (!in_array($v, explode(',', substr($kind, 5)), true)) {
+                return [[], "$label: choose one of the listed values."];
+            }
+            $out[$name] = $name === 'timeout_s' ? (int) $v : $v;
+        } elseif ($name === 'script') {
+            if (strlen($v) > 8192) {
+                return [[], 'the script is longer than 8 KiB.'];
+            }
+            $out[$name] = $v;
+        } else {
+            if (strlen($v) > 200 || preg_match('/[\x00-\x1f]/', $v) === 1 || ($name === 'name' && preg_match('/^[A-Za-z0-9_.@:+ -]{1,128}$/', $v) !== 1)) {
+                return [[], "$label is not valid" . ($name === 'name' ? ' (letters, digits and . _ - @ : + only).' : '.')];
+            }
+            $out[$name] = $v;
+        }
+    }
+    if ($type === 'service' && !isset($out['name'])) {
+        return [[], 'type the service name.'];
+    }
+    if ($type === 'script' && !isset($out['script'])) {
+        return [[], 'type the commands to run.'];
+    }
+
+    return [$out, null];
+}
+
+/** @param array<string,mixed> $cur */
+function rivetRmmPolLegacyFields(string $idBase, string $nameBase, string $type, array $cur): string
+{
+    $spec = RIVET_RMM_POL_LEGACY_FIELDS[$type] ?? [];
+    if ($spec === []) {
+        return '<div class="small text-muted">No settings: it warns when the device is waiting for a restart.</div>';
+    }
+    $o = '<div class="row g-2">';
+    foreach ($spec as $name => [$kind, $label, $hint]) {
+        $id = $idBase . '_' . $name;
+        $nm = $nameBase . '[' . $name . ']';
+        $v = $cur[$name] ?? '';
+        $v = is_scalar($v) ? (string) $v : '';
+        $o .= '<div class="' . ($kind === 'text' ? 'col-12' : 'col-sm-6 col-lg-4') . '"><label class="form-label small mb-1" for="' . rmmH($id) . '">' . rmmH($label) . '</label>';
+        if (str_starts_with($kind, 'enum:')) {
+            $vals = explode(',', substr($kind, 5));
+            $o .= '<select class="form-select form-select-sm" id="' . rmmH($id) . '" name="' . rmmH($nm) . '">' . ($name === 'timeout_s' ? '' : '<option value="">' . ($name === 'startup' ? 'Any' : 'Running') . '</option>');
+            foreach ($vals as $e) {
+                if ($name === 'expected' && $e === 'running') {
+                    continue;
+                }
+                $o .= '<option value="' . rmmH($e) . '"' . ($v === $e || ($name === 'timeout_s' && $v === '' && $e === '30') ? ' selected' : '') . '>' . rmmH(ucfirst($e)) . '</option>';
+            }
+            $o .= '</select>';
+        } elseif ($kind === 'text') {
+            $o .= '<textarea class="form-control form-control-sm rmm-mono" rows="4" maxlength="8192" spellcheck="false" id="' . rmmH($id) . '" name="' . rmmH($nm) . '">' . rmmH($v) . '</textarea>';
+        } elseif (str_starts_with($kind, 'int:')) {
+            [, $lo, $hi] = explode(':', $kind);
+            $o .= '<input type="number" step="1" min="' . (int) $lo . '" max="' . (int) $hi . '" class="form-control form-control-sm" id="' . rmmH($id) . '" name="' . rmmH($nm) . '" value="' . rmmH($v) . '">';
+        } else {
+            $o .= '<input type="text" class="form-control form-control-sm" maxlength="200" id="' . rmmH($id) . '" name="' . rmmH($nm) . '" value="' . rmmH($v) . '">';
+        }
+        $o .= '<div class="form-text mt-0">' . rmmH($hint) . '</div></div>';
+    }
+    $extra = array_diff(array_keys($cur), array_keys($spec));
+    if ($extra !== []) {
+        $o .= '<div class="col-12 form-text">This check also has settings this form does not offer (' . rmmH(implode(', ', array_map('strval', $extra))) . '). They are dropped when you save.</div>';
+    }
+
+    return $o . '</div>';
+}
+
 /** One input for a check type's own param, from the catalog's schema. */
 function rivetRmmPolParamInput(string $idBase, string $nameBase, string $name, array $f, $current): string
 {
@@ -474,14 +580,9 @@ function rivetRmmPolCheckRow(string $i, array $row, array $catalog): string
             $legacy[] = $t;
         }
     }
-    if ($legacy !== []) {
-        $json = '';
-        if (in_array($type, $legacy, true) && is_array($row['own'] ?? null) && $row['own'] !== []) {
-            $json = (string) json_encode($row['own'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        }
-        $o .= '<div class="mt-2" data-rmm-when="#' . $id . '_type=' . rmmH(implode(',', $legacy)) . '"><label class="form-label small mb-1" for="' . $id . '_pj">Extra settings of this type (JSON object)</label>'
-            . '<textarea class="form-control form-control-sm rmm-mono" rows="2" id="' . $id . '_pj" name="' . $nm . '[params_json]" placeholder="{&quot;name&quot;: &quot;Spooler&quot;}">' . rmmH($json) . '</textarea>'
-            . '<div class="form-text">These older check types take free-form settings; RivetCore checks them when you save and shows what it refuses.</div></div>';
+    foreach ($legacy as $t) {
+        $cur = $type === $t && is_array($row['own'] ?? null) ? $row['own'] : [];
+        $o .= '<div class="mt-2" data-rmm-when="#' . $id . '_type=' . rmmH($t) . '">' . rivetRmmPolLegacyFields($id . '_lg_' . $t, $nm . '[lg][' . $t . ']', $t, $cur) . '</div>';
     }
     foreach ($catalog as $t => $spec) {
         if (!empty($spec['legacy'])) {

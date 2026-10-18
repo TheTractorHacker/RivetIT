@@ -9,6 +9,8 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
  */
 
 require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+require_once dirname(__DIR__, 2) . '/includes/rmm_check_schedule.php';
+require_once dirname(__DIR__, 2) . '/includes/rmm_mesh_cards.php';   // RIVET_RMM_MESH_PLATFORMS (26.10.53)
 
 use RivetCore\Rmm\Technician\ActionResult;
 
@@ -137,15 +139,50 @@ if (isset($_POST['save_feature_preset'])) {
     ea_flash_result($ea_admin->applyFeaturePreset($ea_who, (string) ($_POST['feature_preset'] ?? '')));
 }
 
+// Live preview of the check options (RivetIT 26.10.53): builds and validates the list exactly as Save does, answers JSON, saves nothing. Administrator only (admin/post.php), CSRF-checked.
+if (isset($_POST['cs_preview'])) {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    $cs_tok = $_POST['csrf_token'] ?? null;
+    if (!is_string($cs_tok) || $cs_tok === '' || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $cs_tok)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'errors' => ['Invalid CSRF token. Reload the page and try again.']]);
+        exit;
+    }
+    if (($_POST['cs_defaults'] ?? '') === '1') {
+        $cs = ['list' => \RivetCore\Rmm\Settings\RmmSettings::defaultChecks(), 'errors' => [], 'warnings' => []];
+    } else {
+        $cs = rivetCsBuild($_POST['cs'] ?? null, $rmm->readModel()->settingsSummary()['checks']);
+    }
+    $csList = $cs['list'];
+    echo json_encode(['success' => $csList !== null, 'errors' => $cs['errors'], 'warnings' => $cs['warnings'],
+        'summary' => $csList === null ? '' : rivetCsSummary($csList), 'lines' => $csList === null ? [] : array_map('rivetCsDescribe', $csList),
+        'json' => $csList === null ? '' : json_encode(\RivetCore\Rmm\Settings\ChecksValidator::toWire($csList), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+    exit;
+}
+
 if (isset($_POST['save_agent_settings'])) {
     validateCSRFToken($_POST['csrf_token']);
     $in = ['enabled' => isset($_POST['enabled']) ? 1 : 0];
     foreach (['service_url', 'check_in_interval_s', 'collect_interval_s', 'offline_after_s', 'stale_after_s', 'failure_debounce', 'recovery_debounce', 'retention_days',
         'job_retention_days', 'job_output_max_bytes', 'job_default_timeout_s', 'job_max_timeout_s', 'job_expiry_s', 'job_ack_timeout_s', 'job_max_attempts',
-        'enroll_max_ttl_h', 'unmatched_policy', 'checks_json', 'coexistence_policy', 'ca_pem'] as $k) {
+        'enroll_max_ttl_h', 'unmatched_policy', 'coexistence_policy', 'ca_pem'] as $k) {
         if (isset($_POST[$k])) {
             $in[$k] = is_string($_POST[$k]) ? $_POST[$k] : '';
         }
+    }
+    // RivetIT 26.10.53: the check schedule is built HERE from the plain-language options (includes/rmm_check_schedule.php). A raw `checks_json` field is not read any more:
+    // nothing the browser sends is a check definition. "Restore defaults" clears the stored list (the built-in one applies); otherwise the list is rebuilt from the options
+    // and the stored list, validated by RivetCore, and a refusal saves nothing at all.
+    if (($_POST['cs_defaults'] ?? '') === '1') {
+        $in['checks_json'] = '';
+    } elseif (array_key_exists('cs', $_POST)) {
+        $cs = rivetCsBuild($_POST['cs'], $rmm->readModel()->settingsSummary()['checks']);
+        if ($cs['list'] === null) {
+            flash_alert(nullable_htmlentities('The check options were not saved: ' . implode(' ', $cs['errors'])), 'error');
+            redirect();
+        }
+        $in['checks_json'] = json_encode($cs['list']);
     }
     ea_flash_result($ea_admin->saveSettings($ea_who, $in));
 }
@@ -635,16 +672,6 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($
         $keep['mesh_hide_tools'] = $in['mesh_hide_tools'];
     }
     if (isset($_POST['mesh_install_present'])) {
-        $jsonField = static function (string $k) use (&$keep): ?array {
-            $raw = is_string($_POST[$k] ?? null) ? trim($_POST[$k]) : '';
-            $keep[$k] = $raw;
-            if ($raw === '') {
-                return [];
-            }
-            $d = json_decode($raw, true);
-
-            return is_array($d) && ($d === [] || !array_is_list($d)) ? $d : null;
-        };
         // rc.15: the device group id is sent to Core exactly as typed or pasted (only surrounding whitespace is trimmed): the bare 64-character meshid, the whole MeshCentral
         // download address, mesh//... or hex. Core parses all of them, refuses the rest with one message and warns about a pasted address for another host. No hex check here.
         $in['mesh_group_id'] = is_string($_POST['mesh_group_id'] ?? null) ? trim($_POST['mesh_group_id']) : '';
@@ -654,11 +681,46 @@ if (isset($_POST['save_mesh_settings']) || isset($_POST['test_mesh']) || isset($
             $in['mesh_server_cert_pin'] = $keep['mesh_server_cert_pin'];
         }
         $in['mesh_auto_map_overwrite'] = isset($_POST['mesh_auto_map_overwrite']);
-        $ids = $jsonField('mesh_agent_ids');
-        $args = $jsonField('mesh_install_args');
-        if ($ids === null || $args === null) {
+        // 26.10.53: the agent id and install argument corrections are plain fields (no JSON). The closed set of platforms comes from rmm_mesh_cards.php; Core validates the result again.
+        $ids = [];
+        $args = [];
+        $bad = null;
+        $aidIn = $_POST['mesh_aid'] ?? [];
+        $argIn = $_POST['mesh_args'] ?? [];
+        if (!is_array($aidIn) || !is_array($argIn)) {
+            $bad = 'The agent id and install argument boxes were not sent correctly.';
+        }
+        $keep['mesh_aid'] = [];
+        $keep['mesh_args'] = [];
+        foreach (RIVET_RMM_MESH_PLATFORMS as $plat) {
+            $fk = str_replace('/', '_', $plat);
+            $raw = is_string($aidIn[$fk] ?? null) ? trim($aidIn[$fk]) : '';
+            $keep['mesh_aid'][$fk] = $raw;
+            if ($raw === '') {
+                continue;
+            }
+            if (preg_match('/^\d{1,3}$/', $raw) !== 1 || (int) $raw < 1 || (int) $raw > 255) {
+                $bad ??= "Agent id for $plat: type a whole number from 1 to 255, or leave it empty for the built-in id.";
+                continue;
+            }
+            $ids[$plat] = (int) $raw;
+        }
+        foreach (['windows', 'linux'] as $os) {
+            $raw = is_string($argIn[$os] ?? null) ? trim($argIn[$os]) : '';
+            $keep['mesh_args'][$os] = $raw;
+            if ($raw === '') {
+                continue;
+            }
+            $parts = preg_split('/\s+/', $raw) ?: [];
+            if (count($parts) > 8 || array_filter($parts, static fn (string $a): bool => preg_match('/^-{0,2}[A-Za-z0-9][A-Za-z0-9=_.\/:@-]{0,99}\z/', $a) !== 1) !== []) {
+                $bad ??= "Install arguments for $os: use at most 8 simple arguments separated by spaces (letters, digits and = _ . : / @ - only).";
+                continue;
+            }
+            $args[$os] = $parts;
+        }
+        if ($bad !== null) {
             $_SESSION['ea_mesh_keep'] = $keep;
-            flash_alert('The agent id and install argument corrections must each be a JSON object (or empty). Nothing was saved.', 'error');
+            flash_alert(nullable_htmlentities($bad . ' Nothing was saved.'), 'error');
             ea_scale_back('mesh');
         }
         $in['mesh_agent_ids'] = $ids;

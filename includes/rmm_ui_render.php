@@ -1034,7 +1034,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
     $swCard = $f['outdated_sw'] !== null ? rivetRmmUiOutdatedSoftware($f['outdated_sw'], $cn, $f) : '';
 
     return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-satellite me-2" aria-hidden="true"></i>Agent fleet</h4>'
-        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '')
+        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') . '<a href="/agent/rmm_add_device.php" class="btn btn-outline-primary btn-sm" id="rmm-build-installer"><i class="fas fa-tools me-1" aria-hidden="true"></i>Build installer</a>' : '')
         . rivetRmmMeshBulkTrigger($f['mesh_bulk'] ?? null)
         . '<a href="/agent/rmm_assets.php" class="btn btn-info btn-sm"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
         . '<a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'

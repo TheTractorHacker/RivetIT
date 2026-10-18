@@ -27,7 +27,7 @@ $q('DELETE FROM rmm_custom_field_values'); $q('DELETE FROM rmm_custom_fields');
 $ok($c === 200 && str_contains($b, 'No policies yet') && str_contains($b, 'New policy'), 'policies page (admin, none yet): 200, empty state and the New policy button');
 [$c, $b] = $paGet('admin', '/agent/rmm_policies.php?new=1');
 $ok($c === 200 && str_contains($b, 'id="pol-form"') && str_contains($b, 'name="ci_mode"') && str_contains($b, 'name="ft_software_inventory"') && str_contains($b, 'name="ring"') && str_contains($b, 'data-rmm-add="#pol-checks"'), 'new policy form: intervals, features, ring and the repeating check list');
-$ok(str_contains($b, '<option value="cpu">cpu (Windows and Linux)</option>') && str_contains($b, 'value="service"') && str_contains($b, 'name="chk[__i__][p][cpu][window_s]"') && str_contains($b, 'name="chk[__i__][th][warn_val]"') && str_contains($b, 'name="chk[__i__][params_json]"'), 'check types come from the catalog: platforms in the label, param inputs from the schema, thresholds, JSON box for legacy types');
+$ok(str_contains($b, '<option value="cpu">cpu (Windows and Linux)</option>') && str_contains($b, 'value="service"') && str_contains($b, 'name="chk[__i__][p][cpu][window_s]"') && str_contains($b, 'name="chk[__i__][th][warn_val]"') && str_contains($b, 'name="chk[__i__][lg][script][script]"') && str_contains($b, 'name="chk[__i__][lg][service][name]"') && !str_contains($b, 'params_json'), 'check types come from the catalog: platforms in the label, param inputs from the schema, thresholds, plain fields (no JSON box) for the older types');
 foreach (['tech', 'viewer', 'rebootonly'] as $w) {
     [$c, $b] = $paGet($w, '/agent/rmm_policies.php');
     $ok($c === 200 && !str_contains($b, 'New policy') && !str_contains($b, 'name="action" value="delete_policy"'), "policies page ($w): readable, no write controls");
@@ -47,7 +47,7 @@ $new = ['action' => 'save_policy', 'policy_id' => 0, 'name' => 'P23 Alpha', 'des
     'ci_mode' => 'override', 'ci_value' => '120', 'co_mode' => '', 'ft_software_inventory' => 'off', 'ft_checks' => 'on', 'ring' => 'pilot',
     'chk' => [0 => ['key' => 'cpu_load', 'mode' => 'override', 'type' => 'cpu', 'interval_s' => '60', 'p' => ['cpu' => ['window_s' => '5', 'warn_pct' => '85']],
         'th' => ['warn_op' => 'gt', 'warn_val' => '80', 'crit_op' => 'gt', 'crit_val' => '95', 'hysteresis' => '5', 'for_samples' => '2', 'for_minutes' => '', 'ignore' => ''], 'flap_on' => '1', 'flap' => ['window' => '10', 'high_pct' => '60', 'low_pct' => '20'], 'ignore_parent' => '1'],
-        1 => ['key' => 'spooler', 'mode' => 'override', 'type' => 'service', 'interval_s' => '300', 'params_json' => '{"name": "Spooler"}'],
+        1 => ['key' => 'spooler', 'mode' => 'override', 'type' => 'service', 'interval_s' => '300', 'lg' => ['service' => ['name' => 'Spooler']]],
         2 => ['key' => 'old_check', 'mode' => 'disable', 'type' => '', 'interval_s' => '']]];
 [$c, , $h] = $paPost('admin', $new, false);
 $ok($paPolicies() === $n0, 'a wrong CSRF token creates nothing');
@@ -79,9 +79,9 @@ $bad = $new; $bad['name'] = 'P23 Bad'; $bad['chk'][0]['th']['crit_val'] = '70';
 [$c, , $h] = $paPost('admin', $bad);
 [$c2, $b] = $paGet('admin', '/agent/rmm_policies.php?new=1');
 $ok($paId('P23 Bad') === 0 && str_contains($paFlash($b), 'crit must be beyond thresholds.warn'), 'inverted thresholds: Core\'s message is shown');
-$bad = $new; $bad['name'] = 'P23 Bad'; $bad['chk'][1]['params_json'] = '[1,2]';
+$bad = $new; $bad['name'] = 'P23 Bad'; $bad['chk'][1]['lg']['service'] = ['name' => 'Spooler', 'startup_xx' => '1'];
 [$c, , $h] = $paPost('admin', $bad); [$c2, $b] = $paGet('admin', '/agent/rmm_policies.php?new=1');
-$ok($paId('P23 Bad') === 0 && str_contains($paFlash($b), 'must be a JSON object'), 'legacy check JSON that is not an object: refused with a hint');
+$ok($paId('P23 Bad') === 0 && str_contains($paFlash($b), 'does not belong to this kind of check'), 'a legacy check with a field this form does not know: refused in plain words');
 $bad = $new; $bad['name'] = 'P23 Bad'; $bad['chk'][0]['key'] = 'bad key!';
 [$c, , $h] = $paPost('admin', $bad); [$c2, $b] = $paGet('admin', '/agent/rmm_policies.php?new=1');
 $ok($paId('P23 Bad') === 0 && str_contains($paFlash($b), 'A check key is 1 to 100 letters'), 'check key rule is enforced');
@@ -92,7 +92,7 @@ $ok($paPolicies() === $n0 + 1 && str_contains($paFlash($b), 'A policy with that 
 // ============================================================ assign to Dept A, then a real check-in carries the policy
 [$c, $b] = $paGet('admin', '/agent/rmm_policies.php?policy_id=' . $pidA);
 $ok($c === 200 && str_contains($b, 'name="as_type"') && str_contains($b, 'name="priority"') && str_contains($b, 'name="enforce"') && str_contains($b, 'not assigned to anything'), 'policy page (admin): settings editor filled in, "Assign to" form, empty assignments');
-$ok(str_contains($b, 'value="cpu_load"') && str_contains($b, 'value="120"') && str_contains($b, 'value="Spooler"') === false && str_contains($b, '&quot;name&quot;: &quot;Spooler&quot;') || str_contains($b, '{&quot;name&quot;:&quot;Spooler&quot;}'), 'policy page: the stored settings are shown in the editor');
+$ok(str_contains($b, 'value="cpu_load"') && str_contains($b, 'value="120"') && preg_match('/name="chk\[\d+\]\[lg\]\[service\]\[name\]" value="Spooler"/', $b) === 1 && !str_contains($b, 'params_json'), 'policy page: the stored settings are shown in plain fields (no JSON box)');
 $ok(str_contains($b, 'The more specific scope wins') && str_contains($b, 'enforce'), 'policy page: the precedence is explained');
 [$c, , $h] = $paPost('tech', ['action' => 'assign_policy', 'policy_id' => $pidA, 'as_type' => 'client', 'as_id_client' => 1, 'priority' => 100]);
 $ok((int) $one("SELECT COUNT(*) FROM rmm_policy_assignments WHERE policy_id=$pidA") === 0, 'a technician cannot assign a policy');
