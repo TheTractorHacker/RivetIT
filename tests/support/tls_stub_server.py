@@ -27,7 +27,8 @@ class H(http.server.BaseHTTPRequestHandler):
 
 
 port, cert, key = int(sys.argv[1]), sys.argv[2], sys.argv[3]
-ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain(cert, key)
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', port), H)
 srv.socket = ctx.wrap_socket(srv.socket, server_side=True)

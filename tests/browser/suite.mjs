@@ -121,32 +121,32 @@ const drpOpen = async () => { await p.click(DR.btn); await p.waitSel(DR.panelOpe
 await T('tickets: date picker opens, "Last 7 days" auto-submits', async () => {
   await go('/agent/tickets.php');
   await drpOpen();
-  assert((await p.eval(`document.querySelector(${JSON.stringify(DR.btn)}).getAttribute('aria-expanded')`)) === 'true', 'aria-expanded not true');
+  assert((await p.call((a0)=>(document.querySelector(a0).getAttribute('aria-expanded')), DR.btn)) === 'true', 'aria-expanded not true');
   await p.clickNav(`${DR.opt}[data-preset="last7"]`);
   const u = await p.url();
   assert(/last7/.test(u), 'URL does not carry the preset: ' + u);
-  const label = await p.eval(`document.querySelector(${JSON.stringify(DR.label)}).textContent`);
+  const label = await p.call((a0)=>(document.querySelector(a0).textContent), DR.label);
   assert(/Last 7 days/i.test(label), 'button label is "' + label + '"');
 });
 await T('tickets: reopen shows the selection; custom range by two calendar clicks', async () => {
   await drpOpen();
-  const sel = await p.eval(`(()=>{const o=document.querySelector(${JSON.stringify(DR.opt + '[data-preset="last7"]')});return o.getAttribute('aria-selected')==='true'||o.classList.contains('selected')})()`);
+  const sel = await p.call((a0)=>{const o=document.querySelector(a0);return o.getAttribute('aria-selected')==='true'||o.classList.contains('selected')}, DR.opt + '[data-preset="last7"]');
   assert(sel, 'last7 not marked selected on reopen');
   await p.click(`${DR.opt}[data-preset="custom"]`);
   const dayCells = `${DR.custom} .litepicker .day-item, ${DR.custom} .day-item`;
   await p.waitSel(dayCells, { timeout: 8000 });
   // two real clicks on enabled day cells of the first visible month
-  const days = await p.eval(`[...document.querySelectorAll('${DR.custom} .day-item:not(.is-locked):not(.is-disabled):not(.is-previous-month):not(.is-next-month)')].map(e=>e.dataset.time)`);
+  const days = await p.call((a0)=>([...document.querySelectorAll(''+a0+' .day-item:not(.is-locked):not(.is-disabled):not(.is-previous-month):not(.is-next-month)')].map(e=>e.dataset.time)), DR.custom);
   assert(days.length >= 10, 'calendar has too few selectable days: ' + days.length);
   const a = days[2], b = days[8];
   await p.click(`${DR.custom} .day-item[data-time="${a}"]`);
   await p.click(`${DR.custom} .day-item[data-time="${b}"]`);
-  const from = await p.eval(`document.querySelector(${JSON.stringify(DR.from)}).value`), to = await p.eval(`document.querySelector(${JSON.stringify(DR.to)}).value`);
+  const from = await p.call((a0)=>(document.querySelector(a0).value), DR.from), to = await p.call((a0)=>(document.querySelector(a0).value), DR.to);
   assert(from && to && from < to, `inputs not filled by the calendar clicks (from="${from}" to="${to}")`);
   await p.clickNav(DR.apply);
   const u = new URL(await p.url());
   assert(u.searchParams.get(DR.fromParam) === from && u.searchParams.get(DR.toParam) === to, 'URL range does not match the picked days: ' + u.search);
-  assert(/Custom range|[A-Z][a-z]{2} \d/.test(await p.eval(`document.querySelector(${JSON.stringify(DR.label)}).textContent`)), 'label does not show the custom range');
+  assert(/Custom range|[A-Z][a-z]{2} \d/.test(await p.call((a0)=>(document.querySelector(a0).textContent), DR.label)), 'label does not show the custom range');
 });
 
 // ------------------------------------------------------------------------------------------------ saved view + icon picker
@@ -181,9 +181,9 @@ await T('tickets: create through the UI form and open it', async () => {
   await p.type('.modal.show #subjectInput', subject);
   await p.eval(`(()=>{const ed=window.tinymce&&(tinymce.get('detailsInput')||tinymce.activeEditor);if(ed)ed.setContent('<p>Created by the browser smoke suite.</p>');else document.querySelector('#detailsInput').value='Created by the browser smoke suite.'})()`);
   // required selects are select2 widgets: drive them through jQuery so the change handlers run
-  const setSel = (name, pick) => p.eval(`(()=>{const s=document.querySelector('.modal.show select[name="${name}"]');if(!s)return 'missing';
-    const o=[...s.options].find(${pick});if(!o)return 'no option';$(s).val(o.value).trigger('change');return o.text})()`);
-  const cl = await setSel('client_id', `(o)=>o.value&&o.value!=='0'&&/${clientName.replace(/[^a-z0-9 ]/gi, '.')}/.test(o.text)`);
+  const setSel = (name, pick) => p.call((a0,a1)=>{const s=document.querySelector('.modal.show select[name="'+a0+'"]');if(!s)return 'missing';
+    const re=new RegExp(a1);const o=[...s.options].find((o)=>o.value&&o.value!=='0'&&re.test(o.text));if(!o)return 'no option';$(s).val(o.value).trigger('change');return o.text}, name, pick);
+  const cl = await setSel('client_id', clientName.replace(/[^a-z0-9 ]/gi, '.'));
   assert(cl !== 'missing' && cl !== 'no option', 'client select: ' + cl);
   await p.eval(`(()=>{const s=document.querySelector('.modal.show select[name="ticket_template_id"]');if(s&&!s.value){const o=[...s.options].find(o=>o.value!==''&&o.value!=='-1')||s.options[0];if(o){$(s).val(o.value).trigger('change')}}})()`);
   await p.eval(`(()=>{const s=document.querySelector('.modal.show select[name="priority"]');if(s&&!s.value){$(s).val(s.options[1]?.value||s.options[0].value).trigger('change')}})()`);
@@ -195,7 +195,7 @@ await T('tickets: create through the UI form and open it', async () => {
 });
 await T('tickets: the new ticket appears in the list and opens', async () => {
   await go('/agent/tickets.php');
-  const href = await p.eval(`(()=>{const a=[...document.querySelectorAll('a[href*="ticket.php"]')].find(a=>a.textContent.includes(${JSON.stringify(subject)}));return a?a.getAttribute('href'):null})()`);
+  const href = await p.call((a0)=>{const a=[...document.querySelectorAll('a[href*="ticket.php"]')].find(a=>a.textContent.includes(a0));return a?a.getAttribute('href'):null}, subject);
   assert(href, 'subject not linked from the list');
   await p.clickNav(`a[href="${href}"]`);
   assert((await bodyText()).includes(subject), 'ticket detail does not show the subject');
@@ -222,7 +222,7 @@ await T('admin: global search finds a settings page (live dropdown + results pag
 
 // ------------------------------------------------------------------------------------------------ webhooks
 const whName = `Smoke hook ${RUN}`;
-const waitUrlState = (cls) => p.waitFor(`(()=>{const s=document.querySelector('[data-wz-urlstate], #whf_url_status');return s&&s.classList.contains(${JSON.stringify(cls)})})()`, { timeout: 25000, label: 'url state ' + cls });
+const waitUrlState = (cls) => p.waitFor((a0)=>{const s=document.querySelector('[data-wz-urlstate], #whf_url_status');return s&&s.classList.contains(a0)}, { args: [cls], timeout: 25000, label: 'url state ' + cls });
 if (ED.webhookUi === 'wizard') {
   await T('webhooks: guided add (n8n, live check, advanced, events search + group, review, create)', async () => {
     await go(ED.webhookNew);
@@ -301,7 +301,7 @@ await T('webhooks: guides page search, open a guide, copy button', async () => {
   assert(/n8n/.test(await p.eval('location.hash')), 'hash is ' + (await p.eval('location.hash')));
   const vis = `[...document.querySelectorAll('[data-wg-copy]')].find(e=>e.getBoundingClientRect().width>0)`;
   await p.waitFor(vis, { timeout: 10000, label: 'a visible copy button in the opened guide' });
-  await p.eval(`(${vis}).setAttribute('data-smoke-copy','1')`);
+  await p.call(() => [...document.querySelectorAll('[data-wg-copy]')].find((e) => e.getBoundingClientRect().width > 0).setAttribute('data-smoke-copy', '1'));
   await p.click('[data-smoke-copy="1"]');
   await p.waitFor(`/copied|ctrl\\+c/i.test(document.querySelector('[data-smoke-copy]').innerText)`, { timeout: 5000, label: 'copy feedback' });
   assert(/copied/i.test(await p.eval(`document.querySelector('[data-smoke-copy]').innerText`)), 'copy did not report success (clipboard blocked?)');
@@ -324,11 +324,11 @@ await T('event rules: new rule from a recipe, add a condition row, Save and test
   const rows = () => p.eval(`document.querySelectorAll('.er-cond-row').length`);
   const before = await rows();
   await p.clickText('Add condition', '.page-wrapper', 'button');
-  await p.waitFor(`document.querySelectorAll('.er-cond-row').length > ${before}`, { timeout: 5000, label: 'a new condition row' });
+  await p.waitFor((a0)=>(document.querySelectorAll('.er-cond-row').length > a0), { args: [before], timeout: 5000, label: 'a new condition row' });
   // the new row is incomplete (no field chosen), so the form would refuse to save: remove it again with its own remove button
   await p.eval(`(()=>{const r=[...document.querySelectorAll('.er-cond-row')].pop();const b=[...r.querySelectorAll('button')].pop();b.setAttribute('data-smoke-rm','1')})()`);
   await p.click('[data-smoke-rm="1"]');
-  await p.waitFor(`document.querySelectorAll('.er-cond-row').length === ${before}`, { timeout: 5000, label: 'condition row removed' });
+  await p.waitFor((a0)=>(document.querySelectorAll('.er-cond-row').length === a0), { args: [before], timeout: 5000, label: 'condition row removed' });
   await p.click('button[name=save_event_rule][type=submit]:nth-of-type(2), button[name=save_event_rule]:not(.btn-primary)');
   await p.waitFor(`document.querySelector('.er-drawer, #er-drawer') && getComputedStyle(document.querySelector('.er-drawer, #er-drawer')).visibility!=='hidden' && document.querySelector('.er-drawer, #er-drawer').getBoundingClientRect().width>0`, { timeout: 120000, label: 'test drawer after Save and test' });
   assert(/test/i.test(await p.eval(`document.querySelector('.er-drawer, #er-drawer').innerText`)), 'drawer has no test content');
@@ -378,7 +378,7 @@ for (const [name, path, re] of ED.extraPages) {
 await T('theme: dark mode switch keeps pages usable, then switch back', async () => {
   const setTheme = async (value) => {
     await go('/agent/user/user_preferences.php');
-    await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+    await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
     await p.clickNav('button[name=edit_your_user_preferences]');
   };
   await setTheme(1);
@@ -438,8 +438,8 @@ await T('keyboard: Esc closes a modal and the date picker', async () => {
   await sleep(800); // backdrop fade-out
   await drpOpen();
   await p.press('Escape');
-  await p.waitFor(`document.querySelector(${JSON.stringify(DR.panel)}).hidden`, { timeout: 4000, label: 'picker closes on Esc' });
-  assert((await p.eval(`document.querySelector(${JSON.stringify(DR.btn)}).getAttribute('aria-expanded')`)) === 'false', 'aria-expanded still true');
+  await p.waitFor((a0)=>(document.querySelector(a0).hidden), { args: [DR.panel], timeout: 4000, label: 'picker closes on Esc' });
+  assert((await p.call((a0)=>(document.querySelector(a0).getAttribute('aria-expanded')), DR.btn)) === 'false', 'aria-expanded still true');
 });
 await T('keyboard: Esc closes the icon picker popover', async () => {
   await go('/agent/tickets.php');

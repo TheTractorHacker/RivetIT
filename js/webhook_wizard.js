@@ -834,9 +834,13 @@
     if (sw) {
       sw.addEventListener('change', function () {
         // only follow a relative path: never a scheme (javascript:, data:) or a protocol-relative URL
-        var base = sw.getAttribute('data-wz-switch') || '';
+        var base = (sw.getAttribute('data-wz-switch') || '').trim();
         if (/^\s*([a-z][a-z0-9+.-]*:|\/\/|\\)/i.test(base)) { return; }
-        location.href = base + encodeURIComponent(sw.value);
+        // resolve against this origin and navigate only to a same-origin URL, so the value can never change origin or scheme
+        var target;
+        try { target = new URL(base + encodeURIComponent(sw.value), location.href); } catch (e) { return; }
+        if (target.origin !== location.origin) { return; }
+        location.assign(target.pathname + target.search + target.hash);
       });
     }
 

@@ -81,7 +81,7 @@ const nav = async (sel, timeout = 90000) => {
   const end = Date.now() + timeout;
   for (;;) {
     await sleep(200);
-    try { if (await p.eval(`performance.timeOrigin !== ${origin} && document.readyState === 'complete'`)) break; } catch { /* the execution context is gone mid-navigation */ }
+    try { if (await p.call((a0)=>(performance.timeOrigin !== a0 && document.readyState === 'complete'), origin)) break; } catch { /* the execution context is gone mid-navigation */ }
     if (Date.now() > end) throw new Error('page did not navigate after clicking ' + sel);
   }
   await sleep(600);
@@ -95,7 +95,7 @@ async function shot(name) {
 }
 /** A screenshot of one element (a card), however far down the page it is. */
 async function shotEl(sel, name) {
-  const r = await p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;const b=e.getBoundingClientRect();return {x:b.x+scrollX,y:b.y+scrollY,w:b.width,h:b.height}})()`);
+  const r = await p.call((a0)=>{const e=document.querySelector(a0);if(!e)return null;const b=e.getBoundingClientRect();return {x:b.x+scrollX,y:b.y+scrollY,w:b.width,h:b.height}}, sel);
   assert(r, 'no element ' + sel);
   const { data } = await p.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.ceil(r.w), height: Math.min(Math.ceil(r.h), 6000), scale: 1 } });
   writeFileSync(join(shotDir, name + '.png'), Buffer.from(data, 'base64'));
@@ -113,7 +113,7 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await nav('button[name=edit_your_user_preferences]');
 };
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
@@ -121,8 +121,8 @@ const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.
 const unlabeled = () => p.eval(`[...document.querySelectorAll('.rmm-scale-card input, .rmm-scale-card select, .rmm-scale-card textarea')].filter(e=>{
   if(e.type==='hidden'||e.disabled)return false;const r=e.getBoundingClientRect();if(!(r.width>0&&r.height>0))return false;
   const lab=(e.labels&&e.labels.length)||e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.getAttribute('title');return !lab}).map(e=>e.name||e.id||e.tagName)`);
-const msgIn = (card) => p.eval(`(()=>{const e=document.querySelector('#${card} [data-rmm-scale-msg]');return e?e.innerText.trim():''})()`);
-const checked = (sel) => p.eval(`!!document.querySelector(${JSON.stringify(sel)}).checked`);
+const msgIn = (card) => p.call((a0)=>{const e=document.querySelector('#'+a0+' [data-rmm-scale-msg]');return e?e.innerText.trim():''}, card);
+const checked = (sel) => p.call((a0)=>(!!document.querySelector(a0).checked), sel);
 // a person clicks the label of a switch or box (the input itself is a few pixels)
 const setChecked = async (sel, want) => {
   for (let i = 0; i < 3 && (await checked(sel)) !== want; i++) { await click(`label[for="${sel.slice(1)}"]`); await sleep(350); }
@@ -264,7 +264,7 @@ await T('log collection: a bad channel is refused with Core\'s message, and remo
   const n = await p.eval(`document.querySelectorAll('[data-rmm-scale-rows=win] [data-rmm-scale-row]').length`);
   await p.focus('[data-rmm-scale-rows=win] [data-rmm-scale-row]:last-child [data-rmm-scale-remove]');
   await p.press('Enter');
-  await p.waitFor(`document.querySelectorAll('[data-rmm-scale-rows=win] [data-rmm-scale-row]').length === ${n - 1}`, { label: 'row removed' });
+  await p.waitFor((a0)=>(document.querySelectorAll('[data-rmm-scale-rows=win] [data-rmm-scale-row]').length === a0), { args: [n - 1], label: 'row removed' });
 });
 
 // ------------------------------------------------------------------------------------------------ scale settings

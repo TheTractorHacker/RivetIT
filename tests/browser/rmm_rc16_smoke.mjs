@@ -66,13 +66,13 @@ const nav = async (sel, timeout = 90000) => {
   const end = Date.now() + timeout;
   for (;;) {
     await sleep(200);
-    try { if (await p.eval(`performance.timeOrigin !== ${origin} && document.readyState === 'complete'`)) break; } catch { /* the execution context is gone mid-navigation */ }
+    try { if (await p.call((a0)=>(performance.timeOrigin !== a0 && document.readyState === 'complete'), origin)) break; } catch { /* the execution context is gone mid-navigation */ }
     if (Date.now() > end) throw new Error('page did not navigate after clicking ' + sel);
   }
   await sleep(600);
 };
 async function shotEl(sel, name) {
-  const r = await p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;const b=e.getBoundingClientRect();return {x:b.x+scrollX,y:b.y+scrollY,w:b.width,h:b.height}})()`);
+  const r = await p.call((a0)=>{const e=document.querySelector(a0);if(!e)return null;const b=e.getBoundingClientRect();return {x:b.x+scrollX,y:b.y+scrollY,w:b.width,h:b.height}}, sel);
   assert(r, 'no element ' + sel);
   const { data } = await p.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.ceil(r.w), height: Math.min(Math.ceil(r.h), 6000), scale: 1 } });
   writeFileSync(join(shotDir, name + '.png'), Buffer.from(data, 'base64'));
@@ -90,15 +90,15 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await nav('button[name=edit_your_user_preferences]');
 };
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
-const checked = (sel) => p.eval(`!!document.querySelector(${JSON.stringify(sel)}).checked`);
-const text = (sel) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});return e?e.innerText.replace(/\\s+/g,' ').trim():''})()`);
-const unlabeled = (scope) => p.eval(`[...document.querySelectorAll(${JSON.stringify(scope)} + ' input, ' + ${JSON.stringify(scope)} + ' select, ' + ${JSON.stringify(scope)} + ' textarea')].filter(e=>{
+const checked = (sel) => p.call((a0)=>(!!document.querySelector(a0).checked), sel);
+const text = (sel) => p.call((a0)=>{const e=document.querySelector(a0);return e?e.innerText.replace(/\s+/g,' ').trim():''}, sel);
+const unlabeled = (scope) => p.call((a0)=>([...document.querySelectorAll(a0 + ' input, ' + a0 + ' select, ' + a0 + ' textarea')].filter(e=>{
   if(e.type==='hidden'||e.disabled)return false;const r=e.getBoundingClientRect();if(!(r.width>0&&r.height>0))return false;
-  const lab=(e.labels&&e.labels.length)||e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.getAttribute('title');return !lab}).map(e=>e.name||e.id||e.tagName)`);
+  const lab=(e.labels&&e.labels.length)||e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.getAttribute('title');return !lab}).map(e=>e.name||e.id||e.tagName)), scope);
 const setFile = async (sel, path) => {
   await p.send('DOM.enable');
   const { root } = await p.send('DOM.getDocument', { depth: 0 });
@@ -108,9 +108,9 @@ const setFile = async (sel, path) => {
 };
 const jobs = () => php(['jobs']);
 const dialogOpen = async (sel) => { await p.waitSel(sel + '.show', { timeout: 8000 }); await sleep(450); };
-const dialogClosed = async (sel) => { await p.waitFor(`!document.querySelector(${JSON.stringify(sel)}).classList.contains('show')`, { timeout: 8000 }); await sleep(350); };
+const dialogClosed = async (sel) => { await p.waitFor((a0)=>(!document.querySelector(a0).classList.contains('show')), { args: [sel], timeout: 8000 }); await sleep(350); };
 const pushStatus = (scope) => text(`${scope} [data-mesh-push-status]`);
-const waitStatus = (scope, re, timeout = 20000) => p.waitFor(`/${re}/i.test((document.querySelector(${JSON.stringify(scope + ' [data-mesh-push-status]')})||{innerText:''}).innerText)`, { timeout });
+const waitStatus = (scope, re, timeout = 20000) => p.waitFor((a0,a1)=>(new RegExp(a0,'i').test((document.querySelector(a1)||{innerText:''}).innerText)), { args: [re, scope + ' [data-mesh-push-status]'], timeout });
 
 // ------------------------------------------------------------------------------------------------ sign in
 await T('login: real form signs in', async () => {
@@ -430,7 +430,7 @@ await T('phone width, dark and light: nothing overflows the page', async () => {
     for (const [name, setup, sel, label] of surfaces) {
       await setup(); await sleep(500);
       if (!/dialog/i.test(label)) await noOverflow(`${label} ${theme ? 'dark' : 'light'} phone`);
-      else { const r = await p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const b=e.getBoundingClientRect();return {l:b.left,r:b.right,vw:document.documentElement.clientWidth}})()`); assert(r.l >= -1 && r.r <= r.vw + 1, `${label}: wider than the phone (${JSON.stringify(r)})`); }
+      else { const r = await p.call((a0)=>{const e=document.querySelector(a0);const b=e.getBoundingClientRect();return {l:b.left,r:b.right,vw:document.documentElement.clientWidth}}, sel); assert(r.l >= -1 && r.r <= r.vw + 1, `${label}: wider than the phone (${JSON.stringify(r)})`); }
       await shotEl(sel, `${name}-phone-${theme ? 'dark' : 'light'}`);
     }
   }

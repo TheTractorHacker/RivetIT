@@ -66,19 +66,19 @@ const noOverflow = async (label) => {
 };
 const setTheme = async (value) => {
   await go('/agent/user/user_preferences.php');
-  await p.eval(`(()=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')==='${value}');r.closest('label').click();})()`);
+  await p.call((a0)=>{const rs=[...document.querySelectorAll('input[name=dark_mode]')];const r=rs.find(x=>(x.getAttribute('value')||'0')===''+a0+'');r.closest('label').click();}, value);
   await p.clickNav('button[name=edit_your_user_preferences]');
 };
 // count window.confirm / alert calls (the panel must use in-page dialogs only)
 const trapDialogs = () => p.eval(`window.__dialogs = 0; window.confirm = window.alert = window.prompt = function () { window.__dialogs++; return true; }; true`);
 
 
-const pick = (sel, val) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.value=${JSON.stringify(String(val))};e.dispatchEvent(new Event('change',{bubbles:true}));return e.value})()`);
-const optionValue = (sel, text) => p.eval(`(()=>{const o=[...document.querySelector(${JSON.stringify(sel)}).options].find(x=>x.text.includes(${JSON.stringify(text)}));return o?o.value:null})()`);
-const setBody = (text) => p.eval(`(()=>{const e=document.getElementById('scr_body');e.value=${JSON.stringify(text)};e.dispatchEvent(new Event('input',{bubbles:true}));return e.value.length})()`);
+const pick = (sel, val) => p.call((a0,a1)=>{const e=document.querySelector(a0);e.value=a1;e.dispatchEvent(new Event('change',{bubbles:true}));return e.value}, sel, String(val));
+const optionValue = (sel, text) => p.call((a0,a1)=>{const o=[...document.querySelector(a0).options].find(x=>x.text.includes(a1));return o?o.value:null}, sel, text);
+const setBody = (text) => p.call((a0)=>{const e=document.getElementById('scr_body');e.value=a0;e.dispatchEvent(new Event('input',{bubbles:true}));return e.value.length}, text);
 const SECRET = 'SMOKE-SECRET-123';
 const saved = {};
-const waitText = (re, label) => p.waitFor(`/${re}/.test(document.body.innerText) || /${re}/.test(document.documentElement.innerHTML)`, { timeout: 12000, label: label || String(re) });
+const waitText = (re, label) => p.waitFor((a0)=>(new RegExp(a0).test(document.body.innerText) || new RegExp(a0).test(document.documentElement.innerHTML)), { args: [re], timeout: 12000, label: label || String(re) });
 const flash = () => p.eval(`(document.documentElement.innerHTML.match(/toastr\\["[a-z]+"\\]\\("([^"]*)"\\)/)||[])[1]||''`);
 const IDS = JSON.parse(readFileSync(process.env.RS_JSON, 'utf8')).ids;
 const php = (...args) => JSON.parse(execFileSync('php', [resolve('tests/browser/rmm_runscript_extra.php'), ...args], { env: process.env, encoding: 'utf8' }).split('\n').filter((l) => l.startsWith('{')).pop());
@@ -91,14 +91,14 @@ const openDialog = async (name) => {
   await sleep(450);
 };
 const choose = async (text) => {
-  const v = await p.eval(`(()=>{const o=[...document.querySelectorAll('#rmm-run-lib-script option')].find(x=>x.textContent.includes(${JSON.stringify(text)}));return o?o.value:null})()`);
+  const v = await p.call((a0)=>{const o=[...document.querySelectorAll('#rmm-run-lib-script option')].find(x=>x.textContent.includes(a0));return o?o.value:null}, text);
   assert(v, 'script not in the list: ' + text);
-  await p.eval(`(()=>{const s=document.getElementById('rmm-run-lib-script');s.value=${JSON.stringify(v)};s.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+  await p.call((a0)=>{const s=document.getElementById('rmm-run-lib-script');s.value=a0;s.dispatchEvent(new Event('change',{bubbles:true}))}, v);
   await sleep(150);
   return v;
 };
-const setVal = (sel, val) => p.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.value=${JSON.stringify(String(val))};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value})()`);
-const blockVisible = (id) => p.eval(`(()=>{const b=document.querySelector('.rmm-run-lib-block[data-script-id="${id}"]');return !!b&&!b.hidden&&b.getBoundingClientRect().height>0})()`);
+const setVal = (sel, val) => p.call((a0,a1)=>{const e=document.querySelector(a0);e.value=a1;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value}, sel, String(val));
+const blockVisible = (id) => p.call((a0)=>{const b=document.querySelector('.rmm-run-lib-block[data-script-id="'+a0+'"]');return !!b&&!b.hidden&&b.getBoundingClientRect().height>0}, id);
 
 await T('login: real form signs in', async () => {
   await go('/login.php');
@@ -137,9 +137,9 @@ await T('search filters the list live and announces the count; the parameter for
   await sleep(250);
   await choose('RS Disk report');
   assert(await blockVisible(IDS.read) && !(await blockVisible(IDS.change)), 'only the chosen script\'s block is visible');
-  assert((await p.eval(`document.querySelector('#rmm_rl${IDS.read}_top_n').type`)) === 'number' && (await p.eval(`document.querySelector('#rmm_rl${IDS.read}_api_token').type`)) === 'password', 'typed inputs: number and password');
-  assert(await p.eval(`document.querySelector('#rmm_rl${IDS.change}_dry_run').disabled`), 'the other script\'s fields are disabled (not posted)');
-  assert(/Read only/.test(await p.eval(`document.querySelector('.rmm-run-lib-block[data-script-id="${IDS.read}"]').innerText`)), 'risk badge');
+  assert((await p.call((a0)=>(document.querySelector('#rmm_rl'+a0+'_top_n').type), IDS.read)) === 'number' && (await p.call((a0)=>(document.querySelector('#rmm_rl'+a0+'_api_token').type), IDS.read)) === 'password', 'typed inputs: number and password');
+  assert(await p.call((a0)=>(document.querySelector('#rmm_rl'+a0+'_dry_run').disabled), IDS.change), 'the other script\'s fields are disabled (not posted)');
+  assert(/Read only/.test(await p.call((a0)=>(document.querySelector('.rmm-run-lib-block[data-script-id="'+a0+'"]').innerText), IDS.read)), 'risk badge');
   await shot('run-dialog-read-only-desktop-light');
 });
 
@@ -159,8 +159,8 @@ await T('a changing script defaults to "Dry run (nothing is changed)" ON; untick
   await openDialog('WIN1');
   await choose('RS Clean temp');
   const cb = `#rmm_rl${IDS.change}_dry_run`;
-  assert(await p.eval(`document.querySelector('${cb}').checked`), 'dry run starts ticked');
-  assert(/Dry run \(nothing is changed\)/.test(await p.eval(`document.querySelector('label[for="rmm_rl${IDS.change}_dry_run"]').textContent`)), 'label wording');
+  assert(await p.call((a0)=>(document.querySelector(''+a0+'').checked), cb), 'dry run starts ticked');
+  assert(/Dry run \(nothing is changed\)/.test(await p.call((a0)=>(document.querySelector('label[for="rmm_rl'+a0+'_dry_run"]').textContent), IDS.change)), 'label wording');
   await shot('run-dialog-dry-run-desktop-light');
   const before = (await job('change')).n;
   await p.clickNav('#rmm-run-lib-go');
@@ -180,7 +180,7 @@ await T('a changing script defaults to "Dry run (nothing is changed)" ON; untick
 await T('a script that needs approval goes to the approvals queue and the dialog says so', async () => {
   await openDialog('WIN1');
   await choose('RS Needs sign-off');
-  assert(/approvals queue/.test(await p.eval(`document.querySelector('.rmm-run-lib-block[data-script-id="${IDS.approval}"]').innerText`)), 'approval notice in the dialog');
+  assert(/approvals queue/.test(await p.call((a0)=>(document.querySelector('.rmm-run-lib-block[data-script-id="'+a0+'"]').innerText), IDS.approval)), 'approval notice in the dialog');
   const before = (await job('approval')).n, ap = (await php('approvals')).pending;
   await p.clickNav('#rmm-run-lib-go');
   await waitText('waiting under Approvals');
