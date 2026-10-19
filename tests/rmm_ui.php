@@ -369,6 +369,30 @@ $ok($lim['check_history_days'] === 365 && $lim['software_history_days'] === 1, '
 [$c, $body] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $SS['admin']);
 $ok($c === 200 && str_contains($body, 'id="inventory"') && str_contains($body, 'name="inventory_software"') && preg_match('/name="inventory_software"[^>]*checked/', $body) === 1 && str_contains($body, 'name="check_history_days"') && str_contains($body, 'name="software_history_days"'), 'the administration page shows the switch (on) and both limits');
 $ok($rmm->featureOn('inventory_software'), 'the inventory_software switch is on');
+// ---- 26.10.56: Administration > Endpoint agent is tabs; every card is still there exactly once, in the tab named for it, and nothing is printed inline
+$tabsOk = $c === 200 && substr_count($body, 'role="tab"') === 8 && substr_count($body, 'role="tabpanel"') === 8 && str_contains($body, 'id="ea-tablist"') && str_contains($body, '/js/rmm_ea_tabs.js');
+$ok($tabsOk, 'the Endpoint agent page has 8 tabs and 8 panels, and loads the tab script');
+$cardTabs = ['overview' => ['module', 'settings', 'pending', 'devices'], 'updates' => ['agent-updates', 'binaries', 'msi-templates', 'deployment', 'releases'], 'checks' => ['checks', 'cs_editor'], 'remote' => ['remote-tools', 'file-transfer', 'mesh'],
+    'inventory' => ['inventory', 'log-collection', 'scale', 'partitioning', 'ext-store'], 'patching' => ['patch-management'], 'software' => ['software-deployment'], 'security' => ['trust', 'automation', 'signing', 'tokens']];
+$panes = [];
+preg_match_all('/<div class="tab-pane ea-pane[^"]*" id="tab-([a-z]+)"(.*?)(?=<div class="tab-pane ea-pane|<script src="\/js\/rmm_ea_tabs\.js)/s', $body, $pm, PREG_SET_ORDER);
+foreach ($pm as $m) { $panes[$m[1]] = $m[2]; }
+$bad = [];
+foreach ($cardTabs as $tab => $ids) {
+    foreach ($ids as $id) {
+        if (substr_count($body, 'id="' . $id . '"') !== 1) { $bad[] = $id . ' x' . substr_count($body, 'id="' . $id . '"'); }
+        elseif (!str_contains($panes[$tab] ?? '', 'id="' . $id . '"')) { $bad[] = $id . ' not in ' . $tab; }
+    }
+}
+$ok($bad === [], 'every card id is on the page once, inside its tab' . ($bad ? ': ' . implode(', ', $bad) : ''));
+$ok(str_contains($panes['checks'] ?? '', 'form="ea_settings_form"') && str_contains($panes['security'] ?? '', 'name="ca_pem"') && str_contains($body, 'id="ea_settings_form"') && !str_contains($panes['checks'] ?? '', 'name="csrf_token"'),
+    'the check editor and the CA / coexistence fields belong to the settings form by id (form=), the form is printed once');
+$ok(!preg_match('/\son[a-z]+\s*=\s*["\']/i', $body), 'no inline event handlers on the Endpoint agent page');
+// a Save returns to its tab: ea_tab becomes the redirect; without it the Referer is used as before
+[$c, , $hd] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 7, 'software_history_days' => 365, 'ea_tab' => 'inventory']);
+$ok($c === 302 && preg_match('/^location:\s*\S*settings_endpoint_agent\.php#tab-inventory\s*$/mi', (string) $hd) === 1, 'a Save with ea_tab=inventory goes back to #tab-inventory (' . trim((string) preg_replace('/^.*?(location:[^\r\n]*).*$/si', '$1', (string) $hd)) . ')');
+[$c, , $hd] = $adm1(['save_inventory_settings' => 1, 'inventory_software' => '1', 'check_history_days' => 7, 'software_history_days' => 365, 'ea_tab' => 'bogus"><x']);
+$ok($c === 302 && !str_contains((string) $hd, 'bogus'), 'an unknown ea_tab value is ignored');
 
 // ---- webhook subscribed to rmm.*: the event bus adapter queues its deliveries
 $q("INSERT INTO webhooks SET webhook_name='rmm events', webhook_url='http://127.0.0.1:9/rmm', webhook_secret='', webhook_events='rmm.*', webhook_enabled=1");

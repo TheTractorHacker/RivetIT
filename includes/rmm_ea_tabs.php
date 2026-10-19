@@ -49,7 +49,7 @@ function rivetEaRenderTabs(array $buckets, array $dots, callable $h): string
 {
     $tabs = rivetEaTabList();
     $o = (string) ($buckets['top'] ?? '');
-    $o .= '<div id="ea-tabs" class="mb-3"><ul class="nav nav-tabs flex-nowrap overflow-auto" id="ea-tablist" role="tablist" aria-label="Endpoint agent settings" style="white-space:nowrap">';
+    $o .= '<div id="ea-tabs" class="mb-3"><ul class="nav nav-tabs flex-nowrap overflow-auto position-relative" id="ea-tablist" role="tablist" aria-label="Endpoint agent settings" style="white-space:nowrap">';
     $first = true;
     foreach ($tabs as $k => [$label, $icon]) {
         $dot = (string) ($dots[$k] ?? '');
