@@ -11411,3 +11411,75 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.176'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.176') {
+        // DB 2.6.177: RivetIT 26.10.57, Agent updates > Local build ("Build on my build host"). Four RivetIT-owned tables, CREATE TABLE IF NOT EXISTS, nothing existing is touched:
+        // the build hosts (token stored as a salted hash), the build jobs, and the quarantined upload bookkeeping (files and chunks). Empty and unused until an administrator adds a build host.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_build_hosts` (
+  `host_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(80) NOT NULL,
+  `token_prefix` char(16) NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `token_salt` char(32) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `last_seen_at` datetime DEFAULT NULL,
+  `last_ip` varchar(45) NOT NULL DEFAULT '',
+  `host_version` varchar(40) NOT NULL DEFAULT '',
+  `capabilities` varchar(120) NOT NULL DEFAULT '',
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `token_rotated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`host_id`),
+  UNIQUE KEY `token_prefix` (`token_prefix`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_build_jobs` (
+  `job_id` int(11) NOT NULL AUTO_INCREMENT,
+  `host_id` int(11) NOT NULL,
+  `version` varchar(40) NOT NULL,
+  `source_ref` varchar(60) NOT NULL DEFAULT 'main',
+  `provider` varchar(12) NOT NULL DEFAULT 'host',
+  `auto_publish` tinyint(1) NOT NULL DEFAULT 0,
+  `release_ring` varchar(10) NOT NULL DEFAULT '',
+  `rollout_pct` tinyint(3) NOT NULL DEFAULT 100,
+  `activate` tinyint(1) NOT NULL DEFAULT 0,
+  `offer` tinyint(1) NOT NULL DEFAULT 0,
+  `state` varchar(12) NOT NULL DEFAULT 'queued',
+  `note` varchar(500) NOT NULL DEFAULT '',
+  `log_tail` varchar(4200) NOT NULL DEFAULT '',
+  `manifest` text DEFAULT NULL,
+  `commit_sha` varchar(64) NOT NULL DEFAULT '',
+  `quarantine` char(32) NOT NULL,
+  `lease_expires_at` datetime DEFAULT NULL,
+  `last_status_at` datetime DEFAULT NULL,
+  `requested_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  `claimed_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`job_id`),
+  KEY `host_state` (`host_id`,`state`),
+  KEY `state` (`state`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_build_files` (
+  `file_id` int(11) NOT NULL AUTO_INCREMENT,
+  `job_id` int(11) NOT NULL,
+  `name` varchar(60) NOT NULL,
+  `storage_name` char(32) NOT NULL,
+  `chunk_total` int(11) NOT NULL,
+  `bytes` bigint(20) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`file_id`),
+  UNIQUE KEY `job_name` (`job_id`,`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_build_chunks` (
+  `file_id` int(11) NOT NULL,
+  `chunk_index` int(11) NOT NULL,
+  `size` int(11) NOT NULL,
+  `sha256` char(64) NOT NULL,
+  PRIMARY KEY (`file_id`,`chunk_index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $bh_res = mysqli_query($mysqli, "SHOW TABLES LIKE 'endpoint_agent_build_chunks'");
+        if ($bh_res && mysqli_num_rows($bh_res) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.177'");
+        }
+    }
