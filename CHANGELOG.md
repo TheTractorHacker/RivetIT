@@ -6,6 +6,17 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.56] RivetIT — Administration > Endpoint agent is now tabs (no database change)
+
+**Deploy notes:** pull this tag; nothing else (no database update, no RivetCore change, no new setting).
+
+- **Eight tabs instead of one long scroll.** Overview (status, the main switch and defaults, devices waiting for approval, devices), Agent updates (the GitHub list and Build a new version, agent binaries, MSI template, per-department installer, rings), Checks (the plain-language check schedule), Remote and Mesh (remote tools, file transfer, MeshCentral and a button to the setup page), Inventory and logs (software inventory, log collection, scale, partitioning, external store), Patching, Software deployment, Security and policy (CA certificate, coexistence policy, policies/scripts/alerting, signing key, enrollment tokens). Every card, form, field name and handler is unchanged; only where it is printed moved. The one-time enrollment token and the deployment commands still show above the tabs, whichever tab you are on.
+- **Accessible.** A real tab list (`role=tablist/tab/tabpanel`, `aria-selected`, `aria-controls`), Left/Right/Home/End move between tabs, and the bar scrolls sideways on a phone. Without JavaScript every part is shown one after the other, as before.
+- **The address remembers the tab.** `#tab-checks` opens Checks, and every old card anchor (`#inventory`, `#mesh`, `#binaries`, `#tokens`, the wizard's return links and the links from other pages) opens the tab that now holds it. A Save returns to the tab it was pressed in (each form posts a hidden `ea_tab`; a plain redirect goes back to `#tab-...`).
+- **Amber dots** on a tab when something needs attention: Overview (the service is off, the state file does not match, devices wait for approval), Agent updates (no agent published), Remote and Mesh (MeshCentral not set up), Security and policy (no usable enrollment token). The dot has a tooltip and a screen-reader text.
+- **The settings form now spans tabs.** The check schedule and the CA certificate / coexistence fields sit in Checks and Security and policy but still belong to the one "Service and defaults" form (HTML `form=` attribute), so one Save writes the same fields as before; each of the three tabs has its own Save button.
+- Tests: `tests/browser/rmm_eatabs_smoke.mjs` (13 checks in Chromium); `tests/rmm_ui.php`, `tests/rmm_ui_meshwizard.php`, `tests/endpoint_agent_feed.php` and `tests/endpoint_agent_build.php` updated or re-run. Files: `includes/rmm_ea_tabs.php`, `js/rmm_ea_tabs.js`, `js/rmm_check_schedule.js` (finds its form by id), `admin/settings_endpoint_agent.php`, `admin/post/settings_endpoint_agent.php`.
+
 ## [26.10.55] RivetIT — Build a new agent version from the Agent updates card (DB 2.6.176)
 
 **Deploy notes:** back up the database, pull this tag, then run the updater (`scripts/update_cli.php --update_db` or Administration > Update): **DB 2.6.175 to 2.6.176** creates one small table (`endpoint_agent_build`, `CREATE TABLE IF NOT EXISTS`, nothing existing is touched). No new RivetCore. For "publish when built" to work while nobody has the page open, add the five-minute job (new installs get it from `deploy/install.sh`; existing installs add one line to their cron.d file: `*/5 * * * * www-data /usr/bin/php <app>/cron/agent_build_check.php >> <a log file that exists and www-data can write> 2>&1`). It exits at once when no build is running. Nothing else to configure: without a GitHub token the box still works as a guided link to GitHub.
