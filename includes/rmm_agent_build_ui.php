@@ -59,6 +59,10 @@ function rivetAgentBuildBox($mysqli, array $releases, string $repo, bool $pilot,
             $o .= '<div class="mt-1" id="af-build-auto">Publish automatically: ' . $h(['pending' => 'waiting for the build', 'running' => 'publishing now', 'done' => 'done', 'failed' => 'did not finish'][$row['auto_state']] ?? $row['auto_state'])
                 . ($row['auto_note'] !== '' ? '. ' . $h($row['auto_note']) : '') . '</div>';
         }
+        $gsteps = $row['run_state'] === 'building' ? rivetAgentBuildSteps($row) : [];
+        if ($gsteps !== []) {   // the steps of the running GitHub job, as the same checklist the build host shows, with a percent estimate (finished steps out of all steps)
+            $o .= '<div class="mt-1" id="af-build-steps" data-bh-progress="1"><div class="fw-semibold">GitHub is building</div>' . rivetBuildProgressBar(rivetAgentBuildStepsPct($gsteps), 'Build progress (estimate)', true) . rivetBuildChecklist($gsteps) . '</div>';
+        }
     } else {
         $o .= '<span id="af-build-note" class="text-muted">No build was started from this page yet.</span>';
     }

@@ -197,7 +197,26 @@ $scn(['token' => $TOKEN, 'runs' => [$run('in_progress', null)]]);
 $actReset();
 $p = $poll();
 $a = $actions();
-$ok($p['state'] === 'building' && count($a) === 1 && $a[0]['path'] === '/repos/TheTractorHacker/rivet-core/actions/runs/4242', 'building: once the run number is known GET /actions/runs/{id} is used');
+$ok($p['state'] === 'building' && count($a) === 2 && $a[0]['path'] === '/repos/TheTractorHacker/rivet-core/actions/runs/4242' && $a[1]['path'] === '/repos/TheTractorHacker/rivet-core/actions/runs/4242/jobs', 'building: once the run number is known GET /actions/runs/{id} is used, then its jobs for the checklist');
+$ok($row()['run_steps'] === '', 'a jobs answer without steps stores no checklist');
+// ---- the job steps become a checklist with a percent estimate
+$stp = fn (string $n, string $st, ?string $c = null) => ['name' => $n, 'status' => $st, 'conclusion' => $c];
+$scn(['token' => $TOKEN, 'runs' => [$run('in_progress', null)], 'jobs' => [['name' => 'build', 'steps' => [$stp('Set up job', 'completed', 'success'), $stp("Check out <b>code</b>\n", 'completed', 'success'), $stp('Build agents', 'in_progress'), $stp('Build MSI', 'queued'), $stp(str_repeat('L', 90), 'queued')]], ['name' => 'other', 'steps' => [$stp('IGNORED', 'queued')]]]]);
+$p = $poll();
+$st = rivetAgentBuildSteps($row());
+$ok($p['changed'] && count($st) === 5 && $st[0] === ['Set up job', 'done'] && $st[2] === ['Build agents', 'active'] && $st[3][1] === 'pending' && strlen($st[4][0]) === 60 && !str_contains(json_encode($st), 'IGNORED') && !str_contains($st[1][0], "\n"), 'steps of the first job are stored: done / active / pending, names printable and capped');
+$ok(rivetAgentBuildStepsPct($st) === 40, 'the percent estimate is finished steps out of all steps (2 of 5 = 40)');
+$ui = rivetAgentBuildBox($db, [], 'TheTractorHacker/rivet-core', false, ['csrf' => 'x', 'module_on' => true, 'service_ok' => true]);
+$ok(str_contains($ui, 'id="af-build-steps"') && str_contains($ui, 'about </div>') === false && str_contains($ui, 'about 40%') && str_contains($ui, 'aria-valuenow="40"') && substr_count($ui, 'fa-spinner') === 1 && str_contains($ui, 'Build agents') && !str_contains($ui, 'IGNORED') && str_contains($ui, 'Check out &lt;b&gt;'),
+    'the GitHub box shows the steps as the same checklist with an "about 40%" bar; names are escaped');
+$p = $poll(); $ok(!$p['changed'], 'an identical answer is not a change');
+$scn(['token' => $TOKEN, 'runs' => [$run('in_progress', null)], 'jobs_status' => 500]);
+$p = $poll(); $ok(count(rivetAgentBuildSteps($row())) === 5, 'a failing jobs call keeps the last checklist');
+$scn(['token' => $TOKEN, 'runs' => [$run('in_progress', null)], 'jobs' => [['steps' => [['name' => ['x'], 'status' => 5], 'junk', ['name' => '', 'status' => 'completed']]]]]);
+$p = $poll(); $ok(count(rivetAgentBuildSteps($row())) === 5, 'unusable steps are skipped and keep the last checklist');
+$q("UPDATE endpoint_agent_build SET run_steps = '" . $esc('[["x","done"],["y","evil"],[5,"done"],"z"]') . "'");
+$ok(rivetAgentBuildSteps($row()) === [['x', 'done']], 'a tampered stored checklist is validated on the way out');
+$scn(['token' => $TOKEN, 'runs' => [$run('in_progress', null)]]);
 $url = rivetAgentBuildRunUrl($row());
 $ok($url === 'https://github.com/TheTractorHacker/rivet-core/actions/runs/4242' && !str_contains($url, 'evil'), 'the link to the run is built here from repo and number, GitHub\'s html_url is ignored');
 $scn(['token' => $TOKEN, 'runs' => [$run('completed', 'failure')]]);
