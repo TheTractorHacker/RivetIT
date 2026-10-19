@@ -36,7 +36,7 @@ $stepBlock = function (string $gate) use ($upd): string {
 };
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.144') {") !== false && strpos($upd, "'2.6.145'") !== false, 'the migration is gated 2.6.144 -> 2.6.145');
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.145') {") !== false && strpos($upd, "'2.6.146'") !== false, 'the deployment migration is gated 2.6.145 -> 2.6.146');
-$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables) + 2, 'every migration CREATE is IF NOT EXISTS (idempotent; the +2 are the Agent updates tables of 2.6.175)');
+$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables) + 3, 'every migration CREATE is IF NOT EXISTS (idempotent; the +3 are the Agent updates tables of 2.6.175 and the build table of 2.6.176)');
 $ok(strpos($upd, 'ALTER TABLE `settings` ADD COLUMN') === false || strpos(substr($upd, strpos($upd, "== '2.6.144'"), strpos($upd, "== '2.6.147'") - strpos($upd, "== '2.6.144'")), 'ALTER TABLE `settings`') === false, 'the 2.6.144 to 2.6.146 blocks add no column to the nearly full settings table');
 
 // run the migration again on top of live data: nothing is lost or duplicated
@@ -258,5 +258,27 @@ for ($run = 1; $run <= 2; $run++) {
         foreach ($feedTables as $t) { $same = $same && $feedCols($t) === $feedSqlCols[$t]; }
         $ok($same && (int) $one('SELECT COUNT(*) FROM endpoint_agent_feed') === 1 && (string) $one('SELECT repo FROM endpoint_agent_feed WHERE id = 1') === 'TheTractorHacker/rivet-core' && (int) $one('SELECT COUNT(*) FROM endpoint_agent_linux_assets') === 0,
             'replay 2: the two missing tables are created again with the db.sql columns and the feed row is seeded with the default repository');
+    }
+}
+
+// ---- DB 2.6.176 (RivetIT 26.10.55, Build a new version): one RivetIT-owned table, endpoint_agent_build (one row: encrypted GitHub token, the build in progress, publish-when-built)
+$ok(version_compare(LATEST_DATABASE_VERSION, '2.6.176', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.176 (' . LATEST_DATABASE_VERSION . ')');
+$step176 = $stepBlock('2.6.175');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.175') {") !== false && strpos($step176, "'2.6.176'") !== false && strpos($step176, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_build`') !== false
+    && strpos($step176, 'DROP ') === false && strpos($step176, 'ALTER ') === false, 'the 2.6.176 step is gated on 2.6.175, only creates the table IF NOT EXISTS (no DROP, no ALTER) and advances the version only when it exists');
+$ok(preg_match('/CREATE TABLE IF NOT EXISTS `endpoint_agent_build` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $bm) === 1, 'db.sql defines endpoint_agent_build');
+preg_match_all('/^  `([a-z_0-9]+)` /m', $bm[1] ?? '', $bc);
+$ok($bc[1] !== [] && $bc[1] === $feedCols('endpoint_agent_build'), 'db.sql and the migrated schema agree on the columns of endpoint_agent_build');
+$ok((int) $one('SELECT COUNT(*) FROM endpoint_agent_build') === 1 && (string) $one('SELECT gh_token FROM endpoint_agent_build WHERE id = 1') === '', 'the build table has its one row and no token');
+for ($run = 1; $run <= 2; $run++) {
+    if ($run === 2) { $q('DROP TABLE endpoint_agent_build'); }
+    $q("UPDATE endpoint_agent_build SET build_version='9.9.9' WHERE id = 1");
+    $q("UPDATE settings SET config_current_database_version='2.6.175' WHERE company_id=1");
+    shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
+    $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.176 replay $run lands on the latest version");
+    if ($run === 1) {
+        $ok((string) $one('SELECT build_version FROM endpoint_agent_build WHERE id = 1') === '9.9.9' && (int) $one('SELECT COUNT(*) FROM endpoint_agent_build') === 1, 'replay 1 (table present): the row is kept, nothing duplicated');
+    } else {
+        $ok((int) $one('SELECT COUNT(*) FROM endpoint_agent_build') === 1 && $feedCols('endpoint_agent_build') === $bc[1], 'replay 2: the missing table is created again with the db.sql columns and its row is seeded');
     }
 }
