@@ -512,7 +512,7 @@ function rivetRmmRemMeshHtml(array $v): string
     }
     $o .= rivetRmmMeshPushControls($v['mesh_push'] ?? null);   // rc.16: Install / Remove MeshCentral agent (Core decides whether the install is offered)
     if (empty($m['configured'])) {
-        return $o . '<p class="mb-0 text-muted mt-2">MeshCentral is not configured.' . ($v['admin'] ? ' <a href="/admin/settings_endpoint_agent.php">Set it up under Administration &gt; Endpoint agent</a>.' : ' An administrator can set it up.') . '</p>';
+        return $o . '<p class="mb-0 text-muted mt-2">MeshCentral is not configured.' . ($v['admin'] ? ' <a href="/admin/settings_mesh_wizard.php" id="rmm-mesh-setup-link">Set it up step by step under Administration &gt; Remote access (MeshCentral) setup</a>.' : ' An administrator can set it up under Administration &gt; Remote access (MeshCentral) setup.') . '</p>';
     }
     if (empty($m['mapped'])) {
         return $o . '<p class="mb-0 text-muted">This device is not mapped to a MeshCentral node yet. An administrator can map it in the Remote access card on the Overview tab.</p>';

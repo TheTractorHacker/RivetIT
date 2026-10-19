@@ -67,6 +67,7 @@ $admin_settings_labels = [
     'comet_status.php' => 'Integrations',
     'settings_rmm.php' => 'Integrations',
     'settings_endpoint_agent.php' => 'Endpoint agent',
+    'settings_mesh_wizard.php' => 'Remote access (MeshCentral) setup',
     'settings_unifi.php' => 'Integrations',
     'settings_manageengine_mdm.php' => 'Integrations',
 ];

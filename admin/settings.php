@@ -54,6 +54,7 @@ $settings_groups = [
         'items' => [
             ['Integrations', 'RMM, backups, UniFi, and directory sync.', 'settings_integrations.php', 'fa-plug'],
             ['Endpoint agent', 'The built-in RMM module and Windows agent: the on/off switch, enrollment, devices, jobs, updates and MeshCentral remote access.', 'settings_endpoint_agent.php', 'fa-satellite'],
+            ['Remote access (MeshCentral) setup', 'Step-by-step help to connect your MeshCentral server, create the device group, trust its certificate and test Remote on a device.', 'settings_mesh_wizard.php', 'fa-desktop'],
             ['Calendar sync', 'Connect Outlook calendars.', 'settings_calendar_sync.php', 'fa-calendar-alt'],
             ['Webhooks', 'Send events to other systems.', 'settings_webhooks.php', 'fa-satellite-dish'],
             ['AI', 'Configure AI features.', 'settings_ai.php', 'fa-robot'],

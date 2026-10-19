@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/rmm_ui.php';
 require_once __DIR__ . '/rmm_installer.php';
+require_once __DIR__ . '/rmm_mesh_wizard.php';   // 26.10.54: RIVET_RMM_MESH_WIZARD_URL (also loads rmm_mesh_cards.php)
 require_once __DIR__ . '/rmm_mesh_cards.php';   // rc.12: the device's Mesh agent state (installed / version / node id / error, conflict and kept-by-hand hints)
 // RMM Phase 2 and 3 sections of the asset page (RivetCore 1.0.0-rc.10). Each file defines the section hooks used by rivetRmmUiTabs() below.
 foreach (['rmm_pol_ui.php', 'rmm_scr_ui.php', 'rmm_alr_ui.php', 'rmm_rem_ui.php', 'rmm_log_ui.php', 'rmm_pat_ui.php', 'rmm_sw_ui.php'] as $__rmm_p23) {
@@ -209,7 +210,11 @@ function rivetRmmUiStrip(array $vm): string
     if ($vm['mesh']['configured']) {
         $remoteReason = !$perm['remote'] ? 'Your role cannot open remote sessions.' : (!$vm['mesh']['mapped'] ? 'An administrator maps this device to a MeshCentral node first.'
             : (!$dev ? 'The device is not approved or no longer active.' : 'Available after the first check-in.'));
-        $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', $perm['remote'] && $vm['mesh']['mapped'] && $dev && !$never, $remoteReason);
+        $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', $perm['remote'] && $vm['mesh']['mapped'] && $dev && !$never, $remoteReason);    } elseif (!empty($perm['admin'])) {
+        // 26.10.54: MeshCentral is not set up: the Remote button leads an administrator to the step-by-step page instead of vanishing
+        $actions .= '<a class="btn btn-outline-success btn-sm" id="rmm-act-remote-setup" href="' . RIVET_RMM_MESH_WIZARD_URL . '"><i class="fas fa-desktop me-1" aria-hidden="true"></i>Set up remote access</a>';
+    } else {
+        $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', false, 'Remote access is not set up yet. Ask an administrator to open Administration > Remote access (MeshCentral) setup.');
     }
     $more = '';
     if ($perm['run_saved'] && $dev && !$never) {

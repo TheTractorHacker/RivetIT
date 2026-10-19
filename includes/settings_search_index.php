@@ -87,6 +87,7 @@ function getSettingsSearchIndex(): array {
              ]],
          ]],
         ['label' => 'Endpoint agent',           'keywords' => ['agent', 'endpoint', 'rmm', 'meshcentral', 'enrollment', 'remote', 'windows'],        'url' => '/admin/settings_endpoint_agent.php',    'visible' => true],
+        ['label' => 'Remote access (MeshCentral) setup', 'keywords' => ['meshcentral', 'mesh', 'remote', 'remote access', 'wizard', 'login token', 'device group', 'certificate', 'pin'], 'url' => '/admin/settings_mesh_wizard.php', 'visible' => true],
         ['label' => 'Webhooks',                'keywords' => ['webhook', 'api', 'delivery log'],                                       'url' => '/admin/settings_webhooks.php',           'visible' => true],
         ['label' => 'RMM Integration',         'keywords' => ['rmm', 'remote monitoring', 'tactical', 'level.io', 'sophos', 'action1', 'connectwise', 'client mapping', 'needs mapping', 'stale assets', 'retire'], 'url' => '/admin/settings_integrations.php?tab=rmm', 'visible' => true],
         ['label' => 'Backups Integration',     'keywords' => ['backup', 'comet'],                                                      'url' => '/admin/settings_integrations.php?tab=backups', 'visible' => true],

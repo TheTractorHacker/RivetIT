@@ -2,6 +2,7 @@
 require_once "includes/inc_all_admin.php";
 
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+require_once dirname(__DIR__) . '/includes/rmm_mesh_wizard.php';       // 26.10.54: the Remote access (MeshCentral) setup page and its link (also loads rmm_mesh_cards.php)
 require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';       // rc.12: the Mesh agent install settings (printed in the MeshCentral card) and the device's Mesh state
 require_once dirname(__DIR__) . '/includes/rmm_check_schedule_ui.php';   // 26.10.53: the plain-language check options
 require_once dirname(__DIR__) . '/includes/rmm_installer.php';       // rivetRmmInstallerMesh(): is the optional MeshCentral agent tick-box offered
@@ -63,7 +64,8 @@ $serviceUrlHint = 'https://' . $config_base_url;
 <div class="card mb-3">
     <div class="card-header py-3 d-flex align-items-center justify-content-between">
         <h3 class="card-title mb-0"><i class="fas fa-fw fa-satellite me-2"></i>Endpoint agent</h3>
-        <span class="badge bg-<?= $cfg['enabled'] ? 'success' : 'secondary' ?> fs-6"><?= $cfg['enabled'] ? 'On' : 'Off' ?></span>
+        <span class="d-flex align-items-center gap-2"><?= rivetRmmMeshWizardLink('Remote access (MeshCentral) setup') ?>
+        <span class="badge bg-<?= $cfg['enabled'] ? 'success' : 'secondary' ?> fs-6"><?= $cfg['enabled'] ? 'On' : 'Off' ?></span></span>
     </div>
     <div class="card-body">
         <p class="text-muted mb-2">The built-in Windows agent reports inventory, health and checks, runs controlled maintenance jobs and links each endpoint to its asset. Remote access uses your MeshCentral server. Enrolling an agent is optional per device: Tactical RMM, Level, Action1 and Sophos links keep working beside it.</p>
