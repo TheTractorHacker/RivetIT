@@ -71,6 +71,13 @@ await T('Add device dialog has a Create installer button to the full page', asyn
 });
 
 await T('wizard: five steps, amber where nothing is saved, reachable from the Endpoint agent header', async () => {
+  await go('/admin/settings_mesh_wizard.php');   // a re-run on the same install: remove a group saved by an earlier run, the way a person does
+  await p.waitSel('#mw-root');
+  if (await p.eval(`!!document.getElementById('mw-clear-group')`)) {
+    await p.eval(`window.confirm = () => true`);
+    await p.clickNav('#mw-clear-group');
+    await p.waitSel('#mw-root');
+  }
   await go('/admin/settings_endpoint_agent.php');
   await p.waitSel('#rmm-mesh-wizard-link');
   await p.clickNav('#rmm-mesh-wizard-link');
@@ -96,14 +103,15 @@ await T('wizard step 1: type the address and the key, Save and test connection: 
   await shot('wizard-step1-done-desktop');
 });
 
-await T('wizard step 2: the whole pasted download address is accepted; step 4 turns green; the id is never shown', async () => {
+await T('wizard step 2: the whole pasted download address is accepted; step 4 explains why it stays amber on an http stub; the id is never shown', async () => {
   const id = 'A'.repeat(30) + '@$' + 'b'.repeat(32);
   await go('/admin/settings_mesh_wizard.php');
   await p.waitSel('#mw_group');
   await fill('#mw_group', `${STUB}/meshagents?id=4&meshid=${id}&installflags=0`);
   await p.clickNav('#mw-save-group');
   await p.waitSel('#mw-root');
-  assert((await badge(2)) === 'ok' && (await badge(4)) === 'ok', 'steps 2 and 4: ' + (await badge(2)) + ' ' + (await badge(4)));
+  // the stub is plain http, so step 4 correctly stays amber and says the address must start with https://
+  assert((await badge(2)) === 'ok' && (await badge(4)) === 'todo' && /https/.test(await text('#mw-sum-4')), 'steps 2 and 4: ' + (await badge(2)) + ' ' + (await badge(4)) + ' ' + (await text('#mw-sum-4')));
   assert(!(await p.eval('document.body.innerHTML')).includes(id), 'the group id is printed back');
 });
 
