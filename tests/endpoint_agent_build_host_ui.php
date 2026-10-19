@@ -109,6 +109,7 @@ $ok(substr_count($t, 'data-bh-steps') === 1 && preg_match_all('~fa-check-circle 
     'the checklist has seven stages: two done, one active, four waiting');
 $ok(!str_contains($t, '<b>go build') && !str_contains($t, 'go build'), 'the detail text from the host is not shown for a build stage (display text is never trusted)');
 $q("UPDATE endpoint_agent_build_jobs SET progress_stage='upload', progress_pct=88, progress_detail='7 of 23' WHERE job_id = $jid");
+$q("UPDATE endpoint_agent_build_jobs SET progress_detail='chunk 7 of 23' WHERE job_id = $jid");
 $t = $live(); $ok(str_contains($t, 'Uploading 7 of 23') && str_contains($t, 'aria-valuenow="88"'), 'uploading: "Uploading 7 of 23"');
 foreach (['7 of <script>', '9999999 of 2', '30 of 2', 'x' . str_repeat('9', 100)] as $bad) {
     $q("UPDATE endpoint_agent_build_jobs SET progress_detail='" . $esc($bad) . "' WHERE job_id = $jid"); $t = $live();

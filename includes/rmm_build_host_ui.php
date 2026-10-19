@@ -81,7 +81,7 @@ function rivetBuildHostProgressBlock(array $j): string
     $end = $j['finished_at'] ?? null;
     $elapsed = is_string($start) && $start !== '' ? ((is_string($end) && $end !== '' ? (int) strtotime($end . ' UTC') : time()) - (int) strtotime($start . ' UTC')) : null;
     $upload = null;
-    if (preg_match('/^(?:Uploading )?(\d{1,4}) ?(?:of|\/) ?(\d{1,4})$/', (string) ($j['progress_detail'] ?? ''), $m) === 1 && (int) $m[1] <= (int) $m[2]) {
+    if (preg_match('/^(?:Uploading |[Cc]hunk )?(\d{1,4}) ?(?:of|\/) ?(\d{1,4})$/', (string) ($j['progress_detail'] ?? ''), $m) === 1 && (int) $m[1] <= (int) $m[2]) {
         $upload = 'Uploading ' . (int) $m[1] . ' of ' . (int) $m[2];
     }
     $o = '<div class="mt-1" data-bh-progress="1">';
