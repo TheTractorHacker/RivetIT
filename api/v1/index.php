@@ -127,6 +127,12 @@ if ($resource === 'agent_enroll' || $resource === 'agent_checkin' || $resource =
     exit;
 }
 
+// Build host endpoints (Agent updates > Local build): authenticated ONLY by a build host token, never by an API key. Routed above the Bearer parsing and the pre-auth body read.
+if ($resource === 'build_host') {
+    require __DIR__ . '/build_host.php';
+    exit;
+}
+
 // All other endpoints require Bearer token
 $api_token_row  = null;
 $api_user_id    = null;
