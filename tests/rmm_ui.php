@@ -672,6 +672,13 @@ foreach (glob(__DIR__ . '/rmm_ui_addevice*.php') ?: [] as $__ad) {
     require $__ad;
 }
 
+// ============================================================ RivetIT 26.10.54 (Create installer button, Remote access (MeshCentral) setup wizard): tests/rmm_ui_meshwizard*.php. Same contract; it puts the Mesh settings back.
+$rmm->admin()->enable($admin);
+foreach (glob(__DIR__ . '/rmm_ui_meshwizard*.php') ?: [] as $__mw) {
+    echo "---- " . basename($__mw) . "\n";
+    require $__mw;
+}
+
 // ============================================================ RivetCore 1.0.0-rc.16 (the pushed MeshCentral agent install, the MSI installer): the sections live in tests/rmm_ui_rc16_*.php
 // Same contract as the fragments above (shared variables, module on, run in file-name order). They put the Mesh settings, the remote-tools switch, the service address and the MSI templates back.
 // This block runs BEFORE the rc.12/rc.13 block on purpose: tests/rmm_ui_rc13_starter.php ends the whole script (itflow_render_denied() exits) at its 'page gate' check, so nothing placed after it would run.
