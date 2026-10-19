@@ -162,6 +162,7 @@
         var done = function () { var l = b.getAttribute('data-label') || b.textContent; b.setAttribute('data-label', l); b.textContent = 'Copied'; setTimeout(function () { b.textContent = l; }, 2000); };
         if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(src.value).then(done, function () { src.select(); }); } else { src.select(); try { document.execCommand('copy'); done(); } catch (x) { /* selected for Ctrl+C */ } }
     });
+    card.addEventListener('focusin', function (e) { var t = e.target; if (t && t.readOnly && (t.id === 'af-bh-token' || t.id === 'af-bh-conf') && t.select) { t.select(); } });
     var ltimer = null;
     function watchLocal() {
         var box = document.getElementById('af-build-local');

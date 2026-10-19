@@ -45,7 +45,7 @@ function rivetBuildHostReveal(array $r): string
     $cmd = 'sudo install -m 0600 /dev/null ' . RIVET_BH_CONF_PATH . " && sudo tee " . RIVET_BH_CONF_PATH . " >/dev/null <<'EOF'\n" . $conf . "EOF";
 
     return '<div class="alert alert-warning mb-3" id="af-bh-reveal" role="alert" data-af-reveal="1"><div class="fw-semibold mb-1"><i class="fas fa-key me-1" aria-hidden="true"></i>Token for build host &ldquo;' . $h($r['name']) . '&rdquo;. Copy it now: it is shown only once.</div>'
-        . '<div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="af-bh-token" readonly value="' . $h($r['token']) . '" aria-label="Build host token" onfocus="this.select()">'
+        . '<div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="af-bh-token" readonly value="' . $h($r['token']) . '" aria-label="Build host token">'
         . '<button class="btn btn-outline-secondary" type="button" data-af-copy="af-bh-token" id="af-bh-copy"><i class="fas fa-copy me-1" aria-hidden="true"></i>Copy</button></div>'
         . '<div class="small">Set up the build host (about five minutes). On the Linux machine that will build:</div>'
         . '<ol class="small ps-3 mb-2"><li>Install Docker and git, and get the build script from <a href="' . $h(RIVET_BH_DOCS_URL) . '" target="_blank" rel="noopener noreferrer">the build host guide</a> (<code>endpoint-agent/scripts/build-host.sh</code>, the service and the timer).</li>'

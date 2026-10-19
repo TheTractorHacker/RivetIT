@@ -28,6 +28,14 @@ require_once dirname(__DIR__) . '/includes/rmm_agent_build.php';
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
+// builds on a build host (26.10.57): expire stale jobs and drop old quarantine files
+require_once dirname(__DIR__) . '/includes/rmm_build_host.php';
+if (rivetBuildHostReady($mysqli)) {
+    $bhExpired = rivetBuildHostSweep($mysqli);
+    if ($bhExpired > 0) {
+        echo date('Y-m-d H:i:s') . " build host jobs expired: $bhExpired\n";
+    }
+}
 if (!rivetAgentBuildReady($mysqli)) {
     exit(0);
 }
