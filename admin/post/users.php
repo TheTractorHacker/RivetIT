@@ -14,6 +14,14 @@ if (isset($_POST['add_user'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     require_once 'user_model.php';
+    require_once 'user_validate.php';
+
+    // Name and e-mail must be usable, and the e-mail must not already belong to another staff account (logins are looked up by e-mail).
+    $user_form_error = userFormError($mysqli, $name, $email, 0);
+    if ($user_form_error !== null) {
+        flash_alert($user_form_error, 'error');
+        redirect();
+    }
 
     // Staff password policy: length, not the name / email, optional breach check
     $policy_error = secPasswordPolicyError(trim((string) ($_POST['password'] ?? '')), ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))], $mysqli);
@@ -111,8 +119,16 @@ if (isset($_POST['edit_user'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     require_once 'user_model.php';
+    require_once 'user_validate.php';
 
     $user_id = intval($_POST['user_id']);
+
+    // Name and e-mail must be usable, and the e-mail must not already belong to another staff account (logins are looked up by e-mail).
+    $user_form_error = userFormError($mysqli, $name, $email, $user_id);
+    if ($user_form_error !== null) {
+        flash_alert($user_form_error, 'error');
+        redirect();
+    }
     $new_password = trim($_POST['new_password']);
     if ($new_password !== '') {
         $policy_error = secPasswordPolicyError($new_password, ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))], $mysqli);

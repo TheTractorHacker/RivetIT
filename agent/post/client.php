@@ -15,6 +15,7 @@ if (isset($_POST['add_client'])) {
     enforceUserPermission('module_client', 2);
 
     require_once 'client_model.php';
+    require_once 'client_validate.php';
 
     // Locations - optional, links to any number of EXISTING locations
     // (department_sites) rather than typing a fresh address inline every
@@ -255,6 +256,7 @@ if (isset($_POST['edit_client'])) {
     enforceUserPermission('module_client', 2);
 
     require_once 'client_model.php';
+    require_once 'client_validate.php';
 
     $client_id = intval($_POST['client_id']);
 
