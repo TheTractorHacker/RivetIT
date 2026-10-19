@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy/install.sh (RivetIT 26.10.58): the RMM Agent Builder question and flags. Extracts maybe_install_build_host and normalize_yes_no and runs them with a stub helper.
-# shellcheck disable=SC2329,SC2034
+# shellcheck disable=SC2329,SC2034,SC1091,SC2319
 set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 P=0; F=0
