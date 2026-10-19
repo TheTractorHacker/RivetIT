@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.57] RivetIT — Build on my build host (DB 2.6.177)
+
+**Deploy notes:** pull this tag, then run the database update (Administration > Updates, or `php scripts/update_cli.php --update_db`): it adds four small tables (`endpoint_agent_build_hosts`, `_build_jobs`, `_build_files`, `_build_chunks`). No RivetCore change, no nginx change (the new endpoints live under the existing `/api/v1/` catch-all as `/api/v1/build_host/{poll,status,upload,complete}`). Uploads are kept under `backups/rmm-build/` (the denied backups area; make sure the web user can create it). The existing cron `cron/agent_build_check.php` also expires stale build host jobs.
+
+- **A second way to build a new agent version.** Agent updates > Build a new version now asks "Build on GitHub" or "Build on my build host". A build host is a Linux machine you control (Docker + git) running the Core script `endpoint-agent/scripts/build-host.sh` from a timer. It only makes outgoing requests; this server needs no compiler and accepts no inbound connection to the host.
+- **Local build section.** Add build host (the token is shown once with a copy button, the exact config file and install command with this server's address), the host list (status dot, last seen, enable / disable / new token / delete), "Build on this host" (version, branch or tag, optional publish when built with the ring and rollout), the job list with live progress, the log tail of a failed build, Cancel, and Publish for a build that stopped at "Built, not published".
+- **Server rules.** The token authenticates only the four build endpoints (stored as a salted hash, compared in constant time, revocable), every call is rate limited and audited. Uploads are chunked (1 MiB), land in a random-named per-job quarantine folder under fixed file names, with per-file and per-job caps; the server re-hashes everything, checks the manifest and SHA256SUMS, runs the existing executable / architecture / MSI validators, checks the version string inside both executables, and only then publishes through the same code as the upload form. A job expires after 60 minutes without a status call; a verified build nobody publishes is removed after a day.
+- Tests: `tests/endpoint_agent_build_host.php` (a mock build host against the real endpoints), `tests/endpoint_agent_build_host_ui.php`, browser smoke `tests/browser/rmm_buildhost_smoke.mjs`; the real Core script was also run end to end against a scratch install.
+
 ## [26.10.56] RivetIT — Administration > Endpoint agent is now tabs (no database change)
 
 **Deploy notes:** pull this tag; nothing else (no database update, no RivetCore change, no new setting).
