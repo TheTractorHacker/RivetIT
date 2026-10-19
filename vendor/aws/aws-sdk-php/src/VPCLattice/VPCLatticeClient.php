@@ -62,16 +62,15 @@ use Aws\AwsClient;
  * @method \Aws\Result createResourceConfiguration(array $args = [])
  * @phpstan-method \Aws\Result createResourceConfiguration(array{
  *     name?: string,
- *     type?: 'ARN'|'CHILD'|'CIDR'|'GROUP'|'SINGLE',
+ *     type?: 'ARN'|'CHILD'|'GROUP'|'SINGLE',
  *     portRanges?: list<string>,
- *     protocol?: 'TCP'|'TCP_UDP',
+ *     protocol?: 'TCP',
  *     resourceGatewayIdentifier?: string,
  *     resourceConfigurationGroupIdentifier?: string,
  *     resourceConfigurationDefinition?: array{
  *         dnsResource?: array{domainName?: string, ipAddressType?: 'DUALSTACK'|'IPV4'|'IPV6', ...},
  *         ipResource?: array{ipAddress?: string, ...},
  *         arnResource?: array{arn?: string, ...},
- *         cidrResource?: array{cidrRanges?: list<string>, ...},
  *         ...,
  *     },
  *     allowAssociationToShareableServiceNetwork?: bool,
@@ -85,16 +84,15 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise createResourceConfigurationAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise createResourceConfigurationAsync(array{
  *     name?: string,
- *     type?: 'ARN'|'CHILD'|'CIDR'|'GROUP'|'SINGLE',
+ *     type?: 'ARN'|'CHILD'|'GROUP'|'SINGLE',
  *     portRanges?: list<string>,
- *     protocol?: 'TCP'|'TCP_UDP',
+ *     protocol?: 'TCP',
  *     resourceGatewayIdentifier?: string,
  *     resourceConfigurationGroupIdentifier?: string,
  *     resourceConfigurationDefinition?: array{
  *         dnsResource?: array{domainName?: string, ipAddressType?: 'DUALSTACK'|'IPV4'|'IPV6', ...},
  *         ipResource?: array{ipAddress?: string, ...},
  *         arnResource?: array{arn?: string, ...},
- *         cidrResource?: array{cidrRanges?: list<string>, ...},
  *         ...,
  *     },
  *     allowAssociationToShareableServiceNetwork?: bool,
@@ -632,7 +630,6 @@ use Aws\AwsClient;
  *         dnsResource?: array{domainName?: string, ipAddressType?: 'DUALSTACK'|'IPV4'|'IPV6', ...},
  *         ipResource?: array{ipAddress?: string, ...},
  *         arnResource?: array{arn?: string, ...},
- *         cidrResource?: array{cidrRanges?: list<string>, ...},
  *         ...,
  *     },
  *     allowAssociationToShareableServiceNetwork?: bool,
@@ -646,7 +643,6 @@ use Aws\AwsClient;
  *         dnsResource?: array{domainName?: string, ipAddressType?: 'DUALSTACK'|'IPV4'|'IPV6', ...},
  *         ipResource?: array{ipAddress?: string, ...},
  *         arnResource?: array{arn?: string, ...},
- *         cidrResource?: array{cidrRanges?: list<string>, ...},
  *         ...,
  *     },
  *     allowAssociationToShareableServiceNetwork?: bool,

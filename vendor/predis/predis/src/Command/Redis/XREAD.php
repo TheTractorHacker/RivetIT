@@ -14,10 +14,6 @@ namespace Predis\Command\Redis;
 
 use Predis\Command\Command as RedisCommand;
 
-/**
- * @deprecated Public API will be changed in the next major version.
- * XREAD_V4 API will be used instead.
- */
 class XREAD extends RedisCommand
 {
     public function getId()

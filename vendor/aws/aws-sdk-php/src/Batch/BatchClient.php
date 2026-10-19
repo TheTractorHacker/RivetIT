@@ -57,12 +57,7 @@ use Aws\AwsClient;
  *     },
  *     serviceRole?: string,
  *     tags?: array<string, string>,
- *     eksConfiguration?: array{
- *         eksClusterArn?: string,
- *         kubernetesNamespace?: string,
- *         accessEntry?: array{desiredState?: 'DISABLED'|'ENABLED'|'INHERIT_FROM_CLUSTER', status?: 'ACTIVE'|'INACTIVE', ...},
- *         ...,
- *     },
+ *     eksConfiguration?: array{eksClusterArn?: string, kubernetesNamespace?: string, ...},
  *     context?: string,
  *     ecsSettings?: array{containerInsights?: 'DISABLED'|'ENABLED'|'ENHANCED', ...},
  *     ...,
@@ -111,12 +106,7 @@ use Aws\AwsClient;
  *     },
  *     serviceRole?: string,
  *     tags?: array<string, string>,
- *     eksConfiguration?: array{
- *         eksClusterArn?: string,
- *         kubernetesNamespace?: string,
- *         accessEntry?: array{desiredState?: 'DISABLED'|'ENABLED'|'INHERIT_FROM_CLUSTER', status?: 'ACTIVE'|'INACTIVE', ...},
- *         ...,
- *     },
+ *     eksConfiguration?: array{eksClusterArn?: string, kubernetesNamespace?: string, ...},
  *     context?: string,
  *     ecsSettings?: array{containerInsights?: 'DISABLED'|'ENABLED'|'ENHANCED', ...},
  *     ...,
@@ -690,10 +680,6 @@ use Aws\AwsClient;
  *     updatePolicy?: array{terminateJobsOnUpdate?: bool, jobExecutionTimeoutMinutes?: int, ...},
  *     context?: string,
  *     ecsSettings?: array{containerInsights?: 'DISABLED'|'ENABLED'|'ENHANCED', ...},
- *     eksConfiguration?: array{
- *         accessEntry?: array{desiredState?: 'DISABLED'|'ENABLED'|'INHERIT_FROM_CLUSTER', status?: 'ACTIVE'|'INACTIVE', ...},
- *         ...,
- *     },
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateComputeEnvironmentAsync(array $args = [])
@@ -741,10 +727,6 @@ use Aws\AwsClient;
  *     updatePolicy?: array{terminateJobsOnUpdate?: bool, jobExecutionTimeoutMinutes?: int, ...},
  *     context?: string,
  *     ecsSettings?: array{containerInsights?: 'DISABLED'|'ENABLED'|'ENHANCED', ...},
- *     eksConfiguration?: array{
- *         accessEntry?: array{desiredState?: 'DISABLED'|'ENABLED'|'INHERIT_FROM_CLUSTER', status?: 'ACTIVE'|'INACTIVE', ...},
- *         ...,
- *     },
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateConsumableResource(array $args = [])

@@ -6,7 +6,6 @@ use Aws\Api\Cbor\Exception\CborException;
 use Aws\Api\Exception\RpcV2CborException;
 use Aws\Api\Service;
 use Aws\Api\StructureShape;
-use Aws\Api\TimestampShape;
 use DateTimeInterface;
 
 /**
@@ -89,11 +88,11 @@ final class RpcV2CborSerializer extends AbstractRpcV2Serializer
 
     /**
      * Wraps timestamp values in order to be encoded properly into
-     * value tag 1. Sub-second precision is preserved.
+     * value tag 1.
      *
      * @param mixed $value
      *
-     * @return array
+     * @return string[]
      * @throws RpcV2CborException
      */
     protected function resolveTimestamp(
@@ -104,18 +103,22 @@ final class RpcV2CborSerializer extends AbstractRpcV2Serializer
             return ['__cbor_timestamp' => $value];
         }
 
-        if (is_string($value) && strtotime($value) === false) {
-            throw new RpcV2CborException(
-                'Request serialization failed: Invalid date/time: ' . $value,
-            );
+        if ($value instanceof DateTimeInterface) {
+            // Preserve milliseconds
+            $micro = (int) $value->format('u');
+            $value = $value->getTimestamp() + $micro / 1e6;
+        } else {
+            $timestamp = strtotime($value);
+            if ($timestamp === false) {
+                throw new RpcV2CborException(
+                    'Request serialization failed: Invalid date/time: ' . $value,
+                );
+            }
+
+            $value = $timestamp;
         }
 
         // Wrapper to differentiate timestamp values during encoding
-        return [
-            '__cbor_timestamp' => TimestampShape::format(
-                $value,
-                'unixTimestamp'
-            )
-        ];
+        return ['__cbor_timestamp' => $value];
     }
 }

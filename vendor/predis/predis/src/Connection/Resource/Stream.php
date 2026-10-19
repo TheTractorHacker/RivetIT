@@ -205,10 +205,7 @@ class Stream implements StreamInterface
             throw new RuntimeException('Cannot write to a non-writable stream');
         }
 
-        // Suppressed: some error handlers (Laravel, Symfony, Laminas) convert engine
-        // notices/warnings into thrown exceptions, which would otherwise bypass the
-        // return-value handling below and leave a dead connection looking "connected".
-        $result = @fwrite($this->stream, $string);
+        $result = fwrite($this->stream, $string);
 
         if ($result === false || $result === 0) {
             $metadata = $this->getMetadata();
@@ -268,14 +265,13 @@ class Stream implements StreamInterface
             return '';
         }
 
-        // Suppressed: see the note in write() above.
         if ($length === -1) {
-            $string = @fgets($this->stream);
+            $string = fgets($this->stream);
         } else {
-            $string = @fread($this->stream, $length);
+            $string = fread($this->stream, $length);
         }
 
-        if (false === $string || ('' === $string && $this->eof())) {
+        if (false === $string) {
             $metadata = $this->getMetadata();
 
             if ($this->eof()) {

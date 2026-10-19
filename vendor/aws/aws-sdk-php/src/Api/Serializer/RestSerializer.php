@@ -515,17 +515,17 @@ abstract class RestSerializer
     }
 
     /**
-     * @param DateTimeInterface|string|int|float $value
+     * @param DateTimeInterface|string|int $value
      * @param string $timestampFormat
      *
      * @return string
      */
     private function formatTimestamp(
-        DateTimeInterface|string|int|float $value,
+        DateTimeInterface|string|int $value,
         string $timestampFormat
     ): string
     {
-        return TimestampShape::formatAsString($value, $timestampFormat);
+        return TimestampShape::format($value, $timestampFormat);
     }
 
     /**

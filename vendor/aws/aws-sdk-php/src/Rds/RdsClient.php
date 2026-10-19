@@ -1546,7 +1546,6 @@ use Aws\PresignUrlMiddleware;
  *     TargetStorageType?: string,
  *     TargetAllocatedStorage?: int,
  *     TargetStorageThroughput?: int,
- *     TargetResourceConfigurations?: list<array{SourceArn?: string, TargetKmsKeyId?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createBlueGreenDeploymentAsync(array $args = []) (supported in versions 2014-10-31)
@@ -1563,7 +1562,6 @@ use Aws\PresignUrlMiddleware;
  *     TargetStorageType?: string,
  *     TargetAllocatedStorage?: int,
  *     TargetStorageThroughput?: int,
- *     TargetResourceConfigurations?: list<array{SourceArn?: string, TargetKmsKeyId?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createCustomDBEngineVersion(array $args = []) (supported in versions 2014-10-31)

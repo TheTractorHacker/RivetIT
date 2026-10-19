@@ -14,7 +14,6 @@ namespace Predis\Command;
 
 use Predis\ClientConfiguration;
 use Predis\Command\Redis\FUNCTIONS;
-use Predis\Command\Redis\TimeSeries\TSREAD;
 
 /**
  * Command factory for mainline Redis servers.
@@ -37,8 +36,6 @@ class RedisFactory extends Factory
             'OBJECT' => 'Predis\Command\Redis\OBJECT_',
             // Class name corresponds to PHP reserved word "function", added mapping to bypass restrictions
             'FUNCTION' => FUNCTIONS::class,
-            // Wire ID mapping so cluster-routable module commands resolve by their command ID
-            'TS.READ' => TSREAD::class,
         ];
     }
 

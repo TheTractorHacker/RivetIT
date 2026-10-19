@@ -18,7 +18,6 @@ use Aws\AwsClient;
  *     clientToken?: string,
  *     tags?: array<string, string>,
  *     approvalConfiguration?: array{autoApprovalRules?: list<'APPROVE_ALL'>, ...},
- *     customMetadataSchemaConfiguration?: array{defaultSchema?: string, recordTypeSchemaOverrides?: list<array>, ...},
  *     autoDetectionConfiguration?: array{scope?: 'ORGANIZATION', enabled?: bool, ...},
  *     ...,
  * } $args = [])
@@ -35,7 +34,6 @@ use Aws\AwsClient;
  *     clientToken?: string,
  *     tags?: array<string, string>,
  *     approvalConfiguration?: array{autoApprovalRules?: list<'APPROVE_ALL'>, ...},
- *     customMetadataSchemaConfiguration?: array{defaultSchema?: string, recordTypeSchemaOverrides?: list<array>, ...},
  *     autoDetectionConfiguration?: array{scope?: 'ORGANIZATION', enabled?: bool, ...},
  *     ...,
  * } $args = [])
@@ -64,7 +62,6 @@ use Aws\AwsClient;
  *         sourceDetails?: array,
  *         ...,
  *     }>,
- *     customMetadata?: array,
  *     tags?: array<string, string>,
  *     ...,
  * } $args = [])
@@ -93,7 +90,6 @@ use Aws\AwsClient;
  *         sourceDetails?: array,
  *         ...,
  *     }>,
- *     customMetadata?: array,
  *     tags?: array<string, string>,
  *     ...,
  * } $args = [])
@@ -166,7 +162,6 @@ use Aws\AwsClient;
  *     description?: array{optionalValue?: string, ...},
  *     discoveryConfiguration?: array{authorizerConfiguration?: array{optionalValue?: array, ...}, ...},
  *     approvalConfiguration?: array{optionalValue?: array{autoApprovalRules?: list<'APPROVE_ALL'>, ...}, ...},
- *     customMetadataSchemaConfiguration?: array{optionalValue?: array{defaultSchema?: string, recordTypeSchemaOverrides?: list<array>, ...}, ...},
  *     autoDetectionConfiguration?: array{optionalValue?: array{scope?: 'ORGANIZATION', enabled?: bool, ...}, ...},
  *     ...,
  * } $args = [])
@@ -177,7 +172,6 @@ use Aws\AwsClient;
  *     description?: array{optionalValue?: string, ...},
  *     discoveryConfiguration?: array{authorizerConfiguration?: array{optionalValue?: array, ...}, ...},
  *     approvalConfiguration?: array{optionalValue?: array{autoApprovalRules?: list<'APPROVE_ALL'>, ...}, ...},
- *     customMetadataSchemaConfiguration?: array{optionalValue?: array{defaultSchema?: string, recordTypeSchemaOverrides?: list<array>, ...}, ...},
  *     autoDetectionConfiguration?: array{optionalValue?: array{scope?: 'ORGANIZATION', enabled?: bool, ...}, ...},
  *     ...,
  * } $args = [])
@@ -202,7 +196,6 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     recordVersion?: string,
- *     customMetadata?: array{optionalValue?: array, ...},
  *     triggerSynchronization?: bool,
  *     provenance?: list<array{
  *         relation?: 'DETECTED_FROM',
@@ -234,7 +227,6 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     recordVersion?: string,
- *     customMetadata?: array{optionalValue?: array, ...},
  *     triggerSynchronization?: bool,
  *     provenance?: list<array{
  *         relation?: 'DETECTED_FROM',

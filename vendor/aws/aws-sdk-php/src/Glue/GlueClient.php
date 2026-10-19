@@ -434,7 +434,6 @@ use Aws\AwsClient;
  *     Configuration?: string,
  *     CrawlerSecurityConfiguration?: string,
  *     Tags?: array<string, string>,
- *     CatalogId?: string,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createCrawlerAsync(array $args = [])
@@ -468,7 +467,6 @@ use Aws\AwsClient;
  *     Configuration?: string,
  *     CrawlerSecurityConfiguration?: string,
  *     Tags?: array<string, string>,
- *     CatalogId?: string,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createCustomEntityType(array $args = [])
@@ -1208,10 +1206,8 @@ use Aws\AwsClient;
  *         TableType?: string,
  *         Parameters?: array<string, string>,
  *         TargetTable?: array{CatalogId?: string, DatabaseName?: string, Name?: string, Region?: string, ...},
- *         FederatedTable?: array{Identifier?: string, DatabaseIdentifier?: string, ConnectionName?: string, ConnectionType?: string, ...},
  *         ViewDefinition?: array{
  *             IsProtected?: bool,
- *             IsManaged?: bool,
  *             Definer?: string,
  *             Representations?: list<array>,
  *             ViewVersionId?: int,
@@ -1220,8 +1216,6 @@ use Aws\AwsClient;
  *             LastRefreshType?: 'FULL'|'INCREMENTAL',
  *             SubObjects?: list<string>,
  *             SubObjectVersionIds?: list<int>,
- *             SubObjectsStatistics?: list<array>,
- *             SparkPipelineInfo?: array<string, string>,
  *             ...,
  *         },
  *         ...,
@@ -1269,10 +1263,8 @@ use Aws\AwsClient;
  *         TableType?: string,
  *         Parameters?: array<string, string>,
  *         TargetTable?: array{CatalogId?: string, DatabaseName?: string, Name?: string, Region?: string, ...},
- *         FederatedTable?: array{Identifier?: string, DatabaseIdentifier?: string, ConnectionName?: string, ConnectionType?: string, ...},
  *         ViewDefinition?: array{
  *             IsProtected?: bool,
- *             IsManaged?: bool,
  *             Definer?: string,
  *             Representations?: list<array>,
  *             ViewVersionId?: int,
@@ -1281,8 +1273,6 @@ use Aws\AwsClient;
  *             LastRefreshType?: 'FULL'|'INCREMENTAL',
  *             SubObjects?: list<string>,
  *             SubObjectVersionIds?: list<int>,
- *             SubObjectsStatistics?: list<array>,
- *             SparkPipelineInfo?: array<string, string>,
  *             ...,
  *         },
  *         ...,
@@ -1496,9 +1486,9 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise deleteColumnStatisticsForTableAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise deleteColumnStatisticsForTableAsync(array{CatalogId?: string, DatabaseName?: string, TableName?: string, ColumnName?: string, ...} $args = [])
  * @method \Aws\Result deleteColumnStatisticsTaskSettings(array $args = [])
- * @phpstan-method \Aws\Result deleteColumnStatisticsTaskSettings(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result deleteColumnStatisticsTaskSettings(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise deleteColumnStatisticsTaskSettingsAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise deleteColumnStatisticsTaskSettingsAsync(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise deleteColumnStatisticsTaskSettingsAsync(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \Aws\Result deleteConnection(array $args = [])
  * @phpstan-method \Aws\Result deleteConnection(array{CatalogId?: string, ConnectionName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise deleteConnectionAsync(array $args = [])
@@ -1786,27 +1776,13 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskRunAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskRunAsync(array{ColumnStatisticsTaskRunId?: string, ...} $args = [])
  * @method \Aws\Result getColumnStatisticsTaskRuns(array $args = [])
- * @phpstan-method \Aws\Result getColumnStatisticsTaskRuns(array{
- *     DatabaseName?: string,
- *     TableName?: string,
- *     MaxResults?: int,
- *     NextToken?: string,
- *     CatalogID?: string,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result getColumnStatisticsTaskRuns(array{DatabaseName?: string, TableName?: string, MaxResults?: int, NextToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskRunsAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskRunsAsync(array{
- *     DatabaseName?: string,
- *     TableName?: string,
- *     MaxResults?: int,
- *     NextToken?: string,
- *     CatalogID?: string,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskRunsAsync(array{DatabaseName?: string, TableName?: string, MaxResults?: int, NextToken?: string, ...} $args = [])
  * @method \Aws\Result getColumnStatisticsTaskSettings(array $args = [])
- * @phpstan-method \Aws\Result getColumnStatisticsTaskSettings(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result getColumnStatisticsTaskSettings(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskSettingsAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskSettingsAsync(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getColumnStatisticsTaskSettingsAsync(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \Aws\Result getConnection(array $args = [])
  * @phpstan-method \Aws\Result getConnection(array{
  *     CatalogId?: string,
@@ -2277,14 +2253,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result getStatement(array{SessionId?: string, Id?: int, RequestOrigin?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getStatementAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise getStatementAsync(array{SessionId?: string, Id?: int, RequestOrigin?: string, ...} $args = [])
- * @method \Aws\Result getSystemLogsForJobRun(array $args = [])
- * @phpstan-method \Aws\Result getSystemLogsForJobRun(array{JobName?: string, RunId?: string, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise getSystemLogsForJobRunAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getSystemLogsForJobRunAsync(array{JobName?: string, RunId?: string, ...} $args = [])
- * @method \Aws\Result getSystemLogsForSession(array $args = [])
- * @phpstan-method \Aws\Result getSystemLogsForSession(array{Id?: string, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise getSystemLogsForSessionAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getSystemLogsForSessionAsync(array{Id?: string, ...} $args = [])
  * @method \Aws\Result getTable(array $args = [])
  * @phpstan-method \Aws\Result getTable(array{
  *     CatalogId?: string,
@@ -2373,7 +2341,6 @@ use Aws\AwsClient;
  *     TransactionId?: string,
  *     QueryAsOfTime?: int|string|\DateTimeInterface,
  *     AuditContext?: array{AdditionalAuditContext?: string, RequestedColumns?: list<string>, AllColumnsRequested?: bool, ...},
- *     ResourceShareType?: 'ALL'|'FEDERATED',
  *     IncludeStatusDetails?: bool,
  *     AttributesToGet?: list<'DEFAULT'|'LATEST_ICEBERG_METADATA'|'NAME'|'TABLE_TYPE'>,
  *     ...,
@@ -2388,7 +2355,6 @@ use Aws\AwsClient;
  *     TransactionId?: string,
  *     QueryAsOfTime?: int|string|\DateTimeInterface,
  *     AuditContext?: array{AdditionalAuditContext?: string, RequestedColumns?: list<string>, AllColumnsRequested?: bool, ...},
- *     ResourceShareType?: 'ALL'|'FEDERATED',
  *     IncludeStatusDetails?: bool,
  *     AttributesToGet?: list<'DEFAULT'|'LATEST_ICEBERG_METADATA'|'NAME'|'TABLE_TYPE'>,
  *     ...,
@@ -3428,9 +3394,9 @@ use Aws\AwsClient;
  *     ...,
  * } $args = [])
  * @method \Aws\Result startColumnStatisticsTaskRunSchedule(array $args = [])
- * @phpstan-method \Aws\Result startColumnStatisticsTaskRunSchedule(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result startColumnStatisticsTaskRunSchedule(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise startColumnStatisticsTaskRunScheduleAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise startColumnStatisticsTaskRunScheduleAsync(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise startColumnStatisticsTaskRunScheduleAsync(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \Aws\Result startCrawler(array $args = [])
  * @phpstan-method \Aws\Result startCrawler(array{Name?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise startCrawlerAsync(array $args = [])
@@ -3468,7 +3434,6 @@ use Aws\AwsClient;
  *     DataQualitySecurityConfiguration?: string,
  *     ClientToken?: string,
  *     AdditionalRunOptions?: array{CustomLogGroupPrefix?: string, ...},
- *     RecommendationMode?: 'ADVANCED'|'BASIC',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise startDataQualityRuleRecommendationRunAsync(array $args = [])
@@ -3500,7 +3465,6 @@ use Aws\AwsClient;
  *     DataQualitySecurityConfiguration?: string,
  *     ClientToken?: string,
  *     AdditionalRunOptions?: array{CustomLogGroupPrefix?: string, ...},
- *     RecommendationMode?: 'ADVANCED'|'BASIC',
  *     ...,
  * } $args = [])
  * @method \Aws\Result startDataQualityRulesetEvaluationRun(array $args = [])
@@ -3652,13 +3616,13 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise startWorkflowRunAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise startWorkflowRunAsync(array{Name?: string, RunProperties?: array<string, string>, ...} $args = [])
  * @method \Aws\Result stopColumnStatisticsTaskRun(array $args = [])
- * @phpstan-method \Aws\Result stopColumnStatisticsTaskRun(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result stopColumnStatisticsTaskRun(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunAsync(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunAsync(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \Aws\Result stopColumnStatisticsTaskRunSchedule(array $args = [])
- * @phpstan-method \Aws\Result stopColumnStatisticsTaskRunSchedule(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result stopColumnStatisticsTaskRunSchedule(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunScheduleAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunScheduleAsync(array{DatabaseName?: string, TableName?: string, CatalogID?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise stopColumnStatisticsTaskRunScheduleAsync(array{DatabaseName?: string, TableName?: string, ...} $args = [])
  * @method \Aws\Result stopCrawler(array $args = [])
  * @phpstan-method \Aws\Result stopCrawler(array{Name?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise stopCrawlerAsync(array $args = [])
@@ -3993,7 +3957,6 @@ use Aws\AwsClient;
  *     LakeFormationConfiguration?: array{UseLakeFormationCredentials?: bool, AccountId?: string, ...},
  *     Configuration?: string,
  *     CrawlerSecurityConfiguration?: string,
- *     CatalogId?: string,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateCrawlerAsync(array $args = [])
@@ -4026,7 +3989,6 @@ use Aws\AwsClient;
  *     LakeFormationConfiguration?: array{UseLakeFormationCredentials?: bool, AccountId?: string, ...},
  *     Configuration?: string,
  *     CrawlerSecurityConfiguration?: string,
- *     CatalogId?: string,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateCrawlerSchedule(array $args = [])
@@ -4476,10 +4438,8 @@ use Aws\AwsClient;
  *         TableType?: string,
  *         Parameters?: array<string, string>,
  *         TargetTable?: array{CatalogId?: string, DatabaseName?: string, Name?: string, Region?: string, ...},
- *         FederatedTable?: array{Identifier?: string, DatabaseIdentifier?: string, ConnectionName?: string, ConnectionType?: string, ...},
  *         ViewDefinition?: array{
  *             IsProtected?: bool,
- *             IsManaged?: bool,
  *             Definer?: string,
  *             Representations?: list<array>,
  *             ViewVersionId?: int,
@@ -4488,8 +4448,6 @@ use Aws\AwsClient;
  *             LastRefreshType?: 'FULL'|'INCREMENTAL',
  *             SubObjects?: list<string>,
  *             SubObjectVersionIds?: list<int>,
- *             SubObjectsStatistics?: list<array>,
- *             SparkPipelineInfo?: array<string, string>,
  *             ...,
  *         },
  *         ...,
@@ -4537,10 +4495,8 @@ use Aws\AwsClient;
  *         TableType?: string,
  *         Parameters?: array<string, string>,
  *         TargetTable?: array{CatalogId?: string, DatabaseName?: string, Name?: string, Region?: string, ...},
- *         FederatedTable?: array{Identifier?: string, DatabaseIdentifier?: string, ConnectionName?: string, ConnectionType?: string, ...},
  *         ViewDefinition?: array{
  *             IsProtected?: bool,
- *             IsManaged?: bool,
  *             Definer?: string,
  *             Representations?: list<array>,
  *             ViewVersionId?: int,
@@ -4549,8 +4505,6 @@ use Aws\AwsClient;
  *             LastRefreshType?: 'FULL'|'INCREMENTAL',
  *             SubObjects?: list<string>,
  *             SubObjectVersionIds?: list<int>,
- *             SubObjectsStatistics?: list<array>,
- *             SparkPipelineInfo?: array<string, string>,
  *             ...,
  *         },
  *         ...,

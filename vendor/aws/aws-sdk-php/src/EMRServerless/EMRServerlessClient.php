@@ -100,21 +100,9 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise getJobRunAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise getJobRunAsync(array{applicationId?: string, jobRunId?: string, attempt?: int, ...} $args = [])
  * @method \Aws\Result getResourceDashboard(array $args = [])
- * @phpstan-method \Aws\Result getResourceDashboard(array{
- *     applicationId?: string,
- *     resourceId?: string,
- *     resourceType?: 'SESSION',
- *     accessSystemProfileLogs?: bool,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result getResourceDashboard(array{applicationId?: string, resourceId?: string, resourceType?: 'SESSION', ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getResourceDashboardAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getResourceDashboardAsync(array{
- *     applicationId?: string,
- *     resourceId?: string,
- *     resourceType?: 'SESSION',
- *     accessSystemProfileLogs?: bool,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getResourceDashboardAsync(array{applicationId?: string, resourceId?: string, resourceType?: 'SESSION', ...} $args = [])
  * @method \Aws\Result getSession(array $args = [])
  * @phpstan-method \Aws\Result getSession(array{applicationId?: string, sessionId?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getSessionAsync(array $args = [])

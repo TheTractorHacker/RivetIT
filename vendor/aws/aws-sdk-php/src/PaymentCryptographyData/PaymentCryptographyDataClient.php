@@ -555,7 +555,6 @@ use Aws\AwsClient;
  *             PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1',
  *             ...,
  *         },
- *         Asymmetric?: array{PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1', ...},
  *         Dukpt?: array{
  *             KeySerialNumber?: string,
  *             Mode?: 'CBC'|'ECB',
@@ -573,7 +572,6 @@ use Aws\AwsClient;
  *             PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1',
  *             ...,
  *         },
- *         Asymmetric?: array{PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1', ...},
  *         Dukpt?: array{
  *             KeySerialNumber?: string,
  *             Mode?: 'CBC'|'ECB',
@@ -608,7 +606,6 @@ use Aws\AwsClient;
  *             PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1',
  *             ...,
  *         },
- *         Asymmetric?: array{PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1', ...},
  *         Dukpt?: array{
  *             KeySerialNumber?: string,
  *             Mode?: 'CBC'|'ECB',
@@ -626,7 +623,6 @@ use Aws\AwsClient;
  *             PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1',
  *             ...,
  *         },
- *         Asymmetric?: array{PaddingType?: 'OAEP_SHA1'|'OAEP_SHA256'|'OAEP_SHA512'|'PKCS1', ...},
  *         Dukpt?: array{
  *             KeySerialNumber?: string,
  *             Mode?: 'CBC'|'ECB',

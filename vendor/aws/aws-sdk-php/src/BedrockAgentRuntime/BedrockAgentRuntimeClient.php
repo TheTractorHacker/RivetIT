@@ -8,12 +8,7 @@ use Aws\AwsClient;
  * @method \Aws\Result agenticRetrieveStream(array $args = [])
  * @phpstan-method \Aws\Result agenticRetrieveStream(array{
  *     agenticRetrieveConfiguration?: array{
- *         foundationModelConfiguration?: array{
- *             bedrockFoundationModelConfiguration?: array,
- *             mantleFoundationModelConfiguration?: array,
- *             type?: 'BEDROCK_FOUNDATION_MODEL'|'MANTLE_FOUNDATION_MODEL',
- *             ...,
- *         },
+ *         foundationModelConfiguration?: array{bedrockFoundationModelConfiguration?: array, type?: 'BEDROCK_FOUNDATION_MODEL', ...},
  *         foundationModelType?: 'CUSTOM'|'MANAGED',
  *         maxAgentIteration?: int,
  *         rerankingConfiguration?: array{bedrockRerankingConfiguration?: array, type?: 'BEDROCK_RERANKING_MODEL', ...},
@@ -38,12 +33,7 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise agenticRetrieveStreamAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise agenticRetrieveStreamAsync(array{
  *     agenticRetrieveConfiguration?: array{
- *         foundationModelConfiguration?: array{
- *             bedrockFoundationModelConfiguration?: array,
- *             mantleFoundationModelConfiguration?: array,
- *             type?: 'BEDROCK_FOUNDATION_MODEL'|'MANTLE_FOUNDATION_MODEL',
- *             ...,
- *         },
+ *         foundationModelConfiguration?: array{bedrockFoundationModelConfiguration?: array, type?: 'BEDROCK_FOUNDATION_MODEL', ...},
  *         foundationModelType?: 'CUSTOM'|'MANAGED',
  *         maxAgentIteration?: int,
  *         rerankingConfiguration?: array{bedrockRerankingConfiguration?: array, type?: 'BEDROCK_RERANKING_MODEL', ...},

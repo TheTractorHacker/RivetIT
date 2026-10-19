@@ -63,12 +63,8 @@ class Resp3Strategy extends Resp2Strategy
      */
     protected function parseDouble(string $string): float
     {
-        if ($string === 'inf') {
+        if ($string === 'inf' || $string === '-inf') {
             return INF;
-        }
-
-        if ($string === '-inf') {
-            return -INF;
         }
 
         return (float) $string;

@@ -342,7 +342,7 @@ use Aws\AwsClient;
  *         athenaProperties?: array{workgroupName?: string, ...},
  *         glueProperties?: array{glueConnectionInput?: array, ...},
  *         hyperPodProperties?: array{clusterName?: string, ...},
- *         iamProperties?: array{glueLineageSyncEnabled?: bool, roleArn?: string, ...},
+ *         iamProperties?: array{glueLineageSyncEnabled?: bool, ...},
  *         redshiftProperties?: array{
  *             storage?: array,
  *             databaseName?: string,
@@ -409,7 +409,7 @@ use Aws\AwsClient;
  *         athenaProperties?: array{workgroupName?: string, ...},
  *         glueProperties?: array{glueConnectionInput?: array, ...},
  *         hyperPodProperties?: array{clusterName?: string, ...},
- *         iamProperties?: array{glueLineageSyncEnabled?: bool, roleArn?: string, ...},
+ *         iamProperties?: array{glueLineageSyncEnabled?: bool, ...},
  *         redshiftProperties?: array{
  *             storage?: array,
  *             databaseName?: string,
@@ -701,7 +701,6 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
- *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createEnvironmentBlueprintAsync(array $args = [])
@@ -720,7 +719,6 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
- *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \Aws\Result createEnvironmentProfile(array $args = [])
@@ -855,7 +853,6 @@ use Aws\AwsClient;
  *     owningProjectIdentifier?: string,
  *     name?: string,
  *     description?: string,
- *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     clientToken?: string,
@@ -867,7 +864,6 @@ use Aws\AwsClient;
  *     owningProjectIdentifier?: string,
  *     name?: string,
  *     description?: string,
- *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     clientToken?: string,
@@ -1847,7 +1843,6 @@ use Aws\AwsClient;
  *     sortOrder?: 'ASCENDING'|'DESCENDING',
  *     sortBy?: 'CREATED_AT'|'UPDATED_AT',
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
- *     type?: 'DATA'|'SQL',
  *     nextToken?: string,
  *     ...,
  * } $args = [])
@@ -1859,7 +1854,6 @@ use Aws\AwsClient;
  *     sortOrder?: 'ASCENDING'|'DESCENDING',
  *     sortBy?: 'CREATED_AT'|'UPDATED_AT',
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
- *     type?: 'DATA'|'SQL',
  *     nextToken?: string,
  *     ...,
  * } $args = [])
@@ -2575,10 +2569,9 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result startNotebookImport(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
+ *     sourceLocation?: array{s3?: string, ...},
  *     name?: string,
  *     description?: string,
- *     type?: 'DATA'|'SQL',
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -2586,10 +2579,9 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise startNotebookImportAsync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
+ *     sourceLocation?: array{s3?: string, ...},
  *     name?: string,
  *     description?: string,
- *     type?: 'DATA'|'SQL',
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -2608,7 +2600,6 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     timeoutConfiguration?: array{runTimeoutInMinutes?: int, ...},
- *     notificationConfiguration?: array{notifyOn?: list<'FAILED'|'QUEUED'|'RUNNING'|'STARTING'|'STOPPED'|'STOPPING'|'SUCCEEDED'>, ...},
  *     triggerSource?: array{type?: 'MANUAL'|'SCHEDULED'|'WORKFLOW', name?: string, ...},
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
@@ -2630,7 +2621,6 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     timeoutConfiguration?: array{runTimeoutInMinutes?: int, ...},
- *     notificationConfiguration?: array{notifyOn?: list<'FAILED'|'QUEUED'|'RUNNING'|'STARTING'|'STOPPED'|'STOPPING'|'SUCCEEDED'>, ...},
  *     triggerSource?: array{type?: 'MANUAL'|'SCHEDULED'|'WORKFLOW', name?: string, ...},
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
@@ -2641,7 +2631,7 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result startNotebookSync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
+ *     sourceLocation?: array{s3?: string, ...},
  *     gitMetadata?: array{
  *         connectionId?: string,
  *         repository?: string,
@@ -2662,7 +2652,7 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise startNotebookSyncAsync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
+ *     sourceLocation?: array{s3?: string, ...},
  *     gitMetadata?: array{
  *         connectionId?: string,
  *         repository?: string,
@@ -2989,7 +2979,6 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
- *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateEnvironmentBlueprintAsync(array $args = [])
@@ -3008,7 +2997,6 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
- *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateEnvironmentProfile(array $args = [])
@@ -3089,7 +3077,6 @@ use Aws\AwsClient;
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
  *     name?: string,
  *     cellOrder?: list<array>,
- *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     environmentConfiguration?: array{
@@ -3108,7 +3095,6 @@ use Aws\AwsClient;
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
  *     name?: string,
  *     cellOrder?: list<array>,
- *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     environmentConfiguration?: array{

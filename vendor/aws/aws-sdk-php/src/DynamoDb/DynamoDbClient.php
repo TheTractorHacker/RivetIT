@@ -913,14 +913,6 @@ use GuzzleHttp\Promise\Create;
  *         ExportViewType?: 'NEW_AND_OLD_IMAGES'|'NEW_IMAGE',
  *         ...,
  *     },
- *     FilterSpecification?: array{
- *         FilterExpression?: string,
- *         ProjectionExpression?: string,
- *         KeyConditionExpression?: string,
- *         ExpressionAttributeNames?: array<string, string>,
- *         ExpressionAttributeValues?: array<string, array>,
- *         ...,
- *     },
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise exportTableToPointInTimeAsync(array $args = []) (supported in versions 2012-08-10)
@@ -939,14 +931,6 @@ use GuzzleHttp\Promise\Create;
  *         ExportFromTime?: int|string|\DateTimeInterface,
  *         ExportToTime?: int|string|\DateTimeInterface,
  *         ExportViewType?: 'NEW_AND_OLD_IMAGES'|'NEW_IMAGE',
- *         ...,
- *     },
- *     FilterSpecification?: array{
- *         FilterExpression?: string,
- *         ProjectionExpression?: string,
- *         KeyConditionExpression?: string,
- *         ExpressionAttributeNames?: array<string, string>,
- *         ExpressionAttributeValues?: array<string, array>,
  *         ...,
  *     },
  *     ...,

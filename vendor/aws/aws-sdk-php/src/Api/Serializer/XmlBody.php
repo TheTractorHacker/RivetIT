@@ -205,9 +205,7 @@ class XmlBody
         $timestampFormat = !empty($shape['timestampFormat'])
             ? $shape['timestampFormat']
             : 'iso8601';
-        $xml->writeRaw(
-            TimestampShape::formatAsString($value, $timestampFormat)
-        );
+        $xml->writeRaw(TimestampShape::format($value, $timestampFormat));
         $xml->endElement();
     }
 

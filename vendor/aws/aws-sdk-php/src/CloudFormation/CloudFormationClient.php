@@ -67,23 +67,9 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise cancelUpdateStackAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise cancelUpdateStackAsync(array{StackName?: string, ClientRequestToken?: string, ...} $args = [])
  * @method \Aws\Result continueUpdateRollback(array $args = [])
- * @phpstan-method \Aws\Result continueUpdateRollback(array{
- *     StackName?: string,
- *     RoleARN?: string,
- *     ResourcesToSkip?: list<string>,
- *     ClientRequestToken?: string,
- *     ForceRollback?: bool,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result continueUpdateRollback(array{StackName?: string, RoleARN?: string, ResourcesToSkip?: list<string>, ClientRequestToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise continueUpdateRollbackAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise continueUpdateRollbackAsync(array{
- *     StackName?: string,
- *     RoleARN?: string,
- *     ResourcesToSkip?: list<string>,
- *     ClientRequestToken?: string,
- *     ForceRollback?: bool,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise continueUpdateRollbackAsync(array{StackName?: string, RoleARN?: string, ResourcesToSkip?: list<string>, ClientRequestToken?: string, ...} $args = [])
  * @method \Aws\Result createChangeSet(array $args = [])
  * @phpstan-method \Aws\Result createChangeSet(array{
  *     StackName?: string,

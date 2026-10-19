@@ -400,7 +400,6 @@ use Aws\AwsClient;
  *     ProviderDetails?: array<string, string>,
  *     AttributeMapping?: array<string, string>,
  *     IdpIdentifiers?: list<string>,
- *     AcrMapping?: array<string, string>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createIdentityProviderAsync(array $args = [])
@@ -411,7 +410,6 @@ use Aws\AwsClient;
  *     ProviderDetails?: array<string, string>,
  *     AttributeMapping?: array<string, string>,
  *     IdpIdentifiers?: list<string>,
- *     AcrMapping?: array<string, string>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createManagedLoginBranding(array $args = [])
@@ -604,7 +602,6 @@ use Aws\AwsClient;
  *     UserPoolTier?: 'ESSENTIALS'|'LITE'|'PLUS',
  *     KeyConfiguration?: array{KeyType?: 'AWS_OWNED_KEY'|'CUSTOMER_MANAGED_KEY', KmsKeyArn?: string, ...},
  *     IssuerConfiguration?: array{Type?: 'ORIGINAL'|'UPDATED', ...},
- *     AcrConfiguration?: array<string, array{AcrValue?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createUserPoolAsync(array $args = [])
@@ -713,7 +710,6 @@ use Aws\AwsClient;
  *     UserPoolTier?: 'ESSENTIALS'|'LITE'|'PLUS',
  *     KeyConfiguration?: array{KeyType?: 'AWS_OWNED_KEY'|'CUSTOMER_MANAGED_KEY', KmsKeyArn?: string, ...},
  *     IssuerConfiguration?: array{Type?: 'ORIGINAL'|'UPDATED', ...},
- *     AcrConfiguration?: array<string, array{AcrValue?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createUserPoolClient(array $args = [])
@@ -1389,7 +1385,6 @@ use Aws\AwsClient;
  *     ProviderDetails?: array<string, string>,
  *     AttributeMapping?: array<string, string>,
  *     IdpIdentifiers?: list<string>,
- *     AcrMapping?: array<string, string>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateIdentityProviderAsync(array $args = [])
@@ -1399,7 +1394,6 @@ use Aws\AwsClient;
  *     ProviderDetails?: array<string, string>,
  *     AttributeMapping?: array<string, string>,
  *     IdpIdentifiers?: list<string>,
- *     AcrMapping?: array<string, string>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateManagedLoginBranding(array $args = [])
@@ -1590,7 +1584,6 @@ use Aws\AwsClient;
  *     UserPoolTier?: 'ESSENTIALS'|'LITE'|'PLUS',
  *     KeyConfiguration?: array{KeyType?: 'AWS_OWNED_KEY'|'CUSTOMER_MANAGED_KEY', KmsKeyArn?: string, ...},
  *     IssuerConfiguration?: array{Type?: 'ORIGINAL'|'UPDATED', ...},
- *     AcrConfiguration?: array<string, array{AcrValue?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateUserPoolAsync(array $args = [])
@@ -1687,7 +1680,6 @@ use Aws\AwsClient;
  *     UserPoolTier?: 'ESSENTIALS'|'LITE'|'PLUS',
  *     KeyConfiguration?: array{KeyType?: 'AWS_OWNED_KEY'|'CUSTOMER_MANAGED_KEY', KmsKeyArn?: string, ...},
  *     IssuerConfiguration?: array{Type?: 'ORIGINAL'|'UPDATED', ...},
- *     AcrConfiguration?: array<string, array{AcrValue?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateUserPoolClient(array $args = [])

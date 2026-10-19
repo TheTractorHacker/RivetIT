@@ -208,15 +208,13 @@ class Factory implements FactoryInterface
             );
         }
 
-        if ($parameters->client_info ?? true) {
-            $connection->addConnectCommand(
-                new RawCommand('CLIENT', ['SETINFO', 'LIB-NAME', $this->buildLibraryName()])
-            );
+        $connection->addConnectCommand(
+            new RawCommand('CLIENT', ['SETINFO', 'LIB-NAME', $this->buildLibraryName()])
+        );
 
-            $connection->addConnectCommand(
-                new RawCommand('CLIENT', ['SETINFO', 'LIB-VER', Client::VERSION])
-            );
-        }
+        $connection->addConnectCommand(
+            new RawCommand('CLIENT', ['SETINFO', 'LIB-VER', Client::VERSION])
+        );
 
         if (isset($parameters->database) && strlen($parameters->database)) {
             $connection->addConnectCommand(

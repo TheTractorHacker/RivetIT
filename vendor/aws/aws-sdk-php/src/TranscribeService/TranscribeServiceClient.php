@@ -39,7 +39,6 @@ use Aws\AwsClient;
  *     BaseModelName?: 'NarrowBand'|'WideBand',
  *     ModelName?: string,
  *     InputDataConfig?: array{S3Uri?: string, TuningDataS3Uri?: string, DataAccessRoleArn?: string, ...},
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     ...,
  * } $args = [])
@@ -49,7 +48,6 @@ use Aws\AwsClient;
  *     BaseModelName?: 'NarrowBand'|'WideBand',
  *     ModelName?: string,
  *     InputDataConfig?: array{S3Uri?: string, TuningDataS3Uri?: string, DataAccessRoleArn?: string, ...},
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     ...,
  * } $args = [])
@@ -77,7 +75,6 @@ use Aws\AwsClient;
  *     VocabularyFileUri?: string,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createVocabularyAsync(array $args = [])
@@ -88,7 +85,6 @@ use Aws\AwsClient;
  *     VocabularyFileUri?: string,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \Aws\Result createVocabularyFilter(array $args = [])
@@ -99,7 +95,6 @@ use Aws\AwsClient;
  *     VocabularyFilterFileUri?: string,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createVocabularyFilterAsync(array $args = [])
@@ -110,7 +105,6 @@ use Aws\AwsClient;
  *     VocabularyFilterFileUri?: string,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \Aws\Result deleteCallAnalyticsCategory(array $args = [])
@@ -579,20 +573,6 @@ use Aws\AwsClient;
  *     InputType?: 'POST_CALL'|'REAL_TIME',
  *     ...,
  * } $args = [])
- * @method \Aws\Result updateLanguageModel(array $args = [])
- * @phpstan-method \Aws\Result updateLanguageModel(array{
- *     ModelName?: string,
- *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
- *     ...,
- * } $args = [])
- * @method \GuzzleHttp\Promise\Promise updateLanguageModelAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise updateLanguageModelAsync(array{
- *     ModelName?: string,
- *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
- *     ...,
- * } $args = [])
  * @method \Aws\Result updateMedicalVocabulary(array $args = [])
  * @phpstan-method \Aws\Result updateMedicalVocabulary(array{
  *     VocabularyName?: string,
@@ -614,7 +594,6 @@ use Aws\AwsClient;
  *     Phrases?: list<string>,
  *     VocabularyFileUri?: string,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateVocabularyAsync(array $args = [])
@@ -624,7 +603,6 @@ use Aws\AwsClient;
  *     Phrases?: list<string>,
  *     VocabularyFileUri?: string,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateVocabularyFilter(array $args = [])
@@ -633,7 +611,6 @@ use Aws\AwsClient;
  *     Words?: list<string>,
  *     VocabularyFilterFileUri?: string,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateVocabularyFilterAsync(array $args = [])
@@ -642,7 +619,6 @@ use Aws\AwsClient;
  *     Words?: list<string>,
  *     VocabularyFilterFileUri?: string,
  *     DataAccessRoleArn?: string,
- *     EncryptionConfiguration?: array{KMSEncryptionContext?: array<string, string>, KMSKey?: string, ...},
  *     ...,
  * } $args = [])
  */

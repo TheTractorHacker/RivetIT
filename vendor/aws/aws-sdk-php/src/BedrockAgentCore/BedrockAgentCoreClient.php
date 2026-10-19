@@ -615,7 +615,6 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
- *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,
@@ -684,7 +683,6 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
- *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,

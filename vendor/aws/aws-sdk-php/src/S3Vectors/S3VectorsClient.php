@@ -145,10 +145,6 @@ use Aws\AwsClient;
  *     returnMetadata?: bool,
  *     ...,
  * } $args = [])
- * @method \Aws\Result putVectorBucketDefaultIndexMode(array $args = [])
- * @phpstan-method \Aws\Result putVectorBucketDefaultIndexMode(array{vectorBucketName?: string, vectorBucketArn?: string, defaultIndexMode?: 'CLASSIC'|'ENHANCED', ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise putVectorBucketDefaultIndexModeAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise putVectorBucketDefaultIndexModeAsync(array{vectorBucketName?: string, vectorBucketArn?: string, defaultIndexMode?: 'CLASSIC'|'ENHANCED', ...} $args = [])
  * @method \Aws\Result putVectorBucketPolicy(array $args = [])
  * @phpstan-method \Aws\Result putVectorBucketPolicy(array{vectorBucketName?: string, vectorBucketArn?: string, policy?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise putVectorBucketPolicyAsync(array $args = [])
@@ -177,7 +173,6 @@ use Aws\AwsClient;
  *     topK?: int,
  *     queryVector?: array{float32?: list<float>, ...},
  *     filter?: array,
- *     queryMode?: 'CLASSIC'|'ENHANCED',
  *     returnMetadata?: bool,
  *     returnDistance?: bool,
  *     nextToken?: string,
@@ -191,7 +186,6 @@ use Aws\AwsClient;
  *     topK?: int,
  *     queryVector?: array{float32?: list<float>, ...},
  *     filter?: array,
- *     queryMode?: 'CLASSIC'|'ENHANCED',
  *     returnMetadata?: bool,
  *     returnDistance?: bool,
  *     nextToken?: string,
@@ -205,9 +199,5 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result untagResource(array{resourceArn?: string, tagKeys?: list<string>, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise untagResourceAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise untagResourceAsync(array{resourceArn?: string, tagKeys?: list<string>, ...} $args = [])
- * @method \Aws\Result updateIndexMode(array $args = [])
- * @phpstan-method \Aws\Result updateIndexMode(array{vectorBucketName?: string, indexName?: string, indexArn?: string, indexMode?: 'CLASSIC'|'ENHANCED', ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise updateIndexModeAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise updateIndexModeAsync(array{vectorBucketName?: string, indexName?: string, indexArn?: string, indexMode?: 'CLASSIC'|'ENHANCED', ...} $args = [])
  */
 class S3VectorsClient extends AwsClient {}
