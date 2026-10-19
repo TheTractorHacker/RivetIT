@@ -9,6 +9,7 @@ putenv('RIVETIT_REDIS_PORT=' . (getenv('BH_REDIS_PORT') ?: '6379'));
 require __DIR__ . '/endpoint_agent_lib.php';
 require_once "$root/includes/rmm_build_host_ui.php";
 
+shell_exec('redis-cli -p ' . (int) (getenv('BH_REDIS_PORT') ?: 6379) . ' flushall 2>&1');   // the host suite ends by exhausting the failed-authentication limiter
 ea_reset();
 $U = ea_seed_users();
 foreach (['endpoint_agent_binaries', 'endpoint_agent_msi_templates', 'endpoint_agent_releases', 'endpoint_agent_build_chunks', 'endpoint_agent_build_files', 'endpoint_agent_build_jobs', 'endpoint_agent_build_hosts'] as $t) { $q("DELETE FROM $t"); }
