@@ -22,6 +22,97 @@ function rivetBuildHostBadge(string $state): array
     return ['label' => $map[$state][0] ?? $state, 'class' => $map[$state][1] ?? 'text-bg-secondary'];
 }
 
+/** "3m 12s" for a number of seconds. */
+function rivetBuildElapsed(int $s): string
+{
+    $s = max(0, $s);
+
+    return $s >= 3600 ? intdiv($s, 3600) . 'h ' . intdiv($s % 3600, 60) . 'm' : ($s >= 60 ? intdiv($s, 60) . 'm ' . ($s % 60) . 's' : $s . 's');
+}
+
+/**
+ * A progress bar. Every number is cast and every word comes from the caller's own strings, never from a build host.
+ *
+ * @param int|null $pct null = no percent known (an animated bar that says so)
+ */
+function rivetBuildProgressBar(?int $pct, string $label, bool $estimate = false, string $variant = 'bg-primary'): string
+{
+    $h = 'rivetAgentFeedH';
+    if ($pct === null) {
+        return '<div class="progress mt-1" style="height:.75rem" role="progressbar" aria-label="' . $h($label) . '" aria-valuetext="Working"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width:100%"></div></div>';
+    }
+    $pct = max(0, min(100, $pct));
+
+    return '<div class="progress mt-1" style="height:.75rem" role="progressbar" aria-label="' . $h($label) . '" aria-valuenow="' . $pct . '" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar ' . $h($variant)
+        . ($variant === 'bg-primary' ? ' progress-bar-striped progress-bar-animated' : '') . '" style="width:' . $pct . '%"></div></div>'
+        . '<div class="small text-muted" data-bh-pct="1">' . ($estimate ? 'about ' : '') . $pct . '%</div>';
+}
+
+/**
+ * The stage checklist. Each item is [label, status] with status done, active, pending or failed.
+ *
+ * @param list<array{0:string,1:string}> $items
+ */
+function rivetBuildChecklist(array $items): string
+{
+    $h = 'rivetAgentFeedH';
+    $icon = ['done' => ['fas fa-check-circle text-success', 'Done'], 'active' => ['fas fa-spinner fa-spin text-primary', 'Working on it'], 'pending' => ['far fa-circle text-muted', 'Waiting'], 'failed' => ['fas fa-times-circle text-danger', 'Failed']];
+    $o = '<ul class="list-unstyled small mb-0 mt-1" data-bh-steps="1">';
+    foreach ($items as $it) {
+        $st = isset($icon[$it[1]]) ? $it[1] : 'pending';
+        $o .= '<li class="' . ($st === 'pending' ? 'text-muted' : ($st === 'active' ? 'fw-semibold' : '')) . '"><i class="' . $icon[$st][0] . ' me-1" aria-hidden="true"></i><span class="visually-hidden">' . $icon[$st][1] . ': </span>' . $h($it[0]) . '</li>';
+    }
+
+    return $o . '</ul>';
+}
+
+/**
+ * What a build job on a build host is doing right now, in plain words, with a bar and the checklist. Everything shown is derived from the job's state, the allowlisted
+ * stage and two integers; the detail text is only used for "7 of 23" after it matched a strict pattern.
+ */
+function rivetBuildHostProgressBlock(array $j): string
+{
+    $state = (string) $j['state'];
+    $stages = RIVET_BH_STAGES;
+    $order = array_keys($stages);
+    $cur = array_search((string) ($j['progress_stage'] ?? ''), $order, true);
+    $pct = (int) ($j['progress_pct'] ?? 0);
+    $start = $j['claimed_at'] ?? null;
+    $end = $j['finished_at'] ?? null;
+    $elapsed = is_string($start) && $start !== '' ? ((is_string($end) && $end !== '' ? (int) strtotime($end . ' UTC') : time()) - (int) strtotime($start . ' UTC')) : null;
+    $upload = null;
+    if (preg_match('/^(?:Uploading )?(\d{1,4}) ?(?:of|\/) ?(\d{1,4})$/', (string) ($j['progress_detail'] ?? ''), $m) === 1 && (int) $m[1] <= (int) $m[2]) {
+        $upload = 'Uploading ' . (int) $m[1] . ' of ' . (int) $m[2];
+    }
+    $o = '<div class="mt-1" data-bh-progress="1">';
+    if ($state === 'queued') {
+        return $o . '<div class="small text-muted">Waiting for the build host to pick it up.</div></div>';
+    }
+    if (in_array($state, ['built', 'published'], true)) {
+        $o .= rivetBuildProgressBar(100, 'Build progress', false, 'bg-success') . ($elapsed !== null ? '<div class="small text-muted">Took ' . rivetBuildElapsed($elapsed) . '</div>' : '');
+
+        return $o . '</div>';
+    }
+    if ($cur === false) {   // an older build script (or one that has not reported yet): no stages, no percent
+        $words = ['claimed' => 'Picked up', 'building' => 'Building', 'uploading' => 'Uploading the files', 'verifying' => 'Checking the files'][$state] ?? '';
+        $o .= '<div class="small fw-semibold" data-bh-now="1">' . $words . '</div>' . (in_array($state, RIVET_BH_ACTIVE, true) ? rivetBuildProgressBar(null, 'Build progress') : '');
+        $o .= $elapsed !== null ? '<div class="small text-muted" data-bh-elapsed="1">Running for ' . rivetBuildElapsed($elapsed) . '</div>' : '';
+
+        return $o . '</div>';
+    }
+    $failed = $state === 'failed';
+    $now = $failed ? 'Stopped while: ' . lcfirst($stages[$order[$cur]][0]) : ($order[$cur] === 'upload' && $upload !== null ? $upload : $stages[$order[$cur]][0]);
+    $o .= '<div class="small fw-semibold" data-bh-now="1">' . rivetAgentFeedH($now) . '</div>';
+    $o .= rivetBuildProgressBar($pct, 'Build progress', false, $failed ? 'bg-danger' : 'bg-primary');
+    $o .= $elapsed !== null ? '<div class="small text-muted" data-bh-elapsed="1">' . ($failed ? 'Ran for ' : 'Running for ') . rivetBuildElapsed($elapsed) . '</div>' : '';
+    $items = [];
+    foreach ($order as $i => $k) {
+        $items[] = [$stages[$k][1] . ($k === 'upload' && $upload !== null && $i === $cur && !$failed ? ' (' . substr($upload, 10) . ')' : ''), $i < $cur ? 'done' : ($i === $cur ? ($failed ? 'failed' : 'active') : 'pending')];
+    }
+
+    return $o . rivetBuildChecklist($items) . '</div>';
+}
+
 /** The address the build host must use: the address this site is configured for. */
 function rivetBuildHostServerUrl(): string
 {
@@ -116,7 +207,7 @@ function rivetBuildHostLive($mysqli, array $ctx): string
         }
         $log = trim((string) $j['log_tail']);
         $o .= '<tr data-job="' . $id . '"><td><span class="font-monospace">' . $h($j['version']) . '</span><div class="small text-muted">' . $h($j['source_ref']) . ($j['commit_sha'] !== '' ? ' @ ' . $h(substr((string) $j['commit_sha'], 0, 10)) : '') . '</div></td>'
-            . '<td>' . $h($j['host_name'] ?? '(deleted)') . '</td><td><span class="badge ' . $b['class'] . '">' . $h($b['label']) . '</span><div class="small" data-bh-note="1">' . $h($j['note']) . '</div>'
+            . '<td>' . $h($j['host_name'] ?? '(deleted)') . '</td><td><span class="badge ' . $b['class'] . '">' . $h($b['label']) . '</span>' . rivetBuildHostProgressBlock($j) . '<div class="small" data-bh-note="1">' . $h($j['note']) . '</div>'
             . ($log !== '' ? '<details class="small"><summary>Log tail</summary><pre class="small border rounded p-2 mb-0 bg-body-tertiary" style="max-height:14rem;overflow:auto;white-space:pre-wrap" data-bh-log="1">' . $h($log) . '</pre></details>' : '') . '</td>'
             . '<td class="small">' . $when((string) $j['created_at']) . '</td><td class="text-end text-nowrap">' . $actions . '</td></tr>';
     }

@@ -9682,6 +9682,7 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_build` (
   `auto_opts` varchar(120) NOT NULL DEFAULT '',
   `auto_state` varchar(12) NOT NULL DEFAULT '',
   `auto_note` varchar(300) NOT NULL DEFAULT '',
+  `run_steps` varchar(2000) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

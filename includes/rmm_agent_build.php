@@ -279,6 +279,58 @@ function rivetAgentBuildStart($mysqli, string $version, ?array $autoOpt, int $us
 }
 
 /**
+ * The steps of the running GitHub job as a short JSON list [[name, status], ...] (status: done, active, pending, failed), from the answer of GET .../actions/runs/{id}/jobs.
+ * Only the first job's steps are kept; names are cut to printable ASCII of at most 60 characters, at most 25 steps. Anything unexpected gives '' (no checklist).
+ */
+function rivetAgentBuildStepsFromJobs(mixed $j): string
+{
+    $jobs = is_array($j) && is_array($j['jobs'] ?? null) ? array_values($j['jobs']) : [];
+    $job = $jobs[0] ?? null;
+    $steps = is_array($job) && is_array($job['steps'] ?? null) ? array_values($job['steps']) : [];
+    $out = [];
+    foreach (array_slice($steps, 0, 25) as $st) {
+        if (!is_array($st) || !is_string($st['name'] ?? null)) {
+            continue;
+        }
+        $name = trim(substr(preg_replace('/[^\x20-\x7e]/', '?', $st['name']) ?? '', 0, 60));
+        if ($name === '') {
+            continue;
+        }
+        $status = is_string($st['status'] ?? null) ? $st['status'] : '';
+        $concl = is_string($st['conclusion'] ?? null) ? $st['conclusion'] : '';
+        $out[] = [$name, $status === 'completed' ? ($concl === 'success' || $concl === 'skipped' ? 'done' : 'failed') : ($status === 'in_progress' ? 'active' : 'pending')];
+    }
+    $json = json_encode($out);
+
+    return $out === [] || !is_string($json) || strlen($json) > 2000 ? '' : $json;
+}
+
+/** @return list<array{0:string,1:string}> the stored checklist, validated again on the way out */
+function rivetAgentBuildSteps(array $row): array
+{
+    $a = json_decode((string) ($row['run_steps'] ?? ''), true);
+    $out = [];
+    foreach (is_array($a) ? array_slice($a, 0, 25) : [] as $st) {
+        if (is_array($st) && is_string($st[0] ?? null) && in_array($st[1] ?? null, ['done', 'active', 'pending', 'failed'], true)) {
+            $out[] = [substr($st[0], 0, 60), $st[1]];
+        }
+    }
+
+    return $out;
+}
+
+/** About how far along the GitHub job is: finished steps out of all steps (an estimate, GitHub gives no percent). */
+function rivetAgentBuildStepsPct(array $steps): int
+{
+    $done = 0;
+    foreach ($steps as $st) {
+        $done += $st[1] === 'done' ? 1 : 0;
+    }
+
+    return $steps === [] ? 0 : (int) min(99, round(100 * $done / count($steps)));
+}
+
+/**
  * Ask GitHub how the build is doing and record it. Throttled; does nothing when no build is active.
  *
  * @return array{changed:bool,state:string}
@@ -352,7 +404,22 @@ function rivetAgentBuildPoll($mysqli, bool $force = false): array
         $note = 'Waiting in GitHub\'s queue.';
     }
     $changed = $state !== $row['run_state'] || (int) $run['id'] !== $runId;
-    mysqli_query($mysqli, "UPDATE endpoint_agent_build SET run_id = " . (int) $run['id'] . ", run_state = '$state', run_note = '" . $e($note) . "'"
+    $stepsSet = '';
+    $hasSteps = array_key_exists('run_steps', $row);   // false until the 2.6.178 database update ran
+    if ($hasSteps && (int) $run['id'] !== $runId && $row['run_steps'] !== '') {
+        $stepsSet = ", run_steps = ''";   // a new run: the old checklist is not its
+    }
+    if ($hasSteps && $state === 'building' && (int) ($run['id'] ?? 0) > 0) {   // the job's steps, for the checklist; a failed or missing answer keeps what is stored
+        $jr = rivetAgentFeedGet(rivetAgentFeedApiBase() . '/repos/' . $repo . '/actions/runs/' . (int) $run['id'] . '/jobs?per_page=5', $opt);
+        $steps = $jr['ok'] ? rivetAgentBuildStepsFromJobs(json_decode((string) $jr['body'], true)) : '';
+        if ($steps !== '') {
+            $stepsSet = ", run_steps = '" . $e($steps) . "'";
+            $changed = $changed || $steps !== (string) $row['run_steps'];
+        }
+    } elseif ($hasSteps && $state === 'finished' && $row['run_steps'] !== '') {
+        $stepsSet = ", run_steps = ''";
+    }
+    mysqli_query($mysqli, "UPDATE endpoint_agent_build SET run_id = " . (int) $run['id'] . ", run_state = '$state', run_note = '" . $e($note) . "'$stepsSet"
         . ($state === 'finished' || $state === 'failed' ? ', finished_at = UTC_TIMESTAMP()' : '') . ($state === 'failed' ? ", auto_state = ''" : '') . ' WHERE id = 1');
 
     return ['changed' => $changed, 'state' => $state];

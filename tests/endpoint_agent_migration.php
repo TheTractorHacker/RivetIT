@@ -283,21 +283,22 @@ for ($run = 1; $run <= 2; $run++) {
     }
 }
 
-// ---- DB 2.6.178 (RivetIT 26.10.58, build progress): four columns on endpoint_agent_build_jobs; db.sql carries the same columns
+// ---- DB 2.6.178 (RivetIT 26.10.58, build progress): four columns on endpoint_agent_build_jobs plus run_steps on endpoint_agent_build; db.sql carries the same columns
 $ok(version_compare(LATEST_DATABASE_VERSION, '2.6.178', '>='), 'LATEST_DATABASE_VERSION is at least 2.6.178 (' . LATEST_DATABASE_VERSION . ')');
 $step178 = $stepBlock('2.6.177');
-$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.177') {") !== false && strpos($step178, "'2.6.178'") !== false && substr_count($step178, 'ADD COLUMN IF NOT EXISTS') === 4 && strpos($step178, 'DROP ') === false,
-    'the 2.6.178 step is gated on 2.6.177, only ADDs four columns IF NOT EXISTS (no DROP) and advances the version only when the last one exists');
+$ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.177') {") !== false && strpos($step178, "'2.6.178'") !== false && substr_count($step178, 'ADD COLUMN IF NOT EXISTS') === 5 && strpos($step178, 'DROP ') === false,
+    'the 2.6.178 step is gated on 2.6.177, only ADDs five columns IF NOT EXISTS (no DROP) and advances the version only when the last one exists');
 $ok(preg_match('/CREATE TABLE IF NOT EXISTS `endpoint_agent_build_jobs` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $jm) === 1, 'db.sql defines endpoint_agent_build_jobs');
 preg_match_all('/^  `([a-z_0-9]+)` /m', $jm[1] ?? '', $jc);
 $ok($jc[1] !== [] && $jc[1] === $feedCols('endpoint_agent_build_jobs') && in_array('progress_pct', $jc[1], true), 'db.sql and the migrated schema agree on the columns (and order) of endpoint_agent_build_jobs');
 $q("DELETE FROM endpoint_agent_build_jobs WHERE version='9.9.9'");
 $q("INSERT INTO endpoint_agent_build_jobs SET host_id=1, version='9.9.9', quarantine='" . str_repeat('a', 32) . "', created_at=UTC_TIMESTAMP()");
 for ($run = 1; $run <= 2; $run++) {
-    if ($run === 2) { $q('ALTER TABLE endpoint_agent_build_jobs DROP COLUMN progress_stage, DROP COLUMN progress_pct, DROP COLUMN progress_detail, DROP COLUMN progress_at'); }
+    if ($run === 2) { $q('ALTER TABLE endpoint_agent_build_jobs DROP COLUMN progress_stage, DROP COLUMN progress_pct, DROP COLUMN progress_detail, DROP COLUMN progress_at'); $q('ALTER TABLE endpoint_agent_build DROP COLUMN run_steps'); }
     $q("UPDATE settings SET config_current_database_version='2.6.177' WHERE company_id=1");
     shell_exec('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' scripts/update_cli.php --update_db 2>&1');
     $ok((string) $one("SELECT config_current_database_version FROM settings WHERE company_id=1") === LATEST_DATABASE_VERSION, "2.6.178 replay $run lands on the latest version");
+    $ok($feedCols('endpoint_agent_build') === $bc[1], "replay $run: endpoint_agent_build has run_steps in the db.sql order");
     $ok($feedCols('endpoint_agent_build_jobs') === $jc[1] && (int) $one("SELECT COUNT(*) FROM endpoint_agent_build_jobs WHERE version='9.9.9' AND progress_pct=0 AND progress_stage='' AND progress_at IS NULL") === 1,
         "replay $run: the four columns exist in the db.sql order and the existing job keeps its row with the defaults");
 }

@@ -43,7 +43,7 @@ $reply = static function (int $status, string $body, array $headers = []) use ($
 };
 
 // ---- the Actions API (build a new version)
-if (preg_match('~^/repos/([^/]+)/([^/]+)/actions/(workflows/endpoint-agent\.yml(?:/dispatches|/runs)?|runs/(\d+))$~', $path, $m) === 1) {
+if (preg_match('~^/repos/([^/]+)/([^/]+)/actions/(workflows/endpoint-agent\.yml(?:/dispatches|/runs)?|runs/(\d+)(/jobs)?)$~', $path, $m) === 1) {
     $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
     $rawBody = (string) file_get_contents('php://input');
     file_put_contents("$dir/actions.log", json_encode(['method' => $method, 'path' => $path, 'query' => (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), 'auth' => $auth, 'body' => $rawBody, 'ctype' => (string) ($_SERVER['CONTENT_TYPE'] ?? '')]) . "\n", FILE_APPEND | LOCK_EX);
@@ -61,6 +61,9 @@ if (preg_match('~^/repos/([^/]+)/([^/]+)/actions/(workflows/endpoint-agent\.yml(
         $ds = (int) ($scenario['dispatch_status'] ?? 204);
 
         return $reply($ds, $ds === 204 ? '' : json_encode(['message' => 'denied <script>alert(1)</script> ghp_SECRETSECRETSECRETSECRET1234']), $jh);
+    }
+    if (isset($m[5]) && $m[5] === '/jobs') {   // GET .../actions/runs/{id}/jobs: scenario jobs (list of job objects), jobs_status
+        return $reply((int) ($scenario['jobs_status'] ?? 200), json_encode(['total_count' => count((array) ($scenario['jobs'] ?? [])), 'jobs' => array_values((array) ($scenario['jobs'] ?? []))]), $jh);
     }
     if (isset($m[4]) && $m[4] !== '') {
         foreach ((array) ($scenario['runs'] ?? []) as $r) {

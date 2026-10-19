@@ -11485,7 +11485,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.177') {
-        // DB 2.6.178: RivetIT 26.10.58, build progress. Four nullable/defaulted columns on endpoint_agent_build_jobs (the stage the build host reports, an overall percent,
+        // DB 2.6.178: RivetIT 26.10.58, build progress. Four defaulted columns on endpoint_agent_build_jobs (the stage the build host reports, an overall percent,
         // a short detail line and when it last reported progress). each column is added only if missing, so a replay changes nothing; existing rows get the defaults.
         mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_build_jobs`
             ADD COLUMN IF NOT EXISTS `progress_stage` varchar(24) NOT NULL DEFAULT '' AFTER `log_tail`,
@@ -11493,8 +11493,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN IF NOT EXISTS `progress_detail` varchar(120) NOT NULL DEFAULT '' AFTER `progress_pct`,
             ADD COLUMN IF NOT EXISTS `progress_at` datetime DEFAULT NULL AFTER `progress_detail`");
 
+        // and one on the GitHub build row: the steps of the running GitHub job, shown as the same checklist
+        mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_build` ADD COLUMN IF NOT EXISTS `run_steps` varchar(2000) NOT NULL DEFAULT '' AFTER `auto_note`");
+
         $bp_res = mysqli_query($mysqli, "SHOW COLUMNS FROM `endpoint_agent_build_jobs` LIKE 'progress_at'");
-        if ($bp_res && mysqli_num_rows($bp_res) > 0) {
+        $bp_res2 = mysqli_query($mysqli, "SHOW COLUMNS FROM `endpoint_agent_build` LIKE 'run_steps'");
+        if ($bp_res && mysqli_num_rows($bp_res) > 0 && $bp_res2 && mysqli_num_rows($bp_res2) > 0) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.178'");
         }
     }
