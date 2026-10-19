@@ -23,6 +23,7 @@
 #          --web-user=USER (default www-data)  --rotate-token  --allow-http (dev only: lets SERVER_URL be http://)  --no-register  --yes  -h|--help
 # Test hook: RIVETIT_BH_SOURCE_DIR=DIR reads the three files from DIR instead of GitHub. The sha256 check still applies, so a wrong file is refused.
 set -Eeuo pipefail
+set +x   # the token passes through shell variables: never trace
 umask 022
 
 # ---- the pin: bump all four lines together when RivetCore's build host script changes (and re-check the sums against the commit) --------------------------------------
@@ -260,7 +261,7 @@ else
   fi
   [ -n "${token}" ] || die "no token available"
   new_token=""
-  install -d -o root -g root -m 0755 "${CONF_DIR}"
+  [ -d "${CONF_DIR}" ] || install -d -o root -g root -m 0755 "${CONF_DIR}"   # an existing directory keeps its mode
   conf_tmp="$(mktemp "${CONF_DIR}/.build-host.conf.XXXXXX")"
   chmod 0600 "${conf_tmp}"
   {
@@ -276,6 +277,14 @@ else
   token=""; old_token=""
   chown "${BUILD_USER}:${BUILD_USER}" "${conf_tmp}"
   mv -f -- "${conf_tmp}" "${CONF}"
+  if ! as_build test -r "${CONF}"; then
+    # /etc/rivetit may be root:www-data 0750 on an existing box: grant the build user traverse permission on that one directory, nothing more
+    if command -v setfacl >/dev/null 2>&1 && setfacl -m "u:${BUILD_USER}:x" "${CONF_DIR}" && as_build test -r "${CONF}"; then
+      note "gave ${BUILD_USER} search permission on ${CONF_DIR} (ACL) so it can read its configuration"
+    else
+      die "${BUILD_USER} cannot read ${CONF}: ${CONF_DIR} is not searchable by it. Run: setfacl -m u:${BUILD_USER}:x ${CONF_DIR} (or chmod o+x ${CONF_DIR}) and run this script again."
+    fi
+  fi
   note "configuration written to ${CONF} (mode 600, owner ${BUILD_USER}; the token was not printed)"
 fi
 

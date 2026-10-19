@@ -6,7 +6,7 @@ ok() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "PASS  $2"; else FAIL=$((FAI
 t() { local d="$1"; shift; if "$@"; then ok 0 "$d"; else ok 1 "$d"; fi; }
 SH=/repo/deploy/setup-build-host.sh
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq >/dev/null 2>&1; apt-get install -y -qq --no-install-recommends python3 curl git ca-certificates >/dev/null 2>&1
+apt-get update -qq >/dev/null 2>&1; apt-get install -y -qq --no-install-recommends python3 curl git ca-certificates acl >/dev/null 2>&1
 groupadd docker
 mkdir -p /state /app/scripts && chmod 777 /state && : > /app/scripts/build_host_setup.php
 cat > /usr/local/bin/systemctl <<'F'
@@ -62,7 +62,8 @@ t "--check exits 0" [ $rc -eq 0 ]
 t "--check created no user, no conf, no /opt, no units" bash -c '! getent passwd rivetit-build >/dev/null && [ ! -e /etc/rivetit/build-host.conf ] && [ ! -e /opt/rivetit-build-host ] && [ ! -e /etc/systemd/system/build-host.timer ] && [ ! -f /state/host ]'
 t "--check says what it would do" bash -c 'echo "$0" | grep -q "would create the build host"' "$out"
 
-# 3. install
+# 3. install (an existing, closed /etc/rivetit must keep its mode; the build user gets search permission through an ACL)
+install -d -o root -g root -m 0750 /etc/rivetit
 out=$(bash $SH $ARGS 2>&1); rc=$?
 t "install exits 0 ($rc)" [ $rc -eq 0 ]
 echo "$out" | tail -12
@@ -72,6 +73,7 @@ t "script root-owned 755" bash -c '[ "$(stat -c "%U:%a" /opt/rivetit-build-host/
 t "units installed 644 root" bash -c '[ "$(stat -c %U:%a /etc/systemd/system/build-host.service)" = root:644 ] && [ "$(stat -c %a /etc/systemd/system/build-host.timer)" = 644 ]'
 t "conf is mode 600 owned by rivetit-build" bash -c '[ "$(stat -c %U:%a /etc/rivetit/build-host.conf)" = rivetit-build:600 ]'
 t "conf holds SERVER_URL, CORE_REPO, ALLOWED_REFS, WORKDIR and a token" bash -c 'c=/etc/rivetit/build-host.conf; grep -q "^SERVER_URL=http://127.0.0.1:18080/api/v1/build_host$" $c && grep -q "^CORE_REPO=https://github.com/TheTractorHacker/rivet-core.git$" $c && grep -q "^ALLOWED_REFS=\"main v\* agent-v\*\"$" $c && grep -q "^WORKDIR=/var/lib/rivetit-build-host$" $c && grep -Eq "^TOKEN=rbh_[0-9a-f]{16}_[0-9a-f]{48}$" $c'
+t "an existing /etc/rivetit keeps mode 750" bash -c '[ "$(stat -c %a /etc/rivetit)" = 750 ]'
 TOKEN=$(sed -n 's/^TOKEN=//p' /etc/rivetit/build-host.conf)
 t "the token is not in the script output" bash -c '! echo "$0" | grep -q "$1"' "$out" "${TOKEN#rbh_*_}"
 t "the token is in no argument passed to php" bash -c '! grep -q rbh_ /state/php.args'
