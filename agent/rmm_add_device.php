@@ -17,7 +17,7 @@ if (!rivetRmmEnabled($mysqli)) {
 }
 $ad_ctx = rivetRmmInstallerContext($mysqli, (int) $session_user_id, null, (int) ($_GET['client_id'] ?? 0));
 if ($ad_ctx === null) {
-    itflow_render_denied('Your role cannot create agent installers. Ask an administrator for the "RMM token manage" permission.', 'No access');
+    itflow_render_denied('Your role cannot create agent installers: it does not have the "RMM token manage" permission (rmm.token.manage). Ask an administrator to add it to your role.', 'No access');
     return;
 }
 echo rivetRmmAddDevicePage($ad_ctx, rivetAgentFeedLinuxAssets($mysqli));

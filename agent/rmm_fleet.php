@@ -50,6 +50,6 @@ $rmm_installer = rivetRmmInstallerContext($mysqli, (int) $session_user_id, null,
 if ($rmm_installer !== null) {
     $rmm_installer_scripts = true;   // includes/footer.php links js/rmm_installer.js only when this is set
 }
-echo rivetRmmUiFleetPage($rmm_fleet, (string) ($_SESSION['csrf_token'] ?? ''), $rmm_installer);
+echo rivetRmmUiFleetPage($rmm_fleet, (string) ($_SESSION['csrf_token'] ?? ''), $rmm_installer, rivetRmmInstallerGate($mysqli, (int) $session_user_id));
 
 require_once "../includes/footer.php";

@@ -882,7 +882,7 @@ function rivetRmmUiDeviceLink(array $d): string
 /**
  * @param array<string,mixed>|null $installer rivetRmmInstallerContext(): when set the page gets the "Add device" button, the empty-state button and the dialog
  */
-function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): string
+function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?array $installerGate = null): string
 {
     $c = $f['counts'];
     $names = $f['client_names'];
@@ -1034,11 +1034,13 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null): 
     $swCard = $f['outdated_sw'] !== null ? rivetRmmUiOutdatedSoftware($f['outdated_sw'], $cn, $f) : '';
 
     return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-satellite me-2" aria-hidden="true"></i>Agent fleet</h4>'
-        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') . '<a href="/agent/rmm_add_device.php" class="btn btn-outline-primary btn-sm" id="rmm-build-installer"><i class="fas fa-tools me-1" aria-hidden="true"></i>Build installer</a>' : '')
+        . ($installerGate !== null ? rivetRmmInstallerCreateButton($installerGate) : '')   // 26.10.54: the primary button, drawn for everyone (muted, with the reason below, without the right)
+        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device', 'btn-outline-primary btn-sm') : '')
         . rivetRmmMeshBulkTrigger($f['mesh_bulk'] ?? null)
         . '<a href="/agent/rmm_assets.php" class="btn btn-info btn-sm"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
         . '<a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
         . ($f['perm']['admin'] ? '<a href="/admin/settings_endpoint_agent.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-cog me-1" aria-hidden="true"></i>Administration</a>' : '') . '</div>'
+        . ($installerGate !== null ? rivetRmmInstallerNotice($installerGate, $installer) : '')
         . ($c['total'] === 0 && $f['filters'] === [] ? '<section class="card card-dark mb-3"><div class="card-body">' . rivetRmmUiEmpty('fas fa-satellite-dish', 'No agent is enrolled yet',
             $installer !== null ? 'Click Add device, download the installer and run it on a PC. It enrolls itself.' : ($f['perm']['admin'] ? 'Create an enrollment token under Administration, Endpoint agent, then install the agent on a device.' : 'An administrator creates an enrollment token and installs the agent.'),
             $installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '') . '</div></section>' : '')

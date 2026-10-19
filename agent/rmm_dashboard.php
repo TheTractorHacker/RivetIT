@@ -253,6 +253,12 @@ while ($r = mysqli_fetch_assoc($sql_noisy_clients)) {
 $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
 ?>
 
+<?php
+// 26.10.54: the installer builder is one click away from here too. The button is always drawn; without the right the notice under the header says which permission or setting is missing.
+require_once dirname(__DIR__) . '/includes/rmm_installer.php';
+$dash_gate = rivetRmmInstallerGate($mysqli, (int) $session_user_id);
+$dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $session_user_id) : null;
+?>
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 mr-auto"><i class="fas fa-tachometer-alt me-2"></i>RMM Dashboard</h4>
     <?php if ($last_sync_row): ?>
@@ -260,6 +266,7 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
         <i class="fas fa-sync-alt me-1 text-success"></i>Last sync: <?= nullable_htmlentities($last_sync_row['finished_at']) ?>
     </small>
     <?php endif; ?>
+    <span class="me-2"><?= rivetRmmInstallerCreateButton($dash_gate) ?></span>
     <a href="/agent/rmm_assets.php" class="btn btn-info btn-sm me-2">
         <i class="fas fa-desktop me-1"></i>All Assets
     </a>
@@ -281,6 +288,8 @@ $has_alert_analytics = array_sum($alert_trend_data) > 0 || !empty($sev_counts);
     </button>
     <?php endif; ?>
 </div>
+
+<?= rivetRmmInstallerNotice($dash_gate, $dash_ctx) ?>
 
 <!-- Stat cards -->
 <div class="row mb-3">

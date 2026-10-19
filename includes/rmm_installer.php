@@ -53,6 +53,82 @@ function rivetRmmInstallerAllowed($mysqli, int $userId, int $clientId = 0): bool
 }
 
 /**
+ * Why this viewer can or cannot create installers, in words (RivetIT 26.10.54). The entry is never hidden: when the answer is no, the Endpoints pages print
+ * `message` naming the missing permission or setting instead of silently leaving the button out.
+ *
+ * @return array{allowed:bool,code:string,admin:bool,message:string}  code: ok | module_off | no_right
+ */
+function rivetRmmInstallerGate($mysqli, int $userId): array
+{
+    if ($userId > 0 && rivetRmmInstallerAllowed($mysqli, $userId, 0)) {
+        return ['allowed' => true, 'code' => 'ok', 'admin' => rivetRmmInstallerIsAdmin($mysqli, $userId), 'message' => ''];
+    }
+    $admin = $userId > 0 && rivetRmmInstallerIsAdmin($mysqli, $userId);
+    if (!rivetRmmEnabled($mysqli)) {
+        return ['allowed' => false, 'code' => 'module_off', 'admin' => $admin, 'message' => 'Installers cannot be created because the Endpoint agent (RMM) module is switched off.'
+            . ($admin ? ' <a href="/admin/settings_endpoint_agent.php">Switch it on under Administration &gt; Endpoint agent</a>.' : ' An administrator can switch it on under Administration &gt; Endpoint agent.')];
+    }
+
+    return ['allowed' => false, 'code' => 'no_right', 'admin' => $admin, 'message' => 'You cannot create installers: your role does not have the &quot;RMM token manage&quot; permission (<code>rmm.token.manage</code>).'
+        . ' Ask an administrator to add it to your role.'];
+}
+
+/** Is this user an RMM administrator (rmm.admin)? Only used to decide whether a message may link into Administration. */
+function rivetRmmInstallerIsAdmin($mysqli, int $userId): bool
+{
+    try {
+        return rivetRmmModule($mysqli)->authorizer()->allowed($userId, RmmAbility::ADMIN, 0);
+    } catch (\Throwable) {
+        return false;
+    }
+}
+
+/**
+ * The primary "Create installer" button for the header of the RMM dashboard and the Agent fleet page. It is always drawn: without the right it is a muted button
+ * that jumps to the explanation printed under the header (rivetRmmInstallerNotice()).
+ *
+ * @param array{allowed:bool} $gate rivetRmmInstallerGate()
+ */
+function rivetRmmInstallerCreateButton(array $gate): string
+{
+    if ($gate['allowed']) {
+        return '<a href="' . RIVET_RMM_ADD_DEVICE_URL . '" class="btn btn-primary btn-sm" id="rmm-build-installer"><i class="fas fa-tools me-1" aria-hidden="true"></i>Create installer</a>';
+    }
+
+    return '<a href="#rmm-installer-notice" class="btn btn-outline-secondary btn-sm" id="rmm-build-installer" data-installer-blocked="' . rivetRmmInstH($gate['code']) . '"><i class="fas fa-lock me-1" aria-hidden="true"></i>Create installer</a>';
+}
+
+/**
+ * The line(s) under the header: why the button does not work for this viewer, or (when it does) what the server cannot build yet because nothing is published.
+ * Empty when there is nothing to say.
+ *
+ * @param array{allowed:bool,code:string,admin:bool,message:string} $gate rivetRmmInstallerGate()
+ * @param array<string,mixed>|null $ctx rivetRmmInstallerContext() when the caller already has it (saves the queries)
+ */
+function rivetRmmInstallerNotice(array $gate, ?array $ctx): string
+{
+    if (!$gate['allowed']) {
+        return '<div class="alert alert-warning py-2 mb-3" role="alert" id="rmm-installer-notice" data-installer-code="' . rivetRmmInstH($gate['code']) . '"><i class="fas fa-lock me-1" aria-hidden="true"></i>' . $gate['message'] . '</div>';
+    }
+    if ($ctx === null) {
+        return '';
+    }
+    $b = $ctx['binaries'];
+    $link = !empty($ctx['admin']) ? ' <a href="' . RIVET_RMM_AGENT_UPDATES_URL . '">Publish one under Administration &gt; Endpoint agent &gt; Agent updates</a>.' : ' Ask an administrator to publish one.';
+    if ($b['amd64'] === null && $b['arm64'] === null) {
+        return '<div class="alert alert-warning py-2 mb-3" role="alert" id="rmm-installer-notice" data-installer-code="no_agent"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
+            . 'No Windows agent program is published on this server yet, so a Windows installer cannot be built.' . $link . '</div>';
+    }
+    if (($ctx['msi']['amd64'] ?? null) === null && ($ctx['msi']['arm64'] ?? null) === null) {
+        return '<div class="small text-muted mb-3" id="rmm-installer-notice" data-installer-code="no_msi"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>'
+            . 'No MSI template is published, so only the .exe installer is available (Intune and Group Policy want the .msi).'
+            . (!empty($ctx['admin']) ? ' <a href="' . RIVET_RMM_AGENT_UPDATES_URL . '">Agent updates</a> publishes it.' : ' Ask an administrator.') . '</div>';
+    }
+
+    return '';
+}
+
+/**
  * Locations (sites) of one department for the optional location select.
  *
  * @return list<array{id:int,name:string}>
@@ -214,14 +290,14 @@ function rivetRmmInstH($v): string
  *
  * @param string $variant 'button' (a filled primary button), 'item' (a dropdown item)
  */
-function rivetRmmInstallerTrigger(string $variant = 'button', int $clientId = 0, string $label = 'Download installer'): string
+function rivetRmmInstallerTrigger(string $variant = 'button', int $clientId = 0, string $label = 'Download installer', string $class = 'btn btn-primary'): string
 {
     $data = 'data-bs-toggle="modal" data-bs-target="#rmmInstallerModal"' . ($clientId > 0 ? ' data-rmm-installer-client="' . $clientId . '"' : '');
     if ($variant === 'item') {
         return '<a class="dropdown-item" href="#" ' . $data . ' data-rmm-installer-open><i class="fas fa-fw fa-download me-2" aria-hidden="true"></i>' . rivetRmmInstH($label) . '</a>';
     }
 
-    return '<button type="button" class="btn btn-primary" ' . $data . ' data-rmm-installer-open><i class="fas fa-download me-1" aria-hidden="true"></i>' . rivetRmmInstH($label) . '</button>';
+    return '<button type="button" class="' . rivetRmmInstH($class) . '" ' . $data . ' data-rmm-installer-open><i class="fas fa-download me-1" aria-hidden="true"></i>' . rivetRmmInstH($label) . '</button>';
 }
 
 /** The modal. Rendered once per page; the script (js/rmm_installer.js) drives it. */
@@ -290,7 +366,8 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="modal-header"><h5 class="modal-title" id="rmmInstallerTitle"><i class="fas fa-download me-2" aria-hidden="true"></i>Add device</h5>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
         . '<div class="modal-body">'
-        . '<p class="text-muted small mb-3">Pick the department, then download an installer that already knows your server and the department. Nothing to type on the PC. <a href="' . $h(RIVET_RMM_ADD_DEVICE_URL) . '">Need the MSI commands or the Linux packages? Open the full Add device page.</a></p>'
+        . '<p class="text-muted small mb-3">Pick the department, then download an installer that already knows your server and the department. Nothing to type on the PC. <a href="' . $h(RIVET_RMM_ADD_DEVICE_URL) . '" id="rmm-inst-full-link">Need the MSI commands or the Linux packages? Open the full Add device page.</a> '
+        . '<a href="' . $h(RIVET_RMM_ADD_DEVICE_URL) . '" class="btn btn-sm btn-outline-primary ms-1" id="rmm-inst-create-link"><i class="fas fa-tools me-1" aria-hidden="true"></i>Create installer</a></p>'
         . $problem . $none . $msiWarn
         . '<ul class="nav nav-pills mb-3" role="tablist" aria-label="Operating system">'
         . '<li class="nav-item" role="presentation"><button type="button" class="nav-link active" id="rmm-inst-tab-windows" role="tab" aria-selected="true" aria-controls="rmm-inst-panel" data-os="windows"><i class="fab fa-windows me-1" aria-hidden="true"></i>Windows</button></li>'
