@@ -72,11 +72,12 @@ await T('Save token: password field, saved encrypted, never shown back, Build fo
   assert(!html.includes(TOKEN) && !html.includes(TOKEN.slice(12, 32)), 'the token is in the page');
   assert((await p.eval(`document.getElementById('af-build-version').value`)) === '0.9.2', 'prefilled version');
   assert((await p.eval(`document.getElementById('af-token-in').value`)) === '', 'token field not empty');
-  assert(st.token_in_logs === 0 && st.audit['Agent Build Token Saved'] === 1, 'audit ' + JSON.stringify(st.audit));
+  assert(st.token_in_logs === 0 && Number(st.audit['Agent Build Token Saved']) === 1, 'audit ' + JSON.stringify(st.audit));
   await shot('agent-build-token-saved-desktop-light');
 });
 
 await T('Test token: says it works', async () => {
+  await p.eval(`document.getElementById('af-token').open = true`);
   await p.click('#af-token-test');
   await p.waitFor(`/The token works/.test(document.getElementById('af-alert').innerText)`, { label: 'test token result' });
 });
@@ -90,7 +91,7 @@ await T('Build: a version that exists or is lower is refused with a plain messag
     await sleep(200);
   }
   assert(extra('state', MOCK).calls.filter((c) => c.p.endsWith('/dispatches')).length === 0, 'a dispatch was sent');
-});
+}, { allowHttp: [/post\.php/] });
 
 await T('Build 0.9.2 with publish-when-built (pilot, 30%): GitHub is asked once; the box shows the waiting state and locks the button', async () => {
   await go('/admin/settings_endpoint_agent.php');
@@ -123,7 +124,7 @@ await T('live progress: the open page follows queued, building (with the run lin
   const st = extra('state', MOCK);
   assert(st.binaries.some((b) => b.version === '0.9.2' && b.arch === 'amd64') && st.releases.some((r) => r.version === '0.9.2' && r.ring === 'pilot' && Number(r.rollout_pct) === 30), 'published: ' + JSON.stringify([st.binaries, st.releases]));
   assert(/Published/.test(await p.eval(`document.querySelector('#af-table tr[data-tag="agent-v0.9.2"]').innerText`)), 'row not Published');
-  assert(st.audit['Agent Build Started'] === 1 && st.audit['Agent Build Auto Publish'] === 1 && st.token_in_logs === 0, 'audit ' + JSON.stringify(st.audit));
+  assert(Number(st.audit['Agent Build Started']) === 1 && Number(st.audit['Agent Build Auto Publish']) === 1 && st.token_in_logs === 0, 'audit ' + JSON.stringify(st.audit));
   await shot('agent-build-finished-desktop-light');
 });
 

@@ -403,3 +403,21 @@ Nothing in the RMM forms asks for JSON any more. The pieces:
 **Finding the installer.** The Agent updates card and the Agent fleet page have an **Add device / Build installer** button next to the existing Endpoints menu entry.
 
 **Tests.** `tests/rmm_check_schedule.php`, `tests/browser/rmm_checks_smoke.mjs` (with `tests/browser/rmm_checks_extra.php`), and the updated `tests/endpoint_agent_authz.php`, `tests/rmm_ui_p23_a_policies.php` (inside `tests/rmm_ui.php`) and `tests/rmm_ui_rc13_mesh.php`.
+
+## 19. Build a new agent version from the Agent updates card (RivetIT 26.10.55, DB 2.6.176)
+
+The card could only fetch finished releases; now it can start the build too. Files: `includes/rmm_agent_build.php` (rules), `includes/rmm_agent_build_ui.php` (the box), handler actions `build_*` in `admin/post/settings_endpoint_agent.php`, `js/rmm_agent_feed.js` (polling), `cron/agent_build_check.php`, table `endpoint_agent_build` (one row).
+
+**Flow.** Version box (latest known + 1 patch) -> **Build** -> `POST https://api.github.com/repos/<configured repo>/actions/workflows/endpoint-agent.yml/dispatches` `{"ref":"main","inputs":{"version":"X.Y.Z[-suffix]"}}` (HTTP 204) -> the run is found through `GET .../actions/workflows/endpoint-agent.yml/runs?event=workflow_dispatch&branch=main` (the oldest run created since the request; one build at a time makes that unambiguous), then followed by number (`GET .../actions/runs/<id>`) -> state `queued` / `building` / `finished` / `failed` -> on success the release list is refreshed and the release shows with Publish. A run that never appears within 15 minutes, or a build not seen to finish within 3 hours, is shown as failed and stops blocking.
+
+**Version rules (server side).** `X.Y.Z` with an optional `-suffix` (letters, digits, dot, dash; up to 20 characters, starting with a letter or digit); refused when it already exists in the release list (read again just before) or is lower than the highest known version (a pre-release sorts before its release: 0.9.1 is accepted after 0.9.1-rc1).
+
+**Publish when built.** Ticked at build time with the ring / rollout / current / offer choices; stored in the row; carried out once (the row is claimed first) by the card's poll or by the cron job, as the user who started the build, through `rivetAgentFeedPublishAll()` (so RmmAdmin's permission check, the checksums and the audit rows are the same as a click on Publish). If the release does not show up within 30 minutes of the run finishing, or the user no longer exists, it gives up with a note and nothing is published.
+
+**Token.** Fine-grained personal access token, resource owner = the repository's owner, only that repository, permission **Actions: read and write** (nothing else; Metadata read is added by GitHub). Saved with `encryptSetting($token, 'agent_build.github_token')`; format-checked (`github_pat_...` or a classic `ghp_`-style token); shown to nobody; **Test token** reads the workflow (proves the token can see it, and warns when the workflow is disabled; start permission is proven by Build); **Remove token**; removed when the release repository changes. Rotate it by saving a new one before the expiry GitHub shows. `rivetAgentFeedGet()` sends the token only to the `api` role (api.github.com, https, port 443, resolved address checked and pinned) on the first request and refuses a redirect of such a call. Error texts for GitHub failures (401 / 403 / 404 / 422 / offline) are written here; GitHub's own answer text is never echoed.
+
+**Without a token** the box offers **Start the build on GitHub** (`https://github.com/<repo>/actions/workflows/endpoint-agent.yml`) and three plain steps.
+
+**Cron.** `cron/agent_build_check.php` every five minutes (www-data, a log file that exists): exits at once with no network when no build is running; otherwise polls, refreshes the list on completion and runs the automatic publish. `deploy/install.sh` adds it for new installs.
+
+**Tests.** `tests/endpoint_agent_build.php`, `tests/endpoint_agent_migration.php` (DB 2.6.176), `tests/browser/rmm_agentbuild_smoke.mjs` with `tests/browser/rmm_agentbuild_extra.php`.
