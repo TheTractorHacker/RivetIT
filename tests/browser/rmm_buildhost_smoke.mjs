@@ -78,7 +78,6 @@ class MockHost {
 let host = null, TOKEN = '';
 
 await T('login: real form signs in', login, { allowHttp: [/\/agent\/clients\.php/] });
-await T('setup: the offer needs the service URL, so the page must show it (RMM_SMOKE_BASE_URL at seed time)', async () => { await go(); assert(await p.eval(`!document.getElementById('af-bh-off') || true`), 'x'); });
 await T('setup: clean slate', async () => { assert(extra('reset').ok, 'reset'); });
 
 await T('provider choice: GitHub and build host; the build host section is hidden until chosen and the choice is remembered', async () => {
