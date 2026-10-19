@@ -147,6 +147,27 @@ $ok($c === 200 && $s['state'] === 'building' && strlen(job($j1)['note']) === 500
 $q("UPDATE endpoint_agent_build_jobs SET lease_expires_at = UTC_TIMESTAMP() + INTERVAL 20 SECOND WHERE job_id = $j1");
 bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'note' => 'cmake <b>']);
 $ok(strtotime(job($j1)['lease_expires_at'] . ' UTC') - time() > 3000 && job($j1)['note'] === 'cmake <b>', 'status renews the lease (and stores the note raw, to be escaped on output)');
+// build progress (26.10.58): stage / pct / detail / elapsed_s on the status call
+echo "== build progress\n";
+$pg = fn() => job($j1);
+[$c, $s] = bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'stage' => 'clone', 'pct' => 10, 'detail' => 'Cloning', 'elapsed_s' => 4]);
+$ok($c === 200 && $pg()['progress_stage'] === 'clone' && (int) $pg()['progress_pct'] === 10 && $pg()['progress_detail'] === 'Cloning' && $pg()['progress_at'] !== null, 'progress fields are stored');
+bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'stage' => 'build_windows_amd64', 'pct' => 40]);
+bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'stage' => 'clone', 'pct' => 15, 'detail' => 'late old packet']);
+$ok($pg()['progress_stage'] === 'build_windows_amd64' && (int) $pg()['progress_pct'] === 40 && $pg()['progress_detail'] === 'Cloning', 'a late older packet moves neither the stage nor the percent backwards (and does not replace the detail)');
+bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'note' => 'no progress fields']);
+$ok($pg()['progress_stage'] === 'build_windows_amd64' && (int) $pg()['progress_pct'] === 40, 'a status call without progress fields keeps the progress');
+foreach ([['stage' => 'rm -rf'], ['stage' => ['clone']], ['stage' => 'BUILD_WINDOWS_AMD64'], ['pct' => 101], ['pct' => -1], ['pct' => '50'], ['pct' => 50.5], ['pct' => true], ['pct' => null],
+          ['detail' => str_repeat('d', 121)], ['detail' => "tab\there"], ['detail' => "nl\n"], ['detail' => "caf\u{e9}"], ['detail' => ['x']], ['elapsed_s' => -3], ['elapsed_s' => 999999], ['elapsed_s' => 'x']] as $bad) {
+    [$c] = bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building'] + $bad);
+    $ok($c === 422, 'refused (422): ' . substr(json_encode($bad), 0, 60));
+}
+$ok($pg()['progress_stage'] === 'build_windows_amd64' && (int) $pg()['progress_pct'] === 40, 'refused packets changed nothing');
+[$c] = bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'pct' => 100, 'detail' => str_repeat('d', 120)]); $ok($c === 200 && (int) $pg()['progress_pct'] === 100 && strlen($pg()['progress_detail']) === 120, 'edge values 100 and 120 characters are accepted');
+bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'pct' => 90, 'detail' => 'tok rbh_' . str_repeat('a', 16) . '_' . str_repeat('b', 48)]);
+$ok((int) $pg()['progress_pct'] === 100 && !str_contains($pg()['progress_detail'], 'bbbb'), 'the percent stays at its high-water mark and a token-shaped detail is masked');
+bh_call('status', $TA, ['job_id' => $j1, 'state' => 'building', 'pct' => 40, 'detail' => 'Cloning']);
+
 [$c, $p] = bh_call('poll', $TA, []); $ok($p['job'] === null, 'while a job is being worked on a poll hands out nothing');
 
 // ---------------------------------------------------------------- 4. upload rules
@@ -261,8 +282,9 @@ $id = newjob($HA, '0.9.43', null); ok_cancel: $ok(rivetBuildHostCancel($db, $id)
 $id = newjob($HA, '0.9.44', null); bh_call('poll', $TA, []); bh_call('status', $TA, ['job_id' => $id, 'state' => 'building']);
 $TA = rivetBuildHostRotate($db, $HA) ?: $TA;   // revoke while building
 [$c] = bh_call('status', $TA . 'x', ['job_id' => $id, 'state' => 'building']); $ok($c === 401, 'a revoked token cannot report on its running job');
-[$c] = bh_call('status', $TA, ['job_id' => $id, 'state' => 'failed', 'note' => 'docker failed', 'log_tail' => str_repeat("line\n", 2000) . 'token rbh_' . str_repeat('a', 16) . '_' . str_repeat('b', 48) . "\x07"]);
+[$c] = bh_call('status', $TA, ['job_id' => $id, 'state' => 'failed', 'stage' => 'bogus', 'pct' => 999, 'note' => 'docker failed', 'log_tail' => str_repeat("line\n", 2000) . 'token rbh_' . str_repeat('a', 16) . '_' . str_repeat('b', 48) . "\x07"]);
 $j = job($id); $ok($c === 200 && $j['state'] === 'failed' && strlen($j['log_tail']) <= 4096 && !str_contains($j['log_tail'], 'rbh_aaaa') && !str_contains($j['log_tail'], "\x07"), 'a failed report stores a log tail of at most 4 KiB with token-shaped text masked');
+$ok($j['progress_stage'] === '' && (int) $j['progress_pct'] === 0, 'progress fields on a failed report are ignored (not even validated)');
 $ok(rivetBuildHostSetEnabled($db, $HA, false) && true, 'host disabled');
 $id = newjob($HA, '0.9.45', null); $ok($id === 0, 'no build can be requested for a disabled host');
 rivetBuildHostSetEnabled($db, $HA, true);

@@ -29,6 +29,16 @@ const RIVET_BH_SUMS_MAX = 16384;             // SHA256SUMS
 const RIVET_BH_LEASE_CLAIM_S = 900;          // 15 minutes
 const RIVET_BH_LEASE_WORK_S = 3600;          // 60 minutes without a status call
 const RIVET_BH_KEEP_BUILT_S = 86400;         // a verified build that nobody publishes is dropped after a day
+/** Build stages a host may report, in order, with the plain words the page shows (the page never shows host-sent text as a stage name). */
+const RIVET_BH_STAGES = [
+    'prepare' => ['Getting ready', 'Prepare the build'],
+    'clone' => ['Fetching the source', 'Fetch the source'],
+    'build_windows_amd64' => ['Building the Windows x64 agent', 'Build the Windows x64 agent'],
+    'build_windows_arm64' => ['Building the Windows ARM64 agent', 'Build the Windows ARM64 agent'],
+    'msi' => ['Building the installer (MSI)', 'Build the installer (MSI)'],
+    'verify' => ['Checking the files', 'Check the files'],
+    'upload' => ['Uploading the files', 'Upload the files'],
+];
 const RIVET_BH_ACTIVE = ['claimed', 'building', 'uploading', 'verifying'];
 const RIVET_BH_OPEN = ['queued', 'claimed', 'building', 'uploading', 'verifying'];
 
@@ -505,6 +515,62 @@ function rivetBuildHostPoll($mysqli, array $host, array $body, string $ip): arra
     return [200, ['job' => rivetBuildHostJobPublic($j)]];
 }
 
+/**
+ * Validates the optional progress fields of a status call: stage (allowlist), pct (integer 0-100), detail (at most 120 printable ASCII characters), elapsed_s (integer 0-172800).
+ * Returns the cleaned values (only the keys that were sent) or an error message. Nothing the host sends is ever shown as-is: the page maps stage to its own words.
+ *
+ * @return array{stage?: string, pct?: int, detail?: string, elapsed_s?: int}|string
+ */
+function rivetBuildHostProgressFields(array $body): array|string
+{
+    $out = [];
+    if (array_key_exists('stage', $body)) {
+        if (!is_string($body['stage']) || !isset(RIVET_BH_STAGES[$body['stage']])) {
+            return 'stage must be one of: ' . implode(', ', array_keys(RIVET_BH_STAGES)) . '.';
+        }
+        $out['stage'] = $body['stage'];
+    }
+    foreach (['pct' => 100, 'elapsed_s' => 172800] as $k => $max) {
+        if (array_key_exists($k, $body)) {
+            if (!is_int($body[$k]) || $body[$k] < 0 || $body[$k] > $max) {
+                return $k . ' must be a whole number from 0 to ' . $max . '.';
+            }
+            $out[$k] = $body[$k];
+        }
+    }
+    if (array_key_exists('detail', $body)) {
+        if (!is_string($body['detail']) || strlen($body['detail']) > 120 || preg_match('/[^\x20-\x7e]/', $body['detail']) === 1) {
+            return 'detail must be at most 120 printable characters.';
+        }
+        $out['detail'] = rivetBuildHostClean($body['detail'], 120);
+    }
+
+    return $out;
+}
+
+/** UPDATE fragment for the progress columns: stage and percent never move backwards for a job. Empty when nothing was sent. */
+function rivetBuildHostProgressSet($mysqli, array $j, array $p): string
+{
+    if (!isset($p['stage']) && !isset($p['pct']) && !isset($p['detail'])) {
+        return '';
+    }
+    $order = array_keys(RIVET_BH_STAGES);
+    $set = ['progress_at = UTC_TIMESTAMP()'];
+    $curIdx = array_search((string) ($j['progress_stage'] ?? ''), $order, true);
+    $stageOk = !isset($p['stage']) || $curIdx === false || array_search($p['stage'], $order, true) >= $curIdx;
+    if (isset($p['stage']) && $stageOk) {
+        $set[] = "progress_stage = '" . mysqli_real_escape_string($mysqli, $p['stage']) . "'";
+    }
+    if (isset($p['pct'])) {
+        $set[] = 'progress_pct = GREATEST(progress_pct, ' . (int) $p['pct'] . ')';
+    }
+    if (isset($p['detail']) && $stageOk) {
+        $set[] = "progress_detail = '" . mysqli_real_escape_string($mysqli, $p['detail']) . "'";
+    }
+
+    return ', ' . implode(', ', $set);
+}
+
 /** A job that is no longer open for the host answers 409 with its state, so the script stops working on it. */
 function rivetBuildHostGone(array $j): array
 {
@@ -527,6 +593,10 @@ function rivetBuildHostStatusCall($mysqli, array $host, array $body, string $ip)
         return rivetBuildHostGone($j);
     }
     $note = rivetBuildHostClean(is_string($body['note'] ?? null) ? $body['note'] : '', 500);
+    $prog = $state === 'failed' ? [] : rivetBuildHostProgressFields($body);   // progress is ignored for a terminal state
+    if (is_string($prog)) {
+        return rivetBuildHostErr(422, 'invalid', $prog);
+    }
     $e = static fn (string $s): string => mysqli_real_escape_string($mysqli, $s);
     if ($state === 'failed') {
         $log = rivetBuildHostClean(is_string($body['log_tail'] ?? null) ? $body['log_tail'] : '', 4096, true);
@@ -539,7 +609,7 @@ function rivetBuildHostStatusCall($mysqli, array $host, array $body, string $ip)
 
         return [200, ['ok' => true, 'state' => 'failed']];
     }
-    mysqli_query($mysqli, "UPDATE endpoint_agent_build_jobs SET state = '$state', note = '" . $e($note) . "', last_status_at = UTC_TIMESTAMP(), lease_expires_at = UTC_TIMESTAMP() + INTERVAL " . RIVET_BH_LEASE_WORK_S . ' SECOND WHERE job_id = ' . (int) $j['job_id'] . " AND state IN ('claimed','building','uploading')");
+    mysqli_query($mysqli, "UPDATE endpoint_agent_build_jobs SET state = '$state', note = '" . $e($note) . "', last_status_at = UTC_TIMESTAMP(), lease_expires_at = UTC_TIMESTAMP() + INTERVAL " . RIVET_BH_LEASE_WORK_S . ' SECOND' . rivetBuildHostProgressSet($mysqli, $j, $prog) . ' WHERE job_id = ' . (int) $j['job_id'] . " AND state IN ('claimed','building','uploading')");
     if (mysqli_affected_rows($mysqli) !== 1 && rivetBuildHostJobs($mysqli, ['job_id' => (int) $j['job_id']])[0]['state'] !== $state) {
         return rivetBuildHostGone(rivetBuildHostJobs($mysqli, ['job_id' => (int) $j['job_id']])[0]);
     }
