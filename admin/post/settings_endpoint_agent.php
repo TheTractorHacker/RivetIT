@@ -43,6 +43,7 @@ $ea_who = rivetRmmPrincipal((int) $session_user_id, (string) $session_name);
 if (isset($_POST['agent_feed'])) {
     require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed.php';
     require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed_ui.php';
+    require_once dirname(__DIR__, 2) . '/includes/rmm_agent_build.php';   // 26.10.55: Build a new version (token, dispatch, progress, publish when built)
     $af_action = (string) $_POST['agent_feed'];
     $af_json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
     $af_reply = static function (bool $ok, string $message, array $extra = [], int $http = 200) use ($af_json): void {
@@ -82,7 +83,42 @@ if (isset($_POST['agent_feed'])) {
                 $af_reply(false, $err, [], 422);
             }
             logAction('Endpoint Agent', 'Agent Feed Repository Changed', "$session_name changed the agent release repository from $old to $repo");
-            $af_reply(true, 'Saved. Press "Check for updates" to read the releases of ' . $repo . '.', $af_json ? ['html' => $af_card()] : []);
+            $af_dropped = $old !== $repo && rivetAgentBuildHasToken($mysqli);
+            if ($af_dropped) {   // the GitHub token was made for the old repository
+                rivetAgentBuildClearToken($mysqli);
+                logAction('Endpoint Agent', 'Agent Build Token Removed', "$session_name's GitHub token was removed because the release repository changed");
+            }
+            $af_reply(true, 'Saved. Press "Check for updates" to read the releases of ' . $repo . '.' . ($af_dropped ? ' The saved GitHub token was removed (it belonged to the old repository).' : ''), $af_json ? ['html' => $af_card()] : []);
+
+        case 'build_save_token':
+            $err = rivetAgentBuildSaveToken($mysqli, is_string($_POST['gh_token'] ?? null) ? $_POST['gh_token'] : '', (int) $session_user_id);
+            if ($err !== null) {
+                $af_reply(false, $err, [], 422);
+            }
+            logAction('Endpoint Agent', 'Agent Build Token Saved', "$session_name saved the GitHub token for agent builds (stored encrypted)");
+            $af_reply(true, 'The token is saved (encrypted). Press "Test token" to check it.', $af_json ? ['html' => $af_card()] : []);
+
+        case 'build_clear_token':
+            rivetAgentBuildClearToken($mysqli);
+            logAction('Endpoint Agent', 'Agent Build Token Removed', "$session_name removed the GitHub token for agent builds");
+            $af_reply(true, 'The token was removed from this server.', $af_json ? ['html' => $af_card()] : []);
+
+        case 'build_test_token':
+            $bt = rivetAgentBuildTestToken($mysqli);
+            logAction('Endpoint Agent', 'Agent Build Token Tested', "$session_name tested the GitHub token (" . ($bt['ok'] ? 'ok' : 'failed') . ')');
+            $af_reply($bt['ok'], $bt['message'], $af_json ? ['html' => $af_card()] : []);
+
+        case 'build_start':
+            $bv = is_string($_POST['version'] ?? null) ? trim($_POST['version']) : '';
+            $bs = rivetAgentBuildStart($mysqli, $bv, !empty($_POST['build_auto']) ? $af_opt : null, (int) $session_user_id);
+            logAction('Endpoint Agent', $bs['ok'] ? 'Agent Build Started' : 'Agent Build Refused', "$session_name asked for agent version " . substr(preg_replace('/[^0-9A-Za-z.-]/', '?', $bv), 0, 40) . ($bs['ok'] ? (!empty($_POST['build_auto']) ? ' (publish when built)' : '') : ': ' . substr($bs['message'], 0, 200)));
+            $af_reply($bs['ok'], $bs['message'], $af_json ? ['html' => $af_card()] : [], $bs['ok'] ? 200 : 422);
+
+        case 'build_status':   // the card asks every few seconds while a build runs (or a finished one waits to be published)
+            $bt = rivetAgentBuildTick($mysqli, $rmm, false);
+            $br = rivetAgentBuildRow($mysqli);
+            $af_reply(true, $bt['message'] !== '' ? $bt['message'] : (string) $br['run_note'], ['state' => (string) $br['run_state'], 'changed' => $bt['changed'], 'active' => rivetAgentBuildIsActive($br) || rivetAgentBuildAutoPending($br),
+                'url' => rivetAgentBuildRunUrl($br), 'html' => $bt['changed'] ? $af_card() : '']);
 
         case 'plan':
             $rel = rivetAgentFeedFindRelease($mysqli, $af_tag);
