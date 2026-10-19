@@ -79,7 +79,7 @@ function rivetAgentBuildToken($mysqli): string
 }
 
 /** @return string|null error text */
-function rivetAgentBuildSaveToken($mysqli, string $token, int $userId): ?string
+function rivetAgentBuildSaveToken($mysqli, #[\SensitiveParameter] string $token, int $userId): ?string
 {
     if (!rivetAgentBuildReady($mysqli)) {
         return 'Run the database update first (Administration > Updates).';
