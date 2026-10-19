@@ -1060,6 +1060,8 @@ EOF
     # Nightly restore drill of the newest in-app backup zip. Does nothing until an admin enables it (Admin > Backup > Restore drill).
     ensure_cron_job "${cron_file}" "${APP_DIR}" restore_drill.php '45 3 * * *' "${backup_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" metrics_collect.php '*/5 * * * *' "${metrics_log}"
+    # Follows an agent build started from the Agent updates card and publishes it when asked to. Exits at once when no build is running.
+    ensure_cron_job "${cron_file}" "${APP_DIR}" agent_build_check.php '*/5 * * * *' "${cron_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" outlook_schedule_sync.php '*/15 * * * *' "${sync_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" domain_refresher.php '0 3 * * *' "${refresh_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" certificate_refresher.php '0 4 * * *' "${refresh_log}"

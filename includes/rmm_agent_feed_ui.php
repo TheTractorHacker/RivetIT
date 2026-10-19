@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/rmm_agent_feed.php';
+require_once __DIR__ . '/rmm_agent_build_ui.php';   // 26.10.55: the Build a new version box
 
 function rivetAgentFeedH($v): string
 {
@@ -74,6 +75,9 @@ function rivetAgentFeedCard($mysqli, \RivetCore\Rmm\RmmModule $rmm, array $ctx):
     if (!$ctx['service_ok']) {
         $out .= '<div class="alert alert-warning py-2 small">The service URL is not an https:// address yet (Service and defaults). A release can be stored, but it cannot be offered to enrolled agents until it is.</div>';
     }
+
+    // ---- build a new version (26.10.55)
+    $out .= rivetAgentBuildBox($mysqli, $feed['releases'], $feed['repo'], $pilot, $ctx);
 
     // ---- the releases
     $out .= '<div class="table-responsive"><table class="table table-sm align-middle mb-2" id="af-table"><caption class="visually-hidden">Agent releases on GitHub</caption><thead><tr><th scope="col">Version</th><th scope="col">Released</th>'

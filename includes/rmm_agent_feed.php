@@ -156,6 +156,10 @@ function rivetAgentFeedResolve(string $host)
 function rivetAgentFeedGet(string $url, array $o = []): array
 {
     $role = (string) ($o['role'] ?? 'asset');
+    // 26.10.55 (Build a new version): an API call may carry a GitHub token and a small JSON body (the workflow dispatch is a POST). The token goes ONLY to the api role, on the very first
+    // request, and an answer that tries to redirect it is refused: the token is never sent to another host, and never shown or logged.
+    $token = isset($o['token']) && is_string($o['token']) && $o['token'] !== '' && $role === 'api' ? $o['token'] : null;
+    $post = ($o['method'] ?? 'GET') === 'POST' && $role === 'api' && $token !== null ? json_encode($o['json'] ?? new \stdClass(), JSON_UNESCAPED_SLASHES) : null;
     $max = max(1, (int) ($o['max_bytes'] ?? RIVET_AGENT_FEED_MAX_LIST_BYTES));
     $file = isset($o['to_file']) ? (string) $o['to_file'] : null;
     $out = ['ok' => false, 'status' => 0, 'body' => null, 'bytes' => 0, 'headers' => [], 'error' => '', 'offline' => false, 'final_host' => ''];
@@ -204,7 +208,7 @@ function rivetAgentFeedGet(string $url, array $o = []): array
         }
         $ch = curl_init($url);
         curl_setopt_array($ch, [
-            CURLOPT_HTTPGET => true,
+            ($post !== null ? CURLOPT_POST : CURLOPT_HTTPGET) => true,
             CURLOPT_FOLLOWLOCATION => false,   // every redirect is checked by hand
             CURLOPT_PROTOCOLS => $chk['test'] ? (CURLPROTO_HTTP | CURLPROTO_HTTPS) : CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
@@ -220,6 +224,8 @@ function rivetAgentFeedGet(string $url, array $o = []): array
                 'Accept: ' . (string) ($o['accept'] ?? ($role === 'api' ? 'application/vnd.github+json' : '*/*')),
                 $role === 'api' ? 'X-GitHub-Api-Version: 2022-11-28' : null,
                 ($hop === 0 && !empty($o['etag'])) ? 'If-None-Match: ' . $o['etag'] : null,
+                ($hop === 0 && $token !== null) ? 'Authorization: Bearer ' . $token : null,
+                $post !== null ? 'Content-Type: application/json' : null,
             ])),
             CURLOPT_HEADERFUNCTION => static function ($c, string $line) use (&$headers, $max, &$tooBig): int {
                 $len = strlen($line);
@@ -254,6 +260,9 @@ function rivetAgentFeedGet(string $url, array $o = []): array
         if ($resolve !== []) {
             curl_setopt($ch, CURLOPT_RESOLVE, $resolve);
         }
+        if ($post !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        }
         $ok = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $errno = curl_errno($ch);
@@ -278,6 +287,11 @@ function rivetAgentFeedGet(string $url, array $o = []): array
             if ($file !== null) {
                 @unlink($file);
             }
+
+            return $out;
+        }
+        if ($token !== null && in_array($status, [301, 302, 303, 307, 308], true)) {
+            $out['error'] = 'GitHub answered with a redirect; refused (a call that carries the token is never redirected).';
 
             return $out;
         }

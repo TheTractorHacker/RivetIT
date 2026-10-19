@@ -12,6 +12,9 @@
  *                           asset_mode: normal | evil_redirect | redirect_loop | redirect_private | redirect_http | redirect_userinfo | huge | slow | status_404 | tamper
  *                           evil_location (what evil_redirect points to)
  * <dir>/assets/<tag>/<name>   the files served for GET /<owner>/<repo>/releases/download/<tag>/<name> (through a /cdn/ redirect in normal mode, like GitHub)
+ * Actions (26.10.55, Build a new version): GET .../actions/workflows/endpoint-agent.yml, POST .../dispatches, GET .../runs and .../actions/runs/{id}. scenario keys: wf_status (int), wf_state,
+ *                           token (string: the only bearer token accepted; others get 401), dispatch_status (int, default 204), dispatch_redirect (a Location to answer the dispatch with), runs (list of
+ *                           run objects served by both run endpoints), runs_status (int). Every Actions request is also written to <dir>/actions.log as JSON {method,path,auth,body}.
  * <dir>/requests.log      one line per request: "<METHOD> <path> <status>" (the tests count them)
  */
 
@@ -38,6 +41,42 @@ $reply = static function (int $status, string $body, array $headers = []) use ($
 
     return true;
 };
+
+// ---- the Actions API (build a new version)
+if (preg_match('~^/repos/([^/]+)/([^/]+)/actions/(workflows/endpoint-agent\.yml(?:/dispatches|/runs)?|runs/(\d+))$~', $path, $m) === 1) {
+    $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+    $rawBody = (string) file_get_contents('php://input');
+    file_put_contents("$dir/actions.log", json_encode(['method' => $method, 'path' => $path, 'query' => (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), 'auth' => $auth, 'body' => $rawBody, 'ctype' => (string) ($_SERVER['CONTENT_TYPE'] ?? '')]) . "\n", FILE_APPEND | LOCK_EX);
+    $jh = ['Content-Type' => 'application/json'];
+    if (isset($scenario['token']) && $auth !== 'Bearer ' . $scenario['token']) {
+        return $reply(401, json_encode(['message' => 'Bad credentials']), $jh);
+    }
+    if (str_ends_with($m[3], '/dispatches')) {
+        if ($method !== 'POST') {
+            return $reply(404, '{}', $jh);
+        }
+        if (isset($scenario['dispatch_redirect'])) {
+            return $reply(307, '', ['Location' => (string) $scenario['dispatch_redirect']]);
+        }
+        $ds = (int) ($scenario['dispatch_status'] ?? 204);
+
+        return $reply($ds, $ds === 204 ? '' : json_encode(['message' => 'denied <script>alert(1)</script> ghp_SECRETSECRETSECRETSECRET1234']), $jh);
+    }
+    if (isset($m[4]) && $m[4] !== '') {
+        foreach ((array) ($scenario['runs'] ?? []) as $r) {
+            if ((int) ($r['id'] ?? 0) === (int) $m[4]) {
+                return $reply((int) ($scenario['runs_status'] ?? 200), json_encode($r), $jh);
+            }
+        }
+
+        return $reply(404, json_encode(['message' => 'Not Found']), $jh);
+    }
+    if (str_ends_with($m[3], '/runs')) {
+        return $reply((int) ($scenario['runs_status'] ?? 200), json_encode(['total_count' => count((array) ($scenario['runs'] ?? [])), 'workflow_runs' => array_values((array) ($scenario['runs'] ?? []))]), $jh);
+    }
+
+    return $reply((int) ($scenario['wf_status'] ?? 200), json_encode(['id' => 1, 'name' => 'endpoint-agent', 'state' => (string) ($scenario['wf_state'] ?? 'active')]), $jh);
+}
 
 // ---- the API
 if (preg_match('~^/repos/([^/]+)/([^/]+)/releases$~', $path, $m) === 1) {

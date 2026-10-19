@@ -70,8 +70,63 @@
         if (f.hasAttribute('data-af-publish')) {
             e.preventDefault();
             publish(f);
+            return;
+        }
+        if (f.hasAttribute('data-af-act')) {
+            e.preventDefault();
+            act(f, e.submitter);
         }
     });
+
+    // ---- Build a new version: token buttons, Build, Refresh status. Every decision is the server's; its text is shown with textContent only.
+    function act(f, btn) {
+        if (busy || !btn || !btn.name) { return; }
+        var q = f.getAttribute('data-af-confirm');
+        if (q && !window.confirm(q)) { return; }
+        var fields = {};
+        new FormData(f).forEach(function (v, k) { if (k !== 'csrf_token' && typeof v === 'string') { fields[k] = v; } });
+        fields[btn.name] = btn.value;
+        busy = true;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        var tokenIn = f.querySelector('[name="gh_token"]');
+        post(fields).then(function (r) {
+            var ok = r.json && r.json.success;
+            if (r.json && r.json.html) { swap(r.json.html); }
+            say(bad(r), ok ? 'success' : 'danger');
+            if (tokenIn) { tokenIn.value = ''; }
+        }).catch(function () { say('Could not reach this server. Try again.', 'danger'); })
+            .then(function () { busy = false; btn.disabled = false; btn.removeAttribute('aria-busy'); watch(); });
+    }
+
+    var STATE_LABEL = { dispatching: 'Starting', queued: 'Waiting in GitHub\'s queue', building: 'Building', finished: 'Built', failed: 'Failed' };
+    var STATE_CLASS = { dispatching: 'text-bg-info', queued: 'text-bg-info', building: 'text-bg-primary', finished: 'text-bg-success', failed: 'text-bg-danger' };
+    var timer = null;
+
+    // While a build runs (or a finished one waits to be published) ask the server every ten seconds; the server asks GitHub, at most every eight seconds.
+    function watch() {
+        var box = document.getElementById('af-build');
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (!box || box.getAttribute('data-active') !== '1') { return; }
+        timer = setTimeout(poll, 10000);
+    }
+    function poll() {
+        timer = null;
+        if (busy) { watch(); return; }
+        post({ agent_feed: 'build_status' }).then(function (r) {
+            if (!r.json) { return; }
+            var badge = document.getElementById('af-build-badge');
+            var note = document.getElementById('af-build-note');
+            var link = document.getElementById('af-build-link');
+            if (badge && STATE_LABEL[r.json.state]) { badge.textContent = STATE_LABEL[r.json.state]; badge.className = 'badge ' + STATE_CLASS[r.json.state]; }
+            if (note && r.json.message) { note.textContent = String(r.json.message); }
+            if (link && typeof r.json.url === 'string' && r.json.url.indexOf('https://github.com/') === 0) { link.href = r.json.url; link.classList.remove('d-none'); }
+            if (r.json.html) { swap(r.json.html); }
+            var b2 = document.getElementById('af-build');
+            if (b2) { b2.setAttribute('data-active', r.json.active ? '1' : '0'); }
+        }).catch(function () { /* try again next time */ }).then(watch);
+    }
+    watch();
 
     // ---- the options of a release
     card.addEventListener('input', function (e) {
