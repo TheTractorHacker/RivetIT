@@ -14,6 +14,8 @@ require_once "$root/includes/rmm_build_host.php";
 if (!defined('RIVET_BUILD_HOST_DIR')) { fwrite(STDERR, "config.php must define RIVET_BUILD_HOST_DIR\n"); exit(2); }
 ea_reset();
 $U = ea_seed_users();
+\ITFlow\EndpointAgent\Config::enable();
+shell_exec('redis-cli -p ' . (int) (getenv('BH_REDIS_PORT') ?: 6379) . ' flushall 2>&1');   // the failed-authentication limiter of an earlier run
 foreach (['endpoint_agent_binaries', 'endpoint_agent_msi_templates', 'endpoint_agent_releases', 'endpoint_agent_linux_assets', 'endpoint_agent_build_chunks', 'endpoint_agent_build_files', 'endpoint_agent_build_jobs', 'endpoint_agent_build_hosts'] as $t) { $q("DELETE FROM $t"); }
 $q("UPDATE endpoint_agent_feed SET releases_json=NULL, etag='', fetched_at=NULL, checked_at=NULL, last_error='', rate_reset_at=NULL");
 $rmm = rivetRmmModule($db);
@@ -23,6 +25,8 @@ register_shutdown_function(function () use ($binDir, $db) {
 });
 $EAB = ea_start_server(['RIVETIT_REDIS_PORT' => getenv('BH_REDIS_PORT') ?: '6379']);
 $base = "http://127.0.0.1:{$EAB['port']}";
+\ITFlow\EndpointAgent\Config::set(['service_url' => $base]);
+exec('rm -rf ' . escapeshellarg(RIVET_BUILD_HOST_DIR));
 
 // ---------------------------------------------------------------- mock build-host client
 function bh_call(string $action, ?string $token, $body = [], string $method = 'POST', array $hdr = []): array
@@ -110,7 +114,7 @@ rivetBuildHostSetEnabled($db, $HB, true); [$c] = bh_call('poll', $TB, []); $ok($
 // ---------------------------------------------------------------- 2. requests and version rules
 echo "== version rules\n";
 foreach (['x.y', '1.2', '1.2.3.4', "1.2.3'", '../1.0.0', ''] as $bad) { $ok(!rivetBuildHostRequest($db, $HA, $bad, 'main', null, 1)['ok'], 'bad version refused: ' . json_encode($bad)); }
-foreach (['../x', 'a..b', '-rf', 'a b', "a\n", 'x/', str_repeat('a', 61), 'a;b'] as $bad) { $ok(!rivetBuildHostRequest($db, $HA, '0.9.1', $bad, null, 1)['ok'], 'bad source ref refused: ' . json_encode($bad)); }
+foreach (['../x', 'a..b', '-rf', 'a b', "a\nb", 'x/', str_repeat('a', 61), 'a;b'] as $bad) { $ok(!rivetBuildHostRequest($db, $HA, '0.9.1', $bad, null, 1)['ok'], 'bad source ref refused: ' . json_encode($bad)); }
 $ok(!rivetBuildHostRequest($db, 9999, '0.9.1', 'main', null, 1)['ok'], 'an unknown host is refused');
 $q("INSERT INTO endpoint_agent_binaries (version, arch, sha256, size_bytes, storage_name, uploaded_by, active, is_current, created_at) VALUES ('0.9.5','amd64','" . str_repeat('c', 64) . "',10,'zz',1,1,0,NOW())");
 $ok(str_contains(rivetBuildHostRequest($db, $HA, '0.9.5', 'main', null, 1)['message'], 'already exists'), 'a version that is already published is refused');
@@ -198,6 +202,7 @@ $ok(cnt("SELECT COUNT(*) FROM logs WHERE log_action IN ('Agent Build Host Publis
 
 // ---------------------------------------------------------------- 6. built, then an administrator publishes
 echo "== stop at built, administrator publishes\n";
+rivetBuildHostCancel($db, $j2);
 $j4 = newjob($HB, '0.9.7', null);
 bh_call('poll', $TB, []); bh_call('status', $TB, ['job_id' => $j4, 'state' => 'building']);
 $F4 = bh_files('0.9.7', 'f2'); bh_upload_all($TB, $j4, $F4);

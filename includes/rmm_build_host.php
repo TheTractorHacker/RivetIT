@@ -680,7 +680,7 @@ function rivetBuildHostHasVersion(string $path, string $version): bool
 }
 
 /** Put one file's chunks together into <storage>.bin. @return string|null an error text */
-function rivetBuildHostAssemble($mysqli, array $j, array $f, string &$outPath): ?string
+function rivetBuildHostAssemble($mysqli, array $j, array $f, ?string &$outPath): ?string
 {
     $dir = rivetBuildHostJobDir($j);
     if ($dir === null) {
@@ -819,15 +819,15 @@ function rivetBuildHostComplete($mysqli, array $host, array $body, string $ip, ?
             return rivetBuildHostFail($mysqli, $host, $j, 'SHA256SUMS does not match the SHA-256 in the manifest.');
         }
     }
-    foreach (['rivetit-agent-windows-amd64.exe', 'rivetit-agent-windows-arm64.exe'] as $n) {
-        if (!rivetBuildHostHasVersion($paths[$n], (string) $j['version'])) {
-            return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not contain the version ' . $j['version'] . ' (it was built with a different version).');
-        }
-    }
     // the existing validators (PE, architecture, size) run in a dry check so nothing is stored before every file is known good
     $v = rivetBuildHostValidate($paths, $rmm);
     if ($v !== null) {
         return rivetBuildHostFail($mysqli, $host, $j, $v);
+    }
+    foreach (['rivetit-agent-windows-amd64.exe', 'rivetit-agent-windows-arm64.exe'] as $n) {
+        if (!rivetBuildHostHasVersion($paths[$n], (string) $j['version'])) {
+            return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not contain the version ' . $j['version'] . ' (it was built with a different version).');
+        }
     }
     $man2 = ['files' => $hash, 'commit' => $commit, 'go_version' => $goV, 'built_at' => $built];
     mysqli_query($mysqli, "UPDATE endpoint_agent_build_jobs SET manifest = '" . mysqli_real_escape_string($mysqli, (string) json_encode($man2)) . "', commit_sha = '" . mysqli_real_escape_string($mysqli, $commit) . "' WHERE job_id = " . (int) $j['job_id']);
