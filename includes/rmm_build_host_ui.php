@@ -10,7 +10,7 @@ require_once __DIR__ . '/rmm_build_host.php';
 require_once __DIR__ . '/rmm_agent_feed_ui.php';
 
 const RIVET_BH_DOCS_URL = 'https://github.com/TheTractorHacker/rivet-core/blob/main/docs/rmm/BUILD_HOST.md';
-const RIVET_BH_CONF_PATH = '/etc/rivetit-build-host.conf';
+const RIVET_BH_CONF_PATH = '/etc/rivetit/build-host.conf';
 
 /** @return array{label:string,class:string} */
 function rivetBuildHostBadge(string $state): array
@@ -41,8 +41,8 @@ function rivetBuildHostServerUrl(): string
 function rivetBuildHostReveal(array $r): string
 {
     $h = 'rivetAgentFeedH';
-    $conf = "SERVER_URL=" . rivetBuildHostServerUrl() . "\nTOKEN=" . $r['token'] . "\nCORE_REPO=https://github.com/TheTractorHacker/rivet-core.git\nALLOWED_REFS=\"main\"\nWORKDIR=/var/lib/rivetit-build-host\n";
-    $cmd = 'sudo install -m 0600 /dev/null ' . RIVET_BH_CONF_PATH . " && sudo tee " . RIVET_BH_CONF_PATH . " >/dev/null <<'EOF'\n" . $conf . "EOF";
+    $conf = "SERVER_URL=" . rivetBuildHostServerUrl() . "/api/v1/build_host\nTOKEN=" . $r['token'] . "\nCORE_REPO=https://github.com/TheTractorHacker/rivet-core.git\nALLOWED_REFS=\"main v* agent-v*\"\nWORKDIR=/var/lib/rivetit-build-host\n";
+    $cmd = 'sudo install -d /etc/rivetit && sudo install -o rivetit-build -g rivetit-build -m 0600 /dev/null ' . RIVET_BH_CONF_PATH . " && sudo tee " . RIVET_BH_CONF_PATH . " >/dev/null <<'EOF'\n" . $conf . "EOF";
 
     return '<div class="alert alert-warning mb-3" id="af-bh-reveal" role="alert" data-af-reveal="1"><div class="fw-semibold mb-1"><i class="fas fa-key me-1" aria-hidden="true"></i>Token for build host &ldquo;' . $h($r['name']) . '&rdquo;. Copy it now: it is shown only once.</div>'
         . '<div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="af-bh-token" readonly value="' . $h($r['token']) . '" aria-label="Build host token">'
@@ -52,7 +52,7 @@ function rivetBuildHostReveal(array $r): string
         . '<li>Save this configuration (the command below creates the file readable by root only and writes it):'
         . '<div class="input-group input-group-sm my-1"><textarea class="form-control font-monospace" id="af-bh-conf" rows="9" readonly aria-label="Install command">' . $h($cmd) . '</textarea></div>'
         . '<button class="btn btn-outline-secondary btn-sm" type="button" data-af-copy="af-bh-conf" id="af-bh-copycmd"><i class="fas fa-copy me-1" aria-hidden="true"></i>Copy the command</button></li>'
-        . '<li>Check the connection: <code>sudo build-host.sh --register</code> prints one status line. The host shows as online here within a minute of the timer starting.</li></ol>'
+        . '<li>Check the connection: <code>sudo /opt/rivetit-build-host/build-host.sh --register</code> (as the build user) prints one status line. The host shows as online here within a minute of the timer starting.</li></ol>'
         . '<div class="small text-muted">If the token is lost, use <strong>New token</strong> next to the host: the old one stops working at once.</div></div>';
 }
 

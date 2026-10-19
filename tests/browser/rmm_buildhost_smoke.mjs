@@ -103,7 +103,7 @@ await T('Add build host: token shown once with copy button, the exact config and
   TOKEN = await p.eval(`document.getElementById('af-bh-token').value`);
   assert(/^rbh_[0-9a-f]{16}_[0-9a-f]{48}$/.test(TOKEN), 'token shape ' + TOKEN);
   const conf = await p.eval(`document.getElementById('af-bh-conf').value`);
-  assert(conf.includes('TOKEN=' + TOKEN) && conf.includes('SERVER_URL=' + BASE) && /sudo install -m 0600/.test(conf) && !/<[a-z-]*token[a-z-]*>|YOUR_|xxxx/i.test(conf), 'config: ' + conf);
+  assert(conf.includes('TOKEN=' + TOKEN) && conf.includes('SERVER_URL=' + BASE + '/api/v1/build_host') && /sudo install -d \/etc\/rivetit.*-m 0600/s.test(conf) && !/<[a-z-]*token[a-z-]*>|YOUR_|xxxx/i.test(conf), 'config: ' + conf);
   assert(/shown only once/i.test(await text('#af-bh-reveal')) && /--register/.test(await text('#af-bh-reveal')), 'reveal text');
   assert(await p.eval(`!!document.getElementById('af-bh-copy') && !!document.getElementById('af-bh-copycmd')`), 'copy buttons');
   await p.click('#af-bh-copy'); await sleep(300);

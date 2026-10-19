@@ -60,8 +60,8 @@ foreach (['', '<img src=x onerror=alert(1)>', str_repeat('a', 200)] as $n) {
 $j = $jd($b);
 $ok($c === 200 && ($j['success'] ?? false) && !empty($j['reveal']) && $cnt('endpoint_agent_build_hosts') === 1 && $audit('Agent Build Host Added') === $au + 1, 'admin adds a build host (audited)');
 preg_match('/id="af-bh-token" readonly value="(rbh_[0-9a-f]{16}_[0-9a-f]{48})"/', (string) ($j['html'] ?? ''), $m); $tok = $m[1] ?? '';
-$ok($tok !== '' && str_contains($j['html'], 'only once') && str_contains($j['html'], 'TOKEN=' . $tok) && str_contains($j['html'], 'SERVER_URL=http://') && str_contains($j['html'], 'data-af-copy="af-bh-token"') && !preg_match('/<(?:textarea|input)[^>]*>[^<]*(?:placeholder|YOUR|<token>)/i', $j['html']), 'the answer shows the real token, the real config with the server address and a copy button (no placeholder)');
-$ok(str_contains($j['html'], 'sudo install -m 0600') && str_contains($j['html'], 'build-host.sh --register'), 'with the install command and the register check');
+$ok($tok !== '' && str_contains($j['html'], 'only once') && str_contains($j['html'], 'TOKEN=' . $tok) && str_contains($j['html'], 'SERVER_URL=http://') && str_contains($j['html'], '/api/v1/build_host') && str_contains($j['html'], 'data-af-copy="af-bh-token"') && !preg_match('/<(?:textarea|input)[^>]*>[^<]*(?:placeholder|YOUR|<token>)/i', $j['html']), 'the answer shows the real token, the real config with the server address and a copy button (no placeholder)');
+$ok(str_contains($j['html'], '-m 0600') && str_contains($j['html'], 'build-host.sh --register'), 'with the install command and the register check');
 [$c, $html] = $page(); $ok(!str_contains($html, $tok) && !str_contains($html, substr($tok, 21)), 'the next page load does not contain the token');
 $ok($cnt("SELECT COUNT(*) FROM logs WHERE log_description LIKE '%" . $esc(substr($tok, 21)) . "%'") === 0 && !str_contains((string) $one('SELECT CONCAT(token_hash, token_salt, token_prefix) FROM endpoint_agent_build_hosts'), substr($tok, 21)), 'the secret is in no audit line and no table');
 [$c, $pj] = [0, null];
