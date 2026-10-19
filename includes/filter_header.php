@@ -17,7 +17,7 @@ $url_query_strings_sort = http_build_query($get_copy);
 
 // Paging
 if (isset($_GET['page'])) {
-    $page = intval($_GET['page']);
+    $page = max(1, intval($_GET['page'])); // page=0 / page=-5 gave a negative LIMIT offset (HTTP 500)
     $record_from = (($page)-1)*$user_config_records_per_page;
     $record_to = $user_config_records_per_page;
 } else {
@@ -62,7 +62,12 @@ if (isset($_GET['q'])) {
 
 // Sortby
 if (!empty($_GET['sort'])) {
-    $sort = sanitizeInput(preg_replace('/[^a-z_]/', '', $_GET['sort'])); // JQ 2023-05-09 - See issue #673 on GitHub to see the reasoning why we used preg_replace technically sanitizeInput() should have been enough to escape SQL Commands
+    // JQ 2023-05-09 - See issue #673 on GitHub to see the reasoning why we used preg_replace technically sanitizeInput() should have been enough to escape SQL Commands
+    // One table-qualified column (problems.title) is allowed; anything that cannot be a column keeps the page's default sort instead of producing an empty ORDER BY (HTTP 500).
+    $requested_sort = preg_replace('/[^a-z_.]/', '', $_GET['sort']);
+    if (preg_match('/^[a-z_]+(\.[a-z_]+)?$/', $requested_sort)) {
+        $sort = sanitizeInput($requested_sort);
+    }
 }
 
 // Date Handling

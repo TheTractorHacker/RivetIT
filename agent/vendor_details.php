@@ -49,7 +49,12 @@ if (isset($_GET['vendor_id'])) {
     }
 
     // Vendor Contacts
-    $sql_vendor_contacts = mysqli_query($mysqli, "SELECT * FROM vendor_contacts WHERE vendor_contact_vendor_id = $vendor_id AND vendor_contact_archived_at IS NULL ORDER BY vendor_contact_name DESC");
+    // The vendor_contacts table was dropped in DB 1.7.3 (vendor contacts live on the vendor modal), so a missing table must not make the page fatal.
+    try {
+        $sql_vendor_contacts = mysqli_query($mysqli, "SELECT * FROM vendor_contacts WHERE vendor_contact_vendor_id = $vendor_id AND vendor_contact_archived_at IS NULL ORDER BY vendor_contact_name DESC");
+    } catch (mysqli_sql_exception $e) {
+        $sql_vendor_contacts = mysqli_query($mysqli, "SELECT 1 WHERE 0");
+    }
     $vendor_contact_count = mysqli_num_rows($sql_vendor_contacts);
 
     ?>
