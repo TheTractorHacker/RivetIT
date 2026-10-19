@@ -100,6 +100,31 @@ $ok($c === 200 && $jb && $jb['state'] === 'queued' && (int) $jb['auto_publish'] 
 [$c, $html] = $page(); $a = strpos($html, 'id="af-bh-jobs"'); $t = substr($html, $a, 8000);
 $ok(str_contains($t, '1.0.0') && str_contains($t, 'Waiting for the build host') && str_contains($t, 'value="bh_cancel"') && str_contains($html, 'id="af-build-local" data-active="1"'), 'the job list shows it with a Cancel button, and the section is marked active for live updates');
 $jid = (int) $jb['job_id'];
+// ---- build progress (26.10.58): bar, plain-words stage, elapsed time and the checklist
+$live = function () use ($adm, $jsn, $jd): string { [, $b] = $adm(['agent_feed' => 'bh_status'], 'admin', $jsn); return (string) ($jd($b)['html'] ?? ''); };
+$q("UPDATE endpoint_agent_build_jobs SET state='building', claimed_at = UTC_TIMESTAMP() - INTERVAL 192 SECOND, progress_stage='build_windows_amd64', progress_pct=40, progress_detail='<b>go build</b>', progress_at = UTC_TIMESTAMP() WHERE job_id = $jid");
+$t = $live();
+$ok(str_contains($t, 'Building the Windows x64 agent') && str_contains($t, 'role="progressbar"') && str_contains($t, 'aria-valuenow="40"') && str_contains($t, 'style="width:40%"') && str_contains($t, '>40%<') && str_contains($t, 'Running for 3m 1') , 'building: plain-words stage, a real bar at 40%, elapsed time');
+$ok(substr_count($t, 'data-bh-steps') === 1 && preg_match_all('~fa-check-circle text-success~', $t) === 2 && substr_count($t, 'fa-spinner') === 1 && preg_match_all('~far fa-circle text-muted~', $t) === 4 && str_contains($t, 'Check the files') && str_contains($t, 'Build the installer (MSI)'),
+    'the checklist has seven stages: two done, one active, four waiting');
+$ok(!str_contains($t, '<b>go build') && !str_contains($t, 'go build'), 'the detail text from the host is not shown for a build stage (display text is never trusted)');
+$q("UPDATE endpoint_agent_build_jobs SET progress_stage='upload', progress_pct=88, progress_detail='7 of 23' WHERE job_id = $jid");
+$t = $live(); $ok(str_contains($t, 'Uploading 7 of 23') && str_contains($t, 'aria-valuenow="88"'), 'uploading: "Uploading 7 of 23"');
+foreach (['7 of <script>', '9999999 of 2', '30 of 2', 'x' . str_repeat('9', 100)] as $bad) {
+    $q("UPDATE endpoint_agent_build_jobs SET progress_detail='" . $esc($bad) . "' WHERE job_id = $jid"); $t = $live();
+    $ok(!str_contains($t, '<script>') && !str_contains($t, '9999999') && str_contains($t, 'Uploading the files') && !str_contains($t, 'Uploading 30'), 'a malformed upload detail falls back to plain words: ' . substr($bad, 0, 14));
+}
+$q("UPDATE endpoint_agent_build_jobs SET progress_stage='bogus', progress_pct=250 WHERE job_id = $jid"); $t = $live();
+$ok(!str_contains($t, 'bogus') && str_contains($t, 'progress-bar-striped') && !str_contains($t, '250%'), 'an unknown stage in the database shows no stage and no percent (a moving bar only)');
+$q("UPDATE endpoint_agent_build_jobs SET progress_stage='', progress_pct=0, progress_at=NULL WHERE job_id = $jid"); $t = $live();
+$ok(str_contains($t, 'Building') && str_contains($t, 'progress-bar-striped') && !str_contains($t, 'data-bh-steps'), 'a build host script that reports no progress still gets a moving bar and no checklist');
+$q("UPDATE endpoint_agent_build_jobs SET state='failed', progress_stage='msi', progress_pct=70, finished_at = UTC_TIMESTAMP() WHERE job_id = $jid"); $t = $live();
+$ok(str_contains($t, 'Stopped while: building the installer (MSI)') && str_contains($t, 'bg-danger') && str_contains($t, 'fa-times-circle') && !str_contains($t, 'fa-spinner'), 'a failed job shows where it stopped, a red bar and a failed item');
+$q("UPDATE endpoint_agent_build_jobs SET state='built', progress_pct=100 WHERE job_id = $jid"); $t = $live();
+$ok(str_contains($t, 'aria-valuenow="100"') && str_contains($t, 'bg-success') && str_contains($t, 'Took '), 'a built job shows a full green bar');
+$q("UPDATE endpoint_agent_build_jobs SET state='queued', progress_stage='', progress_pct=0, claimed_at=NULL, finished_at=NULL WHERE job_id = $jid"); $t = $live();
+$ok(str_contains($t, 'Waiting for the build host to pick it up') && !str_contains($t, 'role="progressbar"'), 'a queued job shows no bar');
+$q("UPDATE endpoint_agent_build_jobs SET state='queued' WHERE job_id = $jid");
 $q("UPDATE endpoint_agent_build_jobs SET state='failed', note='<img src=x onerror=1>', log_tail='line1\n<script>alert(2)</script>\nline3' WHERE job_id = $jid");
 [$c, $html] = $page(); $ok(!str_contains($html, '<script>alert(2)</script>') && !str_contains($html, '<img src=x') && str_contains($html, '&lt;script&gt;alert(2)&lt;/script&gt;') && str_contains($html, 'Log tail') && str_contains($html, 'Failed'), 'a failed job shows its log tail and note, escaped');
 $q("UPDATE endpoint_agent_build_jobs SET state='building', note='x', log_tail='' WHERE job_id = $jid");
