@@ -291,6 +291,7 @@ $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.177') {") !== false && strp
 $ok(preg_match('/CREATE TABLE IF NOT EXISTS `endpoint_agent_build_jobs` \((.*?)\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;/s', $sql, $jm) === 1, 'db.sql defines endpoint_agent_build_jobs');
 preg_match_all('/^  `([a-z_0-9]+)` /m', $jm[1] ?? '', $jc);
 $ok($jc[1] !== [] && $jc[1] === $feedCols('endpoint_agent_build_jobs') && in_array('progress_pct', $jc[1], true), 'db.sql and the migrated schema agree on the columns (and order) of endpoint_agent_build_jobs');
+$q("DELETE FROM endpoint_agent_build_jobs WHERE version='9.9.9'");
 $q("INSERT INTO endpoint_agent_build_jobs SET host_id=1, version='9.9.9', quarantine='" . str_repeat('a', 32) . "', created_at=UTC_TIMESTAMP()");
 for ($run = 1; $run <= 2; $run++) {
     if ($run === 2) { $q('ALTER TABLE endpoint_agent_build_jobs DROP COLUMN progress_stage, DROP COLUMN progress_pct, DROP COLUMN progress_detail, DROP COLUMN progress_at'); }

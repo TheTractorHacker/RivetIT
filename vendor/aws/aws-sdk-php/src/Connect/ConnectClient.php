@@ -1186,7 +1186,7 @@ use Aws\AwsClient;
  *     },
  *     Function?: string,
  *     Actions?: list<array{
- *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
+ *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_IN_APP_NOTIFICATION'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
  *         TaskAction?: array,
  *         EventBridgeAction?: array,
  *         AssignContactCategoryAction?: array,
@@ -1197,6 +1197,7 @@ use Aws\AwsClient;
  *         EndAssociatedTasksAction?: array,
  *         SubmitAutoEvaluationAction?: array,
  *         ExtractInformationAction?: array,
+ *         SendInAppNotificationAction?: array,
  *         ...,
  *     }>,
  *     PublishStatus?: 'DRAFT'|'PUBLISHED',
@@ -1216,7 +1217,7 @@ use Aws\AwsClient;
  *     },
  *     Function?: string,
  *     Actions?: list<array{
- *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
+ *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_IN_APP_NOTIFICATION'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
  *         TaskAction?: array,
  *         EventBridgeAction?: array,
  *         AssignContactCategoryAction?: array,
@@ -1227,6 +1228,7 @@ use Aws\AwsClient;
  *         EndAssociatedTasksAction?: array,
  *         SubmitAutoEvaluationAction?: array,
  *         ExtractInformationAction?: array,
+ *         SendInAppNotificationAction?: array,
  *         ...,
  *     }>,
  *     PublishStatus?: 'DRAFT'|'PUBLISHED',
@@ -1248,6 +1250,7 @@ use Aws\AwsClient;
  *     HierarchyRestrictedResources?: list<string>,
  *     AllowedAccessControlHierarchyGroupId?: string,
  *     AllowedFlowModules?: list<array{Type?: 'MCP', FlowModuleId?: string, ...}>,
+ *     AllowedAIAgents?: list<array{Arn?: string, Type?: 'THIRD_PARTY', ...}>,
  *     GranularAccessControlConfiguration?: array{
  *         DataTableAccessControlConfiguration?: array{PrimaryAttributeAccessControlConfiguration?: array, ...},
  *         ...,
@@ -1267,6 +1270,7 @@ use Aws\AwsClient;
  *     HierarchyRestrictedResources?: list<string>,
  *     AllowedAccessControlHierarchyGroupId?: string,
  *     AllowedFlowModules?: list<array{Type?: 'MCP', FlowModuleId?: string, ...}>,
+ *     AllowedAIAgents?: list<array{Arn?: string, Type?: 'THIRD_PARTY', ...}>,
  *     GranularAccessControlConfiguration?: array{
  *         DataTableAccessControlConfiguration?: array{PrimaryAttributeAccessControlConfiguration?: array, ...},
  *         ...,
@@ -1816,13 +1820,13 @@ use Aws\AwsClient;
  * @method \Aws\Result describeInstanceAttribute(array $args = [])
  * @phpstan-method \Aws\Result describeInstanceAttribute(array{
  *     InstanceId?: string,
- *     AttributeType?: 'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
+ *     AttributeType?: 'AUTO_MUTE_AGENT_ON_HOLD'|'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise describeInstanceAttributeAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise describeInstanceAttributeAsync(array{
  *     InstanceId?: string,
- *     AttributeType?: 'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
+ *     AttributeType?: 'AUTO_MUTE_AGENT_ON_HOLD'|'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
  *     ...,
  * } $args = [])
  * @method \Aws\Result describeInstanceStorageConfig(array $args = [])
@@ -2811,6 +2815,10 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result listSecurityKeys(array{InstanceId?: string, NextToken?: string, MaxResults?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise listSecurityKeysAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise listSecurityKeysAsync(array{InstanceId?: string, NextToken?: string, MaxResults?: int, ...} $args = [])
+ * @method \Aws\Result listSecurityProfileAIAgents(array $args = [])
+ * @phpstan-method \Aws\Result listSecurityProfileAIAgents(array{SecurityProfileId?: string, InstanceId?: string, NextToken?: string, MaxResults?: int, ...} $args = [])
+ * @method \GuzzleHttp\Promise\Promise listSecurityProfileAIAgentsAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise listSecurityProfileAIAgentsAsync(array{SecurityProfileId?: string, InstanceId?: string, NextToken?: string, MaxResults?: int, ...} $args = [])
  * @method \Aws\Result listSecurityProfileApplications(array $args = [])
  * @phpstan-method \Aws\Result listSecurityProfileApplications(array{SecurityProfileId?: string, InstanceId?: string, NextToken?: string, MaxResults?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise listSecurityProfileApplicationsAsync(array $args = [])
@@ -4292,6 +4300,8 @@ use Aws\AwsClient;
  *     }>,
  *     CustomerId?: string,
  *     DisconnectOnCustomerExit?: list<'AGENT'>,
+ *     ConnectionTypes?: list<'AUTHENTICATION_SESSION'|'CONNECTION_CREDENTIALS'|'WEBRTC_CONNECTION'|'WEBSOCKET'>,
+ *     ChatStreamingConfiguration?: array{StreamingEndpointArn?: string, ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise startChatContactAsync(array $args = [])
@@ -4317,6 +4327,8 @@ use Aws\AwsClient;
  *     }>,
  *     CustomerId?: string,
  *     DisconnectOnCustomerExit?: list<'AGENT'>,
+ *     ConnectionTypes?: list<'AUTHENTICATION_SESSION'|'CONNECTION_CREDENTIALS'|'WEBRTC_CONNECTION'|'WEBSOCKET'>,
+ *     ChatStreamingConfiguration?: array{StreamingEndpointArn?: string, ...},
  *     ...,
  * } $args = [])
  * @method \Aws\Result startContactConversationalAnalyticsJob(array $args = [])
@@ -5434,7 +5446,7 @@ use Aws\AwsClient;
  * @method \Aws\Result updateInstanceAttribute(array $args = [])
  * @phpstan-method \Aws\Result updateInstanceAttribute(array{
  *     InstanceId?: string,
- *     AttributeType?: 'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
+ *     AttributeType?: 'AUTO_MUTE_AGENT_ON_HOLD'|'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
  *     Value?: string,
  *     ClientToken?: string,
  *     ...,
@@ -5442,7 +5454,7 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise updateInstanceAttributeAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise updateInstanceAttributeAsync(array{
  *     InstanceId?: string,
- *     AttributeType?: 'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
+ *     AttributeType?: 'AUTO_MUTE_AGENT_ON_HOLD'|'AUTO_RESOLVE_BEST_VOICES'|'CONTACTFLOW_LOGS'|'CONTACT_LENS'|'EARLY_MEDIA'|'ENHANCED_CHAT_MONITORING'|'ENHANCED_CONTACT_MONITORING'|'HIGH_VOLUME_OUTBOUND'|'INBOUND_CALLS'|'MESSAGE_STREAMING'|'MULTI_PARTY_CHAT_CONFERENCE'|'MULTI_PARTY_CONFERENCE'|'OUTBOUND_CALLS'|'USE_CUSTOM_TTS_VOICES',
  *     Value?: string,
  *     ClientToken?: string,
  *     ...,
@@ -5700,7 +5712,7 @@ use Aws\AwsClient;
  *     Name?: string,
  *     Function?: string,
  *     Actions?: list<array{
- *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
+ *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_IN_APP_NOTIFICATION'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
  *         TaskAction?: array,
  *         EventBridgeAction?: array,
  *         AssignContactCategoryAction?: array,
@@ -5711,6 +5723,7 @@ use Aws\AwsClient;
  *         EndAssociatedTasksAction?: array,
  *         SubmitAutoEvaluationAction?: array,
  *         ExtractInformationAction?: array,
+ *         SendInAppNotificationAction?: array,
  *         ...,
  *     }>,
  *     PublishStatus?: 'DRAFT'|'PUBLISHED',
@@ -5724,7 +5737,7 @@ use Aws\AwsClient;
  *     Name?: string,
  *     Function?: string,
  *     Actions?: list<array{
- *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
+ *         ActionType?: 'ASSIGN_CONTACT_CATEGORY'|'ASSIGN_SLA'|'CREATE_CASE'|'CREATE_TASK'|'END_ASSOCIATED_TASKS'|'EXTRACT_INFORMATION'|'GENERATE_EVENTBRIDGE_EVENT'|'SEND_IN_APP_NOTIFICATION'|'SEND_NOTIFICATION'|'SUBMIT_AUTO_EVALUATION'|'UPDATE_CASE',
  *         TaskAction?: array,
  *         EventBridgeAction?: array,
  *         AssignContactCategoryAction?: array,
@@ -5735,6 +5748,7 @@ use Aws\AwsClient;
  *         EndAssociatedTasksAction?: array,
  *         SubmitAutoEvaluationAction?: array,
  *         ExtractInformationAction?: array,
+ *         SendInAppNotificationAction?: array,
  *         ...,
  *     }>,
  *     PublishStatus?: 'DRAFT'|'PUBLISHED',
@@ -5753,6 +5767,7 @@ use Aws\AwsClient;
  *     HierarchyRestrictedResources?: list<string>,
  *     AllowedAccessControlHierarchyGroupId?: string,
  *     AllowedFlowModules?: list<array{Type?: 'MCP', FlowModuleId?: string, ...}>,
+ *     AllowedAIAgents?: list<array{Arn?: string, Type?: 'THIRD_PARTY', ...}>,
  *     GranularAccessControlConfiguration?: array{
  *         DataTableAccessControlConfiguration?: array{PrimaryAttributeAccessControlConfiguration?: array, ...},
  *         ...,
@@ -5771,6 +5786,7 @@ use Aws\AwsClient;
  *     HierarchyRestrictedResources?: list<string>,
  *     AllowedAccessControlHierarchyGroupId?: string,
  *     AllowedFlowModules?: list<array{Type?: 'MCP', FlowModuleId?: string, ...}>,
+ *     AllowedAIAgents?: list<array{Arn?: string, Type?: 'THIRD_PARTY', ...}>,
  *     GranularAccessControlConfiguration?: array{
  *         DataTableAccessControlConfiguration?: array{PrimaryAttributeAccessControlConfiguration?: array, ...},
  *         ...,

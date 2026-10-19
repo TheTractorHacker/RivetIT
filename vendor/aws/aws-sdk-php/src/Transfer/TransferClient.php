@@ -184,6 +184,7 @@ use Aws\AwsClient;
  *         PassiveIp?: string,
  *         TlsSessionResumptionMode?: 'DISABLED'|'ENABLED'|'ENFORCED',
  *         SetStatOption?: 'DEFAULT'|'ENABLE_NO_OP',
+ *         SftpPorts?: list<array>,
  *         As2Transports?: list<'HTTP'>,
  *         ProxyConfig?: array{SftpMode?: 'NONE'|'PROXY_PROTOCOL_V2_ENFORCED', ...},
  *         ...,
@@ -227,6 +228,7 @@ use Aws\AwsClient;
  *         PassiveIp?: string,
  *         TlsSessionResumptionMode?: 'DISABLED'|'ENABLED'|'ENFORCED',
  *         SetStatOption?: 'DEFAULT'|'ENABLE_NO_OP',
+ *         SftpPorts?: list<array>,
  *         As2Transports?: list<'HTTP'>,
  *         ProxyConfig?: array{SftpMode?: 'NONE'|'PROXY_PROTOCOL_V2_ENFORCED', ...},
  *         ...,
@@ -327,6 +329,7 @@ use Aws\AwsClient;
  *         ...,
  *     }>,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
+ *     StructuredLogDestinations?: list<string>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createWorkflowAsync(array $args = [])
@@ -351,6 +354,7 @@ use Aws\AwsClient;
  *         ...,
  *     }>,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
+ *     StructuredLogDestinations?: list<string>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result deleteAccess(array $args = [])
@@ -790,6 +794,7 @@ use Aws\AwsClient;
  *         PassiveIp?: string,
  *         TlsSessionResumptionMode?: 'DISABLED'|'ENABLED'|'ENFORCED',
  *         SetStatOption?: 'DEFAULT'|'ENABLE_NO_OP',
+ *         SftpPorts?: list<array>,
  *         As2Transports?: list<'HTTP'>,
  *         ProxyConfig?: array{SftpMode?: 'NONE'|'PROXY_PROTOCOL_V2_ENFORCED', ...},
  *         ...,
@@ -832,6 +837,7 @@ use Aws\AwsClient;
  *         PassiveIp?: string,
  *         TlsSessionResumptionMode?: 'DISABLED'|'ENABLED'|'ENFORCED',
  *         SetStatOption?: 'DEFAULT'|'ENABLE_NO_OP',
+ *         SftpPorts?: list<array>,
  *         As2Transports?: list<'HTTP'>,
  *         ProxyConfig?: array{SftpMode?: 'NONE'|'PROXY_PROTOCOL_V2_ENFORCED', ...},
  *         ...,

@@ -202,7 +202,7 @@ use Aws\AwsClient;
  *     SnapshotOptions?: array{AutomatedSnapshotStartHour?: int, ...},
  *     VPCOptions?: array{SubnetIds?: list<string>, SecurityGroupIds?: list<string>, EgressEnabled?: bool, ...},
  *     CognitoOptions?: array{Enabled?: bool, UserPoolId?: string, IdentityPoolId?: string, RoleArn?: string, ...},
- *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, ...},
+ *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, EncryptionMode?: 'DISK'|'NATIVE', ...},
  *     NodeToNodeEncryptionOptions?: array{Enabled?: bool, ...},
  *     AdvancedOptions?: array<string, string>,
  *     LogPublishingOptions?: array<string, array{CloudWatchLogsLogGroupArn?: string, Enabled?: bool, ...}>,
@@ -290,7 +290,7 @@ use Aws\AwsClient;
  *     SnapshotOptions?: array{AutomatedSnapshotStartHour?: int, ...},
  *     VPCOptions?: array{SubnetIds?: list<string>, SecurityGroupIds?: list<string>, EgressEnabled?: bool, ...},
  *     CognitoOptions?: array{Enabled?: bool, UserPoolId?: string, IdentityPoolId?: string, RoleArn?: string, ...},
- *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, ...},
+ *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, EncryptionMode?: 'DISK'|'NATIVE', ...},
  *     NodeToNodeEncryptionOptions?: array{Enabled?: bool, ...},
  *     AdvancedOptions?: array<string, string>,
  *     LogPublishingOptions?: array<string, array{CloudWatchLogsLogGroupArn?: string, Enabled?: bool, ...}>,
@@ -979,7 +979,7 @@ use Aws\AwsClient;
  *     AccessPolicies?: string,
  *     IPAddressType?: 'dualstack'|'ipv4',
  *     LogPublishingOptions?: array<string, array{CloudWatchLogsLogGroupArn?: string, Enabled?: bool, ...}>,
- *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, ...},
+ *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, EncryptionMode?: 'DISK'|'NATIVE', ...},
  *     DomainEndpointOptions?: array{
  *         EnforceHTTPS?: bool,
  *         TLSSecurityPolicy?: 'Policy-Min-TLS-1-0-2019-07'|'Policy-Min-TLS-1-2-2019-07'|'Policy-Min-TLS-1-2-PFS-2023-10'|'Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08',
@@ -1037,6 +1037,7 @@ use Aws\AwsClient;
  *     AutomatedSnapshotPauseOptions?: array{Enabled?: bool, StartTime?: int|string|\DateTimeInterface, EndTime?: int|string|\DateTimeInterface, ...},
  *     UseCase?: 'MIXED'|'OBSERVABILITY'|'SEARCH'|'VECTOR',
  *     EngineMode?: 'GENERAL'|'OPTIMIZED',
+ *     AcceptedWarnings?: list<string>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateDomainConfigAsync(array $args = [])
@@ -1073,7 +1074,7 @@ use Aws\AwsClient;
  *     AccessPolicies?: string,
  *     IPAddressType?: 'dualstack'|'ipv4',
  *     LogPublishingOptions?: array<string, array{CloudWatchLogsLogGroupArn?: string, Enabled?: bool, ...}>,
- *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, ...},
+ *     EncryptionAtRestOptions?: array{Enabled?: bool, KmsKeyId?: string, EncryptionMode?: 'DISK'|'NATIVE', ...},
  *     DomainEndpointOptions?: array{
  *         EnforceHTTPS?: bool,
  *         TLSSecurityPolicy?: 'Policy-Min-TLS-1-0-2019-07'|'Policy-Min-TLS-1-2-2019-07'|'Policy-Min-TLS-1-2-PFS-2023-10'|'Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08',
@@ -1131,6 +1132,7 @@ use Aws\AwsClient;
  *     AutomatedSnapshotPauseOptions?: array{Enabled?: bool, StartTime?: int|string|\DateTimeInterface, EndTime?: int|string|\DateTimeInterface, ...},
  *     UseCase?: 'MIXED'|'OBSERVABILITY'|'SEARCH'|'VECTOR',
  *     EngineMode?: 'GENERAL'|'OPTIMIZED',
+ *     AcceptedWarnings?: list<string>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateIndex(array $args = [])
