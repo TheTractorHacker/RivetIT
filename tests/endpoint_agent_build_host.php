@@ -97,7 +97,8 @@ $ok($c === 401 && $c2 === 401 && $raw1 === $raw2, 'right id with the wrong secre
 $ok($c === 200 && $j === ['job' => null], 'poll with a valid token and nothing queued: {job:null}');
 $h = $db->query("SELECT * FROM endpoint_agent_build_hosts WHERE host_id = $HA")->fetch_assoc();
 $ok($h['last_seen_at'] !== null && $h['last_ip'] === '127.0.0.1' && $h['capabilities'] === 'docker,msi' && !str_contains($h['host_version'], '<') === false || $h['host_version'] === '1.0 <b>x</b>', 'last seen, last IP and capabilities are recorded (text is stored raw, escaped on output)');
-[$c, $rj] = bh_call('poll', $TA, ['host_version' => 'reg']); $ok($c === 200 && $rj === ['job' => null], 'a poll without capabilities (--register) answers job:null');
+[$c, $rj] = bh_call('poll', $TA, ['host_version' => 'reg']); $ok($c === 200 && $rj === ['job' => null], 'a poll without capabilities answers job:null');
+[$c, $rj] = bh_call('poll', $TA, ['host_version' => 'reg', 'capabilities' => ['docker' => false, 'msi' => false]]); $ok($c === 200 && $rj === ['job' => null], 'a poll with docker/msi false (--register) answers job:null and never claims');
 [$c] = bh_call('poll', $TA, [], 'GET'); $ok($c === 405, 'GET is refused (405)');
 [$c] = bh_call('poll', $TA, 'not json'); $ok($c === 400, 'a body that is not JSON: 400');
 [$c] = bh_call('poll', $TA, str_repeat('a', 1600000)); $ok($c === 413, 'a request body over the cap: 413');

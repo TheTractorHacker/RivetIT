@@ -480,7 +480,8 @@ function rivetBuildHostPoll($mysqli, array $host, array $body, string $ip): arra
 {
     rivetBuildHostSweep($mysqli);
     rivetBuildHostTouch($mysqli, $host, $ip, $body);
-    if (!array_key_exists('capabilities', $body)) {   // `--register`: records last seen and the script version, never takes a job
+    $caps = is_array($body['capabilities'] ?? null) ? $body['capabilities'] : [];
+    if (empty($caps['docker']) || empty($caps['msi'])) {   // `--register` announces no capabilities (or false ones): records last seen and the script version, never takes a job
         return [200, ['job' => null]];
     }
     $hid = (int) $host['host_id'];
