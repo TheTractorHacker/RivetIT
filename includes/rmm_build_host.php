@@ -119,8 +119,8 @@ function rivetBuildHostMakeToken(): array
 /** @return array{ok:bool,message:string,token?:string,host_id?:int} the token is in the answer once and nowhere else */
 function rivetBuildHostCreate($mysqli, string $name, int $userId): array
 {
-    $name = trim(rivetBuildHostClean($name, 80));
-    if ($name === '' || preg_match('/^[\w .:@()\/+-]{1,80}\z/', $name) !== 1) {
+    $name = trim($name);
+    if ($name === '' || strlen($name) > 80 || preg_match('/^[\w .:@()\/+-]{1,80}\z/', $name) !== 1) {
         return ['ok' => false, 'message' => 'Give the build host a short name (letters, numbers, spaces and . - _ : @).'];
     }
     $n = mysqli_query($mysqli, 'SELECT COUNT(*) FROM endpoint_agent_build_hosts');
