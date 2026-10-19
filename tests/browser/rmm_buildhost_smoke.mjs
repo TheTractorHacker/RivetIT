@@ -61,7 +61,7 @@ class MockHost {
     return { status: r.status, json: await r.json().catch(() => null) };
   }
   poll() { return this.call('poll', { host_version: 'mock-1.0', capabilities: { docker: true, msi: true } }); }
-  status(job, state, note, log) { return this.call('status', { job_id: job, state, note, log_tail: log }); }
+  status(job, state, note, log, progress = {}) { return this.call('status', { job_id: job, state, note, log_tail: log, ...progress }); }
   async upload(job, v) {
     const f = files(v);
     for (const [name, buf] of Object.entries(f)) {
@@ -139,10 +139,17 @@ await T('request a build with publish-when-built (pilot 30%): queued, then picke
   await shot('buildhost-queued-desktop-light');
   let r = await host.poll(); const job = r.json.job; assert(job && job.version === '0.9.5' && job.source_ref === 'main', 'job ' + JSON.stringify(r));
   await p.waitFor(`/Picked up/.test(document.getElementById('af-bh-jobs').innerText)`, { timeout: 30000, label: 'claimed shows live' });
-  await host.status(job.id, 'building', 'make dist (1/3)');
+  let rs = await host.status(job.id, 'building', 'make dist (1/3)', undefined, { stage: 'build_windows_amd64', pct: 40, detail: 'go build ./cmd/agent', elapsed_s: 75 });
+  assert(rs.status === 200, 'progress accepted ' + JSON.stringify(rs));
   await p.waitFor(`/Building/.test(document.getElementById('af-bh-jobs').innerText) && /make dist \\(1\\/3\\)/.test(document.getElementById('af-bh-jobs').innerText)`, { timeout: 30000, label: 'building with the note' });
+  await p.waitFor(`/Building the Windows x64 agent/.test(document.getElementById('af-bh-jobs').innerText) && !!document.querySelector('#af-bh-jobs [role=progressbar][aria-valuenow="40"]')`, { timeout: 30000, label: 'stage in plain words and a 40% bar' });
+  const live = await p.eval(`(()=>{const j=document.getElementById('af-bh-jobs');return {pct:j.querySelector('[data-bh-pct]').innerText.trim(),steps:[...j.querySelectorAll('[data-bh-steps] li')].map(l=>l.innerText.trim()+'|'+(l.querySelector('i')||{className:''}).className),elapsed:(j.querySelector('[data-bh-elapsed]')||{innerText:''}).innerText,width:j.querySelector('.progress-bar').style.width,detailShown:/go build/.test(j.innerText)}})()`);
+  assert(live.pct === '40%' && live.width === '40%' && live.steps.length === 7 && /^Done:\s*Prepare the build\|.*check-circle/.test(live.steps[0]) && /^Working on it:\s*Build the Windows x64 agent\|.*spinner/.test(live.steps[2]) && /^Waiting:\s*Upload the files\|/.test(live.steps[6]) && /Running for/.test(live.elapsed) && !live.detailShown, 'progress block ' + JSON.stringify(live));
   await shot('buildhost-building-desktop-light');
-  await host.status(job.id, 'uploading', 'uploading files');
+  await host.status(job.id, 'building', 'late packet', undefined, { stage: 'clone', pct: 5 });
+  await host.status(job.id, 'uploading', 'uploading files', undefined, { stage: 'upload', pct: 92, detail: '7 of 23' });
+  await p.waitFor(`/Uploading 7 of 23/.test(document.getElementById('af-bh-jobs').innerText) && !!document.querySelector('#af-bh-jobs [role=progressbar][aria-valuenow="92"]')`, { timeout: 30000, label: 'Uploading 7 of 23 at 92%, the late older packet did not move it back' });
+  await shot('buildhost-uploading-desktop-light');
   r = await host.upload(job.id, '0.9.5'); assert(r.status === 200 && r.json.state === 'published', 'complete ' + JSON.stringify(r));
   await p.waitFor(`/Published/.test(document.getElementById('af-bh-jobs').innerText)`, { timeout: 30000, label: 'published live' });
   const st = extra('state');

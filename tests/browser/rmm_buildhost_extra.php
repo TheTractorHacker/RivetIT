@@ -17,7 +17,7 @@ if ($mode === 'reset') {
     $q("DELETE FROM logs WHERE log_action LIKE 'Agent Build Host%'");
 } else {
     $out['hosts'] = $rows('SELECT host_id, name, enabled, last_seen_at IS NOT NULL AS seen, LENGTH(token_hash) AS hash_len FROM endpoint_agent_build_hosts');
-    $out['jobs'] = $rows('SELECT job_id, version, source_ref, state, auto_publish, release_ring, rollout_pct, note FROM endpoint_agent_build_jobs ORDER BY job_id');
+    $out['jobs'] = $rows('SELECT job_id, version, source_ref, state, auto_publish, release_ring, rollout_pct, note, progress_stage, progress_pct FROM endpoint_agent_build_jobs ORDER BY job_id');
     $out['binaries'] = $rows('SELECT version, arch, is_current FROM endpoint_agent_binaries ORDER BY version, arch');
     $out['msi'] = $rows('SELECT version, arch, is_current FROM endpoint_agent_msi_templates ORDER BY version');
     $out['releases'] = $rows('SELECT version, ring, rollout_pct, arch FROM endpoint_agent_releases ORDER BY version, arch');
