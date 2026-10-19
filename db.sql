@@ -9660,6 +9660,34 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_assets` (
 INSERT IGNORE INTO `endpoint_agent_feed` (`id`) VALUES (1);
 
 --
+-- Agent build (GitHub Actions dispatch: encrypted token, the build in progress, publish-when-built), DB 2.6.176
+--
+
+CREATE TABLE IF NOT EXISTS `endpoint_agent_build` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `gh_token` varchar(1500) NOT NULL DEFAULT '',
+  `token_set_at` datetime DEFAULT NULL,
+  `token_set_by` int(11) NOT NULL DEFAULT 0,
+  `token_status` varchar(300) NOT NULL DEFAULT '',
+  `build_version` varchar(40) NOT NULL DEFAULT '',
+  `build_repo` varchar(140) NOT NULL DEFAULT '',
+  `requested_at` datetime DEFAULT NULL,
+  `requested_by` int(11) NOT NULL DEFAULT 0,
+  `run_id` bigint(20) NOT NULL DEFAULT 0,
+  `run_state` varchar(12) NOT NULL DEFAULT '',
+  `run_note` varchar(300) NOT NULL DEFAULT '',
+  `checked_at` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `auto_publish` tinyint(1) NOT NULL DEFAULT 0,
+  `auto_opts` varchar(120) NOT NULL DEFAULT '',
+  `auto_state` varchar(12) NOT NULL DEFAULT '',
+  `auto_note` varchar(300) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT IGNORE INTO `endpoint_agent_build` (`id`) VALUES (1);
+
+--
 -- Recovery: backup status, restore drill results, alert de-duplication and settings, DB 2.6.153
 --
 

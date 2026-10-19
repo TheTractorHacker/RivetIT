@@ -11379,3 +11379,35 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.175'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.175') {
+        // DB 2.6.176: RivetIT 26.10.55, Agent updates > Build a new version. One RivetIT-owned table (CREATE TABLE IF NOT EXISTS, nothing existing is touched): the GitHub token
+        // (encrypted with encryptSetting), the build in progress and the "publish when built" choice. Empty and unused until an administrator saves a token.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `endpoint_agent_build` (
+          `id` tinyint(4) NOT NULL DEFAULT 1,
+          `gh_token` varchar(1500) NOT NULL DEFAULT '',
+          `token_set_at` datetime DEFAULT NULL,
+          `token_set_by` int(11) NOT NULL DEFAULT 0,
+          `token_status` varchar(300) NOT NULL DEFAULT '',
+          `build_version` varchar(40) NOT NULL DEFAULT '',
+          `build_repo` varchar(140) NOT NULL DEFAULT '',
+          `requested_at` datetime DEFAULT NULL,
+          `requested_by` int(11) NOT NULL DEFAULT 0,
+          `run_id` bigint(20) NOT NULL DEFAULT 0,
+          `run_state` varchar(12) NOT NULL DEFAULT '',
+          `run_note` varchar(300) NOT NULL DEFAULT '',
+          `checked_at` datetime DEFAULT NULL,
+          `finished_at` datetime DEFAULT NULL,
+          `auto_publish` tinyint(1) NOT NULL DEFAULT 0,
+          `auto_opts` varchar(120) NOT NULL DEFAULT '',
+          `auto_state` varchar(12) NOT NULL DEFAULT '',
+          `auto_note` varchar(300) NOT NULL DEFAULT '',
+          PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `endpoint_agent_build` (`id`) VALUES (1)");
+
+        $build_res = mysqli_query($mysqli, "SHOW TABLES LIKE 'endpoint_agent_build'");
+        if ($build_res && mysqli_num_rows($build_res) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.176'");
+        }
+    }
