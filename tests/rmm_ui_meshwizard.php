@@ -121,7 +121,7 @@ $ok($s['mesh_url'] === 'https://mesh.example.test' && (int) $s['mesh_enabled'] =
 [, $p] = $mwPage();
 $ok(str_contains($p, 'Saved: https://mesh.example.test') && str_contains($p, 'stored encrypted') && !str_contains($p, $mwKey) && str_contains($p, 'Saved'), 'step 1 shows done and never prints the key');
 $st = $mwState();
-$ok($mwStep($st, 1)['ok'] && !$mwStep($st, 2)['ok'] && $st['done'] === 1 && str_contains($p, '1 of 5 steps done') && str_contains($p, 'data-step="1" data-state="ok"'), 'live state: step 1 is green, step 2 amber');
+$ok($mwStep($st, 1)['ok'] && !$mwStep($st, 2)['ok'] && str_contains($p, $st['done'] . ' of 5 steps done') && str_contains($p, 'data-step="1" data-state="ok"'), 'live state: step 1 is green, step 2 amber');
 // step 2: the whole pasted download address
 $meshid = str_repeat('A', 30) . '@$' . str_repeat('b', 32);
 $meshid = substr($meshid, 0, 64);
@@ -159,15 +159,16 @@ $mwAdm(['mw_action' => 'save_group', 'mesh_group_id' => $meshid]); $mwFresh();
 $evil = '<img src=x onerror=alert(1)>';
 $oldHost = (string) $one('SELECT hostname FROM endpoint_agent_devices WHERE device_id = ' . (int) $D['WIN1']);
 $q("UPDATE endpoint_agent_devices SET hostname = '" . $db->real_escape_string($evil) . "' WHERE device_id = " . (int) $D['WIN1']);
+$mapped0 = $mwState()['devices']['mapped'];
 $hadNode = (int) $one('SELECT COUNT(*) FROM endpoint_agent_mesh_nodes WHERE device_id = ' . (int) $D['WIN1']);
 if (!$hadNode) { $q('INSERT INTO endpoint_agent_mesh_nodes SET device_id = ' . (int) $D['WIN1'] . ", mesh_node_id = 'node//" . str_repeat('A', 64) . "', source = 'manual'"); }
 $st = $mwState();
-$ok($mwStep($st, 5)['ok'] && $st['devices']['mapped'] >= 1, 'step 5 is green when an enrolled device is connected');
+$ok($mwStep($st, 5)['ok'] && $st['devices']['mapped'] >= 1 && $st['devices']['mapped'] >= $mapped0, 'step 5 is green when an enrolled device is connected');
 [, $p] = $mwPage();
 $ok(str_contains($p, '&lt;img src=x') && !str_contains($p, $evil) && str_contains($p, 'id="mw-device-list"'), 'step 5 lists the device with the host name escaped');
 if (!$hadNode) { $q('DELETE FROM endpoint_agent_mesh_nodes WHERE device_id = ' . (int) $D['WIN1']); }
 $q("UPDATE endpoint_agent_devices SET hostname = '" . $db->real_escape_string($oldHost) . "' WHERE device_id = " . (int) $D['WIN1']);
-$ok(!$mwStep($mwState(), 5)['ok'] || $hadNode, 'step 5 is amber again without a connected device');
+$ok($mwState()['devices']['mapped'] === $mapped0, 'step 5 counts go back when the test mapping is removed');
 
 // the live checks
 $hp = ea_start_php($root . '/tests/support/mesh_health_router.php', [], []);
