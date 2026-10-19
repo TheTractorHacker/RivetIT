@@ -48,6 +48,7 @@ $ea_who = rivetRmmPrincipal((int) $session_user_id, (string) $session_name);
 if (isset($_POST['agent_feed'])) {
     require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed.php';
     require_once dirname(__DIR__, 2) . '/includes/rmm_agent_feed_ui.php';
+    require_once dirname(__DIR__, 2) . '/includes/rmm_build_host_ui.php';   // 26.10.57: Build on my build host (bh_* actions)
     require_once dirname(__DIR__, 2) . '/includes/rmm_agent_build.php';   // 26.10.55: Build a new version (token, dispatch, progress, publish when built)
     $af_action = (string) $_POST['agent_feed'];
     $af_json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
@@ -69,7 +70,7 @@ if (isset($_POST['agent_feed'])) {
     }
     $af_opt = rivetAgentFeedOptions(['ring' => $_POST['ring'] ?? 'stable', 'rollout_pct' => $_POST['rollout_pct'] ?? 100, 'activate' => isset($_POST['activate']), 'offer' => isset($_POST['offer'])]);
     $af_tag = is_string($_POST['tag'] ?? null) ? trim($_POST['tag']) : '';
-    $af_card = static fn (): string => rivetAgentFeedCard($mysqli, $rmm, ['csrf' => (string) $_SESSION['csrf_token'], 'module_on' => $rmm->enabled(), 'service_ok' => $rmm->readModel()->settingsSummary()['service_base'] !== null]);
+    $af_card = static fn (?array $reveal = null): string => rivetAgentFeedCard($mysqli, $rmm, ['csrf' => (string) $_SESSION['csrf_token'], 'module_on' => $rmm->enabled(), 'service_ok' => $rmm->readModel()->settingsSummary()['service_base'] !== null, 'bh_reveal' => $reveal]);
     switch ($af_action) {
         case 'check':
             $af = rivetAgentFeedRefresh($mysqli, true);
@@ -124,6 +125,71 @@ if (isset($_POST['agent_feed'])) {
             $br = rivetAgentBuildRow($mysqli);
             $af_reply(true, $bt['message'] !== '' ? $bt['message'] : (string) $br['run_note'], ['state' => (string) $br['run_state'], 'changed' => $bt['changed'], 'active' => rivetAgentBuildIsActive($br) || rivetAgentBuildAutoPending($br),
                 'url' => rivetAgentBuildRunUrl($br), 'html' => $bt['changed'] ? $af_card() : '']);
+
+        // ---- Build on my build host (26.10.57). Administrators only (this file), CSRF checked above; ids are validated as whole numbers and looked up, never trusted.
+        case 'bh_add':
+        case 'bh_rotate':
+            $bh_name = '';
+            $bh_token = null;
+            if ($af_action === 'bh_add') {
+                $r = rivetBuildHostCreate($mysqli, is_string($_POST['name'] ?? null) ? $_POST['name'] : '', (int) $session_user_id);
+                if (!$r['ok']) {
+                    $af_reply(false, $r['message'], [], 422);
+                }
+                $bh_name = trim((string) $_POST['name']);
+                $bh_token = $r['token'];
+                logAction('Endpoint Agent', 'Agent Build Host Added', "$session_name added the build host \"" . rivetBuildHostClean($bh_name, 80) . '" (host #' . (int) $r['host_id'] . ')');
+            } else {
+                $bh_row = rivetBuildHostGet($mysqli, (int) ($_POST['host_id'] ?? 0));
+                $bh_token = $bh_row ? rivetBuildHostRotate($mysqli, (int) $bh_row['host_id']) : null;
+                if ($bh_token === null) {
+                    $af_reply(false, 'That build host does not exist.', [], 404);
+                }
+                $bh_name = (string) $bh_row['name'];
+                logAction('Endpoint Agent', 'Agent Build Host Token Replaced', "$session_name made a new token for the build host \"" . rivetBuildHostClean($bh_name, 80) . '" (host #' . (int) $bh_row['host_id'] . '); the old token stopped working');
+            }
+            $bh_reveal = ['name' => $bh_name, 'token' => $bh_token];
+            if ($af_json) {   // the token goes to this one answer only
+                $af_reply(true, 'Copy the token now: it is shown only once.', ['html' => $af_card($bh_reveal), 'reveal' => true]);
+            }
+            $_SESSION['bh_reveal_once'] = $bh_reveal;   // no JavaScript: the next page shows it once
+            $af_reply(true, 'Copy the token shown in the Build a new version box now: it is shown only once.');
+
+        case 'bh_enable':
+        case 'bh_disable':
+        case 'bh_delete':
+            $bh_row = rivetBuildHostGet($mysqli, (int) ($_POST['host_id'] ?? 0));
+            if (!$bh_row) {
+                $af_reply(false, 'That build host does not exist.', [], 404);
+            }
+            if ($af_action === 'bh_delete') {
+                rivetBuildHostDelete($mysqli, (int) $bh_row['host_id']);
+            } else {
+                rivetBuildHostSetEnabled($mysqli, (int) $bh_row['host_id'], $af_action === 'bh_enable');
+            }
+            logAction('Endpoint Agent', ['bh_enable' => 'Agent Build Host Enabled', 'bh_disable' => 'Agent Build Host Disabled', 'bh_delete' => 'Agent Build Host Deleted'][$af_action], "$session_name changed the build host \"" . rivetBuildHostClean((string) $bh_row['name'], 80) . '" (host #' . (int) $bh_row['host_id'] . ')');
+            $af_reply(true, ['bh_enable' => 'The build host is enabled.', 'bh_disable' => 'The build host is disabled and its token no longer works.', 'bh_delete' => 'The build host was deleted.'][$af_action], $af_json ? ['html' => $af_card()] : []);
+
+        case 'bh_request':
+            $bs = rivetBuildHostRequest($mysqli, (int) ($_POST['host_id'] ?? 0), is_string($_POST['version'] ?? null) ? trim($_POST['version']) : '', is_string($_POST['source_ref'] ?? null) ? trim($_POST['source_ref']) : 'main',
+                !empty($_POST['build_auto']) ? $af_opt : null, (int) $session_user_id, $af_opt);
+            logAction('Endpoint Agent', $bs['ok'] ? 'Agent Build Host Job Requested' : 'Agent Build Host Job Refused', "$session_name asked for agent version " . substr(preg_replace('/[^0-9A-Za-z.-]/', '?', (string) ($_POST['version'] ?? '')), 0, 40)
+                . ' on a build host' . ($bs['ok'] ? (!empty($_POST['build_auto']) ? ' (publish when built)' : '') : ': ' . substr($bs['message'], 0, 200)));
+            $af_reply($bs['ok'], $bs['message'], $af_json ? ['html' => $af_card()] : [], $bs['ok'] ? 200 : 422);
+
+        case 'bh_cancel':
+            $bh_ok = rivetBuildHostCancel($mysqli, (int) ($_POST['job_id'] ?? 0), 'Cancelled by ' . rivetBuildHostClean((string) $session_name, 60) . '.');
+            logAction('Endpoint Agent', 'Agent Build Host Job Cancelled', "$session_name cancelled build job #" . (int) ($_POST['job_id'] ?? 0) . ($bh_ok ? '' : ' (nothing to cancel)'));
+            $af_reply($bh_ok, $bh_ok ? 'The build was cancelled.' : 'That build is not running any more.', $af_json ? ['html' => $af_card()] : [], $bh_ok ? 200 : 422);
+
+        case 'bh_publish':
+            $bp = rivetBuildHostPublish($mysqli, $rmm, (int) ($_POST['job_id'] ?? 0), ['id' => (int) $session_user_id, 'name' => (string) $session_name]);
+            $af_reply($bp['ok'], $bp['message'], $af_json ? ['html' => $af_card()] : [], $bp['ok'] ? 200 : 422);
+
+        case 'bh_status':   // the card asks every few seconds while a build runs on a build host; it gets the hosts and jobs only
+            rivetBuildHostSweep($mysqli);
+            $bh_open = rivetBuildHostJobs($mysqli, ['open' => true, 'limit' => 1]) !== [];
+            $af_reply(true, '', ['active' => $bh_open, 'html' => rivetBuildHostLive($mysqli, ['csrf' => (string) $_SESSION['csrf_token']])]);
 
         case 'plan':
             $rel = rivetAgentFeedFindRelease($mysqli, $af_tag);

@@ -8,6 +8,7 @@
 
 require_once __DIR__ . '/rmm_agent_build.php';
 require_once __DIR__ . '/rmm_agent_feed_ui.php';
+require_once __DIR__ . '/rmm_build_host_ui.php';   // 26.10.57: Build on my build host
 
 /** @return array{label:string,class:string} */
 function rivetAgentBuildBadge(string $state): array
@@ -39,7 +40,13 @@ function rivetAgentBuildBox($mysqli, array $releases, string $repo, bool $pilot,
     $b = rivetAgentBuildBadge((string) $row['run_state']);
     $runUrl = rivetAgentBuildRunUrl($row);
 
-    $o = '<div class="border rounded p-3 mb-3" id="af-build" data-active="' . ($active || $autoWait ? '1' : '0') . '"><h5 class="mb-1"><i class="fas fa-fw fa-hammer me-1" aria-hidden="true"></i>Build a new version</h5>'
+    $hostsKnown = rivetBuildHostReady($mysqli) && rivetBuildHostList($mysqli) !== [];
+    $localFirst = $hostsKnown && !$has;
+    $o = '<div class="border rounded p-3 mb-3" id="af-build" data-active="' . ($active || $autoWait ? '1' : '0') . '" data-provider="' . ($localFirst ? 'host' : 'github') . '"><h5 class="mb-1"><i class="fas fa-fw fa-hammer me-1" aria-hidden="true"></i>Build a new version</h5>'
+        . '<fieldset class="mb-2" id="af-provider"><legend class="visually-hidden">Where to build</legend>'
+        . '<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="af_provider" id="af-prov-gh" value="github"' . ($localFirst ? '' : ' checked') . '><label class="form-check-label" for="af-prov-gh">Build on GitHub</label></div>'
+        . '<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="af_provider" id="af-prov-host" value="host"' . ($localFirst ? ' checked' : '') . '><label class="form-check-label" for="af-prov-host">Build on my build host</label></div></fieldset>'
+        . '<div id="af-build-gh"' . ($localFirst ? ' class="d-none"' : '') . '>'
         . '<p class="small text-muted mb-2">Starts the agent build on GitHub (Windows and Linux agents and the MSI, from the <code>main</code> branch of <code>' . $h($repo) . '</code>) and publishes the new release as <code>agent-v&lt;version&gt;</code>. '
         . 'A version with a suffix (for example <code>0.9.1-rc1</code>) becomes a pre-release.</p>';
 
@@ -99,7 +106,9 @@ function rivetAgentBuildBox($mysqli, array $releases, string $repo, bool $pilot,
         . '<div class="col-lg-7"><label class="form-label small mb-0" for="af-token-in">' . ($has ? 'New token' : 'Token') . '</label><input class="form-control form-control-sm font-monospace" type="password" id="af-token-in" name="gh_token" value="" autocomplete="new-password" spellcheck="false" maxlength="300" required></div>'
         . '<div class="col-lg-5"><button class="btn btn-sm btn-outline-primary" type="submit" name="agent_feed" value="build_save_token" id="af-token-save">' . ($has ? 'Replace token' : 'Save token') . '</button></div></form>'
         . '<div class="form-text">Stored encrypted (settings vault), sent only to api.github.com, never displayed, and removed if you change the repository. Anyone who can use it can start builds of this one repository, so give it only the permission above.</div>'
-        . '</div></div></details></div>';
+        . '</div></div></details></div>';   // end of the token box and of the GitHub part
+
+    $o .= '<div id="af-build-local-wrap"' . ($localFirst ? '' : ' class="d-none"') . '>' . rivetBuildHostBox($mysqli, $pilot, $ctx, $ctx['bh_reveal'] ?? rivetBuildHostTakeOnce()) . '</div></div>';
 
     return $o;
 }

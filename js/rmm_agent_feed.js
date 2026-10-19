@@ -43,6 +43,8 @@
         card.innerHTML = fresh.innerHTML;
         var box = document.getElementById('af-alert');
         if (box && keep) { box.innerHTML = keep; }
+        applyProvider();
+        watchLocal();
     }
 
     function human(msg) { return String(msg || ''); }
@@ -96,7 +98,7 @@
             say(bad(r), ok ? 'success' : 'danger');
             if (tokenIn) { tokenIn.value = ''; }
         }).catch(function () { say('Could not reach this server. Try again.', 'danger'); })
-            .then(function () { busy = false; btn.disabled = false; btn.removeAttribute('aria-busy'); watch(); });
+            .then(function () { busy = false; btn.disabled = false; btn.removeAttribute('aria-busy'); watch(); watchLocal(); var rv = document.querySelector('#af-bh-reveal input'); if (rv) { rv.scrollIntoView({ block: 'center' }); } });
     }
 
     var STATE_LABEL = { dispatching: 'Starting', queued: 'Waiting in GitHub\'s queue', building: 'Building', finished: 'Built', failed: 'Failed' };
@@ -127,6 +129,67 @@
         }).catch(function () { /* try again next time */ }).then(watch);
     }
     watch();
+
+    // ---- Build on my build host (26.10.57): provider choice, copy buttons, live hosts and jobs
+    function savedProvider() { try { return window.localStorage.getItem('rivetit.af.provider'); } catch (e) { return null; } }
+    function applyProvider() {
+        var box = document.getElementById('af-build');
+        var gh = document.getElementById('af-build-gh');
+        var lo = document.getElementById('af-build-local-wrap');
+        if (!box || !gh || !lo) { return; }
+        var want = savedProvider() || box.getAttribute('data-provider') || 'github';
+        if (want !== 'host' && want !== 'github') { want = 'github'; }
+        if (document.querySelector('#af-bh-reveal:not(.d-none) input')) { want = 'host'; }   // a new token is on screen: keep the local section open
+        var rg = document.getElementById('af-prov-gh');
+        var rh = document.getElementById('af-prov-host');
+        if (rg) { rg.checked = want === 'github'; }
+        if (rh) { rh.checked = want === 'host'; }
+        gh.classList.toggle('d-none', want !== 'github');
+        lo.classList.toggle('d-none', want !== 'host');
+    }
+    card.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.name === 'af_provider') {
+            try { window.localStorage.setItem('rivetit.af.provider', t.value); } catch (x) { /* optional */ }
+            applyProvider();
+        }
+    });
+    card.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-af-copy]') : null;
+        if (!b) { return; }
+        var src = document.getElementById(b.getAttribute('data-af-copy'));
+        if (!src) { return; }
+        var done = function () { var l = b.getAttribute('data-label') || b.textContent; b.setAttribute('data-label', l); b.textContent = 'Copied'; setTimeout(function () { b.textContent = l; }, 2000); };
+        if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(src.value).then(done, function () { src.select(); }); } else { src.select(); try { document.execCommand('copy'); done(); } catch (x) { /* selected for Ctrl+C */ } }
+    });
+    var ltimer = null;
+    function watchLocal() {
+        var box = document.getElementById('af-build-local');
+        if (ltimer) { clearTimeout(ltimer); ltimer = null; }
+        if (!box || box.getAttribute('data-active') !== '1') { return; }
+        ltimer = setTimeout(pollLocal, 5000);
+    }
+    function pollLocal() {
+        ltimer = null;
+        if (busy) { watchLocal(); return; }
+        post({ agent_feed: 'bh_status' }).then(function (r) {
+            if (!r.json || !r.json.html) { return; }
+            var live = document.getElementById('af-bh-live');
+            var t = document.createElement('template');
+            t.innerHTML = r.json.html;
+            var fresh = t.content.getElementById('af-bh-live');
+            if (live && fresh) {
+                var open = {};
+                live.querySelectorAll('tr[data-job] details[open]').forEach(function (d) { open[d.closest('tr').getAttribute('data-job')] = true; });
+                fresh.querySelectorAll('tr[data-job]').forEach(function (tr) { if (open[tr.getAttribute('data-job')]) { var d = tr.querySelector('details'); if (d) { d.open = true; } } });
+                live.replaceWith(fresh);
+            }
+            var box = document.getElementById('af-build-local');
+            if (box) { box.setAttribute('data-active', r.json.active ? '1' : '0'); }
+        }).catch(function () { /* try again next time */ }).then(watchLocal);
+    }
+    applyProvider();
+    watchLocal();
 
     // ---- the options of a release
     card.addEventListener('input', function (e) {
