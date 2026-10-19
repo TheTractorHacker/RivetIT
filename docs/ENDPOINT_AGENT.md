@@ -413,7 +413,7 @@ Nothing in the RMM forms asks for JSON any more. The pieces:
 **Tests.** `tests/rmm_ui_meshwizard.php` (run by `tests/rmm_ui.php`), `tests/browser/rmm_meshwizard_smoke.mjs`.
 
 
-## 19. Build a new agent version from the Agent updates card (RivetIT 26.10.55, DB 2.6.176)
+## 20. Build a new agent version from the Agent updates card (RivetIT 26.10.55, DB 2.6.176)
 
 The card could only fetch finished releases; now it can start the build too. Files: `includes/rmm_agent_build.php` (rules), `includes/rmm_agent_build_ui.php` (the box), handler actions `build_*` in `admin/post/settings_endpoint_agent.php`, `js/rmm_agent_feed.js` (polling), `cron/agent_build_check.php`, table `endpoint_agent_build` (one row).
 
