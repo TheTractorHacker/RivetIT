@@ -453,10 +453,10 @@ function rivetBuildHostTouch($mysqli, array $host, string $ip, ?array $body = nu
     if (is_array($body)) {
         $ver = rivetBuildHostClean(is_string($body['host_version'] ?? null) ? $body['host_version'] : '', 40);
         $c = is_array($body['capabilities'] ?? null) ? $body['capabilities'] : [];
-        $cap = implode(',', array_keys(array_filter(['docker' => !empty($c['docker']), 'msi' => !empty($c['msi'])])));
+        $cap = array_key_exists('capabilities', $body) ? implode(',', array_keys(array_filter(['docker' => !empty($c['docker']), 'msi' => !empty($c['msi'])]))) : null;
     }
     mysqli_query($mysqli, "UPDATE endpoint_agent_build_hosts SET last_seen_at = UTC_TIMESTAMP(), last_ip = '" . mysqli_real_escape_string($mysqli, substr($ip, 0, 45)) . "'"
-        . (is_array($body) ? ", host_version = '" . mysqli_real_escape_string($mysqli, $ver) . "', capabilities = '" . mysqli_real_escape_string($mysqli, $cap) . "'" : '') . ' WHERE host_id = ' . (int) $host['host_id']);
+        . (is_array($body) ? ", host_version = '" . mysqli_real_escape_string($mysqli, $ver) . "'" . ($cap !== null ? ", capabilities = '" . mysqli_real_escape_string($mysqli, $cap) . "'" : '') : '') . ' WHERE host_id = ' . (int) $host['host_id']);
 }
 
 /** @return array{0:int,1:array<string,mixed>} */
@@ -480,6 +480,9 @@ function rivetBuildHostPoll($mysqli, array $host, array $body, string $ip): arra
 {
     rivetBuildHostSweep($mysqli);
     rivetBuildHostTouch($mysqli, $host, $ip, $body);
+    if (!array_key_exists('capabilities', $body)) {   // `--register`: records last seen and the script version, never takes a job
+        return [200, ['job' => null]];
+    }
     $hid = (int) $host['host_id'];
     // a job that was handed out but not yet acknowledged is handed out again (the answer may have been lost)
     $q = mysqli_query($mysqli, "SELECT * FROM endpoint_agent_build_jobs WHERE host_id = $hid AND state IN ('claimed','building','uploading','verifying') ORDER BY job_id LIMIT 1");

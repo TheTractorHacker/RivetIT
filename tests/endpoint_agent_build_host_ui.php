@@ -65,7 +65,7 @@ $ok(str_contains($j['html'], 'sudo install -m 0600') && str_contains($j['html'],
 [$c, $html] = $page(); $ok(!str_contains($html, $tok) && !str_contains($html, substr($tok, 21)), 'the next page load does not contain the token');
 $ok($cnt("SELECT COUNT(*) FROM logs WHERE log_description LIKE '%" . $esc(substr($tok, 21)) . "%'") === 0 && !str_contains((string) $one('SELECT CONCAT(token_hash, token_salt, token_prefix) FROM endpoint_agent_build_hosts'), substr($tok, 21)), 'the secret is in no audit line and no table');
 [$c, $pj] = [0, null];
-$ch = curl_init("$wb/api/v1/build_host/poll"); curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{}', CURLOPT_HTTPHEADER => ["Authorization: Bearer $tok", 'Content-Type: application/json']]); $pj = json_decode(curl_exec($ch), true); $ok($pj === ['job' => null], 'the token from the page works against the endpoint');
+$ch = curl_init("$wb/api/v1/build_host/poll"); curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{"capabilities":{}}', CURLOPT_HTTPHEADER => ["Authorization: Bearer $tok", 'Content-Type: application/json']]); $pj = json_decode(curl_exec($ch), true); $ok($pj === ['job' => null], 'the token from the page works against the endpoint');
 $hid = (int) $one('SELECT host_id FROM endpoint_agent_build_hosts');
 [$c, $html] = $page(); $a = strpos($html, 'id="af-bh-hosts"'); $t = substr($html, $a, 6000);
 $ok(str_contains($t, 'Lab builder') && str_contains($t, 'Online') && str_contains($t, 'name="agent_feed" value="bh_disable"') && str_contains($t, 'New token') && str_contains($t, 'text-success'), 'the list shows the host, a green dot, Online, and the actions');
@@ -80,7 +80,7 @@ echo "== rotate, disable, enable, delete\n";
 [$c, $b] = $adm(['agent_feed' => 'bh_rotate', 'host_id' => (string) $hid], 'admin', $jsn); $j = $jd($b);
 preg_match('/id="af-bh-token" readonly value="(rbh_[0-9a-f]{16}_[0-9a-f]{48})"/', (string) ($j['html'] ?? ''), $m); $tok2 = $m[1] ?? '';
 $ok($c === 200 && $tok2 !== '' && $tok2 !== $tok && $audit('Agent Build Host Token Replaced') === 1, 'New token: a different token, audited');
-$ch = curl_init("$wb/api/v1/build_host/poll"); curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{}', CURLOPT_HTTPHEADER => ["Authorization: Bearer $tok", 'Content-Type: application/json']]); curl_exec($ch); $ok(curl_getinfo($ch, CURLINFO_RESPONSE_CODE) === 401, 'the old token stopped working');
+$ch = curl_init("$wb/api/v1/build_host/poll"); curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{"capabilities":{}}', CURLOPT_HTTPHEADER => ["Authorization: Bearer $tok", 'Content-Type: application/json']]); curl_exec($ch); $ok(curl_getinfo($ch, CURLINFO_RESPONSE_CODE) === 401, 'the old token stopped working');
 [$c, $b] = $adm(['agent_feed' => 'bh_rotate', 'host_id' => '99999'], 'admin', $jsn); $ok($c === 404 && !str_contains($b, 'rbh_'), 'rotating an unknown host: 404 and no token');
 [$c, $b] = $adm(['agent_feed' => 'bh_rotate', 'host_id' => "1 OR 1=1"], 'admin', $jsn); $ok($c === 404, 'a hostile host id is just unknown');
 [$c, $b] = $adm(['agent_feed' => 'bh_disable', 'host_id' => (string) $hid], 'admin', $jsn); $ok($c === 200 && (int) $one("SELECT enabled FROM endpoint_agent_build_hosts WHERE host_id = $hid") === 0, 'disable');

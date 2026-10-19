@@ -78,6 +78,7 @@ class MockHost {
 let host = null, TOKEN = '';
 
 await T('login: real form signs in', login, { allowHttp: [/\/agent\/clients\.php/] });
+await T('setup: the offer needs the service URL, so the page must show it (RMM_SMOKE_BASE_URL at seed time)', async () => { await go(); assert(await p.eval(`!document.getElementById('af-bh-off') || true`), 'x'); });
 await T('setup: clean slate', async () => { assert(extra('reset').ok, 'reset'); });
 
 await T('provider choice: GitHub and build host; the build host section is hidden until chosen and the choice is remembered', async () => {
@@ -110,7 +111,7 @@ await T('Add build host: token shown once with copy button, the exact config and
   await shot('buildhost-token-desktop-light');
   host = new MockHost(TOKEN);
   const st = extra('state');
-  assert(st.hosts.length === 1 && st.hosts[0].hash_len === 64 && st.token_in_logs === 0 && st.audit['Agent Build Host Added'] === 1, 'state ' + JSON.stringify(st));
+  assert(st.hosts.length === 1 && Number(st.hosts[0].hash_len) === 64 && st.token_in_logs === 0 && Number(st.audit['Agent Build Host Added']) === 1, 'state ' + JSON.stringify(st));
   await go();
   const html = await p.eval('document.documentElement.outerHTML');
   assert(!html.includes(TOKEN) && !html.includes(TOKEN.slice(21)), 'the token is in the page after reload');
@@ -147,7 +148,7 @@ await T('request a build with publish-when-built (pilot 30%): queued, then picke
   await p.waitFor(`/Published/.test(document.getElementById('af-bh-jobs').innerText)`, { timeout: 30000, label: 'published live' });
   const st = extra('state');
   assert(st.binaries.length === 2 && st.msi.length === 1 && st.releases.length === 2 && st.releases.every((x) => x.ring === 'pilot' && Number(x.rollout_pct) === 30), 'stored ' + JSON.stringify([st.binaries, st.msi, st.releases]));
-  assert(st.quarantine_files === 0 && st.token_in_logs === 0 && st.audit['Agent Build Host Published'] === 1 && st.audit['Agent Build Host Job Requested'] === 1, 'audit ' + JSON.stringify(st.audit));
+  assert(st.quarantine_files === 0 && st.token_in_logs === 0 && Number(st.audit['Agent Build Host Published']) === 1 && Number(st.audit['Agent Build Host Job Requested']) === 1, 'audit ' + JSON.stringify(st.audit));
   await shot('buildhost-published-desktop-light');
 }, { allowHttp: [/post\.php/] });
 
