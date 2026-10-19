@@ -112,6 +112,9 @@ WEBSITE=""
 RESTORE_FROM=""
 RESTORE_PASSPHRASE_FILE=""
 INSTALL_BACKUP_TIMERS=0
+# RMM Agent Builder (deploy/setup-build-host.sh): "" = not decided (asked interactively, defaults to no unattended), 1 = install, 0 = skip.
+# The unattended switch is the environment variable RIVETIT_WITH_BUILD_HOST=1|0 (the flags --with-build-host / --no-build-host win over it).
+WITH_BUILD_HOST="${RIVETIT_WITH_BUILD_HOST:-}"
 # Network path in front of the app. Empty = not given on the command line (asked, or defaulted below).
 LOCAL_PROXIES=""
 BEHIND_CLOUDFLARE=""
@@ -164,6 +167,16 @@ Deployment options:
                             by creating /etc/itflow/offsite.conf from
                             deploy/etc/offsite.conf.example. See
                             docs/RECOVERY_RUNBOOK.md.
+  --with-build-host          Also install the RMM Agent Builder: build the agent .exe/.msi
+                            on this server from the web UI (Administration > Agent
+                            updates). Runs deploy/setup-build-host.sh, which installs
+                            Docker and gives ONE account (rivetit-build) docker group
+                            membership, which is root-equivalent for that account.
+                            Needs a working https site (not --skip-tls). Can be added
+                            later: sudo deploy/setup-build-host.sh
+  --no-build-host            Do not install it and do not ask. Without either flag an
+                            interactive run asks [y/N]; an unattended run defaults to
+                            no. Environment: RIVETIT_WITH_BUILD_HOST=1 or 0.
   --skip-firewall            Do not touch ufw.
   --skip-fail2ban             Do not touch fail2ban.
   --skip-dependencies         Do not install nginx, PHP, MariaDB, Redis, or
@@ -263,6 +276,8 @@ parse_args() {
             --skip-dependencies) SKIP_DEPENDENCIES=1 ;;
             --skip-tls)          SKIP_TLS=1 ;;
             --install-backup-timers) INSTALL_BACKUP_TIMERS=1 ;;
+            --with-build-host)   WITH_BUILD_HOST=1 ;;
+            --no-build-host)     WITH_BUILD_HOST=0 ;;
             --non-interactive)   NON_INTERACTIVE=1 ;;
             --email=*)           CERTBOT_EMAIL="${arg#*=}" ;;
             --admin-name=*)      ADMIN_NAME="${arg#*=}" ;;
@@ -1325,6 +1340,37 @@ apply_network_settings() {
 # ---------------------------------------------------------------------------
 # Final summary
 # ---------------------------------------------------------------------------
+# RMM Agent Builder (opt-in): hands over to deploy/setup-build-host.sh once the app and its database exist. A failure here never fails the install;
+# the helper can be re-run on its own at any time.
+maybe_install_build_host() {
+    case "${WITH_BUILD_HOST}" in
+        1|y|Y|yes|true) WITH_BUILD_HOST=1 ;;
+        0|n|N|no|false) WITH_BUILD_HOST=0 ;;
+        "")
+            if [[ "${NON_INTERACTIVE}" -eq 0 && -t 0 ]]; then
+                local answer=""
+                read -r -p "Would you like to install the RMM Agent Builder (build the agent .exe/.msi on this server from the web UI)? [y/N] " answer || true
+                WITH_BUILD_HOST="$(normalize_yes_no "${answer:-n}" || echo 0)"
+            else
+                WITH_BUILD_HOST=0
+            fi
+            ;;
+        *) warn "RIVETIT_WITH_BUILD_HOST has the value '${WITH_BUILD_HOST}'; expected 1 or 0. Skipping the RMM Agent Builder."; WITH_BUILD_HOST=0 ;;
+    esac
+    if [[ "${WITH_BUILD_HOST}" -ne 1 ]]; then
+        info "Skipping the RMM Agent Builder (install it later with: sudo ${SCRIPT_DIR}/setup-build-host.sh)."
+        return 0
+    fi
+    if [[ "${SKIP_TLS}" -eq 1 ]]; then
+        warn "The RMM Agent Builder needs an https site with a trusted certificate, and --skip-tls leaves a self-signed one. Not installing it now; run 'sudo ${SCRIPT_DIR}/setup-build-host.sh' once TLS works."
+        return 0
+    fi
+    info "Installing the RMM Agent Builder (deploy/setup-build-host.sh)..."
+    if ! "${SCRIPT_DIR}/setup-build-host.sh" --yes "--app-dir=${APP_DIR}" "--site-url=https://${DOMAIN}"; then
+        warn "The RMM Agent Builder did not finish. The RivetIT install itself is fine. Fix the message above and re-run: sudo ${SCRIPT_DIR}/setup-build-host.sh --app-dir=${APP_DIR} --site-url=https://${DOMAIN}"
+    fi
+}
+
 print_summary() {
     local mode_desc
     if [[ "${PROXY_MODE}" -eq 1 ]]; then
@@ -1482,6 +1528,8 @@ main() {
     else
         info "Existing install and no --local-proxies/--cloudflare given: leaving the saved network path unchanged."
     fi
+
+    maybe_install_build_host
 
     set +x
     print_summary
