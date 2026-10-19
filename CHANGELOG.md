@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.54] RivetIT — Create installer is obvious, and a step-by-step Remote access (MeshCentral) setup page (no database change)
+
+**Deploy notes:** no DB change (DB stays 2.6.175), no new RivetCore, no new setting, no wire change. Pull this tag; nothing to run.
+
+- **Create installer.** The RMM dashboard and the Agent fleet page have a primary **Create installer** button in the header (it opens Add device / Build installer). Without the right the button is still there, muted, and a notice under the header names what is missing: the RMM module switched off, or the "RMM token manage" permission (`rmm.token.manage`). When no Windows agent is published the notice says so and links an administrator to Administration > Endpoint agent > Agent updates; with an agent but no MSI template a small hint says only the .exe is available. The Add device dialog has a **Create installer** button to the full page, and the installer page's refusal names the permission.
+- **Remote access (MeshCentral) setup** (Administration > Settings, search "mesh", a link in the Endpoint agent header, and **Set up remote access** on a device page when Mesh is not configured). Five numbered steps with a live green tick or amber state: 1 connect the server (address, domain, login-token key and how to create it, Save and test connection, a live "MeshCentral answered" check), 2 create the device group and paste its download address or id, 3 trust (public certificate: nothing to do; private: Read it from the server, Use this pin, Save), 4 tick "Also install the MeshCentral agent" in the installer, 5 test Remote on an enrolled device (counts and links). Every field has a one-sentence explanation. Troubleshooting: Remote lands on the Mesh home page, device not mapped, agent not installed, certificate errors.
+- **Nothing new underneath.** Saves are RivetCore `RmmAdmin::saveMesh` (each step sends only its own fields, the login key and the group id are never printed back), the connection test and certificate reading are Core's `MeshService`. Files: `includes/rmm_mesh_wizard.php`, `admin/settings_mesh_wizard.php`, `admin/post/settings_mesh_wizard.php`, `js/rmm_mesh_wizard.js`; `includes/rmm_installer.php` (gate, button, notice).
+- **Tests.** `tests/rmm_ui_meshwizard.php` (button and notices per role, module off, nothing published; the wizard per step, role matrix, hostile input, CSRF, secrets), `tests/browser/rmm_meshwizard_smoke.mjs` (Chromium over CDP).
+
 ## [26.10.53] RivetIT — Plain-language check schedule: no more typing JSON in the RMM forms (no database change)
 
 **Deploy notes:** no DB change (DB stays 2.6.175), no new RivetCore, no new setting. Pull this tag; nothing to run. Stored check lists, policies and Mesh corrections keep working as they are and open in the new forms.

@@ -676,7 +676,7 @@ foreach (glob(__DIR__ . '/rmm_ui_addevice*.php') ?: [] as $__ad) {
 $rmm->admin()->enable($admin);
 foreach (glob(__DIR__ . '/rmm_ui_meshwizard*.php') ?: [] as $__mw) {
     echo "---- " . basename($__mw) . "\n";
-    require $__mw;
+    (static function (array $__g, string $__file): void { extract($__g); require $__file; })(compact('rmm', 'admin', 'ok', 'q', 'one', 'fresh', 'SS', 'wb', 'db', 'D', 'A', 'panel', 'adPage', 'root'), $__mw);   // own scope: the later fragments keep their variables
 }
 
 // ============================================================ RivetCore 1.0.0-rc.16 (the pushed MeshCentral agent install, the MSI installer): the sections live in tests/rmm_ui_rc16_*.php

@@ -213,8 +213,6 @@ function rivetRmmUiStrip(array $vm): string
         $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', $perm['remote'] && $vm['mesh']['mapped'] && $dev && !$never, $remoteReason);    } elseif (!empty($perm['admin'])) {
         // 26.10.54: MeshCentral is not set up: the Remote button leads an administrator to the step-by-step page instead of vanishing
         $actions .= '<a class="btn btn-outline-success btn-sm" id="rmm-act-remote-setup" href="' . RIVET_RMM_MESH_WIZARD_URL . '"><i class="fas fa-desktop me-1" aria-hidden="true"></i>Set up remote access</a>';
-    } else {
-        $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', false, 'Remote access is not set up yet. Ask an administrator to open Administration > Remote access (MeshCentral) setup.');
     }
     $more = '';
     if ($perm['run_saved'] && $dev && !$never) {

@@ -403,3 +403,12 @@ Nothing in the RMM forms asks for JSON any more. The pieces:
 **Finding the installer.** The Agent updates card and the Agent fleet page have an **Add device / Build installer** button next to the existing Endpoints menu entry.
 
 **Tests.** `tests/rmm_check_schedule.php`, `tests/browser/rmm_checks_smoke.mjs` (with `tests/browser/rmm_checks_extra.php`), and the updated `tests/endpoint_agent_authz.php`, `tests/rmm_ui_p23_a_policies.php` (inside `tests/rmm_ui.php`) and `tests/rmm_ui_rc13_mesh.php`.
+
+## 19. Create installer and the Remote access (MeshCentral) setup page (RivetIT 26.10.54, no database change)
+
+**Create installer.** `rivetRmmInstallerGate()` (includes/rmm_installer.php) says whether the viewer may create installers and why not (`module_off`, `no_right`). `rivetRmmInstallerCreateButton()` / `rivetRmmInstallerNotice()` draw the primary button in the header of the RMM dashboard and the Agent fleet page and, under it, the missing permission (`rmm.token.manage`) or setting, or "no Windows agent published" (link to Agent updates for administrators), or the small "no MSI template" hint. The button is never hidden. The decision to allow is unchanged (`rivetRmmInstallerAllowed`; the page, the endpoint and RivetCore check again).
+
+**Remote access (MeshCentral) setup** (`admin/settings_mesh_wizard.php`; administrators). State: `rivetRmmMeshWizardState()` (saved settings, `MeshAgentService::installRefusal()` through `rivetRmmInstallerMesh()`, read-only device counts). Handler `admin/post/settings_mesh_wizard.php` (`mw_action`: `save_server`, `save_group`, `probe_pin`, `save_pin`, `live`): CSRF-checked, administrators only (admin/post.php), each save starts from the saved values and changes only its own fields through `RmmAdmin::saveMesh`; `live` (JSON, saves and audits nothing) runs `MeshService::probe()` and `probePin()` after the page loads and the page turns steps 1 and 3 green or amber. The login-token key and the device group id are never printed back. Troubleshooting is condensed from sections 11 to 14 above and RivetCore `docs/rmm/REMOTE_AND_LOGS.md`. Still unverified against a live MeshCentral: the exact `--loginTokenKey` workflow wording (it follows this repo's existing text).
+
+**Tests.** `tests/rmm_ui_meshwizard.php` (run by `tests/rmm_ui.php`), `tests/browser/rmm_meshwizard_smoke.mjs`.
+

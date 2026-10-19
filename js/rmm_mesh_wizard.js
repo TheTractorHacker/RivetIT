@@ -3,7 +3,7 @@
  * Progressive enhancement only: every button also works as a plain form post. This script
  *   - asks the server for the two live checks after the page has loaded (does MeshCentral answer, is its certificate publicly trusted) and turns the steps green or amber,
  *   - shows/hides the device group box, fills the pin box from "Use this pin", and asks before removing the saved group.
- * Nothing is rendered with innerHTML: every text from the server goes in with textContent.
+ * Every text from the server goes in with textContent.
  */
 (function () {
     'use strict';
