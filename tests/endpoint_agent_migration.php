@@ -36,7 +36,7 @@ $stepBlock = function (string $gate) use ($upd): string {
 };
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.144') {") !== false && strpos($upd, "'2.6.145'") !== false, 'the migration is gated 2.6.144 -> 2.6.145');
 $ok(strpos($upd, "if (\$rivetit_db_version() == '2.6.145') {") !== false && strpos($upd, "'2.6.146'") !== false, 'the deployment migration is gated 2.6.145 -> 2.6.146');
-$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables) + 3, 'every migration CREATE is IF NOT EXISTS (idempotent; the +3 are the Agent updates tables of 2.6.175 and the build table of 2.6.176)');
+$ok(substr_count($upd, 'CREATE TABLE IF NOT EXISTS `endpoint_agent_') === count($tables) + 7, 'every migration CREATE is IF NOT EXISTS (idempotent; the +3 are the Agent updates tables of 2.6.175 the build table of 2.6.176 and the four build host tables of 2.6.177)');
 $ok(strpos($upd, 'ALTER TABLE `settings` ADD COLUMN') === false || strpos(substr($upd, strpos($upd, "== '2.6.144'"), strpos($upd, "== '2.6.147'") - strpos($upd, "== '2.6.144'")), 'ALTER TABLE `settings`') === false, 'the 2.6.144 to 2.6.146 blocks add no column to the nearly full settings table');
 
 // run the migration again on top of live data: nothing is lost or duplicated
