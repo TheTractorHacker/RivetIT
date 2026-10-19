@@ -11483,3 +11483,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.177'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.177') {
+        // DB 2.6.178: RivetIT 26.10.58, build progress. Four nullable/defaulted columns on endpoint_agent_build_jobs (the stage the build host reports, an overall percent,
+        // a short detail line and when it last reported progress). each column is added only if missing, so a replay changes nothing; existing rows get the defaults.
+        mysqli_query($mysqli, "ALTER TABLE `endpoint_agent_build_jobs`
+            ADD COLUMN IF NOT EXISTS `progress_stage` varchar(24) NOT NULL DEFAULT '' AFTER `log_tail`,
+            ADD COLUMN IF NOT EXISTS `progress_pct` tinyint(3) NOT NULL DEFAULT 0 AFTER `progress_stage`,
+            ADD COLUMN IF NOT EXISTS `progress_detail` varchar(120) NOT NULL DEFAULT '' AFTER `progress_pct`,
+            ADD COLUMN IF NOT EXISTS `progress_at` datetime DEFAULT NULL AFTER `progress_detail`");
+
+        $bp_res = mysqli_query($mysqli, "SHOW COLUMNS FROM `endpoint_agent_build_jobs` LIKE 'progress_at'");
+        if ($bp_res && mysqli_num_rows($bp_res) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.178'");
+        }
+    }

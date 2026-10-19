@@ -10242,7 +10242,7 @@ CREATE TABLE IF NOT EXISTS `mdm_field_write_log` (
   KEY `idx_sync_log` (`sync_log_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Local build hosts and jobs (Agent updates > Local build), DB 2.6.177
+-- Local build hosts and jobs (Agent updates > Local build), DB 2.6.177 (progress columns 2.6.178)
 CREATE TABLE IF NOT EXISTS `endpoint_agent_build_hosts` (
   `host_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(80) NOT NULL,
@@ -10274,6 +10274,10 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_build_jobs` (
   `state` varchar(12) NOT NULL DEFAULT 'queued',
   `note` varchar(500) NOT NULL DEFAULT '',
   `log_tail` varchar(4200) NOT NULL DEFAULT '',
+  `progress_stage` varchar(24) NOT NULL DEFAULT '',
+  `progress_pct` tinyint(3) NOT NULL DEFAULT 0,
+  `progress_detail` varchar(120) NOT NULL DEFAULT '',
+  `progress_at` datetime DEFAULT NULL,
   `manifest` text DEFAULT NULL,
   `commit_sha` varchar(64) NOT NULL DEFAULT '',
   `quarantine` char(32) NOT NULL,
