@@ -10,7 +10,7 @@
     'use strict';
     var root = document.getElementById('cs_editor');
     if (!root) { return; }
-    var form = root.closest('form');
+    var form = root.closest('form') || document.getElementById('ea_settings_form');   // 26.10.56: the editor can sit in another tab than its form
     var data = {};
     try { data = JSON.parse(root.getAttribute('data-cs') || '{}'); } catch (e) { data = {}; }
     var timer = null, seq = 0;
@@ -25,7 +25,7 @@
 
     function collect() {
         var fd = new URLSearchParams();
-        fd.set('csrf_token', form.querySelector('input[name="csrf_token"]').value);
+        fd.set('csrf_token', form.elements['csrf_token'].value);
         fd.set('cs_preview', '1');
         var dflt = el('cs_defaults');
         if (dflt && dflt.value === '1') { fd.set('cs_defaults', '1'); }
@@ -57,16 +57,16 @@
     function later() { clearTimeout(timer); timer = setTimeout(refresh, 250); }
 
     function setValues(v) {
-        var set = function (name, val) { var f = form.querySelector('[name="cs[' + name + ']"]'); if (f) { if (f.type === 'checkbox') { f.checked = !!Number(val); } else { f.value = String(val); } } };
+        var set = function (name, val) { var f = root.querySelector('[name="cs[' + name + ']"]'); if (f) { if (f.type === 'checkbox') { f.checked = !!Number(val); } else { f.value = String(val); } } };
         set('disk_on', v.disk_on); set('reboot_on', v.reboot_on); set('interval', v.interval);
-        var sel = form.querySelector('[name="cs[disk_warn]"]');
+        var sel = root.querySelector('[name="cs[disk_warn]"]');
         if (sel) {
             if (!Array.prototype.some.call(sel.options, function (o) { return o.value === String(v.disk_warn); })) {
                 var o = document.createElement('option'); o.value = String(v.disk_warn); o.textContent = v.disk_warn + '% free'; sel.appendChild(o);
             }
             sel.value = String(v.disk_warn);
         }
-        Array.prototype.forEach.call(form.querySelectorAll('input[name="cs[svc][]"]'), function (c) { c.checked = (v.svc || []).indexOf(c.value) !== -1; });
+        Array.prototype.forEach.call(root.querySelectorAll('input[name="cs[svc][]"]'), function (c) { c.checked = (v.svc || []).indexOf(c.value) !== -1; });
     }
 
     root.addEventListener('click', function (e) {

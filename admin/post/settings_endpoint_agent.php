@@ -16,6 +16,11 @@ use RivetCore\Rmm\Technician\ActionResult;
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
+// 26.10.56: the page is tabs. A form posts the tab it sits in (ea_tab); a plain redirect() goes back to that tab (the hash is not sent in a Referer).
+if (isset($_POST['ea_tab']) && is_string($_POST['ea_tab']) && preg_match('/^(overview|updates|checks|remote|inventory|patching|software|security)$/', $_POST['ea_tab'])) {
+    $_SERVER['HTTP_REFERER'] = 'settings_endpoint_agent.php#tab-' . $_POST['ea_tab'];
+}
+
 /** Whole-number field clamped to a range. */
 function ea_post_int(string $k, int $min, int $max, int $default): int
 {

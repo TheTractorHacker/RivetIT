@@ -60,6 +60,12 @@ $releases = $read->releases(30);
 $counts = $read->fleetCounts();
 $badge = ['online' => 'success', 'offline' => 'danger', 'stale' => 'secondary', 'never' => 'secondary'];
 $serviceUrlHint = 'https://' . $config_base_url;
+// 26.10.56: the page is tabs. Each card is printed into the bucket of its tab by $eaTab('name') (output buffering) and the tabs are assembled at the end;
+// no card, form or field name changes, only where it is printed. See includes/rmm_ea_tabs.php.
+require_once dirname(__DIR__) . '/includes/rmm_ea_tabs.php';
+$eaTabs = [];
+$eaCur = 'overview';
+$eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[$eaCur] = ($eaTabs[$eaCur] ?? '') . ob_get_clean(); $eaCur = $name; ob_start(); };
 ?>
 <div class="card mb-3">
     <div class="card-header py-3 d-flex align-items-center justify-content-between">
@@ -81,6 +87,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
 <?php if ($stateProblem) { ?>
 <div class="alert alert-warning"><strong>The module state file is missing or does not match the settings.</strong> The agent gate reads <code><?= $h($stateDir) ?>/rmm_state.json</code>. Make the directory writable by the web server user (for example <code>sudo -u www-data mkdir -p <?= $h($stateDir) ?></code>, or <code>chown -R www-data</code> it) and save the switch again; until then a stale file can keep answering agents with "disabled".</div>
 <?php } ?>
+<?php ob_start(); ?>
 <div class="card mb-3" id="module">
     <div class="card-header py-3 d-flex align-items-center justify-content-between">
         <h4 class="card-title mb-0"><i class="fas fa-fw fa-power-off me-2"></i>RMM module</h4>
@@ -101,6 +108,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 
+<?php $eaTab('top'); ?>
 <?php if ($newToken) { $dep = $newToken['deploy'] ?? null; ?>
 <div class="alert alert-success" id="new-token">
     <strong>New enrollment token.</strong> It is shown once and only its hash is stored. Anyone holding it can enroll a device into this department until it expires or is revoked, so treat it as a secret.
@@ -168,6 +176,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
     </div>
 </div>
 <?php } } ?>
+<?php $eaTab('overview'); ?>
 
 <?php if (!$config_module_enable_rmm) { ?>
 <div class="alert alert-warning">The RMM module is switched off (Administration &rarr; Modules). Devices still enroll and report, but they will not appear in the RMM pages until it is on.</div>
@@ -176,7 +185,7 @@ $serviceUrlHint = 'https://' . $config_base_url;
 <div class="card mb-3" id="settings">
     <div class="card-header"><h4 class="card-title mb-0">Service and defaults</h4></div>
     <div class="card-body">
-        <form action="post.php" method="post" autocomplete="off">
+        <form action="post.php" method="post" autocomplete="off" id="ea_settings_form">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <div class="form-check form-switch mb-3">
                 <input type="checkbox" class="form-check-input" id="ea_enabled" name="enabled" value="1" <?= $cfg['enabled'] ? 'checked' : '' ?>>
@@ -212,23 +221,39 @@ $serviceUrlHint = 'https://' . $config_base_url;
                     </select>
                     <div class="form-text">A hostname match alone never links a device. Ambiguous matches always wait for approval.</div>
                 </div>
-                <div class="col-12">
-                    <label class="form-label" for="ea_ca">CA certificate (PEM, optional)</label>
-                    <textarea class="form-control font-monospace" id="ea_ca" name="ca_pem" rows="4" maxlength="8000" placeholder="-----BEGIN CERTIFICATE-----"><?= $h($cfg['ca_pem'] ?? '') ?></textarea>
-                    <div class="form-text">Only for servers whose certificate is issued by a private CA. Per-department installers embed it so the agent trusts this server. Leave empty when the certificate comes from a public CA. Public information, not a secret.</div>
-                </div>
-                <div class="col-12"><?= rivetCsRender(rivetCsStateFromChecks((array) $cfg['checks'])) ?></div>
-                <div class="col-12">
-                    <label class="form-label" for="ea_co">Coexistence and ownership policy (shown to technicians)</label>
-                    <textarea class="form-control" id="ea_co" name="coexistence_policy" rows="3" maxlength="4000"><?= $h($cfg['coexistence_policy']) ?></textarea>
-                    <div class="form-text">The agent never removes or reconfigures another RMM, antivirus/EDR, backup or remote-access agent. Retiring a device does not uninstall MeshCentral. Details: docs/ENDPOINT_AGENT.md.</div>
-                </div>
             </div>
             <button type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
         </form>
     </div>
 </div>
+<?php $eaTab('checks'); ?>
+<div class="card mb-3" id="checks">
+    <div class="card-header"><h4 class="card-title mb-0">Checks</h4></div>
+    <div class="card-body">
+        <?= rivetEaFormAttr(rivetCsRender(rivetCsStateFromChecks((array) $cfg['checks'])), 'ea_settings_form') ?>
+        <button form="ea_settings_form" type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
+    </div>
+</div>
+<?php $eaTab('security'); ?>
+<div class="card mb-3" id="trust">
+    <div class="card-header"><h4 class="card-title mb-0">Certificate and policy</h4></div>
+    <div class="card-body"><div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label" for="ea_ca">CA certificate (PEM, optional)</label>
+                    <textarea form="ea_settings_form" class="form-control font-monospace" id="ea_ca" name="ca_pem" rows="4" maxlength="8000" placeholder="-----BEGIN CERTIFICATE-----"><?= $h($cfg['ca_pem'] ?? '') ?></textarea>
+                    <div class="form-text">Only for servers whose certificate is issued by a private CA. Per-department installers embed it so the agent trusts this server. Leave empty when the certificate comes from a public CA. Public information, not a secret.</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="ea_co">Coexistence and ownership policy (shown to technicians)</label>
+                    <textarea form="ea_settings_form" class="form-control" id="ea_co" name="coexistence_policy" rows="3" maxlength="4000"><?= $h($cfg['coexistence_policy']) ?></textarea>
+                    <div class="form-text">The agent never removes or reconfigures another RMM, antivirus/EDR, backup or remote-access agent. Retiring a device does not uninstall MeshCentral. Details: docs/ENDPOINT_AGENT.md.</div>
+                </div>
+    </div>
+        <button form="ea_settings_form" type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
+    </div>
+</div>
 
+<?php $eaTab('inventory'); ?>
 <div class="card mb-3" id="inventory">
     <div class="card-header"><h4 class="card-title mb-0">Software inventory and history</h4></div>
     <div class="card-body">
@@ -259,6 +284,7 @@ $autoStorm = (array) ($rmm->alertingActions()->settings(rivetRmmPrincipal((int) 
 $autoSettings = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_approve_scripts_lvl3 AS a, config_rmm_escalation_contact AS c FROM settings WHERE company_id = 1')) ?: ['a' => 0, 'c' => ''];
 $autoLimits = (array) $cfg['limits'];
 ?>
+<?php $eaTab('security'); ?>
 <div class="card mb-3" id="automation">
     <div class="card-header"><h4 class="card-title mb-0">Policies, scripts and alerting</h4></div>
     <div class="card-body">
@@ -340,6 +366,7 @@ $patchLim = (array) $cfg['limits'];
 $patchNum = static fn (string $key, int $def): int => (int) ($patchLim[$key] ?? $def);
 $patchLive = $patchNum('patch_live_install', 0) === 1;
 ?>
+<?php $eaTab('patching'); ?>
 <div class="card mb-3" id="patch-management">
     <div class="card-header"><h4 class="card-title mb-0">Patch management <?= $patchOn ? '<span class="badge text-bg-success ms-2">On</span>' : '<span class="badge text-bg-secondary ms-2">Off</span>' ?></h4></div>
     <div class="card-body">
@@ -397,6 +424,7 @@ $swLim = (array) $cfg['limits'];
 $swNum = static fn (string $key, int $def): int => (int) ($swLim[$key] ?? $def);
 $swLive = $swNum('software_live_install', 0) === 1;
 ?>
+<?php $eaTab('software'); ?>
 <div class="card mb-3" id="software-deployment">
     <div class="card-header"><h4 class="card-title mb-0">Software deployment <?= $swOn ? '<span class="badge text-bg-success ms-2">On</span>' : '<span class="badge text-bg-secondary ms-2">Off</span>' ?><?= $swOn && $swLive ? '<span class="badge text-bg-warning ms-2">Live installs on</span>' : '' ?></h4></div>
     <div class="card-body">
@@ -505,15 +533,20 @@ if ($__flags['enabled']) {
     }
 }
 $scaleCtx['ext'] = ['flags' => $__flags, 'buffer' => $__buf];
-echo rivetRmmUiScaleCards($scaleCtx);
+foreach (preg_split('/(?=<div class="card mb-3 rmm-scale-card" id=")/', rivetRmmUiScaleCards($scaleCtx), -1, PREG_SPLIT_NO_EMPTY) as $__chunk) {
+    $eaTab(preg_match('/id="(remote-tools|file-transfer)"/', $__chunk) ? 'remote' : 'inventory');
+    echo $__chunk;
+}
 
 // RivetIT 26.10.52: the Agent updates card (GitHub releases -> Publish). Everything it does goes through the same publish code as the cards below.
 require_once dirname(__DIR__) . '/includes/rmm_agent_feed_ui.php';
+$eaTab('updates');
 echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleOn, 'service_ok' => $cfg['service_base'] !== null]);
 ?>
 <script src="/js/rmm_check_schedule.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_check_schedule.js') ?>" defer></script>
 <script src="/js/rmm_agent_feed.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_agent_feed.js') ?>" defer></script>
 
+<?php $eaTab('updates'); ?>
 <div class="card mb-3" id="binaries">
     <div class="card-header"><h4 class="card-title mb-0">Agent binaries</h4></div>
     <div class="card-body">
@@ -569,6 +602,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('updates'); ?>
 <div class="card mb-3" id="msi-templates">
     <div class="card-header"><h4 class="card-title mb-0">MSI template</h4></div>
     <div class="card-body">
@@ -607,6 +641,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('updates'); ?>
 <div class="card mb-3" id="deployment">
     <div class="card-header"><h4 class="card-title mb-0">Deployment: per-department installer</h4></div>
     <div class="card-body">
@@ -644,6 +679,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('security'); ?>
 <div class="card mb-3" id="signing">
     <div class="card-header"><h4 class="card-title mb-0">Signing key</h4></div>
     <div class="card-body">
@@ -660,6 +696,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('security'); ?>
 <div class="card mb-3" id="tokens">
     <div class="card-header"><h4 class="card-title mb-0">Enrollment tokens</h4></div>
     <div class="card-body">
@@ -693,6 +730,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('overview'); ?>
 <div class="card mb-3" id="pending">
     <div class="card-header"><h4 class="card-title mb-0">Waiting for approval <span class="badge bg-<?= $pending ? 'warning text-dark' : 'secondary' ?>"><?= count($pending) ?></span></h4></div>
     <div class="card-body">
@@ -722,6 +760,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </div>
 </div>
 
+<?php $eaTab('overview'); ?>
 <div class="card mb-3" id="devices">
     <div class="card-header"><h4 class="card-title mb-0">Devices</h4></div>
     <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
@@ -754,6 +793,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
     </tbody></table></div>
 </div>
 
+<?php $eaTab('updates'); ?>
 <div class="card mb-3" id="releases">
     <div class="card-header"><h4 class="card-title mb-0">Agent updates and rings</h4></div>
     <div class="card-body">
@@ -787,6 +827,8 @@ $meshProbe = isset($_SESSION['ea_mesh_pin_probe']) && is_array($_SESSION['ea_mes
 $meshKeep = isset($_SESSION['ea_mesh_keep']) && is_array($_SESSION['ea_mesh_keep']) ? $_SESSION['ea_mesh_keep'] : [];                      // what was typed when Core refused it
 unset($_SESSION['ea_mesh_pin_probe'], $_SESSION['ea_mesh_keep']);
 ?>
+<?php $eaTab('remote'); ?>
+<p class="small"><?= rivetRmmMeshWizardLink('Open the Remote access (MeshCentral) setup', 'btn btn-outline-primary btn-sm', 'rmm-mesh-wizard-link-tab') ?></p>
 <div class="card mb-3" id="mesh">
     <div class="card-header"><h4 class="card-title mb-0">MeshCentral remote access</h4></div>
     <div class="card-body">
@@ -807,6 +849,17 @@ unset($_SESSION['ea_mesh_pin_probe'], $_SESSION['ea_mesh_keep']);
     </div>
 </div>
 
+<?php
+$eaTab('end');
+ob_end_clean();
+$eaDots = [
+    'overview' => ($stateProblem ? 'The module state file does not match the settings' : (!$cfg['enabled'] ? 'The endpoint agent service is off' : ($pending ? count($pending) . ' device(s) waiting for approval' : ''))),
+    'updates' => (!$curBin['amd64'] && !$curBin['arm64']) ? 'No agent is published yet' : '',
+    'remote' => (!$cfg['mesh_enabled'] || (string) $cfg['mesh_url'] === '') ? 'MeshCentral is not set up' : '',
+    'security' => rivetEaHasActiveToken($tokens) ? '' : 'No active enrollment token',
+];
+echo rivetEaRenderTabs($eaTabs, $eaDots, $h);
+?>
 <script nonce="<?= $h($csp_nonce ?? '') ?>">
 document.querySelectorAll('form[data-ea-confirm]').forEach(function (f) {
     f.addEventListener('submit', function (e) { if (!confirm(f.getAttribute('data-ea-confirm'))) { e.preventDefault(); } });
