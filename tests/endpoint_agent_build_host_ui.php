@@ -100,6 +100,7 @@ $ok($c === 200 && $jb && $jb['state'] === 'queued' && (int) $jb['auto_publish'] 
 [$c, $html] = $page(); $a = strpos($html, 'id="af-bh-jobs"'); $t = substr($html, $a, 8000);
 $ok(str_contains($t, '1.0.0') && str_contains($t, 'Waiting for the build host') && str_contains($t, 'value="bh_cancel"') && str_contains($html, 'id="af-build-local" data-active="1"'), 'the job list shows it with a Cancel button, and the section is marked active for live updates');
 $jid = (int) $jb['job_id'];
+[$c, $html0] = $page(); $ok(preg_match('~id="af-bh-onserver".*?sudo ' . preg_quote(htmlspecialchars($root, ENT_QUOTES), '~') . '/deploy/setup-build-host\\.sh~s', $html0) === 1 && str_contains($html0, 'root-equivalent'), 'the page shows the one-line setup command for this server');
 // ---- build progress (26.10.58): bar, plain-words stage, elapsed time and the checklist
 $live = function () use ($adm, $jsn, $jd): string { [, $b] = $adm(['agent_feed' => 'bh_status'], 'admin', $jsn); return (string) ($jd($b)['html'] ?? ''); };
 $q("UPDATE endpoint_agent_build_jobs SET state='building', claimed_at = UTC_TIMESTAMP() - INTERVAL 192 SECOND, progress_stage='build_windows_amd64', progress_pct=40, progress_detail='<b>go build</b>', progress_at = UTC_TIMESTAMP() WHERE job_id = $jid");

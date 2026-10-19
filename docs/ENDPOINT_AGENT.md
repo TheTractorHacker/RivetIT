@@ -452,3 +452,28 @@ Server half of rivet-core `docs/rmm/BUILD_HOST_PROTOCOL.md` (setup of the machin
 - **Version rules** are those of GitHub builds (format, not published, higher than the latest, no second open build of the same version) plus one open build per host.
 - **Not covered:** the GitHub provider is unchanged. If the arm64 executable stores and the MSI then fails (a race with a manual upload of a different file), the arm64 row stays; the job is marked failed with the reason.
 
+## 23. Build progress (RivetIT 26.10.58, DB 2.6.178)
+
+- **Status call fields** (all optional, RivetCore protocol): `stage` (`prepare`, `clone`, `build_windows_amd64`, `build_windows_arm64`, `msi`, `verify`, `upload`), `pct` (integer 0-100, overall), `detail` (at most 120 printable ASCII characters, for example `chunk 7 of 23`), `elapsed_s` (integer 0-172800, validated, not stored; the page computes the time from the claim). Validation is `rivetBuildHostProgressFields()`: a wrong type, an unknown stage, an out-of-range number, a control or non-ASCII character or an over-long detail answers `422 invalid` and the whole call changes nothing, so a script must treat a 422 on a progress-carrying status call as non-fatal. Progress is ignored (not even validated) on `failed`; once the job is `built` the server answers 409, so the script sends `pct` 100 before `complete`.
+- **Storage.** `endpoint_agent_build_jobs.progress_stage / progress_pct / progress_detail / progress_at`. `progress_pct` is `GREATEST(old, new)`; the stage only moves forward in the list order, and a packet that would move it backwards leaves stage and detail alone. Every status call (progress or not) renews the 60-minute lease.
+- **Page.** `rivetBuildHostProgressBlock()` (in `includes/rmm_build_host_ui.php`): bar with the percent, the stage in plain words from `RIVET_BH_STAGES`, running time, seven-step checklist. The only host text that can reach the page is `detail`, and only when it matches `^(Uploading |chunk )?N (of|/) M$` with N at most M (shown as "Uploading N of M"); everything else comes from the server's own list. An older script that sends no progress shows a moving bar with no percent and no checklist.
+- **GitHub provider.** `rivetAgentBuildPoll()` also calls `GET /repos/{repo}/actions/runs/{id}/jobs` while the run is `in_progress` and stores the first job's steps (at most 25, names printable ASCII cut to 60 characters) in `endpoint_agent_build.run_steps` (JSON, re-validated when read). The box shows them as the same checklist with "about N%" (finished steps out of all steps, capped at 99). A failed jobs call keeps the last checklist. Before the 2.6.178 database update the column is absent and the checklist is simply not shown.
+
+## 24. Installer option "RMM Agent Builder" (RivetIT 26.10.58)
+
+One command sets this server up as a build host, the same steps that were done by hand on 2026-10-19:
+
+```
+sudo /path/to/app/deploy/setup-build-host.sh           # asks one question about Docker; --yes skips it
+sudo /path/to/app/deploy/setup-build-host.sh --check   # changes nothing, shows what it would do
+sudo /path/to/app/deploy/setup-build-host.sh --uninstall [--purge-docker]
+```
+
+`deploy/install.sh` offers it as a question (`--with-build-host`, `--no-build-host`, or `RIVETIT_WITH_BUILD_HOST=1|0` unattended; default no, and not with `--skip-tls`). The Agent updates page shows the command under Build on my build host.
+
+- **Packages**: `docker.io`, `git`, `curl`, `python3` only if missing. **User**: `rivetit-build`, system account, home `/var/lib/rivetit-build-host`, shell `nologin`, group `docker`. `www-data` is never added to docker (the script warns if it already is).
+- **Pinned files.** `build-host.sh`, `build-host.service`, `build-host.timer` come from `raw.githubusercontent.com/TheTractorHacker/rivet-core/<commit>/endpoint-agent/scripts/` (RivetCore does not ship `endpoint-agent/` in the vendored package). The commit and the three sha256 values are constants at the top of the script (`CORE_COMMIT`, `SHA_*`); any mismatch stops the run before anything is installed. To move to a newer Core script, change all four lines in one commit after checking the sums against that commit. Installed root-owned: `/opt/rivetit-build-host/build-host.sh` (755), units in `/etc/systemd/system` (644).
+- **Host and token.** `scripts/build_host_setup.php create|rotate|status|disable|server-url --name=...`, run as `www-data`, uses `rivetBuildHostCreate()` and friends. The token is the only thing on stdout of `create`/`rotate`; the script reads it into a shell variable and writes `/etc/rivetit/build-host.conf` (0600, owner `rivetit-build`) with `SERVER_URL=<site>/api/v1/build_host`, `CORE_REPO`, `ALLOWED_REFS="main v* agent-v*"`, `WORKDIR` and the limits. It never appears in an argument, a log line, the audit text or the summary. Re-running keeps the token (`--rotate-token` makes a new one).
+- **Verification.** `systemctl enable --now build-host.timer`, then `build-host.sh --register` as the build user; the summary says whether the token was accepted and Docker usable. Over plain `http://` the script refuses (`--allow-http` is for a throwaway test server).
+- **Not for Docker Compose installs of the app**: the build user needs the host's Docker, which is exactly the root-equivalent access the app container must not have. Use a separate Linux machine and the build host guide.
+- Tests: `tests/setup_build_host_container.sh` (ubuntu:24.04 container, fake `systemctl`/`docker`/`php`, the real pinned script's `--register` against a mock server; covers non-root refusal, `--check`, install, idempotent re-run, token rotation, tampered files, hostile arguments, uninstall), `tests/build_host_setup_cli.php`, `tests/deploy_install_build_host_flags.sh`.

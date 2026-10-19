@@ -230,6 +230,9 @@ function rivetBuildHostBox($mysqli, bool $pilot, array $ctx, ?array $reveal = nu
     $o = '<div id="af-build-local" data-active="' . ($active ? '1' : '0') . '"><p class="small text-muted mb-2">The build runs on a Linux machine you control (Docker and git), started from here. The machine only makes outgoing requests to this server: '
         . 'no inbound connection, no compiler on this server. Files are checked here (SHA-256, executable type, architecture, version) before anything is stored. '
         . '<a href="' . $h(RIVET_BH_DOCS_URL) . '" target="_blank" rel="noopener noreferrer">Build host guide</a></p>';
+    $o .= '<p class="small mb-2" id="af-bh-onserver"><i class="fas fa-server me-1" aria-hidden="true"></i><strong>Build on this server:</strong> one command as root installs Docker, a locked-down <code>rivetit-build</code> user, '
+        . 'the pinned build script and timer, adds this server as a build host and checks the connection (safe to run again; <code>--check</code> shows what it would do, <code>--uninstall</code> removes it): '
+        . '<code class="user-select-all">sudo ' . $h(dirname(__DIR__)) . '/deploy/setup-build-host.sh</code>. Docker group membership is root-equivalent for that one account.</p>';
     if ($reveal !== null) {
         $o .= rivetBuildHostReveal($reveal);
     } else {
