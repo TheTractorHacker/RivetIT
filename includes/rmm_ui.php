@@ -504,6 +504,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'jobs' => (array) ($view['jobs'] ?? []),
         'mesh' => ['mapped' => !empty($view['mesh']['mapped']), 'source' => $view['mesh']['source'] ?? null, 'node_id' => $perm['admin'] ? ($view['mesh']['node_id'] ?? '') : '',
             'configured' => $meshConfigured],
+        'clock' => is_array($view['clock'] ?? null) ? $view['clock'] : null,   // rc.23: RmmReadModel::deviceView()['clock'], present once a skew was measured or a check-in was refused for its time
         'mesh_agent' => is_array($view['mesh_agent'] ?? null) ? $view['mesh_agent'] : null,   // rc.12: RmmReadModel::deviceView()['mesh_agent'], present only once the device reported a Mesh agent
         'mesh_agent_conflict_url' => $meshConflictUrl,
         'mesh_install' => is_array($view['mesh_install'] ?? null) ? $view['mesh_install'] : null,   // rc.16: {available, agent_supports, installed}, present only while a pushed install is available
@@ -626,6 +627,24 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
     }
     $clientNames = rivetRmmUiClientNames($mysqli, array_keys($clientIds));
 
+    // rc.23: a device whose clock is off (or whose check-in was refused for its time) gets a badge in every list; the summaries do not carry it, so one query for the devices shown.
+    require_once __DIR__ . '/rmm_clock_ui.php';
+    $clockMap = rivetRmmClockMap($mysqli, array_map(static fn (array $d): int => (int) ($d['device_id'] ?? $d['id'] ?? 0), array_merge($list['items'], $offline, $stale)));
+    $withClock = static function (array $items) use ($clockMap): array {
+        foreach ($items as $i => $d) {
+            $c = $clockMap[(int) ($d['device_id'] ?? $d['id'] ?? 0)] ?? null;
+            if ($c !== null) {
+                $items[$i]['clock'] = $c;
+            }
+        }
+
+        return $items;
+    };
+    $list['items'] = $withClock($list['items']);
+    $offline = $withClock($offline);
+    $stale = $withClock($stale);
+    $clockCount = count($clockMap);
+
     $failures = $read->recentFailedJobs(8, rivetRmmPrincipal($userId, ''));
 
     // Tags and groups for the filters; the outdated-software report when a name and a version were asked for.
@@ -681,6 +700,7 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
         'outdated_sw' => $outdatedSw,
         'keep' => $outdatedSw !== null && $outdatedSw['asked'] ? ['osw' => $outdatedSw['name'], 'osv' => $outdatedSw['min_version']] : [],
         'client_names' => $clientNames,
+        'clock_problems' => $clockCount,
         'open_alerts' => rivetRmmUiOpenAlertCount($mysqli, $rmm, $visible),
         'capacity' => $capacity,
         'mesh_bulk' => rivetRmmMeshBulkContext($mysqli, $rmm, $userId, $visible, $tagList, $groupList, $filters),   // rc.16: null unless a bulk Mesh install can be offered

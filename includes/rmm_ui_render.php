@@ -161,7 +161,12 @@ function rivetRmmUiStrip(array $vm): string
     $platformName = $vm['platform'] === 'linux' ? 'Linux' : ($vm['platform'] === 'windows' ? 'Windows' : 'Other OS');
 
     // Facts line
-    if ($never) {
+    require_once __DIR__ . '/rmm_clock_ui.php';
+    $clockNotice = rivetRmmClockNotice($vm['clock'] ?? null, (string) $vm['platform']);
+    if ($never && $clockNotice !== null && $clockNotice['reject'] !== null) {
+        // rc.23: the device HAS tried; say why the server turned it away instead of "not reported yet"
+        $facts = '<span class="text-danger">Not reported yet: the server refused its check-in (' . rmmH($clockNotice['reject']) . ')</span>';
+    } elseif ($never) {
         $facts = '<span class="text-muted">OS and agent not reported yet</span>';
     } else {
         $facts = '<i class="' . $osIcon . ' me-1" aria-hidden="true"></i>' . rmmH($vm['os_label']) . ' <span class="text-muted">' . rmmH($vm['arch']) . '</span>'
@@ -251,7 +256,7 @@ function rivetRmmUiStrip(array $vm): string
         . '<span class="badge text-bg-light border ms-1"><i class="' . $osIcon . ' me-1" aria-hidden="true"></i>' . $platformName . '</span>'
         . ($vm['pending_approval'] ? ' ' . rivetRmmUiPill('warn', 'Waiting for approval') : '') . ($vm['revoked'] ? ' ' . rivetRmmUiPill('crit', 'Revoked') : '')
         . ($vm['retired'] ? ' ' . rivetRmmUiPill('off', 'Retired') : '')
-        . '<div class="text-muted small mt-1">' . $facts . '</div>' . $live . $tagsRow . '</div>'
+        . '<div class="text-muted small mt-1">' . $facts . '</div>' . rivetRmmClockBanner($clockNotice, 'rivetRmmUiTime') . $live . $tagsRow . '</div>'
         . '<div class="d-flex align-items-center flex-wrap rmm-actions" role="group" aria-label="Device actions" style="gap:6px">' . $actions . '</div></div>' . $banners . $reasons . '</div></section>';
 }
 
@@ -880,7 +885,10 @@ function rivetRmmUiDeviceLink(array $d): string
     $label = rmmH($d['hostname'] !== '' ? $d['hostname'] : ($name ?? 'device'));
     $aid = (int) ($d['asset_id'] ?? 0);
 
-    return $aid > 0 ? '<a class="fw-bold" href="/agent/asset_details.php?asset_id=' . $aid . '">' . $label . '</a>' : '<span class="fw-bold">' . $label . '</span>';
+    require_once __DIR__ . '/rmm_clock_ui.php';
+    $badge = rivetRmmClockBadge(is_array($d['clock'] ?? null) ? $d['clock'] : null);
+
+    return ($aid > 0 ? '<a class="fw-bold" href="/agent/asset_details.php?asset_id=' . $aid . '">' . $label . '</a>' : '<span class="fw-bold">' . $label . '</span>') . $badge;
 }
 
 /**
@@ -1031,7 +1039,10 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
     } else {
         $pager = '<div class="p-3 border-top small text-muted">' . (int) $f['list']['total'] . ' device' . ($f['list']['total'] === 1 ? '' : 's') . '</div>';
     }
-    $table = '<section class="card card-dark mb-3" id="rmm-devices"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-desktop me-2" aria-hidden="true"></i>Devices</h6></div>' . $filter
+    $clockLine = (int) ($f['clock_problems'] ?? 0) > 0
+        ? '<div class="alert alert-warning py-2 px-3 mb-0 rounded-0 small" id="rmm-clock-fleet"><i class="fas fa-clock me-1" aria-hidden="true"></i>' . (int) $f['clock_problems'] . ' device' . ((int) $f['clock_problems'] === 1 ? ' on this page has' : 's on this page have') . ' a wrong clock or time zone (see the Clock badge). Fix the time zone and sync the time on those devices.</div>'
+        : '';
+    $table = '<section class="card card-dark mb-3" id="rmm-devices"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-desktop me-2" aria-hidden="true"></i>Devices</h6></div>' . $clockLine . $filter
         . '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Agent devices</caption>' . rivetRmmUiThead(['Status', 'Device', 'Agent', 'Last check-in']) . '<tbody>' . $rows . '</tbody></table></div>' . $pager . '</section>';
 
     $capacity = $f['capacity'] !== null ? rivetRmmUiCapacity($f['capacity']) : '';

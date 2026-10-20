@@ -611,9 +611,9 @@ $ok(str_contains($body, 'Trend (') && str_contains($body, 'id="rmm-net"'), 'asse
 // ---- events: catalog entries and the adapter
 $extra = array_column(rivetEventCatalogExtras(), 'id');
 $all = RivetCore\Rmm\RmmEvent::all();
-$ok(array_diff($all, $extra) === [] && count($all) === 32 && in_array('rmm.deploy.failed', $extra, true) && in_array('rmm.patch.install_failed', $extra, true) && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true)
+$ok(array_diff($all, $extra) === [] && count($all) === 35 && in_array('rmm.device.clock_skew', $extra, true) && in_array('rmm.change.detected', $extra, true) && in_array('rmm.change.rule_matched', $extra, true) && in_array('rmm.deploy.failed', $extra, true) && in_array('rmm.patch.install_failed', $extra, true) && in_array('rmm.file.transferred', $extra, true) && in_array('rmm.log.rule_matched', $extra, true)
     && in_array('rmm.mesh.agent_installed', $extra, true) && in_array('rmm.mesh.node_conflict', $extra, true) && in_array('rmm.starter.installed', $extra, true),
-    'every rmm.* event id (32, incl. the three rmm.deploy.* events, the five rmm.patch.* events, rmm.file.transferred, rmm.log.rule_matched, rmm.mesh.agent_installed, rmm.mesh.node_conflict and rmm.starter.installed) is in the picker\'s catalog extras');
+    'every rmm.* event id (35, incl. rmm.device.clock_skew, the two rmm.change.* events, the three rmm.deploy.* events, the five rmm.patch.* events, rmm.file.transferred, rmm.log.rule_matched, rmm.mesh.agent_installed, rmm.mesh.node_conflict and rmm.starter.installed) is in the picker\'s catalog extras');
 $ids = rivetEventCatalogIds();
 $ok(array_diff($all, $ids) === [], 'the picker catalog (Core + extras) offers every rmm.* event');
 $grp = rivetEventCatalogData()['groups'];
