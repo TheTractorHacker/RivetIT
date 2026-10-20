@@ -104,14 +104,14 @@ function rivetRmmLogLevelNames(): array
     return ['critical' => 'Critical', 'error' => 'Error', 'warning' => 'Warning', 'info' => 'Information', 'debug' => 'Debug'];
 }
 
-/** "3 min ago" with the absolute UTC time (with seconds) under it. */
+/** "3 min ago" with the absolute time in the company zone (with seconds) under it. */
 function rivetRmmLogWhen(?string $iso): string
 {
     if ($iso === null || $iso === '') {
         return '<span class="text-muted">never</span>';
     }
 
-    return rivetRmmUiTime($iso) . '<div class="small text-muted rmm-log-abs">' . rmmH(str_replace('T', ' ', rtrim($iso, 'Z')) . ' UTC') . '</div>';
+    return rivetRmmUiTime($iso) . '<div class="small text-muted rmm-log-abs">' . rmmH(rivetFormatTime($iso, 'utc', true, 'Y-m-d H:i:s')) . '</div>';
 }
 
 function rivetRmmLogCount(int $n, bool $capped = false): string
@@ -146,9 +146,10 @@ function rivetRmmLogFilters(array $get, string $prefix = '', bool $deviceScope =
         if (preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/', $v) !== 1) {
             return null;
         }
-        $t = strtotime(str_replace(' ', 'T', $v) . ':00 UTC');
+        // The custom range boxes are in the company zone, like every other time on the page.
+        $t = rivetTimeEpoch(str_replace('T', ' ', $v) . ':00', 'local');
 
-        return $t === false ? null : $t;
+        return $t === null ? null : $t;
     };
     $notice = '';
     if ($range === 'custom') {
@@ -171,8 +172,8 @@ function rivetRmmLogFilters(array $get, string $prefix = '', bool $deviceScope =
     return [
         'prefix' => $prefix,
         'range' => $range,
-        'from_in' => $range === 'custom' ? gmdate('Y-m-d\TH:i', $from) : '',
-        'to_in' => $range === 'custom' ? gmdate('Y-m-d\TH:i', $to) : '',
+        'from_in' => $range === 'custom' ? rivetFormatTime($from, 'epoch', false, 'Y-m-d\TH:i') : '',
+        'to_in' => $range === 'custom' ? rivetFormatTime($to, 'epoch', false, 'Y-m-d\TH:i') : '',
         'from' => $from,
         'to' => $to,
         'device_id' => $deviceScope ? 0 : max(0, (int) ($get['device_id'] ?? 0)),
@@ -368,7 +369,7 @@ function rivetRmmLogSearch(array $ctx, array $f, ?int $deviceId = null): array
     $span = $deviceId !== null || (int) $f['device_id'] > 0 ? 90 : 7;
     $got = (int) strtotime((string) $d['from']);
     if ($got > (int) $f['from'] + 1) {
-        $clamped = 'A search covers at most ' . $span . ' days' . ($span === 7 ? ' across devices (one device can go back 90 days)' : ' for one device') . '. Showing ' . gmdate('Y-m-d H:i', $got) . ' to ' . gmdate('Y-m-d H:i', (int) strtotime((string) $d['to'])) . ' UTC instead of the range you asked for.';
+        $clamped = 'A search covers at most ' . $span . ' days' . ($span === 7 ? ' across devices (one device can go back 90 days)' : ' for one device') . '. Showing ' . rivetFormatTime($got, 'epoch') . ' to ' . rivetFormatTime((int) strtotime((string) $d['to']), 'epoch') . ' instead of the range you asked for.';
     }
 
     return ['ok' => true, 'status' => 200, 'error' => '', 'items' => $items, 'total' => $total, 'capped' => $total > 10000, 'clamped' => $clamped, 'assets' => rivetRmmLogAssetIds($m, $items),
@@ -517,9 +518,9 @@ function rivetRmmLogFilterForm(array $f, string $action, bool $deviceScope, arra
         $o .= $sel('client_id', 'Department', $cliOpts, (string) $f['client_id'], 'col-6 col-md-2');
         $o = str_replace('name="' . $p . 'client_id"', 'name="client_id"', $o);
     }
-    $o .= $sel('range', 'Time range (UTC)', $ranges, (string) $f['range'], $deviceScope ? 'col-6 col-md-3' : 'col-6 col-md-2');
-    $o .= '<div class="col-6 col-md-2 rmm-log-custom"><label class="form-label small mb-1" for="' . $id('from') . '">From (UTC)</label><input type="datetime-local" class="form-control form-control-sm" id="' . $id('from') . '" name="' . rmmH($p . 'from') . '" value="' . rmmH((string) $f['from_in']) . '"></div>'
-        . '<div class="col-6 col-md-2 rmm-log-custom"><label class="form-label small mb-1" for="' . $id('to') . '">To (UTC)</label><input type="datetime-local" class="form-control form-control-sm" id="' . $id('to') . '" name="' . rmmH($p . 'to') . '" value="' . rmmH((string) $f['to_in']) . '"></div>';
+    $o .= $sel('range', 'Time range', $ranges, (string) $f['range'], $deviceScope ? 'col-6 col-md-3' : 'col-6 col-md-2');
+    $o .= '<div class="col-6 col-md-2 rmm-log-custom"><label class="form-label small mb-1" for="' . $id('from') . '">From</label><input type="datetime-local" class="form-control form-control-sm" id="' . $id('from') . '" name="' . rmmH($p . 'from') . '" value="' . rmmH((string) $f['from_in']) . '"></div>'
+        . '<div class="col-6 col-md-2 rmm-log-custom"><label class="form-label small mb-1" for="' . $id('to') . '">To</label><input type="datetime-local" class="form-control form-control-sm" id="' . $id('to') . '" name="' . rmmH($p . 'to') . '" value="' . rmmH((string) $f['to_in']) . '"></div>';
     $o .= $sel('level', 'Level', $levels, (string) $f['level']);
     $o .= $txt('source', 'Source contains', (string) $f['source'], 100, 'col-6 col-md-2');
     $o .= $txt('code', 'Event id', (string) $f['code'], 10, 'col-6 col-md-1', ' inputmode="numeric" pattern="[0-9]*"');
@@ -578,7 +579,7 @@ function rivetRmmLogResultsHtml(array $f, array $s, bool $withDevice, string $ba
     if ($s['clamped'] !== '') {
         $notice .= '<div class="alert alert-info py-2" role="status"><i class="fas fa-info-circle me-2" aria-hidden="true"></i>' . rmmH($s['clamped']) . '</div>';
     }
-    $range = 'Range searched: ' . gmdate('Y-m-d H:i', (int) strtotime($s['from'])) . ' to ' . gmdate('Y-m-d H:i', (int) strtotime($s['to'])) . ' UTC.';
+    $range = 'Range searched: ' . rivetFormatTime((int) strtotime($s['from']), 'epoch') . ' to ' . rivetFormatTime((int) strtotime($s['to']), 'epoch') . '.';
     $head = '<div class="d-flex align-items-center flex-wrap mb-2" style="gap:6px"><div class="small text-muted me-auto" role="status" aria-live="polite" id="lg-count">' . rmmH(rivetRmmLogShowing($f, $s)) . ' ' . rmmH($range) . '</div>'
         . ($s['items'] !== [] ? '<button type="button" class="btn btn-sm btn-outline-secondary" data-rmm-log-toggle-all="1" aria-pressed="false"><i class="fas fa-expand-alt me-1" aria-hidden="true"></i><span>Show all messages</span></button>' : '') . '</div>';
     if ($s['items'] === []) {
