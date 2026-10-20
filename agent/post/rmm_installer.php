@@ -148,7 +148,7 @@ function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ' . (int) $t->data['token_id'])) ?: [];
     $dept = \RivetCore\Rmm\Enrollment\DeviceValidator::cleanText((string) $client['client_name'], 200) ?? ('Department ' . $clientId);
     $cmd = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet((string) $summary['service_base'], (string) $t->data['token'], $arch, $dept, ($summary['ca_pem'] ?? '') !== '' ? (string) $summary['ca_pem'] : null, $meshBlock);
-    logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires {$row['expires_at']} UTC", $clientId);
+    logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires " . rivetFormatTime($row['expires_at'] ?? null, 'utc'), $clientId);
 
     return ['result' => \RivetCore\Rmm\Technician\ActionResult::ok('Enrollment token created.', 201, 'created', ['token' => $row, 'token_plain' => $t->data['token'], 'department' => $dept]), 'command' => $cmd];
 }
@@ -166,7 +166,7 @@ if ($inst_action === 'windows_commands') {
     header('Cache-Control: no-store');
     echo json_encode(['success' => true, 'department' => $r->data['department'], 'arch' => $args[6], 'format' => $format, 'filename' => $cmds['filename'], 'powershell' => $cmds['powershell'],
         'msi' => isset($cmds['msi']) && is_array($cmds['msi']) ? $cmds['msi'] : null, 'detection' => $cmds['detection'] ?? null,
-        'expires_at' => $r->data['token']['expires_at'] ?? null, 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
+        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
     exit;
 }
 
@@ -197,7 +197,7 @@ if ($inst_action === 'linux') {
     header('Cache-Control: no-store');
     echo json_encode(['success' => true, 'command' => $lc['command'], 'self_contained' => $lc['self_contained'], 'agent_version' => $lc['version'], 'packages' => rivetAgentFeedLinuxPackages($lin, $args[6]),
         'department' => $r->data['department'], 'arch' => $args[6],
-        'expires_at' => $r->data['token']['expires_at'] ?? null, 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
+        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
     exit;
 }
 

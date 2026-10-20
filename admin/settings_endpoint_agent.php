@@ -13,7 +13,8 @@ use RivetCore\Rmm\Binaries\BinaryStore;
 mysqli_report(MYSQLI_REPORT_OFF);
 $csrf = $_SESSION['csrf_token'];
 $h = static fn($v) => nullable_htmlentities((string) $v);
-$dt = static fn($iso) => $iso ? str_replace('T', ' ', rtrim((string) $iso, 'Z')) : '';   // the read models return RFC 3339 UTC
+require_once __DIR__ . '/../includes/rivet_time.php';
+$dt = static fn($iso) => $iso ? rivetFormatTime((string) $iso, 'utc') : '';   // the read models return RFC 3339 UTC; shown in the company zone with its label (CDT)
 $newToken = $_SESSION['ea_new_token'] ?? null;
 unset($_SESSION['ea_new_token']);
 
@@ -123,7 +124,7 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
 <div class="card mb-3" id="deploy-commands">
     <div class="card-header"><h4 class="card-title mb-0">Deployment commands for <?= $h($dep['department']) ?> (<?= $dep['arch'] === 'arm64' ? 'ARM64' : 'Windows x64' ?><?= $depMsi ? ', MSI' : '' ?>)</h4></div>
     <div class="card-body">
-        <p class="small text-muted">This token allows <?= (int) $dep['max_uses'] ?> enrollments and expires <?= $h($dep['expires_at']) ?> UTC. The commands below contain it: keep them out of tickets, chat and shared script shares.</p>
+        <p class="small text-muted">This token allows <?= (int) $dep['max_uses'] ?> enrollments and expires <?= $h($dt($dep['expires_at'])) ?>. The commands below contain it: keep them out of tickets, chat and shared script shares.</p>
         <?php if ($depMsi) { ?>
         <div class="alert alert-warning small" role="note" id="deploy-msi-warning"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><strong>Not yet verified on Windows.</strong> The MSI installer is unsigned and has never been run on a real Windows PC: msiexec accepting a package with the payload appended, repair and upgrade behaviour and the custom actions are unverified. Follow the checklist <code>docs/rmm/MSI_VERIFY.md</code> (RivetCore) on one machine before a roll-out.</div>
         <h6>1. MSI: one PC, Intune, Group Policy or your RMM</h6>
@@ -579,7 +580,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
             <div class="col-lg-1"><button class="btn btn-sm btn-primary w-100" name="upload_agent_binary">Upload</button></div>
         </form></details>
         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-            <thead><tr><th>Version</th><th>Arch</th><th>Size</th><th>SHA-256</th><th>Uploaded (UTC)</th><th>State</th><th></th></tr></thead><tbody>
+            <thead><tr><th>Version</th><th>Arch</th><th>Size</th><th>SHA-256</th><th>Uploaded</th><th>State</th><th></th></tr></thead><tbody>
             <?php foreach ($binaries as $b) { $fid = 'bn_' . (int) $b['binary_id']; ?>
                 <tr>
                     <td><?= $h($b['version']) ?></td><td><?= $h($b['arch']) ?></td><td><?= $h(BinaryStore::human((int) $b['size_bytes'])) ?></td>
@@ -619,7 +620,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
         </form>
         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
             <caption class="visually-hidden">Published MSI templates</caption>
-            <thead><tr><th scope="col">Version</th><th scope="col">Arch</th><th scope="col">Size</th><th scope="col">SHA-256</th><th scope="col">Platform read from</th><th scope="col">Uploaded (UTC)</th><th scope="col">State</th><th scope="col"></th></tr></thead><tbody>
+            <thead><tr><th scope="col">Version</th><th scope="col">Arch</th><th scope="col">Size</th><th scope="col">SHA-256</th><th scope="col">Platform read from</th><th scope="col">Uploaded</th><th scope="col">State</th><th scope="col"></th></tr></thead><tbody>
             <?php foreach ($msiTemplates as $t) { ?>
                 <tr>
                     <td><?= $h($t['version']) ?></td><td><?= $h($t['arch']) ?></td><td><?= $h(BinaryStore::human((int) $t['size_bytes'])) ?></td>
@@ -686,7 +687,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
         <?php if ($cfg['signing_public_key'] === '') { ?>
             <p class="text-muted mb-0">Generated automatically the first time the service is switched on.</p>
         <?php } else { ?>
-            <p class="mb-1">Key id <code><?= $h($cfg['signing_key_id']) ?></code>, created <?= $h($dt($cfg['signing_key_created_at'])) ?> UTC. The private key is stored encrypted.</p>
+            <p class="mb-1">Key id <code><?= $h($cfg['signing_key_id']) ?></code>, created <?= $h($dt($cfg['signing_key_created_at'])) ?>. The private key is stored encrypted.</p>
             <p class="mb-2 small">Public key (agents receive this at enrollment): <code class="text-break"><?= $h($cfg['signing_public_key']) ?></code></p>
             <form action="post.php" method="post" data-ea-confirm="Generate a new signing key? Every enrolled agent must re-enroll before it accepts jobs or updates again.">
                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
@@ -714,7 +715,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
             <div class="col-lg-1"><button type="submit" name="create_enroll_token" class="btn btn-primary w-100">Create</button></div>
         </form>
         <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-            <thead><tr><th>Token</th><th>Label</th><th>Department</th><th>Ring</th><th>Uses</th><th>Expires (UTC)</th><th>State</th><th></th></tr></thead><tbody>
+            <thead><tr><th>Token</th><th>Label</th><th>Department</th><th>Ring</th><th>Uses</th><th>Expires</th><th>State</th><th></th></tr></thead><tbody>
             <?php foreach ($tokens as $t) {
                 $state = ['revoked' => ['Revoked', 'danger'], 'expired' => ['Expired', 'secondary'], 'used_up' => ['Used up', 'secondary'], 'active' => ['Active', 'success']][$t['state']]; ?>
                 <tr><td><code><?= $h(substr($t['selector'], 0, 8)) ?>...</code></td><td><?= $h($t['label']) ?></td><td><?= $h($clientName[(int) $t['client_id']] ?? ('#' . (int) $t['client_id'])) ?></td>
@@ -725,7 +726,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
         </tbody></table></div>
         <?php if ($attempts) { ?>
         <h6 class="mt-3">Recent rejected enrollment attempts</h6>
-        <ul class="small mb-0"><?php foreach ($attempts as $a) { echo '<li>' . $h($dt($a['attempted_at'])) . ' UTC, ' . $h($a['ip']) . ': ' . $h($a['reason']) . ($a['token_selector'] !== '' ? ' (token ' . $h(substr($a['token_selector'], 0, 8)) . '...)' : '') . '</li>'; } ?></ul>
+        <ul class="small mb-0"><?php foreach ($attempts as $a) { echo '<li>' . $h($dt($a['attempted_at'])) . ', ' . $h($a['ip']) . ': ' . $h($a['reason']) . ($a['token_selector'] !== '' ? ' (token ' . $h(substr($a['token_selector'], 0, 8)) . '...)' : '') . '</li>'; } ?></ul>
         <?php } ?>
     </div>
 </div>
@@ -740,7 +741,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
         <div class="border rounded p-3 mb-3">
             <div class="d-flex justify-content-between flex-wrap">
                 <div><strong><?= $h($d['hostname']) ?></strong> <span class="text-muted small">device #<?= (int) $d['device_id'] ?>, serial <?= $h($d['serial'] ?: 'none reported') ?>, <?= $h($d['manufacturer']) ?> <?= $h($d['model']) ?>, <?= $h($clientName[(int) $d['client_id']] ?? '') ?></span></div>
-                <span class="small text-muted">first seen <?= $h($dt($d['first_seen_at'])) ?> UTC</span>
+                <span class="small text-muted">first seen <?= $h($dt($d['first_seen_at'])) ?></span>
             </div>
             <p class="small mb-2 mt-1"><i class="fas fa-info-circle me-1"></i><?= $h($d['match_reason_text']) ?></p>
             <form action="post.php" method="post" class="row g-2 align-items-end">
@@ -764,7 +765,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
 <div class="card mb-3" id="devices">
     <div class="card-header"><h4 class="card-title mb-0">Devices</h4></div>
     <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-        <thead><tr><th>Device</th><th>Status</th><th>Last check-in (UTC)</th><th>Agent</th><th>Asset</th><th>Ring</th><th></th></tr></thead><tbody>
+        <thead><tr><th>Device</th><th>Status</th><th>Last check-in</th><th>Agent</th><th>Asset</th><th>Ring</th><th></th></tr></thead><tbody>
         <?php foreach ($devices as $d) {
             $gone = $d['revoked'] || $d['retired']; ?>
             <tr>

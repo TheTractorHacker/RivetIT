@@ -99,7 +99,7 @@
                 var msi = d.msi;
                 $('ad-w-msi-out').classList.toggle('d-none', !msi);
                 if (msi) { $('ad-c-msiexec').value = msi.msiexec; $('ad-c-msips').value = msi.powershell; $('ad-c-props').value = msi.properties; $('ad-c-uninst').value = msi.uninstall; }
-                $('ad-w-meta').textContent = 'For ' + d.department + '. The token works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + d.expires_at + ' UTC and is shown only once: do not paste it into tickets or chat.';
+                $('ad-w-meta').textContent = 'For ' + d.department + '. The token works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + ' and is shown only once: do not paste it into tickets or chat.';
                 $('ad-w-out').classList.remove('d-none');
             });
         });
@@ -110,7 +110,7 @@
             return res.json().then(function (d) {
                 if (!res.ok || !d || !d.success) { throw new Error((d && d.error) || 'The command could not be created.'); }
                 $('ad-l-cmd').value = d.command;
-                $('ad-l-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + d.expires_at + ' UTC. The token is shown only once: do not paste it into tickets or chat.'
+                $('ad-l-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + '. The token is shown only once: do not paste it into tickets or chat.'
                     + (d.self_contained ? ' Downloads agent ' + d.agent_version + ' from GitHub and checks it before installing.' : ' This command expects the unpacked release tarball next to it (the Linux files are not recorded on this server).');
                 $('ad-l-ver').textContent = d.agent_version ? '(' + d.agent_version + ')' : '';
                 $('ad-l-out').classList.remove('d-none');

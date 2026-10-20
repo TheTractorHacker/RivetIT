@@ -14,15 +14,13 @@ function rivetAgentFeedH($v): string
     return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** "2026-10-18T17:16:53Z" -> "2026-10-18 17:16 UTC". */
+/** "2026-10-18T17:16:53Z" (stored UTC) -> "2026-10-18 12:16 CDT" in the company zone. */
 function rivetAgentFeedWhen(?string $s): string
 {
     if ($s === null || $s === '') {
         return '';
     }
-    $t = strtotime(str_replace('T', ' ', rtrim($s, 'Z')) . ' UTC');
-
-    return $t === false ? '' : gmdate('Y-m-d H:i', $t) . ' UTC';
+    return rivetFormatTime($s, 'utc');
 }
 
 function rivetAgentFeedKindLabel(string $kind, string $arch): string
