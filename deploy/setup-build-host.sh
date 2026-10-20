@@ -27,8 +27,8 @@ set +x   # the token passes through shell variables: never trace
 umask 022
 
 # ---- the pin: bump all four lines together when RivetCore's build host script changes (and re-check the sums against the commit) --------------------------------------
-CORE_COMMIT="9d2003165e29d98ebc1ec8c85ff451d889703b5f"
-SHA_BUILD_HOST_SH="a5ac6e95e2e8e2817c2eb32254632b7c811c154f65957e775908b054f630a594"
+CORE_COMMIT="26d476ca8a429d4aafb9d962d99f369635a2f9a9"
+SHA_BUILD_HOST_SH="8296f46347217f00c810158ae43a353a2b331e4ec75ba466b988c417f5871714"
 SHA_BUILD_HOST_SERVICE="4d73f42d88876003ab6804b0f3ebffe6e8fb85c7e91bfd9734706eaf64b1a703"
 SHA_BUILD_HOST_TIMER="6cba55037c010ffba258913b265033791c786e6fcf9880805313a3b28b7cd5ba"
 RAW_BASE="https://raw.githubusercontent.com/TheTractorHacker/rivet-core/${CORE_COMMIT}/endpoint-agent/scripts"
