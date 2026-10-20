@@ -615,7 +615,7 @@ if (isset($_GET['asset_id'])) {
                             <div class="mt-1"><i class="fa fa-fw fa-tag text-secondary me-2"></i><?= $asset_type; ?></div>
                         <?php }
                         if ($asset_make) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?= "$asset_make $asset_model"; ?></div>
+                            <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?= (stripos($asset_model, $asset_make) === 0 ? $asset_model : trim("$asset_make $asset_model")); ?></div>
                         <?php }
                         if ($asset_os) { ?>
                             <div class="mt-2"><i class="fab fa-fw fa-windows text-secondary me-2"></i><?= "$asset_os"; ?></div>
