@@ -19,6 +19,7 @@
  */
 
 require_once __DIR__ . '/rmm_agent_feed.php';
+require_once __DIR__ . '/rivet_time.php';
 
 const RIVET_AGENT_BUILD_WORKFLOW = 'endpoint-agent.yml';
 const RIVET_AGENT_BUILD_REF = 'main';
@@ -155,7 +156,7 @@ function rivetAgentBuildTestToken($mysqli): array
             $ok = true;
         }
     }
-    mysqli_query($mysqli, "UPDATE endpoint_agent_build SET token_status = '" . mysqli_real_escape_string($mysqli, ($ok ? 'ok: ' : 'failed: ') . gmdate('Y-m-d H:i') . ' UTC. ' . mb_substr($msg, 0, 230)) . "' WHERE id = 1");
+    mysqli_query($mysqli, "UPDATE endpoint_agent_build SET token_status = '" . mysqli_real_escape_string($mysqli, ($ok ? 'ok: ' : 'failed: ') . rivetFormatTime(time(), 'epoch') . '. ' . mb_substr($msg, 0, 230)) . "' WHERE id = 1");
 
     return ['ok' => $ok, 'message' => $msg];
 }

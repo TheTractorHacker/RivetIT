@@ -16,6 +16,7 @@
  */
 
 require_once __DIR__ . '/rmm_agent_feed.php';
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_agent_build.php';
 
 const RIVET_BH_VERSION_RE = '/^(\d{1,5})\.(\d{1,5})\.(\d{1,5})(?:-([0-9A-Za-z][0-9A-Za-z.-]{0,19}))?\z/';

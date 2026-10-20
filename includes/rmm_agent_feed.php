@@ -20,6 +20,7 @@
  */
 
 require_once __DIR__ . '/rmm_bootstrap.php';
+require_once __DIR__ . '/rivet_time.php';
 
 /** The public repository that publishes the agent. An administrator may point the page at a fork. */
 const RIVET_AGENT_FEED_DEFAULT_REPO = 'TheTractorHacker/rivet-core';
@@ -473,7 +474,7 @@ function rivetAgentFeedRefresh($mysqli, bool $force = false): array
     $now = time();
     $ts = static fn (?string $d): int => $d === null || $d === '' ? 0 : (int) strtotime($d . ' UTC');
     if ($ts($row['rate_reset_at']) > $now) {
-        return ['ok' => false, 'message' => 'GitHub\'s rate limit for this server is used up; the list will be asked for again after ' . gmdate('H:i', $ts($row['rate_reset_at'])) . ' UTC. Showing the saved list.', 'from_cache' => true, 'changed' => false];
+        return ['ok' => false, 'message' => 'GitHub\'s rate limit for this server is used up; the list will be asked for again after ' . rivetFormatTime($ts($row['rate_reset_at']), 'epoch', true, 'H:i') . '. Showing the saved list.', 'from_cache' => true, 'changed' => false];
     }
     if (!$force && $ts($row['fetched_at']) > $now - RIVET_AGENT_FEED_TTL_S) {
         return ['ok' => true, 'message' => 'The list was checked a few minutes ago.', 'from_cache' => true, 'changed' => false];
@@ -501,7 +502,7 @@ function rivetAgentFeedRefresh($mysqli, bool $force = false): array
                     : $now + (int) ($res['headers']['retry-after'] ?? 900);
                 $until = max($now + 30, min($until, $now + 7200));
                 $reset = gmdate('Y-m-d H:i:s', $until);
-                $why = 'GitHub\'s rate limit for this server is used up (60 requests an hour without a key); try again after ' . gmdate('H:i', $until) . ' UTC.';
+                $why = 'GitHub\'s rate limit for this server is used up (60 requests an hour without a key); try again after ' . rivetFormatTime($until, 'epoch', true, 'H:i') . '.';
             } elseif ($res['status'] === 404) {
                 $why = 'GitHub has no repository ' . $repo . ' (or it is private). Check the name under "Where the releases come from".';
             } elseif ($res['offline']) {
