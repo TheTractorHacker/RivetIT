@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.62] RivetIT — Choose the ticket category for tickets made from RMM alerts (DB 2.6.179)
+
+**Deploy notes:** pull this tag, then run the database update (Administration > Database updates, or `php scripts/update_cli.php --update_db`). It adds one nullable column (`settings.config_rmm_alert_ticket_category_id`) and one small table (`rmm_alert_ticket_routes`); both are created only if missing. Nothing changes until an admin picks a category: with the default left on "No category" and no routes, alert tickets are made exactly as before. No RivetCore change, no nginx change.
+
+- **Administration > Settings > Integrations > RMM > Alert tickets** (new card under Automatic Ticket Creation): a dropdown of all Ticket categories, a **Create a Maintenance category and use it** button (shown only while no Ticket category is called Maintenance), an optional table of routes (when the alert is a kind of check, a source or a severity -> a category and an optional priority; add and remove rows with dropdowns, no free text), and a live sentence such as "New alerts at severity critical and warning create a ticket in the "Maintenance" category."
+- **Used everywhere an alert becomes a ticket.** The automatic ticketing in `cron/cron.php`, the "create ticket" button on the RMM alerts pages, automation rules and the endpoint agent escalation all go through `createTicketFromRmmAlert()`, which now resolves the category: kind of check first (disk, service, patch, pending reboot, agent update, log rule, change monitor; from the alert's check key), then the source (endpoint agent, Tactical RMM, Level, Action1, Sophos Central), then the severity, then the default. A route can also set the priority. A category that was deleted, archived or is not a Ticket category is skipped (next most specific match).
+- **Server side:** admin only, CSRF, ids are integers, categories must be live Ticket categories, route kinds and values come from fixed lists, at most 50 routes, duplicate "when" choices and any unknown value reject the whole save (nothing half-written), audit log entries and an audit event. Comet backup alerts and automation-rule tickets are not RMM alerts and are unchanged.
+- Tests: `tests/rmm_alert_routes_unit.php` (resolver, check families, summary), `tests/rmm_alert_ticket_category.php` (scratch DB and `php -S`: nothing configured, default, routes and precedence, cron run as a real process, manual path, migration shape, CSRF, hostile input, technician and logged-out refused, Maintenance button, escaping), `tests/browser/rmm_alertcat_smoke.mjs` (Chromium over CDP: the card, button, live sentence, add/remove/save/reload, phone width).
+
 ## [26.10.61] RivetIT — Every time is shown in the company time zone, not UTC
 
 **Deploy notes:** pull this tag; no database change. Times that used to read "2026-10-18 17:16 UTC" now read "2026-10-18 12:16 CDT" (the company time zone from Settings > Localization, with its short label), and they follow daylight saving time.
