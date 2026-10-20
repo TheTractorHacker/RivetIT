@@ -34,6 +34,115 @@ if (isset($_POST['save_rmm_auto_ticket_settings'])) {
     redirect();
 }
 
+// Save which ticket category (and optional priority) tickets made from RMM alerts get: one default plus optional routes.
+// Everything is checked here, never trusted from the form: ids are ints, a category must be a live Ticket category, a route type/value
+// must come from the fixed lists in includes/rmm_alert_routes.php, and one bad row rejects the whole save (nothing half-written).
+if (isset($_POST['save_rmm_alert_ticket_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    require_once dirname(__DIR__, 2) . '/includes/rmm_alert_routes.php';
+
+    $valid_cats = rmmAlertTicketCategoryIds($mysqli);
+    $default_cat = intval($_POST['alert_ticket_category_id'] ?? 0);
+    if ($default_cat !== 0 && !in_array($default_cat, $valid_cats, true)) {
+        flash_alert('That category does not exist or is not a ticket category. Nothing was saved.', 'warning');
+        redirect();
+    }
+
+    $allowed_values = [
+        'severity'     => array_keys(RMM_ALERT_ROUTE_SEVERITIES),
+        'source'       => array_keys(RMM_ALERT_ROUTE_SOURCES),
+        'check_prefix' => array_keys(RMM_ALERT_ROUTE_FAMILIES),
+    ];
+    $types  = is_array($_POST['route_type'] ?? null) ? array_values($_POST['route_type']) : [];
+    $values = is_array($_POST['route_value'] ?? null) ? array_values($_POST['route_value']) : [];
+    $cats   = is_array($_POST['route_category'] ?? null) ? array_values($_POST['route_category']) : [];
+    $prios  = is_array($_POST['route_priority'] ?? null) ? array_values($_POST['route_priority']) : [];
+    if (count($types) > 50) {
+        flash_alert('At most 50 routes are allowed. Nothing was saved.', 'warning');
+        redirect();
+    }
+
+    $rows = [];
+    $seen = [];
+    foreach ($types as $i => $t) {
+        $v = $values[$i] ?? '';
+        $c = $cats[$i] ?? '';
+        $p = $prios[$i] ?? '';
+        if (!is_string($t) || !is_string($v) || !is_scalar($c) || !is_string($p)) {
+            flash_alert('A route has an invalid value. Nothing was saved.', 'warning');
+            redirect();
+        }
+        if ($t === '' && $v === '' && $c === '') {
+            continue;   // an untouched blank row
+        }
+        $c = intval($c);
+        if (!isset($allowed_values[$t]) || !in_array($v, $allowed_values[$t], true)) {
+            flash_alert('A route has an unknown "when" choice. Nothing was saved.', 'warning');
+            redirect();
+        }
+        if (!in_array($c, $valid_cats, true)) {
+            flash_alert('A route points at a category that does not exist or is not a ticket category. Nothing was saved.', 'warning');
+            redirect();
+        }
+        if ($p !== '' && !in_array($p, RMM_ALERT_ROUTE_PRIORITIES, true)) {
+            flash_alert('A route has an unknown priority. Nothing was saved.', 'warning');
+            redirect();
+        }
+        if (isset($seen["$t|$v"])) {
+            flash_alert('Two routes have the same "when" choice; keep one. Nothing was saved.', 'warning');
+            redirect();
+        }
+        $seen["$t|$v"] = true;
+        $rows[] = [$t, $v, $c, $p];
+    }
+
+    $default_sql = $default_cat > 0 ? $default_cat : 'NULL';
+    mysqli_begin_transaction($mysqli);
+    $ok = mysqli_query($mysqli, "UPDATE settings SET config_rmm_alert_ticket_category_id = $default_sql WHERE company_id = 1")
+        && mysqli_query($mysqli, "DELETE FROM rmm_alert_ticket_routes");
+    foreach ($rows as $n => [$t, $v, $c, $p]) {
+        $ok = $ok && mysqli_query($mysqli, "INSERT INTO rmm_alert_ticket_routes SET match_type = '" . mysqli_real_escape_string($mysqli, $t) . "',
+            match_value = '" . mysqli_real_escape_string($mysqli, $v) . "', category_id = $c,
+            priority = " . ($p !== '' ? "'" . mysqli_real_escape_string($mysqli, $p) . "'" : 'NULL') . ", sort = " . (($n + 1) * 10));
+    }
+    if (!$ok) {
+        mysqli_rollback($mysqli);
+        flash_alert('Could not save the alert ticket settings.', 'danger');
+        redirect();
+    }
+    mysqli_commit($mysqli);
+
+    logAction('Settings', 'Edit', "$session_name updated RMM alert ticket category (default " . ($default_cat ?: 'none') . ', ' . count($rows) . ' route(s))');
+    rivetAudit('settings.rmm_alert_ticket_category_changed', (int) $session_user_id, 'settings', 'config_rmm_alert_ticket_category_id', 'update',
+        'RMM alert ticket category changed', ['default_category_id' => $default_cat, 'routes' => count($rows)]);
+    flash_alert('Alert ticket settings saved');
+    redirect();
+}
+
+// One click: make a "Maintenance" Ticket category (if none exists yet) and use it as the default for alert tickets.
+if (isset($_POST['create_rmm_alert_maintenance_category'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $existing = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT category_id FROM categories WHERE category_type = 'Ticket' AND category_archived_at IS NULL AND LOWER(category_name) = 'maintenance' LIMIT 1"));
+    if ($existing) {
+        $cat_id = intval($existing['category_id']);
+        $msg = 'A Maintenance ticket category already exists; it is now the default for alert tickets';
+    } else {
+        mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Maintenance', category_description = 'Tickets made from RMM alerts', category_type = 'Ticket', category_color = 'orange', category_parent = 0");
+        $cat_id = intval(mysqli_insert_id($mysqli));
+        logAction('Category', 'Create', "$session_name created category Ticket Maintenance", 0, $cat_id);
+        $msg = 'Maintenance category created and set as the default for alert tickets';
+    }
+    if ($cat_id > 0) {
+        mysqli_query($mysqli, "UPDATE settings SET config_rmm_alert_ticket_category_id = $cat_id WHERE company_id = 1");
+        logAction('Settings', 'Edit', "$session_name set the RMM alert ticket category to Maintenance (category $cat_id)");
+        rivetAudit('settings.rmm_alert_ticket_category_changed', (int) $session_user_id, 'settings', 'config_rmm_alert_ticket_category_id', 'update',
+            'RMM alert ticket category set to Maintenance', ['default_category_id' => $cat_id]);
+        flash_alert($msg);
+    }
+    redirect();
+}
+
 // Save device metrics settings.
 //
 // The three retention/interval numbers are clamped rather than rejected: they come from
