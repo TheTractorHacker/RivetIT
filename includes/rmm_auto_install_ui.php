@@ -109,7 +109,7 @@ function rivetRmmAutoInstDeviceHtml(array $vm, array $dv): string
     $o .= '<p class="small mb-2">' . $pills . '</p>';
     $rows = '';
     foreach ($dv['apps'] as $a) {
-        $by = $a['selected_by'] !== null ? ($dv['names'][(int) $a['selected_by']] ?? ('user #' . (int) $a['selected_by'])) : '<span class="text-muted">the scheduler</span>';
+        $by = $a['selected_by'] !== null ? rmmH((string) ($dv['names'][(int) $a['selected_by']] ?? ('user #' . (int) $a['selected_by']))) : '<span class="text-muted">the scheduler</span>';
         $rows .= '<tr><td class="ps-3 fw-semibold rmm-wrap">' . rmmH((string) $a['name']) . ($a['required'] ? ' <span class="small text-muted">(required)</span>' : '') . '</td>'
             . '<td>' . rivetRmmAutoInstStatusPill((string) $a['status']) . '</td><td class="small rmm-wrap">' . rmmH((string) $a['reason']) . '</td>'
             . '<td>' . ((string) $a['source'] === 'chosen' ? 'Ticked on the installer' : 'Policy') . '</td><td class="small">' . $by . '</td><td>' . (int) $a['install_order'] . '</td>'
