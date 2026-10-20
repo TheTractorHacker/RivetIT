@@ -3,12 +3,12 @@
 # Proves: the command downloads install-linux.sh and the agent from THIS server (curl, and a wget-only image), verifies both against the printed SHA-256 values, runs
 # install-linux.sh, a tampered download stops it (exit 65), and no token or key is left on a command line or in a temp file.
 #   LX_FILES=<dir with install-linux.sh + rivetit-agent-linux-amd64>  LX_PORT=8741  RIVETIT_TEST_DB* (scratch)  bash tests/linux_command_container.sh
-set -eu
+set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; PORT="${LX_PORT:-8741}"; FILES="${LX_FILES:?set LX_FILES}"; WORK="$(mktemp -d)"; PASS=0; FAIL=0
 trap 'rm -rf "$WORK"; docker image rm -f lxhost-test-curl lxhost-test-wget >/dev/null 2>&1 || true' EXIT
 ok() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "PASS  $2"; else FAIL=$((FAIL+1)); echo "FAIL  $2"; fi; }
 VERSION="${LX_VERSION:-0.9.9}"
-php "$ROOT/tests/support/linux_command_issue.php" "$FILES" "$WORK/cmd.sh" "$VERSION" "http://127.0.0.1:$PORT" > "$WORK/issue.json"
+php "$ROOT/tests/support/linux_command_issue.php" "$FILES" "$WORK/cmd.sh" "$VERSION" "http://127.0.0.1:$PORT" | grep '^{' | tail -n 1 > "$WORK/issue.json"
 SECRET="$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["secret"];' "$WORK/issue.json")"
 bash -n "$WORK/cmd.sh"; ok $? "the generated command is valid shell"
 cat > "$WORK/Dockerfile.curl" <<'D'
@@ -30,7 +30,7 @@ PSPID=$!
 bash /cmd.sh > /tmp/out.log 2>&1; RC=$?
 kill $PSPID 2>/dev/null
 echo "RC=$RC"
-echo "PS_LEAK=$(grep -c "$SECRET" /tmp/ps.log || true)"
+echo "PS_LEAK=$([ -n "$SECRET" ] && grep -c -F "$SECRET" /tmp/ps.log || echo 0)"
 echo "KEY_ON_CMDLINE=$(grep -c 'rvdl1' /tmp/ps.log || true)"
 echo "TMP_LEFT=$(ls /tmp | grep -c -E '^tmp\.' || true)"
 echo "INSTALLED=$([ -x /opt/rivetit-agent/rivetit-agent ] && echo 1 || echo 0)"
@@ -54,4 +54,5 @@ echo "$OUT" | grep -q '^INSTALLED=0$'; ok $? "...and nothing was installed"
 echo "$OUT" | grep -q 'does not match the SHA-256 printed in this command'; ok $? "...with a message that says why"
 echo
 echo "$PASS passed, $FAIL failed"
+[ -n "$SECRET" ] || { echo "FAIL  no secret to look for"; FAIL=$((FAIL+1)); }
 [ "$FAIL" = 0 ]
