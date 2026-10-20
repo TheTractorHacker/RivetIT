@@ -84,7 +84,14 @@
     function act(f, btn) {
         if (busy || !btn || !btn.name) { return; }
         var q = f.getAttribute('data-af-confirm');
-        if (q && !window.confirm(q)) { return; }
+        if (q) {
+            RivetDialog.confirm(q, { variant: 'danger' }).then(function (ok) { if (ok) { actRun(f, btn); } });
+            return;
+        }
+        actRun(f, btn);
+    }
+    function actRun(f, btn) {
+        if (busy) { return; }
         var fields = {};
         new FormData(f).forEach(function (v, k) { if (k !== 'csrf_token' && typeof v === 'string') { fields[k] = v; } });
         fields[btn.name] = btn.value;
@@ -224,7 +231,6 @@
     function publish(f) {
         if (busy) { return; }
         var tag = f.getAttribute('data-tag');
-        var version = f.getAttribute('data-version');
         var offer = f.querySelector('[name="offer"]');
         var ring = f.querySelector('[name="ring"]');
         var pct = f.querySelector('[name="rollout_pct"]');
@@ -232,7 +238,11 @@
         var question = 'Publish ' + tag + '? Its files are downloaded from GitHub, checked against the release checksums and stored on this server.'
             + (act && act.checked ? ' It becomes the version new installers are built from.' : '')
             + (offer && offer.checked ? ' It is offered to enrolled agents on the ' + ring.value + ' ring at ' + pct.value + '%.' : ' It is not offered to enrolled agents.');
-        if (!window.confirm(question)) { return; }
+        RivetDialog.confirm(question, { title: 'Publish ' + tag, okText: 'Publish' }).then(function (ok) { if (ok) { publishRun(f, tag, offer, ring, pct, act); } });
+    }
+    function publishRun(f, tag, offer, ring, pct, act) {
+        if (busy) { return; }
+        var version = f.getAttribute('data-version');
         busy = true;
         var go = f.querySelector('[data-af-go]');
         var prog = f.querySelector('[data-af-progress]');

@@ -233,13 +233,11 @@ document.addEventListener('click', function (e) {
     pane.querySelectorAll('.' + el.dataset.targetClass).forEach(function (cb) { cb.checked = el.checked; });
 });
 
-// Plain native confirm() gate for delete links nested inside another modal,
+// RivetDialog confirm gate for delete links nested inside another modal,
 // where .confirm-link's own modal-on-modal stacking doesn't work.
 document.addEventListener('click', function (e) {
     var el = e.target.closest ? e.target.closest('.js-confirm-native') : null;
-    if (el && !confirm(el.dataset.confirmMessage || 'Are you sure?')) {
-        e.preventDefault();
-    }
+    if (el) { RivetDialog.gate(e, el, el.dataset.confirmMessage || 'Are you sure?', { variant: el.dataset.confirmVariant || 'danger' }); }
 });
 
 // Force-uppercase as-you-type (client abbreviation field, etc).
@@ -1348,8 +1346,8 @@ function initPasswordToggles() {
     // <form data-confirm-submit="message">: ask before submitting (was onsubmit="return confirm(...)").
     document.addEventListener('submit', function (e) {
         var form = e.target;
-        if (form && form.getAttribute && form.hasAttribute('data-confirm-submit') && !confirm(form.getAttribute('data-confirm-submit'))) {
-            e.preventDefault();
+        if (form && form.getAttribute && form.hasAttribute('data-confirm-submit')) {
+            RivetDialog.gate(e, form, form.getAttribute('data-confirm-submit'));
         }
     });
 })();
