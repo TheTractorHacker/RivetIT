@@ -212,11 +212,27 @@ $admin(['binary_action' => 'activate', 'binary_id' => $id]);
 $admin(['binary_action' => 'make_current', 'binary_id' => $id]);
 
 // ============================================================ Linux: the command, no binary
+// 26.10.64: nothing hosted yet -> a clear message and NO token; then the hosted files make the self-contained command
+require_once dirname(__DIR__) . '/includes/rmm_linux_store.php';
+$q('DELETE FROM endpoint_agent_linux_files'); if (rivetAgentFeedReady($db)) { $q('DELETE FROM endpoint_agent_linux_assets'); }
+$t00 = $toks();
+[$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'ring' => 'stable', 'ttl_hours' => 24, 'max_uses' => 1]);
+$d = $jd($b);
+$ok($c === 409 && ($d['success'] ?? true) === false && str_contains((string) $d['error'], 'Build or publish the agent first') && $toks() === $t00 && !str_contains($b, 'install-linux.sh --server'), 'Linux with nothing hosted: a clear message with the fix, no token is made, no broken command');
+$lxTmp = sys_get_temp_dir() . '/lxfix' . bin2hex(random_bytes(3)); mkdir($lxTmp);
+file_put_contents("$lxTmp/s", "#!/usr/bin/env bash\necho hi\n");
+file_put_contents("$lxTmp/b", "\x7fELF\x02\x01\x01" . str_repeat("\0", 9) . pack('v', 2) . pack('v', 62) . pack('V', 1) . str_repeat('A', 5000));
+$r1 = rivetLxStore($db, "$lxTmp/s", 'install-linux.sh', '0.9.7', 1, ['activate' => true]);
+$r2 = rivetLxStore($db, "$lxTmp/b", 'rivetit-agent-linux-amd64', '0.9.7', 1, ['activate' => true]);
+file_put_contents("$lxTmp/b2", "\x7fELF\x02\x01\x01" . str_repeat("\0", 9) . pack('v', 2) . pack('v', 183) . pack('V', 1) . str_repeat('B', 5000));
+$r3 = rivetLxStore($db, "$lxTmp/b2", 'rivetit-agent-linux-arm64', '0.9.7', 1, ['activate' => true]);
+$ok($r1['ok'] && $r2['ok'] && $r3['ok'], 'three hosted Linux files stored for the Linux command tests');
+register_shutdown_function(function () use ($db, $q, $lxTmp) { $dir = rivetLxDir(); foreach ($db->query('SELECT storage_name FROM endpoint_agent_linux_files') ?: [] as $r) { if ($dir) { @unlink($dir . '/' . $r['storage_name']); } } $q('DELETE FROM endpoint_agent_linux_files'); exec('rm -rf ' . escapeshellarg($lxTmp)); });
 $t0 = $toks(); $q("DELETE FROM logs");
 [$c, $b, $h] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'ring' => 'stable', 'ttl_hours' => 24, 'max_uses' => 1]);
 $d = $jd($b);
 $ok($c === 200 && $d['success'] === true && strpos((string) $hdr($h, 'Content-Type'), 'application/json') === 0 && strpos((string) $hdr($h, 'Cache-Control'), 'no-store') !== false, 'Linux: a JSON answer, never cached');
-$ok(strpos($d['command'], './install-linux.sh --server ' ) !== false && strpos($d['command'], "'$base'") !== false && preg_match('/rvte1\.[0-9a-f]{12}\.[0-9a-f]{40}/', $d['command'], $m) === 1 && $d['department'] === 'Dept A' && substr($b, 0, 2) !== 'MZ', 'the command carries the server and a token and runs install-linux.sh; there is no binary in the answer');
+$ok(strpos($d['command'], 'bash "$S" --binary "$B" --server ' ) !== false && strpos($d['command'], "'$base'") !== false && preg_match('/rvte1\.[0-9a-f]{12}\.[0-9a-f]{40}/', $d['command'], $m) === 1 && $d['department'] === 'Dept A' && substr($b, 0, 2) !== 'MZ', 'the command carries the server and a token and runs install-linux.sh; there is no binary in the answer');
 $row = $rows("SELECT * FROM endpoint_agent_enrollment_tokens ORDER BY token_id DESC LIMIT 1")[0];
 $ok($toks() === $t0 + 1 && strpos($d['command'], explode('.', $m[0])[1]) !== false && (int) $row['token_id'] === $d['token_id'] && (int) $row['max_uses'] === 1, 'a token was created for it (1 use)');
 $ok((string) $one("SELECT COUNT(*) FROM logs WHERE log_action='Installer Created' AND log_user_id=1 AND log_description LIKE '%Dept A%'") === '1', 'one audit entry');
@@ -344,7 +360,7 @@ $ok($c === 200 && strpos($d['command'], '--install-mesh-agent') === false && str
 [$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
 $d = $jd($b);
 $ok($c === 200 && $d['success'] === true && strpos($d['command'], ' --install-mesh-agent --mesh-url \'https://mesh.example.test\' --mesh-group-id \'' . $groupUrl . '\' --mesh-cert-pin \'' . $pin . '\'') !== false
-    && strpos($d['command'], './install-linux.sh --server ') !== false && $toks() === $t0 + 2, 'Linux, ticked: the command gets --install-mesh-agent --mesh-url --mesh-group-id --mesh-cert-pin');
+    && strpos($d['command'], 'bash "$S" --binary "$B" --server ') !== false && $toks() === $t0 + 2, 'Linux, ticked: the command gets --install-mesh-agent --mesh-url --mesh-group-id --mesh-cert-pin');
 $M->update(['mesh_server_cert_pin' => ''], 1);
 $mfreshI();
 [$c, $b] = $ep(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64', 'install_mesh_agent' => '1']);
