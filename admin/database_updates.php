@@ -11502,3 +11502,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.178'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.178') {
+        // DB 2.6.179: RivetIT 26.10.62, which ticket category an RMM alert ticket lands in. One nullable settings column (the default category) and a small
+        // routing table (a severity, a source or a check family -> a category and an optional priority). Both are created only if missing, so a replay changes
+        // nothing, and with nothing configured (NULL / no rows) alert tickets keep today's behaviour.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_rmm_alert_ticket_category_id` int(11) DEFAULT NULL AFTER `config_rmm_auto_ticket_severities`");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `rmm_alert_ticket_routes` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `match_type` enum('severity','source','check_prefix') NOT NULL,
+            `match_value` varchar(64) NOT NULL,
+            `category_id` int(11) NOT NULL,
+            `priority` varchar(20) DEFAULT NULL,
+            `sort` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `match_type` (`match_type`, `sort`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $rt_res = mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_rmm_alert_ticket_category_id'");
+        $rt_res2 = mysqli_query($mysqli, "SHOW TABLES LIKE 'rmm_alert_ticket_routes'");
+        if ($rt_res && mysqli_num_rows($rt_res) > 0 && $rt_res2 && mysqli_num_rows($rt_res2) > 0) {
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.179'");
+        }
+    }

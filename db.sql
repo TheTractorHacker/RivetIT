@@ -2731,6 +2731,21 @@ CREATE TABLE `rmm_alerts` (
 ) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+DROP TABLE IF EXISTS `rmm_alert_ticket_routes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_alert_ticket_routes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `match_type` enum('severity','source','check_prefix') NOT NULL,
+  `match_value` varchar(64) NOT NULL,
+  `category_id` int(11) NOT NULL,
+  `priority` varchar(20) DEFAULT NULL,
+  `sort` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `match_type` (`match_type`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 --
 -- Table structure for table `rmm_approvals`
 --
@@ -4121,6 +4136,7 @@ CREATE TABLE `settings` (
   `config_module_enable_rmm` tinyint(1) NOT NULL DEFAULT 0,
   `config_rmm_default_integration_id` int(11) DEFAULT NULL,
   `config_rmm_auto_ticket_severities` varchar(100) NOT NULL DEFAULT '',
+  `config_rmm_alert_ticket_category_id` int(11) DEFAULT NULL,
   `config_module_enable_ticket_charges` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_kb` tinyint(1) NOT NULL DEFAULT 0,
   `config_module_enable_live_chat` tinyint(1) NOT NULL DEFAULT 0,
