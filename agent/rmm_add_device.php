@@ -20,7 +20,11 @@ if ($ad_ctx === null) {
     itflow_render_denied('Your role cannot create agent installers: it does not have the "RMM token manage" permission (rmm.token.manage). Ask an administrator to add it to your role.', 'No access');
     return;
 }
+// The quick dialog (one department, one platform, one click) stays reachable from here as "Quick download"; js/rmm_installer.js is linked by the footer for it.
+$rmm_installer_scripts = true;
+echo '<div class="d-flex justify-content-end mb-2">' . rivetRmmInstallerTrigger('button', (int) ($_GET['client_id'] ?? 0), 'Quick download', 'btn btn-outline-primary btn-sm') . '</div>';
 echo rivetRmmAddDevicePage($ad_ctx, rivetAgentFeedLinuxAssets($mysqli));
+echo rivetRmmInstallerModal($ad_ctx);
 echo '<script src="/js/rmm_add_device.js?v=' . (int) @filemtime(dirname(__DIR__) . '/js/rmm_add_device.js') . '" defer></script>';
 
 require_once "../includes/footer.php";

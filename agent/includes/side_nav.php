@@ -549,13 +549,9 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">Agent Fleet</span>
                         </a>
                         <?php require_once dirname(__DIR__, 2) . '/includes/rmm_installer.php'; if (rivetRmmInstallerAllowed($mysqli, (int) $session_user_id)) { // module on, and rmm.token.manage or rmm.admin ?>
-                        <a href="/agent/rmm_fleet.php?installer=1" class="dropdown-item">
-                            <span class="dropdown-item-icon"><i class="fas fa-download"></i></span>
-                            <span class="text-truncate">Download installer</span>
-                        </a>
                         <a href="/agent/rmm_add_device.php" class="dropdown-item<?php if ($current_page == 'rmm_add_device.php') { echo ' active'; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-tools"></i></span>
-                            <span class="text-truncate">Add device / Build installer</span>
+                            <span class="dropdown-item-icon"><i class="fas fa-plus-circle"></i></span>
+                            <span class="text-truncate">Add device</span>
                         </a>
                         <?php } ?>
                         <?php foreach (rivetRmmAutoNav((int) $session_user_id) as $nav_auto) { // policies / scripts / alerting sub-switches (state file; no query)

@@ -49,7 +49,7 @@ foreach (['id="ad-dl-exe"', 'id="ad-dl-msi"', 'id="ad-w-cmds"', 'id="ad-l-go"', 
 }
 $ok(str_contains($p, '<option value="1">Dept A</option>') && str_contains($p, '<option value="2">Dept B</option>'), 'the department select lists the departments the administrator can see');
 [, $fleet] = web($wb, 'GET', '/agent/rmm_fleet.php', $SS['admin']);
-$ok(str_contains($fleet, 'href="/agent/rmm_add_device.php"') && str_contains($fleet, 'Add device / Build installer') && str_contains($fleet, '/agent/rmm_fleet.php?installer=1') && str_contains($fleet, 'Download installer'), 'the Endpoints menu has the new entry and keeps "Download installer" (the dialog)');
+$ok(str_contains($fleet, 'href="/agent/rmm_add_device.php"') && preg_match('~href="/agent/rmm_add_device.php"[^>]*>\s*<span class="dropdown-item-icon">.*?<span class="text-truncate">Add device</span>~s', $fleet) === 1 && !str_contains($fleet, '<span class="text-truncate">Download installer</span>') && !str_contains($fleet, 'href="/agent/rmm_fleet.php?installer=1"'), 'the Endpoints menu has ONE entry, "Add device" (the full page); the duplicate "Download installer" item is gone');
 $ok(str_contains($fleet, 'Open the full Add device page') , 'the Add device dialog links to the full page');
 foreach (['tech', 'viewer', 'moduleonly', 'normo', 'deptb'] as $who) {
     [$c, $b] = $adPage($who);
