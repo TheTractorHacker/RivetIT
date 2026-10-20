@@ -41,3 +41,10 @@ $ok(\ITFlow\Platform\PlatformSettings::get($db, 'rmm_allow_linux') === '1' && (i
 [$c] = ea_enroll(ea_token(1, 24, 20), ea_dev(['os' => 'linux', 'os_version' => 'Debian 12', 'hostname' => 'LNX-AGAIN']));
 $ok($c === 200 || $c === 201, 'on again: a Linux device enrolls');
 $q("DELETE FROM endpoint_agent_devices"); $q("DELETE FROM platform_settings WHERE setting_key='rmm_allow_linux'");
+
+// the asset made for a device carries its own OS text (a Linux device was labelled "Windows Ubuntu ...")
+$as = new \ITFlow\Core\Adapter\Endpoint\EndpointAssets(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($db));
+$id = $as->createForDevice(['os' => 'linux', 'os_version' => 'Ubuntu 24.04', 'hostname' => 'LNXA', 'model' => 'x', 'serial' => 's1', 'manufacturer' => 'm'], 1, 0);
+$id2 = $as->createForDevice(['os' => 'windows', 'os_version' => 'Windows 11 23H2', 'hostname' => 'WINA', 'model' => 'x', 'serial' => 's2', 'manufacturer' => 'm'], 1, 0);
+$ok((string) $one("SELECT asset_os FROM assets WHERE asset_id=$id") === 'Ubuntu 24.04' && (string) $one("SELECT asset_os FROM assets WHERE asset_id=$id2") === 'Windows Windows 11 23H2', 'asset OS text: Linux as reported; Windows keeps its existing label');
+$q("DELETE FROM assets");

@@ -72,7 +72,7 @@ if ($clockNotice !== null) { echo rivetRmmClockBanner($clockNotice, static fn ($
 if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] !== null) { echo '<p class="small text-danger mb-2">Not reported yet: the server refused its check-in (' . $h($clockNotice['reject']) . ')</p>'; }
 ?>
 <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
-    <h4 class="mb-0 me-auto"><i class="fab fa-windows me-2"></i><?= $h($dev['hostname']) ?>
+    <h4 class="mb-0 me-auto"><i class="fab <?= ($dev['os'] ?? '') === 'linux' ? 'fa-linux' : 'fa-windows' ?> me-2"></i><?= $h($dev['hostname']) ?>
         <span class="badge bg-<?= $badge ?> ms-2"><?= ucfirst($st['state']) ?></span>
         <?php if ($dev['revoked_at'] !== null) { echo '<span class="badge bg-danger ms-1">Revoked</span>'; } ?>
         <?php if ($dev['retired_at'] !== null) { echo '<span class="badge bg-secondary ms-1">Retired</span>'; } ?>
