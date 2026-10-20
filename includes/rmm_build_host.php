@@ -18,11 +18,16 @@
 require_once __DIR__ . '/rmm_agent_feed.php';
 require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_agent_build.php';
+require_once __DIR__ . '/rmm_linux_store.php';
 
 const RIVET_BH_VERSION_RE = '/^(\d{1,5})\.(\d{1,5})\.(\d{1,5})(?:-([0-9A-Za-z][0-9A-Za-z.-]{0,19}))?\z/';
 const RIVET_BH_TOKEN_RE = '/^rbh_([0-9a-f]{16})_([0-9a-f]{48})\z/';
 const RIVET_BH_REF_RE = '/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,59}\z/';
-const RIVET_BH_FILES = ['rivetit-agent-windows-amd64.exe', 'rivetit-agent-windows-arm64.exe', 'rivetit-agent-windows-amd64.msi', 'SHA256SUMS'];
+/** The files every build must deliver (an old build host script sends only these). */
+const RIVET_BH_REQUIRED = ['rivetit-agent-windows-amd64.exe', 'rivetit-agent-windows-arm64.exe', 'rivetit-agent-windows-amd64.msi', 'SHA256SUMS'];
+/** Additive (26.10.64): the Linux files a newer build host also sends. Hosted by includes/rmm_linux_store.php; all optional. */
+const RIVET_BH_LINUX = ['rivetit-agent-linux-amd64', 'rivetit-agent-linux-arm64', 'install-linux.sh', 'rivetit-agent-linux-amd64.tar.gz', 'rivetit-agent-linux-arm64.tar.gz'];
+const RIVET_BH_FILES = [...RIVET_BH_REQUIRED, ...RIVET_BH_LINUX];
 const RIVET_BH_TARGETS = ['windows-amd64', 'windows-arm64', 'linux-amd64', 'linux-arm64'];
 const RIVET_BH_CHUNK_MAX = 1048576;          // raw bytes per chunk
 const RIVET_BH_BODY_MAX = 1500000;           // request body (base64 of 1 MiB is 1,398,104 bytes plus the JSON envelope)
@@ -452,7 +457,7 @@ function rivetBuildHostMaxBytes(): int
 
 function rivetBuildHostFileCap(string $name): int
 {
-    return $name === 'SHA256SUMS' ? RIVET_BH_SUMS_MAX : rivetBuildHostMaxBytes();
+    return $name === 'SHA256SUMS' ? RIVET_BH_SUMS_MAX : ($name === 'install-linux.sh' ? RIVET_LX_SCRIPT_MAX : rivetBuildHostMaxBytes());
 }
 
 // ------------------------------------------------------------------ the four endpoints (pure: array in, [http, array] out)
@@ -688,7 +693,7 @@ function rivetBuildHostUpload($mysqli, array $host, array $body, string $ip): ar
     $n = mysqli_query($mysqli, "SELECT COALESCE(SUM(bytes),0) FROM endpoint_agent_build_files WHERE job_id = $jid");
     $jobBytes = $n ? (int) mysqli_fetch_row($n)[0] : 0;
     $fileBytes = (int) $f['bytes'] + strlen($raw);
-    if ($fileBytes > $cap || $jobBytes + strlen($raw) > 3 * rivetBuildHostMaxBytes() + RIVET_BH_SUMS_MAX) {
+    if ($fileBytes > $cap || $jobBytes + strlen($raw) > 7 * rivetBuildHostMaxBytes() + RIVET_BH_SUMS_MAX + RIVET_LX_SCRIPT_MAX) {
         rivetBuildHostAudit('Agent Build Host Chunk Refused', 'Job #' . $jid . ': ' . $name . ' is over its size limit');
 
         return rivetBuildHostErr(413, 'too_large', 'That file is larger than the limit of ' . $cap . ' bytes.');
@@ -834,7 +839,7 @@ function rivetBuildHostComplete($mysqli, array $host, array $body, string $ip, ?
         return rivetBuildHostGone($j);
     }
     $man = $body['manifest'] ?? null;
-    if (!is_array($man) || !is_array($man['files'] ?? null) || count($man['files']) > 8) {
+    if (!is_array($man) || !is_array($man['files'] ?? null) || count($man['files']) > count(RIVET_BH_FILES)) {
         return rivetBuildHostErr(422, 'invalid', 'manifest.files is required.');
     }
     // one completer at a time
@@ -861,7 +866,8 @@ function rivetBuildHostComplete($mysqli, array $host, array $body, string $ip, ?
     while ($q && ($r = mysqli_fetch_assoc($q))) {
         $files[(string) $r['name']] = $r;
     }
-    $need = ['rivetit-agent-windows-amd64.exe', 'rivetit-agent-windows-arm64.exe', 'rivetit-agent-windows-amd64.msi', 'SHA256SUMS'];
+    $need = RIVET_BH_REQUIRED;
+    $linux = array_values(array_filter(RIVET_BH_LINUX, static fn (string $n): bool => isset($files[$n])));   // optional, additive: an old build host sends none
     $paths = [];
     $hash = [];
     foreach ($need as $n) {
@@ -887,6 +893,32 @@ function rivetBuildHostComplete($mysqli, array $host, array $body, string $ip, ?
         }
         if (!isset($sums[$n]) || !hash_equals($hash[$n], $sums[$n])) {
             return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not match the SHA-256 in SHA256SUMS.');
+        }
+    }
+    // the Linux files (when sent) are held to the same bar: reassembled, hash in the manifest AND in SHA256SUMS, then header / shebang checks
+    foreach ($linux as $n) {
+        $err = rivetBuildHostAssemble($mysqli, $j, $files[$n], $paths[$n]);
+        if ($err !== null) {
+            return rivetBuildHostFail($mysqli, $host, $j, $err);
+        }
+        $hash[$n] = (string) hash_file('sha256', $paths[$n]);
+        if (!isset($mf[$n]) || !hash_equals($hash[$n], $mf[$n])) {
+            return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not match the SHA-256 in the manifest.');
+        }
+        if (!isset($sums[$n]) || !hash_equals($hash[$n], $sums[$n])) {
+            return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not match the SHA-256 in SHA256SUMS.');
+        }
+        $lerr = rivetLxValidate($paths[$n], $n);
+        if ($lerr !== null) {
+            return rivetBuildHostFail($mysqli, $host, $j, $n . ': ' . $lerr);
+        }
+        if ((rivetLxParseName($n)['kind'] ?? '') === 'binary' && !rivetBuildHostHasVersion($paths[$n], (string) $j['version'])) {
+            return rivetBuildHostFail($mysqli, $host, $j, $n . ' does not contain the version ' . $j['version'] . ' (it was built with a different version).');
+        }
+    }
+    foreach (array_keys($mf) as $n) {
+        if (!isset($hash[$n])) {
+            return rivetBuildHostFail($mysqli, $host, $j, 'The manifest lists ' . $n . ' but it was not uploaded.');
         }
     }
     foreach ($mf as $n => $h) {   // SHA256SUMS itself may be in the manifest
@@ -989,7 +1021,7 @@ function rivetBuildHostPublish($mysqli, \RivetCore\Rmm\RmmModule $rmm, int $jobI
         while ($q && ($r = mysqli_fetch_assoc($q))) {
             $paths[(string) $r['name']] = $dir . '/' . $r['storage_name'] . '.bin';
         }
-        foreach (RIVET_BH_FILES as $n) {
+        foreach (RIVET_BH_REQUIRED as $n) {
             if ($dir === null || !isset($paths[$n]) || !is_file($paths[$n])) {
                 rivetBuildHostSetState($mysqli, $jobId, 'verifying', 'failed', 'The verified files are no longer on this server.');
 
@@ -999,8 +1031,22 @@ function rivetBuildHostPublish($mysqli, \RivetCore\Rmm\RmmModule $rmm, int $jobI
         $admin = $rmm->admin();
         $notes = [];
         $bad = null;
+        // Linux files first: storing them again is harmless (same bytes = replay), so a retry of Publish still works. They become the current ones only after the Windows files are in.
+        $lxIds = [];
+        foreach (RIVET_BH_LINUX as $ln) {
+            if (!isset($paths[$ln]) || !is_file($paths[$ln])) {
+                continue;
+            }
+            $lr = rivetLxStore($mysqli, $paths[$ln], $ln, (string) $j['version'], $uid, ['activate' => false, 'ring' => $o['offer'] ? $o['ring'] : null, 'pct' => $o['pct'], 'source' => 'build_host',
+                'notes' => 'Built on build host ' . ($j['host_name'] ?? '') . ' from ' . $j['source_ref'] . ' ' . substr((string) $j['commit_sha'], 0, 12)]);
+            if (!$lr['ok']) {
+                $bad = $lr['error'] ?? ($ln . ' could not be stored.');
+                break;
+            }
+            $lxIds[] = (int) $lr['file_id'];
+        }
         $notesText = 'Built on build host ' . ($j['host_name'] ?? '') . ' from ' . $j['source_ref'] . ' ' . substr((string) $j['commit_sha'], 0, 12);
-        foreach (['rivetit-agent-windows-amd64.exe' => 'amd64', 'rivetit-agent-windows-arm64.exe' => 'arm64'] as $n => $arch) {
+        foreach ($bad !== null ? [] : ['rivetit-agent-windows-amd64.exe' => 'amd64', 'rivetit-agent-windows-arm64.exe' => 'arm64'] as $n => $arch) {
             $r = $admin->uploadBinary($who, $paths[$n], (string) $j['version'], $arch, ['activate' => $o['activate'], 'release_ring' => $o['offer'] ? $o['ring'] : null, 'rollout_pct' => $o['pct'], 'notes' => $notesText]);
             if (!$r->ok) {
                 $bad = $n . ': ' . $r->message;
@@ -1014,6 +1060,11 @@ function rivetBuildHostPublish($mysqli, \RivetCore\Rmm\RmmModule $rmm, int $jobI
                 $bad = 'rivetit-agent-windows-amd64.msi: ' . $r->message;
             }
         }
+        if ($bad === null && $o['activate']) {
+            foreach ($lxIds as $lid) {
+                rivetLxSetCurrent($mysqli, $lid);
+            }
+        }
         if ($bad !== null) {
             rivetBuildHostSetState($mysqli, $jobId, 'verifying', 'failed', 'Publishing failed: ' . $bad);
             rivetBuildHostPurge($mysqli, $j);
@@ -1023,7 +1074,7 @@ function rivetBuildHostPublish($mysqli, \RivetCore\Rmm\RmmModule $rmm, int $jobI
         }
         rivetBuildHostSetState($mysqli, $jobId, 'verifying', 'published', 'Published.' . ($o['offer'] && $o['ring'] !== null ? ' Offered to the ' . $o['ring'] . ' ring at ' . $o['pct'] . '%.' : ''));
         rivetBuildHostPurge($mysqli, $j);
-        rivetBuildHostAudit('Agent Build Host Published', "$un published version {$j['version']} built on \"" . ($j['host_name'] ?? '') . "\" (commit " . substr((string) $j['commit_sha'], 0, 12) . ', verified SHA-256 of every file)'
+        rivetBuildHostAudit('Agent Build Host Published', "$un published version {$j['version']} built on \"" . ($j['host_name'] ?? '') . "\" (commit " . substr((string) $j['commit_sha'], 0, 12) . ', verified SHA-256 of every file' . ($lxIds !== [] ? ', ' . count($lxIds) . ' Linux files hosted' : '') . ')'
             . ($o['activate'] ? ', now used for new installers' : '') . ($o['offer'] && $o['ring'] !== null ? ', offered to the ' . $o['ring'] . ' ring at ' . $o['pct'] . '%' : ''));
 
         return ['ok' => true, 'message' => 'Version ' . $j['version'] . ' is published.'];
