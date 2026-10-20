@@ -233,6 +233,14 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
     <div class="card-body">
         <?= rivetEaFormAttr(rivetCsRender(rivetCsStateFromChecks((array) $cfg['checks'])), 'ea_settings_form') ?>
         <button form="ea_settings_form" type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
+        <hr>
+        <h5 class="mb-1">Clean up checks that no longer apply</h5>
+        <p class="small text-muted mb-2">A check ticked for one OS is only sent to devices of that OS. A Windows PC that was earlier given Linux service checks (cron, sshd, ...) still shows them as failed. This removes every check a device is no longer given and closes its open alerts as &ldquo;This check no longer applies to the device&rdquo; (no ticket is created). It is safe to press again: when nothing is left to clean it changes nothing. Each device also cleans itself the next time it checks in.</p>
+        <form action="post.php" method="post" autocomplete="off" id="ea_cleanup_form">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <input type="hidden" name="ea_tab" value="checks">
+            <button type="submit" name="cleanup_stale_checks" value="1" class="btn btn-outline-primary"><i class="fas fa-broom me-1" aria-hidden="true"></i>Clean up checks that no longer apply</button>
+        </form>
     </div>
 </div>
 <?php $eaTab('security'); ?>
