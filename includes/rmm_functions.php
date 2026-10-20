@@ -47,7 +47,7 @@ function createTicketFromRmmAlert($mysqli, array $alert, int $created_by, string
     // Settings > Integrations > RMM > Alert tickets: the category (and optionally priority) for tickets made from alerts. Nothing configured = no category, as before.
     require_once __DIR__ . '/rmm_alert_routes.php';
     $route = rmmAlertTicketRoute($mysqli, $alert);
-    $category_sql = $route['category_id'] > 0 ? ('ticket_category_id=' . intval($route['category_id']) . ',') : '';
+    $category_sql = $route['category_id'] > 0 ? ('ticket_category=' . intval($route['category_id']) . ',') : '';
     if ($route['priority'] !== null) {
         $priority = $route['priority'];
     }

@@ -53,6 +53,12 @@ if (isset($_POST['save_rmm_alert_ticket_settings'])) {
         'source'       => array_keys(RMM_ALERT_ROUTE_SOURCES),
         'check_prefix' => array_keys(RMM_ALERT_ROUTE_FAMILIES),
     ];
+    foreach (['route_when', 'route_category', 'route_priority'] as $f) {
+        if (isset($_POST[$f]) && !is_array($_POST[$f])) {
+            flash_alert('The routes were not sent in the expected form. Nothing was saved.', 'warning');
+            redirect();
+        }
+    }
     // each route's "when" arrives as one choice, "type:value" (severity:warning, check_prefix:disk, source:tactical_rmm)
     $whens  = is_array($_POST['route_when'] ?? null) ? array_values($_POST['route_when']) : [];
     $types  = [];
