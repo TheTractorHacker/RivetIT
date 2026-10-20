@@ -150,6 +150,22 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
     </div>
 </div>
 
+<!-- Bulk actions bar: hidden until at least one row is ticked (js/bulk_actions.js toggles #bulkActionButton by its id) -->
+<div class="card card-dark mb-2" id="bulkActionButton" hidden>
+    <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="small text-muted"><span id="selectedCount">0</span> selected</span>
+        <?php if (lookupUserPermission('module_rmm_sync') >= 1): ?>
+        <select class="form-control form-control-sm w-auto" id="bulkAssignClient">
+            <option value="">Assign department...</option>
+            <?php foreach ($clients_list as $cl): ?>
+            <option value="<?= intval($cl['client_id']) ?>"><?= nullable_htmlentities($cl['client_name']) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <button type="button" class="btn btn-sm btn-primary" id="bulkAssignGo" disabled>Apply to selected</button>
+        <?php endif; ?>
+    </div>
+</div>
+
 <!-- Asset table -->
 <div class="card card-dark">
     <div class="card-body p-0">
@@ -233,30 +249,28 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                             </div>
                             <?php endif; ?>
                         <?php endif; ?>
-                        <div class="dropdown dropleft text-center">
-                            <button class="btn btn-secondary btn-xs" type="button" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-ellipsis-h"></i></button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_edit.php?id=<?= intval($row['asset_id']) ?>">
-                                    <i class="fas fa-fw fa-edit me-2"></i>Edit
+                        <button class="btn btn-secondary btn-xs dropdown-toggle" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="More actions"><i class="fas fa-ellipsis-h"></i></button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_edit.php?id=<?= intval($row['asset_id']) ?>">
+                                <i class="fas fa-fw fa-edit me-2"></i>Edit
+                            </a>
+                            <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_copy.php?id=<?= intval($row['asset_id']) ?>">
+                                <i class="fas fa-fw fa-copy me-2"></i>Copy
+                            </a>
+                            <?php if ($session_user_role > 2): ?>
+                                <?php if ($row['asset_archived_at']): ?>
+                                <a class="dropdown-item text-info" href="post.php?restore_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                    <i class="fas fa-fw fa-redo me-2"></i>Restore
                                 </a>
-                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_copy.php?id=<?= intval($row['asset_id']) ?>">
-                                    <i class="fas fa-fw fa-copy me-2"></i>Copy
+                                <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                    <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </a>
-                                <?php if ($session_user_role > 2): ?>
-                                    <?php if ($row['asset_archived_at']): ?>
-                                    <a class="dropdown-item text-info" href="post.php?restore_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                        <i class="fas fa-fw fa-redo me-2"></i>Restore
-                                    </a>
-                                    <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                        <i class="fas fa-fw fa-trash me-2"></i>Delete
-                                    </a>
-                                    <?php else: ?>
-                                    <a class="dropdown-item text-danger confirm-link" href="post.php?archive_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                        <i class="fas fa-fw fa-archive me-2"></i>Archive
-                                    </a>
-                                    <?php endif; ?>
+                                <?php else: ?>
+                                <a class="dropdown-item text-danger confirm-link" href="post.php?archive_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                    <i class="fas fa-fw fa-archive me-2"></i>Archive
+                                </a>
                                 <?php endif; ?>
-                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </td>
@@ -358,6 +372,42 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
         });
     });
 });
+
+// Bulk "Assign department to selected": loops the same per-asset endpoint the single-row select above uses (it has no bulk form of
+// its own), one request per ticked row, then reloads once. getBulkCheckboxes() is js/bulk_actions.js's helper.
+(function () {
+    var sel = document.getElementById('bulkAssignClient');
+    var go = document.getElementById('bulkAssignGo');
+    if (!sel || !go) { return; }
+    sel.addEventListener('change', function () { go.disabled = sel.value === ''; });
+    go.addEventListener('click', function () {
+        var clientId = sel.value;
+        var ids = getBulkCheckboxes().filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+        if (!clientId || ids.length === 0) { return; }
+        go.disabled = true;
+        go.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Assigning...';
+        Promise.all(ids.map(function (assetId) {
+            return fetch('/agent/post/rmm_sync.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'csrf_token=<?= $_SESSION['csrf_token'] ?>&action=assign_client&asset_id=' + encodeURIComponent(assetId) + '&client_id=' + encodeURIComponent(clientId)
+            }).then(function (r) { return r.json(); });
+        })).then(function (results) {
+            var failed = results.filter(function (d) { return !d.success; }).length;
+            if (failed > 0) {
+                RivetDialog.alert(failed + ' of ' + ids.length + ' could not be assigned.');
+                go.disabled = false;
+                go.textContent = 'Apply to selected';
+            } else {
+                location.reload();
+            }
+        }).catch(function () {
+            RivetDialog.alert('Network error assigning department.');
+            go.disabled = false;
+            go.textContent = 'Apply to selected';
+        });
+    });
+})();
 </script>
 
 <?php require_once "../includes/footer.php"; ?>
