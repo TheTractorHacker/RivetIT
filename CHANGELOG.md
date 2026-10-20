@@ -6,6 +6,15 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.63] RivetIT — Asset Performance charts no longer look blank when a device has only a few samples
+
+**Deploy notes:** pull this tag; no database update, no RivetCore change, no nginx change. Hard-reload the asset page once so the browser fetches the new `js/asset_metrics.js` and `css/itflow_metrics.css`.
+
+- **Few samples are now visible.** A chart series with fewer than 8 real samples in the window (disk space, uptime, pending reboot, memory totals on devices that report them rarely) is drawn with point markers joined by a short line, and the chart footer says "N samples so far"; a single sample shows as a dot with "1 sample so far: <value> at <time>". Pending reboot is drawn as a stepped No/Yes strip. In dense charts, an isolated sample between two gaps gets a dot too, so it cannot disappear.
+- **Empty states.** Charts for metrics a device has never reported are not drawn (as before) and are now named in one muted line under the charts, "Not reported by this device: GPU, Battery, Disk IOPS, ...". A chart whose samples are all outside the selected range says "No samples in this range; last sample <time in the company time zone>" with a one-click "Show last 7 / 30 / 90 days" link.
+- **Time helper hardened.** The company-time-zone formatting used for chart axes and tooltips caches its formatter and cannot throw or print NaN/undefined for an invalid date, a missing or unknown `data-company-tz`, or any bucket size.
+- Tests: `tests/metrics_tab_groups_unit.php` (group selection, not-reported list, last-sample hint), `tests/browser/metrics_empty_smoke.mjs` with `tests/browser/metrics_empty_seed.php` (Chromium over CDP: dense charts draw, sparse markers and notes, stepped reboot strip, out-of-range message and link, hidden never-reported groups, every range, time-zone variants).
+
 ## [26.10.62] RivetIT — Choose the ticket category for tickets made from RMM alerts (DB 2.6.179)
 
 **Deploy notes:** pull this tag, then run the database update (Administration > Database updates, or `php scripts/update_cli.php --update_db`). It adds one nullable column (`settings.config_rmm_alert_ticket_category_id`) and one small table (`rmm_alert_ticket_routes`); both are created only if missing. Nothing changes until an admin picks a category: with the default left on "No category" and no routes, alert tickets are made exactly as before. No RivetCore change, no nginx change.

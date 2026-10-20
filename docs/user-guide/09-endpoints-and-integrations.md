@@ -142,7 +142,7 @@ Open the asset from RMM Assets, or from Infrastructure → Assets. A device link
 | **RMM Overview** | Hardware and operating system summary saved at the last sync, agent ID, last seen, last sync |
 | **Hardware**, **Software**, **Services** | Fetched from the RMM when you open the tab. Software and Services have a search box and paging. |
 | **Monitoring** | The checks the RMM runs on this device, with passing or failing status |
-| **Performance** | Charts of CPU, memory, disk and network history, if metrics are being collected (see [Endpoint metrics collector](#endpoint-metrics-collector)). It shows an explanation instead of charts when nothing has been collected. |
+| **Performance** | Charts of CPU, memory, disk and network history, if metrics are being collected (see [Endpoint metrics collector](#endpoint-metrics-collector)). It shows an explanation instead of charts when nothing has been collected. Charts with only a few samples show point markers and "N samples so far"; metrics the device never reports are listed in one line under the charts; a chart with samples only outside the chosen range shows when the last sample was and a link to widen the range. |
 | **Patches** | Windows updates the device knows about. Tactical RMM only. **Scan** and **Install Pending** need Modify access to RMM devices. Installing can restart the device. |
 | **Tickets**, **Alerts** | Tickets for this asset, and every alert for this device with **Ack**, **Resolve** and create-ticket buttons |
 | **Scripts** | Run a script on this device and see its recent runs |
