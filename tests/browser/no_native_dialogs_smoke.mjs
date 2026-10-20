@@ -194,6 +194,25 @@ await T('endpoint agent settings (data-ea-confirm): the confirm modal appears an
   assert(await p.url() === before, 'URL changed after cancel');
 });
 
+await T('agent/alerts.php bulkAction: empty list shows the alert dialog (was alert())', async () => {
+  await open('/agent/alerts.php');
+  assert(await p.eval('typeof bulkAction === "function"'), 'bulkAction missing');
+  await p.eval("bulkAction('acknowledge'); 0");
+  await waitDlg();
+  assert((await dlg()).msg === 'No alerts to update.', 'wrong message: ' + JSON.stringify(await dlg()));
+  await clickBtn('OK'); await goneDlg();
+}, { allowHttp: [/./] });
+
+await T('user_security revokeApiToken: confirm dialog, Cancel sends no request', async () => {
+  await open('/agent/user/user_security.php');
+  assert(await p.eval('typeof revokeApiToken === "function"'), 'revokeApiToken missing');
+  await p.eval("window.__fetches = 0; const of = window.fetch; window.fetch = function () { window.__fetches++; return of.apply(this, arguments); }; const b = document.createElement('button'); b.dataset.csrf = 'x'; revokeApiToken(1, b); 0");
+  await waitDlg();
+  assert(/Revoke this token/.test((await dlg()).msg), 'wrong message');
+  await clickBtn('Cancel'); await goneDlg(); await sleep(200);
+  assert(await p.eval('window.__fetches') === 0, 'a request was sent after Cancel');
+});
+
 await T('ajax_modal.js: a failed modal load shows the dialog instead of alert()', async () => {
   await open('/agent/clients.php');
   await p.eval(`openAjaxModal('/agent/modals/does_not_exist.php', 'lg'); 0`);
