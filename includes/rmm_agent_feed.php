@@ -613,6 +613,15 @@ function rivetAgentFeedStatus($mysqli, array $releases): array
             $linux[$row['version']][] = $row;
         }
     }
+    // the script, agent and tarball this server hosts count as "have" for the version too (26.10.64)
+    if (function_exists('rivetLxList') || is_file(__DIR__ . '/rmm_linux_store.php')) {
+        require_once __DIR__ . '/rmm_linux_store.php';
+        foreach (rivetLxList($mysqli) as $hf) {
+            if ((int) $hf['active'] === 1) {
+                $linux[$hf['version']][] = ['kind' => $hf['kind'], 'arch' => $hf['arch'], 'hosted' => 1];
+            }
+        }
+    }
     $counts = rivetAgentFeedDeviceCounts($mysqli);
     $rows = [];
     foreach ($releases as $r) {
@@ -635,7 +644,11 @@ function rivetAgentFeedStatus($mysqli, array $releases): array
                 $want['linux']++;
             }
         }
-        $have['linux'] = count($linux[$v] ?? []);
+        $lk = [];
+        foreach ($linux[$v] ?? [] as $lrow) {
+            $lk[$lrow['kind'] . '|' . $lrow['arch']] = 1;
+        }
+        $have['linux'] = count($lk);
         $stored = count($have['exe']) + count($have['msi']) + $have['linux'];
         $total = $want['exe'] + $want['msi'] + $want['linux'];
         $offered = [];
@@ -960,7 +973,51 @@ function rivetAgentFeedStep($mysqli, \RivetCore\Rmm\RmmModule $rmm, \RivetCore\R
             return $res(true, 'stored', $asset . ' verified (SHA-256 ' . substr($expect, 0, 12) . '...) and stored' . ($extra ? '; ' . implode('; ', $extra) : '') . '.');
         }
 
-        // ---- a Linux asset: recorded (the script is downloaded once and checked, the packages are linked and verified by the host that installs them)
+        // ---- the install script, the Linux agent and the .tar.gz: downloaded, VERIFIED against the release checksums, then HOSTED on this server (26.10.64), so the install
+        // command downloads them from here. The .deb / .rpm stay links (they are verified by the package manager of the machine that installs them).
+        if (in_array($step['kind'], ['script', 'binary', 'tarball'], true)) {
+            require_once __DIR__ . '/rmm_linux_store.php';
+            if (!rivetLxReady($mysqli)) {
+                return $res(false, 'failed', 'Run the database update first (Administration > Updates).');
+            }
+            $hosted = rivetLxFind($mysqli, $asset, $version);
+            $cap = $step['kind'] === 'script' ? RIVET_LX_SCRIPT_MAX : min(rivetLxMaxBytes($asset), $step['size'] > 0 ? $step['size'] : rivetLxMaxBytes($asset));
+            $file = $tmp . '/lx.bin';
+            if ($hosted !== null && hash_equals((string) $hosted['sha256'], $expect)) {
+                $dl = ['ok' => true, 'bytes' => (int) $hosted['size_bytes']];   // already hosted byte for byte: only the choices of this publish apply
+                $file = (string) rivetLxPath($hosted);
+            } else {
+                $dl = rivetAgentFeedGet(rivetAgentFeedAssetUrl($repo, $tag, $asset), ['role' => 'asset', 'max_bytes' => $cap, 'to_file' => $file, 'timeout' => 240]);
+                if (!$dl['ok']) {
+                    return $res(false, 'failed', 'Could not download ' . $asset . ': ' . $dl['error']);
+                }
+                if ($step['size'] > 0 && $dl['bytes'] !== $step['size']) {
+                    @unlink($file);
+                    logAction('Endpoint Agent', 'Agent Feed Verify Failed', "{$who->userName}: $asset of $tag was {$dl['bytes']} bytes, the release lists {$step['size']}; nothing stored");
+
+                    return $res(false, 'refused', $asset . ' is ' . $dl['bytes'] . ' bytes but the release lists ' . $step['size'] . '. Nothing was stored.');
+                }
+                $got = hash_file('sha256', $file);
+                if (!is_string($got) || !hash_equals($expect, $got)) {
+                    @unlink($file);
+                    logAction('Endpoint Agent', 'Agent Feed Verify Failed', "{$who->userName}: $asset of $tag has SHA-256 " . (string) $got . ", the release says $expect; nothing stored");
+
+                    return $res(false, 'refused', 'The download of ' . $asset . ' does not match its SHA-256 in the release (' . substr((string) $got, 0, 12) . '... against ' . substr($expect, 0, 12) . '...). Nothing was stored.');
+                }
+            }
+            $r = rivetLxStore($mysqli, $file, $asset, $version, (int) $who->userId, ['activate' => $opt['activate'], 'ring' => $opt['offer'] ? $opt['ring'] : null, 'pct' => $opt['pct'], 'source' => 'github',
+                'expected_sha256' => $expect, 'notes' => 'From GitHub ' . $repo . ' ' . $tag]);
+            if (!$r['ok']) {
+                logAction('Endpoint Agent', 'Agent Feed Publish Refused', "{$who->userName}: $asset of $tag was refused by the Linux file checks: " . (string) ($r['error'] ?? ''));
+
+                return $res(false, 'refused', (string) ($r['error'] ?? 'The file was refused.'));
+            }
+            logAction('Endpoint Agent', 'Agent Feed Linux File Hosted', "{$who->userName} published $asset of $repo $tag and this server now hosts it (sha256 $expect, {$dl['bytes']} bytes, verified against the release checksums)" . ($r['current'] ? ', now the one the Add device command uses' : ''));
+
+            return $res(true, ($r['replay'] ?? false) ? 'already' : 'stored', $asset . ' verified (SHA-256 ' . substr($expect, 0, 12) . '...) and hosted on this server' . ($r['current'] ? '; now used for the Linux install command' : '; not the current one') . '.');
+        }
+
+        // ---- a Linux package (.deb / .rpm): recorded as a link
         $size = $step['size'];
         if ($step['kind'] === 'script') {
             $file = $tmp . '/script.sh';
