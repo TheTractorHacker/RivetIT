@@ -190,7 +190,7 @@ function rivetRmmMeshAgentHtml(?array $m, array $opt = []): string
         $rows .= $row('Mapping', '<span class="badge text-bg-success">Mapped automatically</span>');
     }
     if (($m['reported_at'] ?? null) !== null) {
-        $rows .= $row('Last reported', $h(str_replace('T', ' ', rtrim((string) $m['reported_at'], 'Z'))) . ' UTC');
+        $rows .= $row('Last reported', $h(rivetFormatTime($m['reported_at'], 'utc') ?: (string) $m['reported_at']));
     }
     $hint = '';
     if (($m['error'] ?? null) !== null) {

@@ -9,6 +9,7 @@
  * Test button and the module wiring and is not used by a page that prints.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_bootstrap.php';   // rivetRmmExtStoreAllowHttp(), rivetWebhookUrlPolicy()
 
 use RivetCore\Rmm\Metrics\VictoriaMetricsStore;
@@ -170,7 +171,7 @@ function rivetRmmScaleProbeWords(array $probe): array
 /** A partition's upper boundary as text. */
 function rivetRmmScalePartitionBound(?int $ts): string
 {
-    return $ts === null ? 'everything later' : 'before ' . gmdate('Y-m-d', $ts) . ' UTC';
+    return $ts === null ? 'everything later' : 'before ' . rivetFormatTime($ts, 'epoch');
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------- external metric store

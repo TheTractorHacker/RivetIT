@@ -296,7 +296,7 @@ function rivetRmmUiNetworkTile(array $vm): string
         }
         $peakBps = $peakBytes * 8;
         $pct = $bps === null ? null : min(100.0, $bps / $peakBps * 100);
-        $at = is_array($side) && !empty($side['peak_at']) ? ' at ' . gmdate('H:i', strtotime((string) $side['peak_at']) ?: 0) . ' UTC' : '';
+        $at = is_array($side) && !empty($side['peak_at']) ? ' at ' . rivetFormatTime((string) $side['peak_at'], 'utc', true, 'H:i') : '';
 
         return '<div class="px-3 pb-2"><div class="d-flex justify-content-between small"><span>' . rmmH($label) . '</span><b>' . $now . '</b></div>'
             . rivetRmmUiBar($pct, 'info', 6, $label . ' against the 24 hour peak') . '<div class="small text-muted" id="' . $id . '-peak">'
@@ -324,7 +324,7 @@ function rivetRmmUiLiveHealth(array $vm): string
     $boot = '';
     if (!$vm['offline'] && $vm['uptime_s'] !== null && $vm['last_checkin_at'] !== null) {
         $bootTs = strtotime($vm['last_checkin_at']) - (int) $vm['uptime_s'];
-        $boot = '<span>last boot <b title="' . rmmH(gmdate('Y-m-d H:i', $bootTs)) . ' UTC">' . rmmH(rivetRmmUiAgo(max(0, time() - $bootTs))) . '</b></span>';
+        $boot = '<span>last boot <b title="' . rmmH(rivetFormatTime($bootTs, 'epoch')) . '">' . rmmH(rivetRmmUiAgo(max(0, time() - $bootTs))) . '</b></span>';
     }
     $tiles .= rivetRmmUiStatCard('clock', $vm['pending_reboot'] ? 'warning' : 'success', $vm['offline'] || $vm['uptime_s'] === null ? '<span class="text-muted">unknown</span>' : rmmH(rivetRmmUiDuration((int) $vm['uptime_s'])),
         'Uptime', $boot . ($vm['pending_reboot'] ? rivetRmmUiPill('warn', 'Reboot pending') : '<span>' . ($vm['pending_reboot'] === null ? 'reboot state not reported' : 'no reboot pending') . '</span>'));
@@ -1155,7 +1155,7 @@ function rivetRmmUiCapacity(array $cap): string
         $ws = $herd['warm_start'] ?? null;
         $warmLen = (int) ($limits['warm_start_s'] ?? 0);
         if (is_array($ws) && !empty($ws['active'])) {
-            $cacheRows[] = ['Warm start', rivetRmmUiPill('warn', 'In progress') . ' admitting about ' . rmmH($ws['admitted_percent']) . ' % of check-ins until ' . rmmH(gmdate('H:i:s', (int) $ws['until'])) . ' UTC'];
+            $cacheRows[] = ['Warm start', rivetRmmUiPill('warn', 'In progress') . ' admitting about ' . rmmH($ws['admitted_percent']) . ' % of check-ins until ' . rmmH(rivetFormatTime((int) $ws['until'], 'epoch', true, 'H:i:s'))];
         } else {
             $cacheRows[] = ['Warm start', $warmLen > 0 ? rivetRmmUiPill('ok', 'Armed') . ' not active now; starts after the module is switched back on or after a ' . (int) ($limits['warm_quiet_s'] ?? 120) . ' s quiet gap' : rivetRmmUiPill('off', 'Off')];
         }

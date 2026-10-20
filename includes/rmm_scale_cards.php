@@ -253,7 +253,7 @@ function rivetRmmUiScaleCards(array $c): string
         . '<div class="mb-3">' . ($words === null
             ? '<p class="small mb-2"><i class="fas fa-question-circle me-1" aria-hidden="true"></i>This server has not been checked yet.</p>'
             : '<p class="mb-1">' . ($words['can'] || !empty($words['history']['partitioned']) ? rivetRmmUiPill('ok', 'Possible') : rivetRmmUiPill('warn', 'Not possible')) . ' <strong>Can this server do it?</strong></p><p class="small mb-1">' . rmmH($words['summary']) . '</p>'
-              . '<p class="small text-muted mb-2">Database: ' . rmmH($words['server']) . ($probeAt !== null ? ' &middot; checked ' . rmmH($probeAt) . ' UTC' : '') . '</p>')
+              . '<p class="small text-muted mb-2">Database: ' . rmmH($words['server']) . ($probeAt !== null ? ' &middot; checked ' . rmmH(rivetFormatTime($probeAt, 'utc') ?: $probeAt) : '') . '</p>')
         . '<form action="post.php" method="post" class="d-inline">' . $csrf . '<button type="submit" name="partition_probe" class="btn btn-outline-secondary btn-sm"><i class="fas fa-vial me-1" aria-hidden="true"></i>' . ($words === null ? 'Check this server' : 'Check again') . '</button>'
         . '<span class="small text-muted ms-2">Creates and removes a tiny scratch table to prove the database account may partition. Nothing else is touched.</span></form></div>';
     if ($words !== null && !empty($words['history']['warnings'])) {
@@ -292,7 +292,7 @@ function rivetRmmUiScaleCards(array $c): string
     if ($fl['enabled']) {
         $bufHtml = '<h6 class="mt-4">Buffer</h6>' . rivetRmmUiDl([
             ['Waiting to be sent', rmmH(number_format((int) $buf['batches'])) . ' batch' . ((int) $buf['batches'] === 1 ? '' : 'es') . ' (' . rmmH(number_format((int) $buf['points'])) . ' points)'],
-            ['Oldest waiting', $buf['oldest'] === null ? '<span class="text-muted">nothing waiting</span>' : rmmH($buf['oldest']) . ' UTC'],
+            ['Oldest waiting', $buf['oldest'] === null ? '<span class="text-muted">nothing waiting</span>' : rmmH(rivetFormatTime($buf['oldest'], 'utc') ?: $buf['oldest'])],
             ['Most attempts on one batch', (int) $buf['max_attempts'] . ($buf['last_error'] !== null ? ' &middot; last error: ' . rmmH($buf['last_error']) : '')],
         ]) . '<p class="small text-muted mb-0">Check-ins never wait for the store: points are queued here and sent by the minute housekeeping. If the store is down, batches wait up to 24 hours or 20,000 batches, then the oldest are dropped; your own hourly rollups still have the data. The count of points dropped is shown per request in the Scale and capacity panel.</p>';
     }
