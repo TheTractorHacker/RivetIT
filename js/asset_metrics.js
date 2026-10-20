@@ -113,15 +113,31 @@
     /* Every time is shown in the COMPANY's time zone (data-company-tz on [data-asset-metrics]),
      * not the browser's: the same moment reads the same for every technician. */
     var companyTz = null;
+    var tzFormatters = {};
+    /* Never throws and never yields NaN/undefined text: an invalid date, a missing
+     * data-company-tz, an unknown zone name or a runtime without Intl all fall back to
+     * the browser's local fields. The formatter is cached per zone - this runs once per
+     * bucket per chart. */
     function parts(date) {
+        if (!(date instanceof Date) || isNaN(date.getTime())) {
+            return { month: '', day: '', hour: '--', minute: '--', zone: '' };
+        }
         var p = { month: MONTHS[date.getMonth()], day: date.getDate(), hour: pad2(date.getHours()), minute: pad2(date.getMinutes()), zone: '' };
         if (!companyTz) { return p; }
         try {
+            var fmt = tzFormatters[companyTz];
+            if (fmt === null) { return p; }
+            if (fmt === undefined) {
+                fmt = tzFormatters[companyTz] = new Intl.DateTimeFormat('en-US', { timeZone: companyTz, hourCycle: 'h23', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+            }
             var f = {};
-            new Intl.DateTimeFormat('en-US', { timeZone: companyTz, hourCycle: 'h23', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
-                .formatToParts(date).forEach(function (x) { f[x.type] = x.value; });
-            p = { month: MONTHS[(+f.month) - 1], day: +f.day, hour: pad2(+f.hour), minute: pad2(+f.minute), zone: f.timeZoneName || '' };
-        } catch (err) { /* unknown zone name: fall back to the browser's */ }
+            fmt.formatToParts(date).forEach(function (x) { f[x.type] = x.value; });
+            var mo = MONTHS[(+f.month) - 1];
+            if (!mo || isNaN(+f.day) || isNaN(+f.hour) || isNaN(+f.minute)) { return p; }
+            p = { month: mo, day: +f.day, hour: pad2(+f.hour % 24), minute: pad2(+f.minute), zone: f.timeZoneName || '' };
+        } catch (err) {
+            tzFormatters[companyTz] = null; /* unknown zone name: remember, use the browser's */
+        }
         return p;
     }
 
