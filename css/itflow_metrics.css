@@ -270,3 +270,18 @@
   .ifm-loading .ifm-cards,
   .ifm-loading .ifm-chart { transition: none; }
 }
+
+/* Sparse-series note ("N samples so far"), "no samples in range" link, and the
+   single line that replaces charts for metrics a device never reports. */
+.ifm-chart-note {
+  padding: 0 1rem .7rem;
+  font-size: .72rem;
+  color: var(--if-muted);
+}
+.ifm-chart-note[hidden] { display: none; }
+.ifm-range-link { margin-left: .35rem; font-weight: 600; }
+.ifm-not-reported {
+  margin: 1rem 0 0;
+  font-size: .78rem;
+  color: var(--if-muted);
+}

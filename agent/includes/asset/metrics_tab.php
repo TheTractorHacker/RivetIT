@@ -170,6 +170,73 @@ if (!function_exists('metrics_tab_groups')) {
     }
 }
 
+if (!function_exists('metrics_tab_select_groups')) {
+    /**
+     * Reduce the group catalogue to what one device reports. Pure (no DB, no globals)
+     * so it can be unit tested.
+     *
+     * @param array<int,array<string,mixed>> $groups  metrics_tab_groups()
+     * @param array<string,string> $status            metric_key => available|stale|unavailable
+     * @param array<string,array<string,mixed>> $specs metric_key => capability entry
+     * @return array{groups:array<int,array<string,mixed>>,request_keys:array<int,string>,missing:array<int,string>}
+     */
+    function metrics_tab_select_groups(array $groups, array $status, array $specs): array
+    {
+        $supported = static function (string $key) use ($status): bool {
+            return isset($status[$key]) && $status[$key] !== 'unavailable';
+        };
+        $out = [];
+        $request = [];
+        $familyShown = [];
+        $familyOrder = [];
+        $skipped = [];   // family => [group titles]
+        foreach ($groups as $g) {
+            $fam = (string) $g['family'];
+            if (!in_array($fam, $familyOrder, true)) {
+                $familyOrder[] = $fam;
+            }
+            $live = array_values(array_filter($g['keys'], $supported));
+            if ($live === []) {
+                $skipped[$fam][] = (string) $g['title'];
+                continue;
+            }
+            $familyShown[$fam] = true;
+            $g['keys'] = $live;
+            if ($g['headline'] !== null && !in_array($g['headline'], $live, true)) {
+                $g['headline'] = null;
+            }
+            $head = $specs[$live[0]] ?? [];
+            $g['unit']      = (string) ($head['unit'] ?? '');
+            $g['precision'] = intval($head['precision'] ?? 0);
+            // Newest sample across the group's live keys: lets the page say when the
+            // device last reported if the selected range holds nothing.
+            $last = null;
+            foreach ($live as $k) {
+                $ts = (string) ($specs[$k]['last_sample_at'] ?? '');
+                if ($ts !== '' && ($last === null || strcmp($ts, $last) > 0)) {
+                    $last = $ts;
+                }
+            }
+            $g['last_sample_at'] = $last;
+            $out[] = $g;
+            foreach ($live as $k) {
+                if (!in_array($k, $request, true)) {
+                    $request[] = $k;
+                }
+            }
+        }
+        $missing = [];
+        foreach ($familyOrder as $fam) {
+            if (!isset($skipped[$fam])) {
+                continue;
+            }
+            // Whole family absent -> the family name; part of it -> the group titles.
+            $missing = array_merge($missing, isset($familyShown[$fam]) ? $skipped[$fam] : [$fam]);
+        }
+        return ['groups' => $out, 'request_keys' => $request, 'missing' => $missing];
+    }
+}
+
 if (!function_exists('metrics_tab_cards')) {
     /**
      * Summary tiles, one per metric family. 'keys' is a preference order: the first
@@ -508,28 +575,10 @@ $mt_supported = static function (string $key) use ($mt_status): bool {
 };
 
 // Groups reduced to the keys this device actually reports.
-$mt_groups = [];
-$mt_request_keys = [];
-foreach (metrics_tab_groups() as $mt_group) {
-    $mt_live_keys = array_values(array_filter($mt_group['keys'], $mt_supported));
-    if ($mt_live_keys === []) {
-        continue;   // state 1: unsupported -> absent from the DOM entirely
-    }
-    $mt_group['keys'] = $mt_live_keys;
-    if ($mt_group['headline'] !== null && !in_array($mt_group['headline'], $mt_live_keys, true)) {
-        $mt_group['headline'] = null;
-    }
-    // Unit/precision for the axis come from the first live key in the group.
-    $mt_head_spec = $mt_specs[$mt_live_keys[0]] ?? [];
-    $mt_group['unit']      = (string) ($mt_head_spec['unit'] ?? '');
-    $mt_group['precision'] = intval($mt_head_spec['precision'] ?? 0);
-    $mt_groups[] = $mt_group;
-    foreach ($mt_live_keys as $mt_live_key) {
-        if (!in_array($mt_live_key, $mt_request_keys, true)) {
-            $mt_request_keys[] = $mt_live_key;
-        }
-    }
-}
+$mt_sel = metrics_tab_select_groups(metrics_tab_groups(), $mt_status, $mt_specs);
+$mt_groups = $mt_sel['groups'];
+$mt_request_keys = $mt_sel['request_keys'];
+$mt_missing = $mt_sel['missing'];
 
 // Summary tiles: first reported key per family wins.
 $mt_cards = [];
@@ -719,6 +768,7 @@ if ($mt_render_pane): ?>
          data-chart-id="<?= htmlspecialchars($mt_group['id'], ENT_QUOTES) ?>"
          data-metric-keys="<?= htmlspecialchars(implode(',', $mt_group['keys']), ENT_QUOTES) ?>"
          data-headline="<?= htmlspecialchars((string) ($mt_group['headline'] ?? ''), ENT_QUOTES) ?>"
+         data-last-sample="<?= htmlspecialchars((string) ($mt_group['last_sample_at'] ?? ''), ENT_QUOTES) ?>"
          data-axis="<?= htmlspecialchars($mt_group['axis'], ENT_QUOTES) ?>"
          data-unit="<?= htmlspecialchars($mt_group['unit'], ENT_QUOTES) ?>"
          data-precision="<?= intval($mt_group['precision']) ?>">
@@ -739,6 +789,10 @@ if ($mt_render_pane): ?>
         <div class="ifm-chart-legend" data-role="legend"></div>
     </div>
     <?php endforeach; ?>
+
+    <?php if ($mt_missing): ?>
+    <p class="ifm-not-reported" data-role="not-reported">Not reported by this device: <?= nullable_htmlentities(implode(', ', $mt_missing)) ?>.</p>
+    <?php endif; ?>
 
     <p class="ifm-footnote">
         This device reports <b><?= $mt_reported_count ?></b> of <?= $mt_total_count ?> known metrics

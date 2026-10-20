@@ -511,7 +511,7 @@
         var anySparse = sparseEntries.some(function (e) { return e.sparse; });
         var noteEl = ensureNote(block);
         if (anySparse) {
-            noteEl.textContent = sparseNote(sparseEntries, unit, precision, axis === 'bool');
+            noteEl.textContent = sparseNote(sparseEntries.filter(function (e) { return e.sparse; }), unit, precision, axis === 'bool');
             noteEl.hidden = false;
         } else {
             noteEl.textContent = '';
