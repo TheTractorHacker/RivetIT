@@ -62,7 +62,8 @@ $badge = ['online' => 'success', 'offline' => 'danger', 'stale' => 'secondary', 
 $pct = static fn($v) => $v === null ? '<span class="text-muted">no data</span>' : htmlspecialchars((string) round((float) $v, 1)) . '%';
 $bytes = static function ($b) { if ($b === null) { return '<span class="text-muted">no data</span>'; } $u = ['B', 'KB', 'MB', 'GB', 'TB']; $i = 0; $b = (float) $b; while ($b >= 1024 && $i < 4) { $b /= 1024; $i++; } return round($b, 1) . ' ' . $u[$i]; };
 $stateBadge = ['succeeded' => 'success', 'failed' => 'danger', 'timed_out' => 'warning', 'cancelled' => 'secondary', 'expired' => 'secondary', 'running' => 'info', 'queued' => 'primary'];
-$ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($iso, 'Z'))) . ' UTC' : '<span class="text-muted">never</span>';
+require_once dirname(__DIR__) . '/includes/rivet_time.php';
+$ts = static fn($iso) => $iso ? htmlspecialchars(rivetFormatTime($iso, 'utc')) : '<span class="text-muted">never</span>';   // stored UTC, shown in the company zone
 ?>
 <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
     <h4 class="mb-0 me-auto"><i class="fab fa-windows me-2"></i><?= $h($dev['hostname']) ?>
@@ -86,7 +87,7 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
             <tr><td class="text-muted">Last inventory</td><td><?= $ts(Sql::iso($dev['last_inventory_at'])) ?></td></tr>
             <?php if ($st['offline_since']) { ?><tr><td class="text-muted">Considered offline since</td><td><?= $ts($st['offline_since']) ?></td></tr><?php } ?>
             <tr><td class="text-muted">Agent version / ring</td><td><?= $h($dev['agent_version']) ?> / <?= $h($dev['ring']) ?></td></tr>
-            <tr><td class="text-muted">Enrolled</td><td><?= $h($dev['first_seen_at']) ?> UTC (<?= (int) $dev['enroll_count'] ?> enrollment<?= (int) $dev['enroll_count'] === 1 ? '' : 's' ?>)</td></tr>
+            <tr><td class="text-muted">Enrolled</td><td><?= $h(rivetFormatTime($dev['first_seen_at'], 'utc')) ?> (<?= (int) $dev['enroll_count'] ?> enrollment<?= (int) $dev['enroll_count'] === 1 ? '' : 's' ?>)</td></tr>
             <?php $us = $dev['update_state_json'] ? json_decode((string) $dev['update_state_json'], true) : null; if (!empty($us['last'])) { echo '<tr><td class="text-muted">Last agent update</td><td>' . $h($us['last']['version']) . ': ' . $h($us['last']['state']) . ($us['last']['detail'] ? ' (' . $h($us['last']['detail']) . ')' : '') . '</td></tr>'; } ?>
             <tr><td class="text-muted">Remote access</td><td><?= $mesh ? 'Mapped to a MeshCentral node (' . $h($mesh['source']) . ')' : 'Not mapped to a MeshCentral node' ?></td></tr>
         </table>
@@ -123,9 +124,9 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
     </div></div>
 
     <div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">Checks</h5></div><div class="card-body p-0">
-        <table class="table table-sm mb-0"><thead><tr><th>Check</th><th>Status</th><th>Detail</th><th>Reported (UTC)</th></tr></thead><tbody>
+        <table class="table table-sm mb-0"><thead><tr><th>Check</th><th>Status</th><th>Detail</th><th>Reported</th></tr></thead><tbody>
         <?php foreach ($checks as $c) { $cb = ['ok' => 'success', 'warn' => 'warning', 'fail' => 'danger', 'unknown' => 'secondary'][$c['status']] ?? 'secondary';
-            echo '<tr><td>' . $h($c['key']) . '</td><td><span class="badge bg-' . $cb . '">' . $h($c['status']) . '</span>' . ((int) $c['consecutive_failures'] > 0 ? ' <span class="small text-muted">' . (int) $c['consecutive_failures'] . ' in a row</span>' : '') . '</td><td>' . $h($c['detail']) . '</td><td>' . $h(str_replace('T', ' ', rtrim((string) $c['last_reported_at'], 'Z'))) . '</td></tr>'; }
+            echo '<tr><td>' . $h($c['key']) . '</td><td><span class="badge bg-' . $cb . '">' . $h($c['status']) . '</span>' . ((int) $c['consecutive_failures'] > 0 ? ' <span class="small text-muted">' . (int) $c['consecutive_failures'] . ' in a row</span>' : '') . '</td><td>' . $h($c['detail']) . '</td><td>' . $h(rivetFormatTime($c['last_reported_at'], 'utc')) . '</td></tr>'; }
         if (!$checks) { echo '<tr><td colspan="4" class="text-muted p-3">No check result yet.</td></tr>'; } ?>
         </tbody></table>
     </div></div>
@@ -173,7 +174,7 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(str_replace('T', ' ', rtrim($is
         <div class="col-12"><button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-play me-1"></i>Queue job</button></div>
     </form>
     <?php } ?>
-    <table class="table table-sm mb-0"><thead><tr><th>Job</th><th>Type</th><th>State</th><th>Created (UTC)</th><th>Finished (UTC)</th><th>Exit</th><th></th></tr></thead><tbody>
+    <table class="table table-sm mb-0"><thead><tr><th>Job</th><th>Type</th><th>State</th><th>Created</th><th>Finished</th><th>Exit</th><th></th></tr></thead><tbody>
     <?php foreach ($jobs as $j) { ?>
         <tr><td class="font-monospace small"><?= $h(substr($j['job_id'], 0, 8)) ?></td><td><?= $h($j['type']) ?><?= $j['destructive'] ? ' <span class="badge bg-warning text-dark">destructive</span>' : '' ?></td>
             <td><span class="badge bg-<?= $stateBadge[$j['state']] ?? 'secondary' ?>"><?= $h($j['state']) ?></span><?= $j['reason'] ? ' <span class="small text-muted">' . $h($j['reason']) . '</span>' : '' ?></td>
