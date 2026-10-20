@@ -24,6 +24,9 @@ $q('DELETE FROM endpoint_agent_binaries');
 $q('DELETE FROM endpoint_agent_msi_templates');
 $q('DELETE FROM endpoint_agent_releases');
 $q('DELETE FROM endpoint_agent_linux_assets');
+require_once "$root/includes/rmm_linux_store.php";
+$lxWipe = function () use ($db, $q) { $d = rivetLxDir(); foreach ($db->query('SELECT storage_name FROM endpoint_agent_linux_files') ?: [] as $r) { if ($d) { @unlink($d . '/' . $r['storage_name']); } } $q('DELETE FROM endpoint_agent_linux_files'); };
+$lxWipe();
 $q("UPDATE endpoint_agent_feed SET repo='TheTractorHacker/rivet-core', releases_json=NULL, etag='', fetched_at=NULL, checked_at=NULL, last_error='', rate_reset_at=NULL");
 $rmm = rivetRmmModule($db);
 $binDir = $rmm->binaryStore()->storageDir();
@@ -44,15 +47,17 @@ $mockDir = sys_get_temp_dir() . '/mockgh_' . bin2hex(random_bytes(4));
 mkdir("$mockDir/assets/agent-v0.9.1", 0775, true);
 mkdir("$mockDir/assets/agent-v0.9.0", 0775, true);
 register_shutdown_function(function () use ($mockDir) { exec('rm -rf ' . escapeshellarg($mockDir)); });
+/** A minimal valid 64-bit little-endian ELF executable of the given e_machine (62 amd64, 183 arm64), padded to 5000 bytes. */
+function fx_elf(int $machine, string $fill): string { return "\x7fELF\x02\x01\x01" . str_repeat("\0", 9) . pack('v', 2) . pack('v', $machine) . pack('V', 1) . str_repeat($fill, 4960); }
 $F = [   // v0.9.1
     'rivetit-agent-windows-amd64.exe' => fx_pe(0x8664, 60000, 'x'),
     'rivetit-agent-windows-arm64.exe' => fx_pe(0xAA64, 50000, 'x'),
     'rivetit-agent-windows-amd64.msi' => "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" . str_repeat("\0", 12000),   // an OLE-signature file: Core accepts it with the architecture declared (arch_source "declared"); the REAL package is in section 7
     'install-linux.sh' => "#!/usr/bin/env bash\n# fake install-linux.sh for the tests\necho \"ARGS: \$*\" > \"\${FAKE_INSTALL_OUT:?}\"\n",
-    'rivetit-agent-linux-amd64' => "\x7fELF" . str_repeat('L', 3000),
-    'rivetit-agent-linux-arm64' => "\x7fELF" . str_repeat('M', 3000),
-    'rivetit-agent-linux-amd64.tar.gz' => str_repeat('T', 2000),
-    'rivetit-agent-linux-arm64.tar.gz' => str_repeat('U', 2000),
+    'rivetit-agent-linux-amd64' => fx_elf(62, 'L'),
+    'rivetit-agent-linux-arm64' => fx_elf(183, 'M'),
+    'rivetit-agent-linux-amd64.tar.gz' => "\x1f\x8b\x08\0" . str_repeat('T', 2000),
+    'rivetit-agent-linux-arm64.tar.gz' => "\x1f\x8b\x08\0" . str_repeat('U', 2000),
     'rivetit-agent_0.9.1_amd64.deb' => str_repeat('D', 2000),
     'rivetit-agent_0.9.1_arm64.deb' => str_repeat('E', 2000),
     'rivetit-agent-0.9.1-1.x86_64.rpm' => str_repeat('R', 2000),
@@ -104,7 +109,7 @@ $binRows = fn () => $rows('SELECT * FROM endpoint_agent_binaries ORDER BY binary
 $msiRows = fn () => $rows('SELECT * FROM endpoint_agent_msi_templates ORDER BY template_id');
 $linRows = fn () => $rows('SELECT * FROM endpoint_agent_linux_assets ORDER BY asset_id');
 $relRows = fn () => $rows('SELECT * FROM endpoint_agent_releases ORDER BY release_id');
-$wipe = function () use ($q, $db, $rmm) { foreach ($db->query('SELECT storage_name FROM endpoint_agent_binaries UNION SELECT storage_name FROM endpoint_agent_msi_templates') ?: [] as $r) { @unlink($rmm->binaryStore()->storageDir() . '/' . $r['storage_name']); } $q('DELETE FROM endpoint_agent_binaries'); $q('DELETE FROM endpoint_agent_msi_templates'); $q('DELETE FROM endpoint_agent_releases'); $q('DELETE FROM endpoint_agent_linux_assets'); };
+$wipe = function () use ($q, $db, $rmm, $lxWipe) { foreach ($db->query('SELECT storage_name FROM endpoint_agent_binaries UNION SELECT storage_name FROM endpoint_agent_msi_templates') ?: [] as $r) { @unlink($rmm->binaryStore()->storageDir() . '/' . $r['storage_name']); } $q('DELETE FROM endpoint_agent_binaries'); $q('DELETE FROM endpoint_agent_msi_templates'); $q('DELETE FROM endpoint_agent_releases'); $q('DELETE FROM endpoint_agent_linux_assets'); $lxWipe(); };
 $opt = fn (array $o = []) => rivetAgentFeedOptions($o + ['ring' => 'stable', 'rollout_pct' => 100, 'activate' => true, 'offer' => false]);
 $step = fn (string $tag, string $asset, array $o = [], ?RmmPrincipal $who = null) => rivetAgentFeedStep($db, $rmm, $who ?? $admin, $tag, $asset, $opt($o));
 \ITFlow\EndpointAgent\Config::enable();
@@ -279,22 +284,27 @@ $r = $step($tag, 'rivetit-agent-windows-amd64.msi');
 $m = $msiRows();
 $ok($r['ok'] && $r['status'] === 'stored' && count($m) === 1 && $m[0]['arch'] === 'amd64' && $m[0]['version'] === '0.9.1' && $m[0]['sha256'] === hash('sha256', $F['rivetit-agent-windows-amd64.msi']) && (int) $m[0]['is_current'] === 1 && $m[0]['arch_source'] === 'declared', 'MSI template: verified against SHA256SUMS.msi and stored through the MSI template code (the architecture is the declared one for this fixture), current');
 $ok($audit('MSI Template Uploaded') >= 1, 'the MSI upload is audited by Core');
-// Linux assets
+// Linux files (26.10.64): the script, the agent and the tarballs are downloaded, verified and HOSTED; the .deb / .rpm are recorded as links
+$lxRows = fn () => $rows('SELECT * FROM endpoint_agent_linux_files ORDER BY file_id');
 $r = $step($tag, 'install-linux.sh');
-$ok($r['ok'] && $r['status'] === 'recorded' && count($linRows()) === 1 && $linRows()[0]['kind'] === 'script' && $linRows()[0]['sha256'] === hash('sha256', $F['install-linux.sh']) && (int) $linRows()[0]['is_current'] === 1, 'install-linux.sh: downloaded once, verified and recorded');
-$ok(str_starts_with($linRows()[0]['url'], $origin . '/TheTractorHacker/rivet-core/releases/download/agent-v0.9.1/install-linux.sh'), 'the recorded address is built from the repository, the tag and the file name (not taken from the API\'s URL)');
-foreach (['rivetit-agent-linux-amd64', 'rivetit-agent-linux-arm64', 'rivetit-agent-linux-amd64.tar.gz', 'rivetit-agent-linux-arm64.tar.gz', 'rivetit-agent_0.9.1_amd64.deb', 'rivetit-agent_0.9.1_arm64.deb', 'rivetit-agent-0.9.1-1.x86_64.rpm', 'rivetit-agent-0.9.1-1.aarch64.rpm'] as $n) {
+$ok($r['ok'] && $r['status'] === 'stored' && count($lxRows()) === 1 && $lxRows()[0]['kind'] === 'script' && $lxRows()[0]['sha256'] === hash('sha256', $F['install-linux.sh']) && (int) $lxRows()[0]['is_current'] === 1 && $lxRows()[0]['source'] === 'github' && $linRows() === [], 'install-linux.sh: downloaded, verified against SHA256SUMS and hosted on this server (not recorded as a link)');
+$ok(is_file((string) rivetLxPath($lxRows()[0])) && file_get_contents((string) rivetLxPath($lxRows()[0])) === $F['install-linux.sh'], 'the hosted bytes are the release bytes');
+foreach (['rivetit-agent-linux-amd64', 'rivetit-agent-linux-arm64', 'rivetit-agent-linux-amd64.tar.gz', 'rivetit-agent-linux-arm64.tar.gz'] as $n) {
+    $r = $step($tag, $n);
+    $ok($r['ok'] && $r['status'] === 'stored', "Linux file $n is verified and hosted");
+}
+foreach (['rivetit-agent_0.9.1_amd64.deb', 'rivetit-agent_0.9.1_arm64.deb', 'rivetit-agent-0.9.1-1.x86_64.rpm', 'rivetit-agent-0.9.1-1.aarch64.rpm'] as $n) {
     $reqReset();
     $r = $step($tag, $n);
-    $ok($r['ok'] && $r['status'] === 'recorded' && $reqs("/cdn/agent-v0.9.1/$n ") === 0, "Linux file $n is recorded without downloading it");
+    $ok($r['ok'] && $r['status'] === 'recorded' && $reqs("/cdn/agent-v0.9.1/$n ") === 0, "Linux package $n is recorded without downloading it");
 }
 $lin = array_column($linRows(), null, 'filename');
-$ok(count($lin) === 9 && $lin['rivetit-agent-linux-amd64']['sha_source'] === 'SHA256SUMS' && $lin['rivetit-agent_0.9.1_amd64.deb']['sha_source'] === 'github-digest' && $lin['rivetit-agent-0.9.1-1.aarch64.rpm']['sha256'] === hash('sha256', $F['rivetit-agent-0.9.1-1.aarch64.rpm']) && $lin['rivetit-agent-0.9.1-1.x86_64.rpm']['arch'] === 'amd64' && $lin['rivetit-agent-0.9.1-1.aarch64.rpm']['arch'] === 'arm64',
-    '9 Linux rows: the sums come from SHA256SUMS, the .deb and .rpm (not in any sums file, like the real release) from GitHub\'s digest; rpm architectures are mapped');
+$ok(count($lxRows()) === 5 && count($lin) === 4 && $lin['rivetit-agent_0.9.1_amd64.deb']['sha_source'] === 'github-digest' && $lin['rivetit-agent-0.9.1-1.aarch64.rpm']['sha256'] === hash('sha256', $F['rivetit-agent-0.9.1-1.aarch64.rpm']) && $lin['rivetit-agent-0.9.1-1.x86_64.rpm']['arch'] === 'amd64' && $lin['rivetit-agent-0.9.1-1.aarch64.rpm']['arch'] === 'arm64',
+    '5 hosted files and 4 recorded packages: the .deb and .rpm (not in any sums file, like the real release) use GitHub\'s digest; rpm architectures are mapped');
 $st = rivetAgentFeedStatus($db, rivetAgentFeedCached($db)['releases']);
 $rows091 = array_values(array_filter($st['rows'], fn ($r) => $r['release']['tag'] === 'agent-v0.9.1'))[0];
 $ok($rows091['state'] === 'published' && $st['published_max'] === '0.9.1' && $rows091['offered'] !== [], 'status: 0.9.1 is Published, the highest published version is 0.9.1, the offers are listed');
-$ok($audit('Agent Feed Published') === 3 && $audit('Agent Feed Linux Asset Recorded') === 9, 'the app audit log has a row per stored Windows file (3) and per recorded Linux file (9)');
+$ok($audit('Agent Feed Published') === 3 && $audit('Agent Feed Linux Asset Recorded') === 4 && $audit('Agent Feed Linux File Hosted') === 5, 'the app audit log has a row per stored Windows file (3), per hosted Linux file (5) and per recorded package (4)');
 // the version a stored binary carries on the device counts
 $q("UPDATE endpoint_agent_devices SET agent_version='0.9.1' WHERE 1=0");
 // refusals
@@ -307,7 +317,7 @@ $leftover = glob(sys_get_temp_dir() . '/rivet-agent-feed-*') ?: [];
 $ok($leftover === [], 'no temporary folder is left behind after a refusal');
 $scn(['asset_mode' => 'tamper', 'tamper' => 'install-linux.sh']);
 $r = $step($tag, 'install-linux.sh');
-$ok(!$r['ok'] && $linRows() === [], 'a tampered install-linux.sh is not recorded');
+$ok(!$r['ok'] && $lxRows() === [], 'a tampered install-linux.sh is not hosted');
 $scn([]);
 // a checksum file that lies
 $goodSums = $sumsMain;
@@ -398,9 +408,9 @@ $wipe();
 // publish all
 $rb = $reqs();
 $all = rivetAgentFeedPublishAll($db, $rmm, $admin, $tag, $opt(['offer' => true, 'ring' => 'pilot', 'rollout_pct' => 100]));
-$ok($all['ok'] && count($all['steps']) === 12 && count($binRows()) === 2 && count($msiRows()) === 1 && count($linRows()) === 9 && count($relRows()) === 2 && $relRows()[0]['ring'] === 'pilot', 'publish all: 12 files done (2 agents, 1 MSI, 9 Linux), both agents offered to the pilot ring (' . $all['message'] . ')');
+$ok($all['ok'] && count($all['steps']) === 12 && count($binRows()) === 2 && count($msiRows()) === 1 && count($linRows()) === 4 && count($lxRows()) === 5 && count($relRows()) === 2 && $relRows()[0]['ring'] === 'pilot', 'publish all: 12 files done (2 agents, 1 MSI, 5 hosted Linux files, 4 packages), both agents offered to the pilot ring (' . $all['message'] . ')');
 $all2 = rivetAgentFeedPublishAll($db, $rmm, $admin, $tag, $opt());
-$ok($all2['ok'] && count(array_filter($all2['steps'], fn ($s) => $s['status'] === 'already')) === 3 && count($binRows()) === 2 && count($linRows()) === 9, 'publish all again: the three stored files say "already", the rows stay');
+$ok($all2['ok'] && count(array_filter($all2['steps'], fn ($s) => $s['status'] === 'already')) === 8 && count($binRows()) === 2 && count($linRows()) === 4 && count($lxRows()) === 5, 'publish all again: the three Windows files and the five hosted Linux files say "already", the rows stay');
 $lockOk = (int) mysqli_fetch_row(mysqli_query($db, "SELECT IS_FREE_LOCK('" . RIVET_AGENT_FEED_LOCK . "')"))[0];
 $ok($lockOk === 1, 'the publish lock is released afterwards');
 // two publishes at once: the second is told to wait
@@ -411,6 +421,10 @@ $ok(!$busy['ok'] && str_contains($busy['message'], 'Another publish is running')
 $conn2->close();
 
 // ================================================================ 5. the Linux command
+// (the GitHub-link variant, kept for installs that only recorded links before 26.10.64: seed the old-style rows for the script, the agents and the tarballs)
+foreach (['install-linux.sh' => ['script', ''], 'rivetit-agent-linux-amd64' => ['binary', 'amd64'], 'rivetit-agent-linux-arm64' => ['binary', 'arm64'], 'rivetit-agent-linux-amd64.tar.gz' => ['tarball', 'amd64'], 'rivetit-agent-linux-arm64.tar.gz' => ['tarball', 'arm64']] as $n => [$k, $a]) {
+    $q("INSERT INTO endpoint_agent_linux_assets (version, kind, arch, filename, url, sha256, size_bytes, sha_source, active, is_current, created_by) VALUES ('0.9.1', '$k', '$a', '$n', '" . $origin . "/TheTractorHacker/rivet-core/releases/download/agent-v0.9.1/$n', '" . hash('sha256', $F[$n]) . "', " . strlen($F[$n]) . ", 'SHA256SUMS', 1, 1, 1)");
+}
 $assets = rivetAgentFeedLinuxAssets($db);
 $core = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet('https://rmm.example.test', 'rvte1.AAAA.BBBB', 'amd64', "Dept 'A'", null, null);
 $cmd = rivetAgentFeedLinuxCommand($core, $assets, 'amd64');
@@ -548,7 +562,7 @@ $adm(['agent_feed' => 'check'], 'admin', $jsn);
 // the no-JavaScript path: publish in one request and a flash message
 $wipe();
 $ref = web($wb, 'POST', '/admin/post.php', $S_['admin'], ['agent_feed' => 'publish', 'tag' => $tag, 'activate' => '1', 'csrf_token' => 'csrftok1'], $refPage);
-$ok($ref[0] === 302 && count($binRows()) === 2 && count($msiRows()) === 1 && count($linRows()) === 9, 'the plain form post (no JavaScript) publishes every file in one request and redirects (' . $ref[0] . ')');
+$ok($ref[0] === 302 && count($binRows()) === 2 && count($msiRows()) === 1 && count($linRows()) === 4 && count($lxRows()) === 5, 'the plain form post (no JavaScript) publishes every file in one request and redirects (' . $ref[0] . ')');
 [, $page] = web($wb, 'GET', '/admin/settings_endpoint_agent.php', $S_['admin']);
 $ok(str_contains(str_replace('\\/', '/', $page), 'All 12 files of agent-v0.9.1 are in place'), 'the flash message says what happened');
 [, $card] = [0, (function (string $html): string { $a = strpos($html, 'id="agent-updates"'); $b = $a === false ? false : strpos($html, 'id="binaries"', $a); return $a === false ? '' : substr($html, $a, $b === false ? 40000 : $b - $a); })($page)];

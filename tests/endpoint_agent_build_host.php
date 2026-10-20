@@ -175,7 +175,7 @@ echo "== upload rules\n";
 $F = bh_files('0.9.6');
 $exe = $F['rivetit-agent-windows-amd64.exe'];
 $chunk = fn(array $o) => array_merge(['job_id' => $j1, 'name' => 'rivetit-agent-windows-amd64.exe', 'index' => 0, 'total' => 3, 'sha256_chunk' => hash('sha256', 'abc'), 'data_b64' => base64_encode('abc')], $o);
-foreach (['../../etc/passwd', 'rivetit-agent-linux-amd64', 'evil.php', 'SHA256SUMS ', 'rivetit-agent-windows-amd64.EXE', "rivetit-agent-windows-amd64.exe\0.php", '', 'x/../SHA256SUMS'] as $n) {
+foreach (['../../etc/passwd', 'rivetit-agent-linux-riscv64', 'install-linux.sh.bak', 'evil.php', 'SHA256SUMS ', 'rivetit-agent-windows-amd64.EXE', "rivetit-agent-windows-amd64.exe\0.php", '', 'x/../SHA256SUMS'] as $n) {
     [$c, $r] = bh_call('upload', $TA, $chunk(['name' => $n])); $ok($c === 422 && $r['code'] === 'bad_name', 'file name refused: ' . json_encode($n));
 }
 [$c, $r] = bh_call('upload', $TA, $chunk(['name' => ['a']])); $ok($c === 422, 'a file name that is an array is refused');
