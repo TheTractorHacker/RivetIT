@@ -89,7 +89,7 @@ function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): 
     $keepGroup = (string) ($keep['mesh_group_id'] ?? (($v['group_id_url'] ?? '') !== '' ? $v['group_id_url'] : ($v['group_id'] ?? '')));
     $keepPin = (string) ($keep['mesh_server_cert_pin'] ?? ($v['server_cert_pin'] ?? ''));
     $o = '<div class="col-12"><hr class="my-1"><h5 class="mb-1" id="mesh-install-title">Install the MeshCentral agent with the RivetIT agent <span class="badge bg-secondary-lt text-secondary">optional</span></h5>'
-        . '<p class="small text-muted mb-2">Off by default. When you issue an installer you can tick <strong>Also install the MeshCentral agent</strong>; the installer then pulls the Mesh agent for <em>your</em> Mesh server and device group (never a bundled binary) and the device\'s Mesh node is mapped to it automatically, so Remote works without anybody pasting a node id. A failure to install Mesh never fails the RivetIT install.</p>';
+        . '<p class="small text-muted mb-2">Off by default. When you issue an installer you can tick <strong>Also install the MeshCentral agent (after the device is approved)</strong>; once the device is linked and approved, RivetIT pushes the Mesh agent for <em>your</em> Mesh server and device group (never a bundled binary) and the device\'s Mesh node is mapped to it automatically, so Remote works without anybody pasting a node id. A failure to install Mesh never fails the RivetIT install.</p>';
     if ($v === null) {
         return $o . '<div class="alert alert-warning mb-0" role="alert">Run the database update first (Administration &rarr; Updates): the Mesh agent install settings need it.</div></div>';
     }
@@ -100,8 +100,8 @@ function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): 
         . '<li><strong>Decide how the installer trusts your Mesh server.</strong> A certificate from a public CA (for example Let\'s Encrypt): <strong>leave the pin empty</strong>, the installer uses the machine\'s trusted roots (a Let\'s Encrypt certificate is renewed every 60 to 90 days and a pin of it would break at each renewal). A private CA or MeshCentral\'s default self-signed certificate: pin it with <em>Read it from the server</em> below, compare the hash with the one MeshCentral shows under My Server, then save.</li>'
         . '<li><strong>Save here</strong> (MeshCentral enabled, the address, the device group id, the pin if any).</li>'
         . '<li><strong>Issue an installer with the box ticked</strong> (Endpoints &rarr; Agent Fleet &rarr; Add device, or the Deployment card). If Mesh cannot support it RivetIT says so and creates nothing.</li>'
-        . '<li><strong>Run it</strong> like any RivetIT installer. On Windows the RivetIT agent installs first, then the Mesh agent. On Linux the command carries <code>--install-mesh-agent</code> with your Mesh address and group.</li>'
-        . '<li><strong>Check the result</strong> on the device page: the Mesh state shows installed or the error, the node id and whether it was mapped.</li></ol></details>';
+        . '<li><strong>Run it</strong> like any RivetIT installer; the command carries nothing of Mesh. The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your Mesh server and device group.</li>'
+        . '<li><strong>Check the result</strong> on the device page: the Mesh state shows waiting, queued, installing, installed, skipped or the error, the node id and whether it was mapped.</li></ol></details>';
     $o .= '<div class="col-lg-6"><label class="form-label" for="mc_group">Device group id <span class="text-muted">(meshid)</span></label>'
         . '<div class="input-group"><input type="password" class="form-control font-monospace" id="mc_group" name="mesh_group_id" maxlength="2000" autocomplete="new-password" spellcheck="false" value="' . $h($keepGroup) . '" placeholder="Paste the MeshCentral download address, or its meshid" aria-describedby="mc_group_help">'
         . '<button type="button" class="btn btn-outline-secondary" data-toggle="password" id="mc_group_show" aria-label="Show or hide the device group id" aria-controls="mc_group"><i class="fas fa-eye" aria-hidden="true"></i></button></div>'
@@ -166,17 +166,22 @@ function rivetRmmMeshInstallFields(?array $v, ?array $probe, array $keep = []): 
 }
 
 /**
- * The Mesh agent state of one device, from RmmReadModel::detail()['mesh_agent'] (null when the device never reported one). The node-mapping control is not part of this:
- * it stays where it was, next to it.
+ * The Mesh agent state of one device, from RmmReadModel::detail()['mesh_agent'] (null when the device never reported one) and, since RivetCore 1.0.0-rc.27,
+ * detail()['mesh_after_approval'] (present only for a device whose installer asked for "install after approval"). The node-mapping control is not part of
+ * this: it stays where it was, next to it.
  *
  * @param array<string,mixed>|null $m MeshAgentService::stateFor()
- * @param array<string,mixed>      $opt {conflict_url?: ?string the other device's page (same department only)}
+ * @param array<string,mixed>      $opt {conflict_url?: ?string the other device's page (same department only), after_approval?: ?array{state:string,label:string}}
  */
 function rivetRmmMeshAgentHtml(?array $m, array $opt = []): string
 {
     $h = 'rivetRmmMeshH';
+    $after = $opt['after_approval'] ?? null;
+    $afterLine = is_array($after) && isset($after['label'])
+        ? '<div class="small ' . (($after['state'] ?? '') === 'failed' ? 'text-danger' : 'text-muted') . ' mb-1" id="rmm-mesh-after-approval" data-state="' . $h((string) ($after['state'] ?? '')) . '"><i class="fas fa-' . (($after['state'] ?? '') === 'installed' ? 'check-circle' : (($after['state'] ?? '') === 'failed' ? 'times-circle' : 'clock')) . ' me-1" aria-hidden="true"></i>' . $h((string) $after['label']) . '</div>'
+        : '';
     if ($m === null) {
-        return '<div class="small text-muted" id="rmm-mesh-agent" data-state="none">No Mesh agent has been reported by this device. Tick <em>Also install the MeshCentral agent</em> when you issue its installer to install it with the RivetIT agent.</div>';
+        return $afterLine . '<div class="small text-muted" id="rmm-mesh-agent" data-state="none">No Mesh agent has been reported by this device.' . ($after === null ? ' Tick <em>Also install the MeshCentral agent (after the device is approved)</em> when you issue its installer to install it with the RivetIT agent.' : '') . '</div>';
     }
     $state = (string) ($m['map_state'] ?? '');
     $rows = '';
@@ -207,5 +212,5 @@ function rivetRmmMeshAgentHtml(?array $m, array $opt = []): string
             . ' To use the agent\'s node, change the mapping below or turn on <em>Let the agent\'s node replace a node I mapped by hand</em> in the MeshCentral settings.</div>';
     }
 
-    return '<div id="rmm-mesh-agent" data-state="' . $h($state !== '' ? $state : (!empty($m['installed']) ? 'installed' : 'reported')) . '">' . $hint . '<dl class="row small mb-0">' . $rows . '</dl></div>';
+    return $afterLine . '<div id="rmm-mesh-agent" data-state="' . $h($state !== '' ? $state : (!empty($m['installed']) ? 'installed' : 'reported')) . '">' . $hint . '<dl class="row small mb-0">' . $rows . '</dl></div>';
 }

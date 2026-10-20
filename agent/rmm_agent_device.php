@@ -203,7 +203,7 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
         $oar = $oa ? mysqli_fetch_row($oa) : null;
         $conflictUrl = $oar && (int) $oar[0] > 0 ? '/agent/asset_details.php?asset_id=' . (int) $oar[0] . '#rmm-overview' : null;
     }
-    if (!empty($view['mesh_agent'])) { echo rivetRmmMeshAgentHtml($view['mesh_agent'], ['conflict_url' => $conflictUrl]); }
+    if (!empty($view['mesh_agent']) || isset($view['mesh_after_approval'])) { echo rivetRmmMeshAgentHtml($view['mesh_agent'] ?? null, ['conflict_url' => $conflictUrl, 'after_approval' => $view['mesh_after_approval'] ?? null]); }
     echo rivetRmmMeshPushControls($push_state); ?>
 </div></div>
 <?php if ($push_state !== null) { echo rivetRmmMeshPushDialog((string) $_SESSION['csrf_token']); } ?>

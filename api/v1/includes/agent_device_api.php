@@ -37,3 +37,29 @@ function ea_dispatch(string $endpoint): void
     (new \RivetCore\Rmm\Http\SapiEmitter())->emit($response);
     exit;
 }
+
+/**
+ * The hosted-installer download, `GET /api/v1/agent_software/{job_id}/{secret}` (RivetCore 1.0.0-rc.26, migration 0033): not part of the frozen device protocol,
+ * a separate RmmModule API (hostedFileApi, not deviceApi) because the credential is the path secret, not a bearer token. Same no-session, no-rate-limit-sharing
+ * treatment as ea_dispatch(); every refusal is the module's own 404 (RivetCore\Rmm\Http\HostedFileApi::handle()).
+ *
+ * @param list<string> $pathSegments [job_id, secret]
+ */
+function ea_dispatch_hosted(array $pathSegments): void
+{
+    global $session_user_id, $session_ip, $session_user_agent;
+    $session_user_id = 0;
+    $session_ip = getIP();
+    $session_user_agent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250);
+    mysqli_report(MYSQLI_REPORT_OFF);
+
+    try {
+        $api = rivetRmmModule()->hostedFileApi(static fn (string $bucket, int $limit, int $window): bool => api_rate_limit($bucket, $limit, $window));
+        $response = $api->handle(rivetRmmRequest('agent_software', $pathSegments));
+    } catch (\Throwable $e) {
+        error_log('endpoint agent (hosted file): ' . get_class($e) . ': ' . $e->getMessage());
+        $response = \RivetCore\Rmm\Http\RmmResponse::json(500, ['error' => 'Internal error.', 'code' => 'internal']);
+    }
+    (new \RivetCore\Rmm\Http\SapiEmitter())->emit($response);
+    exit;
+}

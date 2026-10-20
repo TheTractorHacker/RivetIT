@@ -333,10 +333,10 @@ function rivetRmmInstallerModal(array $ctx): string
     $meshField = '';
     if (!empty($ctx['mesh']['show'])) {
         $meshHint = $ctx['mesh']['ready']
-            ? $h('After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server and installs it, so Remote works without pasting a node id. If the Mesh part fails, the RivetIT agent is still installed.')
+            ? $h('The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server and device group, so Remote works without pasting a node id. A Mesh failure never affects the RivetIT agent.')
             : $h('Not ready yet: ' . $ctx['mesh']['hint']) . ($ctx['admin'] ? ' <a href="/admin/settings_endpoint_agent.php#mesh">Open the MeshCentral settings</a>.' : ' Ask an administrator.');
         $meshField = '<div class="col-12" id="rmm-inst-mesh-col"><div class="form-check"><input class="form-check-input" type="checkbox" id="rmm-inst-mesh" name="install_mesh_agent" value="1" aria-describedby="rmm-inst-mesh-help">'
-            . '<label class="form-check-label" for="rmm-inst-mesh">Also install the MeshCentral agent</label></div>'
+            . '<label class="form-check-label" for="rmm-inst-mesh">Also install the MeshCentral agent (after the device is approved)</label></div>'
             . '<div class="form-text" id="rmm-inst-mesh-help" data-ready="' . ($ctx['mesh']['ready'] ? '1' : '0') . '">' . $meshHint . '</div></div>';
     }
 

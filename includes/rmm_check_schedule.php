@@ -63,6 +63,35 @@ function rivetCsServiceOs(string $name): ?string
 }
 
 /**
+ * Service names that are the SAME thing spelled differently by distribution (a Debian host has `ssh`, a Red Hat one `sshd`; neither ships the other). The
+ * options page shows one checkbox per group, keyed by the first member; ticking it schedules a check for every member, each `os: linux` and `missing:
+ * ignore` so a distribution missing one spelling is not a false fail (forward-compatible: today's agent still reports "not found" as a Fail regardless,
+ * until a RivetCore agent that honours `missing` ships; see UPGRADING.md "Adopting per-OS check targeting").
+ *
+ * @return array<string,array{members:list<string>,label:string}> first member => group
+ */
+function rivetCsAliasGroups(): array
+{
+    return [
+        'ssh' => ['members' => ['ssh', 'sshd'], 'label' => 'SSH server: ssh or sshd'],
+        'cron' => ['members' => ['cron', 'crond'], 'label' => 'Scheduled tasks: cron or crond'],
+        'chronyd' => ['members' => ['chronyd', 'systemd-timesyncd'], 'label' => 'Time sync: chronyd or systemd-timesyncd'],
+    ];
+}
+
+/** The alias group a service name belongs to (its first member, the checkbox id/value), or null when it is not part of one. */
+function rivetCsAliasOf(string $name): ?string
+{
+    foreach (rivetCsAliasGroups() as $first => $g) {
+        if (in_array($name, $g['members'], true)) {
+            return $first;
+        }
+    }
+
+    return null;
+}
+
+/**
  * Upgrade a stored check list (RivetCore 1.0.0-rc.24 per-OS targeting): every service check that has no `os` yet and is in the Windows/Linux choice
  * table gets its OS, so a Linux service is no longer sent to a Windows PC. Nothing else changes: other checks, services the table does not know, and
  * any `os` already stored are left exactly as they are. Idempotent.
@@ -179,7 +208,8 @@ function rivetCsStateFromChecks(array $checks): array
             $st['intervals'][$key] = $iv;
             continue;
         }
-        if ($type === 'service' && array_diff(array_keys($p), ['name', 'expect', 'expected']) === [] && in_array($c['os'] ?? '', ['', 'windows', 'linux', 'any'], true)) {
+        if ($type === 'service' && array_diff(array_keys($p), ['name', 'expect', 'expected', 'missing']) === []
+            && (!isset($p['missing']) || $p['missing'] === 'ignore') && in_array($c['os'] ?? '', ['', 'windows', 'linux', 'any'], true)) {
             $name = $p['name'] ?? null;
             $exp = strtolower((string) ($p['expected'] ?? $p['expect'] ?? 'running'));
             $tableOs = is_string($name) ? rivetCsServiceOs($name) : null;
@@ -346,11 +376,21 @@ function rivetCsBuild(mixed $cs, array $stored): array
     }
     // Important services
     $choices = rivetCsServiceChoices();
+    $aliasGroups = rivetCsAliasGroups();
     $names = [];
     $osOf = [];
+    $aliasMembers = [];   // service name => true for every name scheduled because its alias group's checkbox was ticked (so the check gets missing: ignore)
     foreach ((array) ($cs['svc'] ?? []) as $n) {
         if (!is_string($n) || !isset($choices[$n])) {
             $err[] = 'Services: one ticked service is not in the list. Reload the page and try again.';
+            continue;
+        }
+        if (isset($aliasGroups[$n])) {   // the checkbox is the group's first member; schedule every spelling, each os: linux, missing: ignore
+            foreach ($aliasGroups[$n]['members'] as $m) {
+                $names[strtolower($m)] = $m;
+                $osOf[$m] = 'linux';
+                $aliasMembers[$m] = true;
+            }
             continue;
         }
         $names[strtolower($n)] = $n;
@@ -391,7 +431,11 @@ function rivetCsBuild(mixed $cs, array $stored): array
             $key = rivetCsServiceKey($n, $keys);
         }
         $keys[$key] = 1;
-        $svc = ['key' => $key, 'type' => 'service', 'params' => ['name' => $n, 'expected' => 'running'], 'interval_s' => $ivFor($key)];
+        $params = ['name' => $n, 'expected' => 'running'];
+        if (!empty($aliasMembers[$n])) {
+            $params['missing'] = 'ignore';   // an alias pair (ssh/sshd, cron/crond, chronyd/systemd-timesyncd): the spelling missing on this distribution is not a failure
+        }
+        $svc = ['key' => $key, 'type' => 'service', 'params' => $params, 'interval_s' => $ivFor($key)];
         if (($osOf[$n] ?? '') !== '') {
             $svc['os'] = $osOf[$n];
         }

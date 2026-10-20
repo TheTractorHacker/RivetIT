@@ -48,8 +48,8 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
 
     $mesh = '';
     if (!empty($ctx['mesh']['show'])) {
-        $mesh = '<div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="ad-mesh" name="install_mesh_agent" value="1" aria-describedby="ad-mesh-help"><label class="form-check-label" for="ad-mesh">Also install the MeshCentral agent</label></div>'
-            . '<div class="form-text" id="ad-mesh-help">' . ($ctx['mesh']['ready'] ? 'After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server. If that fails, the RivetIT agent is still installed.' : $h('Not ready yet: ' . $ctx['mesh']['hint'])) . '</div></div>';
+        $mesh = '<div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="ad-mesh" name="install_mesh_agent" value="1" aria-describedby="ad-mesh-help"><label class="form-check-label" for="ad-mesh">Also install the MeshCentral agent (after the device is approved)</label></div>'
+            . '<div class="form-text" id="ad-mesh-help">' . ($ctx['mesh']['ready'] ? 'The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server. If that fails, the RivetIT agent is still installed.' : $h('Not ready yet: ' . $ctx['mesh']['hint'])) . '</div></div>';
     }
 
     $o = '<div class="card" id="ad-root" data-post-url="/agent/post/rmm_installer.php" data-csrf="' . $h($ctx['csrf']) . '" data-ttl-max="' . (int) $ctx['ttl_max'] . '" data-fixed="' . ($ctx['fixed'] ? '1' : '0') . '"'

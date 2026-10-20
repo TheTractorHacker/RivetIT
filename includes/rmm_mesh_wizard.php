@@ -6,7 +6,7 @@
  *   1 connect the MeshCentral server (address, domain, login-token key, Test connection)
  *   2 create the device group and paste its address or id
  *   3 trust: a publicly trusted certificate needs nothing, a private one is pinned ("Read it from the server")
- *   4 tick "Also install the MeshCentral agent" in the installer
+ *   4 tick "Also install the MeshCentral agent (after the device is approved)" in the installer
  *   5 test Remote on an enrolled device
  * plus Troubleshooting (docs/ENDPOINT_AGENT.md sections 11 to 14, RivetCore docs/rmm/REMOTE_AND_LOGS.md).
  *
@@ -81,7 +81,7 @@ function rivetRmmMeshWizardState(\RivetCore\Rmm\RmmModule $rmm, \mysqli $mysqli,
 
     // 4: installer tick box
     $s4ok = $s1['ok'] && $s2['ok'] && $inst['show'] && $inst['ready'];
-    $s4 = ['n' => 4, 'id' => 'installer', 'title' => 'Tick "Also install the MeshCentral agent" in the installer', 'ok' => $s4ok,
+    $s4 = ['n' => 4, 'id' => 'installer', 'title' => 'Tick "Also install the MeshCentral agent (after the device is approved)" in the installer', 'ok' => $s4ok,
         'summary' => $s4ok ? 'The tick box is offered in the installer (Create installer).' : ($inst['hint'] !== '' ? $inst['hint'] : 'Finish steps 1 and 2 and the box appears in the installer.')];
 
     // 5: a device
@@ -240,7 +240,7 @@ function rivetRmmMeshWizardPage(array $st, string $csrf, ?array $probe = null, a
         . ($pin !== '' ? ' <button class="btn btn-outline-secondary ms-2" type="submit" name="clear" value="1" id="mw-clear-pin">Remove the pin (public certificate)</button>' : '') . '</div></form>';
 
     // ---- 4 installer
-    $b4 = '<p class="small mb-2">When you create an installer, tick <strong>Also install the MeshCentral agent</strong>. After the RivetIT agent is installed, the installer fetches the MeshCentral agent from your own server, so Remote works without anyone typing a device id. '
+    $b4 = '<p class="small mb-2">When you create an installer, tick <strong>Also install the MeshCentral agent (after the device is approved)</strong>. Once the device is linked and you approve it, RivetIT pushes the MeshCentral agent from your own server, so Remote works without anyone typing a device id. '
         . 'If the MeshCentral part fails, the RivetIT agent is still installed and the device page shows what went wrong.</p>'
         . '<a class="btn btn-' . ($steps[3]['ok'] ? 'primary' : 'outline-secondary') . '" href="' . RIVET_RMM_ADD_DEVICE_URL . '" id="mw-create-installer"><i class="fas fa-tools me-1" aria-hidden="true"></i>Create installer</a>';
 

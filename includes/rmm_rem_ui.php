@@ -507,8 +507,8 @@ function rivetRmmRemMeshHtml(array $v): string
     $m = $v['mesh'];
     $views = (array) ($m['views'] ?? []);
     $o = '<p class="small text-muted mb-2">MeshCentral opens in a new tab. The terminal is a shell on the device; the file view is MeshCentral\'s own. RivetIT does not embed it.</p>';
-    if (!empty($v['mesh_agent'])) {
-        $o .= rivetRmmMeshAgentHtml($v['mesh_agent'], ['conflict_url' => $v['mesh_agent_conflict_url'] ?? null]);   // rc.12: installed / version / node id / error, with the conflict and kept-by-hand hints
+    if (!empty($v['mesh_agent']) || isset($v['mesh_after_approval'])) {
+        $o .= rivetRmmMeshAgentHtml($v['mesh_agent'] ?? null, ['conflict_url' => $v['mesh_agent_conflict_url'] ?? null, 'after_approval' => $v['mesh_after_approval'] ?? null]);   // rc.12: installed / version / node id / error, with the conflict and kept-by-hand hints; rc.27: the "install after approval" state line
     }
     $o .= rivetRmmMeshPushControls($v['mesh_push'] ?? null);   // rc.16: Install / Remove MeshCentral agent (Core decides whether the install is offered)
     if (empty($m['configured'])) {

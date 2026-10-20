@@ -158,8 +158,8 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
         <?php } ?>
         <?php } ?>
         <?php if (!empty($dep['mesh']) && (string) ($dep['commands']['linux'] ?? '') !== '') { ?>
-        <h6>2b. Linux, with the MeshCentral agent</h6>
-        <p class="small mb-1">Run as root from the unpacked <code>rivetit-agent-linux-<?= $dep['arch'] === 'arm64' ? 'arm64' : 'amd64' ?>.tar.gz</code>. <code>--install-mesh-agent</code> makes the installer also fetch the MeshCentral agent from your Mesh server (and pin its certificate when you saved a pin). The command holds the Mesh device group id and the token: keep it out of tickets and chat. A Windows installer carries the same choice inside the file.</p>
+        <h6>2b. Linux, with the MeshCentral agent (installs after approval)</h6>
+        <p class="small mb-1">Run as root from the unpacked <code>rivetit-agent-linux-<?= $dep['arch'] === 'arm64' ? 'arm64' : 'amd64' ?>.tar.gz</code>. The command carries nothing of Mesh: once this device is linked and you approve it, RivetIT pushes the MeshCentral agent from your own Mesh server and device group. The manual <code>--install-mesh-agent</code> flag still works for hand use, but a stamped installer no longer needs it.</p>
         <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_snippet_linux">Copy command</button></div>
         <textarea class="form-control font-monospace small mb-3" id="ea_snippet_linux" rows="10" readonly spellcheck="false"><?= $h((string) $dep['commands']['linux']) ?></textarea>
         <?php } ?>
@@ -699,8 +699,8 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
             <div class="col-lg-1"><label class="form-label" for="dp_uses">Max uses</label><input type="number" class="form-control" id="dp_uses" name="max_uses" min="1" max="5000" value="25"></div>
             <div class="col-lg-2"><label class="form-label" for="dp_label">Label</label><input type="text" class="form-control" id="dp_label" name="label" maxlength="100"></div>
             <?php $depMesh = rivetRmmInstallerMesh($rmm, $cfg); if ($depMesh['show']) { ?>
-            <div class="col-12" id="dp_mesh_col"><div class="form-check"><input class="form-check-input" type="checkbox" id="dp_mesh" name="install_mesh_agent" value="1" aria-describedby="dp_mesh_help"><label class="form-check-label" for="dp_mesh">Also install the MeshCentral agent</label></div>
-                <div class="form-text" id="dp_mesh_help"><?= $depMesh['ready'] ? 'After the RivetIT agent is installed, the installer downloads the MeshCentral agent from your own Mesh server and installs it. If the Mesh part fails, the RivetIT agent is still installed. The commands for Linux then carry the Mesh address and device group id: treat them as secret.' : 'Not ready yet: ' . $h($depMesh['hint']) . ' <a href="#mesh">Open the MeshCentral settings below</a>.' ?></div></div>
+            <div class="col-12" id="dp_mesh_col"><div class="form-check"><input class="form-check-input" type="checkbox" id="dp_mesh" name="install_mesh_agent" value="1" aria-describedby="dp_mesh_help"><label class="form-check-label" for="dp_mesh">Also install the MeshCentral agent (after the device is approved)</label></div>
+                <div class="form-text" id="dp_mesh_help"><?= $depMesh['ready'] ? 'The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server and device group. A Mesh failure never affects the RivetIT agent. The installer and its commands carry nothing of Mesh.' : 'Not ready yet: ' . $h($depMesh['hint']) . ' <a href="#mesh">Open the MeshCentral settings below</a>.' ?></div></div>
             <?php } ?>
             <div class="col-12 small text-muted" id="dp_format_help" aria-live="polite">The .exe is the default. The MSI is a stamped copy of the published MSI template for Intune, Group Policy or any tool that installs .msi packages. <?= $msiCur['amd64'] === null ? 'No MSI template is published for x64 yet (<a href="#msi-templates">upload one under MSI template</a>).' : 'Current x64 template: ' . $h($msiCur['amd64']) . '.' ?></div>
             <div class="col-12 d-flex flex-wrap gap-2 mt-2">

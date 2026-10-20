@@ -80,10 +80,26 @@ function rivetCsRender(array $st): string
     // Services
     $o .= '<div class="col-12"><div class="border rounded p-3"><div class="fw-semibold mb-1">Important services stopped</div>'
         . '<p class="small text-muted mb-2" id="cs_svc_h">Raises an alert when a ticked service is not running. A check ticked for one OS is only sent to devices of that OS.</p><div class="row">';
+    $aliasGroups = rivetCsAliasGroups();
+    $aliasedNames = [];   // every member of every alias group (not just the first), so the plain loop below skips them
+    foreach ($aliasGroups as $g) {
+        foreach ($g['members'] as $m) {
+            $aliasedNames[$m] = true;
+        }
+    }
     foreach (['Windows', 'Linux'] as $os) {
         $o .= '<div class="col-md-6"><div class="small text-muted mb-1">' . $os . ' devices</div>';
+        if ($os === 'Linux') {
+            // Alias pairs first, one checkbox each: ticking it watches every spelling, so a Debian host (ssh, cron, systemd-timesyncd) is not told to fail on the Red Hat spellings (sshd, crond) or the other time-sync service, and the other way round.
+            foreach ($aliasGroups as $first => $g) {
+                $id = 'cs_svc_' . preg_replace('/[^A-Za-z0-9]/', '_', $first);
+                $checked = array_intersect($g['members'], $st['services']) !== [];
+                $o .= '<div class="form-check"><input type="checkbox" class="form-check-input" id="' . $id . '" name="cs[svc][]" value="' . rivetCsH($first) . '"' . ($checked ? ' checked' : '') . '>'
+                    . '<label class="form-check-label" for="' . $id . '">' . rivetCsH($g['label']) . '</label></div>';
+            }
+        }
         foreach ($choices as $name => [$label, $cos]) {
-            if ($cos !== $os) {
+            if ($cos !== $os || isset($aliasedNames[$name])) {
                 continue;
             }
             $id = 'cs_svc_' . preg_replace('/[^A-Za-z0-9]/', '_', $name);

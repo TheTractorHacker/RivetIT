@@ -71,8 +71,9 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
     public function createForDevice(array $device, int $clientId, int $locationId): int
     {
         $isServer = stripos((string) $device['os_version'], 'server') !== false;
-        // A Linux device's version text already names the distribution ("Ubuntu 24.04"); only a Windows one is prefixed.
-        $osLabel = (($device['os'] ?? 'windows') === 'linux' ? '' : 'Windows ') . $device['os_version'];
+        // AssetInventorySync::osLabel() is the one place that decides this: a Linux device's version text already names the distribution ("Ubuntu 24.04", no
+        // prefix), and a Windows one's ProductName already starts with "Windows" ("Windows 11 Pro ..."), so neither doubles up ("Windows Windows 11 ...").
+        $osLabel = AssetInventorySync::osLabel((($device['os'] ?? 'windows') === 'linux' ? '' : 'Windows'), (string) $device['os_version']);
         $res = $this->database->execute(
             "INSERT INTO assets (asset_type, asset_name, asset_make, asset_model, asset_serial, asset_os, asset_status, asset_client_id, asset_location_id, asset_created_at)
              VALUES (?, ?, ?, ?, ?, ?, 'Active', ?, ?, NOW())",
