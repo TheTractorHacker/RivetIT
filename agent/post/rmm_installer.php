@@ -184,11 +184,21 @@ function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm
     }
     $tokenId = (int) $t->data['token_id'];
     if ($mesh) {
-        mysqli_query($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, install_mesh_agent, created_at) VALUES (' . $tokenId . ', '
-            . \RivetCore\Rmm\Mesh\MeshAfterApproval::OPTION_AFTER_APPROVAL . ', UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE install_mesh_agent = ' . \RivetCore\Rmm\Mesh\MeshAfterApproval::OPTION_AFTER_APPROVAL);
+        $afterApproval = \RivetCore\Rmm\Mesh\MeshAfterApproval::OPTION_AFTER_APPROVAL;
+        $stmt = mysqli_prepare($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, install_mesh_agent, created_at) VALUES (?, ?, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE install_mesh_agent = ?');
+        mysqli_stmt_bind_param($stmt, 'iii', $tokenId, $afterApproval, $afterApproval);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
     }
     if ($deviceType !== 'auto') {
-        if (!mysqli_query($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, device_type, created_at) VALUES (' . $tokenId . ', \'' . mysqli_real_escape_string($mysqli, $deviceType) . '\', UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE device_type = VALUES(device_type)')) {
+        $stmt = mysqli_prepare($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, device_type, created_at) VALUES (?, ?, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE device_type = VALUES(device_type)');
+        $ok = $stmt !== false;
+        if ($ok) {
+            mysqli_stmt_bind_param($stmt, 'is', $tokenId, $deviceType);
+            $ok = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        if (!$ok) {
             $rmm->technician()->revokeToken($who, $tokenId);   // migration 0035 not applied: never hand out an installer that would silently ignore the choice
 
             return 'The device type option is not available until the database is updated.';
@@ -202,7 +212,11 @@ function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm
             return $why;
         }
     }
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ' . $tokenId)) ?: [];
+    $rowStmt = mysqli_prepare($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ?');
+    mysqli_stmt_bind_param($rowStmt, 'i', $tokenId);
+    mysqli_stmt_execute($rowStmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($rowStmt)) ?: [];
+    mysqli_stmt_close($rowStmt);
     $dept = \RivetCore\Rmm\Enrollment\DeviceValidator::cleanText((string) $client['client_name'], 200) ?? ('Department ' . $clientId);
     $cmd = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet((string) $summary['service_base'], (string) $t->data['token'], $arch, $dept, ($summary['ca_pem'] ?? '') !== '' ? (string) $summary['ca_pem'] : null, null);
     logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires " . rivetFormatTime($row['expires_at'] ?? null, 'utc') . ($mesh ? ', installs the MeshCentral agent after the device is approved' : '') . ($deviceType !== 'auto' ? ", new assets get the type \"$deviceType\"" : ''), $clientId);
