@@ -126,7 +126,7 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
     <div class="card-body">
         <p class="small text-muted">This token allows <?= (int) $dep['max_uses'] ?> enrollments and expires <?= $h($dt($dep['expires_at'])) ?>. The commands below contain it: keep them out of tickets, chat and shared script shares.</p>
         <?php if ($depMsi) { ?>
-        <div class="alert alert-warning small" role="note" id="deploy-msi-warning"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><strong>Not yet verified on Windows.</strong> The MSI installer is unsigned and has never been run on a real Windows PC: msiexec accepting a package with the payload appended, repair and upgrade behaviour and the custom actions are unverified. Follow the checklist <code>docs/rmm/MSI_VERIFY.md</code> (RivetCore) on one machine before a roll-out.</div>
+        <div class="alert alert-info small" role="note" id="deploy-msi-warning"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>The MSI is unsigned: SmartScreen or an application-control policy may warn. Upgrade, repair and uninstall are not yet tested.</div>
         <h6>1. MSI: one PC, Intune, Group Policy or your RMM</h6>
         <p class="small mb-2">Use <strong>Download installer</strong> with Format <em>MSI</em> for this department. The stamped file <code><?= $h($depMsi['filename']) ?></code> already contains the server address, the token and the department. Double-click it, or install it silently (the log is written to <code>%TEMP%</code>; msiexec's exit code 0 or 3010 means installed):</p>
         <div class="mb-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-ea-copy-target="ea_msi_msiexec">Copy command</button></div>
@@ -638,7 +638,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
 <div class="card mb-3" id="msi-templates">
     <div class="card-header"><h4 class="card-title mb-0">MSI template</h4></div>
     <div class="card-body">
-        <div class="alert alert-danger small" role="alert" id="msi-unverified"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><strong>UNVERIFIED on Windows.</strong> The MSI installer has never been run on a real Windows PC. Whether <code>msiexec</code> accepts a package with the enrollment payload appended after the end of the file, what happens on repair and upgrade, and the whole custom-action flow are not proven. The template is also <strong>unsigned</strong>: SmartScreen or an application-control policy may warn or block it, and signing a template and then stamping it would break the signature of the stamped copy. Work through the checklist <code>docs/rmm/MSI_VERIFY.md</code> in RivetCore (<a href="https://github.com/TheTractorHacker/rivet-core/blob/v1.0.0-rc.16/docs/rmm/MSI_VERIFY.md" rel="noopener noreferrer" target="_blank">open it<span class="visually-hidden"> (opens in a new tab)</span></a>) on one PC of each kind before relying on it. The <strong>.exe installer stays the default and the proven path</strong>.</div>
+        <div class="alert alert-info small" role="note" id="msi-unverified"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>The MSI is unsigned: SmartScreen or an application-control policy may warn. Upgrade, repair and uninstall are not yet tested.</div>
         <p class="small text-muted">An MSI installer is a copy of a template published here with the department's enrollment payload appended; the stored template is never changed. Upload <code>rivetit-agent-windows-amd64.msi</code> from the agent release (or build it with <code>make msi</code> in RivetCore, see <code>docs/rmm/AGENT_BUILD.md</code>). <strong>Only x64 (amd64) is built</strong>: the build tool cannot make an ARM64 package, so ARM64 PCs use the .exe; an ARM64 package you built yourself is accepted.</p>
         <p class="small text-muted mb-2">The server checks that the file is a Windows Installer package (an OLE compound file), that it is between <?= $h(BinaryStore::human(\RivetCore\Rmm\Binaries\MsiInspector::MIN_BYTES)) ?> and <?= $h(BinaryStore::human($rmm->binaryStore()->maxBytes())) ?>, that it is not already an installer with a payload, and reads the platform from the package's summary information (<code>x64</code> or <code>Arm64</code>; <code>Intel</code> is refused; if the summary cannot be read the file is accepted on your word and recorded as <em>declared</em>). It is stored outside the web-served area. Largest accepted upload now: <strong><?= $h(BinaryStore::human(min($uploadLimit, $rmm->binaryStore()->maxBytes()))) ?></strong> (the lower of the cap, PHP <code>upload_max_filesize</code> <?= $h(ini_get('upload_max_filesize')) ?> and <code>post_max_size</code> <?= $h(ini_get('post_max_size')) ?>). Larger or automated uploads: <code>sudo -u www-data php scripts/endpoint_agent_publish.php rivetit-agent-windows-amd64.msi --msi --version 1.2.0 --arch amd64 --activate</code>.</p>
         <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3" autocomplete="off">
@@ -707,6 +707,59 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
                 <button type="submit" name="download_installer" class="btn btn-primary"><i class="fas fa-download me-1"></i>Download installer</button>
                 <button type="submit" name="show_deploy_commands" class="btn btn-outline-primary"><i class="fas fa-terminal me-1"></i>Show deployment commands</button>
             </div>
+        </form>
+    </div>
+</div>
+
+<?php
+// RivetCore 1.0.0-rc.29 (hypervisor visibility): one sub-switch (`hypervisor`, off by default) and its limits. Only a Proxmox VE or Hyper-V host whose
+// agent announces "hypervisor" reports anything; try one host first (docs/rmm/HYPERVISORS.md section 9: nothing here has run against a real cluster).
+$hvOn = !empty($cfg['features']['hypervisor']);
+$hvLim = (array) $cfg['limits'];
+$hvNum = static fn (string $key, int $def): int => (int) ($hvLim[$key] ?? $def);
+?>
+<?php $eaTab('hypervisor'); ?>
+<div class="card mb-3" id="hypervisors">
+    <div class="card-header"><h4 class="card-title mb-0">Hypervisor visibility <?= $hvOn ? '<span class="badge text-bg-success ms-2">On</span>' : '<span class="badge text-bg-secondary ms-2">Off</span>' ?></h4></div>
+    <div class="card-body">
+        <p class="small text-muted">Shows Proxmox VE and Hyper-V hosts an endpoint agent reports on: VMs, their state, storage, snapshots and backups. Needs an agent of RivetCore 1.0.0-rc.29 or later that announces "hypervisor"; older agents are simply never asked. Switching it off stops it within one check-in and keeps everything already stored. See <a href="/agent/rmm_hypervisors.php">Endpoints &gt; Hypervisors</a> once it is on.</p>
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <div class="border rounded p-3 mb-3">
+                <div class="form-check form-switch mb-2">
+                    <input type="checkbox" class="form-check-input" id="ea_sw_hypervisor" name="feature_hypervisor" value="1" <?= $hvOn ? 'checked' : '' ?> aria-describedby="ea_sw_hypervisor_h">
+                    <label class="form-check-label fw-semibold" for="ea_sw_hypervisor">Hypervisor visibility (<code>hypervisor</code>)</label>
+                </div>
+                <p class="small text-muted mb-0" id="ea_sw_hypervisor_h"><strong>Cost:</strong> a reporting host sends a full inventory every few minutes and a short summary in between; nothing is ever installed, stopped or changed on a host or a VM by this feature.</p>
+            </div>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_warn">Storage warn (% used)</label>
+                    <input type="number" class="form-control" id="ea_hv_warn" name="hypervisor_storage_warn_pct" min="1" max="99" value="<?= $hvNum('hypervisor_storage_warn_pct', 85) ?>"></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_crit">Storage critical (% used)</label>
+                    <input type="number" class="form-control" id="ea_hv_crit" name="hypervisor_storage_crit_pct" min="1" max="100" value="<?= $hvNum('hypervisor_storage_crit_pct', 95) ?>"></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_snap">Snapshot too old (days)</label>
+                    <input type="number" class="form-control" id="ea_hv_snap" name="hypervisor_snapshot_days" min="1" max="90" value="<?= $hvNum('hypervisor_snapshot_days', 7) ?>"></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_bkup">Backup too old (days)</label>
+                    <input type="number" class="form-control" id="ea_hv_bkup" name="hypervisor_backup_days" min="1" max="30" value="<?= $hvNum('hypervisor_backup_days', 2) ?>"></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_resolve">VM-down auto-resolve (hours)</label>
+                    <input type="number" class="form-control" id="ea_hv_resolve" name="hypervisor_vm_down_resolve_h" min="1" max="168" value="<?= $hvNum('hypervisor_vm_down_resolve_h', 24) ?>">
+                    <div class="form-text">A VM that stays stopped this long is taken as switched off on purpose; its alert resolves.</div></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_max">Max VMs per host</label>
+                    <input type="number" class="form-control" id="ea_hv_max" name="hypervisor_max_vms" min="10" max="5000" value="<?= $hvNum('hypervisor_max_vms', 1000) ?>"></div>
+                <div class="col-sm-6 col-lg-3"><label class="form-label" for="ea_hv_retain">Keep missing VMs (days)</label>
+                    <input type="number" class="form-control" id="ea_hv_retain" name="hypervisor_retention_days" min="1" max="365" value="<?= $hvNum('hypervisor_retention_days', 30) ?>"></div>
+            </div>
+            <div class="fw-semibold small mt-3 mb-1">Alerts</div>
+            <div class="row g-2 mb-3">
+                <?php foreach (['hypervisor_alert_vm_down' => 'VM stopped', 'hypervisor_alert_backup' => 'Backup failed or stale', 'hypervisor_alert_snapshot' => 'Snapshot too old',
+                    'hypervisor_alert_storage' => 'Storage low', 'hypervisor_alert_pool' => 'Pool degraded', 'hypervisor_alert_quorum' => 'Cluster quorum lost'] as $hvFlag => $hvFlagLabel) { ?>
+                <div class="col-lg-4 col-6"><div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ea_<?= $hvFlag ?>" name="<?= $hvFlag ?>" value="1" <?= $hvNum($hvFlag, 1) === 1 ? 'checked' : '' ?>>
+                    <label class="form-check-label small" for="ea_<?= $hvFlag ?>"><?= $hvFlagLabel ?></label>
+                </div></div>
+                <?php } ?>
+            </div>
+            <button type="submit" name="save_hypervisor_settings" class="btn btn-primary">Save</button>
         </form>
     </div>
 </div>

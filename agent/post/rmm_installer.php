@@ -151,7 +151,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
  */
 function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm\Authz\RmmPrincipal $who, \mysqli $mysqli, array $args, string $actor)
 {
-    [$clientId, $locationId, $ring, $ttl, $uses, $label, $arch, $mesh] = $args;
+    [$clientId, $locationId, $ring, $ttl, $uses, $label, $arch, $mesh, $appIds, $deviceType] = $args;
     $summary = $rmm->readModel()->settingsSummary();
     if ($summary['service_base'] === null) {
         return 'Set the service URL to an https:// address first.';
@@ -164,22 +164,48 @@ function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm
     if ($locationId > 0 && !in_array($locationId, array_column(rivetRmmInstallerLocations($mysqli, $clientId), 'id'), true)) {
         $locationId = 0;
     }
-    $meshBlock = null;
+    // This Linux-only path never calls RivetCore\Rmm\Installer\InstallerService::issue() (it refuses with "No agent binary is published" because it always
+    // wants a WINDOWS binary for the architecture, which a Linux-only install never uses), so it must reproduce issue()'s token-side-effects by hand: the
+    // mesh-after-approval option (NEVER embed the Mesh address/group id/pin in the printed command: the server pushes the install once the device is
+    // approved, exactly like the Windows path), the device type, and the ticked catalog apps. A prior version of this function embedded the Mesh settings
+    // directly into the Linux command (the pre-rc.27 install-time flow) and silently dropped device type and app ids for every Linux-only deployment.
     if ($mesh) {
         $why = $rmm->meshAgents()->installRefusal();
         if ($why !== null) {
             return $why;
         }
-        $meshBlock = $rmm->meshAgents()->installBlock();
+    }
+    if ($deviceType !== 'auto' && !\RivetCore\Rmm\Assets\DeviceTypeClassifier::validLabel($deviceType)) {
+        return 'Choose a device type from the list, or leave it on automatic detection.';
     }
     $t = $rmm->technician()->createToken($who, $clientId, $locationId, $ring, $ttl, $uses, $label !== '' ? $label : 'Linux install ' . bin2hex(random_bytes(3)));
     if (!$t->ok) {
         return $t->message;
     }
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ' . (int) $t->data['token_id'])) ?: [];
+    $tokenId = (int) $t->data['token_id'];
+    if ($mesh) {
+        mysqli_query($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, install_mesh_agent, created_at) VALUES (' . $tokenId . ', '
+            . \RivetCore\Rmm\Mesh\MeshAfterApproval::OPTION_AFTER_APPROVAL . ', UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE install_mesh_agent = ' . \RivetCore\Rmm\Mesh\MeshAfterApproval::OPTION_AFTER_APPROVAL);
+    }
+    if ($deviceType !== 'auto') {
+        if (!mysqli_query($mysqli, 'INSERT INTO endpoint_agent_installer_options (token_id, device_type, created_at) VALUES (' . $tokenId . ', \'' . mysqli_real_escape_string($mysqli, $deviceType) . '\', UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE device_type = VALUES(device_type)')) {
+            $rmm->technician()->revokeToken($who, $tokenId);   // migration 0035 not applied: never hand out an installer that would silently ignore the choice
+
+            return 'The device type option is not available until the database is updated.';
+        }
+    }
+    if ($appIds !== []) {
+        $why = $rmm->autoInstall()->recordSelection($tokenId, $appIds, $clientId, $locationId, $who->userId, $actor);
+        if ($why !== null) {
+            $rmm->technician()->revokeToken($who, $tokenId);
+
+            return $why;
+        }
+    }
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT token_id, expires_at, max_uses FROM endpoint_agent_enrollment_tokens WHERE token_id = ' . $tokenId)) ?: [];
     $dept = \RivetCore\Rmm\Enrollment\DeviceValidator::cleanText((string) $client['client_name'], 200) ?? ('Department ' . $clientId);
-    $cmd = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet((string) $summary['service_base'], (string) $t->data['token'], $arch, $dept, ($summary['ca_pem'] ?? '') !== '' ? (string) $summary['ca_pem'] : null, $meshBlock);
-    logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires " . rivetFormatTime($row['expires_at'] ?? null, 'utc'), $clientId);
+    $cmd = \RivetCore\Rmm\Installer\InstallerService::linuxSnippet((string) $summary['service_base'], (string) $t->data['token'], $arch, $dept, ($summary['ca_pem'] ?? '') !== '' ? (string) $summary['ca_pem'] : null, null);
+    logAction('Endpoint Agent', 'Installer Created', "$actor created a Linux install command ($arch, no Windows agent published) for client \"$dept\" with enrollment token #{$row['token_id']}, {$row['max_uses']} uses, expires " . rivetFormatTime($row['expires_at'] ?? null, 'utc') . ($mesh ? ', installs the MeshCentral agent after the device is approved' : '') . ($deviceType !== 'auto' ? ", new assets get the type \"$deviceType\"" : ''), $clientId);
 
     return ['result' => \RivetCore\Rmm\Technician\ActionResult::ok('Enrollment token created.', 201, 'created', ['token' => $row, 'token_plain' => $t->data['token'], 'department' => $dept]), 'command' => $cmd];
 }

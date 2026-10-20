@@ -321,7 +321,7 @@ await T('Add device: with a template published, MSI is offered for x64 only; pic
   await click('label[for="rmm-inst-format-msi"]');
   await sleep(250);
   assert(await checked('#rmm-inst-format-msi') && (await p.visible('#rmm-inst-msi-warn')), 'the warning is not shown');
-  assert(/Not yet verified on Windows/.test(await text('#rmm-inst-msi-warn')) && /unsigned/.test(await text('#rmm-inst-msi-warn')), 'warning: ' + await text('#rmm-inst-msi-warn'));
+  assert(/unsigned: SmartScreen/.test(await text('#rmm-inst-msi-warn')) && /Upgrade, repair and uninstall are not yet tested/.test(await text('#rmm-inst-msi-warn')) && !/Not yet verified on Windows/.test(await text('#rmm-inst-msi-warn')), 'warning: ' + await text('#rmm-inst-msi-warn'));
   assert(await p.visible('#rmm-inst-silent-msi') && !(await p.visible('#rmm-inst-silent-exe')) && /msiexec \/i ".*\.msi" \/qn \/norestart/.test(await text('#rmm-inst-silent-msi')), 'hint: ' + await text('#rmm-inst-silent-msi'));
   await shotEl('#rmmInstallerModal .modal-content', 'dialog-format-msi-desktop-light');
   await captureBlob();
@@ -329,7 +329,7 @@ await T('Add device: with a template published, MSI is offered for x64 only; pic
   await p.waitFor(`!document.getElementById('rmm-inst-done').classList.contains('d-none')`, { timeout: 30000 });
   await sleep(500);
   assert((await p.eval('window.__blobHead')) === 'd0cf11e0a1b11ae1', 'the MSI is not an OLE compound file: ' + await p.eval('window.__blobHead'));
-  assert(/Downloaded RivetIT-Agent-.*-x64\.msi/.test(await text('#rmm-inst-done')) && /unsigned and has not been verified on Windows/.test(await text('#rmm-inst-done')), 'done: ' + await text('#rmm-inst-done'));
+  assert(/Downloaded RivetIT-Agent-.*-x64\.msi/.test(await text('#rmm-inst-done')) && /unsigned: SmartScreen/.test(await text('#rmm-inst-done')), 'done: ' + await text('#rmm-inst-done'));
   // ARM64: MSI is disabled and the selection falls back to the .exe
   await click('label[for="rmm-inst-arch-arm64"]');
   await sleep(250);
@@ -341,15 +341,14 @@ await T('Add device: with a template published, MSI is offered for x64 only; pic
 });
 
 // ================================================================================================ 4. Administration
-await T('admin: the MSI template card (prominent UNVERIFIED warning, unsigned, docs link, limits, the CLI path) and the Deployment format selector', async () => {
+await T('admin: the MSI template card (short unsigned/untested-paths note, no stale unverified banner) and the Deployment format selector', async () => {
   php(['msi', 'none']);
   await go(ADMIN + '#msi-templates');
   await trapDialogs();
   await p.waitSel('#msi-unverified');
   const w = await text('#msi-unverified');
-  assert(/UNVERIFIED on Windows/.test(w) && /never been run on a real Windows PC/.test(w) && /unsigned/.test(w) && /SmartScreen/.test(w) && /MSI_VERIFY\.md/.test(w), 'warning: ' + w.slice(0, 300));
-  assert((await p.eval(`document.getElementById('msi-unverified').classList.contains('alert-danger')`)) && (await p.eval(`document.getElementById('msi-unverified').getAttribute('role')`)) === 'alert', 'the warning is not prominent');
-  assert((await p.eval(`document.querySelector('#msi-unverified a').href`)).endsWith('/docs/rmm/MSI_VERIFY.md'), 'docs link: ' + await p.eval(`document.querySelector('#msi-unverified a').href`));
+  assert(/unsigned: SmartScreen/.test(w) && /application-control policy may warn/.test(w) && /Upgrade, repair and uninstall are not yet tested/.test(w) && !/UNVERIFIED on Windows/.test(w) && !/never been run on a real Windows PC/.test(w), 'warning: ' + w.slice(0, 300));
+  assert((await p.eval(`document.getElementById('msi-unverified').classList.contains('alert-info')`)) && (await p.eval(`document.getElementById('msi-unverified').getAttribute('role')`)) === 'note', 'the note uses the neutral alert-info style, not the old alarm style');
   const c = await text('#msi-templates');
   assert(/Only x64 \(amd64\) is built/.test(c) && /Largest accepted upload now: 2 MiB/.test(c) && /endpoint_agent_publish\.php rivetit-agent-windows-amd64\.msi --msi/.test(c) && /No MSI template published yet/.test(c), 'card: ' + c.slice(0, 400));
   assert((await unlabeled('#msi-templates')).length === 0, 'unlabeled controls: ' + (await unlabeled('#msi-templates')).join(','));
@@ -391,7 +390,7 @@ await T('admin: Deployment, Format MSI: the deployment commands panel shows the 
   await nav('button[name=show_deploy_commands]');
   await p.waitSel('#deploy-commands');
   const d = await text('#deploy-commands');
-  assert(/Windows x64, MSI\)/.test(d) && /Not yet verified on Windows/.test(d), 'header/warning: ' + d.slice(0, 200));
+  assert(/Windows x64, MSI\)/.test(d) && /Upgrade, repair and uninstall are not yet tested/.test(d) && !/Not yet verified on Windows/.test(d), 'header/warning: ' + d.slice(0, 200));
   assert(/msiexec \/i "RivetIT-Agent-.*-x64\.msi" \/qn \/norestart/.test(await p.eval(`document.getElementById('ea_msi_msiexec').value`)), 'msiexec');
   assert(/format = 'msi'/.test(await p.eval(`document.getElementById('ea_msi_ps').value`)) && /ENROLL_TOKEN=/.test(await p.eval(`document.getElementById('ea_msi_props').value`)) && /REMOVE_MESHAGENT/.test(d) && /\{364538BF-62D7-4685-84C5-43B83B318852\}/.test(d), 'blocks');
   assert(!/setup --silent/.test(d), 'the exe instructions are mixed in');

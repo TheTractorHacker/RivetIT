@@ -350,8 +350,8 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div id="rmm-inst-apps-list">' . rivetRmmAutoInstSelectableHtml($ctx['apps'], 'rmm-inst') . '</div>'
         . '<div class="form-text" id="rmm-inst-apps-note">These apps install right after the RivetIT agent, on the devices this installer enrolls.</div></div>';
 
-    $msiWarn = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-msi-warn" role="note"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
-        . '<strong>Not yet verified on Windows.</strong> The MSI installer is unsigned (SmartScreen may warn) and has not been run on a real Windows PC yet: try it on one PC before a roll-out. The .exe installer is the proven path.</div>';
+    $msiWarn = '<div class="alert alert-info mb-3 d-none" id="rmm-inst-msi-warn" role="note"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>'
+        . 'The MSI is unsigned: SmartScreen or an application-control policy may warn. Upgrade, repair and uninstall are not yet tested.</div>';
     $none = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-nobinary" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
         . '<span id="rmm-inst-nobinary-text">No agent program is published for this architecture yet, so an installer cannot be built.</span> '
         . ($ctx['admin'] ? '<a href="' . $h(RIVET_RMM_BINARIES_URL) . '" id="rmm-inst-nobinary-link">Publish it under Administration &gt; Endpoint agent &gt; Agent binaries</a>.' : 'Ask an administrator to publish it.') . '</div>';

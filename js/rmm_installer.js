@@ -207,7 +207,7 @@
                 var n = parseInt(uses.value, 10) || 1;
                 var appsNote = res.headers.get('X-Apps-Note') || '';
                 done.textContent = 'Downloaded ' + name + ' (' + human(blob.size) + '). Copy it to ' + (n > 1 ? 'the PCs' : 'the PC') + ', double-click it and accept the administrator prompt. This file works for ' + n + (n > 1 ? ' PCs' : ' PC') + ' for ' + (parseInt(ttl.value, 10) || 24) + ' hours; making another one creates a new audited token.'
-                    + (isMsi ? ' It is an MSI: double-click it, or run msiexec /i "' + name + '" /qn /norestart. It is unsigned and has not been verified on Windows yet, so try it on one PC first.' : '')
+                    + (isMsi ? ' It is an MSI: double-click it, or run msiexec /i "' + name + '" /qn /norestart. It is unsigned: SmartScreen or an application-control policy may warn.' : '')
                     + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent from your Mesh server after the RivetIT agent; if that part fails the RivetIT agent is still installed and the device page says why.' : '')
                     + (appsNote ? ' ' + appsNote : '');
                 done.classList.remove('d-none');
