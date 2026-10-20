@@ -77,7 +77,7 @@ function rivetRmmScrWhen(?string $iso, ?int $now = null): string
     return $d >= 0 ? 'in ' . rivetRmmUiDuration($d) : rivetRmmUiDuration(-$d) . ' ago';
 }
 
-/** An absolute UTC time plus the relative text, as markup. */
+/** An absolute time in the company zone plus the relative text, as markup. */
 function rivetRmmScrTimeBoth(?string $iso, ?int $now = null): string
 {
     if ($iso === null || $iso === '') {
@@ -1110,7 +1110,7 @@ function rivetRmmScrSchedulesPage(array $vm, array $ctx): string
     $csrf = $ctx['csrf'];
     $self = '/agent/rmm_schedules.php';
     $o = rivetRmmAutoHeader('Script schedules', 'clock', $perm['admin'] ? '<a class="btn btn-primary btn-sm" href="' . $self . '?new=1"><i class="fas fa-plus me-1" aria-hidden="true"></i>New schedule</a>' : '',
-        'A schedule runs one version of a library script again and again on a target. All times are UTC. Administrators manage schedules; everyone with access can see them.');
+        'A schedule runs one version of a library script again and again on a target. Times are shown in the company time zone; a cron expression is always written in UTC. Administrators manage schedules; everyone with access can see them.');
     if ($vm['error'] !== '') {
         return $o . '<div class="alert alert-danger" role="alert">' . rmmH($vm['error']) . '</div>';
     }
@@ -1240,7 +1240,7 @@ function rivetRmmScrScheduleDetailPage(array $vm, array $ctx): string
         if ($vm['scripts'] === []) {
             return rivetRmmAutoHeader('New schedule', 'clock', $back) . '<div class="alert alert-warning" role="alert">There is no library script to schedule yet. <a href="/agent/rmm_script_library.php">Publish one first.</a></div>';
         }
-        $o = rivetRmmAutoHeader($vm['new'] ? 'New schedule' : 'Edit schedule', 'clock', $back, 'All times are UTC.');
+        $o = rivetRmmAutoHeader($vm['new'] ? 'New schedule' : 'Edit schedule', 'clock', $back, 'Times are shown in the company time zone; a cron expression is always written in UTC.');
         $o .= rivetRmmUiCard('Schedule', 'edit', rivetRmmScrScheduleForm($vm['schedule'], $vm['scripts'], $vm['scope'], $csrf, $vm['draft']));
         if (count($vm['scripts']) >= 40) {
             $o .= '<p class="small text-muted">Only the first 40 scripts are offered here.</p>';
