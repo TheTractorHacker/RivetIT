@@ -153,7 +153,7 @@ await T('maintenance: create a one-time mute window for a device with the real f
   await setVal('#w-tz', 'America/Chicago');
   await setVal('#w-start', localInput(-30));
   await setVal('#w-end', localInput(120));
-  assert(/^UTC: \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(await p.eval(`document.querySelector('[data-alr-utc=start]').textContent`)), 'the UTC time next to the start did not appear');
+  assert(/^Company time: \d{4}-\d{2}-\d{2} \d{2}:\d{2} \S+$/.test(await p.eval(`document.querySelector('[data-alr-utc=start]').textContent`)), 'the company-zone time next to the start did not appear');
   assert((await unlabeled()).length === 0, 'unlabeled controls: ' + (await unlabeled()).join(','));
   await shot('maintenance-form-desktop-light');
   await p.clickNav('form.rmm-alr-form button[type=submit]');

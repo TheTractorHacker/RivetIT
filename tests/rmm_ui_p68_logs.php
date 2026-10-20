@@ -129,7 +129,7 @@ $ok(str_contains($body, 'Last 24 hours') && !str_contains($body, 'Last 30 days')
 $ok(str_contains($body, 'entries stored') && str_contains($body, '>' . $fleetRows . '<') && str_contains($body, 'oldest entry') && str_contains($body, 'worst-case storage'), 'admin: the header shows rows stored, the oldest entry and the worst-case storage');
 $ok(str_contains($body, 'LGWIN1') && str_contains($body, 'href="/agent/asset_details.php?asset_id=' . $lgAsset['LGWIN1'] . '#rmm-logs"'), 'a line links to its device asset page (Logs tab)');
 $ok(str_contains($body, 'badge text-bg-danger') && str_contains($body, 'Critical') && str_contains($body, 'Warning') && str_contains($body, 'Information'), 'level pills carry a word, not only a colour');
-$ok(str_contains($body, '<time datetime=') && str_contains($body, ' UTC</div>'), 'each line shows a relative time and the absolute UTC time');
+$ok(str_contains($body, '<time datetime=') && preg_match('~\d{2}:\d{2}:\d{2} (?!UTC)[A-Z]{3,5}</div>~', $body) === 1, 'each line shows a relative time and the absolute time in the company zone (a zone label other than UTC when the company zone is not UTC)');
 // hostile text and a long message
 $ok(!str_contains($body, '<script>alert(1)') && !str_contains($body, '<img src=x onerror=alert(2)>') && str_contains($body, '&lt;script&gt;alert(1)&lt;/script&gt;') && str_contains($body, '&quot;dq&quot;') && str_contains($body, 'Evil&lt;b&gt;src'),
     'hostile message and source text is escaped (script, quotes, tag in the source)');
