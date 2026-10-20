@@ -6,6 +6,17 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.61] RivetIT — Every time is shown in the company time zone, not UTC
+
+**Deploy notes:** pull this tag; no database change. Times that used to read "2026-10-18 17:16 UTC" now read "2026-10-18 12:16 CDT" (the company time zone from Settings > Localization, with its short label), and they follow daylight saving time.
+
+- **One helper, `rivetFormatTime()`** (`includes/rivet_time.php`): turns a stored value into company time. It knows how each value was stored (`'utc'`, `'local'` for the app's own `NOW()` columns, `'epoch'`), converts only what is UTC (no double conversion), and gives an empty string for null, zero or invalid input. `docs/TIMESTAMP_DISPLAY.md` lists every page and column with its storage zone.
+- **Administration > Endpoint agent:** the Agent updates tables (agent binaries, MSI templates, releases), the build box, build hosts "last seen" and build jobs, enrollment tokens, attempts, the signing key, devices, and the deployment-command note no longer say "(UTC)"; headers are plain ("Uploaded", "Expires", "Last check-in") and each cell carries the zone label. The installer and add-device dialogs show the token expiry in company time too.
+- **RMM screens:** device page, fleet, alerts, maintenance windows (the editor shows "Company time" under each box), script schedules, approvals, patching, software, remote tools, mesh, scale cards, and the log search (the custom From/To boxes are now in company time; the "(UTC)" labels are gone). The relative "5 min ago" tooltips show company time.
+- **Legacy RMM pages and the asset Metrics tab:** times that were already company-local now carry the zone label; the Metrics chart axis and tooltips use the company zone instead of each browser's zone. Audit trail and the training PIN-sync time are converted the same way.
+- **Left as UTC on purpose:** cron expressions in script schedules (the scheduler reads them as UTC and the labels say so), the REST API, the agent protocol, CSV exports.
+- Tests: `tests/rivet_time.php` (helper: several zones, America/Chicago DST transitions, null/zero/invalid), `tests/rivet_time_pages.php` (Agent updates tables and build hosts/jobs with the company zone set to America/Chicago, UTC and Asia/Kolkata), `tests/rivet_time_lint.php` (fails on new hard-coded "(UTC)" headers and labels).
+
 ## [26.10.58] RivetIT — Build progress and the RMM Agent Builder installer option (DB 2.6.178)
 
 **Deploy notes:** pull this tag, then run the database update (Administration > Updates, or `php scripts/update_cli.php --update_db`): it adds four columns to `endpoint_agent_build_jobs` (`progress_stage`, `progress_pct`, `progress_detail`, `progress_at`) and one to `endpoint_agent_build` (`run_steps`), each only if missing; existing rows get empty defaults. No RivetCore change. Build hosts on the older script keep working (the bar just moves without a percent). To put the Core script that reports progress on a build host, run `sudo deploy/setup-build-host.sh` (below) or copy the new script as usual.
