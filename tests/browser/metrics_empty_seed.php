@@ -14,6 +14,7 @@ require $root . '/vendor/autoload.php';
 if (stripos((string) $database, 'scratch') === false) { fwrite(STDERR, "refusing: database name must contain 'scratch'\n"); exit(2); }
 $db = new mysqli($dbhost, $dbusername, $dbpassword, $database);
 $db->set_charset('utf8mb4');
+$db->query("SET SESSION sql_mode=''");
 $q = function (string $sql) use ($db) { if (!$db->query($sql)) { fwrite(STDERR, $db->error . "\n" . $sql . "\n"); exit(1); } return $db->insert_id; };
 
 $pw = (string) (getenv('RMM_SMOKE_PASSWORD') ?: 'Scratch-Admin-1234');
