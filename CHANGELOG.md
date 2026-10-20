@@ -6,6 +6,16 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.60] RivetIT — No native browser dialogs anywhere (no database change)
+
+**Deploy notes:** pull this tag; nothing else (no database update, no RivetCore change, no new setting). Hard-refresh once so browsers drop the cached `app.js`.
+
+- **Every `alert()`, `confirm()` and `prompt()` is now a proper modal.** New `js/rivet_dialog.js` provides `RivetDialog.alert / confirm / prompt` (Promise based, built on the Bootstrap/Tabler modal classes): title, plain-text message (always `textContent`, never HTML), primary / warning / danger buttons, the safe button (Cancel) focused first, Esc or a click outside means Cancel (`false` / `null`), Tab stays inside, focus returns to the opener, `role="alertdialog"` with `aria-labelledby` / `aria-describedby`, several dialogs queue, dark theme and phone width work, and it opens correctly on top of another open modal. It needs no inline handlers (CSP safe) and no Bootstrap JavaScript, so it works on the kiosk, login, setup, portal, guest and module-only pages; every layout loads it.
+- **About 25 files changed, about 110 call sites.** Delete / revoke / reboot / run-script / bulk-alert confirms, the unsaved-changes prompt on training settings, the "no labor type" check on a ticket reply, send campaign, publish agent version, device-fleet revoke / rotate / reject, the Odoo link bulk actions, the credential-vault password step-up (now a password field instead of a native prompt), the guest signature pages and every "Failed: ..." / "Network error" message. Forms and links that used `data-confirm-submit`, `js-confirm-native`, `data-ea-confirm` and `data-confirm` keep their markup; cancelling still stops the submit or the navigation, and approving submits exactly once (with the clicked button's name and value).
+- **Not replaceable:** the browser's own "Leave site? Changes you made may not be saved" prompt (`beforeunload`) cannot be styled or replaced by any web page; it stays. It is the only native prompt left.
+- **Guard:** `tests/no_native_dialogs.php` fails on any `alert(` / `confirm(` / `prompt(` call in first-party JS and PHP (including inline scripts) that is not on `tests/no_native_dialogs_allowlist.txt` (empty), and on any layout that does not load `js/rivet_dialog.js`. Browser smoke `tests/browser/no_native_dialogs_smoke.mjs` makes any native dialog fail the run and exercises the helper (focus, Esc, backdrop, queue, markup in messages shown literally, dark theme, phone width, over another modal) and the replaced flows.
+- Docs: `docs/UI_DIALOGS.md`.
+
 ## [26.10.58] RivetIT — Build progress and the RMM Agent Builder installer option (DB 2.6.178)
 
 **Deploy notes:** pull this tag, then run the database update (Administration > Updates, or `php scripts/update_cli.php --update_db`): it adds four columns to `endpoint_agent_build_jobs` (`progress_stage`, `progress_pct`, `progress_detail`, `progress_at`) and one to `endpoint_agent_build` (`run_steps`), each only if missing; existing rows get empty defaults. No RivetCore change. Build hosts on the older script keep working (the bar just moves without a percent). To put the Core script that reports progress on a build host, run `sudo deploy/setup-build-host.sh` (below) or copy the new script as usual.
