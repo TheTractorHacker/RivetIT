@@ -124,6 +124,8 @@ $q("UPDATE endpoint_agent_build_jobs SET state='failed', progress_stage='msi', p
 $ok(str_contains($t, 'Stopped while: building the installer (MSI)') && str_contains($t, 'bg-danger') && str_contains($t, 'fa-times-circle') && !str_contains($t, 'fa-spinner'), 'a failed job shows where it stopped, a red bar and a failed item');
 $q("UPDATE endpoint_agent_build_jobs SET state='built', progress_pct=100 WHERE job_id = $jid"); $t = $live();
 $ok(str_contains($t, 'aria-valuenow="100"') && str_contains($t, 'bg-success') && str_contains($t, 'Took '), 'a built job shows a full green bar');
+$q("UPDATE endpoint_agent_build_jobs SET state='built', progress_pct=100, finished_at=NULL, claimed_at = UTC_TIMESTAMP() - INTERVAL 14 HOUR, last_status_at = UTC_TIMESTAMP() - INTERVAL 14 HOUR + INTERVAL 9 MINUTE WHERE job_id = $jid"); $t = $live();
+$ok(str_contains($t, 'Took 9m') && !str_contains($t, 'Took 14h'), 'a built job that nobody has published yet keeps its real build time (the clock stops at the last report, it does not run on for hours)');
 $q("UPDATE endpoint_agent_build_jobs SET state='queued', progress_stage='', progress_pct=0, claimed_at=NULL, finished_at=NULL WHERE job_id = $jid"); $t = $live();
 $ok(str_contains($t, 'Waiting for the build host to pick it up') && !str_contains($t, 'role="progressbar"'), 'a queued job shows no bar');
 $q("UPDATE endpoint_agent_build_jobs SET state='queued' WHERE job_id = $jid");

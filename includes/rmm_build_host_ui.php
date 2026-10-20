@@ -79,6 +79,10 @@ function rivetBuildHostProgressBlock(array $j): string
     $pct = (int) ($j['progress_pct'] ?? 0);
     $start = $j['claimed_at'] ?? null;
     $end = $j['finished_at'] ?? null;
+    if (($end === null || $end === '') && (string) ($j['state'] ?? '') === 'built') {
+        // A built job has no finish time until it is published, so the clock stops at the last report from the build host.
+        $end = $j['last_status_at'] ?? null;
+    }
     $elapsed = is_string($start) && $start !== '' ? ((is_string($end) && $end !== '' ? (int) strtotime($end . ' UTC') : time()) - (int) strtotime($start . ' UTC')) : null;
     $upload = null;
     if (preg_match('/^(?:Uploading |[Cc]hunk )?(\d{1,4}) ?(?:of|\/) ?(\d{1,4})$/', (string) ($j['progress_detail'] ?? ''), $m) === 1 && (int) $m[1] <= (int) $m[2]) {
