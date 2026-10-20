@@ -133,7 +133,7 @@ if ($chain_cols) {
                 <p class="small text-muted">Every entry carries a hash of itself and of the entry before it (keyed from the settings key when there is one). The check runs every night and raises an alert when an entry was edited, removed or reordered.</p>
                 <?php if ($chain_last) { [$cls, $lbl] = $chain_status_label[$chain_last['status']] ?? ['secondary', $chain_last['status']]; ?>
                     <p class="mb-2"><span class="badge text-bg-<?= $cls ?>" data-audit-chain-status="<?= $h($chain_last['status']) ?>"><?= $h($lbl) ?></span>
-                        <span class="text-muted small">checked <?= $h($chain_last['at']) ?> UTC, <?= number_format((int) $chain_last['checked']) ?> entries</span></p>
+                        <span class="text-muted small">checked <?= $h(rivetFormatTime($chain_last['at'] ?? '', 'utc') ?: ($chain_last['at'] ?? '')) ?>, <?= number_format((int) $chain_last['checked']) ?> entries</span></p>
                     <?php if (!empty($chain_last['reason'])) { ?><p class="small text-danger mb-2"><?= $h($chain_last['reason']) ?></p><?php } ?>
                 <?php } else { ?>
                     <p class="text-muted small mb-2">Not checked yet. The first check runs with the next nightly cron, or run it now.</p>
@@ -197,7 +197,7 @@ if ($chain_cols) {
             <?php foreach ($rows as $r) {
                 $meta = $r['metadata_json'] !== null && $r['metadata_json'] !== '' ? json_decode((string) $r['metadata_json'], true) : null; ?>
                 <tr>
-                    <td class="small text-nowrap"><?= $h($r['created_at']) ?></td>
+                    <td class="small text-nowrap"><?= $h(rivetFormatTime($r['created_at'], 'local', true, 'Y-m-d H:i:s') ?: $r['created_at']) ?></td>   <?php /* audit_events.created_at defaults to current_timestamp() under the company session zone */ ?>
                     <td><span class="badge text-bg-<?= $tone((string) $r['event_type']) ?>"><?= $h($r['event_type']) ?></span></td>
                     <td class="small"><?= $r['actor_user_id'] ? $h($r['user_name'] ?: ('user #' . $r['actor_user_id'])) : '<span class="text-muted">system / anonymous</span>' ?></td>
                     <td class="small"><?= $h($r['summary']) ?><?= $r['entity_type'] ? ' <span class="text-muted">(' . $h($r['entity_type']) . ($r['entity_id'] !== null ? ' #' . $h($r['entity_id']) : '') . ')</span>' : '' ?></td>
