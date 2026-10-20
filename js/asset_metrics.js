@@ -40,6 +40,8 @@
     'use strict';
 
     var DASH = '—';
+    /* A series with fewer real samples than this is 'sparse': drawn with point markers. */
+    var SPARSE_BELOW = 8;
 
     /* chartId -> Chart instance, per pane. Keyed on the pane element via a WeakMap so
      * two panes on one document cannot stomp each other's registries. */
@@ -314,6 +316,80 @@
         return scale;
     }
 
+    function countSamples(points) {
+        var n = 0;
+        for (var i = 0; i < points.length; i++) {
+            var v = points[i].v;
+            if (v !== null && v !== undefined && isFinite(v)) { n++; }
+        }
+        return n;
+    }
+
+    /* Radius for one point: an isolated sample (both neighbours empty) would be a
+     * zero-length line segment, i.e. invisible, so it is always drawn as a dot. */
+    function pointRadiusFn(sparse, bool) {
+        return function (ctx) {
+            var d = ctx.dataset.data, i = ctx.dataIndex;
+            if (d[i] === null || d[i] === undefined) { return 0; }
+            if (sparse) { return bool ? 6 : 4; }
+            var prev = i > 0 ? d[i - 1] : null, next = i < d.length - 1 ? d[i + 1] : null;
+            return (prev === null || prev === undefined) && (next === null || next === undefined) ? 3 : 0;
+        };
+    }
+
+    function ensureNote(block) {
+        var note = block.querySelector('[data-role="note"]');
+        if (!note) {
+            note = document.createElement('div');
+            note.className = 'ifm-chart-note';
+            note.setAttribute('data-role', 'note');
+            block.appendChild(note);
+        }
+        return note;
+    }
+
+    function sparseNote(entries, unit, precision, bool) {
+        var total = entries.reduce(function (a, e) { return a + e.count; }, 0);
+        var text = total + (total === 1 ? ' sample' : ' samples') + ' so far';
+        if (total === 1) {
+            var only = entries.filter(function (e) { return e.count === 1; })[0];
+            if (only) { text += ': ' + fmtValue(only.value, unit, precision) + ' at ' + fullLabel(only.date); }
+        } else if (bool && entries.length === 1) {
+            text += ' (latest: ' + fmtValue(entries[0].value, unit, precision) + ')';
+        }
+        return text;
+    }
+
+    function noSamplesMessage(overlay, pane, block) {
+        overlay.textContent = '';
+        var lastIso = block.getAttribute('data-last-sample') || '';
+        var last = lastIso ? parseUtc(lastIso) : null;
+        overlay.appendChild(document.createTextNode(last
+            ? 'No samples in this range; last sample ' + fullLabel(last) + '. '
+            : 'No samples in this range. '));
+        if (!last) { return; }
+        var ageDays = (Date.now() - last.getTime()) / 86400000;
+        var current = pane.getAttribute('data-range') || '';
+        [['7d', 7, 'Show last 7 days'], ['30d', 30, 'Show last 30 days'], ['90d', 90, 'Show last 90 days']].some(function (o) {
+            if (o[0] === current || ageDays > o[1]) { return false; }
+            if (current === '30d' && o[0] === '7d') { return false; }
+            if (current === '90d' && o[0] !== '90d') { return false; }
+            var a = document.createElement('a');
+            a.href = '#';
+            a.className = 'ifm-range-link';
+            a.setAttribute('data-role', 'range-link');
+            a.setAttribute('data-range-target', o[0]);
+            a.textContent = o[2];
+            a.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                var btn = pane.querySelector('[data-role="range"][data-range="' + o[0] + '"]');
+                if (btn) { btn.click(); }
+            });
+            overlay.appendChild(a);
+            return true;
+        });
+    }
+
     function renderChart(pane, block, payload) {
         var registry = registries.get(pane);
         var chartId = block.getAttribute('data-chart-id');
@@ -343,6 +419,7 @@
         var gridBuilt = false;
 
         var datasets = [];
+        var sparseEntries = [];
         var statsSource = [];
         var colorIndex = 0;
         var pointedKeys = keys.filter(function (k) { return byKey[k]; });
@@ -361,6 +438,16 @@
                     gridBuilt = true;
                 }
                 var color = seriesColor(colorIndex++);
+                var nSamples = countSamples(points);
+                var sparse = nSamples > 0 && nSamples < SPARSE_BELOW;
+                var isBool = axis === 'bool';
+                if (nSamples > 0) {
+                    var lastReal = null;
+                    for (var li = points.length - 1; li >= 0; li--) {
+                        if (points[li].v !== null && points[li].v !== undefined && isFinite(points[li].v)) { lastReal = points[li]; break; }
+                    }
+                    sparseEntries.push({ count: nSamples, value: lastReal.v, date: parseUtc(lastReal.t), sparse: sparse });
+                }
                 datasets.push({
                     label: seriesLabel(metric, series, showMetricName),
                     // null -> a break in the line. Never 0, never interpolated.
@@ -368,11 +455,15 @@
                     borderColor: color,
                     backgroundColor: withAlpha(color, datasets.length === 0 && pointedKeys.length === 1 ? 0.12 : 0.05),
                     borderWidth: 1.75,
-                    pointRadius: 0,
-                    pointHoverRadius: 3,
+                    pointRadius: pointRadiusFn(sparse, isBool),
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: color,
+                    stepped: isBool ? 'after' : false,
                     tension: 0.25,
-                    fill: pointedKeys.length === 1 && (metric.series || []).length === 1,
-                    spanGaps: false,
+                    fill: pointedKeys.length === 1 && (metric.series || []).length === 1 && !sparse,
+                    // Sparse series join their few samples with a short line; dense ones
+                    // keep real breaks across an offline window.
+                    spanGaps: sparse,
                     itfUnit: metric.unit,
                     itfPrecision: metric.precision
                 });
@@ -408,13 +499,24 @@
         // (the whole block would be absent) and from offline (a banner above).
         if (!datasets.length || stats.count === 0) {
             if (overlay) {
-                overlay.textContent = 'No samples in this range.';
+                noSamplesMessage(overlay, pane, block);
                 overlay.hidden = false;
             }
+            var oldNote = block.querySelector('[data-role="note"]');
+            if (oldNote) { oldNote.hidden = true; }
             if (canvas) { canvas.style.visibility = 'hidden'; }
             return;
         }
         if (overlay) { overlay.hidden = true; }
+        var anySparse = sparseEntries.some(function (e) { return e.sparse; });
+        var noteEl = ensureNote(block);
+        if (anySparse) {
+            noteEl.textContent = sparseNote(sparseEntries, unit, precision, axis === 'bool');
+            noteEl.hidden = false;
+        } else {
+            noteEl.textContent = '';
+            noteEl.hidden = true;
+        }
         if (canvas) { canvas.style.visibility = ''; }
 
         if (typeof Chart === 'undefined' || !canvas) { return; }
