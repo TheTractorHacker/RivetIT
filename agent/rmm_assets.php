@@ -16,7 +16,7 @@ if ($filter_intg_id)   { $where .= " AND arl.integration_id=$filter_intg_id"; }
 if ($client_access_string && !$session_is_admin) { $where .= " AND a.asset_client_id IN ($client_access_string)"; }
 
 $sql_links = mysqli_query($mysqli,
-    "SELECT arl.*, a.asset_id, a.asset_name, a.asset_type, a.asset_client_id,
+    "SELECT arl.*, a.asset_id, a.asset_name, a.asset_type, a.asset_client_id, a.asset_archived_at,
             c.client_name, i.type AS integration_type
      FROM asset_rmm_links arl
      JOIN assets a ON a.asset_id = arl.asset_id
@@ -73,6 +73,7 @@ if ($filter_intg_id) {
     if ($sync_target_row) { $sync_target_name = $sync_target_row['name']; }
 }
 $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
+$can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1;
 ?>
 
 <div class="d-flex align-items-center mb-3">
@@ -161,7 +162,8 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
         <table class="table table-hover table-sm mb-0" id="rmm-assets-table">
             <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                 <tr>
-                    <th class="ps-3">Status</th>
+                    <th class="ps-3"><div class="form-check"><input class="form-check-input" id="selectAllCheckbox" type="checkbox"></div></th>
+                    <th>Status</th>
                     <th>Hostname</th>
                     <th>Department</th>
                     <th>OS</th>
@@ -179,6 +181,9 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
             ?>
             <tr>
                 <td class="ps-3">
+                    <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>"></div>
+                </td>
+                <td>
                     <i class="fas <?= $icon ?>" data-bs-toggle="tooltip" title="<?= ucfirst($status) ?>"></i>
                 </td>
                 <td>
@@ -211,9 +216,49 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
                     <?= $row['last_sync'] ? nullable_htmlentities($row['last_sync']) : '—' ?>
                 </td>
                 <td class="text-end pe-2">
-                    <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" data-bs-toggle="tooltip" title="View Asset">
-                        <i class="fas fa-tachometer-alt"></i>
-                    </a>
+                    <div class="btn-group">
+                        <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" data-bs-toggle="tooltip" title="View Asset">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </a>
+                        <?php if ($can_rmm_remote_connect && !empty($row['tactical_agent_id'])): ?>
+                            <button type="button" class="btn btn-success btn-xs" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="tactical" title="Remote Connect">
+                                <i class="fas fa-desktop"></i>
+                            </button>
+                            <?php if (!empty($row['mesh_node_id'])): ?>
+                            <button type="button" class="btn btn-success btn-xs dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-boundary="window"></button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="#" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="mesh">
+                                    <i class="fas fa-tv me-2"></i>MeshCentral Remote Desktop
+                                </a>
+                            </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        <div class="dropdown dropleft text-center">
+                            <button class="btn btn-secondary btn-xs" type="button" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-ellipsis-h"></i></button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_edit.php?id=<?= intval($row['asset_id']) ?>">
+                                    <i class="fas fa-fw fa-edit me-2"></i>Edit
+                                </a>
+                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_copy.php?id=<?= intval($row['asset_id']) ?>">
+                                    <i class="fas fa-fw fa-copy me-2"></i>Copy
+                                </a>
+                                <?php if ($session_user_role > 2): ?>
+                                    <?php if ($row['asset_archived_at']): ?>
+                                    <a class="dropdown-item text-info" href="post.php?restore_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-redo me-2"></i>Restore
+                                    </a>
+                                    <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-trash me-2"></i>Delete
+                                    </a>
+                                    <?php else: ?>
+                                    <a class="dropdown-item text-danger confirm-link" href="post.php?archive_asset=<?= intval($row['asset_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-archive me-2"></i>Archive
+                                    </a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -222,6 +267,31 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
         <?php endif; ?>
     </div>
 </div>
+
+<script src="../js/bulk_actions.js"></script>
+
+<?php if ($can_rmm_remote_connect): ?>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+function rmmConnect(linkId, type) {
+    fetch('/agent/post/rmm_remote.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&link_id=' + linkId + '&type=' + type
+    }).then(r => r.json()).then(d => {
+        if (d.success && d.url) window.open(d.url, '_blank', 'noopener,noreferrer');
+        else RivetDialog.alert('Connect failed: ' + (d.error || 'Unknown error'));
+    });
+}
+
+// Delegated wiring (CSP forbids inline onclick= attributes)
+document.addEventListener('click', function (e) {
+    const el = e.target.closest('[data-rmm-action="connect"]');
+    if (!el) return;
+    e.preventDefault();
+    rmmConnect(parseInt(el.dataset.linkId, 10), el.dataset.rmmType);
+});
+</script>
+<?php endif; ?>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 // Delegated wiring (CSP forbids inline onclick= attributes).
