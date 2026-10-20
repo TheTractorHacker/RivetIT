@@ -227,12 +227,36 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
         </form>
     </div>
 </div>
+<?php $eaTab('overview'); $plLinux = \ITFlow\Platform\PlatformSettings::bool($mysqli, 'rmm_allow_linux'); $plForced = defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true; ?>
+<div class="card mb-3" id="platforms">
+    <div class="card-header"><h4 class="card-title mb-0">Operating systems</h4></div>
+    <div class="card-body">
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <input type="hidden" name="ea_tab" value="overview">
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" class="form-check-input" id="ea_allow_linux" name="allow_linux" value="1" <?= $plLinux || $plForced ? 'checked' : '' ?> <?= $plForced ? 'disabled' : '' ?> aria-describedby="ea_allow_linux_h">
+                <label class="form-check-label fw-semibold" for="ea_allow_linux">Allow Linux devices to enroll</label>
+                <div class="form-text" id="ea_allow_linux_h">On by default. Windows devices always can. Turning this off only stops new Linux devices from enrolling (the server answers &ldquo;device.os is invalid&rdquo;); Linux devices that are already enrolled keep working.<?= $plForced ? ' It is forced on by <code>EA_ALLOW_NON_WINDOWS</code> in config.php.' : '' ?></div>
+            </div>
+            <?php if (!$plForced) { ?><button type="submit" name="save_platforms" class="btn btn-primary btn-sm"><i class="fas fa-save me-1" aria-hidden="true"></i>Save</button><?php } ?>
+        </form>
+    </div>
+</div>
 <?php $eaTab('checks'); ?>
 <div class="card mb-3" id="checks">
     <div class="card-header"><h4 class="card-title mb-0">Checks</h4></div>
     <div class="card-body">
         <?= rivetEaFormAttr(rivetCsRender(rivetCsStateFromChecks((array) $cfg['checks'])), 'ea_settings_form') ?>
         <button form="ea_settings_form" type="submit" name="save_agent_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1"></i>Save settings</button>
+        <hr>
+        <h5 class="mb-1">Clean up checks that no longer apply</h5>
+        <p class="small text-muted mb-2">A check ticked for one OS is only sent to devices of that OS. A Windows PC that was earlier given Linux service checks (cron, sshd, ...) still shows them as failed. This removes every check a device is no longer given and closes its open alerts as &ldquo;This check no longer applies to the device&rdquo; (no ticket is created). It is safe to press again: when nothing is left to clean it changes nothing. Each device also cleans itself the next time it checks in.</p>
+        <form action="post.php" method="post" autocomplete="off" id="ea_cleanup_form">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <input type="hidden" name="ea_tab" value="checks">
+            <button type="submit" name="cleanup_stale_checks" value="1" class="btn btn-outline-primary"><i class="fas fa-broom me-1" aria-hidden="true"></i>Clean up checks that no longer apply</button>
+        </form>
     </div>
 </div>
 <?php $eaTab('security'); ?>
@@ -280,6 +304,12 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
 </div>
 
 <?php
+// RivetCore 1.0.0-rc.22 change monitoring: the switch (off by default) and the presets in force. Read-only presets; the full management screens are a later task.
+require_once dirname(__DIR__) . '/includes/rmm_chg_ui.php';
+$chgRead = $rmm->changeActions()->settingsRead(rivetRmmPrincipal((int) $session_user_id, (string) $session_name));
+if ($chgRead->ok) {
+    echo rivetRmmChgAdminCard((array) $chgRead->data, (string) $csrf);
+}
 // RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10): policies, script library with schedules and approvals, and alerting. Each sub-switch is off by default.
 $autoStorm = (array) ($rmm->alertingActions()->settings(rivetRmmPrincipal((int) $session_user_id, (string) $session_name))->data['storm'] ?? []);
 $autoSettings = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_approve_scripts_lvl3 AS a, config_rmm_escalation_contact AS c FROM settings WHERE company_id = 1')) ?: ['a' => 0, 'c' => ''];

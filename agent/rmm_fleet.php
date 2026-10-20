@@ -8,6 +8,12 @@
  * built without asking the database anything.
  */
 
+// The old Endpoints menu link /agent/rmm_fleet.php?installer=1 (the quick dialog) now lands on the one Add device page (RivetIT 26.10.65). A fixed target; only a whole department id is passed on.
+if (($_GET['installer'] ?? '') === '1') {
+    header('Location: /agent/rmm_add_device.php' . ((int) ($_GET['client_id'] ?? 0) > 0 ? '?client_id=' . (int) $_GET['client_id'] : ''), true, 302);
+    exit;
+}
+
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
 require_once dirname(__DIR__) . '/includes/rmm_ui_render.php';

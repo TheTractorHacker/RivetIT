@@ -70,6 +70,7 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['tech'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['tech'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['tech'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],
             [$u['reboot'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['reboot'], RmmAbility::SOFTWARE_MANAGE, 'client', 3],
             [$u['viewer'], RmmAbility::SOFTWARE_VIEW, 'client', 3], [$u['moduleonly'], RmmAbility::SOFTWARE_VIEW, 'client', 3],
+            [$u['admin'], RmmAbility::CHANGE_VIEW, 'client', 3], [$u['admin'], RmmAbility::CHANGE_MANAGE, 'client', 3], [$u['tech'], RmmAbility::CHANGE_VIEW, 'client', 3], [$u['tech'], RmmAbility::CHANGE_MANAGE, 'client', 3], [$u['reboot'], RmmAbility::CHANGE_VIEW, 'client', 3],
         ];
     }
 
@@ -95,6 +96,8 @@ final class EndpointAccessPolicyConformanceTest extends AccessPolicyConformanceT
             [$u['moduleonly'], RmmAbility::PATCH_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::PATCH_INSTALL, 'client', 3],
             [$u['disabled'], RmmAbility::PATCH_VIEW, 'client', 3], [$u['disabled'], RmmAbility::PATCH_MANAGE, 'client', 3], [$u['disabled'], RmmAbility::PATCH_INSTALL, 'client', 3],
             [null, RmmAbility::PATCH_VIEW, 'client', 3], [999999, RmmAbility::PATCH_MANAGE, 'client', 3],
+            [$u['viewer'], RmmAbility::CHANGE_VIEW, 'client', 3], [$u['viewer'], RmmAbility::CHANGE_MANAGE, 'client', 3], [$u['reboot'], RmmAbility::CHANGE_MANAGE, 'client', 3], [$u['moduleonly'], RmmAbility::CHANGE_VIEW, 'client', 3], [$u['moduleonly'], RmmAbility::CHANGE_MANAGE, 'client', 3],
+            [$u['disabled'], RmmAbility::CHANGE_VIEW, 'client', 3], [$u['disabled'], RmmAbility::CHANGE_MANAGE, 'client', 3], [null, RmmAbility::CHANGE_VIEW, 'client', 3], [999999, RmmAbility::CHANGE_MANAGE, 'client', 3],
             // software deployment: a viewer reads only; a level 2 script technician edits the catalog and dry-runs but cannot deploy; a module-only login reads only (never manage or deploy);
             // an inactive account and nobody have nothing
             [$u['viewer'], RmmAbility::SOFTWARE_MANAGE, 'client', 3], [$u['viewer'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3], [$u['reboot'], RmmAbility::SOFTWARE_DEPLOY, 'client', 3],

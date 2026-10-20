@@ -229,7 +229,10 @@ function rivetRmmUiScaleCards(array $c): string
         . '</div>'
         . '<h6 class="mt-4">Check "last seen" refresh</h6><div class="row g-3">'
         . rivetRmmScaleNumber('sc_ct', 'check_touch_s', 'Do not refresh an unchanged check more often than (seconds)', $L['check_touch_s'], '0 to 3,600. A check result that changes nothing normally still updates its "last reported" time on every check-in; a value above 0 skips that write inside this window and saves one database write per check per check-in on a big fleet. 0 keeps the exact old behaviour. Default 0.', $oSc, 0, 3600, 'col-12')
-        . '</div><button type="submit" name="save_scale_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1" aria-hidden="true"></i>Save scale settings</button></form>'
+        . '</div><h6 class="mt-4">Health details</h6><input type="hidden" name="metrics_form" value="1">'
+        . rivetRmmScaleSwitch('sc_me', 'metrics_extended_on', 'Send extra health details (memory, disks, per-core, battery)', (int) ($L['metrics_extended'] ?? 1) !== 0,
+            'On (the default): every check-in also carries memory used and available, disk sizes and free space, how long the device has been up, whether a restart is waiting, the load of each processor core, disk activity, network errors and the battery, so the charts on the Metrics tab are filled in. Cost: about 13 + 2 per disk + 1 per core more stored values per check-in (a typical 8-core PC with 2 disks goes from 7 to about 32, roughly 4.5 times the storage of the five basic values; a 64-core server to about 88). Off keeps the old volume: the extra figures are ignored by the server and the five basic ones keep arriving.')
+        . '<button type="submit" name="save_scale_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1" aria-hidden="true"></i>Save scale settings</button></form>'
         . '<p class="small mt-3 mb-0"><a href="/agent/rmm_fleet.php#rmm-capacity"><i class="fas fa-server me-1" aria-hidden="true"></i>Open the Scale and capacity panel</a> (Agent fleet page) to see queue depth, how many queue workers to run, cache, load shedding and storage.</p>';
     $out .= rivetRmmScaleCard('scale', 'tachometer-alt', 'Scale settings', true, $body, 'Defaults are fine for small installs');
 

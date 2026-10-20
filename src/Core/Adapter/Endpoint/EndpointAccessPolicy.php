@@ -36,6 +36,8 @@ use RivetCore\Rmm\Authz\RmmAbility;
  *                                            (it changes software on the machine); a level 2 script technician can approve and dry-run but not install.
  *                                            Administrators have all three (level 3 everywhere). Nothing existing changes: before RivetCore rc.20 these were unknown abilities.
  *
+ *   rmm.change.view (rc.22)                  like rmm.job.run_saved: a change record can hold configuration text, so module_rmm_scripts >= 2 and never a module-only login
+ *   rmm.change.manage (rc.22)                like rmm.alert.manage: module_rmm >= 2 and never a module-only login (presets, custom watches, rules)
  *   rmm.software.view (RMM Phase 5)          like rmm.device.view: module_rmm >= 1 (a module-only login may read the catalog, the deployment state and the report, as it may read the device)
  *   rmm.software.manage (RMM Phase 5)         like rmm.job.run_saved: view + module_rmm_scripts >= 2, and not a module-only login. Edit the catalog (packages and their immutable versions, fleet-wide,
  *                                             so Core also wants access to every department), ask a device what it has, run a DRY RUN. Changes nothing on a machine.
@@ -90,10 +92,10 @@ final class EndpointAccessPolicy implements AccessPolicyInterface
 
         return match ($ability) {
             RmmAbility::JOB_RUN_SCRIPT => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
-            RmmAbility::JOB_RUN_SAVED, RmmAbility::JOB_REBOOT, RmmAbility::PATCH_MANAGE, RmmAbility::SOFTWARE_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 2,
+            RmmAbility::JOB_RUN_SAVED, RmmAbility::JOB_REBOOT, RmmAbility::PATCH_MANAGE, RmmAbility::SOFTWARE_MANAGE, RmmAbility::CHANGE_VIEW => itflow_profile_level($p, 'module_rmm_scripts') >= 2,
             RmmAbility::PATCH_INSTALL, RmmAbility::SOFTWARE_DEPLOY => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
             RmmAbility::REMOTE_LAUNCH => itflow_profile_level($p, 'module_rmm_remote_connect') >= 1,
-            RmmAbility::ALERT_MANAGE => itflow_profile_level($p, 'module_rmm') >= 2,
+            RmmAbility::ALERT_MANAGE, RmmAbility::CHANGE_MANAGE => itflow_profile_level($p, 'module_rmm') >= 2,
             RmmAbility::REMOTE_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 3 && itflow_profile_level($p, 'module_rmm_remote_connect') >= 1 && $this->level3MayManageRemote(),
             RmmAbility::JOB_APPROVE => !empty($p['admin']) || (itflow_profile_level($p, 'module_rmm_scripts') >= 3 && $this->level3MayApprove()),
             default => false,

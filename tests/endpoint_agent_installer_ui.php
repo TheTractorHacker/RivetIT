@@ -114,7 +114,7 @@ $ok($cur['version'] === '1.4.0' && $curArm['version'] === '1.4.0', 'the 1.4.0 pa
 // ============================================================ who sees the button
 [$c, $b] = $fleet();
 $ok(strpos($b, 'data-have-amd64="1"') !== false && strpos($b, 'data-have-arm64="1"') !== false && strpos($b, 'id="rmm-inst-nobinary"') !== false, 'with binaries: the dialog says both architectures are available');
-$ok(preg_match('~Download installer</span>\s*</a>~', $b) === 1 && strpos($b, '/agent/rmm_fleet.php?installer=1') !== false, 'the Endpoints menu has a Download installer entry for the administrator');
+$ok(strpos($b, '<span class="text-truncate">Add device</span>') !== false && strpos($b, '<span class="text-truncate">Download installer</span>') === false, 'the Endpoints menu has the single Add device entry for the administrator (no duplicate Download installer)');
 $ok(strpos($b, '<option value="1">Dept A</option>') !== false && strpos($b, '<option value="2">Dept B</option>') !== false, 'the department select lists every department the administrator can see');
 [$c, $b] = $fleet('admin', '?client_id=2');
 $ok(strpos($b, '<option value="2" selected>Dept B</option>') !== false, 'the department is preselected from the page context (?client_id=)');
@@ -240,8 +240,8 @@ $ok((string) $one("SELECT COUNT(*) FROM logs WHERE log_action='Installer Created
 $ok($c === 200 && $jd($b)['arch'] === 'arm64' && $jd($b)['max_uses'] === 25, 'Linux ARM64, several machines');
 
 // ============================================================ the menu entry opens the dialog
-[$c, $b] = $fleet('admin', '?installer=1');
-$ok($c === 200 && strpos($b, 'id="rmmInstallerModal"') !== false, 'the menu entry (?installer=1) lands on the page that carries the dialog');
+[$c, $b] = $fleet('admin', '');
+$ok($c === 200 && strpos($b, 'id="rmmInstallerModal"') !== false, 'the fleet page still carries the quick dialog (Add device button)');
 
 // ============================================================ RivetCore rc.12: "Also install the MeshCentral agent" (off by default, only when MeshCentral is on and has an address)
 // The stamped payload is read back with Core's own InstallerStamp: an installer made WITHOUT the tick has exactly the members it always had (same keys, same order);

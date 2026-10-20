@@ -133,6 +133,9 @@ function rivetRmmPolCheckText(array $c): string
 {
     $params = is_array($c['params'] ?? null) ? $c['params'] : [];
     $s = (string) ($c['type'] ?? '?') . ' every ' . (int) ($c['interval_s'] ?? 0) . ' s';
+    if (($c['os'] ?? '') === 'windows' || ($c['os'] ?? '') === 'linux') {
+        $s .= '; ' . ucfirst((string) $c['os']) . ' devices only';
+    }
     if (is_array($params['thresholds'] ?? null)) {
         $t = rivetRmmPolThresholdText($params['thresholds']);
         $s .= $t !== '' ? '; ' . $t : '';
@@ -342,7 +345,14 @@ function rivetRmmPolBuildSettings(array $in, array $catalog): array
             $errors[] = "Check $key: the interval must be a whole number of seconds from 30 to 86400.";
             $iv = (string) ($row['interval_s'] ?? '');
         }
-        $settings['check.' . $key] = ['mode' => 'override', 'value' => ['type' => $type, 'params' => $params, 'interval_s' => $iv]];
+        $value = ['type' => $type, 'params' => $params, 'interval_s' => $iv];
+        $os = is_string($row['os'] ?? 'any') ? $row['os'] ?? 'any' : '?';
+        if (!in_array($os, ['any', 'windows', 'linux'], true)) {
+            $errors[] = "Check $key: choose Windows, Linux or both for where it applies.";
+        } elseif ($os !== 'any') {
+            $value['os'] = $os;   // "any" is never stored: a check without os goes to every device, as before
+        }
+        $settings['check.' . $key] = ['mode' => 'override', 'value' => $value];
     }
 
     return [$settings, $errors];
@@ -387,7 +397,7 @@ function rivetRmmPolFormModel(array $settings): array
         $own = $params;
         unset($own['thresholds'], $own['flap'], $own['ignore_parent']);
         $m['checks'][] = ['key' => substr((string) $key, 6), 'mode' => ($e['mode'] ?? '') === 'disable' ? 'disable' : 'override', 'type' => (string) ($v['type'] ?? ''),
-            'interval_s' => (string) ($v['interval_s'] ?? ''), 'own' => $own, 'th' => $th, 'flap' => $flap, 'ignore_parent' => !empty($params['ignore_parent'])];
+            'interval_s' => (string) ($v['interval_s'] ?? ''), 'os' => in_array($v['os'] ?? null, ['windows', 'linux'], true) ? (string) $v['os'] : 'any', 'own' => $own, 'th' => $th, 'flap' => $flap, 'ignore_parent' => !empty($params['ignore_parent'])];
     }
 
     return $m;
@@ -571,8 +581,10 @@ function rivetRmmPolCheckRow(string $i, array $row, array $catalog): string
     }
     $o .= '</select></div>'
         . '<div class="col-sm-4 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_iv">Run every (seconds)</label><input type="number" step="1" min="30" max="86400" class="form-control form-control-sm" id="' . $id . '_iv" name="' . $nm . '[interval_s]" value="' . rmmH($row['interval_s'] ?? '') . '" placeholder="60"></div>'
+        . '<div class="col-sm-4 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_os">Applies to</label><select class="form-select form-select-sm" id="' . $id . '_os" name="' . $nm . '[os]">'
+        . '<option value="any"' . (($row['os'] ?? 'any') === 'any' ? ' selected' : '') . '>Windows and Linux</option><option value="windows"' . (($row['os'] ?? '') === 'windows' ? ' selected' : '') . '>Windows only</option><option value="linux"' . (($row['os'] ?? '') === 'linux' ? ' selected' : '') . '>Linux only</option></select></div>'
         . '<div class="col-sm-2 col-lg-2 text-end"><button type="button" class="btn btn-sm btn-outline-danger rmm-row-remove" data-rmm-remove="1" aria-label="Remove this check row" title="Remove this row"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>'
-        . '<p class="form-text mb-1">Choosing "Remove this check" takes the key out of the device\'s check list (also one from the global list); the type and settings are then ignored.</p>';
+        . '<p class="form-text mb-1">A check set for one OS is only sent to devices of that OS. Choosing "Remove this check" takes the key out of the device\'s check list (also one from the global list); the type and settings are then ignored.</p>';
     // the type's own params
     $legacy = [];
     foreach ($catalog as $t => $spec) {
@@ -984,7 +996,7 @@ function rivetRmmPolChecksTable(array $eff, array $e, bool $policyOn): string
     $o .= '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Checks the device receives</caption>' . rivetRmmUiThead(['Key', 'Type', 'Every', 'Comes from']) . '<tbody>';
     foreach ($checks as $c) {
         $from = is_array($c['from'] ?? null) ? $c['from'] : null;
-        $o .= '<tr><td class="rmm-mono">' . rmmH($c['key']) . '</td><td>' . rmmH($c['type']) . '</td><td>' . (int) $c['interval_s'] . ' s</td><td>'
+        $o .= '<tr><td class="rmm-mono">' . rmmH($c['key']) . '</td><td>' . rmmH($c['type']) . (isset($c['os']) ? ' <span class="text-muted small">(' . rmmH(ucfirst((string) $c['os'])) . ' only)</span>' : '') . '</td><td>' . (int) $c['interval_s'] . ' s</td><td>'
             . ($from === null ? '<span class="text-muted">Global configuration</span>' : '<a href="/agent/rmm_policies.php?policy_id=' . (int) $from['policy_id'] . '">' . rmmH($e['policy_names'][(int) $from['policy_id']] ?? ('Policy #' . (int) $from['policy_id'])) . '</a>') . '</td></tr>';
     }
 

@@ -294,6 +294,52 @@ if (isset($_POST['save_agent_settings'])) {
     ea_flash_result($ea_admin->saveSettings($ea_who, $in));
 }
 
+// RivetCore 1.0.0-rc.24: "Clean up checks that no longer apply". Administrator only (admin/post.php), CSRF-checked, idempotent, audited. First the stored schedule gets its per-OS
+// targeting (services from the Windows/Linux table), then Core removes every check row a device is no longer given and resolves its open alert as `not_applicable` (system, no ticket).
+if (isset($_POST['cleanup_stale_checks'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    require_once dirname(__DIR__, 2) . '/includes/rmm_check_cleanup.php';
+    $up = rivetRmmUpgradeScheduleOs($mysqli);
+    $res = rivetRmmCleanupChecks($mysqli);
+    logAction('Endpoint Agent', 'Stale Checks Cleaned Up', "$session_name cleaned up checks that no longer apply: {$res['removed']} check(s) removed on {$res['devices']} device(s)" . ($up > 0 ? ", $up scheduled service check(s) given an OS" : ''));
+    flash_alert($res['removed'] > 0
+        ? 'Cleaned up ' . (int) $res['removed'] . ' check' . ($res['removed'] === 1 ? '' : 's') . ' that no longer apply (' . (int) $res['devices'] . ' devices looked at). Their open alerts were closed.'
+        : 'Nothing to clean up: no device holds a check it is no longer given (' . (int) $res['devices'] . ' devices looked at).', 'success');
+    redirect();
+}
+
+// "Allow Linux devices to enroll": Core's DeviceValidator only admits os=linux when the edition passes allow_linux (includes/rmm_bootstrap.php reads this switch). Administrator only, audited.
+if (isset($_POST['save_platforms'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $pl_want = !empty($_POST['allow_linux']) ? '1' : '0';
+    $pl_cur = \ITFlow\Platform\PlatformSettings::get($mysqli, 'rmm_allow_linux');
+    if ($pl_want === $pl_cur) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    \ITFlow\Platform\PlatformSettings::set($mysqli, 'rmm_allow_linux', $pl_want);
+    logAction('Endpoint Agent', 'Linux Enrollment ' . ($pl_want === '1' ? 'Allowed' : 'Blocked'), "$session_name " . ($pl_want === '1' ? 'allowed' : 'blocked') . ' Linux devices to enroll');
+    flash_alert($pl_want === '1' ? 'Linux devices may enroll.' : 'Linux devices can no longer enroll (already enrolled ones keep working).', 'success');
+    redirect();
+}
+
+// RivetCore 1.0.0-rc.22: the change_monitor switch (off by default). Core requires the storage acknowledgement to turn it on, needs rmm.admin, and audits.
+if (isset($_POST['save_change_monitor'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $chg_want = !empty($_POST['change_monitor']);
+    $chg_cur = (bool) ($rmm->changeActions()->settingsRead($ea_who)->data['enabled'] ?? false);
+    if ($chg_want === $chg_cur) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    $chg_r = $rmm->changeActions()->updateSettings($ea_who, ['features' => ['change_monitor' => $chg_want], 'accept_change_storage' => !empty($_POST['accept_change_storage'])]);
+    if ($chg_r->ok) {
+        $rmm->syncState();
+        logAction('Endpoint Agent', 'Change Monitoring ' . ($chg_want ? 'Enabled' : 'Disabled'), "$session_name turned change monitoring " . ($chg_want ? 'on' : 'off'));
+    }
+    ea_flash_result($chg_r, $chg_want ? 'Change monitoring is on.' : 'Change monitoring is off.');
+}
+
 // Software inventory switch and the two history limits (RivetCore 1.0.0-rc.9). RmmAdmin validates and audits; only values that changed are written, so an install on
 // the legacy feature defaults (features_json NULL) or the default limits stays that way until an administrator actually changes something here.
 if (isset($_POST['save_inventory_settings'])) {
@@ -1251,6 +1297,11 @@ if (isset($_POST['save_scale_settings'])) {
         if ($v !== null) {
             $want[$k] = $v;
         }
+    }
+    if (isset($_POST['metrics_form'])) {
+        // RivetCore 1.0.0-rc.25 limit metrics_extended (0/1): a plain switch; only written when it changed.
+        $old['metrics_extended_on'] = !empty($_POST['metrics_extended_on']) ? 1 : 0;
+        $want['metrics_extended'] = $old['metrics_extended_on'];
     }
     $old['warm_on'] = !empty($_POST['warm_on']) ? 1 : 0;
     $old['bucket_on'] = !empty($_POST['bucket_on']) ? 1 : 0;

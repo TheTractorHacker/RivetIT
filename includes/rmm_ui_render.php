@@ -161,7 +161,12 @@ function rivetRmmUiStrip(array $vm): string
     $platformName = $vm['platform'] === 'linux' ? 'Linux' : ($vm['platform'] === 'windows' ? 'Windows' : 'Other OS');
 
     // Facts line
-    if ($never) {
+    require_once __DIR__ . '/rmm_clock_ui.php';
+    $clockNotice = rivetRmmClockNotice($vm['clock'] ?? null, (string) $vm['platform']);
+    if ($never && $clockNotice !== null && $clockNotice['reject'] !== null) {
+        // rc.23: the device HAS tried; say why the server turned it away instead of "not reported yet"
+        $facts = '<span class="text-danger">Not reported yet: the server refused its check-in (' . rmmH($clockNotice['reject']) . ')</span>';
+    } elseif ($never) {
         $facts = '<span class="text-muted">OS and agent not reported yet</span>';
     } else {
         $facts = '<i class="' . $osIcon . ' me-1" aria-hidden="true"></i>' . rmmH($vm['os_label']) . ' <span class="text-muted">' . rmmH($vm['arch']) . '</span>'
@@ -251,7 +256,7 @@ function rivetRmmUiStrip(array $vm): string
         . '<span class="badge text-bg-light border ms-1"><i class="' . $osIcon . ' me-1" aria-hidden="true"></i>' . $platformName . '</span>'
         . ($vm['pending_approval'] ? ' ' . rivetRmmUiPill('warn', 'Waiting for approval') : '') . ($vm['revoked'] ? ' ' . rivetRmmUiPill('crit', 'Revoked') : '')
         . ($vm['retired'] ? ' ' . rivetRmmUiPill('off', 'Retired') : '')
-        . '<div class="text-muted small mt-1">' . $facts . '</div>' . $live . $tagsRow . '</div>'
+        . '<div class="text-muted small mt-1">' . $facts . '</div>' . rivetRmmClockBanner($clockNotice, 'rivetRmmUiTime') . $live . $tagsRow . '</div>'
         . '<div class="d-flex align-items-center flex-wrap rmm-actions" role="group" aria-label="Device actions" style="gap:6px">' . $actions . '</div></div>' . $banners . $reasons . '</div></section>';
 }
 
@@ -785,7 +790,7 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
     }
     // RMM Phase 6 and 8 (RivetCore 1.0.0-rc.11): the Remote tab (services, processes, files, Mesh; includes/rmm_rem_ui.php) and the Logs tab (includes/rmm_log_ui.php). Each function
     // checks the module, its own sub-switch and the viewer's ability itself and returns '' when there is nothing to show, and then neither the tab nor the pane is drawn.
-    $remHtml = $logHtml = $patHtml = $swHtml = '';
+    $remHtml = $logHtml = $patHtml = $swHtml = $chgHtml = '';
     if ($mysqli instanceof \mysqli) {
         $remHtml = function_exists('rivetRmmRemPanelSection') ? rivetRmmRemPanelSection($vm, $mysqli, $csrf) : '';
         $logHtml = function_exists('rivetRmmLogPanelSection') ? rivetRmmLogPanelSection($vm, $mysqli, $csrf) : '';
@@ -793,13 +798,18 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
         $patHtml = function_exists('rivetRmmPatPanelSection') && !empty($vm['features']['patching']) ? rivetRmmPatPanelSection($vm, $mysqli, $csrf) : '';
         // RMM Phase 5 (RivetCore 1.0.0-rc.21): the deployment block at the top of the Software tab (includes/rmm_sw_ui.php); '' while the module or the `software_deploy` switch is off or the viewer may not read it.
         $swHtml = function_exists('rivetRmmSwPanelSection') && !empty($vm['features']['software_deploy']) ? rivetRmmSwPanelSection($vm, $mysqli, $csrf) : '';
+        // RMM change monitoring (RivetCore 1.0.0-rc.22): the read-only Changes tab (includes/rmm_chg_ui.php); '' while the `change_monitor` switch is off or the viewer lacks rmm.change.view.
+        if (!empty($vm['features']['change_monitor'])) {
+            require_once __DIR__ . '/rmm_chg_ui.php';
+            $chgHtml = rivetRmmChgPanelSection($vm, $mysqli, $csrf);
+        }
     }
 
     return '<div class="card card-dark mb-3" id="rmm-panel" data-device-id="' . (int) $vm['device_id'] . '" data-csrf="' . rmmH($csrf) . '" data-post-url="/agent/post/rmm_agent.php" data-output-url="/agent/rmm_job_output.php" '
         . 'data-platform="' . rmmH($vm['platform']) . '" data-offline="' . ($vm['offline'] ? '1' : '0') . '">'
         . '<div class="card-header p-0 border-bottom-0"><ul class="nav nav-tabs px-3 pt-2 rmm-tabbar" role="tablist" aria-label="RMM device sections">'
         . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . ($vm['software'] !== null || $swHtml !== '' ? $tab('software', 'cube', 'Software', false) : '') . $tab('jobs', 'tasks', 'Jobs', false)
-        . ($polHtml !== '' ? $tab('policy', 'sliders-h', 'Policy and fields', false) : '') . ($alrHtml !== '' ? $tab('alerting', 'bell', 'Alerting', false) : '') . ($remHtml !== '' ? $tab('remote', 'terminal', 'Remote', false) : '') . ($logHtml !== '' ? $tab('logs', 'scroll', 'Logs', false) : '') . ($patHtml !== '' ? $tab('patches', 'shield-alt', 'Patches', false) : '') . '</ul></div>'
+        . ($polHtml !== '' ? $tab('policy', 'sliders-h', 'Policy and fields', false) : '') . ($alrHtml !== '' ? $tab('alerting', 'bell', 'Alerting', false) : '') . ($remHtml !== '' ? $tab('remote', 'terminal', 'Remote', false) : '') . ($logHtml !== '' ? $tab('logs', 'scroll', 'Logs', false) : '') . ($patHtml !== '' ? $tab('patches', 'shield-alt', 'Patches', false) : '') . ($chgHtml !== '' ? $tab('changes', 'history', 'Changes', false) : '') . '</ul></div>'
         . '<div class="px-3 pt-3"><div id="rmm-msg" class="alert d-none mb-0" role="status" aria-live="polite"></div></div>'
         . '<div class="tab-content"><div class="tab-pane active p-3" id="rmm-pane-overview" role="tabpanel" aria-labelledby="rmm-tab-overview" tabindex="0">' . rivetRmmUiOverview($vm, $performanceHtml, $performanceNote) . '</div>'
         . '<div class="tab-pane p-3" id="rmm-pane-inventory" role="tabpanel" aria-labelledby="rmm-tab-inventory" tabindex="0">' . rivetRmmUiInventory($vm) . '</div>'
@@ -809,7 +819,8 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
         . ($alrHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-alerting" role="tabpanel" aria-labelledby="rmm-tab-alerting" tabindex="0">' . $alrHtml . '</div>' : '')
         . ($remHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-remote" role="tabpanel" aria-labelledby="rmm-tab-remote" tabindex="0">' . $remHtml . '</div>' : '')
         . ($logHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-logs" role="tabpanel" aria-labelledby="rmm-tab-logs" tabindex="0">' . $logHtml . '</div>' : '')
-        . ($patHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-patches" role="tabpanel" aria-labelledby="rmm-tab-patches" tabindex="0">' . $patHtml . '</div>' : '') . '</div></div>'
+        . ($patHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-patches" role="tabpanel" aria-labelledby="rmm-tab-patches" tabindex="0">' . $patHtml . '</div>' : '')
+        . ($chgHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-changes" role="tabpanel" aria-labelledby="rmm-tab-changes" tabindex="0">' . $chgHtml . '</div>' : '') . '</div></div>'
         . rivetRmmUiDialogs($vm, $csrf)
         . ($polHtml . $scrHtml . $alrHtml . $patHtml . $swHtml !== '' ? rivetRmmAutoConfirmModal() . rivetRmmAutoScriptsOn() : '');
 }
@@ -880,7 +891,10 @@ function rivetRmmUiDeviceLink(array $d): string
     $label = rmmH($d['hostname'] !== '' ? $d['hostname'] : ($name ?? 'device'));
     $aid = (int) ($d['asset_id'] ?? 0);
 
-    return $aid > 0 ? '<a class="fw-bold" href="/agent/asset_details.php?asset_id=' . $aid . '">' . $label . '</a>' : '<span class="fw-bold">' . $label . '</span>';
+    require_once __DIR__ . '/rmm_clock_ui.php';
+    $badge = rivetRmmClockBadge(is_array($d['clock'] ?? null) ? $d['clock'] : null);
+
+    return ($aid > 0 ? '<a class="fw-bold" href="/agent/asset_details.php?asset_id=' . $aid . '">' . $label . '</a>' : '<span class="fw-bold">' . $label . '</span>') . $badge;
 }
 
 /**
@@ -1031,7 +1045,10 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
     } else {
         $pager = '<div class="p-3 border-top small text-muted">' . (int) $f['list']['total'] . ' device' . ($f['list']['total'] === 1 ? '' : 's') . '</div>';
     }
-    $table = '<section class="card card-dark mb-3" id="rmm-devices"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-desktop me-2" aria-hidden="true"></i>Devices</h6></div>' . $filter
+    $clockLine = (int) ($f['clock_problems'] ?? 0) > 0
+        ? '<div class="alert alert-warning py-2 px-3 mb-0 rounded-0 small" id="rmm-clock-fleet"><i class="fas fa-clock me-1" aria-hidden="true"></i>' . (int) $f['clock_problems'] . ' device' . ((int) $f['clock_problems'] === 1 ? ' on this page has' : 's on this page have') . ' a wrong clock or time zone (see the Clock badge). Fix the time zone and sync the time on those devices.</div>'
+        : '';
+    $table = '<section class="card card-dark mb-3" id="rmm-devices"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-desktop me-2" aria-hidden="true"></i>Devices</h6></div>' . $clockLine . $filter
         . '<div class="table-responsive"><table class="table table-hover table-sm mb-0"><caption class="visually-hidden">Agent devices</caption>' . rivetRmmUiThead(['Status', 'Device', 'Agent', 'Last check-in']) . '<tbody>' . $rows . '</tbody></table></div>' . $pager . '</section>';
 
     $capacity = $f['capacity'] !== null ? rivetRmmUiCapacity($f['capacity']) : '';

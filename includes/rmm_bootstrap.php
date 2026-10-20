@@ -59,7 +59,8 @@ function rivetRmmModule($mysqli = null): RmmModule
     $options = [
         'binary_dir' => defined('EA_BINARY_DIR') ? (string) EA_BINARY_DIR : $root . '/backups/endpoint-agent',
         'allow_insecure_http' => defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true,
-        'allow_linux' => defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true,
+        // Linux devices may enroll: the administrator's switch (Administration > Endpoint agent > Overview, on by default); the config.php constant stays as an override that forces it on.
+        'allow_linux' => (defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true) || \ITFlow\Platform\PlatformSettings::bool($mysqli, 'rmm_allow_linux'),
         'host_fallback' => (string) ($GLOBALS['config_base_url'] ?? ''),
         'client_label' => 'department',
         // RivetCore 1.0.0-rc.10 (RMM Phase 3): who delivers escalation notices (in-app and email to people, a ticket for a critical alert). Housekeeping, run by cron,
