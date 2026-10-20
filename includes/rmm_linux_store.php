@@ -486,3 +486,22 @@ function rivetLxCommand($mysqli, string $coreSnippet, string $arch): ?array
 
     return ['command' => $cmd, 'version' => $ver];
 }
+
+/**
+ * Is there anything the Linux command for this CPU can download: the hosted script and agent, or (installs that only recorded GitHub links before 26.10.64) a recorded script and agent?
+ */
+function rivetLxAvailable($mysqli, string $arch): bool
+{
+    if (rivetLxCommandFiles($mysqli, $arch) !== null) {
+        return true;
+    }
+    $assets = rivetAgentFeedLinuxAssets($mysqli);
+    $ok = ['script' => false, 'binary' => false];
+    foreach ($assets['items'] as $i) {
+        if (isset($ok[$i['kind']]) && ($i['arch'] === $arch || $i['arch'] === '') && rivetAgentFeedUrlIsSafe($i['url']) && preg_match('/\A[0-9a-f]{64}\z/', (string) $i['sha256']) === 1) {
+            $ok[$i['kind']] = true;
+        }
+    }
+
+    return $ok['script'] && $ok['binary'];
+}

@@ -41,9 +41,9 @@
             $('ad-msi-missing').classList.toggle('d-none', msiOk);
             $('ad-w-cmds').disabled = !(exeOk || msiOk) || !serviceOk();
         } else {
-            var lin = root.getAttribute('data-have-linux') === '1';
+            var lin = root.getAttribute('data-have-linux-' + a) === '1';
             $('ad-l-missing').classList.toggle('d-none', lin);
-            $('ad-l-go').disabled = !serviceOk();
+            $('ad-l-go').disabled = !serviceOk() || !lin;
             document.querySelectorAll('[data-ad-pkgs]').forEach(function (n) { n.classList.toggle('d-none', n.getAttribute('data-ad-pkgs') !== a); });
         }
         say(''); showError('');
@@ -111,7 +111,7 @@
                 if (!res.ok || !d || !d.success) { throw new Error((d && d.error) || 'The command could not be created.'); }
                 $('ad-l-cmd').value = d.command;
                 $('ad-l-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + '. The token is shown only once: do not paste it into tickets or chat.'
-                    + (d.self_contained ? ' Downloads agent ' + d.agent_version + ' from GitHub and checks it before installing.' : ' This command expects the unpacked release tarball next to it (the Linux files are not recorded on this server).');
+                    + ' Downloads agent ' + d.agent_version + (d.source === 'github' ? ' from GitHub' : ' from this server') + ' and checks it against the SHA-256 printed in the command before installing.';
                 $('ad-l-ver').textContent = d.agent_version ? '(' + d.agent_version + ')' : '';
                 $('ad-l-out').classList.remove('d-none');
             });

@@ -171,6 +171,13 @@ if ($inst_action === 'windows_commands') {
 }
 
 if ($inst_action === 'linux') {
+    // 26.10.64: the command downloads install-linux.sh and the agent from THIS server. With neither hosted nor (older installs) recorded on GitHub there is nothing to download: say so
+    // BEFORE a token is made, instead of printing a command that fails on the machine.
+    require_once dirname(__DIR__, 2) . '/includes/rmm_linux_store.php';
+    $lxArch = $args[6] === 'arm64' ? 'arm64' : 'amd64';
+    if (!rivetLxAvailable($mysqli, $lxArch)) {
+        inst_fail(409, 'no_linux_files', 'This server has no Linux install files for ' . ($lxArch === 'arm64' ? 'ARM64' : 'x64') . ' yet. Build or publish the agent first: Administration > Endpoint agent > Agent updates (publish a release or run a local build), or upload install-linux.sh and the agent on the Agent binaries card.', true);
+    }
     $r = $admin->deploymentCommands($who, ...$args);
     $linuxCommand = null;
     if (!$r->ok && str_contains($r->message, 'No agent binary is published')) {
@@ -192,10 +199,14 @@ if ($inst_action === 'linux') {
         inst_fail(422, 'invalid', 'Set the service URL to an https:// address first.', true);
     }
     $lin = rivetAgentFeedLinuxAssets($mysqli);
-    $lc = rivetAgentFeedLinuxCommand($core, $lin, $args[6]);
+    $hosted = rivetLxCommand($mysqli, $core, $args[6]);
+    $lc = $hosted !== null ? ['command' => $hosted['command'], 'self_contained' => true, 'version' => $hosted['version'], 'source' => 'server'] : rivetAgentFeedLinuxCommand($core, $lin, $args[6]) + ['source' => 'github'];
+    if (!$lc['self_contained']) {
+        inst_fail(409, 'no_linux_files', 'This server has no Linux install files for this CPU yet. Build or publish the agent first: Administration > Endpoint agent > Agent updates.', true);
+    }
     header('Content-Type: application/json');
     header('Cache-Control: no-store');
-    echo json_encode(['success' => true, 'command' => $lc['command'], 'self_contained' => $lc['self_contained'], 'agent_version' => $lc['version'], 'packages' => rivetAgentFeedLinuxPackages($lin, $args[6]),
+    echo json_encode(['success' => true, 'command' => $lc['command'], 'self_contained' => $lc['self_contained'], 'agent_version' => $lc['version'], 'source' => $lc['source'], 'packages' => rivetAgentFeedLinuxPackages($lin, $args[6]),
         'department' => $r->data['department'], 'arch' => $args[6],
         'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
     exit;

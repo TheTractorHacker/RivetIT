@@ -54,7 +54,8 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
 
     $o = '<div class="card" id="ad-root" data-post-url="/agent/post/rmm_installer.php" data-csrf="' . $h($ctx['csrf']) . '" data-ttl-max="' . (int) $ctx['ttl_max'] . '" data-fixed="' . ($ctx['fixed'] ? '1' : '0') . '"'
         . ' data-have-exe-amd64="' . ($b['amd64'] !== null ? '1' : '0') . '" data-have-exe-arm64="' . ($b['arm64'] !== null ? '1' : '0') . '" data-have-msi-amd64="' . (($msi['amd64'] ?? null) !== null ? '1' : '0') . '" data-have-msi-arm64="' . (($msi['arm64'] ?? null) !== null ? '1' : '0') . '"'
-        . ' data-service-ok="' . ($ctx['problems'] === [] ? '1' : '0') . '" data-admin="' . ($admin ? '1' : '0') . '" data-have-linux="' . ($linux['items'] !== [] ? '1' : '0') . '">'
+        . ' data-service-ok="' . ($ctx['problems'] === [] ? '1' : '0') . '" data-admin="' . ($admin ? '1' : '0') . '" data-have-linux="' . ($linux['items'] !== [] || ($linux['hosted']['rows'] ?? []) !== [] ? '1' : '0') . '"'
+        . ' data-have-linux-amd64="' . (($linux['hosted']['amd64'] ?? null) !== null || rivetLxRecordedFor($linux, 'amd64') ? '1' : '0') . '" data-have-linux-arm64="' . (($linux['hosted']['arm64'] ?? null) !== null || rivetLxRecordedFor($linux, 'arm64') ? '1' : '0') . '">'
         . '<div class="card-header py-3"><h3 class="card-title mb-0"><i class="fas fa-fw fa-download me-2" aria-hidden="true"></i>Add device / Build installer</h3></div><div class="card-body">'
         . '<p class="text-muted">Pick the department and the kind of machine. Everything you copy or download already knows this server and the department, so nothing is typed on the machine. '
         . 'Every button below creates its own enrollment token (audited, shown once); the Advanced section sets how long it works and for how many machines.</p>' . $problems
@@ -93,8 +94,8 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
 
         // ---- Linux
         . '<section class="mt-4 d-none" id="ad-linux" aria-labelledby="ad-linux-h"><h4 class="h5" id="ad-linux-h"><i class="fab fa-linux me-2" aria-hidden="true"></i>Linux (systemd)</h4>'
-        . '<div class="alert alert-warning d-none" id="ad-l-missing" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>The Linux files of an agent release are not recorded on this server yet, so the command below tells the person to unpack the tarball first.' . $feedLink . '</div>'
-        . '<div class="border rounded p-3 mb-3"><h5 class="h6">One command, run as root</h5><p class="small text-muted" id="ad-l-help">Creates a token and prints a command that downloads <code>install-linux.sh</code> and the agent, checks both against the SHA-256 recorded on this server, and installs. The machine needs to reach github.com and this server.</p>'
+        . '<div class="alert alert-warning d-none" id="ad-l-missing" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i><span id="ad-l-missing-text">This server has no Linux install files for this CPU yet, so there is no command to give. Build or publish the agent first: Agent updates.</span>' . $feedLink . '</div>'
+        . '<div class="border rounded p-3 mb-3"><h5 class="h6">One command, run as root</h5><p class="small text-muted" id="ad-l-help">Creates a token and prints a command that downloads <code>install-linux.sh</code> and the agent from this server, checks both against the SHA-256 values printed in the command, and installs. Nothing to upload or unpack; the machine only needs to reach this server (curl or wget).</p>'
         . '<button type="button" class="btn btn-primary" id="ad-l-go"><i class="fas fa-terminal me-1" aria-hidden="true"></i>Create install command</button>'
         . '<div class="mt-3 d-none" id="ad-l-out">' . rivetRmmAddDeviceBlock('ad-l-cmd', 'Run this as root on the Linux machine', 16) . '<p class="small text-muted mb-0" id="ad-l-meta"></p></div></div>'
         . '<div class="border rounded p-3"><h5 class="h6">Packages and files <span class="text-muted fw-normal" id="ad-l-ver"></span></h5>'
@@ -104,7 +105,7 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
         // ---- what the server has
         . '<section class="mt-4" aria-labelledby="ad-have-h"><h4 class="h6" id="ad-have-h">What this server can build right now</h4><ul class="list-group list-group-flush border rounded small" id="ad-have">'
         . $chip($b['amd64'] !== null, 'Windows x64 agent (.exe installer)', $h((string) $b['amd64'])) . $chip($b['arm64'] !== null, 'Windows ARM64 agent (.exe installer)', $h((string) $b['arm64']))
-        . $chip(($msi['amd64'] ?? null) !== null, 'Windows x64 MSI template', $h((string) ($msi['amd64'] ?? ''))) . $chip($linux['version'] !== null, 'Linux install script, agent and packages', $h((string) $linux['version']))
+        . $chip(($msi['amd64'] ?? null) !== null, 'Windows x64 MSI template', $h((string) ($msi['amd64'] ?? ''))) . $chip($linux['version'] !== null || ($linux['hosted']['rows'] ?? []) !== [], 'Linux install script, agent and packages', $h((string) ($linux['hosted']['amd64'] ?? $linux['hosted']['arm64'] ?? $linux['version'])))
         . '</ul>' . ($admin ? '<p class="small mt-2 mb-0">Need a newer version? <a href="' . $h(RIVET_RMM_AGENT_UPDATES_URL) . '">Agent updates</a> lists the releases on GitHub and publishes one with a click.</p>' : '')
         . '</section></div></div>';
 
@@ -129,7 +130,19 @@ function rivetRmmAddDeviceBlock(string $id, string $title, int $rows): string
 function rivetRmmAddDeviceLinuxPackages(array $linux): string
 {
     $h = 'rivetRmmInstH';
+    $hosted = '';
+    if (($linux['hosted']['rows'] ?? []) !== []) {
+        $hosted = '<div class="small fw-semibold mb-1">Hosted on this server (the install command downloads these)</div><div class="table-responsive"><table class="table table-sm align-middle mb-3"><caption class="visually-hidden">Linux files hosted on this server</caption>'
+            . '<thead><tr><th scope="col">File</th><th scope="col">Version</th><th scope="col">Size</th><th scope="col">SHA-256</th></tr></thead><tbody>';
+        foreach ($linux['hosted']['rows'] as $r) {
+            $hosted .= '<tr><td class="font-monospace small">' . $h($r['name']) . '</td><td>' . $h($r['version']) . '</td><td class="text-nowrap">' . $h(\RivetCore\Rmm\Binaries\BinaryStore::human((int) $r['size'])) . '</td><td><code class="small text-break">' . $h($r['sha256']) . '</code></td></tr>';
+        }
+        $hosted .= '</tbody></table></div>';
+    }
     if ($linux['items'] === []) {
+        if ($hosted !== '') {
+            return $hosted;
+        }
         return '<p class="small text-muted mb-0">Nothing recorded yet. After an administrator publishes a release under Agent updates, the install script, the agent, the tarball, the .deb and the .rpm are listed here with their SHA-256.</p>';
     }
     $install = ['deb' => 'sudo apt install ./%s', 'rpm' => 'sudo dnf install ./%s', 'tarball' => 'tar xzf %s'];
@@ -149,5 +162,18 @@ function rivetRmmAddDeviceLinuxPackages(array $linux): string
         $o .= ($pk === [] ? '<tr><td colspan="4" class="text-muted">No file recorded for this architecture.</td></tr>' : '') . '</tbody></table></div></div>';
     }
 
-    return $o . '<p class="small text-muted mb-0">A package is installed from the downloaded file. Compare its SHA-256 first: <code>sha256sum -c</code>, or <code>sha256sum &lt;file&gt;</code> against the value above.</p>';
+    return $hosted . $o . '<p class="small text-muted mb-0">A package is installed from the downloaded file. Compare its SHA-256 first: <code>sha256sum -c</code>, or <code>sha256sum &lt;file&gt;</code> against the value above.</p>';
+}
+
+/** Does the list of recorded (GitHub) Linux files hold both the script and the agent for this CPU? */
+function rivetLxRecordedFor(array $linux, string $arch): bool
+{
+    $k = [];
+    foreach ($linux['items'] as $i) {
+        if (($i['arch'] === $arch || $i['arch'] === '') && in_array($i['kind'], ['script', 'binary'], true)) {
+            $k[$i['kind']] = true;
+        }
+    }
+
+    return count($k) === 2;
 }

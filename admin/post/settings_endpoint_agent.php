@@ -745,6 +745,16 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
         if (!$r->ok) {
             ea_flash_result($r);
         }
+        // 26.10.64: the Linux snippet downloads install-linux.sh and the agent from this server when they are hosted (otherwise Core's text stays: unpack the tarball first)
+        $ea_cmds = $r->data['commands'];
+        if (isset($ea_cmds['linux'])) {
+            require_once dirname(__DIR__, 2) . '/includes/rmm_linux_store.php';
+            $ea_lx = rivetLxCommand($mysqli, (string) $ea_cmds['linux'], $arch);
+            if ($ea_lx !== null) {
+                $ea_cmds['linux'] = $ea_lx['command'];
+            }
+        }
+        $r->data['commands'] = $ea_cmds;
         // Shown once, on the next page load, like a plain enrollment token.
         $_SESSION['ea_new_token'] = ['token' => $r->data['token_plain'], 'id' => (int) $r->data['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r->data['department'],
             'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands'],

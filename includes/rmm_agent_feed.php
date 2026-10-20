@@ -1120,6 +1120,21 @@ function rivetAgentFeedLinuxAssets($mysqli): array
         }
     }
 
+    // the files this server hosts itself (26.10.64): the Add device page shows them and decides from them whether a command can be made
+    $out['hosted'] = ['amd64' => null, 'arm64' => null, 'rows' => []];
+    if (is_file(__DIR__ . '/rmm_linux_store.php')) {
+        require_once __DIR__ . '/rmm_linux_store.php';
+        foreach (['amd64', 'arm64'] as $a) {
+            $f = rivetLxCommandFiles($mysqli, $a);
+            $out['hosted'][$a] = $f === null ? null : $f['version'];
+        }
+        foreach (rivetLxList($mysqli) as $r) {
+            if ((int) $r['is_current'] === 1 && (int) $r['active'] === 1) {
+                $out['hosted']['rows'][] = ['name' => (string) $r['name'], 'kind' => (string) $r['kind'], 'arch' => (string) $r['arch'], 'version' => (string) $r['version'], 'size' => (int) $r['size_bytes'], 'sha256' => (string) $r['sha256']];
+            }
+        }
+    }
+
     return $out;
 }
 
