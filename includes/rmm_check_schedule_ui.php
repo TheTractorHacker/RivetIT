@@ -79,7 +79,7 @@ function rivetCsRender(array $st): string
 
     // Services
     $o .= '<div class="col-12"><div class="border rounded p-3"><div class="fw-semibold mb-1">Important services stopped</div>'
-        . '<p class="small text-muted mb-2" id="cs_svc_h">Raises an alert when a ticked service is not running. Tick only services that exist on the devices you manage: a device that does not have the service reports a failure for it.</p><div class="row">';
+        . '<p class="small text-muted mb-2" id="cs_svc_h">Raises an alert when a ticked service is not running. A check ticked for one OS is only sent to devices of that OS.</p><div class="row">';
     foreach (['Windows', 'Linux'] as $os) {
         $o .= '<div class="col-md-6"><div class="small text-muted mb-1">' . $os . ' devices</div>';
         foreach ($choices as $name => [$label, $cos]) {
@@ -92,10 +92,14 @@ function rivetCsRender(array $st): string
         }
         $o .= '</div>';
     }
-    $others = array_values(array_filter($st['services'], static fn (string $n): bool => !isset($choices[$n])));
+    // A service the table does not know is listed with its OS typed in front ("linux: nginx") when one is stored; with none stored it applies to both.
+    $others = array_values(array_map(static fn (string $n): string => ($st['svc_os'][$n] ?? '') !== '' ? $st['svc_os'][$n] . ': ' . $n : $n,
+        array_filter($st['services'], static fn (string $n): bool => !isset($choices[$n]))));
     $o .= '</div><label class="form-label small mb-1 mt-2" for="cs_svc_extra">Add another service</label>'
         . '<textarea class="form-control form-control-sm" id="cs_svc_extra" name="cs[svc_extra]" rows="2" maxlength="4000" spellcheck="false" placeholder="One service name per line, for example Spooler or nginx">' . rivetCsH(implode("\n", $others)) . '</textarea>'
-        . '<div class="form-text">Use the short service name (in Windows, the "Service name" shown in Services; in Linux, the name <code>systemctl</code> uses).</div></div></div>';
+        . '<div class="d-flex flex-wrap align-items-center gap-2 mt-1"><label class="small mb-0" for="cs_svc_extra_os">A new service runs on</label>'
+        . '<select class="form-select form-select-sm w-auto" id="cs_svc_extra_os" name="cs[svc_extra_os]"><option value="windows" selected>Windows devices</option><option value="linux">Linux devices</option></select></div>'
+        . '<div class="form-text">Use the short service name (in Windows, the "Service name" shown in Services; in Linux, the name <code>systemctl</code> uses). A name you add is sent only to devices of the OS chosen here; to change the OS of one already listed, put <code>windows:</code> or <code>linux:</code> in front of its name. One already listed with no OS goes to both.</div></div></div>';
 
     // How often
     $o .= '<div class="col-lg-6"><div class="border rounded p-3 h-100"><label class="fw-semibold mb-1" for="cs_interval">How often to check</label>'

@@ -54,6 +54,38 @@ function rivetCsServiceChoices(): array
     ];
 }
 
+/** The OS a service from the choice table runs on ('windows' or 'linux'), or null for a name the table does not know. */
+function rivetCsServiceOs(string $name): ?string
+{
+    $c = rivetCsServiceChoices()[$name] ?? null;
+
+    return $c === null ? null : strtolower($c[1]);
+}
+
+/**
+ * Upgrade a stored check list (RivetCore 1.0.0-rc.24 per-OS targeting): every service check that has no `os` yet and is in the Windows/Linux choice
+ * table gets its OS, so a Linux service is no longer sent to a Windows PC. Nothing else changes: other checks, services the table does not know, and
+ * any `os` already stored are left exactly as they are. Idempotent.
+ *
+ * @param list<array<string,mixed>> $checks
+ * @return list<array<string,mixed>>
+ */
+function rivetCsUpgradeChecks(array $checks): array
+{
+    foreach ($checks as $i => $c) {
+        if (!is_array($c) || ($c['type'] ?? '') !== 'service' || (isset($c['os']) && $c['os'] !== '')) {
+            continue;
+        }
+        $name = rivetCsParams($c)['name'] ?? null;
+        $os = is_string($name) ? rivetCsServiceOs($name) : null;
+        if ($os !== null) {
+            $checks[$i]['os'] = $os;
+        }
+    }
+
+    return $checks;
+}
+
 /** @return array<string,array<string,mixed>> option sets the preset buttons fill in */
 function rivetCsPresets(): array
 {
@@ -112,11 +144,11 @@ function rivetCsParams(array $c): array
  */
 function rivetCsStateFromChecks(array $checks): array
 {
-    $st = ['disk' => ['on' => false, 'warn' => 20, 'mount' => '', 'key' => 'disk_free'], 'reboot' => ['on' => false, 'key' => 'pending_reboot'], 'services' => [], 'svc_keys' => [],
+    $st = ['disk' => ['on' => false, 'warn' => 20, 'mount' => '', 'key' => 'disk_free'], 'reboot' => ['on' => false, 'key' => 'pending_reboot'], 'services' => [], 'svc_keys' => [], 'svc_os' => [],
         'interval' => '900', 'intervals' => [], 'scripts_on' => false, 'scripts' => [], 'kept' => []];
     $diskDone = $rebootDone = false;
     $seenKeys = [];
-    foreach ($checks as $c) {
+    foreach (rivetCsUpgradeChecks($checks) as $c) {
         if (!is_array($c) || !is_string($c['key'] ?? null)) {
             continue;
         }
@@ -147,12 +179,13 @@ function rivetCsStateFromChecks(array $checks): array
             $st['intervals'][$key] = $iv;
             continue;
         }
-        if ($type === 'service' && array_diff(array_keys($p), ['name', 'expect', 'expected']) === []) {
+        if ($type === 'service' && array_diff(array_keys($p), ['name', 'expect', 'expected']) === [] && in_array($c['os'] ?? '', ['', 'windows', 'linux', 'any'], true)) {
             $name = $p['name'] ?? null;
             $exp = strtolower((string) ($p['expected'] ?? $p['expect'] ?? 'running'));
             if (is_string($name) && preg_match(RIVET_CS_SERVICE_RE, $name) === 1 && $exp === 'running' && !in_array($name, $st['services'], true)) {
                 $st['services'][] = $name;
                 $st['svc_keys'][$name] = $key;
+                $st['svc_os'][$name] = in_array($c['os'] ?? null, ['windows', 'linux'], true) ? (string) $c['os'] : '';
                 $st['intervals'][$key] = $iv;
                 continue;
             }
@@ -210,7 +243,9 @@ function rivetCsDescribe(array $c): string
         case 'pending_reboot':
             return 'Waiting for a restart: warn when the device is waiting for one.' . $every;
         case 'service':
-            return 'Service ' . (string) ($p['name'] ?? '?') . ' must be running.' . $every;
+            $osw = ['windows' => ' (Windows devices only)', 'linux' => ' (Linux devices only)'][(string) ($c['os'] ?? '')] ?? '';
+
+            return 'Service ' . (string) ($p['name'] ?? '?') . ' must be running' . $osw . '.' . $every;
         case 'script':
             return "Your script \"$key\" (gives up after " . (int) ($p['timeout_s'] ?? 30) . ' seconds).' . $every;
         default:
@@ -248,7 +283,7 @@ function rivetCsBuild(mixed $cs, array $stored): array
         return $fail(['The check options were not sent correctly. Reload the page and try again.']);
     }
     foreach (array_keys($cs) as $k) {
-        if (!in_array($k, ['disk_on', 'disk_warn', 'reboot_on', 'svc', 'svc_extra', 'interval', 'scripts_on', 'scripts', 'remove'], true)) {
+        if (!in_array($k, ['disk_on', 'disk_warn', 'reboot_on', 'svc', 'svc_extra', 'svc_extra_os', 'interval', 'scripts_on', 'scripts', 'remove'], true)) {
             return $fail(['The check options contain a setting this page does not know ("' . substr(preg_replace('/[^\x20-\x7e]/', '?', (string) $k), 0, 40) . '"). Reload the page and try again.']);
         }
     }
@@ -257,10 +292,14 @@ function rivetCsBuild(mixed $cs, array $stored): array
             return $fail(['The check options were not sent correctly. Reload the page and try again.']);
         }
     }
-    foreach (['disk_on', 'disk_warn', 'reboot_on', 'svc_extra', 'interval', 'scripts_on'] as $k) {
+    foreach (['disk_on', 'disk_warn', 'reboot_on', 'svc_extra', 'svc_extra_os', 'interval', 'scripts_on'] as $k) {
         if (isset($cs[$k]) && !is_string($cs[$k])) {
             return $fail(['The check options were not sent correctly. Reload the page and try again.']);
         }
+    }
+    $extraOs = (string) ($cs['svc_extra_os'] ?? 'windows');
+    if (!in_array($extraOs, ['windows', 'linux'], true)) {
+        return $fail(['Services: choose Windows or Linux for the service you add.']);
     }
     $st = rivetCsStateFromChecks($stored);
     $interval = (string) ($cs['interval'] ?? '');
@@ -305,12 +344,14 @@ function rivetCsBuild(mixed $cs, array $stored): array
     // Important services
     $choices = rivetCsServiceChoices();
     $names = [];
+    $osOf = [];
     foreach ((array) ($cs['svc'] ?? []) as $n) {
         if (!is_string($n) || !isset($choices[$n])) {
             $err[] = 'Services: one ticked service is not in the list. Reload the page and try again.';
             continue;
         }
         $names[strtolower($n)] = $n;
+        $osOf[$n] = strtolower($choices[$n][1]);   // from the Windows/Linux choice table
     }
     $extra = (string) ($cs['svc_extra'] ?? '');
     if (strlen($extra) > 4000) {
@@ -322,11 +363,21 @@ function rivetCsBuild(mixed $cs, array $stored): array
         if ($n === '') {
             continue;
         }
+        $lineOs = null;
+        if (preg_match('/^(windows|linux)\s*:\s*(.+)$/i', $n, $pm) === 1) {   // "linux: nginx": the OS typed on the line wins
+            $lineOs = strtolower($pm[1]);
+            $n = trim($pm[2]);
+        }
         if (preg_match(RIVET_CS_SERVICE_RE, $n) !== 1) {
             $err[] = 'Services: "' . substr(preg_replace('/[^\x20-\x7e]/', '?', $n), 0, 40) . '" is not a service name. Use the short service name, with letters, digits and . _ - @ : + only.';
             continue;
         }
-        $names[strtolower($n)] ??= $n;
+        if (isset($names[strtolower($n)])) {
+            continue;   // already ticked above (or listed twice): the first one wins
+        }
+        $names[strtolower($n)] = $n;
+        // The OS: typed on the line, else a service the table knows, else what an earlier save stored (a stored service with no OS stays "both"), else the dropdown for a new one.
+        $osOf[$n] = $lineOs ?? rivetCsServiceOs($n) ?? (isset($st['svc_keys'][$n]) ? $st['svc_os'][$n] : $extraOs);
     }
     if (count($names) > RIVET_CS_MAX_SERVICES) {
         $err[] = 'Services: watch at most ' . RIVET_CS_MAX_SERVICES . ' services.';
@@ -337,7 +388,11 @@ function rivetCsBuild(mixed $cs, array $stored): array
             $key = rivetCsServiceKey($n, $keys);
         }
         $keys[$key] = 1;
-        $list[] = ['key' => $key, 'type' => 'service', 'params' => ['name' => $n, 'expected' => 'running'], 'interval_s' => $ivFor($key)];
+        $svc = ['key' => $key, 'type' => 'service', 'params' => ['name' => $n, 'expected' => 'running'], 'interval_s' => $ivFor($key)];
+        if (($osOf[$n] ?? '') !== '') {
+            $svc['os'] = $osOf[$n];
+        }
+        $list[] = $svc;
     }
     // Your own scripts (Advanced)
     if (($cs['scripts_on'] ?? '') === '1') {
@@ -391,7 +446,7 @@ function rivetCsBuild(mixed $cs, array $stored): array
     }
     foreach ($st['kept'] as $k => $c) {
         if (!isset($remove[$k])) {
-            $list[] = $c;
+            $list[] = rivetCsUpgradeChecks([$c])[0];
         }
     }
     if (count($list) > 50) {
