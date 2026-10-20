@@ -223,11 +223,13 @@
       var note = el('p', 'small text-muted mt-1', 'Really runs the SAVED rule once for this sample, so the technicians receive the notification. Dry runs above never do.');
       out.appendChild(rb); out.appendChild(note);
       rb.addEventListener('click', function () {
-        if (!window.confirm('Run this rule for real now? It will send its notification to all technicians.')) { return; }
-        rb.disabled = true;
-        api('run_now', params(), true).then(function (x) {
-          out.appendChild(el('div', 'alert alert-' + (x.status === 'ok' ? 'success' : 'warning'), 'Result: ' + x.status + ' - ' + x.message));
-        }, function (e) { out.appendChild(el('div', 'alert alert-danger', e.message)); }).then(function () { rb.disabled = false; });
+        RivetDialog.confirm('Run this rule for real now? It will send its notification to all technicians.', { title: 'Run rule', okText: 'Run now', variant: 'danger' }).then(function (ok) {
+          if (!ok) { return; }
+          rb.disabled = true;
+          api('run_now', params(), true).then(function (x) {
+            out.appendChild(el('div', 'alert alert-' + (x.status === 'ok' ? 'success' : 'warning'), 'Result: ' + x.status + ' - ' + x.message));
+          }, function (e) { out.appendChild(el('div', 'alert alert-danger', e.message)); }).then(function () { rb.disabled = false; });
+        });
       });
     }
   }

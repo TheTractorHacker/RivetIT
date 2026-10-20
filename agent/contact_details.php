@@ -1527,7 +1527,7 @@ if (isset($_GET['contact_id'])) {
                 if (res.success) {
                     location.reload();
                 } else {
-                    alert(res.message || 'Error logging activity');
+                    RivetDialog.alert(res.message || 'Error logging activity');
                 }
             });
         });

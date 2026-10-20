@@ -408,7 +408,7 @@ async function passkeyDoRegister() {
 }
 
 async function deletePasskey(pkId, pkName, btn) {
-    if (!confirm('Remove passkey "' + pkName + '"?')) return;
+    if (!(await RivetDialog.confirm('Remove passkey "' + pkName + '"?'))) return;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     try {
@@ -424,12 +424,12 @@ async function deletePasskey(pkId, pkName, btn) {
                     '<tr><td colspan="4" class="text-muted text-center py-3"><i class="fas fa-fingerprint fa-lg mb-1 d-block text-secondary"></i>No passkeys yet. Add one above.</td></tr>';
             }
         } else {
-            alert('Delete failed: ' + (result.error || 'Unknown error'));
+            RivetDialog.alert('Delete failed: ' + (result.error || 'Unknown error'));
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-trash"></i>';
         }
     } catch (err) {
-        alert('Error: ' + err.message);
+        RivetDialog.alert('Error: ' + err.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash"></i>';
     }
@@ -444,7 +444,7 @@ function buf_to_b64u(buf) {
     bytes.forEach(b => s += String.fromCharCode(b));
     return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
-document.addEventListener('click', function (e) {
+document.addEventListener('click', async function (e) {
     var el;
     if ((el = e.target.closest('.js-passkey-register'))) { passkeyRegister(); return; }
     if ((el = e.target.closest('.js-passkey-do-register'))) { passkeyDoRegister(); return; }
@@ -567,7 +567,7 @@ document.addEventListener('click', function (e) {
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 async function revokeApiToken(id, btn) {
-    if (!confirm('Revoke this token? The device will be logged out.')) return;
+    if (!(await RivetDialog.confirm('Revoke this token? The device will be logged out.'))) return;
     btn.disabled = true;
     const csrf = btn.dataset.csrf;
     try {
@@ -580,11 +580,11 @@ async function revokeApiToken(id, btn) {
         if (j.ok) {
             document.getElementById('api-tok-' + id).remove();
         } else {
-            alert(j.error || 'Failed');
+            RivetDialog.alert(j.error || 'Failed');
             btn.disabled = false;
         }
     } catch(e) {
-        alert('Error: ' + e.message);
+        RivetDialog.alert('Error: ' + e.message);
         btn.disabled = false;
     }
 }

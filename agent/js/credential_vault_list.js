@@ -56,7 +56,7 @@
                 });
             }
             var key = res.body && res.body.error;
-            window.alert(messages[key] || 'This credential could not be shown right now.');
+            RivetDialog.alert(messages[key] || 'This credential could not be shown right now.');
             return null;
         });
     }
@@ -69,7 +69,7 @@
 
     function askPassword(wrong) {
         return new Promise(function (resolve) {
-            if (!modalEl || !window.bootstrap) { resolve(window.prompt('Enter your password to continue') ); return; }
+            if (!modalEl || !window.bootstrap) { RivetDialog.prompt('Enter your password to continue', { title: 'Confirm your password', type: 'password' }).then(resolve); return; }
             resolveModal = resolve;
             errEl.hidden = !wrong;
             pwEl.value = '';
@@ -151,7 +151,7 @@
                     icon.className = 'fas fa-check text-success';
                     setTimeout(function () { icon.className = 'far fa-copy'; }, 1500);
                 }
-            }, function () { window.alert('Could not copy to the clipboard in this browser.'); });
+            }, function () { RivetDialog.alert('Could not copy to the clipboard in this browser.'); });
         });
     });
 })();

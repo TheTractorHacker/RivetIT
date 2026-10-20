@@ -72,7 +72,7 @@ ob_start();
     function validateSelection() {
         var files = fileInput.files;
         if (files.length > maxFiles || totalSize(files) > maxTotalSize) {
-            alert('You can only upload up to ' + maxFiles + ' files at a time and the total file size must not exceed 500MB.');
+            RivetDialog.alert('You can only upload up to ' + maxFiles + ' files at a time and the total file size must not exceed 500MB.');
             fileInput.value = '';
             renderFileList();
             return false;
@@ -88,7 +88,7 @@ ob_start();
     form.addEventListener('submit', function (e) {
         if (!fileInput.files.length) {
             e.preventDefault();
-            alert('Please choose at least one file to upload.');
+            RivetDialog.alert('Please choose at least one file to upload.');
             return;
         }
         if (!validateSelection()) {

@@ -435,7 +435,7 @@ document.addEventListener('click', function (e) {
 function triggerNetSync() {
     const sel = document.getElementById('netSyncIntg');
     const integrationId = sel ? sel.value : <?= intval($default_sophos_id) ?>;
-    if (!integrationId) { alert('No Sophos Central integration configured.'); return; }
+    if (!integrationId) { RivetDialog.alert('No Sophos Central integration configured.'); return; }
     const btn = document.getElementById('netSyncBtn');
     const bar = document.getElementById('netSyncStatus');
     const txt = document.getElementById('netSyncStatusText');

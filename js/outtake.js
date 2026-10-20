@@ -34,11 +34,11 @@ function createAndSignOuttake(ticketId, clientId, csrfToken) {
         if (data.ok) {
             openOuttakeSignModal(data.outtake_id, ticketId, clientId);
         } else {
-            alert('Failed to create outtake form.');
+            RivetDialog.alert('Failed to create outtake form.');
         }
     })
     .catch(function () {
-        alert('Failed to create outtake form.');
+        RivetDialog.alert('Failed to create outtake form.');
     })
     .finally(function () {
         outtakeCreateInFlight = false;
@@ -77,7 +77,7 @@ document.addEventListener('click', function (e) {
         var url = copyBtn.dataset.url || '';
         if (url && navigator.clipboard) {
             navigator.clipboard.writeText(url).then(function () {
-                alert('Link copied!');
+                RivetDialog.alert('Link copied!');
             });
         }
     }

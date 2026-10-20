@@ -231,7 +231,11 @@ $ts = static fn($iso) => $iso ? htmlspecialchars(rivetFormatTime($iso, 'utc')) :
                 return;
             }
             tab.close();
-            if (d.code === 'device_offline' && !force && confirm(d.error + '\n\nLaunch anyway?')) { launch(true); }
+            if (d.code === 'device_offline' && !force) {
+                RivetDialog.confirm(d.error + '\n\nLaunch anyway?', { title: 'Device offline', okText: 'Launch anyway', variant: 'warning' }).then(function (ok) {
+                    if (ok) { launch(true); } else { msg(d.error || 'Could not start the session.', false); }
+                });
+            }
             else { msg(d.error || 'Could not start the session.', false); }
         }).catch(function () { tab.close(); msg('Network error.', false); });
     };

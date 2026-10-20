@@ -283,8 +283,8 @@ document.addEventListener('change', function (e) {
     if (e.target.closest('.js-select-all-alerts')) { toggleSelectAll(e.target); }
 });
 
-function alertAction(alertId, action) {
-    if (action === 'create_ticket' && !confirm('Create a ticket from this alert?')) return;
+async function alertAction(alertId, action) {
+    if (action === 'create_ticket' && !(await RivetDialog.confirm('Create a ticket from this alert?', { title: 'Create ticket', okText: 'Create ticket' }))) return;
     fetch('/agent/post/rmm_alert.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -298,7 +298,7 @@ function alertAction(alertId, action) {
             const row = document.getElementById('alert-row-' + alertId);
             if (row) row.style.opacity = '0.3';
         } else {
-            alert('Failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Failed: ' + (d.error || 'Unknown error'));
         }
     });
 }
@@ -325,12 +325,12 @@ function toggleSelectAll(cb) {
     document.querySelectorAll('.alert-chk').forEach(c => c.checked = cb.checked);
 }
 
-function bulkAction(action) {
+async function bulkAction(action) {
     let boxes = [...document.querySelectorAll('.alert-chk:checked')];
     if (!boxes.length) { boxes = [...document.querySelectorAll('.alert-chk')]; }
     const checked = boxes.map(c => c.dataset.id);
-    if (!checked.length) { alert('No alerts to update.'); return; }
-    if (!confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`)) return;
+    if (!checked.length) { RivetDialog.alert('No alerts to update.'); return; }
+    if (!(await RivetDialog.confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`))) return;
 
     let done = 0;
     const warnings = [];

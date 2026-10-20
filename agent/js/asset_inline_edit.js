@@ -432,7 +432,7 @@ function notify(type, message) {
         // (Odoo / Entra / Google mappers store it as-is).
         window.toastr[type](message, '', { escapeHtml: true });
     } else if (type === 'error') {
-        alert(message);
+        RivetDialog.alert(message);
     }
 }
 

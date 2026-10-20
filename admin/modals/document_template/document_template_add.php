@@ -58,7 +58,7 @@ $(document).ready(function(){
     $('#generateAIContent').on('click', function(){
         var prompt = $('#aiPrompt').val().trim();
         if(prompt === '') {
-            alert('Please enter a prompt.');
+            RivetDialog.alert('Please enter a prompt.');
             return;
         }
 
@@ -75,7 +75,7 @@ $(document).ready(function(){
                 tinymce.activeEditor.setContent(response);
             },
             error: function() {
-                alert('Error generating content. Please try again.');
+                RivetDialog.alert('Error generating content. Please try again.');
             },
             complete: function() {
                 $('#generateAIContent').prop('disabled', false).html('<i class="fa fa-fw fa-magic me-1"></i>Generate with AI');

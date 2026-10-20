@@ -1633,3 +1633,16 @@ a.er-recipe:hover .er-recipe-title, a.er-recipe:hover .er-recipe-blurb, a.er-rec
 .saved-view-star:hover, .saved-view-star:focus-visible { color: var(--color-accent); }
 .saved-view-star.is-default { color: #d97706; }
 .ticket-saved-views .nav-item:focus-within .saved-view-actions { opacity: 1; }
+
+/* A scrollable modal whose header, body and footer sit inside a <form> (Add device and many others): Bootstrap only lets the
+   direct children of .modal-content shrink and scroll, so without this the footer (the Download button) fell off the screen. */
+.modal-dialog-scrollable .modal-content > form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+}
+.modal-dialog-scrollable .modal-content > form > .modal-body {
+    overflow-y: auto;
+}

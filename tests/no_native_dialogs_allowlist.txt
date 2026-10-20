@@ -1,0 +1,2 @@
+# Justified exceptions for tests/no_native_dialogs.php. One per line: <path relative to the repo root>|<exact text that must appear in the offending line>
+# Keep this file empty if you can. Every entry needs a reason on the line above it.

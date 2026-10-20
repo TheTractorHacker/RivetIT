@@ -1027,7 +1027,7 @@ function rmmConnect(linkId, type) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&link_id=' + linkId + '&type=' + type
     }).then(r => r.json()).then(d => {
         if (d.success && d.url) window.open(d.url, '_blank', 'noopener,noreferrer');
-        else alert('Connect failed: ' + (d.error || 'Unknown error'));
+        else RivetDialog.alert('Connect failed: ' + (d.error || 'Unknown error'));
     });
 }
 

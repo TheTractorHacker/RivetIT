@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }).fail(function (xhr) {
                     console.error('Error updating opportunity stage:', xhr.responseText);
                     movedEl.setAttribute('data-stage', oldStage);
-                    alert('Could not move opportunity. Please refresh and try again.');
+                    RivetDialog.alert('Could not move opportunity. Please refresh and try again.');
                 });
             }
         });

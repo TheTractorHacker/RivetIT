@@ -243,11 +243,11 @@ $(document).on('change', '.js-csat-public-toggle', function () {
     $.post('post.php', { toggle_csat_public_approved: 1, ticket_id: $box.data('ticket-id'), approved: approved, csrf_token: csrf }, function (res) {
         if (!res.ok) {
             $box.prop('checked', !approved);
-            alert('Could not update - please try again.');
+            RivetDialog.alert('Could not update - please try again.');
         }
     }, 'json').fail(function () {
         $box.prop('checked', !approved);
-        alert('Could not update - please try again.');
+        RivetDialog.alert('Could not update - please try again.');
     }).always(function () {
         $box.prop('disabled', false);
     });

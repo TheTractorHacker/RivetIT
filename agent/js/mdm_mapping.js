@@ -113,8 +113,6 @@
             return;
         }
         var btn = e.target.closest('button[data-confirm]');
-        if (btn && !window.confirm(btn.getAttribute('data-confirm'))) {
-            e.preventDefault();
-        }
+        if (btn) { RivetDialog.gate(e, btn, btn.getAttribute('data-confirm')); }
     });
 })();

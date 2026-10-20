@@ -84,6 +84,6 @@
     var use = document.getElementById('mw_use_pin'), pin = document.getElementById('mw_pin');
     if (use && pin) { use.addEventListener('click', function () { pin.value = use.getAttribute('data-mw-use-pin') || ''; pin.focus(); }); }
     root.querySelectorAll('button[data-confirm]').forEach(function (b) {
-        b.addEventListener('click', function (e) { if (!window.confirm(b.getAttribute('data-confirm'))) { e.preventDefault(); } });
+        b.addEventListener('click', function (e) { RivetDialog.gate(e, b, b.getAttribute('data-confirm')); });
     });
 })();

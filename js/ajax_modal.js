@@ -79,7 +79,7 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
       spinner.remove();
 
       if (data.error) {
-        alert(data.error);
+        RivetDialog.alert(data.error);
         if (options.onError) { options.onError(data.error); }
         return;
       }
@@ -129,7 +129,7 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
     .catch(function (error) {
       const s = document.getElementById('modal-loading-spinner');
       if (s) { s.remove(); }
-      alert('Error loading modal content. Please try again.');
+      RivetDialog.alert('Error loading modal content. Please try again.');
       console.error('Modal fetch error:', error);
       if (options.onError) { options.onError(error); }
     });

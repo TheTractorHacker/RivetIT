@@ -107,8 +107,8 @@
                     confirmModal.modal('hide');
                     doResetTimer();
                 });
-            } else if (confirm("Are you sure you want to reset the timer?")) {
-                doResetTimer();
+            } else {
+                RivetDialog.confirm('Are you sure you want to reset the timer?', { title: 'Reset timer', okText: 'Reset', variant: 'danger' }).then(function (ok) { if (ok) { doResetTimer(); } });
             }
         }
 

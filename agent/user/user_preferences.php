@@ -205,7 +205,7 @@ $has_fcm = mysqli_num_rows(mysqli_query($mysqli, "SELECT token_id FROM api_token
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 async function revokeMyDevice(id, btn) {
-    if (!confirm('Revoke this device? It will be logged out of the mobile app.')) return;
+    if (!(await RivetDialog.confirm('Revoke this device? It will be logged out of the mobile app.'))) return;
     btn.disabled = true;
     try {
         const r = await fetch('/agent/user/api_token_revoke.php', {
@@ -217,11 +217,11 @@ async function revokeMyDevice(id, btn) {
         if (j.ok) {
             document.getElementById('my-dev-' + id).remove();
         } else {
-            alert('Could not revoke device.');
+            RivetDialog.alert('Could not revoke device.');
             btn.disabled = false;
         }
     } catch (e) {
-        alert('Network error revoking device.');
+        RivetDialog.alert('Network error revoking device.');
         btn.disabled = false;
     }
 }

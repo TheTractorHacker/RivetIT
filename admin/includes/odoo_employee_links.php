@@ -408,8 +408,7 @@ $tc_csrf = $_SESSION['csrf_token'] ?? '';
         var action = e.submitter && e.submitter.getAttribute('data-bulk');
         var ids = action ? eligible(action) : [];
         if (!ids.length) { e.preventDefault(); return; }
-        if ((action === 'unlink' || action === 'dismiss') && !window.confirm(labels[action] + ' for ' + ids.length + ' ' + (ids.length === 1 ? 'person' : 'people') + '?')) {
-            e.preventDefault();
+        if ((action === 'unlink' || action === 'dismiss') && !RivetDialog.gate(e, form, labels[action] + ' for ' + ids.length + ' ' + (ids.length === 1 ? 'person' : 'people') + '?', { variant: 'danger' })) {
             return;
         }
         Array.prototype.slice.call(form.querySelectorAll('input[name="contact_ids[]"]')).forEach(function (x) { x.remove(); });

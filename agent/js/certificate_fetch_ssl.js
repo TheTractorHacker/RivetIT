@@ -30,7 +30,7 @@ function fetchSSL(type)
                 publicKey.value = ssl_data.public_key;
             }
             else{
-                alert("Error whilst parsing/retrieving details for domain")
+                RivetDialog.alert("Error whilst parsing/retrieving details for domain")
             }
         }
     );

@@ -136,13 +136,17 @@
                 var actions = el('div', { class: 'd-flex gap-1 justify-content-end' });
                 if (l.state !== 'revoked') {
                     actions.appendChild(el('button', { type: 'button', class: 'btn btn-sm btn-outline-danger', text: 'Revoke', on: { click: function () {
-                        if (!window.confirm('Revoke "' + l.label + '"? New tablets can no longer use it. Tablets already enrolled keep working.')) { return; }
-                        api.post('fleet_revoke', { fleet_id: l.id }).then(function () { ui.toast('Link revoked.'); load(); }, function (e) { fail(e, 'Could not revoke.'); });
+                        RivetDialog.confirm('Revoke "' + l.label + '"? New tablets can no longer use it. Tablets already enrolled keep working.', { title: 'Revoke link', okText: 'Revoke', variant: 'danger' }).then(function (ok) {
+                            if (!ok) { return; }
+                            api.post('fleet_revoke', { fleet_id: l.id }).then(function () { ui.toast('Link revoked.'); load(); }, function (e) { fail(e, 'Could not revoke.'); });
+                        });
                     } } }));
                 }
                 actions.appendChild(el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Rotate', on: { click: function () {
-                    if (!window.confirm('Rotate "' + l.label + '"? The old link stops working and you get a new one to push to your MDM.')) { return; }
-                    api.post('fleet_rotate', { fleet_id: l.id }).then(function (res) { reveal(l.label, res); load(); }, function (e) { fail(e, 'Could not rotate.'); });
+                    RivetDialog.confirm('Rotate "' + l.label + '"? The old link stops working and you get a new one to push to your MDM.', { title: 'Rotate link', okText: 'Rotate', variant: 'danger' }).then(function (ok) {
+                        if (!ok) { return; }
+                        api.post('fleet_rotate', { fleet_id: l.id }).then(function (res) { reveal(l.label, res); load(); }, function (e) { fail(e, 'Could not rotate.'); });
+                    });
                 } } }));
                 body.appendChild(el('tr', null, [
                     el('td', null, [el('div', { class: 'fw-bold', text: l.label }), el('div', { class: 'text-secondary small', text: l.approval === 'auto_match' ? 'Auto-enroll on serial match' : 'Requires approval' })]),
@@ -205,8 +209,10 @@
                     el('td', null, el('div', { class: 'd-flex gap-1' }, [
                         el('button', { type: 'button', class: 'btn btn-sm btn-success', text: 'Approve', on: { click: function () { approveForm(p, row); } } }),
                         el('button', { type: 'button', class: 'btn btn-sm btn-outline-danger', text: 'Reject', on: { click: function () {
-                            if (!window.confirm('Reject "' + p.label + '"? It will not be able to use training.')) { return; }
-                            api.post('fleet_reject', { kiosk_id: p.id }).then(function () { ui.toast('Rejected.'); load(); }, function (e) { fail(e, 'Could not reject.'); });
+                            RivetDialog.confirm('Reject "' + p.label + '"? It will not be able to use training.', { title: 'Reject tablet', okText: 'Reject', variant: 'danger' }).then(function (ok) {
+                                if (!ok) { return; }
+                                api.post('fleet_reject', { kiosk_id: p.id }).then(function () { ui.toast('Rejected.'); load(); }, function (e) { fail(e, 'Could not reject.'); });
+                            });
                         } } })
                     ]))
                 ]);

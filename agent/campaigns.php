@@ -212,9 +212,7 @@ $sql_campaigns = mysqli_query($mysqli, "SELECT crm_campaigns.*, segment_name,
         var sendForm = document.getElementById('campaignSendForm');
         if (sendForm) {
             sendForm.addEventListener('submit', function (e) {
-                if (!confirm('Send this campaign now? Recipients will be materialized and emails queued.')) {
-                    e.preventDefault();
-                }
+                RivetDialog.gate(e, sendForm, 'Send this campaign now? Recipients will be materialized and emails queued.', { title: 'Send campaign', okText: 'Send now' });
             });
         }
     });

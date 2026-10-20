@@ -827,7 +827,7 @@ if (isset($_POST['sign_outtake'], $_POST['outtake_sign_token'])) {
     $result = signOuttakeForm($mysqli, $outtake_id, $signed_name, $signature);
 
     if (!$result['ok']) {
-        echo "<script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">alert(" . json_encode($result['error']) . "); history.back();</script>";
+        echo "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/plugins/bootstrap5/css/bootstrap.min.css\"><script src=\"/js/rivet_dialog.js\"></script><script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">RivetDialog.alert(" . json_encode($result['error'], JSON_HEX_TAG | JSON_HEX_AMP) . ").then(function () { history.back(); });</script>";
         exit;
     }
 
@@ -849,7 +849,7 @@ if (isset($_POST['sign_worksheet'], $_POST['worksheet_sign_token'])) {
     $sql = mysqli_query($mysqli, "SELECT tw.worksheet_id, tw.worksheet_template_id, tw.worksheet_ticket_id FROM ticket_worksheets tw WHERE tw.worksheet_sign_token = '$token' AND tw.worksheet_is_outtake = 1 AND tw.worksheet_signed_at IS NULL LIMIT 1");
 
     if (mysqli_num_rows($sql) !== 1) {
-        echo "<script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">alert('This form has already been signed or the link is invalid.'); history.back();</script>";
+        echo "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/plugins/bootstrap5/css/bootstrap.min.css\"><script src=\"/js/rivet_dialog.js\"></script><script nonce=\"" . htmlspecialchars($csp_nonce ?? '') . "\">RivetDialog.alert('This form has already been signed or the link is invalid.').then(function () { history.back(); });</script>";
         exit;
     }
 
