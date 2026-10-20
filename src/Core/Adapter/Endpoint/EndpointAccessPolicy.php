@@ -83,7 +83,7 @@ final class EndpointAccessPolicy implements AccessPolicyInterface
         if (itflow_profile_level($p, 'module_rmm') < 1) {
             return false;
         }
-        if ($ability === RmmAbility::DEVICE_VIEW || $ability === RmmAbility::PATCH_VIEW || $ability === RmmAbility::SOFTWARE_VIEW) {
+        if ($ability === RmmAbility::DEVICE_VIEW || $ability === RmmAbility::PATCH_VIEW || $ability === RmmAbility::SOFTWARE_VIEW || $ability === RmmAbility::HYPERVISOR_VIEW) {
             return true;
         }
         if (itflow_profile_is_limited($p)) {
@@ -95,7 +95,7 @@ final class EndpointAccessPolicy implements AccessPolicyInterface
             RmmAbility::JOB_RUN_SAVED, RmmAbility::JOB_REBOOT, RmmAbility::PATCH_MANAGE, RmmAbility::SOFTWARE_MANAGE, RmmAbility::CHANGE_VIEW => itflow_profile_level($p, 'module_rmm_scripts') >= 2,
             RmmAbility::PATCH_INSTALL, RmmAbility::SOFTWARE_DEPLOY => itflow_profile_level($p, 'module_rmm_scripts') >= 3,
             RmmAbility::REMOTE_LAUNCH => itflow_profile_level($p, 'module_rmm_remote_connect') >= 1,
-            RmmAbility::ALERT_MANAGE, RmmAbility::CHANGE_MANAGE => itflow_profile_level($p, 'module_rmm') >= 2,
+            RmmAbility::ALERT_MANAGE, RmmAbility::CHANGE_MANAGE, RmmAbility::HYPERVISOR_MANAGE => itflow_profile_level($p, 'module_rmm') >= 2,
             RmmAbility::REMOTE_MANAGE => itflow_profile_level($p, 'module_rmm_scripts') >= 3 && itflow_profile_level($p, 'module_rmm_remote_connect') >= 1 && $this->level3MayManageRemote(),
             RmmAbility::JOB_APPROVE => !empty($p['admin']) || (itflow_profile_level($p, 'module_rmm_scripts') >= 3 && $this->level3MayApprove()),
             default => false,

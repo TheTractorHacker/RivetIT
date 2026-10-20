@@ -29,7 +29,9 @@ $section_pages = [
         // RMM Phase 4 (sub-switch `patching`)
         'rmm_patches.php', 'rmm_patch_updates.php', 'rmm_patch_policies.php',
         // RMM Phase 5 (sub-switch `software_deploy`)
-        'rmm_software.php', 'rmm_software_assignments.php', 'rmm_software_report.php'],
+        'rmm_software.php', 'rmm_software_assignments.php', 'rmm_software_report.php',
+        // RivetCore 1.0.0-rc.29 (sub-switch `hypervisor`)
+        'rmm_hypervisors.php'],
     'backups'       => ['backups.php'],
 ];
 $section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php', 'training_settings.php']);

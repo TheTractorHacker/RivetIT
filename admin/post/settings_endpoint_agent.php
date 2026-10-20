@@ -586,6 +586,55 @@ if (isset($_POST['save_software_settings'])) {
     ea_flash_result($r, 'Software deployment settings saved.' . (isset($in['features_json']) ? ' Software deployment is now ' . ($wantOn ? 'on' : 'off') . '.' : ''));
 }
 
+// RivetCore 1.0.0-rc.29 (hypervisor visibility): the `hypervisor` sub-switch, its thresholds and the six per-class alert flags. RmmAdmin::saveSettings() (rmm.admin)
+// validates ranges and audits; this only reads the form. No "live installs" concept here (the feature only reads), so nothing needs an acknowledgement.
+if (isset($_POST['save_hypervisor_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $cur = $rmm->readModel()->settingsSummary();
+    $in = [];
+    $features = $cur['features'];
+    $wantOn = !empty($_POST['feature_hypervisor']);
+    if ($wantOn !== !empty($features['hypervisor'])) {
+        $features['hypervisor'] = $wantOn;
+        $in['features_json'] = $features;
+    }
+    $stored = is_string($cur['limits_json'] ?? null) && $cur['limits_json'] !== '' ? json_decode($cur['limits_json'], true) : [];
+    $stored = is_array($stored) ? $stored : [];
+    $changedLimit = false;
+    foreach (['hypervisor_storage_warn_pct', 'hypervisor_storage_crit_pct', 'hypervisor_snapshot_days', 'hypervisor_backup_days', 'hypervisor_vm_down_resolve_h', 'hypervisor_max_vms', 'hypervisor_retention_days'] as $k) {
+        if (!isset($_POST[$k]) || !is_string($_POST[$k]) || preg_match('/^\d{1,9}$/', trim($_POST[$k])) !== 1) {
+            continue;
+        }
+        $v = (int) trim($_POST[$k]);
+        if ($v !== (int) ($cur['limits'][$k] ?? -1)) {
+            $stored[$k] = $v;   // out of range is refused by Core with its own message
+            $changedLimit = true;
+        }
+    }
+    foreach (['hypervisor_alert_vm_down', 'hypervisor_alert_backup', 'hypervisor_alert_snapshot', 'hypervisor_alert_storage', 'hypervisor_alert_pool', 'hypervisor_alert_quorum'] as $k) {
+        $want = !empty($_POST[$k]) ? 1 : 0;
+        if ($want !== (int) ($cur['limits'][$k] ?? 1)) {
+            $stored[$k] = $want;
+            $changedLimit = true;
+        }
+    }
+    if ($changedLimit) {
+        $in['limits_json'] = $stored;
+    }
+    if ($in === []) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    $r = $ea_admin->saveSettings($ea_who, $in);
+    if ($r->ok) {
+        $rmm->syncState();
+        if (isset($in['features_json'])) {
+            logAction('RMM', 'Settings Changed', "$session_name switched hypervisor visibility " . ($wantOn ? 'ON' : 'off'));
+        }
+    }
+    ea_flash_result($r, 'Hypervisor settings saved.' . (isset($in['features_json']) ? ' Hypervisor visibility is now ' . ($wantOn ? 'on' : 'off') . '.' : ''));
+}
+
 // ---------------------------------------------------------------- agent binaries and per-department installers
 
 if (isset($_POST['upload_agent_binary'])) {

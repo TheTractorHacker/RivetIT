@@ -18,6 +18,7 @@ function rivetEaTabList(): array
         'inventory' => ['Inventory and logs', 'clipboard-list'],
         'patching'  => ['Patching', 'band-aid'],
         'software'  => ['Software deployment', 'box-open'],
+        'hypervisor' => ['Hypervisors', 'server'],
         'security'  => ['Security and policy', 'shield-alt'],
     ];
 }

@@ -249,11 +249,15 @@ function rivetRmmAutoNav(?int $userId = null): array
         ['software_deploy', '/agent/rmm_software.php', 'Software catalog', 'fa-box-open', ['rmm_software.php'], 'software'],
         ['software_deploy', '/agent/rmm_software_assignments.php', 'Software assignments', 'fa-boxes', ['rmm_software_assignments.php'], 'software'],
         ['software_deploy', '/agent/rmm_software_report.php', 'Software report', 'fa-clipboard-check', ['rmm_software_report.php'], 'software'],
+        // RivetCore 1.0.0-rc.29, sub-switch `hypervisor` (off by default): Proxmox VE and Hyper-V hosts. Needs the hypervisor-view ability on top of
+        // the ordinary device-view every entry here already needs; the page and every handler check again.
+        ['hypervisor', '/agent/rmm_hypervisors.php', 'Hypervisors', 'fa-server', ['rmm_hypervisors.php'], 'hypervisor'],
     ];
     $abilities = ['/agent/rmm_logs.php' => \RivetCore\Rmm\Authz\RmmAbility::JOB_RUN_SAVED, '/agent/rmm_log_rules.php' => \RivetCore\Rmm\Authz\RmmAbility::ALERT_MANAGE,
         '/agent/rmm_starter_pack.php' => \RivetCore\Rmm\Authz\RmmAbility::ADMIN,
         '/agent/rmm_patches.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW, '/agent/rmm_patch_updates.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW, '/agent/rmm_patch_policies.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW,
-        '/agent/rmm_software.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_assignments.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_report.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW];
+        '/agent/rmm_software.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_assignments.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_report.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW,
+        '/agent/rmm_hypervisors.php' => \RivetCore\Rmm\Authz\RmmAbility::HYPERVISOR_VIEW];
     $out = [];
     foreach ($all as [$feature, $href, $label, $icon, $pages, $group]) {
         if (rivetRmmFeatureOn($feature)) {
