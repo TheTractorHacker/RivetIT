@@ -182,7 +182,10 @@ function rivetCsStateFromChecks(array $checks): array
         if ($type === 'service' && array_diff(array_keys($p), ['name', 'expect', 'expected']) === [] && in_array($c['os'] ?? '', ['', 'windows', 'linux', 'any'], true)) {
             $name = $p['name'] ?? null;
             $exp = strtolower((string) ($p['expected'] ?? $p['expect'] ?? 'running'));
-            if (is_string($name) && preg_match(RIVET_CS_SERVICE_RE, $name) === 1 && $exp === 'running' && !in_array($name, $st['services'], true)) {
+            $tableOs = is_string($name) ? rivetCsServiceOs($name) : null;
+            $pinned = in_array($c['os'] ?? null, ['windows', 'linux'], true) ? (string) $c['os'] : '';
+            // A service pinned to another OS than the table says (cron on Windows) cannot be shown by the options: it is kept exactly as stored.
+            if (is_string($name) && preg_match(RIVET_CS_SERVICE_RE, $name) === 1 && $exp === 'running' && !in_array($name, $st['services'], true) && ($tableOs === null || $pinned === '' || $pinned === $tableOs)) {
                 $st['services'][] = $name;
                 $st['svc_keys'][$name] = $key;
                 $st['svc_os'][$name] = in_array($c['os'] ?? null, ['windows', 'linux'], true) ? (string) $c['os'] : '';

@@ -11525,3 +11525,29 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.179'");
         }
     }
+
+    // 2.6.180 belongs to the Linux hosting release; a database at 2.6.179 that has not had it yet comes straight here, and one that has continues from 2.6.180.
+    if (in_array($rivetit_db_version(), ['2.6.179', '2.6.180'], true)) {
+        // DB 2.6.181: RivetCore 1.0.0-rc.25 (change monitoring 0030, device clock skew 0031, per-OS check targeting 0032). Core owns the schema, so this step runs the Core runner (it skips
+        // applied ids; an earlier step may already have applied them when its runner ran with this package, which is harmless): 0030 creates four endpoint_agent_change_* tables, 0031 adds six nullable
+        // columns to endpoint_agent_devices (clock_skew_s, clock_skew_at, clock_offset_s, clock_skew_event_at, last_reject_reason, last_reject_at), 0032 creates rmm_device_checkset. All guarded or
+        // CREATE TABLE IF NOT EXISTS; nothing existing is altered and no row is inserted. Skipped (version NOT advanced, so it retries) until a package that ships migration 0032 is installed.
+        // Then, once: the stored check schedule is upgraded (every service check gets the OS of the Windows/Linux table, nothing else changes) and the checks that no longer apply to a device
+        // (a Linux service on a Windows PC) are removed and their open alerts resolved by the system with no ticket. Both are idempotent and a failure of either does not stop the upgrade:
+        // the check-in cleans each device lazily and the Checks tab has a button for the rest.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0032CheckSet::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            try {
+                require_once dirname(__DIR__) . '/includes/rmm_check_cleanup.php';
+                rivetRmmUpgradeScheduleOs($mysqli);
+                rivetRmmCleanupChecks($mysqli);
+            } catch (\Throwable $e) {
+                error_log('DB 2.6.181: the check clean-up was skipped: ' . $e->getMessage());
+            }
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.181'");
+        }
+    }
