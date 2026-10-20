@@ -205,7 +205,7 @@ $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
                 <td class="text-muted small"><?= nullable_htmlentities($row['os_name']) ?></td>
                 <td class="text-muted small"><?= nullable_htmlentities($row['logged_in_user']) ?: '—' ?></td>
                 <td class="text-muted small">
-                    <?= $row['last_seen'] ? nullable_htmlentities($row['last_seen']) : '—' ?>
+                    <?= $row['last_seen'] ? nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'Y-m-d H:i')) : '—' ?>
                 </td>
                 <td class="text-muted small">
                     <?= $row['last_sync'] ? nullable_htmlentities($row['last_sync']) : '—' ?>

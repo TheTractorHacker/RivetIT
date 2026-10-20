@@ -339,7 +339,7 @@ if ($legacy_can_import): ?>
             </td>
             <td class="small text-muted"><?= nullable_htmlentities($run['user_name']) ?></td>
             <td><span class="badge badge-<?= $run_badge ?>"><?= $run['status'] ?></span></td>
-            <td class="small text-muted" style="white-space:nowrap"><?= nullable_htmlentities(substr($run['started_at'], 0, 16)) ?></td>
+            <td class="small text-muted" style="white-space:nowrap"><?= nullable_htmlentities(rivetFormatTime($run['started_at'], 'local', true, 'Y-m-d H:i')) ?></td>
             <td class="small" style="max-width:250px;overflow:hidden">
                 <?php if ($run['output']): ?>
                 <code class="text-muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px;font-size:11px">

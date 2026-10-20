@@ -102,7 +102,7 @@ $sql_creds = mysqli_query($mysqli,
                         &nbsp;&middot;&nbsp;<i class="fas fa-map-marker-alt me-1"></i><?= nullable_htmlentities($link['location_name']) ?>
                     <?php endif; ?>
                     <?php if ($link['last_seen']): ?>
-                        &nbsp;&middot;&nbsp;<i class="fas fa-clock me-1"></i>Last seen <?= nullable_htmlentities($link['last_seen']) ?>
+                        &nbsp;&middot;&nbsp;<i class="fas fa-clock me-1"></i>Last seen <?= nullable_htmlentities(rivetFormatTime($link['last_seen'], 'local', true, 'Y-m-d H:i')) ?>
                     <?php endif; ?>
                     <?php if ($link['logged_in_user']): ?>
                         &nbsp;&middot;&nbsp;<i class="fas fa-user me-1"></i><?= nullable_htmlentities($link['logged_in_user']) ?>
@@ -236,7 +236,7 @@ $sql_creds = mysqli_query($mysqli,
                 <div class="d-flex align-items-center border-bottom px-3 py-2">
                     <span class="badge badge-<?= $sev_color ?> me-2"><?= nullable_htmlentities($alert['severity']) ?></span>
                     <span class="small mr-auto"><?= nullable_htmlentities($alert['message']) ?></span>
-                    <span class="text-muted small ms-2"><?= nullable_htmlentities($alert['created_at']) ?></span>
+                    <span class="text-muted small ms-2"><?= nullable_htmlentities(rivetFormatTime($alert['created_at'], 'local', true, 'Y-m-d H:i')) ?></span>
                     <?php if (lookupUserPermission('module_rmm_alerts_ack') >= 1): ?>
                     <button class="btn btn-xs btn-outline-secondary ms-2 js-ack-alert" data-alert-id="<?= $alert['id'] ?>">Ack</button>
                     <?php endif; ?>
@@ -268,7 +268,7 @@ $sql_creds = mysqli_query($mysqli,
                     <span class="badge ms-2 <?= tagTextClass($tkt['ticket_status_color'] ?? '#6c757d') ?>" style="background:<?= nullable_htmlentities($tkt['ticket_status_color'] ?? '#6c757d') ?>">
                         <?= nullable_htmlentities($tkt['ticket_status_name']) ?>
                     </span>
-                    <span class="text-muted small ms-2"><?= nullable_htmlentities($tkt['ticket_created_at']) ?></span>
+                    <span class="text-muted small ms-2"><?= nullable_htmlentities(rivetFormatTime($tkt['ticket_created_at'], 'local', true, 'Y-m-d H:i')) ?></span>
                 </div>
             <?php endwhile; ?>
             <?php if (!$has_tickets): ?>
@@ -378,7 +378,7 @@ $sql_creds = mysqli_query($mysqli,
                                 <div class="d-flex align-items-center mb-1">
                                     <strong class="mr-auto"><?= nullable_htmlentities($run['script_name'] ?? 'Manual') ?></strong>
                                     <span class="badge badge-<?= $run_badge ?>"><?= $run['status'] ?></span>
-                                    <span class="text-muted ms-2"><?= nullable_htmlentities($run['started_at']) ?></span>
+                                    <span class="text-muted ms-2"><?= nullable_htmlentities(rivetFormatTime($run['started_at'], 'local', true, 'Y-m-d H:i')) ?></span>
                                 </div>
                                 <div class="text-muted"><?= nullable_htmlentities($run['user_name']) ?></div>
                                 <?php if ($run['output']): ?>
@@ -408,7 +408,7 @@ $sql_creds = mysqli_query($mysqli,
                                 <?= nullable_htmlentities($sess['user_name']) ?>
                                 <span class="text-muted ms-1">(<?= nullable_htmlentities($sess['connection_type']) ?>)</span>
                             </span>
-                            <span class="text-muted"><?= nullable_htmlentities($sess['created_at']) ?></span>
+                            <span class="text-muted"><?= nullable_htmlentities(rivetFormatTime($sess['created_at'], 'local', true, 'Y-m-d H:i')) ?></span>
                         </div>
                     <?php endwhile; ?>
                     <?php if (!$has_sess): ?>
@@ -430,7 +430,7 @@ Serial: <?= nullable_htmlentities($link['asset_serial']) ?>
 CPU: <?= nullable_htmlentities($link['cpu']) ?>
 RAM: <?= nullable_htmlentities($link['ram_gb']) ?> GB
 Status: <?= $link['rmm_status'] ?>
-Last Seen: <?= nullable_htmlentities($link['last_seen']) ?>
+Last Seen: <?= nullable_htmlentities(rivetFormatTime($link['last_seen'], 'local', true, 'Y-m-d H:i')) ?>
 Department: <?= nullable_htmlentities($link['client_name']) ?>
 </textarea>
 

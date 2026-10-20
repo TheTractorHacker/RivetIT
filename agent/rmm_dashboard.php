@@ -263,7 +263,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
     <h4 class="mb-0 mr-auto"><i class="fas fa-tachometer-alt me-2"></i>RMM Dashboard</h4>
     <?php if ($last_sync_row): ?>
     <small class="text-muted me-3">
-        <i class="fas fa-sync-alt me-1 text-success"></i>Last sync: <?= nullable_htmlentities($last_sync_row['finished_at']) ?>
+        <i class="fas fa-sync-alt me-1 text-success"></i>Last sync: <?= nullable_htmlentities(rivetFormatTime($last_sync_row['finished_at'], 'local', true, 'Y-m-d H:i')) ?>
     </small>
     <?php endif; ?>
     <span class="me-2"><?= rivetRmmInstallerCreateButton($dash_gate) ?></span>
@@ -591,7 +591,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                         </td>
                         <td class="text-muted"><?= nullable_htmlentities($row['client_name']) ?></td>
                         <td class="text-muted" style="white-space:nowrap">
-                            <?= $row['last_seen'] ? nullable_htmlentities(date('M j g:ia', strtotime($row['last_seen']))) : '—' ?>
+                            <?= $row['last_seen'] ? nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'M j g:ia')) : '—' ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -639,7 +639,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                         </div>
                         <div class="text-muted" style="font-size:10px">
                             <?= nullable_htmlentities($alert['client_name']) ?>
-                            &bull; <?= nullable_htmlentities(date('M j g:ia', strtotime($alert['created_at']))) ?>
+                            &bull; <?= nullable_htmlentities(rivetFormatTime($alert['created_at'], 'local', true, 'M j g:ia')) ?>
                         </div>
                     </div>
                     <div class="ms-2 flex-shrink-0">
@@ -742,7 +742,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                         <?= nullable_htmlentities($sess['asset_name']) ?>
                     </a>
                     <span class="text-muted"><?= nullable_htmlentities($sess['user_name']) ?></span>
-                    <span class="text-muted ms-2" style="font-size:10px"><?= nullable_htmlentities(date('M j g:ia', strtotime($sess['created_at']))) ?></span>
+                    <span class="text-muted ms-2" style="font-size:10px"><?= nullable_htmlentities(rivetFormatTime($sess['created_at'], 'local', true, 'M j g:ia')) ?></span>
                 </div>
                 <?php endwhile; ?>
             <?php endif; ?>

@@ -612,7 +612,7 @@ if ($mt_render_pane): ?>
             <strong>This device is offline.</strong>
             <?php if (!empty($mt_device['last_seen'])): ?>
                 <?= nullable_htmlentities($mt_provider) ?> last saw it at
-                <span class="ifm-mono"><?= nullable_htmlentities(substr((string) $mt_device['last_seen'], 0, 16)) ?></span>.
+                <span class="ifm-mono"><?= nullable_htmlentities(rivetFormatTime($mt_device['last_seen'], 'local', true, 'Y-m-d H:i')) ?></span>.
             <?php else: ?>
                 <?= nullable_htmlentities($mt_provider) ?> has not reported a last-seen time.
             <?php endif; ?>

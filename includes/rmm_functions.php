@@ -4,6 +4,8 @@
  * Shared helpers for RMM <-> Ticketing integration (Syncro-Beta)
  */
 
+require_once __DIR__ . '/rivet_time.php';
+
 /**
  * Create (or reuse) a ticket from an RMM alert.
  *
@@ -65,7 +67,7 @@ function createTicketFromRmmAlert($mysqli, array $alert, int $created_by, string
         $os = trim(($rmm['os_name'] ?? '') . ' ' . ($rmm['os_version'] ?? ''));
         if ($os)                             { $details_lines[] = "OS: $os"; }
         if (!empty($rmm['logged_in_user']))  { $details_lines[] = "Logged-in User: " . $rmm['logged_in_user']; }
-        if (!empty($rmm['last_seen']))       { $details_lines[] = "Last Seen: " . $rmm['last_seen']; }
+        if (!empty($rmm['last_seen']))       { $details_lines[] = "Last Seen: " . rivetFormatTime($rmm['last_seen'], 'local'); }
     }
     if (!empty($alert['tactical_alert_id'])) { $details_lines[] = "Alert ID: " . $alert['tactical_alert_id']; }
 

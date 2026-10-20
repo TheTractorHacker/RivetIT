@@ -52,9 +52,9 @@ $badge = ['completed'=>'success','failed'=>'danger','running'=>'warning','pendin
                         <td><a href="/agent/client_details.php?client_id=<?= intval($run['asset_client_id']) ?>"><?= nullable_htmlentities($run['client_name']) ?></a></td></tr>
                     <tr><td class="text-muted">Run By</td><td><?= nullable_htmlentities($run['user_name']) ?></td></tr>
                     <tr><td class="text-muted">Status</td><td><span class="badge badge-<?= $badge ?>" id="run-status"><?= $run['status'] ?></span></td></tr>
-                    <tr><td class="text-muted">Started</td><td class="small text-muted"><?= nullable_htmlentities($run['started_at']) ?></td></tr>
+                    <tr><td class="text-muted">Started</td><td class="small text-muted"><?= nullable_htmlentities(rivetFormatTime($run['started_at'], 'local', true, 'Y-m-d H:i')) ?></td></tr>
                     <?php if ($run['finished_at']): ?>
-                    <tr><td class="text-muted">Finished</td><td class="small text-muted"><?= nullable_htmlentities($run['finished_at']) ?></td></tr>
+                    <tr><td class="text-muted">Finished</td><td class="small text-muted"><?= nullable_htmlentities(rivetFormatTime($run['finished_at'], 'local', true, 'Y-m-d H:i')) ?></td></tr>
                     <?php endif; ?>
                     <?php if ($run['tactical_job_id']): ?>
                     <tr><td class="text-muted">Job ID</td><td><code class="small"><?= nullable_htmlentities($run['tactical_job_id']) ?></code></td></tr>
