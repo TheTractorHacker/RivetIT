@@ -72,5 +72,38 @@ $_GET['device_id'] = (string) $ahead;
 $fleetPageHtml = '';
 $ok(strpos(file_get_contents("$root/agent/rmm_agent_device.php"), 'rivetRmmClockBanner') !== false, 'the legacy device page draws the clock banner');
 
+// ---------------------------------------------------------------- Changes tab + admin switch
+require_once "$root/includes/rmm_chg_ui.php";
+$devC = $mk('CHG-PC', 'windows', ['last_checkin_at' => gmdate('Y-m-d H:i:s')]);
+$aC = $asset($devC, 'CHG-PC');
+$vmC = rivetRmmUiPanel($db, $aC, 1, $devC);
+$ok($vmC !== null && rivetRmmChgPanelSection($vmC, $db, 'tok') === '', 'with change_monitor off (the default) there is no Changes tab');
+$chgView = $rmm->changeActions()->settingsRead(rivetRmmPrincipal(1, 'admin'));
+$ok($chgView->ok && $chgView->data['enabled'] === false && count($chgView->data['presets']) > 5, 'the admin read shows the switch off and the preset list');
+$card = rivetRmmChgAdminCard((array) $chgView->data, 'tok');
+$ok(strpos($card, 'name="change_monitor"') !== false && strpos($card, 'name="accept_change_storage"') !== false && strpos($card, 'later task') !== false && strpos($card, 'Startup entries') !== false, 'the admin card has the switch, the acknowledgement, the preset list and says full management is later');
+$r = $rmm->changeActions()->updateSettings(rivetRmmPrincipal(1, 'admin'), ['features' => ['change_monitor' => true]]);
+$ok(!$r->ok && $r->message !== '' && !(bool) $rmm->featureOn('change_monitor'), 'turning it on without the storage acknowledgement is refused by Core');
+$r = $rmm->changeActions()->updateSettings(rivetRmmPrincipal(1, 'admin'), ['features' => ['change_monitor' => true], 'accept_change_storage' => true]);
+$ok($r->ok, 'with the acknowledgement the switch turns on');
+$rmm->settings()->refresh();
+foreach ([['registry', 'HKLM\\SOFTWARE\\Run', 'evil', 'old<script>', "new\"><img src=x onerror=alert(1)>", 0], ['file', '/etc/hosts', '', 'a', '[redacted]', 1]] as $n => [$kind, $target, $item, $old, $new, $red]) {
+    $q("INSERT INTO endpoint_agent_change_records SET device_id=$devC, occurred_at=UTC_TIMESTAMP(), received_at=UTC_TIMESTAMP(), kind='$kind', watch='win.startup', change_type=2, target='" . $db->real_escape_string($target) . "', item='$item', old_value='" . $db->real_escape_string($old) . "', new_value='" . $db->real_escape_string($new) . "', flags=$red, dedupe=UNHEX(MD5('x$n'))");
+}
+$vmC = rivetRmmUiPanel($db, $aC, 1, $devC);
+$ok($vmC['features']['change_monitor'] === true, 'the panel knows the switch is on');
+$html = rivetRmmChgPanelSection($vmC, $db, 'tok');
+$ok(strpos($html, 'id="rmm-changes"') !== false && strpos($html, 'HKLM\\SOFTWARE\\Run') !== false && strpos($html, '&lt;script&gt;') !== false && strpos($html, '<script>') === false && strpos($html, '<img') === false && strpos($html, 'redacted') !== false, 'the tab lists the records, escapes hostile text and shows redacted values as given');
+$page = rivetRmmUiTabs($vmC, "", "", [], "tok");
+$ok(strpos($page, 'id="rmm-tab-changes"') !== false && strpos($page, 'id="rmm-pane-changes"') !== false, 'the device page has the Changes tab');
+$vmV = rivetRmmUiPanel($db, $aC, 12, $devC);   // user 12: a viewer (module_rmm 1, no scripts level)
+$ok($vmV === null || rivetRmmChgPanelSection($vmV, $db, 'tok') === '', 'a viewer without rmm.change.view gets no Changes tab');
+$r = $rmm->changeActions()->updateSettings(rivetRmmPrincipal(12, 'viewer'), ['features' => ['change_monitor' => false]]);
+$ok(!$r->ok && $rmm->featureOn('change_monitor'), 'a non-administrator cannot switch it off');
+$ok(file_exists("$root/api/v1/agent_changes.php") && strpos(file_get_contents("$root/api/v1/index.php"), "'agent_changes'") !== false && strpos(file_get_contents("$root/api/v1/rmm_gate.php"), 'agent_changes') !== false, 'the agent_changes device endpoint is routed and gated');
+$r = $rmm->changeActions()->updateSettings(rivetRmmPrincipal(1, 'admin'), ['features' => ['change_monitor' => false]]);
+$ok($r->ok && !$rmm->featureOn('change_monitor'), 'the administrator can switch it off again');
+$q("DELETE FROM endpoint_agent_change_records");
+
 // ---------------------------------------------------------------- clean up
 $q("DELETE FROM endpoint_agent_devices"); $q("DELETE FROM assets");
