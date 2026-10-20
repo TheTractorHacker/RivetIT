@@ -8,7 +8,7 @@
  * Run: php tests/no_native_dialogs.php
  */
 $root = dirname(__DIR__);
-$skipDirs = ['vendor', 'plugins', 'node_modules', 'tests', 'android', 'docs', 'backups', 'uploads', '.git', 'docker', 'scripts', 'cron', 'deploy'];
+$skipDirs = ['.claude', '.vscode', 'vendor', 'plugins', 'node_modules', 'tests', 'android', 'docs', 'backups', 'uploads', '.git', 'docker', 'scripts', 'cron', 'deploy'];
 $allow = [];
 foreach (file(__DIR__ . '/no_native_dialogs_allowlist.txt') ?: [] as $l) {
     $l = trim($l);
