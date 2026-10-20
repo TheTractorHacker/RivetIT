@@ -600,6 +600,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
                 </tr>
             <?php } if (!$binaries) { echo '<tr><td colspan="7" class="text-muted">No agent binary uploaded yet. Installers cannot be created until one is current.</td></tr>'; } ?>
         </tbody></table></div>
+        <?php require_once dirname(__DIR__) . '/includes/rmm_linux_store_ui.php'; echo rivetLxAdminSection($mysqli, (string) $csrf); ?>
     </div>
 </div>
 

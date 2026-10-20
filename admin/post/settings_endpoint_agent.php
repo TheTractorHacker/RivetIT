@@ -649,6 +649,80 @@ if (isset($_POST['upload_msi_template'])) {
     ]));
 }
 
+/**
+ * Hosted Linux files (RivetIT 26.10.64): upload install-linux.sh / the Linux agent / the tarballs by hand, make one current, delete one that is not current.
+ * Same ability as publishing a Windows binary (rmm.binary.publish); everything is validated by rivetLxStore() and audited.
+ */
+if (isset($_POST['upload_linux_files']) || isset($_POST['linux_file_action'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    require_once dirname(__DIR__, 2) . '/includes/rmm_linux_store.php';
+    if (!$rmm->authorizer()->allowed($ea_who->userId, \RivetCore\Rmm\Authz\RmmAbility::BINARY_PUBLISH, 0)) {
+        flash_alert('Administrator access is required.', 'error');
+        redirect();
+    }
+    if (isset($_POST['linux_file_action'])) {
+        $lx_id = intval($_POST['file_id'] ?? 0);
+        $lx_q = mysqli_query($mysqli, 'SELECT name, version FROM endpoint_agent_linux_files WHERE file_id = ' . $lx_id);
+        $lx_r = $lx_q ? mysqli_fetch_assoc($lx_q) : null;
+        $lx_act = (string) $_POST['linux_file_action'];
+        if (!$lx_r || !in_array($lx_act, ['make_current', 'delete'], true)) {
+            flash_alert('That file is not stored.', 'error');
+            redirect();
+        }
+        if ($lx_act === 'make_current') {
+            $lx_ok = rivetLxSetCurrent($mysqli, $lx_id);
+            if ($lx_ok) {
+                logAction('Endpoint Agent', 'Linux File Made Current', "{$ea_who->userName} made {$lx_r['name']} {$lx_r['version']} the current hosted Linux file");
+            }
+            flash_alert($lx_ok ? nullable_htmlentities($lx_r['name'] . ' ' . $lx_r['version'] . ' is now the current one.') : 'That file cannot be made current.', $lx_ok ? 'success' : 'error');
+        } else {
+            $lx_err = rivetLxDelete($mysqli, $lx_id);
+            if ($lx_err === null) {
+                logAction('Endpoint Agent', 'Linux File Deleted', "{$ea_who->userName} deleted hosted {$lx_r['name']} {$lx_r['version']}");
+            }
+            flash_alert($lx_err === null ? 'The file was deleted.' : nullable_htmlentities($lx_err), $lx_err === null ? 'success' : 'error');
+        }
+        redirect();
+    }
+    $lx_up = $_FILES['linux_files'] ?? null;
+    $lx_files = [];
+    if ($lx_up && is_array($lx_up['name'] ?? null)) {
+        foreach (array_keys($lx_up['name']) as $i) {
+            $lx_files[] = ['name' => basename((string) $lx_up['name'][$i]), 'tmp' => (string) $lx_up['tmp_name'][$i], 'error' => (int) $lx_up['error'][$i]];
+        }
+    }
+    $lx_files = array_slice(array_values(array_filter($lx_files, static fn (array $f): bool => $f['error'] !== UPLOAD_ERR_NO_FILE)), 0, 5);
+    $lx_version = trim((string) ($_POST['version'] ?? ''));
+    $lx_ring = (string) ($_POST['release_ring'] ?? '');
+    if ($lx_files === [] || preg_match(RIVET_LX_VERSION_RE, $lx_version) !== 1) {
+        flash_alert($lx_files === [] ? 'Choose the Linux file(s) to upload.' : 'Type the version, for example 1.2.0.', 'error');
+        redirect();
+    }
+    $lx_done = [];
+    $lx_failed = [];
+    foreach ($lx_files as $f) {
+        if ($f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp'])) {
+            $lx_failed[] = $f['name'] . ': the upload failed or is larger than the PHP limit (upload_max_filesize ' . ini_get('upload_max_filesize') . ', post_max_size ' . ini_get('post_max_size') . ')';
+            continue;
+        }
+        $lr = rivetLxStore($mysqli, $f['tmp'], $f['name'], $lx_version, (int) $session_user_id, ['activate' => isset($_POST['activate']), 'ring' => in_array($lx_ring, ['pilot', 'stable'], true) ? $lx_ring : null,
+            'pct' => ea_post_int('rollout_pct', 0, 100, 100), 'source' => 'upload', 'notes' => 'Uploaded by ' . $ea_who->userName]);
+        if ($lr['ok']) {
+            $lx_done[] = $f['name'];
+            logAction('Endpoint Agent', 'Linux File Uploaded', "{$ea_who->userName} uploaded {$f['name']} $lx_version (sha256 {$lr['sha256']}, {$lr['size']} bytes)" . ($lr['current'] ? ', now current' : ''));
+        } else {
+            $lx_failed[] = (string) $lr['error'];
+        }
+    }
+    if ($lx_done !== []) {
+        flash_alert(nullable_htmlentities('Hosted on this server: ' . implode(', ', $lx_done) . '.'), 'success');
+    }
+    if ($lx_failed !== []) {
+        flash_alert(nullable_htmlentities('Not stored: ' . implode(' | ', $lx_failed)), 'error');
+    }
+    redirect();
+}
+
 if (isset($_POST['msi_template_action'])) {
     validateCSRFToken($_POST['csrf_token']);
     ea_flash_result($ea_admin->msiTemplateAction($ea_who, intval($_POST['template_id'] ?? 0), (string) $_POST['msi_template_action']));
