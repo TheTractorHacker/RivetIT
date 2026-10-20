@@ -22,6 +22,17 @@ const RIVET_RMM_ALR_DAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 =
 
 // ------------------------------------------------------------------ small words and pills
 
+
+/** Plain words for why an alert was resolved (RivetCore stores a short code; `not_applicable` is rc.24's "the check no longer applies to the device"). */
+function rivetRmmAlrResolveReasonText(string $reason): string
+{
+    if ($reason === 'not_applicable') {
+        return 'This check no longer applies to the device';
+    }
+
+    return str_replace('_', ' ', $reason);
+}
+
 function rivetRmmAlrSevPill(string $sev): string
 {
     return $sev === 'crit' ? rivetRmmUiPill('crit', 'Critical') : rivetRmmUiPill('warn', 'Warning');
@@ -527,7 +538,7 @@ function rivetRmmAlrDetailPage(array $vm): string
     }
     if ($a['resolved_at'] !== null) {
         $by = $a['resolved_by'] !== null ? ' by ' . rmmH($names[(int) $a['resolved_by']] ?? 'someone') : ' automatically';
-        $rows[] = ['Resolved', rivetRmmAlrWhen($a['resolved_at']) . $by . ($a['resolve_reason'] ? ' <span class="text-muted small">(' . rmmH(str_replace('_', ' ', (string) $a['resolve_reason'])) . ')</span>' : '')];
+        $rows[] = ['Resolved', rivetRmmAlrWhen($a['resolved_at']) . $by . ($a['resolve_reason'] ? ' <span class="text-muted small">(' . rmmH(rivetRmmAlrResolveReasonText((string) $a['resolve_reason'])) . ')</span>' : '')];
     }
     $rows[] = ['Ticket', $e['ticket_id'] !== null ? '<a href="/agent/ticket.php?ticket_id=' . (int) $e['ticket_id'] . '">Ticket #' . (int) $e['ticket_id'] . '</a>' : '<span class="text-muted">none yet</span>'];
     $buttons = rivetRmmAlrAlertButtons($a, $vm, $returnTo, null);

@@ -178,3 +178,7 @@ $ok($model['checks'][0]['os'] === 'linux' && $model['checks'][1]['os'] === 'any'
 $rowHtml = rivetRmmPolCheckRow('0', $model['checks'][0], []);
 $ok(strpos($rowHtml, 'name="chk[0][os]"') !== false && strpos($rowHtml, '<option value="linux" selected>Linux only') !== false && strpos($rowHtml, 'Applies to') !== false, 'the check row has the Applies to selector with the stored value selected');
 $ok(strpos(rivetRmmPolCheckText(['type' => 'service', 'interval_s' => 300, 'os' => 'linux']), 'Linux devices only') !== false, 'the readable settings table names the OS');
+
+// ---------------------------------------------------------------- the resolve reason in words
+require_once "$root/includes/rmm_alr_ui.php";
+$ok(rivetRmmAlrResolveReasonText('not_applicable') === 'This check no longer applies to the device' && rivetRmmAlrResolveReasonText('device_retired') === 'device retired', 'the resolve reason not_applicable reads "This check no longer applies to the device"');
