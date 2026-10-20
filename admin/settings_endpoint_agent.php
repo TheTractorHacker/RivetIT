@@ -227,6 +227,22 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
         </form>
     </div>
 </div>
+<?php $eaTab('overview'); $plLinux = \ITFlow\Platform\PlatformSettings::bool($mysqli, 'rmm_allow_linux'); $plForced = defined('EA_ALLOW_NON_WINDOWS') && EA_ALLOW_NON_WINDOWS === true; ?>
+<div class="card mb-3" id="platforms">
+    <div class="card-header"><h4 class="card-title mb-0">Operating systems</h4></div>
+    <div class="card-body">
+        <form action="post.php" method="post" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <input type="hidden" name="ea_tab" value="overview">
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" class="form-check-input" id="ea_allow_linux" name="allow_linux" value="1" <?= $plLinux || $plForced ? 'checked' : '' ?> <?= $plForced ? 'disabled' : '' ?> aria-describedby="ea_allow_linux_h">
+                <label class="form-check-label fw-semibold" for="ea_allow_linux">Allow Linux devices to enroll</label>
+                <div class="form-text" id="ea_allow_linux_h">On by default. Windows devices always can. Turning this off only stops new Linux devices from enrolling (the server answers &ldquo;device.os is invalid&rdquo;); Linux devices that are already enrolled keep working.<?= $plForced ? ' It is forced on by <code>EA_ALLOW_NON_WINDOWS</code> in config.php.' : '' ?></div>
+            </div>
+            <?php if (!$plForced) { ?><button type="submit" name="save_platforms" class="btn btn-primary btn-sm"><i class="fas fa-save me-1" aria-hidden="true"></i>Save</button><?php } ?>
+        </form>
+    </div>
+</div>
 <?php $eaTab('checks'); ?>
 <div class="card mb-3" id="checks">
     <div class="card-header"><h4 class="card-title mb-0">Checks</h4></div>

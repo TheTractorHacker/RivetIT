@@ -18,6 +18,7 @@ final class PlatformSettings
         'audit_sink_syslog' => '0',
         'audit_chain_seal_enabled' => '1',
         'doc_review_reminders' => '1',
+        'rmm_allow_linux' => '1',              // endpoint agent: Linux devices may enroll (on by default; config.php EA_ALLOW_NON_WINDOWS = true forces it on)
     ];
 
     public static function get(\mysqli $db, string $key, ?string $default = null): string

@@ -308,6 +308,21 @@ if (isset($_POST['cleanup_stale_checks'])) {
     redirect();
 }
 
+// "Allow Linux devices to enroll": Core's DeviceValidator only admits os=linux when the edition passes allow_linux (includes/rmm_bootstrap.php reads this switch). Administrator only, audited.
+if (isset($_POST['save_platforms'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $pl_want = !empty($_POST['allow_linux']) ? '1' : '0';
+    $pl_cur = \ITFlow\Platform\PlatformSettings::get($mysqli, 'rmm_allow_linux');
+    if ($pl_want === $pl_cur) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    \ITFlow\Platform\PlatformSettings::set($mysqli, 'rmm_allow_linux', $pl_want);
+    logAction('Endpoint Agent', 'Linux Enrollment ' . ($pl_want === '1' ? 'Allowed' : 'Blocked'), "$session_name " . ($pl_want === '1' ? 'allowed' : 'blocked') . ' Linux devices to enroll');
+    flash_alert($pl_want === '1' ? 'Linux devices may enroll.' : 'Linux devices can no longer enroll (already enrolled ones keep working).', 'success');
+    redirect();
+}
+
 // RivetCore 1.0.0-rc.22: the change_monitor switch (off by default). Core requires the storage acknowledgement to turn it on, needs rmm.admin, and audits.
 if (isset($_POST['save_change_monitor'])) {
     validateCSRFToken($_POST['csrf_token']);
