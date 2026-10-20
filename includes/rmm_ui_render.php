@@ -8,6 +8,7 @@
  * css/itflow_metrics.css, .it-empty-state, Tabler badges and progress bars; the few additions live in css/itflow_rmm.css under .rmm-*.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_ui.php';
 require_once __DIR__ . '/rmm_installer.php';
 require_once __DIR__ . '/rmm_mesh_wizard.php';   // 26.10.54: RIVET_RMM_MESH_WIZARD_URL (also loads rmm_mesh_cards.php)

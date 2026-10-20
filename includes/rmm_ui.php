@@ -18,6 +18,7 @@
  * nullable_htmlentities() at the point it is printed; JavaScript consumers use textContent.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_bootstrap.php';
 require_once __DIR__ . '/rmm_mesh_push.php';   // rc.16: push the MeshCentral agent to an enrolled device (state, buttons, dialogs, the fleet's bulk dialog)
 
@@ -93,13 +94,16 @@ function rivetRmmUiAgeOf(?string $utc, ?int $now = null, bool $local = false): ?
     return $t === false ? null : max(0, ($now ?? time()) - $t);
 }
 
-/** A <time> element: relative text, the absolute UTC time on hover and for assistive technology. */
+/** A <time> element: relative text, the absolute company-zone time on hover and for assistive technology. */
 function rivetRmmUiTime(?string $iso, ?int $now = null): string
 {
     if ($iso === null || $iso === '') {
         return '<span class="text-muted">never</span>';
     }
-    $abs = str_replace('T', ' ', rtrim($iso, 'Z')) . ' UTC';
+    $abs = rivetFormatTime($iso, 'utc', true, 'Y-m-d H:i:s');   // company time zone, labelled (CDT); the datetime attribute stays the UTC instant
+    if ($abs === '') {
+        $abs = $iso;
+    }
 
     return '<time datetime="' . nullable_htmlentities($iso) . '" title="' . nullable_htmlentities($abs) . '">' . nullable_htmlentities(rivetRmmUiAgo(rivetRmmUiAgeOf($iso, $now))) . '</time>';
 }

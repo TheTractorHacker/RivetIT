@@ -17,6 +17,7 @@
  * Output is escaped at the point it is printed (rmmH()); markup passed between functions is already HTML and says so in its name or docblock.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_ui_render.php';
 
 use RivetCore\Rmm\Authz\RmmAbility;
@@ -163,15 +164,15 @@ function rivetRmmAutoConfirmModal(): string
         . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="rmmAutoConfirmGo">Confirm</button></div></div></div></div>';
 }
 
-/** UTC time as text for tables ("2026-10-10 14:03 UTC"), or "never". Accepts RFC 3339 or SQL UTC. */
+/** A UTC-stored time as text for tables in the company zone ("2026-10-10 09:03 CDT"), or "never". Accepts RFC 3339 or SQL UTC. */
 function rivetRmmAutoUtc(?string $iso): string
 {
     if ($iso === null || $iso === '') {
         return '<span class="text-muted">never</span>';
     }
-    $t = strtotime(str_contains($iso, 'T') || str_ends_with($iso, 'Z') ? $iso : $iso . ' UTC');
+    $txt = rivetFormatTime($iso, 'utc');
 
-    return $t === false ? rmmH($iso) : '<time datetime="' . rmmH(gmdate('Y-m-d\TH:i:s\Z', $t)) . '">' . rmmH(gmdate('Y-m-d H:i', $t) . ' UTC') . '</time>';
+    return $txt === '' ? rmmH($iso) : '<time datetime="' . rmmH(rivetTimeIso($iso, 'utc')) . '">' . rmmH($txt) . '</time>';
 }
 
 /** Plain-language state pill for an approval, schedule, alert or window state. */

@@ -7,6 +7,7 @@
  * Test button's in-page answer) is js/rmm_scale.js; every form also works without it. The external store's addresses and token are never printed.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_ui_render.php';
 require_once __DIR__ . '/rmm_scale_admin.php';
 

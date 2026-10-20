@@ -11,6 +11,7 @@
  * The view-model functions (rivetRmmAlr*View) return arrays and are what the tests call; the renderers (rivetRmmAlr*Page) return HTML strings.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_automation.php';
 
 use RivetCore\Rmm\Authz\RmmAbility;

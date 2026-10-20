@@ -13,6 +13,7 @@
  * View-model functions return arrays and read only through the API (testable); renderers return strings.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_ui_render.php';
 require_once __DIR__ . '/rmm_starter_ui.php';   // rc.13: the Starter badge, the risk chip and the update-waiting marker (rmm_starter_ui.php needs this file too; both are require_once)
 

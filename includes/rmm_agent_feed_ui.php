@@ -5,6 +5,7 @@
  * Without JavaScript every button is an ordinary form post that the handler in admin/post/settings_endpoint_agent.php answers with a flash message.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_agent_feed.php';
 require_once __DIR__ . '/rmm_agent_build_ui.php';   // 26.10.55: the Build a new version box
 

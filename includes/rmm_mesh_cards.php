@@ -10,6 +10,8 @@
  * Everything printed is escaped. The device group id and the pin are administrator-only values: the device functions below never print either.
  */
 
+require_once __DIR__ . '/rivet_time.php';
+
 if (!function_exists('rivetRmmMeshH')) {
     function rivetRmmMeshH($v): string
     {

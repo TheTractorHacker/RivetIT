@@ -6,6 +6,7 @@
  * Every value that came from a build host (note, log tail, version, address) is escaped here; log tails are written with textContent by the script and htmlspecialchars here.
  */
 
+require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_build_host.php';
 require_once __DIR__ . '/rmm_agent_feed_ui.php';
 
