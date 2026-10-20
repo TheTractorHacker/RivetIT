@@ -82,7 +82,9 @@ $ok($never['state'] === 'never' && $never['strip']['label'] === 'Waiting for fir
 $nv = rivetRmmUiOverview($never, '', '');
 $ok(str_contains($nv, 'Waiting for the first check-in') && !str_contains($nv, 'rmm-checks') && !str_contains($nv, 'ifm-cards') && !str_contains($nv, 'rmm-alerts'), 'NEVER: one empty state replaces gauges, graphs, alerts and checks');
 $nvStrip = rivetRmmUiStrip($never);
-$ok(substr_count($nvStrip, 'disabled') >= 3 && str_contains($nvStrip, 'Available after the first check-in'), 'NEVER: Run script, Reboot and Remote are disabled with the reason');
+// Run script and Reboot are disabled with the reason; Remote has no mapped Mesh node yet, so it is the plain-text hint (plus, for this admin
+// viewer, the "Map Mesh node" button) rather than a third disabled button - that part of the redesign is covered below with a mapped device.
+$ok(substr_count($nvStrip, 'disabled') >= 2 && str_contains($nvStrip, 'Available after the first check-in') && str_contains($nvStrip, 'id="rmm-remote-hint"') && str_contains($nvStrip, 'id="rmm-act-map-mesh"'), 'NEVER: Run script and Reboot disabled with the reason; Remote shows the unmapped hint and an admin Map Mesh node button');
 $lin = $panel('LNX1', 'admin');
 $ok($lin['platform'] === 'linux' && $lin['saved_scripts'] === [], 'LNX1: a Linux device, no saved-script list');
 $linStrip = rivetRmmUiStrip($lin);
@@ -134,8 +136,55 @@ $adminHtml = rivetRmmUiStrip($panel('WIN1', 'admin')) . rivetRmmUiRemoteCard($pa
 $ok(str_contains($adminHtml, 'Open in RMM administration') && str_contains($adminHtml, 'rmm-mesh-form'), 'administrator: administration link and the Mesh mapping form');
 $ok(!str_contains(rivetRmmUiRemoteCard($panel('WIN1', 'tech')), 'rmm-mesh-form'), 'technician: no Mesh mapping form');
 $ok($panel('WIN1', 'tech')['mesh']['node_id'] === '' , 'the Mesh node id is only carried for administrators');
+// WIN1's Mesh node is unmapped for every role above, so Remote was the plain-text hint, not a disabled button; there is nothing with id="rmm-act-remote"
+// to disable. A non-admin role sees only the hint, no "Map Mesh node" button (that is for administrators only).
 $rebootOnlyStrip = rivetRmmUiStrip($panel('WIN1', 'rebootonly'));
-$ok(preg_match('/id="rmm-act-remote"[^>]*disabled/', $rebootOnlyStrip) === 1 && preg_match('/id="rmm-act-reboot"[^>]*disabled/', $rebootOnlyStrip) === 0, 'reboot-only role: Remote disabled, Reboot enabled');
+$ok(!str_contains($rebootOnlyStrip, 'id="rmm-act-remote"') && str_contains($rebootOnlyStrip, 'id="rmm-remote-hint"') && !str_contains($rebootOnlyStrip, 'id="rmm-act-map-mesh"')
+    && preg_match('/id="rmm-act-reboot"[^>]*disabled/', $rebootOnlyStrip) === 0, 'reboot-only role, unmapped Mesh: the hint (no map button, not admin), Reboot enabled');
+
+// ============================================================ the 4-chip header and the Remote split button, once a Mesh node is mapped
+$rmm->technician()->setMeshNode($admin, $D['WIN1'], 'node//' . str_repeat('a', 64));
+$mapped = $panel('WIN1');
+$ok($mapped['mesh']['mapped'] === true, 'WIN1 is now mapped to a MeshCentral node');
+$mappedStrip = rivetRmmUiStrip($mapped);
+$ok(!str_contains($mappedStrip, 'id="rmm-remote-hint"') && preg_match('/id="rmm-act-remote"[^>]*>/', $mappedStrip, $md) === 1 && !str_contains($md[0], 'disabled'), 'mapped: the hint is gone, Desktop (id="rmm-act-remote") is enabled');
+$ok(!str_contains($mappedStrip, 'id="rmm-act-remote-terminal"') && !str_contains($mappedStrip, 'id="rmm-act-remote-files"'), 'WIN1 has remote_tools off: Desktop only, no Terminal/Files siblings (same behaviour the single button always had)');
+$ok(preg_match('/<span class="text-muted">RAM<\/span>/', $mappedStrip) === 1, 'the 4-chip header still carries a RAM chip');
+preg_match('/id="rmm-act-more-disks"[^>]*>\+(\d+) more/', $mappedStrip, $dm);
+$ok(($dm[1] ?? null) === '1', 'WIN1 (C: and D:) shows the busier volume as the header\'s one disk chip and "+1 more" for the other');
+$ok(str_contains(rivetRmmUiDisksModal($mapped), 'id="rmmDisksModal"') && str_contains(rivetRmmUiDisksModal($mapped), rmmH('Disk D:')), 'the "+N more" modal lists the other volume (D:)');
+// turn remote_tools on and re-render: the split button grows Terminal and Files (vm.features.remote_tools is a free read of the module's state file)
+$rmm->admin()->saveSettings($admin, ['features_json' => array_merge($rmm->settings()->features(), ['remote_tools' => true])]);
+rivetRmmForgetAccess();
+$mappedRt = $panel('WIN1');
+$mappedRtStrip = rivetRmmUiStrip($mappedRt);
+$ok(str_contains($mappedRtStrip, 'id="rmm-act-remote-terminal"') && str_contains($mappedRtStrip, 'id="rmm-act-remote-files"'), 'remote_tools on: the split button grows Terminal and Files');
+$deskPos = strpos($mappedRtStrip, 'id="rmm-act-remote"');
+$termPos = strpos($mappedRtStrip, 'id="rmm-act-remote-terminal"');
+$ok($deskPos !== false && $termPos !== false && $deskPos < $termPos, 'a Windows device keeps Desktop before Terminal');
+$lnxServer = $panel('LNX1', 'admin');
+$lnxServer['mesh']['mapped'] = true;   // LNX1's own mapping is not part of this fixture; simulate it to isolate the ordering rule from mesh state
+$lnxServer['is_server'] = true;        // set the way agent/asset_details.php does, from the asset's asset_type
+$lnxServerStrip = rivetRmmUiStrip($lnxServer);
+$termPos2 = strpos($lnxServerStrip, 'id="rmm-act-remote-terminal"');
+$deskPos2 = strpos($lnxServerStrip, 'id="rmm-act-remote"');
+$ok($termPos2 !== false && $deskPos2 !== false && $termPos2 < $deskPos2, 'a Linux SERVER lists Terminal before Desktop');
+$lnxWs = $panel('LNX1', 'admin');
+$lnxWs['mesh']['mapped'] = true;
+$lnxWsStrip = rivetRmmUiStrip($lnxWs);   // is_server left unset (falsy): a Linux workstation keeps Desktop first, same as Windows
+$ok(strpos($lnxWsStrip, 'id="rmm-act-remote"') < strpos($lnxWsStrip, 'id="rmm-act-remote-terminal"'), 'a Linux workstation (is_server not set) keeps Desktop before Terminal');
+$rmm->admin()->saveSettings($admin, ['features_json' => array_merge($rmm->settings()->features(), ['remote_tools' => false])]);
+rivetRmmForgetAccess();
+
+// ============================================================ Map Mesh node modal (administrators only)
+$rmm->technician()->setMeshNode($admin, $D['WIN1'], '');   // clear the mapping the same way the form does (empty value)
+$unmapped = $panel('WIN1', 'tech');
+$techStrip2 = rivetRmmUiStrip($unmapped);
+$ok(str_contains($techStrip2, 'id="rmm-remote-hint"') && !str_contains($techStrip2, 'id="rmm-act-map-mesh"'), 'technician, unmapped: the hint, no Map Mesh node button (not an administrator)');
+$unmappedAdmin = $panel('WIN1');
+$adminStrip2 = rivetRmmUiStrip($unmappedAdmin);
+$ok(str_contains($adminStrip2, 'id="rmm-act-map-mesh"') && str_contains($adminStrip2, 'data-bs-target="#rmmMeshMapModal"'), 'administrator, unmapped: the Map Mesh node button opens the modal');
+$ok(str_contains(rivetRmmUiMeshMapModal($unmappedAdmin), 'id="rmm-mesh-map-form"') && str_contains(rivetRmmUiMeshMapModal($unmappedAdmin), 'id="rmm-mesh-map-node"'), 'the Map Mesh node modal has its own form distinct from the Remote card\'s rmm-mesh-form');
 
 // ============================================================ Mesh not configured
 $rmm->settings()->set(['mesh_enabled' => 0]);

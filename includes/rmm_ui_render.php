@@ -150,6 +150,112 @@ function rivetRmmUiTrendCell(string $key, ?array $t, bool $offline): string
 
 // ------------------------------------------------------------------ strip
 
+/**
+ * The header's one disk chip (of the 4-slot CPU / RAM / Disk / Uptime header): the busiest volume, i.e. the highest used%, since that is the single
+ * reading most likely to need attention and is the most actionable "disk" fact to put in a fixed slot. Ties (including two volumes that both read
+ * "no data") break toward the OS/boot volume ('/' on Linux, a 'C:' drive on Windows) so the chip stays on the same volume across page loads instead
+ * of jumping between equally-full disks. Every other volume is one click away behind "+N more" (rivetRmmUiOtherDisksHtml()), never dropped.
+ *
+ * @param list<array<string,mixed>> $gauges $vm['gauges']
+ * @return array<string,mixed>|null
+ */
+function rivetRmmUiMainDiskGauge(array $gauges): ?array
+{
+    $disks = array_values(array_filter($gauges, static fn (array $g): bool => str_starts_with((string) $g['id'], 'disk:')));
+    if ($disks === []) {
+        return null;
+    }
+    $isBoot = static fn (array $g): bool => in_array(substr((string) $g['id'], 5), ['/', 'C:', 'C:\\'], true);
+    usort($disks, static function (array $a, array $b) use ($isBoot): int {
+        $av = $a['value'] ?? -1.0;
+        $bv = $b['value'] ?? -1.0;
+
+        return $av !== $bv ? (float) $bv <=> (float) $av : ($isBoot($a) ? 0 : 1) <=> ($isBoot($b) ? 0 : 1);
+    });
+
+    return $disks[0];
+}
+
+/**
+ * The "+N more" modal body: every disk gauge other than the header's chosen main one. A ZFS dataset (inventory `fs` === 'zfs', mount of the form
+ * `pool/dataset`) is grouped with every other dataset sharing the same pool root under one expandable heading, so a pool of a dozen datasets is
+ * one disclosure, not a dozen rows; every other filesystem lists its mount flat, one row each, exactly like the old per-volume chips used to.
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel()
+ */
+function rivetRmmUiOtherDisksHtml(array $vm, ?array $mainGauge): string
+{
+    $invByMount = [];
+    foreach ((array) ($vm['inventory']['disks'] ?? []) as $d) {
+        if (is_array($d) && isset($d['mount'])) {
+            $invByMount[(string) $d['mount']] = $d;
+        }
+    }
+    $groups = [];
+    $flat = [];
+    foreach ($vm['gauges'] as $g) {
+        if (!str_starts_with((string) $g['id'], 'disk:') || ($mainGauge !== null && $g['id'] === $mainGauge['id'])) {
+            continue;
+        }
+        $mount = substr((string) $g['id'], 5);
+        $fs = strtolower((string) ($invByMount[$mount]['fs'] ?? ''));
+        if ($fs === 'zfs' && str_contains($mount, '/')) {
+            $groups[substr($mount, 0, strpos($mount, '/'))][] = $g;
+        } else {
+            $flat[] = $g;
+        }
+    }
+    $row = static function (array $g): string {
+        $bk = rivetRmmUiKind($g['band'])[0];
+
+        return '<tr><td class="ifm-mono">' . rmmH($g['label']) . '</td><td class="text-muted small">' . rmmH($g['caption']) . '</td><td>'
+            . '<span class="badge text-bg-' . $bk . '">' . ($g['value'] === null ? 'no data' : (int) round($g['value']) . '%') . '</span></td></tr>';
+    };
+    $o = '';
+    foreach ($groups as $pool => $items) {
+        $o .= '<details class="mb-2" open><summary class="fw-semibold"><i class="fas fa-layer-group me-1" aria-hidden="true"></i>Pool ' . rmmH($pool)
+            . ' <span class="text-muted small">(' . count($items) . ' dataset' . (count($items) === 1 ? '' : 's') . ')</span></summary>'
+            . '<div class="table-responsive mt-1"><table class="table table-sm mb-0"><tbody>' . implode('', array_map($row, $items)) . '</tbody></table></div></details>';
+    }
+    if ($flat !== []) {
+        $o .= '<div class="table-responsive"><table class="table table-sm mb-0"><tbody>' . implode('', array_map($row, $flat)) . '</tbody></table></div>';
+    }
+
+    return $o === '' ? '<p class="text-muted small mb-0">No other volumes reported.</p>' : $o;
+}
+
+/** @param array<string,mixed> $vm rivetRmmUiPanel() */
+function rivetRmmUiDisksModal(array $vm): string
+{
+    $main = rivetRmmUiMainDiskGauge($vm['gauges']);
+
+    return '<div class="modal fade" id="rmmDisksModal" tabindex="-1" aria-labelledby="rmmDisksTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">'
+        . '<div class="modal-header"><h5 class="modal-title" id="rmmDisksTitle"><i class="fas fa-hdd me-2" aria-hidden="true"></i>Other volumes on ' . rmmH($vm['hostname']) . '</h5>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+        . '<div class="modal-body">' . rivetRmmUiOtherDisksHtml($vm, $main) . '</div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div></div></div></div>';
+}
+
+/**
+ * The "Map Mesh node" modal (administrators): the same hand-mapping field the Remote access card has always offered (rivetRmmUiRemoteCard()), as a
+ * modal so it is reachable straight from the header's "Map Mesh node" button when the device has no node mapped yet. Distinct element ids from the
+ * Remote card's own form (`rmm-mesh-map-*` vs `rmm-mesh-*`) so both can exist on the page without colliding; js/rmm_panel.js wires both.
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel()
+ */
+function rivetRmmUiMeshMapModal(array $vm): string
+{
+    $m = $vm['mesh'];
+
+    return '<div class="modal fade" id="rmmMeshMapModal" tabindex="-1" aria-labelledby="rmmMeshMapTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header"><h5 class="modal-title" id="rmmMeshMapTitle"><i class="fas fa-link me-2" aria-hidden="true"></i>Map a MeshCentral node to ' . rmmH($vm['hostname']) . '</h5>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+        . '<form id="rmm-mesh-map-form"><div class="modal-body"><label class="form-label small mb-1" for="rmm-mesh-map-node">MeshCentral node id</label>'
+        . '<input class="form-control font-monospace" id="rmm-mesh-map-node" name="mesh_node_id" maxlength="2048" value="' . rmmH($m['node_id']) . '" placeholder="node//... or the MeshCentral address of the device" aria-describedby="rmm-mesh-map-help">'
+        . '<div class="form-text" id="rmm-mesh-map-help">In MeshCentral open the device and copy the address bar, or paste the node id. Any form is accepted and shown as <code>node//</code> plus 64 characters. Leave empty to clear the mapping.</div></div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save mapping</button></div></form></div></div></div>';
+}
+
 /** @param array<string,mixed> $vm rivetRmmUiPanel() */
 function rivetRmmUiStrip(array $vm): string
 {
@@ -174,20 +280,46 @@ function rivetRmmUiStrip(array $vm): string
             . ' &bull; Agent ' . rmmH($vm['agent_version']) . ' <span class="text-muted">' . rmmH($vm['ring']) . ' ring</span>';
     }
 
-    // Live health badges (dimmed while offline)
+    // Live health badges (dimmed while offline): a fixed 4 slots, CPU / RAM / Disk / Uptime, instead of one chip per volume (a device with many
+    // volumes, or a ZFS pool of datasets, used to push the whole row off narrow screens). Disk is the single busiest volume (rivetRmmUiMainDiskGauge());
+    // every other volume is a click away behind "+N more" (rivetRmmUiDisksModal(), rivetRmmUiOtherDisksHtml()). Battery is a 5th, optional chip:
+    // it was never one-per-volume, so it is kept exactly where it always was, only once the agent actually reports it.
     $live = '';
     if (!$never) {
         $live = '<div class="mt-2 small d-flex flex-wrap align-items-center rmm-live' . ($vm['offline'] ? ' rmm-dim' : '') . '">';
+        $chip = static function (string $label, array $g): string {
+            $bk = rivetRmmUiKind($g['band'])[0];
+
+            return '<span class="me-' . ($label === '' ? '1' : '3') . ' text-nowrap"><span class="text-muted">' . rmmH($label !== '' ? $label : $g['label']) . '</span> <span class="badge text-bg-' . $bk . '">'
+                . ($g['value'] === null ? 'no data' : (int) round($g['value']) . '%') . '</span></span>';
+        };
         foreach ($vm['gauges'] as $g) {
-            if ($g['id'] === 'cpu' || $g['id'] === 'mem' || str_starts_with($g['id'], 'disk:') || $g['id'] === 'battery') {
-                $bk = rivetRmmUiKind($g['band'])[0];
-                $short = $g['id'] === 'cpu' ? 'CPU' : ($g['id'] === 'mem' ? 'RAM' : $g['label']);
-                $live .= '<span class="me-3 text-nowrap"><span class="text-muted">' . rmmH($short) . '</span> <span class="badge text-bg-' . $bk . '">'
-                    . ($g['value'] === null ? 'no data' : (int) round($g['value']) . '%') . '</span></span>';
+            if ($g['id'] === 'cpu') {
+                $live .= $chip('CPU', $g);
+            } elseif ($g['id'] === 'mem') {
+                $live .= $chip('RAM', $g);
             }
+        }
+        $mainDisk = rivetRmmUiMainDiskGauge($vm['gauges']);
+        $otherDisks = 0;
+        foreach ($vm['gauges'] as $g) {
+            if (str_starts_with((string) $g['id'], 'disk:') && ($mainDisk === null || $g['id'] !== $mainDisk['id'])) {
+                $otherDisks++;
+            }
+        }
+        if ($mainDisk !== null) {
+            $live .= $chip('', $mainDisk);
+            $live .= $otherDisks > 0
+                ? '<button type="button" class="btn btn-link btn-sm p-0 me-3" id="rmm-act-more-disks" data-bs-toggle="modal" data-bs-target="#rmmDisksModal">+' . $otherDisks . ' more</button>'
+                : '<span class="me-3"></span>';
         }
         $live .= '<span class="text-muted me-3 text-nowrap"><i class="fas fa-power-off me-1" aria-hidden="true"></i>'
             . ($vm['offline'] || $vm['uptime_s'] === null ? 'uptime unknown' : 'Up ' . rmmH(rivetRmmUiDuration((int) $vm['uptime_s']))) . '</span>';
+        foreach ($vm['gauges'] as $g) {
+            if ($g['id'] === 'battery') {
+                $live .= $chip('', $g);
+            }
+        }
         if ($vm['pending_reboot'] && !$vm['offline']) {
             $live .= rivetRmmUiPill('warn', 'Reboot pending');
         }
@@ -213,10 +345,44 @@ function rivetRmmUiStrip(array $vm): string
     $actions .= $btn('rmm-act-script', 'btn-primary', 'fas fa-play', 'Run script', $dev && !$never && $runPlatform && $canScript, $scriptReason, ' data-bs-toggle="modal" data-bs-target="#rmmRunModal"');
     $actions .= $btn('rmm-act-reboot', 'btn-outline-warning', 'fas fa-power-off', 'Reboot', $dev && !$never && $perm['reboot'], !$dev ? 'The device is not approved or no longer active.'
         : ($never ? 'Available after the first check-in.' : 'Your role cannot reboot devices.'), ' data-bs-toggle="modal" data-bs-target="#rmmRebootModal"');
+    // Remote access: a split button (Desktop / Terminal / Files) once a MeshCentral node is mapped. Desktop keeps the id="rmm-act-remote" the single
+    // button always had and js/rmm_panel.js's existing launch handler, so it still works exactly as before; Terminal and Files are additional, only
+    // once the module's remote-tools feature is on (a free read of the module's state file, no query) — that is the real Phase 6/8 capability
+    // behind the Remote tab's own Desktop/Terminal/Files buttons (includes/rmm_rem_ui.php), so clicking either here switches to that tab and invokes
+    // its real control rather than duplicating MeshCentral capability detection here. Terminal is listed first for a Linux SERVER (an SSH-style
+    // session is the common first move there); every other platform/role combination, including Linux workstations, keeps Desktop first.
     if ($vm['mesh']['configured']) {
-        $remoteReason = !$perm['remote'] ? 'Your role cannot open remote sessions.' : (!$vm['mesh']['mapped'] ? 'An administrator maps this device to a MeshCentral node first.'
-            : (!$dev ? 'The device is not approved or no longer active.' : 'Available after the first check-in.'));
-        $actions .= $btn('rmm-act-remote', 'btn-success', 'fas fa-desktop', 'Remote access', $perm['remote'] && $vm['mesh']['mapped'] && $dev && !$never, $remoteReason);    } elseif (!empty($perm['admin'])) {
+        if (!$vm['mesh']['mapped']) {
+            // Per design: an unmapped device is not a disabled button (there is nothing to retry), it is a plain-text explanation, plus — for an
+            // administrator, who is the only role that can fix it — a button to the mapping modal.
+            $actions .= '<span class="text-muted small d-inline-flex align-items-center me-2" id="rmm-remote-hint"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>No MeshCentral node mapped</span>';
+            if ($perm['admin']) {
+                $actions .= '<button type="button" class="btn btn-outline-secondary btn-sm" id="rmm-act-map-mesh" data-bs-toggle="modal" data-bs-target="#rmmMeshMapModal">'
+                    . '<i class="fas fa-link me-1" aria-hidden="true"></i>Map Mesh node</button>';
+            }
+        } else {
+            $remoteOk = $perm['remote'] && $dev && !$never;
+            $remoteReason = !$perm['remote'] ? 'Your role cannot open remote sessions.' : (!$dev ? 'The device is not approved or no longer active.' : 'Available after the first check-in.');
+            if (!$remoteOk) {
+                $why[] = ['Remote access', $remoteReason];
+            }
+            $isLinuxServer = $vm['platform'] === 'linux' && !empty($vm['is_server']);
+            $remoteTools = !empty($vm['features']['remote_tools']);
+            $defs = ['desktop' => 'fas fa-desktop|Desktop', 'terminal' => 'fas fa-terminal|Terminal', 'files' => 'fas fa-folder-open|Files'];
+            $order = $isLinuxServer ? ['terminal', 'desktop', 'files'] : ['desktop', 'terminal', 'files'];
+            if (!$remoteTools) {
+                $order = ['desktop'];   // nothing to switch to on the Remote tab: Desktop alone, exactly as the single button used to behave
+            }
+            $actions .= '<div class="btn-group" role="group" aria-label="Remote access">';
+            foreach ($order as $i => $kind) {
+                [$ic, $lab] = explode('|', $defs[$kind]);
+                $id = $kind === 'desktop' ? 'rmm-act-remote' : 'rmm-act-remote-' . $kind;
+                $actions .= '<button type="button" class="btn btn-sm ' . ($i === 0 ? 'btn-success' : 'btn-outline-success') . '" id="' . $id . '"'
+                    . ($remoteOk ? '' : ' disabled aria-disabled="true" title="' . rmmH($remoteReason) . '"') . '><i class="' . $ic . ' me-1" aria-hidden="true"></i>' . rmmH($lab) . '</button>';
+            }
+            $actions .= '</div>';
+        }
+    } elseif (!empty($perm['admin'])) {
         // 26.10.54: MeshCentral is not set up: the Remote button leads an administrator to the step-by-step page instead of vanishing
         $actions .= '<a class="btn btn-outline-success btn-sm" id="rmm-act-remote-setup" href="' . RIVET_RMM_MESH_WIZARD_URL . '"><i class="fas fa-desktop me-1" aria-hidden="true"></i>Set up remote access</a>';
     }
@@ -687,6 +853,15 @@ function rivetRmmUiDialogs(array $vm, string $csrf = ''): string
     // Library runs post to agent/post/rmm_automation_scr.php (the Jobs-tab card's handler); saved and text runs go through agent/post/rmm_agent.php (js/rmm_panel.js).
     if (in_array($vm['platform'], ['windows', 'linux'], true) && ($perm['run_saved'] || $perm['run_script'])) {
         $o .= rivetRmmUiRunDialog($vm, $csrf !== '' ? $csrf : (string) ($_SESSION['csrf_token'] ?? ''));
+    }
+    // The header's "+N more" disks modal, drawn whenever there is at least one disk gauge (harmless, and never opened, if the device turns out to
+    // have none) so the strip's trigger button never points at a missing modal id.
+    if ($vm['state'] !== 'never' && rivetRmmUiMainDiskGauge($vm['gauges']) !== null) {
+        $o .= rivetRmmUiDisksModal($vm);
+    }
+    // The header's "Map Mesh node" modal: only for an administrator, and only while there is something to map (Mesh configured).
+    if ($perm['admin'] && $vm['mesh']['configured']) {
+        $o .= rivetRmmUiMeshMapModal($vm);
     }
 
     return $o;

@@ -201,17 +201,43 @@
         if (b) { b.addEventListener('click', function () { openRemote(false); }); }
     });
 
-    // ---- MeshCentral node mapping (administrators)
-    var mf = document.getElementById('rmm-mesh-form');
-    if (mf) {
+    // ---- the header's Terminal / Files chips (includes/rmm_ui_render.php's split button): the real Desktop/Terminal/Files launch lives in the
+    // Remote tab's Mesh card (js/rmm_remote.js, [data-rem-mesh]), which alone knows MeshCentral's real per-device capabilities. Rather than
+    // duplicating that capability check here, these chips switch to the Remote tab and click its real button for the same view.
+    ['terminal', 'files'].forEach(function (kind) {
+        var b = document.getElementById('rmm-act-remote-' + kind);
+        if (!b) { return; }
+        b.addEventListener('click', function () {
+            var tabBtn = document.getElementById('rmm-tab-remote');
+            if (tabBtn && window.bootstrap) { window.bootstrap.Tab.getOrCreateInstance(tabBtn).show(); }
+            var real = document.querySelector('[data-rem-mesh="' + kind + '"]');
+            var card = document.getElementById('rem-mesh');
+            if (real) {
+                real.click();
+            } else {
+                var status = document.getElementById('rem-mesh-status');
+                if (status) { status.className = 'small mt-2 text-danger'; status.textContent = 'This device does not offer a ' + kind + ' session.'; }
+            }
+            if (card && card.scrollIntoView) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        });
+    });
+
+    // ---- MeshCentral node mapping (administrators): the Remote card's own form (rmm-mesh-form) and the header's "Map Mesh node" modal
+    // (rmm-mesh-map-form, includes/rmm_ui_render.php's rivetRmmUiMeshMapModal()) both post the same action with distinct element ids.
+    [['rmm-mesh-form', 'rmm-mesh-node', null], ['rmm-mesh-map-form', 'rmm-mesh-map-node', 'rmmMeshMapModal']].forEach(function (cfg) {
+        var mf = document.getElementById(cfg[0]);
+        if (!mf) { return; }
         mf.addEventListener('submit', function (e) {
             e.preventDefault();
-            post('set_mesh_node', { mesh_node_id: document.getElementById('rmm-mesh-node').value }).then(function (d) {
+            post('set_mesh_node', { mesh_node_id: document.getElementById(cfg[1]).value }).then(function (d) {
                 say(d.success ? 'Mapping saved.' : (d.error || 'Not saved.'), !!d.success);
-                if (d.success) { window.setTimeout(function () { window.location.reload(); }, 700); }
+                if (d.success) {
+                    if (cfg[2]) { hideModal(cfg[2]); }
+                    window.setTimeout(function () { window.location.reload(); }, 700);
+                }
             }).catch(function () { say('Network error.', false); });
         });
-    }
+    });
 
     // ---- jobs: cancel, lazy output
     Array.prototype.forEach.call(panel.querySelectorAll('.rmm-cancel-btn'), function (b) {

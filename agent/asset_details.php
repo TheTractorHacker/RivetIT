@@ -57,6 +57,7 @@ if (isset($_GET['asset_id'])) {
         $client_name = nullable_htmlentities($row['client_name']);
         $asset_id = intval($row['asset_id']);
         $asset_type = nullable_htmlentities($row['asset_type']);
+        $asset_type_raw = (string) $row['asset_type'];   // kept unescaped for logic (e.g. the RMM header's server/workstation signal); $row itself is reused by later while() loops in this file
         $asset_name = nullable_htmlentities($row['asset_name']);
         $asset_tag = nullable_htmlentities($row['asset_tag']);
         $asset_description = nullable_htmlentities($row['asset_description']);
@@ -304,6 +305,10 @@ if (isset($_GET['asset_id'])) {
                 'swq' => is_string($_GET['swq'] ?? null) ? $_GET['swq'] : '', 'swp' => (int) ($_GET['swp'] ?? 1), 'swr' => !empty($_GET['swr'])]);
             if ($rmm_agent_ui !== null) {
                 $rmm_ui_scripts = true;   // includes/footer.php links js/rmm_panel.js only when this is set
+                // The header's Remote split button lists Terminal before Desktop for a Linux SERVER; the asset's own asset_type (free text,
+                // e.g. "Server", "Workstation", "Laptop") is the only signal this app has for that, so a loose case-insensitive match is used
+                // rather than a fixed list of values an admin may not have typed.
+                $rmm_agent_ui['is_server'] = stripos($asset_type_raw, 'server') !== false;
             }
         }
 
@@ -508,72 +513,26 @@ if (isset($_GET['asset_id'])) {
             $mdm_free = \ITFlow\Integrations\ManageEngine\MdmDeviceStatus::storageFreePercent($mdm_link);
             $mdm_os_lower = strtolower((string) $mdm_link['platform']);
             $mdm_os_icon = str_contains($mdm_os_lower, 'android') ? 'fa-android' : (str_contains($mdm_os_lower, 'ios') || str_contains($mdm_os_lower, 'ipad') ? 'fa-apple' : 'fa-mobile-alt');
-        ?>
-        <div class="card card-dark mb-2" style="border-left:5px solid <?= $mdm_st['class'] === 'danger' ? '#dc3545' : ($mdm_st['class'] === 'warning' ? '#ffc107' : '#0d6efd') ?>; border-radius:4px;">
-            <div class="card-body py-2 px-3">
-                <div class="d-flex align-items-center flex-wrap" style="gap:8px">
-                    <div class="mr-auto me-auto">
-                        <strong class="h5 mb-0"><i class="fas fa-tablet-alt me-1"></i>ManageEngine MDM: <?= nullable_htmlentities($mdm_link['device_name'] ?: $asset_name) ?></strong>
-                        <span class="badge text-bg-<?= $mdm_st['class'] ?> ms-2"><?= nullable_htmlentities($mdm_st['label']) ?></span>
-                        <?php if ($mdm_link['is_supervised'] !== null && (int) $mdm_link['is_supervised'] === 1) { ?><span class="badge text-bg-info ms-1">Supervised</span><?php } ?>
-                        <?php if ($mdm_link['passcode_compliant'] !== null) { ?><span class="badge text-bg-<?= (int) $mdm_link['passcode_compliant'] ? 'success' : 'danger' ?> ms-1"><i class="fas fa-lock me-1"></i>Passcode <?= (int) $mdm_link['passcode_compliant'] ? 'compliant' : 'not compliant' ?></span><?php } ?>
-                        <?php if ((int) $mdm_link['is_lost_mode'] === 1) { ?><span class="badge text-bg-danger ms-1">Lost mode on</span><?php } ?>
-                        <div class="text-muted small mt-1">
-                            <i class="fab <?= $mdm_os_icon ?> me-1"></i><?= nullable_htmlentities(trim($mdm_link['platform'] . ' ' . $mdm_link['os_version'])) ?>
-                            <?php if ($mdm_link['model']) { ?>&bull;&nbsp;<?= nullable_htmlentities($mdm_link['model']) ?><?php } ?>
-                            <?php if ($mdm_link['user_name'] || $mdm_link['user_email']) { ?>&bull;&nbsp;<i class="fas fa-user mx-1"></i><?= nullable_htmlentities($mdm_link['user_name'] ?: $mdm_link['user_email']) ?><?php } ?>
-                            <?php if ($mdm_link['group_names']) { ?>&bull;&nbsp;<i class="fas fa-users mx-1"></i><?= nullable_htmlentities($mdm_link['group_names']) ?><?php } ?>
-                            <?php if ($mdm_link['battery_level'] !== null) { ?>&bull;&nbsp;<i class="fas fa-battery-half mx-1"></i><?= (int) $mdm_link['battery_level'] ?>%<?php } ?>
-                            <?php if ($mdm_free !== null) { ?>&bull;&nbsp;<i class="fas fa-hdd mx-1"></i><?= $mdm_free ?>% storage free<?php } ?>
-                            <?php if ($mdm_link['last_contact_at']) { ?>&bull;&nbsp;<i class="fas fa-clock mx-1"></i>Last contact: <?= nullable_htmlentities($mdm_link['last_contact_at']) ?><?php } ?>
-                            <?php if ($mdm_link['owned_by']) { ?>&bull;&nbsp;<i class="fas fa-briefcase mx-1"></i><?= nullable_htmlentities(ucfirst($mdm_link['owned_by'])) ?>-owned<?php } ?>
-                            <?php if ($mdm_link['registered_at']) { ?>&bull;&nbsp;<i class="fas fa-calendar-check mx-1"></i>Enrolled: <?= nullable_htmlentities(substr((string) $mdm_link['registered_at'], 0, 10)) ?><?php } ?>
-                            <?php if ($mdm_link['customer_name']) { ?>&bull;&nbsp;<i class="fas fa-building mx-1"></i><?= nullable_htmlentities($mdm_link['customer_name']) ?><?php } ?>
-                            &bull;&nbsp;Synced <?= nullable_htmlentities($mdm_link['last_sync']) ?>
-                        </div>
-                    </div>
-                    <div>
-                        <?php
-                        // The console's own address: the on-premises server URL, or the data center's MDM host. The documentation gives no per-device URL, so this opens the console, not the device.
-                        $mdm_console = '';
-                        if (($mdm_link['mdm_edition'] ?? '') === 'onprem') {
-                            $mdm_console = (string) $mdm_link['mdm_server_url'];
-                        } elseif (\ITFlow\Integrations\ManageEngine\DataCenters::isValid((string) $mdm_link['mdm_data_center'])) {
-                            $mdm_console = \ITFlow\Integrations\ManageEngine\DataCenters::mdmBase((string) $mdm_link['mdm_data_center']);
-                        }
-                        if ($mdm_console !== '' && preg_match('#^https://#i', $mdm_console)) { ?>
-                        <a href="<?= nullable_htmlentities($mdm_console) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary" title="Open the MDM console"><i class="fas fa-external-link-alt me-1"></i>Console</a>
-                        <?php } ?>
-                        <a href="/agent/mdm_devices.php" class="btn btn-sm btn-outline-secondary">Mobile devices</a>
-                        <?php
-                        // Offer to set the assigned contact from the MDM user: only while the owner has "Assign contact from MDM user" on and
-                        // only when it would really change something (an empty Assigned To, or overwrite on). Same gate as the post handler.
-                        $mdm_assign_offer = ['status' => ''];
-                        if (lookupUserPermission('module_client') >= 2 && !($client_access_string && !$session_is_admin)) {
-                            try {
-                                $mdm_assign_settings = \ITFlow\Integrations\ManageEngine\MdmMappingSettings::load($mysqli, (int) $mdm_link['integration_id']);
-                                $mdm_assign_offer = (new \ITFlow\Integrations\ManageEngine\MdmUserContactMapper($mysqli, (int) $mdm_link['integration_id']))->evaluate((int) $mdm_link['id'], $mdm_assign_settings);
-                            } catch (\Throwable $e) {
-                                $mdm_assign_offer = ['status' => ''];
-                            }
-                        }
-                        if ($mdm_assign_offer['status'] === 'assign') { ?>
-                        <form action="post.php" method="post" class="d-inline">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">
-                            <button type="submit" name="assign_mdm_contact_asset" class="btn btn-sm btn-outline-primary" title="The device user is mapped to a contact. Set Assigned To from it."><i class="fas fa-user-check me-1"></i>Set contact from MDM user</button>
-                        </form>
-                        <?php } ?>
-                        <?php if (lookupUserPermission('module_client') >= 2) { ?>
-                        <form action="post.php" method="post" class="d-inline">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="link_id" value="<?= (int) $mdm_link['id'] ?>">
-                            <button type="submit" name="unlink_mdm_device" class="btn btn-sm btn-outline-danger confirm-link" title="Remove link"><i class="fas fa-unlink"></i></button>
-                        </form>
-                        <?php } ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
+            // The console's own address: the on-premises server URL, or the data center's MDM host. The documentation gives no per-device URL, so this opens the console, not the device.
+            $mdm_console = '';
+            if (($mdm_link['mdm_edition'] ?? '') === 'onprem') {
+                $mdm_console = (string) $mdm_link['mdm_server_url'];
+            } elseif (\ITFlow\Integrations\ManageEngine\DataCenters::isValid((string) $mdm_link['mdm_data_center'])) {
+                $mdm_console = \ITFlow\Integrations\ManageEngine\DataCenters::mdmBase((string) $mdm_link['mdm_data_center']);
+            }
+            // Offer to set the assigned contact from the MDM user: only while the owner has "Assign contact from MDM user" on and
+            // only when it would really change something (an empty Assigned To, or overwrite on). Same gate as the post handler.
+            $mdm_assign_offer = ['status' => ''];
+            if (lookupUserPermission('module_client') >= 2 && !($client_access_string && !$session_is_admin)) {
+                try {
+                    $mdm_assign_settings = \ITFlow\Integrations\ManageEngine\MdmMappingSettings::load($mysqli, (int) $mdm_link['integration_id']);
+                    $mdm_assign_offer = (new \ITFlow\Integrations\ManageEngine\MdmUserContactMapper($mysqli, (int) $mdm_link['integration_id']))->evaluate((int) $mdm_link['id'], $mdm_assign_settings);
+                } catch (\Throwable $e) {
+                    $mdm_assign_offer = ['status' => ''];
+                }
+            }
+            require __DIR__ . '/includes/asset/mdm_overview.php';   // the Overview: hero, tiles, and Hardware/OS/Network/Security/Management sections, read-only (no Run script, Reboot or Metrics)
+        endif; ?>
 
         <style>
             #asset-details-content { font-size: 1.05rem; }
