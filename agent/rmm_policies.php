@@ -8,6 +8,7 @@
 require_once "includes/inc_all.php";
 enforceUserPermission('module_rmm');
 require_once dirname(__DIR__) . '/includes/rmm_pol_ui.php';
+require_once dirname(__DIR__) . '/includes/rmm_pack_ui.php';
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
@@ -17,5 +18,9 @@ if ($ctx === null) {
 }
 $vm = rivetRmmPolPoliciesView($ctx, $_GET);
 echo rivetRmmPolPoliciesPage($vm, $ctx);
+if ($vm['mode'] === 'list' && !empty($ctx['perm']['admin'])) {
+    $rmm_auto_extra_js = array_merge($rmm_auto_extra_js ?? [], ['rmm_pack.js']);
+    echo rivetRmmPackCard(rivetRmmPackView($ctx), $ctx);
+}
 
 require_once "../includes/footer.php";
