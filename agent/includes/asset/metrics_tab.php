@@ -580,6 +580,7 @@ if ($mt_render_pane): ?>
 <div class="ifm-wrap"
      id="<?= htmlspecialchars($mt_uid, ENT_QUOTES) ?>"
      data-asset-metrics
+     data-company-tz="<?= nullable_htmlentities(rivetCompanyTimezone()) ?>"
      data-asset-id="<?= $mt_asset_id ?>"
      data-endpoint="<?= htmlspecialchars($mt_endpoint, ENT_QUOTES) ?>"
      data-csrf="<?= htmlspecialchars($mt_csrf, ENT_QUOTES) ?>"
@@ -742,7 +743,7 @@ if ($mt_render_pane): ?>
     <p class="ifm-footnote">
         This device reports <b><?= $mt_reported_count ?></b> of <?= $mt_total_count ?> known metrics
         via <?= nullable_htmlentities($mt_provider) ?>. Metrics it cannot produce are not shown.
-        Sample timestamps are stored in UTC and displayed in your local time zone.
+        Times are shown in the company time zone.
     </p>
 
     <?php endif; /* $mt_has_data */ ?>

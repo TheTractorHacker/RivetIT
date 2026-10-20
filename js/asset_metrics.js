@@ -110,21 +110,37 @@
 
     /* Axis labels are deliberately terse and the tooltip title carries the full local
      * timestamp, so a 90-day chart does not turn its x-axis into a wall of dates. */
+    /* Every time is shown in the COMPANY's time zone (data-company-tz on [data-asset-metrics]),
+     * not the browser's: the same moment reads the same for every technician. */
+    var companyTz = null;
+    function parts(date) {
+        var p = { month: MONTHS[date.getMonth()], day: date.getDate(), hour: pad2(date.getHours()), minute: pad2(date.getMinutes()), zone: '' };
+        if (!companyTz) { return p; }
+        try {
+            var f = {};
+            new Intl.DateTimeFormat('en-US', { timeZone: companyTz, hourCycle: 'h23', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+                .formatToParts(date).forEach(function (x) { f[x.type] = x.value; });
+            p = { month: MONTHS[(+f.month) - 1], day: +f.day, hour: pad2(+f.hour), minute: pad2(+f.minute), zone: f.timeZoneName || '' };
+        } catch (err) { /* unknown zone name: fall back to the browser's */ }
+        return p;
+    }
+
     function shortLabel(date, bucketSeconds) {
         if (!date) { return ''; }
+        var p = parts(date);
         if (bucketSeconds >= 86400) {
-            return MONTHS[date.getMonth()] + ' ' + date.getDate();
+            return p.month + ' ' + p.day;
         }
         if (bucketSeconds >= 3600) {
-            return MONTHS[date.getMonth()] + ' ' + date.getDate() + ' ' + pad2(date.getHours()) + ':00';
+            return p.month + ' ' + p.day + ' ' + p.hour + ':00';
         }
-        return pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+        return p.hour + ':' + p.minute;
     }
 
     function fullLabel(date) {
         if (!date) { return ''; }
-        return MONTHS[date.getMonth()] + ' ' + date.getDate() + ', ' +
-            pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+        var p = parts(date);
+        return p.month + ' ' + p.day + ', ' + p.hour + ':' + p.minute + (p.zone ? ' ' + p.zone : '');
     }
 
     function relativeFromNow(date) {
@@ -285,6 +301,8 @@
     function renderChart(pane, block, payload) {
         var registry = registries.get(pane);
         var chartId = block.getAttribute('data-chart-id');
+        var tzAttr = (pane.closest('[data-asset-metrics]') || pane).getAttribute('data-company-tz');
+        if (tzAttr) { companyTz = tzAttr; }
         var keys = (block.getAttribute('data-metric-keys') || '').split(',').filter(Boolean);
         var headline = block.getAttribute('data-headline') || '';
         var axis = block.getAttribute('data-axis') || 'auto';

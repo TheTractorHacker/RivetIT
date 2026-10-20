@@ -836,7 +836,7 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
             <p class="text-muted small">
                 While this is off, everyone uses a training PIN from a printed setup slip. Trainers always use a training PIN.
                 <?php if ($tk->pinSourcesSyncedAtUtc !== null) { ?>
-                    PIN sources were last refreshed <span class="font-monospace"><?php echo nullable_htmlentities($tk->pinSourcesSyncedAtUtc); ?> UTC</span>.
+                    PIN sources were last refreshed <span class="font-monospace"><?php echo nullable_htmlentities(rivetFormatTime($tk->pinSourcesSyncedAtUtc, 'utc', true, 'Y-m-d H:i:s') ?: (string) $tk->pinSourcesSyncedAtUtc); ?></span>.
                 <?php } else { ?>
                     PIN sources have not been refreshed yet.
                 <?php } ?>
