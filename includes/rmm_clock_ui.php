@@ -76,7 +76,7 @@ function rivetRmmClockBadge(?array $clock): string
 }
 
 /**
- * The clock object of several devices in one query (the list summaries do not carry it), keyed by device id; devices with nothing to show are left out.
+ * The clock object of several devices in one query (the list summaries do not carry it), keyed by device id; devices whose clock needs no notice are left out.
  *
  * @param list<int> $deviceIds
  * @return array<int,array<string,mixed>>
@@ -92,7 +92,7 @@ function rivetRmmClockMap(\mysqli $mysqli, array $deviceIds): array
         . ') AND (clock_skew_s IS NOT NULL OR last_reject_reason IS NOT NULL)');
     while ($res && ($r = mysqli_fetch_assoc($res))) {
         $c = \RivetCore\Rmm\Read\RmmReadModel::clockOf($r);
-        if ($c !== null) {
+        if ($c !== null && rivetRmmClockNotice($c) !== null) {   // only a clock worth a notice (a 20 s skew is normal)
             $out[(int) $r['device_id']] = $c;
         }
     }
