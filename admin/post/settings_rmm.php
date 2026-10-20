@@ -53,8 +53,15 @@ if (isset($_POST['save_rmm_alert_ticket_settings'])) {
         'source'       => array_keys(RMM_ALERT_ROUTE_SOURCES),
         'check_prefix' => array_keys(RMM_ALERT_ROUTE_FAMILIES),
     ];
-    $types  = is_array($_POST['route_type'] ?? null) ? array_values($_POST['route_type']) : [];
-    $values = is_array($_POST['route_value'] ?? null) ? array_values($_POST['route_value']) : [];
+    // each route's "when" arrives as one choice, "type:value" (severity:warning, check_prefix:disk, source:tactical_rmm)
+    $whens  = is_array($_POST['route_when'] ?? null) ? array_values($_POST['route_when']) : [];
+    $types  = [];
+    $values = [];
+    foreach ($whens as $w) {
+        $parts = is_string($w) ? explode(':', $w, 2) : [];
+        $types[]  = count($parts) === 2 ? $parts[0] : (is_string($w) ? $w : []);
+        $values[] = count($parts) === 2 ? $parts[1] : '';
+    }
     $cats   = is_array($_POST['route_category'] ?? null) ? array_values($_POST['route_category']) : [];
     $prios  = is_array($_POST['route_priority'] ?? null) ? array_values($_POST['route_priority']) : [];
     if (count($types) > 50) {

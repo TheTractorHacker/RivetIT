@@ -319,6 +319,120 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
         </div>
     </div>
 
+<?php
+    require_once dirname(__DIR__) . '/includes/rmm_alert_routes.php';
+    $at_default = 0; $at_routes = []; $at_ready = false;
+    $at_q = @mysqli_query($mysqli, "SELECT config_rmm_alert_ticket_category_id AS c FROM settings WHERE company_id = 1");
+    if ($at_q) {
+        $at_ready = true;
+        $at_default = intval((mysqli_fetch_assoc($at_q) ?: [])['c'] ?? 0);
+        $at_rq = @mysqli_query($mysqli, "SELECT * FROM rmm_alert_ticket_routes ORDER BY sort, id");
+        while ($at_rq && ($at_r = mysqli_fetch_assoc($at_rq))) { $at_routes[] = $at_r; }
+    }
+    $at_cats = [];
+    $at_cq = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Ticket' AND category_archived_at IS NULL ORDER BY category_name ASC");
+    while ($at_c = mysqli_fetch_assoc($at_cq)) { $at_cats[intval($at_c['category_id'])] = $at_c['category_name']; }
+    $at_has_maint = false;
+    foreach ($at_cats as $at_n) { if (strtolower($at_n) === 'maintenance') { $at_has_maint = true; } }
+    $at_default_name = $at_cats[$at_default] ?? '';
+    $at_sevs = array_filter(explode(',', $config_rmm_auto_ticket_severities));
+?>
+    <div class="card mb-3" id="alert-ticket-card">
+        <div class="card-header py-2">
+            <h3 class="card-title"><i class="fas fa-fw fa-folder-open me-2"></i>Alert tickets</h3>
+        </div>
+        <div class="card-body">
+            <?php if (!$at_ready): ?>
+                <p class="text-muted mb-0">Run the database update (Administration &gt; Database updates) to choose a category for alert tickets.</p>
+            <?php else: ?>
+            <p class="text-muted small">Pick the ticket category that tickets made from RMM alerts go into, both the automatic ones above and the ones you create by hand from an alert.
+                Leave it on &quot;No category&quot; to keep today&rsquo;s behaviour.</p>
+            <form action="post.php" method="post" autocomplete="off" id="alert-ticket-form">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="mb-3" style="max-width:28rem">
+                    <label class="form-label" for="alert_ticket_category_id">Category for alert tickets</label>
+                    <select class="form-select" id="alert_ticket_category_id" name="alert_ticket_category_id">
+                        <option value="0">No category</option>
+                        <?= ticketCategoryOptions($mysqli, $at_default) ?>
+                    </select>
+                </div>
+
+                <h4 class="h6">Different category for some alerts <span class="text-muted fw-normal">(optional)</span></h4>
+                <p class="text-muted small mb-2">The most specific route wins: the kind of check first, then where the alert came from, then its severity, then the category above.</p>
+                <div class="table-responsive">
+                <table class="table table-sm align-middle" id="alert-route-table">
+                    <thead><tr><th>When the alert is</th><th>Use this category</th><th>Priority</th><th class="text-end"></th></tr></thead>
+                    <tbody id="alert-route-rows">
+                    <?php
+                    $at_when_opts = function ($sel) {
+                        $o = '<option value="">Choose...</option><optgroup label="Kind of check">';
+                        foreach (RMM_ALERT_ROUTE_FAMILIES as $k => $d) { $v = "check_prefix:$k"; $o .= '<option value="' . $v . '"' . ($sel === $v ? ' selected' : '') . '>' . htmlspecialchars($d[0]) . '</option>'; }
+                        $o .= '</optgroup><optgroup label="Where it came from">';
+                        foreach (RMM_ALERT_ROUTE_SOURCES as $k => $l) { $v = "source:$k"; $o .= '<option value="' . $v . '"' . ($sel === $v ? ' selected' : '') . '>' . htmlspecialchars($l) . '</option>'; }
+                        $o .= '</optgroup><optgroup label="Severity">';
+                        foreach (RMM_ALERT_ROUTE_SEVERITIES as $k => $l) { $v = "severity:$k"; $o .= '<option value="' . $v . '"' . ($sel === $v ? ' selected' : '') . '>' . htmlspecialchars($l) . '</option>'; }
+                        return $o . '</optgroup>';
+                    };
+                    $at_row = function ($when, $cat, $prio) use ($at_when_opts) {
+                        $h = '<tr class="alert-route-row"><td><select class="form-select form-select-sm" name="route_when[]" aria-label="When the alert is">' . $at_when_opts($when) . '</select></td>';
+                        $h .= '<td><select class="form-select form-select-sm" name="route_category[]" aria-label="Category"><option value="">Choose...</option>' . ticketCategoryOptions($GLOBALS['mysqli'], $cat) . '</select></td>';
+                        $h .= '<td><select class="form-select form-select-sm" name="route_priority[]" aria-label="Priority"><option value="">Keep the usual</option>';
+                        foreach (RMM_ALERT_ROUTE_PRIORITIES as $p) { $h .= '<option value="' . $p . '"' . ($prio === $p ? ' selected' : '') . '>' . $p . '</option>'; }
+                        return $h . '</select></td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger alert-route-remove"><i class="fas fa-trash-alt me-1"></i>Remove</button></td></tr>';
+                    };
+                    foreach ($at_routes as $at_r) { echo $at_row($at_r['match_type'] . ':' . $at_r['match_value'], intval($at_r['category_id']), (string) $at_r['priority']); }
+                    ?>
+                    </tbody>
+                </table>
+                </div>
+                <template id="alert-route-template"><?= $at_row('', 0, '') ?></template>
+                <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="alert-route-add"><i class="fas fa-plus me-1"></i>Add a route</button>
+
+                <p class="mb-3" id="alert-ticket-note" aria-live="polite">
+                    <i class="fas fa-info-circle me-1 text-muted"></i><span id="alert-ticket-note-text"><?= htmlspecialchars(rmmAlertRouteSummary($at_sevs, $at_default_name, count($at_routes))) ?></span>
+                </p>
+
+                <button type="submit" name="save_rmm_alert_ticket_settings" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save alert ticket settings</button>
+            </form>
+            <?php if (!$at_has_maint): ?>
+            <form action="post.php" method="post" class="mt-3">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <button type="submit" name="create_rmm_alert_maintenance_category" class="btn btn-outline-secondary btn-sm"><i class="fas fa-wrench me-1"></i>Create a Maintenance category and use it</button>
+                <span class="text-muted small ms-2">There is no ticket category called Maintenance yet.</span>
+            </form>
+            <?php endif; ?>
+            <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+            (function () {
+                var rows = document.getElementById('alert-route-rows'), tpl = document.getElementById('alert-route-template');
+                var add = document.getElementById('alert-route-add');
+                var cat = document.getElementById('alert_ticket_category_id'), text = document.getElementById('alert-ticket-note-text');
+                if (!rows || !tpl || !add || !cat || !text) { return; }
+                function names() {
+                    var out = [], boxes = document.querySelectorAll('input[name="auto_ticket_severities[]"]:checked');
+                    for (var i = 0; i < boxes.length; i++) { out.push(boxes[i].value); }
+                    return out;
+                }
+                function update() {
+                    var s = names(), n = rows.querySelectorAll('tr').length;
+                    var sev = s.length > 1 ? s.slice(0, -1).join(', ') + ' and ' + s[s.length - 1] : (s[0] || '');
+                    var c = cat.value !== '0' ? cat.options[cat.selectedIndex].text : '';
+                    if (!sev) { text.textContent = 'Automatic ticket creation is off (no severity is selected above). Tickets made by hand from an alert still use these categories.'; return; }
+                    text.textContent = 'New alerts at severity ' + sev + ' create a ticket ' + (c ? 'in the "' + c + '" category' : 'with no category') + (n ? ', except where one of the routes below applies (' + n + ').' : '.');
+                }
+                add.addEventListener('click', function () { rows.appendChild(tpl.content.cloneNode(true)); update(); });
+                rows.addEventListener('click', function (e) {
+                    var b = e.target.closest ? e.target.closest('.alert-route-remove') : null;
+                    if (b) { var tr = b.closest('tr'); tr.parentNode.removeChild(tr); update(); }
+                });
+                cat.addEventListener('change', update);
+                document.addEventListener('change', function (e) { if (e.target && e.target.name === 'auto_ticket_severities[]') { update(); } });
+                update();
+            })();
+            </script>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
             <h3 class="card-title me-auto"><i class="fas fa-fw fa-chart-line me-2"></i>Device Metrics</h3>
