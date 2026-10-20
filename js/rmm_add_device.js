@@ -15,6 +15,7 @@
     var $ = function (id) { return document.getElementById(id); };
     var busy = false;
     var client = $('ad-client'), location_ = $('ad-location'), err = $('ad-error'), done = $('ad-done');
+    var appsList = $('ad-apps-list'), appsCol = $('ad-apps-col');   // RivetCore 1.0.0-rc.26: the "install with the agent" tick-boxes
     var MULTI_USES = 25;
 
     function platform() { var c = form.querySelector('input[name="platform"]:checked'); return c ? c.value : 'windows-amd64'; }
@@ -83,9 +84,10 @@
                 document.body.appendChild(a); a.click();
                 window.setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
                 var n = parseInt($('ad-uses').value, 10) || 1;
+                var appsNote = res.headers.get('X-Apps-Note') || '';
                 say('Downloaded ' + name + ' (' + human(blob.size) + '). It works for ' + n + (n === 1 ? ' machine' : ' machines') + '. ' + (format === 'msi'
                     ? 'Install it with msiexec /i "' + name + '" /qn /norestart, or double-click it. It is unsigned and not yet verified on Windows: try it on one PC first.'
-                    : 'Copy it to the PC, double-click it and accept the administrator prompt.'));
+                    : 'Copy it to the PC, double-click it and accept the administrator prompt.') + (appsNote ? ' ' + appsNote : ''));
             });
         });
     }
@@ -99,7 +101,7 @@
                 var msi = d.msi;
                 $('ad-w-msi-out').classList.toggle('d-none', !msi);
                 if (msi) { $('ad-c-msiexec').value = msi.msiexec; $('ad-c-msips').value = msi.powershell; $('ad-c-props').value = msi.properties; $('ad-c-uninst').value = msi.uninstall; }
-                $('ad-w-meta').textContent = 'For ' + d.department + '. The token works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + ' and is shown only once: do not paste it into tickets or chat.';
+                $('ad-w-meta').textContent = 'For ' + d.department + '. The token works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + ' and is shown only once: do not paste it into tickets or chat.' + (d.apps_note ? ' ' + d.apps_note : '');
                 $('ad-w-out').classList.remove('d-none');
             });
         });
@@ -111,7 +113,7 @@
                 if (!res.ok || !d || !d.success) { throw new Error((d && d.error) || 'The command could not be created.'); }
                 $('ad-l-cmd').value = d.command;
                 $('ad-l-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + '. The token is shown only once: do not paste it into tickets or chat.'
-                    + ' Downloads agent ' + d.agent_version + (d.source === 'github' ? ' from GitHub' : ' from this server') + ' and checks it against the SHA-256 printed in the command before installing.';
+                    + ' Downloads agent ' + d.agent_version + (d.source === 'github' ? ' from GitHub' : ' from this server') + ' and checks it against the SHA-256 printed in the command before installing.' + (d.apps_note ? ' ' + d.apps_note : '');
                 $('ad-l-ver').textContent = d.agent_version ? '(' + d.agent_version + ')' : '';
                 $('ad-l-out').classList.remove('d-none');
             });
@@ -131,7 +133,43 @@
                 if (!d || !d.success || client.value !== id) { return; }
                 d.locations.forEach(function (l) { var o = document.createElement('option'); o.value = String(l.id); o.textContent = l.name; location_.appendChild(o); });
                 $('ad-location-col').classList.toggle('d-none', d.locations.length === 0);
-            }).catch(function () { /* optional */ });
+            }).catch(function () { /* optional */ }).then(loadApps);
+    }
+
+    // RivetCore 1.0.0-rc.26: refill the "install with the agent" tick-boxes on a department, location or platform change. DOM API, not innerHTML: catalog
+    // app/version names are untrusted server text, and textContent keeps them safe regardless.
+    function loadApps() {
+        if (!appsList) { return; }
+        var id = client ? client.value : '';
+        if (!id) { appsList.textContent = ''; if (appsCol) { appsCol.classList.add('d-none'); } return; }
+        var body = new URLSearchParams({ action: 'selectable_apps', client_id: id, location_id: (location_ && location_.value) || '0', os: os(), csrf_token: csrf });
+        fetch(postUrl, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }, body: body.toString() })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.success || !client || client.value !== id) { return; }
+                appsList.textContent = '';
+                if (appsCol) { appsCol.classList.toggle('d-none', !d.enabled); }
+                if (!d.enabled) { return; }
+                if (!d.apps || !d.apps.length) {
+                    var p = document.createElement('p'); p.className = 'small text-muted mb-0'; p.textContent = 'The catalog has no app for this department and operating system yet.'; appsList.appendChild(p); return;
+                }
+                d.apps.forEach(function (a) {
+                    var row = document.createElement('div'); row.className = 'form-check mb-1';
+                    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'form-check-input'; cb.name = 'app_ids[]'; cb.value = String(a.package_id); cb.id = 'ad-app-' + a.package_id;
+                    var blocked = a.missing_params && a.missing_params.length > 0;
+                    cb.checked = !!a.auto && !blocked; cb.disabled = !!blocked;
+                    var label = document.createElement('label'); label.className = 'form-check-label small'; label.htmlFor = cb.id;
+                    label.textContent = a.name + ' ' + a.version + (a.required ? ' (required)' : '') + (a.two_person ? ' - needs a second person' : '');
+                    row.appendChild(cb); row.appendChild(label);
+                    if (blocked) {
+                        var help = document.createElement('div'); help.className = 'form-text text-danger';
+                        help.textContent = 'Missing vendor parameter(s) for this department: ' + a.missing_params.join(', ') + '. Set them in the software catalog first.';
+                        row.appendChild(help);
+                    }
+                    appsList.appendChild(row);
+                });
+            })
+            .catch(function () { /* the tick-boxes are optional */ });
     }
 
     // copy buttons (delegated: the text blocks and the package rows)
@@ -157,8 +195,9 @@
     });
 
     form.addEventListener('submit', function (e) { e.preventDefault(); });
-    form.querySelectorAll('input[name="platform"]').forEach(function (r) { r.addEventListener('change', refresh); });
+    form.querySelectorAll('input[name="platform"]').forEach(function (r) { r.addEventListener('change', function () { refresh(); loadApps(); }); });
     if (client) { client.addEventListener('change', function () { loadLocations(); refresh(); }); }
+    if (location_) { location_.addEventListener('change', loadApps); }
     var mesh = $('ad-mesh');
     if (mesh) { mesh.addEventListener('change', function () { $('ad-l-out').classList.add('d-none'); $('ad-w-out').classList.add('d-none'); $('ad-l-cmd').value = ''; }); }
     $('ad-uses').addEventListener('input', function () { /* the number is the single source of truth */ });
@@ -166,6 +205,6 @@
     $('ad-dl-msi').addEventListener('click', guard(function () { return download('msi'); }));
     $('ad-w-cmds').addEventListener('click', guard(windowsCommands));
     $('ad-l-go').addEventListener('click', guard(linuxCommand));
-    if (client) { loadLocations(); }
+    if (client) { loadLocations(); } else { loadApps(); }
     refresh();
 })();

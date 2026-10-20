@@ -90,6 +90,21 @@ if ($inst_action === 'locations') {
     exit;
 }
 
+// RivetCore 1.0.0-rc.26: the installer page's app tick-boxes, refilled whenever the department, location or platform changes (js/rmm_installer.js, js/rmm_add_device.js).
+if ($inst_action === 'selectable_apps') {
+    if ($clientId <= 0 || !$rmm->authorizer()->clientOk($uid, $clientId)) {
+        inst_fail(403, 'forbidden', 'Not allowed.', true);
+    }
+    require_once dirname(__DIR__, 2) . '/includes/rmm_auto_install_ui.php';
+    $os = ($_POST['os'] ?? 'windows') === 'linux' ? 'linux' : 'windows';
+    $locId = intval($_POST['location_id'] ?? 0);
+    $sel = rivetRmmAutoInstSelectable($mysqli, $uid, (string) $session_name, $clientId, $locId, $os);
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    echo json_encode(['success' => true, 'enabled' => $sel['enabled'], 'apps' => $sel['apps']]);
+    exit;
+}
+
 if (!in_array($inst_action, ['download', 'linux', 'windows_commands'], true)) {
     inst_fail(422, 'invalid', 'Unknown action.', $inst_json);
 }
@@ -110,6 +125,15 @@ if (!in_array($format, ['exe', 'msi'], true)) {
     inst_fail(422, 'invalid', 'Choose the installer format: exe or msi.', $inst_json);
 }
 $args[] = $inst_action === 'linux' ? 'exe' : $format;
+// RivetCore 1.0.0-rc.26: the catalog apps ticked on the installer page (includes/rmm_installer.php, includes/rmm_add_device_ui.php). Core checks rmm.software.deploy for this
+// department, that each app exists and is switched on, and that its vendor parameters all have a value for this department before creating anything.
+$appIds = [];
+foreach ((array) ($_POST['app_ids'] ?? []) as $v) {
+    if (is_scalar($v) && ctype_digit(trim((string) $v))) {
+        $appIds[] = (int) $v;
+    }
+}
+$args[] = array_values(array_unique($appIds));
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
 
 /**
@@ -166,7 +190,8 @@ if ($inst_action === 'windows_commands') {
     header('Cache-Control: no-store');
     echo json_encode(['success' => true, 'department' => $r->data['department'], 'arch' => $args[6], 'format' => $format, 'filename' => $cmds['filename'], 'powershell' => $cmds['powershell'],
         'msi' => isset($cmds['msi']) && is_array($cmds['msi']) ? $cmds['msi'] : null, 'detection' => $cmds['detection'] ?? null,
-        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
+        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0),
+        'apps_note' => $appIds !== [] ? 'These apps install after the agent.' : null]);
     exit;
 }
 
@@ -208,13 +233,17 @@ if ($inst_action === 'linux') {
     header('Cache-Control: no-store');
     echo json_encode(['success' => true, 'command' => $lc['command'], 'self_contained' => $lc['self_contained'], 'agent_version' => $lc['version'], 'source' => $lc['source'], 'packages' => rivetAgentFeedLinuxPackages($lin, $args[6]),
         'department' => $r->data['department'], 'arch' => $args[6],
-        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0)]);
+        'expires_at' => $r->data['token']['expires_at'] ?? null, 'expires_at_text' => rivetFormatTime($r->data['token']['expires_at'] ?? null, 'utc'), 'max_uses' => (int) ($r->data['token']['max_uses'] ?? 0), 'token_id' => (int) ($r->data['token']['token_id'] ?? 0),
+        'apps_note' => $appIds !== [] ? 'These apps install after the agent.' : null]);
     exit;
 }
 
 $r = $admin->downloadInstaller($who, ...$args);
 if (!$r->ok) {
     inst_fail($r->http, $r->code, $r->message, $inst_json);
+}
+if ($appIds !== []) {
+    header('X-Apps-Note: These apps install after the agent.');   // the binary download has no JSON body; js/rmm_installer.js reads this header the same way it reads Content-Disposition
 }
 (new \RivetCore\Rmm\Http\SapiEmitter())->emit($r->data['download']);   // streamed with exact length after the size and SHA-256 check
 exit;

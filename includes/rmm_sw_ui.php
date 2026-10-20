@@ -19,6 +19,10 @@
  */
 
 require_once __DIR__ . '/rmm_automation.php';
+// RivetCore 1.0.0-rc.26 (install apps with the agent, migration 0033): rivetRmmAutoInstPolicyForm(), rivetRmmAutoInstParamsPanel(), rivetRmmAutoInstFilesCard() and
+// rivetRmmAutoInstTemplatesCard(), appended to the catalog page below. That file also uses this one's rivetRmmSwApi()/rivetRmmSwPerm() and requires it back: both
+// requires are require_once, so whichever of the two a page loads first, both end up defined before anything calls them.
+require_once __DIR__ . '/rmm_auto_install_ui.php';
 
 use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Rmm\Http\RmmRequest;
@@ -435,7 +439,9 @@ function rivetRmmSwRunForm(array $vm, array $dv, string $self): string
  */
 function rivetRmmSwCatalogView(array $ctx, array $get): array
 {
-    $vm = ['error' => '', 'packages' => [], 'hosts' => [], 'perm' => $ctx['perm'], 'csrf' => $ctx['csrf'], 'edit' => null, 'form' => null, 'draft' => null, 'version_draft' => null, 'enabled' => true, 'unrestricted' => false, 'edit_error' => ''];
+    $vm = ['error' => '', 'packages' => [], 'hosts' => [], 'perm' => $ctx['perm'], 'csrf' => $ctx['csrf'], 'edit' => null, 'form' => null, 'draft' => null, 'version_draft' => null, 'enabled' => true, 'unrestricted' => false, 'edit_error' => '',
+        // RivetCore 1.0.0-rc.26 (install apps with the agent): auto-install policy and parameter names for the package being edited, and the fleet-wide hosted files and starter templates.
+        'auto' => null, 'files_view' => ['files' => [], 'max_bytes' => 0, 'error' => ''], 'templates_view' => ['templates' => [], 'provides' => [], 'error' => ''], 'template_key' => ''];
     $r = rivetRmmSwApi($ctx, 'GET', ['software_packages']);
     if (!$r['ok']) {
         $vm['error'] = $r['error'] !== '' ? $r['error'] : 'The catalog could not be read.';
@@ -447,6 +453,11 @@ function rivetRmmSwCatalogView(array $ctx, array $get): array
     $h = rivetRmmSwApi($ctx, 'GET', ['software_hosts']);
     $vm['hosts'] = $h['ok'] ? (array) ($h['data']['hosts'] ?? []) : [];
     $vm['unrestricted'] = rivetRmmModule($ctx['mysqli'])->authorizer()->visibleClientIds($ctx['uid']) === null;
+    if ($vm['perm']['manage'] && $vm['unrestricted']) {
+        $vm['files_view'] = rivetRmmAutoInstFilesView($ctx);
+        $vm['templates_view'] = rivetRmmAutoInstTemplatesView($ctx);
+        $vm['template_key'] = ctype_alnum((string) str_replace('_', '', (string) ($get['new_from_template'] ?? ''))) ? (string) $get['new_from_template'] : '';
+    }
     $pid = ctype_digit((string) ($get['package_id'] ?? '')) ? (int) $get['package_id'] : 0;
     if ($pid > 0) {
         $p = rivetRmmSwApi($ctx, 'GET', ['software_packages', $pid]);
@@ -455,6 +466,7 @@ function rivetRmmSwCatalogView(array $ctx, array $get): array
             $vm['form'] = 'edit';
             $vm['draft'] = rivetRmmSwTakeDraft('package', $pid);
             $vm['version_draft'] = rivetRmmSwTakeDraft('version', $pid);
+            $vm['auto'] = rivetRmmAutoInstPackageView($ctx, $pid);
         } else {
             $vm['edit_error'] = $p['status'] === 404 ? 'That package does not exist.' : ($p['error'] !== '' ? $p['error'] : 'The package could not be read.');
         }
@@ -642,9 +654,17 @@ function rivetRmmSwCatalogPage(array $vm): string
     }
     if ($vm['form'] === 'edit' && $vm['edit'] !== null) {
         $o .= rivetRmmSwVersionsCard($vm);
+        // RivetCore 1.0.0-rc.26 (install apps with the agent, section 14): auto-install scope/order/required and the write-only vendor parameter panel, per package.
+        if ($vm['auto'] !== null) {
+            $o .= rivetRmmAutoInstPolicyForm($vm) . rivetRmmAutoInstParamsPanel($vm);
+        }
     }
     $o .= rivetRmmUiCard('Packages', 'box-open', rivetRmmSwPackagesTable($vm), '', '<span class="small text-muted">' . count($vm['packages']) . ' package' . (count($vm['packages']) === 1 ? '' : 's') . '</span>', true, 'packages')
         . rivetRmmSwHostsCard($vm);
+    if ($perm['manage'] && $vm['unrestricted']) {
+        // Fleet-wide, not per package: hosted installer files (section 14.3) and starter templates (section 14.6, all UNVERIFIED).
+        $o .= rivetRmmAutoInstFilesCard($vm) . rivetRmmAutoInstTemplatesCard($vm);
+    }
 
     return $o . rivetRmmAutoConfirmModal();
 }

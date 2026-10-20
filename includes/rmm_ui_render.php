@@ -790,7 +790,7 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
     }
     // RMM Phase 6 and 8 (RivetCore 1.0.0-rc.11): the Remote tab (services, processes, files, Mesh; includes/rmm_rem_ui.php) and the Logs tab (includes/rmm_log_ui.php). Each function
     // checks the module, its own sub-switch and the viewer's ability itself and returns '' when there is nothing to show, and then neither the tab nor the pane is drawn.
-    $remHtml = $logHtml = $patHtml = $swHtml = $chgHtml = '';
+    $remHtml = $logHtml = $patHtml = $swHtml = $chgHtml = $autoHtml = '';
     if ($mysqli instanceof \mysqli) {
         $remHtml = function_exists('rivetRmmRemPanelSection') ? rivetRmmRemPanelSection($vm, $mysqli, $csrf) : '';
         $logHtml = function_exists('rivetRmmLogPanelSection') ? rivetRmmLogPanelSection($vm, $mysqli, $csrf) : '';
@@ -803,13 +803,16 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
             require_once __DIR__ . '/rmm_chg_ui.php';
             $chgHtml = rivetRmmChgPanelSection($vm, $mysqli, $csrf);
         }
+        // Install apps when the agent installs (RivetCore 1.0.0-rc.26, migration 0033): its own tab, "Apps with agent" (includes/rmm_auto_install_ui.php); no new sub-switch,
+        // same `software_deploy` feature as the Software tab. '' while the module or the switch is off or the viewer may not read software deployment.
+        $autoHtml = function_exists('rivetRmmAutoInstPanelSection') && !empty($vm['features']['software_deploy']) ? rivetRmmAutoInstPanelSection($vm, $mysqli, $csrf) : '';
     }
 
     return '<div class="card card-dark mb-3" id="rmm-panel" data-device-id="' . (int) $vm['device_id'] . '" data-csrf="' . rmmH($csrf) . '" data-post-url="/agent/post/rmm_agent.php" data-output-url="/agent/rmm_job_output.php" '
         . 'data-platform="' . rmmH($vm['platform']) . '" data-offline="' . ($vm['offline'] ? '1' : '0') . '">'
         . '<div class="card-header p-0 border-bottom-0"><ul class="nav nav-tabs px-3 pt-2 rmm-tabbar" role="tablist" aria-label="RMM device sections">'
         . $tab('overview', 'tachometer-alt', 'Overview', true) . $tab('inventory', 'microchip', 'Inventory', false) . ($vm['software'] !== null || $swHtml !== '' ? $tab('software', 'cube', 'Software', false) : '') . $tab('jobs', 'tasks', 'Jobs', false)
-        . ($polHtml !== '' ? $tab('policy', 'sliders-h', 'Policy and fields', false) : '') . ($alrHtml !== '' ? $tab('alerting', 'bell', 'Alerting', false) : '') . ($remHtml !== '' ? $tab('remote', 'terminal', 'Remote', false) : '') . ($logHtml !== '' ? $tab('logs', 'scroll', 'Logs', false) : '') . ($patHtml !== '' ? $tab('patches', 'shield-alt', 'Patches', false) : '') . ($chgHtml !== '' ? $tab('changes', 'history', 'Changes', false) : '') . '</ul></div>'
+        . ($polHtml !== '' ? $tab('policy', 'sliders-h', 'Policy and fields', false) : '') . ($alrHtml !== '' ? $tab('alerting', 'bell', 'Alerting', false) : '') . ($remHtml !== '' ? $tab('remote', 'terminal', 'Remote', false) : '') . ($logHtml !== '' ? $tab('logs', 'scroll', 'Logs', false) : '') . ($patHtml !== '' ? $tab('patches', 'shield-alt', 'Patches', false) : '') . ($chgHtml !== '' ? $tab('changes', 'history', 'Changes', false) : '') . ($autoHtml !== '' ? $tab('autoinstall', 'download', 'Apps with agent', false) : '') . '</ul></div>'
         . '<div class="px-3 pt-3"><div id="rmm-msg" class="alert d-none mb-0" role="status" aria-live="polite"></div></div>'
         . '<div class="tab-content"><div class="tab-pane active p-3" id="rmm-pane-overview" role="tabpanel" aria-labelledby="rmm-tab-overview" tabindex="0">' . rivetRmmUiOverview($vm, $performanceHtml, $performanceNote) . '</div>'
         . '<div class="tab-pane p-3" id="rmm-pane-inventory" role="tabpanel" aria-labelledby="rmm-tab-inventory" tabindex="0">' . rivetRmmUiInventory($vm) . '</div>'
@@ -820,9 +823,10 @@ function rivetRmmUiTabs(array $vm, string $performanceHtml, string $performanceN
         . ($remHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-remote" role="tabpanel" aria-labelledby="rmm-tab-remote" tabindex="0">' . $remHtml . '</div>' : '')
         . ($logHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-logs" role="tabpanel" aria-labelledby="rmm-tab-logs" tabindex="0">' . $logHtml . '</div>' : '')
         . ($patHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-patches" role="tabpanel" aria-labelledby="rmm-tab-patches" tabindex="0">' . $patHtml . '</div>' : '')
-        . ($chgHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-changes" role="tabpanel" aria-labelledby="rmm-tab-changes" tabindex="0">' . $chgHtml . '</div>' : '') . '</div></div>'
+        . ($chgHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-changes" role="tabpanel" aria-labelledby="rmm-tab-changes" tabindex="0">' . $chgHtml . '</div>' : '')
+        . ($autoHtml !== '' ? '<div class="tab-pane p-3" id="rmm-pane-autoinstall" role="tabpanel" aria-labelledby="rmm-tab-autoinstall" tabindex="0">' . $autoHtml . '</div>' : '') . '</div></div>'
         . rivetRmmUiDialogs($vm, $csrf)
-        . ($polHtml . $scrHtml . $alrHtml . $patHtml . $swHtml !== '' ? rivetRmmAutoConfirmModal() . rivetRmmAutoScriptsOn() : '');
+        . ($polHtml . $scrHtml . $alrHtml . $patHtml . $swHtml . $autoHtml !== '' ? rivetRmmAutoConfirmModal() . rivetRmmAutoScriptsOn() : '');
 }
 
 /** @return array<int,string> user_id => name for the job rows (one query, none when there are no jobs). */

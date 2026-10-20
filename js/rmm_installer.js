@@ -24,6 +24,7 @@
     var client = $('rmm-inst-client'), location_ = $('rmm-inst-location'), multi = $('rmm-inst-multi'), uses = $('rmm-inst-uses'), ttl = $('rmm-inst-ttl');
     var err = $('rmm-inst-error'), done = $('rmm-inst-done'), go = $('rmm-inst-go'), goLabel = $('rmm-inst-go-label');
     var meshBox = $('rmm-inst-mesh');   // the optional "Also install the MeshCentral agent" tick-box (absent unless MeshCentral is on and has an address)
+    var appsList = $('rmm-inst-apps-list'), appsCol = $('rmm-inst-apps-col');   // RivetCore 1.0.0-rc.26: the "install with the agent" tick-boxes
     var winNext = $('rmm-inst-windows-next'), linOut = $('rmm-inst-linux-out'), cmdBox = $('rmm-inst-linux-cmd');
     var MULTI_USES = 25;
     form.noValidate = true;   // the script reports a missing department inside the dialog; without script the browser's own check applies (the attribute is not in the markup)
@@ -103,6 +104,7 @@
         $('rmm-inst-panel').setAttribute('aria-labelledby', 'rmm-inst-tab-' + os);
         done.classList.add('d-none');
         showError('');
+        loadApps();
         refresh();
     }
 
@@ -128,7 +130,44 @@
                 d.locations.forEach(function (l) { var o = document.createElement('option'); o.value = String(l.id); o.textContent = l.name; location_.appendChild(o); });
                 $('rmm-inst-location-col').classList.toggle('d-none', d.locations.length === 0);
             })
-            .catch(function () { /* the location is optional */ });
+            .catch(function () { /* the location is optional */ })
+            .then(loadApps);
+    }
+
+    // RivetCore 1.0.0-rc.26: refill the "install with the agent" tick-boxes whenever the department, location or OS changes. Built with the DOM API (not innerHTML)
+    // because the catalog's app and version names are attacker-influenced-free but still untrusted text from the server; textContent is always safe either way.
+    function loadApps() {
+        if (!appsList) { return; }
+        var id = client ? client.value : '';
+        if (!id) { appsList.textContent = ''; if (appsCol) { appsCol.classList.add('d-none'); } return; }
+        var body = new URLSearchParams({ action: 'selectable_apps', client_id: id, location_id: (location_ && location_.value) || '0', os: os, csrf_token: csrf });
+        fetch(postUrl, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }, body: body.toString() })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.success || !client || client.value !== id) { return; }
+                appsList.textContent = '';
+                if (appsCol) { appsCol.classList.toggle('d-none', !d.enabled); }
+                if (!d.enabled) { return; }
+                if (!d.apps || !d.apps.length) {
+                    var p = document.createElement('p'); p.className = 'small text-muted mb-0'; p.textContent = 'The catalog has no app for this department and operating system yet.'; appsList.appendChild(p); return;
+                }
+                d.apps.forEach(function (a) {
+                    var row = document.createElement('div'); row.className = 'form-check mb-1';
+                    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'form-check-input'; cb.name = 'app_ids[]'; cb.value = String(a.package_id); cb.id = 'rmm-inst-app-' + a.package_id;
+                    var blocked = a.missing_params && a.missing_params.length > 0;
+                    cb.checked = !!a.auto && !blocked; cb.disabled = !!blocked;
+                    var label = document.createElement('label'); label.className = 'form-check-label small'; label.htmlFor = cb.id;
+                    label.textContent = a.name + ' ' + a.version + (a.required ? ' (required)' : '') + (a.two_person ? ' - needs a second person' : '');
+                    row.appendChild(cb); row.appendChild(label);
+                    if (blocked) {
+                        var help = document.createElement('div'); help.className = 'form-text text-danger';
+                        help.textContent = 'Missing vendor parameter(s) for this department: ' + a.missing_params.join(', ') + '. Set them in the software catalog first.';
+                        row.appendChild(help);
+                    }
+                    appsList.appendChild(row);
+                });
+            })
+            .catch(function () { /* the tick-boxes are optional; the plain form still posts without them */ });
     }
 
     function fileNameFrom(res, fallback) {
@@ -166,9 +205,11 @@
                 window.setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
                 $(isMsi ? 'rmm-inst-silent-name-msi' : 'rmm-inst-silent-name').textContent = name;
                 var n = parseInt(uses.value, 10) || 1;
+                var appsNote = res.headers.get('X-Apps-Note') || '';
                 done.textContent = 'Downloaded ' + name + ' (' + human(blob.size) + '). Copy it to ' + (n > 1 ? 'the PCs' : 'the PC') + ', double-click it and accept the administrator prompt. This file works for ' + n + (n > 1 ? ' PCs' : ' PC') + ' for ' + (parseInt(ttl.value, 10) || 24) + ' hours; making another one creates a new audited token.'
                     + (isMsi ? ' It is an MSI: double-click it, or run msiexec /i "' + name + '" /qn /norestart. It is unsigned and has not been verified on Windows yet, so try it on one PC first.' : '')
-                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent from your Mesh server after the RivetIT agent; if that part fails the RivetIT agent is still installed and the device page says why.' : '');
+                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent from your Mesh server after the RivetIT agent; if that part fails the RivetIT agent is still installed and the device page says why.' : '')
+                    + (appsNote ? ' ' + appsNote : '');
                 done.classList.remove('d-none');
                 modal.setAttribute('data-state', 'downloaded');
             });
@@ -184,7 +225,8 @@
                 $('rmm-inst-linux-self').classList.toggle('d-none', !d.self_contained);
                 $('rmm-inst-linux-selfver').textContent = d.agent_version ? '(' + d.agent_version + ')' : '';
                 $('rmm-inst-linux-meta').textContent = 'For ' + d.department + '. Works for ' + d.max_uses + (d.max_uses === 1 ? ' machine' : ' machines') + ' until ' + (d.expires_at_text || d.expires_at) + '.'
-                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent (the command holds your Mesh device group id: keep it secret).' : '');
+                    + (meshBox && meshBox.checked ? ' It also installs the MeshCentral agent (the command holds your Mesh device group id: keep it secret).' : '')
+                    + (d.apps_note ? ' ' + d.apps_note : '');
                 linOut.classList.remove('d-none');
                 modal.setAttribute('data-state', 'linux-command');
             });
@@ -214,6 +256,7 @@
     form.querySelectorAll('input[name="arch"]').forEach(function (r) { r.addEventListener('change', refresh); });
     form.querySelectorAll('input[name="format"]').forEach(function (r) { r.addEventListener('change', function () { done.classList.add('d-none'); showError(''); refresh(); }); });
     if (client) { client.addEventListener('change', function () { loadLocations(); refresh(); }); }
+    if (location_) { location_.addEventListener('change', loadApps); }
     // a command made with the other choice must not stay on screen: it would not match the box any more
     if (meshBox) { meshBox.addEventListener('change', function () { linOut.classList.add('d-none'); cmdBox.textContent = ''; done.classList.add('d-none'); showError(''); }); }
     multi.addEventListener('change', function () { uses.value = multi.checked ? MULTI_USES : 1; });
@@ -245,6 +288,7 @@
         modal.removeAttribute('data-state');
         var g = guessArch(), radio = $('rmm-inst-arch-' + g);
         if (radio && have(g)) { radio.checked = true; }
+        loadApps();
         refresh();
     });
     modal.addEventListener('shown.bs.modal', function () {

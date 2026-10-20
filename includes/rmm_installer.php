@@ -12,6 +12,7 @@
  */
 
 require_once __DIR__ . '/rmm_bootstrap.php';
+require_once __DIR__ . '/rmm_auto_install_ui.php';
 
 use RivetCore\Rmm\Authz\RmmAbility;
 
@@ -261,6 +262,9 @@ function rivetRmmInstallerContext(\mysqli $mysqli, int $userId, ?int $fixedClien
         'csrf' => (string) ($_SESSION['csrf_token'] ?? ''),
         'admin' => $isAdmin,
         'mesh' => rivetRmmInstallerMesh($rmm, $cfg),
+        // RivetCore 1.0.0-rc.26 (install apps with the agent): the tick-boxes of the installer page, for the selected department/location/Windows. Empty unless a
+        // department is already chosen (the modal's own client select refills this by AJAX, agent/post/rmm_installer.php?action=selectable_apps, on every change).
+        'apps' => $selected > 0 ? rivetRmmAutoInstSelectable($mysqli, $userId, (string) ($GLOBALS['session_name'] ?? ''), $selected, 0, 'windows') : ['enabled' => false, 'apps' => []],
     ];
 }
 
@@ -340,6 +344,12 @@ function rivetRmmInstallerModal(array $ctx): string
             . '<div class="form-text" id="rmm-inst-mesh-help" data-ready="' . ($ctx['mesh']['ready'] ? '1' : '0') . '">' . $meshHint . '</div></div>';
     }
 
+    // RivetCore 1.0.0-rc.26: tick-boxes for the catalog apps to install with the agent (pre-ticked by policy, blocked when a vendor parameter has no value). Refilled by AJAX
+    // (js/rmm_installer.js, action=selectable_apps) whenever the department, location or OS changes; the checked ids ride in the form as app_ids[] like any other field.
+    $appsField = '<div class="col-12' . ($ctx['apps']['apps'] === [] && $ctx['apps']['enabled'] === false ? ' d-none' : '') . '" id="rmm-inst-apps-col"><span class="form-label d-block">Install with the agent</span>'
+        . '<div id="rmm-inst-apps-list">' . rivetRmmAutoInstSelectableHtml($ctx['apps'], 'rmm-inst') . '</div>'
+        . '<div class="form-text" id="rmm-inst-apps-note">These apps install right after the RivetIT agent, on the devices this installer enrolls.</div></div>';
+
     $msiWarn = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-msi-warn" role="note"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
         . '<strong>Not yet verified on Windows.</strong> The MSI installer is unsigned (SmartScreen may warn) and has not been run on a real Windows PC yet: try it on one PC before a roll-out. The .exe installer is the proven path.</div>';
     $none = '<div class="alert alert-warning mb-3 d-none" id="rmm-inst-nobinary" role="alert"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>'
@@ -386,6 +396,7 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="rmm-inst-multi"><label class="form-check-label" for="rmm-inst-multi">I am installing on several PCs with this one file</label></div>'
         . $lead('Off: the file works for one PC. On: it works for up to <span id="rmm-inst-multi-n">25</span> PCs until it expires.') . '</div>'
         . $meshField
+        . $appsField
         . '</div>'
         . '<details class="mt-3" id="rmm-inst-adv"><summary class="small fw-bold">Advanced</summary><div class="row g-3 mt-0 pt-2">'
         . '<div class="col-md-4"><label class="form-label" for="rmm-inst-ttl">Token lifetime (hours)</label><input class="form-control" type="number" id="rmm-inst-ttl" name="ttl_hours" min="1" max="' . (int) $ctx['ttl_max'] . '" value="' . (int) min(24, $ctx['ttl_max']) . '"></div>'

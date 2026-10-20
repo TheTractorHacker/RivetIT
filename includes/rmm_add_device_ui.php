@@ -52,6 +52,10 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
             . '<div class="form-text" id="ad-mesh-help">' . ($ctx['mesh']['ready'] ? 'The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server. If that fails, the RivetIT agent is still installed.' : $h('Not ready yet: ' . $ctx['mesh']['hint'])) . '</div></div>';
     }
 
+    // RivetCore 1.0.0-rc.26: tick-boxes for the catalog apps to install with the agent. js/rmm_add_device.js refills this (action=selectable_apps) on every department/location/platform change.
+    $apps = '<div class="col-12" id="ad-apps-col"><span class="form-label d-block">Install with the agent</span><div id="ad-apps-list">' . rivetRmmAutoInstSelectableHtml($ctx['apps'], 'ad') . '</div>'
+        . '<div class="form-text">These apps install right after the RivetIT agent, on the devices this installer enrolls. The same ticks apply to every button below (.exe, .msi, the commands and the Linux command).</div></div>';
+
     $o = '<div class="card" id="ad-root" data-post-url="/agent/post/rmm_installer.php" data-csrf="' . $h($ctx['csrf']) . '" data-ttl-max="' . (int) $ctx['ttl_max'] . '" data-fixed="' . ($ctx['fixed'] ? '1' : '0') . '"'
         . ' data-have-exe-amd64="' . ($b['amd64'] !== null ? '1' : '0') . '" data-have-exe-arm64="' . ($b['arm64'] !== null ? '1' : '0') . '" data-have-msi-amd64="' . (($msi['amd64'] ?? null) !== null ? '1' : '0') . '" data-have-msi-arm64="' . (($msi['arm64'] ?? null) !== null ? '1' : '0') . '"'
         . ' data-service-ok="' . ($ctx['problems'] === [] ? '1' : '0') . '" data-admin="' . ($admin ? '1' : '0') . '" data-have-linux="' . ($linux['items'] !== [] || ($linux['hosted']['rows'] ?? []) !== [] ? '1' : '0') . '"'
@@ -68,6 +72,7 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
         . $plat('windows-amd64', 'ad-p-wx64', 'fab fa-windows', 'Windows x64', true) . $plat('windows-arm64', 'ad-p-warm', 'fab fa-windows', 'Windows ARM64', false)
         . $plat('linux-amd64', 'ad-p-lx64', 'fab fa-linux', 'Linux x64', false) . $plat('linux-arm64', 'ad-p-larm', 'fab fa-linux', 'Linux ARM64', false) . '</div></div>'
         . $mesh
+        . $apps
         . '<div class="col-12"><details id="ad-adv"><summary class="small fw-bold">Advanced: how long the token works, how many machines</summary><div class="row g-3 pt-2">'
         . '<div class="col-md-4"><label class="form-label" for="ad-ttl">Token lifetime (hours)</label><input class="form-control" type="number" id="ad-ttl" name="ttl_hours" min="1" max="' . (int) $ctx['ttl_max'] . '" value="' . (int) min(24, $ctx['ttl_max']) . '"></div>'
         . '<div class="col-md-4"><label class="form-label" for="ad-uses">Machines it may enroll</label><input class="form-control" type="number" id="ad-uses" name="max_uses" min="1" max="5000" value="1"></div>'
