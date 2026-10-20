@@ -754,10 +754,9 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
                 $ea_cmds['linux'] = $ea_lx['command'];
             }
         }
-        $r->data['commands'] = $ea_cmds;
         // Shown once, on the next page load, like a plain enrollment token.
         $_SESSION['ea_new_token'] = ['token' => $r->data['token_plain'], 'id' => (int) $r->data['token']['token_id'], 'deploy' => ['arch' => $arch, 'department' => $r->data['department'],
-            'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $r->data['commands'],
+            'expires_at' => $r->data['token']['expires_at'], 'max_uses' => (int) $r->data['token']['max_uses'], 'commands' => $ea_cmds,
             'mesh' => $args[7], 'format' => $format]];
         flash_alert('Enrollment token created. Copy the commands now: the token is shown only once.');
         redirect();
