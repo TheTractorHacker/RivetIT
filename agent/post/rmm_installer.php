@@ -134,6 +134,13 @@ foreach ((array) ($_POST['app_ids'] ?? []) as $v) {
     }
 }
 $args[] = array_values(array_unique($appIds));
+// RivetCore 1.0.0-rc.29: the installer page's "Device type" dropdown (detect automatically / Laptop / Desktop / Server / Virtual machine / Hypervisor),
+// kept server-side by the enrollment token like install_mesh_agent and app_ids, never inside the installer file. Core validates the label.
+$deviceType = trim((string) ($_POST['device_type'] ?? 'auto'));
+if ($deviceType === '') {
+    $deviceType = 'auto';
+}
+$args[] = $deviceType;
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
 
 /**

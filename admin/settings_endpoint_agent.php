@@ -746,14 +746,15 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
             <div class="col-lg-1"><button type="submit" name="create_enroll_token" class="btn btn-primary w-100">Create</button></div>
         </form>
         <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-            <thead><tr><th>Token</th><th>Label</th><th>Department</th><th>Ring</th><th>Uses</th><th>Expires</th><th>State</th><th></th></tr></thead><tbody>
+            <thead><tr><th>Token</th><th>Label</th><th>Department</th><th>Ring</th><th>Device type</th><th>Uses</th><th>Expires</th><th>State</th><th></th></tr></thead><tbody>
             <?php foreach ($tokens as $t) {
                 $state = ['revoked' => ['Revoked', 'danger'], 'expired' => ['Expired', 'secondary'], 'used_up' => ['Used up', 'secondary'], 'active' => ['Active', 'success']][$t['state']]; ?>
                 <tr><td><code><?= $h(substr($t['selector'], 0, 8)) ?>...</code></td><td><?= $h($t['label']) ?></td><td><?= $h($clientName[(int) $t['client_id']] ?? ('#' . (int) $t['client_id'])) ?></td>
-                    <td><?= $h($t['ring']) ?></td><td><?= (int) $t['use_count'] ?> / <?= (int) $t['max_uses'] ?><?= $t['last_used_at'] ? '<div class="small text-muted">last ' . $h($dt($t['last_used_at'])) . '</div>' : '' ?></td>
+                    <td><?= $h($t['ring']) ?></td><td><?= $h(($t['device_type'] ?? 'auto') === 'auto' ? 'Detect automatically' : $t['device_type']) ?></td>
+                    <td><?= (int) $t['use_count'] ?> / <?= (int) $t['max_uses'] ?><?= $t['last_used_at'] ? '<div class="small text-muted">last ' . $h($dt($t['last_used_at'])) . '</div>' : '' ?></td>
                     <td><?= $h($dt($t['expires_at'])) ?></td><td><span class="badge bg-<?= $state[1] ?>"><?= $state[0] ?></span></td>
                     <td><?php if ($state[0] === 'Active') { ?><form action="post.php" method="post" data-ea-confirm="Revoke this enrollment token?"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="token_id" value="<?= (int) $t['token_id'] ?>"><button class="btn btn-xs btn-outline-danger" name="revoke_enroll_token">Revoke</button></form><?php } ?></td></tr>
-            <?php } if (!$tokens) { echo '<tr><td colspan="8" class="text-muted">No enrollment tokens yet.</td></tr>'; } ?>
+            <?php } if (!$tokens) { echo '<tr><td colspan="9" class="text-muted">No enrollment tokens yet.</td></tr>'; } ?>
         </tbody></table></div>
         <?php if ($attempts) { ?>
         <h6 class="mt-3">Recent rejected enrollment attempts</h6>
@@ -783,7 +784,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
                     </select></div>
                 <div class="col-lg-6 d-flex flex-wrap gap-2">
                     <button class="btn btn-sm btn-success" name="device_action" value="approve_link">Link to the chosen asset</button>
-                    <button class="btn btn-sm btn-outline-primary" name="device_action" value="approve_create">Create a new asset</button>
+                    <button class="btn btn-sm btn-outline-primary" name="device_action" value="approve_create">Create a new asset <span class="badge bg-light text-dark" title="What the installer's device type choice, or the agent's hardware facts, suggests">as <?= $h($d['suggested_type'] ?? 'Laptop') ?></span></button>
                     <button class="btn btn-sm btn-outline-danger" name="device_action" value="reject" data-ea-confirm="Reject this device and revoke its credential?">Reject</button>
                 </div>
             </form>

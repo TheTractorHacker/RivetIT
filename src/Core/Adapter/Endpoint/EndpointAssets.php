@@ -6,12 +6,18 @@ namespace ITFlow\Core\Adapter\Endpoint;
 
 use ITFlow\Assets\AssetInventorySync;
 use RivetCore\Database\DatabaseInterface;
+use RivetCore\Rmm\Assets\DeviceTypeClassifier;
 use RivetCore\Rmm\Contracts\RmmAssetNamesInterface;
 use RivetCore\Rmm\Contracts\RmmAssetsInterface;
 
 /** The asset side of RMM identity matching and linking, over RivetIT's `assets` and `asset_interfaces` tables. */
 final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
 {
+    // The exact names includes/load_global_settings.php's $asset_types_array offers (keep in sync by hand: that file is session/global-settings
+    // scoped and not reachable from this adapter). DeviceTypeClassifier::resolve() falls back to whatever of these it has for a label this
+    // edition lacks (we have no "Hypervisor" type, so a Hypervisor-labelled device becomes a Server asset, same as a Virtual Machine).
+    private const ASSET_TYPES = ['Laptop', 'Desktop', 'Server', 'Phone', 'Mobile Phone', 'Tablet', 'Firewall/Router', 'Switch', 'Access Point', 'Printer', 'Display', 'Camera', 'Virtual Machine', 'Other'];
+
     public function __construct(private DatabaseInterface $database)
     {
     }
@@ -70,14 +76,17 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
 
     public function createForDevice(array $device, int $clientId, int $locationId): int
     {
-        $isServer = stripos((string) $device['os_version'], 'server') !== false;
         // AssetInventorySync::osLabel() is the one place that decides this: a Linux device's version text already names the distribution ("Ubuntu 24.04", no
         // prefix), and a Windows one's ProductName already starts with "Windows" ("Windows 11 Pro ..."), so neither doubles up ("Windows Windows 11 ...").
         $osLabel = AssetInventorySync::osLabel((($device['os'] ?? 'windows') === 'linux' ? '' : 'Windows'), (string) $device['os_version']);
+        // RivetCore 1.0.0-rc.29 device type: the installer's explicit choice (asset_type_hint) wins, else what the agent's hardware facts detected
+        // (asset_type_detected, always present); resolve() maps the chosen label onto an asset type this edition actually has.
+        $label = DeviceTypeClassifier::choose($device['asset_type_hint'] ?? null, (string) ($device['asset_type_detected'] ?? ''));
+        $assetType = DeviceTypeClassifier::resolve($label, self::ASSET_TYPES);
         $res = $this->database->execute(
             "INSERT INTO assets (asset_type, asset_name, asset_make, asset_model, asset_serial, asset_os, asset_status, asset_client_id, asset_location_id, asset_created_at)
              VALUES (?, ?, ?, ?, ?, ?, 'Active', ?, ?, NOW())",
-            [$isServer ? 'Server' : 'Laptop', $device['hostname'], (string) ($device['manufacturer'] ?? ''), $device['model'], $device['serial'], $osLabel, $clientId, $locationId]
+            [$assetType, $device['hostname'], (string) ($device['manufacturer'] ?? ''), $device['model'], $device['serial'], $osLabel, $clientId, $locationId]
         );
 
         $assetId = (int) $res->insertId;
@@ -101,7 +110,12 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
 
     public function fillBlanks(int $assetId, array $facts): void
     {
-        // Fill blanks only; never overwrite what a human typed.
+        // Fill blanks only; never overwrite what a human typed. RivetCore 1.0.0-rc.29: $facts['type'] (a label) is optional and, when given, only
+        // ever fills an asset type that is currently empty — resolved onto this edition's own type names the same way createForDevice() does.
+        if (isset($facts['type']) && is_string($facts['type']) && $facts['type'] !== '') {
+            $assetType = DeviceTypeClassifier::resolve($facts['type'], self::ASSET_TYPES);
+            $this->database->execute("UPDATE assets SET asset_type = IF(asset_type IS NULL OR asset_type = '', ?, asset_type) WHERE asset_id = ?", [$assetType, $assetId]);
+        }
         $this->database->execute(
             "UPDATE assets SET asset_serial = IF(asset_serial IS NULL OR asset_serial = '', ?, asset_serial), asset_model = IF(asset_model IS NULL OR asset_model = '', ?, asset_model),
              asset_make = IF(asset_make = '', ?, asset_make), asset_os = IF(asset_os IS NULL OR asset_os = '', ?, asset_os) WHERE asset_id = ?",

@@ -68,6 +68,9 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
         . '<div class="col-md-5"><label class="form-label" for="ad-client">Department <span class="text-danger" aria-hidden="true">*</span></label>' . $clientField . '</div>'
         . '<div class="col-md-4' . ($ctx['locations'] === [] ? ' d-none' : '') . '" id="ad-location-col"><label class="form-label" for="ad-location">Location <span class="text-muted">(optional)</span></label><select class="form-select" id="ad-location" name="location_id">' . $locOpts . '</select></div>'
         . '<div class="col-md-3"><label class="form-label" for="ad-ring">Update ring</label><select class="form-select" id="ad-ring" name="ring"><option value="stable" selected>Stable</option><option value="pilot">Pilot</option></select></div>'
+        . '<div class="col-md-4"><label class="form-label" for="ad-device-type">Device type</label><select class="form-select" id="ad-device-type" name="device_type">'
+        . '<option value="auto" selected>Detect automatically</option><option value="Laptop">Laptop</option><option value="Desktop">Desktop</option><option value="Server">Server</option>'
+        . '<option value="Virtual Machine">Virtual machine</option><option value="Hypervisor">Hypervisor</option></select></div>'
         . '<div class="col-12"><span class="form-label d-block" id="ad-platform-label">Platform</span><div class="btn-group flex-wrap" role="group" aria-labelledby="ad-platform-label">'
         . $plat('windows-amd64', 'ad-p-wx64', 'fab fa-windows', 'Windows x64', true) . $plat('windows-arm64', 'ad-p-warm', 'fab fa-windows', 'Windows ARM64', false)
         . $plat('linux-amd64', 'ad-p-lx64', 'fab fa-linux', 'Linux x64', false) . $plat('linux-arm64', 'ad-p-larm', 'fab fa-linux', 'Linux ARM64', false) . '</div></div>'

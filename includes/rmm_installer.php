@@ -393,6 +393,10 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="form-text" id="rmm-inst-format-help" aria-live="polite">The .exe is the default. Use the MSI for Intune, Group Policy or any tool that installs .msi packages.</div>'
         . ($ctx['admin'] ? '<a class="small d-none" id="rmm-inst-format-link" href="' . $h(RIVET_RMM_MSI_URL) . '">Upload an MSI template under Administration &gt; Endpoint agent</a>' : '') . '</div>'
         . '<div class="col-md-6"><label class="form-label" for="rmm-inst-ring">Update ring</label><select class="form-select" id="rmm-inst-ring" name="ring"><option value="stable" selected>Stable</option><option value="pilot">Pilot</option></select></div>'
+        . '<div class="col-md-6"><label class="form-label" for="rmm-inst-device-type">Device type</label><select class="form-select" id="rmm-inst-device-type" name="device_type">'
+        . '<option value="auto" selected>Detect automatically</option><option value="Laptop">Laptop</option><option value="Desktop">Desktop</option><option value="Server">Server</option>'
+        . '<option value="Virtual Machine">Virtual machine</option><option value="Hypervisor">Hypervisor</option></select>'
+        . $lead('What the installer enrolls shows up as. Leave on "Detect automatically" unless you know better.') . '</div>'
         . '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="rmm-inst-multi"><label class="form-check-label" for="rmm-inst-multi">I am installing on several PCs with this one file</label></div>'
         . $lead('Off: the file works for one PC. On: it works for up to <span id="rmm-inst-multi-n">25</span> PCs until it expires.') . '</div>'
         . $meshField
