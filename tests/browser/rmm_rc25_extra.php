@@ -22,7 +22,8 @@ $mk = function (string $host, array $cols) use ($q, $db): int {
 };
 $asset = function (int $dev, string $name) use ($q, $db): int {
     $q("INSERT INTO assets SET asset_name='" . $db->real_escape_string($name) . "', asset_type='Laptop', asset_client_id=1"); $id = (int) $db->insert_id;
-    $q("UPDATE endpoint_agent_devices SET asset_id=$id WHERE device_id=$dev"); return $id;
+    $q("UPDATE endpoint_agent_devices SET asset_id=$id WHERE device_id=$dev");
+    $q("INSERT INTO asset_rmm_links SET asset_id=$id, integration_id=" . (int) $GLOBALS['rmm']->settings()->integrationId() . ", tactical_agent_id='rivetit:$dev', hostname='" . $db->real_escape_string($name) . "'"); return $id;
 };
 if ($mode === 'seed') {
     $integration = $rmm->settings()->integrationId();
