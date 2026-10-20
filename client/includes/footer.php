@@ -70,6 +70,8 @@
 
 <script src="/js/pretty_content.js"></script>
 
+<script src="/js/rivet_dialog.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/rivet_dialog.js'); ?>"></script>
+
 <script src="/js/confirm_modal.js"></script>
 
 <script src="/js/keepalive.js"></script>

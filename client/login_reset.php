@@ -365,6 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 
 <!-- Bootstrap 5 (bundle includes Popper) -->
 <script src="../plugins/bootstrap5/js/bootstrap.bundle.min.js"></script>
+<script src="../js/rivet_dialog.js"></script>
 
 <?php
 /* plugins/adminlte4/js/adminlte.min.js is GONE. It only ever exported

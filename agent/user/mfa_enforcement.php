@@ -166,6 +166,7 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
 
     <!-- Bootstrap 5 (bundle includes Popper) -->
     <script src="../../plugins/bootstrap5/js/bootstrap.bundle.min.js"></script>
+    <script src="../../js/rivet_dialog.js"></script>
 
     <!-- Custom js-->
     <script src="../../plugins/clipboardjs/clipboard.min.js"></script>

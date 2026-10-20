@@ -236,6 +236,7 @@ $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_ty
 </div>
 
 <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
+<script src="/js/rivet_dialog.js"></script>
 <script src="/js/signature_pad.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 function clearSig() {
@@ -254,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('outtakeForm') && document.getElementById('outtakeForm').addEventListener('submit', function(e){
         if (!document.getElementById('sig_data').value) {
             e.preventDefault();
-            alert('Please draw your signature before submitting.');
+            RivetDialog.alert('Please draw your signature before submitting.');
         }
     });
 });

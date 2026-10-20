@@ -54,7 +54,7 @@ if (isset($k_page['video']['run_id'], $k_page['video']['lesson_uid'])) {
 }
 $k_json = json_encode($k_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
     | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-$k_js = array_merge(['/js/training_kiosk.js'], array_values(array_filter((array) ($k_page['js'] ?? []), 'is_string')));
+$k_js = array_merge(['/js/rivet_dialog.js', '/js/training_kiosk.js'], array_values(array_filter((array) ($k_page['js'] ?? []), 'is_string')));
 $k_nonce = htmlspecialchars($kiosk_csp_nonce, ENT_QUOTES, 'UTF-8');
 ?>
 </main>

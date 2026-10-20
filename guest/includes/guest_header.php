@@ -130,6 +130,7 @@
     <link rel="stylesheet" href="/css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">
 
     <!-- Scripts: jQuery kept as a coexistence shim; toastr for alert feedback -->
+    <script src="/js/rivet_dialog.js"></script>
     <script src="/plugins/jquery/jquery.min.js"></script>
     <script src="/plugins/toastr/toastr.min.js"></script>
 

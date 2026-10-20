@@ -1739,6 +1739,7 @@ if (isset($_POST['add_telemetry'])) {
 <script src="/plugins/jquery/jquery.min.js"></script>
 <!-- Bootstrap 4 -->
 <script src="/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/js/rivet_dialog.js"></script>
 <!-- Custom js-->
 <script src='/plugins/select2/js/select2.min.js'></script>
 <script src="/plugins/Show-Hide-Passwords-Bootstrap-4/bootstrap-show-password.min.js"></script>

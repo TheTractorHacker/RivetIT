@@ -1357,6 +1357,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 
 <script src="plugins/jquery/jquery.min.js"></script>
 <script src="plugins/bootstrap5/js/bootstrap.bundle.min.js"></script>
+<script src="js/rivet_dialog.js"></script>
 <?php
 /* plugins/adminlte4/js/adminlte.min.js is GONE. It only ever exported CardWidget,
    DirectChat, FullScreen, Layout, PushMenu and Treeview - none of which exist on

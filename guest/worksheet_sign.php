@@ -239,6 +239,7 @@ $fields = mysqli_query($mysqli, "SELECT f.*, COALESCE(r.response_value,'') AS re
     <?php } // end not-signed ?>
 </div>
 
+<script src="/js/rivet_dialog.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 var sigPads = {};
 function initSig(id) {
@@ -269,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // Require main signature before submit
     document.getElementById('signForm') && document.getElementById('signForm').addEventListener('submit', function(e){
         var mainSig = document.getElementById('sig_data_main').value;
-        if (!mainSig) { e.preventDefault(); alert('Please draw your signature before submitting.'); }
+        if (!mainSig) { e.preventDefault(); RivetDialog.alert('Please draw your signature before submitting.'); }
     });
 });
 </script>
