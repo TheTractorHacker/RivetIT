@@ -862,10 +862,10 @@ echo rivetEaRenderTabs($eaTabs, $eaDots, $h);
 ?>
 <script nonce="<?= $h($csp_nonce ?? '') ?>">
 document.querySelectorAll('form[data-ea-confirm]').forEach(function (f) {
-    f.addEventListener('submit', function (e) { if (!confirm(f.getAttribute('data-ea-confirm'))) { e.preventDefault(); } });
+    f.addEventListener('submit', function (e) { RivetDialog.gate(e, f, f.getAttribute('data-ea-confirm')); });
 });
 document.querySelectorAll('button[data-ea-confirm]').forEach(function (b) {
-    b.addEventListener('click', function (e) { if (!confirm(b.getAttribute('data-ea-confirm'))) { e.preventDefault(); } });
+    b.addEventListener('click', function (e) { RivetDialog.gate(e, b, b.getAttribute('data-ea-confirm')); });
 });
 document.querySelectorAll('[data-ea-copy-value],[data-ea-copy-target]').forEach(function (b) {
     b.addEventListener('click', function () {

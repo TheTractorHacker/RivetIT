@@ -443,8 +443,8 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
 const CSRF = '<?= $_SESSION['csrf_token'] ?>';
 const ENDPOINTS = {rmm: '/agent/post/rmm_alert.php', network: '/agent/post/rmm_alert.php', backup: '/agent/post/comet_alert.php'};
 
-function alertAction(source, alertId, action, rowId) {
-    if (action === 'create_ticket' && !confirm('Create a ticket from this alert?')) return;
+async function alertAction(source, alertId, action, rowId) {
+    if (action === 'create_ticket' && !(await RivetDialog.confirm('Create a ticket from this alert?', { title: 'Create ticket', okText: 'Create ticket' }))) return;
     fetch(ENDPOINTS[source], {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -467,11 +467,11 @@ function toggleSelectAll(cb) {
     document.querySelectorAll('.alert-chk').forEach(c => c.checked = cb.checked);
 }
 
-function bulkAction(action) {
+async function bulkAction(action) {
     let checked = [...document.querySelectorAll('.alert-chk:checked')];
     if (!checked.length) { checked = [...document.querySelectorAll('.alert-chk')]; }
     if (!checked.length) { RivetDialog.alert('No alerts to update.'); return; }
-    if (!confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`)) return;
+    if (!(await RivetDialog.confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`))) return;
 
     let done = 0;
     checked.forEach(chk => {

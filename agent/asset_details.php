@@ -2120,8 +2120,8 @@ function rmmConnect(linkId, type) {
         else RivetDialog.alert('Connect failed: ' + (d.error || 'Unknown error'));
     });
 }
-function rmmUnlink(linkId) {
-    if (!confirm(<?= json_encode('Remove this asset from RMM monitoring? The asset will remain in ' . APP_NAME . ', but RMM data, alerts, and remote connect options will be removed.', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>)) return;
+async function rmmUnlink(linkId) {
+    if (!(await RivetDialog.confirm(<?= json_encode('Remove this asset from RMM monitoring? The asset will remain in ' . APP_NAME . ', but RMM data, alerts, and remote connect options will be removed.', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>))) return;
     fetch('/agent/post/rmm_unlink.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -2243,8 +2243,8 @@ function renderRmmTable(type, page) {
         : '';
 }
 function esc(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function assetAlertAction(alertId, action, btn) {
-    if (action === 'create_ticket' && !confirm('Create a ticket from this alert?')) return;
+async function assetAlertAction(alertId, action, btn) {
+    if (action === 'create_ticket' && !(await RivetDialog.confirm('Create a ticket from this alert?', { title: 'Create ticket', okText: 'Create ticket' }))) return;
     fetch('/agent/post/rmm_alert.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -2274,12 +2274,12 @@ function toggleAlertMessage(link) {
     full.classList.toggle('d-none', !expanding);
     link.textContent = expanding ? 'Show less' : 'Show more';
 }
-function runRmmScript(linkId) {
+async function runRmmScript(linkId) {
     const sel = document.getElementById('rdt-script-select');
     const sid = sel ? sel.value : '';
     if (!sid) { RivetDialog.alert('Please select a script.'); return; }
     const name = sel.options[sel.selectedIndex].dataset.name;
-    if (!confirm('Run script "' + name + '" on this device?')) return;
+    if (!(await RivetDialog.confirm('Run script "' + name + '" on this device?'))) return;
     fetch('/agent/post/rmm_script_run.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -2349,8 +2349,8 @@ function renderRmmPatches(pane, items) {
 }
 
 // ---- Live device actions ----
-function rmmReboot(linkId) {
-    if (!confirm('Reboot this device now? Any unsaved work on the device will be lost.')) return;
+async function rmmReboot(linkId) {
+    if (!(await RivetDialog.confirm('Reboot this device now? Any unsaved work on the device will be lost.'))) return;
     fetch('/agent/post/rmm_action.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -2364,12 +2364,12 @@ function rmmCommandOpen() {
     if (out) out.textContent = '—';
     $('#rmmCommandModal').modal('show');
 }
-function rmmCommandRun(linkId) {
+async function rmmCommandRun(linkId) {
     const cmd = document.getElementById('rmmCmdInput').value.trim();
     if (!cmd) { RivetDialog.alert('Enter a command.'); return; }
     const shell   = document.getElementById('rmmCmdShell').value;
     const timeout = document.getElementById('rmmCmdTimeout').value;
-    if (!confirm('Run this ' + shell + ' command on the device?')) return;
+    if (!(await RivetDialog.confirm('Run this ' + shell + ' command on the device?'))) return;
     const btn = document.getElementById('rmmCmdRunBtn');
     const out = document.getElementById('rmmCmdOutput');
     btn.disabled = true; out.textContent = 'Running…';
@@ -2385,11 +2385,11 @@ function rmmCommandRun(linkId) {
         out.textContent = d.success ? (d.output || '(no output)') : ('Error: ' + (d.error || 'Unknown error'));
     }).catch(() => { btn.disabled = false; out.textContent = 'Network error.'; });
 }
-function rmmPatchAction(linkId, action, btn) {
+async function rmmPatchAction(linkId, action, btn) {
     const msg = action === 'patch_install'
         ? 'Install all pending updates on this device now? It may reboot the device.'
         : 'Queue a patch scan on this device?';
-    if (!confirm(msg)) return;
+    if (!(await RivetDialog.confirm(msg))) return;
     if (btn) btn.disabled = true;
     fetch('/agent/post/rmm_action.php', {
         method: 'POST',

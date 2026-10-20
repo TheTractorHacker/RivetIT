@@ -512,11 +512,11 @@ function loadLiveHardware() {
         });
 }
 
-function runScript() {
+async function runScript() {
     const sel = document.getElementById('script_select');
     const sid = sel.value;
     if (!sid) { RivetDialog.alert('Please select a script.'); return; }
-    if (!confirm('Run this script on ' + '<?= addslashes($link['hostname']) ?>' + '?')) return;
+    if (!(await RivetDialog.confirm('Run this script on ' + '<?= addslashes($link['hostname']) ?>' + '?'))) return;
 
     fetch('/agent/post/rmm_script_run.php', {
         method: 'POST',

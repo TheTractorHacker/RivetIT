@@ -343,7 +343,7 @@ require_once "includes/inc_all_admin.php";
 
                 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
                 async function revokePushDevice(id, btn) {
-                    if (!confirm('Revoke this device? It will be logged out of the mobile app.')) return;
+                    if (!(await RivetDialog.confirm('Revoke this device? It will be logged out of the mobile app.'))) return;
                     btn.disabled = true;
                     try {
                         const r = await fetch('post.php', {

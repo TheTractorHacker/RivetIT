@@ -69,7 +69,7 @@
 
     function askPassword(wrong) {
         return new Promise(function (resolve) {
-            if (!modalEl || !window.bootstrap) { resolve(window.prompt('Enter your password to continue') ); return; }
+            if (!modalEl || !window.bootstrap) { RivetDialog.prompt('Enter your password to continue', { title: 'Confirm your password', type: 'password' }).then(resolve); return; }
             resolveModal = resolve;
             errEl.hidden = !wrong;
             pwEl.value = '';

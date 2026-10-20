@@ -841,8 +841,8 @@ function dashAlertAck(id, btn) {
     });
 }
 
-function dashAlertTicket(id, btn) {
-    if (!confirm('Create a support ticket from this alert?')) return;
+async function dashAlertTicket(id, btn) {
+    if (!(await RivetDialog.confirm('Create a support ticket from this alert?'))) return;
     btn.disabled = true;
     fetch('/agent/post/rmm_alert.php', {
         method: 'POST',
@@ -854,8 +854,8 @@ function dashAlertTicket(id, btn) {
     });
 }
 
-function ackAllNew(btn) {
-    if (!confirm('Acknowledge all new alerts?')) return;
+async function ackAllNew(btn) {
+    if (!(await RivetDialog.confirm('Acknowledge all new alerts?'))) return;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Acking...';
     document.querySelectorAll('[id^="dash-alert-"]').forEach(row => {

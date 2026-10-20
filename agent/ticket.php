@@ -2613,8 +2613,9 @@ require_once "../includes/footer.php";
                       || (parseInt($('#seconds').val()) || 0) > 0;
         var laborType  = parseInt($('#reply_labor_type_id').val()) || 0;
         if (chargeNow && hasTime && laborType === 0) {
-            if (!confirm('No labor type selected — time will be logged but no charge will be created.\n\nContinue anyway?')) {
+            if (!RivetDialog.gate(e.originalEvent || e, this, 'No labor type selected — time will be logged but no charge will be created.\n\nContinue anyway?', { title: 'No labor type', okText: 'Continue anyway', cancelText: 'Go back', variant: 'warning' })) {
                 e.preventDefault();
+                e.stopImmediatePropagation();
             }
         }
     });
