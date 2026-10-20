@@ -2117,7 +2117,7 @@ function rmmConnect(linkId, type) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&link_id=' + linkId + '&type=' + type
     }).then(r => r.json()).then(d => {
         if (d.success && d.url) window.open(d.url, '_blank', 'noopener,noreferrer');
-        else alert('Connect failed: ' + (d.error || 'Unknown error'));
+        else RivetDialog.alert('Connect failed: ' + (d.error || 'Unknown error'));
     });
 }
 function rmmUnlink(linkId) {
@@ -2128,7 +2128,7 @@ function rmmUnlink(linkId) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&link_id=' + linkId
     }).then(r => r.json()).then(d => {
         if (d.success) location.reload();
-        else alert('Failed: ' + (d.error || 'Unknown error'));
+        else RivetDialog.alert('Failed: ' + (d.error || 'Unknown error'));
     });
 }
 const _rmmTabLoaded = {};
@@ -2251,14 +2251,14 @@ function assetAlertAction(alertId, action, btn) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&action=' + action + '&alert_id=' + alertId
     }).then(r => r.json()).then(d => {
         if (d.success) {
-            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
+            if (d.vendor_warning) { RivetDialog.alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             if (d.redirect) { window.location.href = d.redirect; }
             else {
                 const row = document.getElementById('ral-row-' + alertId);
                 if (row) row.style.opacity = '0.4';
                 if (btn) btn.disabled = true;
             }
-        } else { alert('Failed: ' + (d.error || 'Unknown error')); }
+        } else { RivetDialog.alert('Failed: ' + (d.error || 'Unknown error')); }
     });
 }
 function toggleAlertMessage(link) {
@@ -2277,7 +2277,7 @@ function toggleAlertMessage(link) {
 function runRmmScript(linkId) {
     const sel = document.getElementById('rdt-script-select');
     const sid = sel ? sel.value : '';
-    if (!sid) { alert('Please select a script.'); return; }
+    if (!sid) { RivetDialog.alert('Please select a script.'); return; }
     const name = sel.options[sel.selectedIndex].dataset.name;
     if (!confirm('Run script "' + name + '" on this device?')) return;
     fetch('/agent/post/rmm_script_run.php', {
@@ -2286,10 +2286,10 @@ function runRmmScript(linkId) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&script_id=' + sid + '&link_id=' + linkId
     }).then(r => r.json()).then(d => {
         if (d.success) {
-            if (d.warning) alert(d.warning);
+            if (d.warning) RivetDialog.alert(d.warning);
             window.location.href = '/agent/rmm_script_run.php?run_id=' + d.run_id;
         } else {
-            alert('Script failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Script failed: ' + (d.error || 'Unknown error'));
         }
     });
 }
@@ -2356,8 +2356,8 @@ function rmmReboot(linkId) {
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&action=reboot&link_id=' + linkId
     }).then(r => r.json()).then(d => {
-        alert(d.success ? (d.message || 'Reboot requested.') : ('Reboot failed: ' + (d.error || 'Unknown error')));
-    }).catch(() => alert('Network error requesting reboot.'));
+        RivetDialog.alert(d.success ? (d.message || 'Reboot requested.') : ('Reboot failed: ' + (d.error || 'Unknown error')));
+    }).catch(() => RivetDialog.alert('Network error requesting reboot.'));
 }
 function rmmCommandOpen() {
     const out = document.getElementById('rmmCmdOutput');
@@ -2366,7 +2366,7 @@ function rmmCommandOpen() {
 }
 function rmmCommandRun(linkId) {
     const cmd = document.getElementById('rmmCmdInput').value.trim();
-    if (!cmd) { alert('Enter a command.'); return; }
+    if (!cmd) { RivetDialog.alert('Enter a command.'); return; }
     const shell   = document.getElementById('rmmCmdShell').value;
     const timeout = document.getElementById('rmmCmdTimeout').value;
     if (!confirm('Run this ' + shell + ' command on the device?')) return;
@@ -2397,8 +2397,8 @@ function rmmPatchAction(linkId, action, btn) {
         body: 'csrf_token=<?= $_SESSION["csrf_token"] ?>&action=' + action + '&link_id=' + linkId
     }).then(r => r.json()).then(d => {
         if (btn) btn.disabled = false;
-        alert(d.success ? (d.message || 'Done.') : ('Failed: ' + (d.error || 'Unknown error')));
-    }).catch(() => { if (btn) btn.disabled = false; alert('Network error.'); });
+        RivetDialog.alert(d.success ? (d.message || 'Done.') : ('Failed: ' + (d.error || 'Unknown error')));
+    }).catch(() => { if (btn) btn.disabled = false; RivetDialog.alert('Network error.'); });
 }
 
 // Delegated wiring (CSP forbids inline onclick= attributes): any

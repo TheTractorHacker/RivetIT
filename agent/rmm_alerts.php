@@ -298,7 +298,7 @@ function alertAction(alertId, action) {
             const row = document.getElementById('alert-row-' + alertId);
             if (row) row.style.opacity = '0.3';
         } else {
-            alert('Failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Failed: ' + (d.error || 'Unknown error'));
         }
     });
 }
@@ -329,7 +329,7 @@ function bulkAction(action) {
     let boxes = [...document.querySelectorAll('.alert-chk:checked')];
     if (!boxes.length) { boxes = [...document.querySelectorAll('.alert-chk')]; }
     const checked = boxes.map(c => c.dataset.id);
-    if (!checked.length) { alert('No alerts to update.'); return; }
+    if (!checked.length) { RivetDialog.alert('No alerts to update.'); return; }
     if (!confirm(`${action === 'acknowledge' ? 'Acknowledge' : 'Resolve'} ${checked.length} alert(s)?`)) return;
 
     let done = 0;

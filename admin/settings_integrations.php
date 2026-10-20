@@ -2296,7 +2296,7 @@ function rmmTestConnection(integrationId) {
         } else {
             btn.innerHTML = '<i class="fas fa-times me-1"></i>Failed';
             btn.classList.replace('btn-info', 'btn-danger');
-            alert('Connection failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Connection failed: ' + (d.error || 'Unknown error'));
         }
         setTimeout(() => {
             btn.innerHTML = '<i class="fas fa-plug me-1"></i>Test';
@@ -2320,7 +2320,7 @@ function rmmSyncNow(integrationId) {
     .then(d => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Now';
-        if (d.success) { location.reload(); } else { alert('Sync failed: ' + (d.error || 'Unknown error')); }
+        if (d.success) { location.reload(); } else { RivetDialog.alert('Sync failed: ' + (d.error || 'Unknown error')); }
     })
     .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Now'; });
 }
@@ -2376,7 +2376,7 @@ function fwTestConnection(integrationId) {
         } else {
             btn.innerHTML = '<i class="fas fa-times me-1"></i>Failed';
             btn.classList.replace('btn-info', 'btn-danger');
-            alert('Connection failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Connection failed: ' + (d.error || 'Unknown error'));
         }
         setTimeout(() => {
             btn.innerHTML = '<i class="fas fa-plug me-1"></i>Test';
@@ -2387,7 +2387,7 @@ function fwTestConnection(integrationId) {
     .catch(err => {
         btn.innerHTML = '<i class="fas fa-times me-1"></i>Error';
         btn.disabled = false;
-        alert('Connection test error: ' + err.message);
+        RivetDialog.alert('Connection test error: ' + err.message);
     });
 }
 
@@ -2410,13 +2410,13 @@ function fwSyncNow(integrationId) {
         if (d.success) {
             location.reload();
         } else {
-            alert('Sync failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Sync failed: ' + (d.error || 'Unknown error'));
         }
     })
     .catch(err => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Now';
-        alert('Sync error: ' + err.message);
+        RivetDialog.alert('Sync error: ' + err.message);
     });
 }
 
@@ -2496,7 +2496,7 @@ function unifiTestConnection(integrationId) {
         } else {
             btn.innerHTML = '<i class="fas fa-times me-1"></i>Failed';
             btn.classList.replace('btn-info', 'btn-danger');
-            alert('Connection failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Connection failed: ' + (d.error || 'Unknown error'));
         }
         setTimeout(() => {
             btn.innerHTML = '<i class="fas fa-plug me-1"></i>Test';
@@ -2520,7 +2520,7 @@ function unifiSyncNow(integrationId) {
     .then(d => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Now';
-        if (d.success) { location.reload(); } else { alert('Sync failed: ' + (d.error || 'Unknown error')); }
+        if (d.success) { location.reload(); } else { RivetDialog.alert('Sync failed: ' + (d.error || 'Unknown error')); }
     })
     .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync me-1"></i>Sync Now'; });
 }
@@ -2607,7 +2607,7 @@ function unifiRefreshSites(integrationId, btn) {
         else {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sync me-1"></i>Refresh';
-            alert('Failed to load sites: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Failed to load sites: ' + (d.error || 'Unknown error'));
         }
     })
     .catch(() => {
@@ -2717,7 +2717,7 @@ function unifiSaveSiteMappings() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check me-1"></i>Save Mapping';
         if (d.success) { $('#unifi_siteMappingModal').modal('hide'); }
-        else { alert('Failed to save mapping: ' + (d.error || 'Unknown error')); }
+        else { RivetDialog.alert('Failed to save mapping: ' + (d.error || 'Unknown error')); }
     })
     .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check me-1"></i>Save Mapping'; });
 }

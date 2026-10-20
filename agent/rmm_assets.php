@@ -278,12 +278,12 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
             if (d.success) {
                 location.reload();
             } else {
-                alert('Failed to assign department: ' + (d.error || 'Unknown error'));
+                RivetDialog.alert('Failed to assign department: ' + (d.error || 'Unknown error'));
                 this.disabled = false;
             }
         })
         .catch(() => {
-            alert('Network error assigning department.');
+            RivetDialog.alert('Network error assigning department.');
             this.disabled = false;
         });
     });

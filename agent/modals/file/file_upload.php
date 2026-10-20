@@ -71,7 +71,7 @@ ob_start();
     fileInput.addEventListener('change', function () {
         const totalSize = calculateTotalFileSize(fileInput.files);
         if (fileInput.files.length > maxFiles || totalSize > maxTotalSize) {
-            alert(`You can only upload up to ${maxFiles} files at a time and the total file size must not exceed 500MB.`);
+            RivetDialog.alert(`You can only upload up to ${maxFiles} files at a time and the total file size must not exceed 500MB.`);
             resetFileInput();
         }
     });
@@ -80,7 +80,7 @@ ob_start();
         const totalSize = calculateTotalFileSize(fileInput.files);
         if (fileInput.files.length > maxFiles || totalSize > maxTotalSize) {
             event.preventDefault();
-            alert(`You can only upload up to ${maxFiles} files at a time and the total file size must not exceed 500MB.`);
+            RivetDialog.alert(`You can only upload up to ${maxFiles} files at a time and the total file size must not exceed 500MB.`);
             resetFileInput();
         }
     });

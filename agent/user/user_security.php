@@ -424,12 +424,12 @@ async function deletePasskey(pkId, pkName, btn) {
                     '<tr><td colspan="4" class="text-muted text-center py-3"><i class="fas fa-fingerprint fa-lg mb-1 d-block text-secondary"></i>No passkeys yet. Add one above.</td></tr>';
             }
         } else {
-            alert('Delete failed: ' + (result.error || 'Unknown error'));
+            RivetDialog.alert('Delete failed: ' + (result.error || 'Unknown error'));
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-trash"></i>';
         }
     } catch (err) {
-        alert('Error: ' + err.message);
+        RivetDialog.alert('Error: ' + err.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-trash"></i>';
     }
@@ -580,11 +580,11 @@ async function revokeApiToken(id, btn) {
         if (j.ok) {
             document.getElementById('api-tok-' + id).remove();
         } else {
-            alert(j.error || 'Failed');
+            RivetDialog.alert(j.error || 'Failed');
             btn.disabled = false;
         }
     } catch(e) {
-        alert('Error: ' + e.message);
+        RivetDialog.alert('Error: ' + e.message);
         btn.disabled = false;
     }
 }

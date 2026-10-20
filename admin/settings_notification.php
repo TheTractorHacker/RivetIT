@@ -355,11 +355,11 @@ require_once "includes/inc_all_admin.php";
                         if (j.ok) {
                             document.getElementById('push-dev-' + id).remove();
                         } else {
-                            alert('Could not revoke device.');
+                            RivetDialog.alert('Could not revoke device.');
                             btn.disabled = false;
                         }
                     } catch (e) {
-                        alert('Network error revoking device.');
+                        RivetDialog.alert('Network error revoking device.');
                         btn.disabled = false;
                     }
                 }

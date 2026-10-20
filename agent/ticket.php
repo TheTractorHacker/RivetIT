@@ -2436,7 +2436,7 @@ if (isset($_GET['ticket_id'])) {
                         if (d.success) {
                             window.location.reload();
                         } else {
-                            alert('Failed: ' + (d.error || 'Unknown error'));
+                            RivetDialog.alert('Failed: ' + (d.error || 'Unknown error'));
                         }
                     });
                 }

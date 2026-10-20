@@ -217,11 +217,11 @@ async function revokeMyDevice(id, btn) {
         if (j.ok) {
             document.getElementById('my-dev-' + id).remove();
         } else {
-            alert('Could not revoke device.');
+            RivetDialog.alert('Could not revoke device.');
             btn.disabled = false;
         }
     } catch (e) {
-        alert('Network error revoking device.');
+        RivetDialog.alert('Network error revoking device.');
         btn.disabled = false;
     }
 }

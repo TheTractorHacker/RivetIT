@@ -460,10 +460,10 @@ function remoteConnect(linkId, type) {
             }
         } else {
             tab.close();
-            alert('Remote connect failed: ' + (d.error || 'Unknown error'));
+            RivetDialog.alert('Remote connect failed: ' + (d.error || 'Unknown error'));
         }
     })
-    .catch(() => { tab.close(); alert('Network error during remote connect.'); });
+    .catch(() => { tab.close(); RivetDialog.alert('Network error during remote connect.'); });
 }
 
 function openTactical() {
@@ -515,7 +515,7 @@ function loadLiveHardware() {
 function runScript() {
     const sel = document.getElementById('script_select');
     const sid = sel.value;
-    if (!sid) { alert('Please select a script.'); return; }
+    if (!sid) { RivetDialog.alert('Please select a script.'); return; }
     if (!confirm('Run this script on ' + '<?= addslashes($link['hostname']) ?>' + '?')) return;
 
     fetch('/agent/post/rmm_script_run.php', {
@@ -526,10 +526,10 @@ function runScript() {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
-            alert('Script queued. Run ID: ' + d.run_id);
+            RivetDialog.alert('Script queued. Run ID: ' + d.run_id);
             location.reload();
         } else {
-            alert('Script failed: ' + (d.error || 'Unknown'));
+            RivetDialog.alert('Script failed: ' + (d.error || 'Unknown'));
         }
     });
 }
@@ -543,16 +543,16 @@ function ackAlert(alertId, btn) {
     .then(r => r.json())
     .then(d => {
         if (d.success) {
-            if (d.vendor_warning) { alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
+            if (d.vendor_warning) { RivetDialog.alert('Updated here, but not synced to the RMM: ' + d.vendor_warning); }
             btn.closest('.d-flex').remove();
         }
-        else { alert('Failed: ' + d.error); }
+        else { RivetDialog.alert('Failed: ' + d.error); }
     });
 }
 
 function copyAssetInfo() {
     const txt = document.getElementById('copy-asset-info').value;
-    navigator.clipboard.writeText(txt).then(() => alert('Asset info copied to clipboard.'));
+    navigator.clipboard.writeText(txt).then(() => RivetDialog.alert('Asset info copied to clipboard.'));
 }
 
 function esc(s) {
