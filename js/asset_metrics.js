@@ -349,7 +349,7 @@
     }
 
     function sparseNote(entries, unit, precision, bool) {
-        var total = entries.reduce(function (a, e) { return a + e.count; }, 0);
+        var total = entries.reduce(function (a, e) { return Math.max(a, e.count); }, 0);
         var text = total + (total === 1 ? ' sample' : ' samples') + ' so far';
         if (total === 1) {
             var only = entries.filter(function (e) { return e.count === 1; })[0];

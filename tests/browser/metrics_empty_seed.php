@@ -57,4 +57,9 @@ $put('system.pending_reboot', 0, 900, 1);
 $put('memory.total_bytes', 0, 10 * 86400, 16e9);
 $put('memory.total_bytes', 0, 10 * 86400 + 300, 16e9);
 
+// 7d / 30d / 90d read the rollup tables; rewind the watermark so the old samples are rolled too.
+$roll = new \ITFlow\Metrics\MetricRollupService($db);
+$roll->rewindTo(gmdate('Y-m-d H:i:s', $now - 12 * 86400));
+$roll->run();
+
 file_put_contents($argv[1] ?? 'php://stdout', json_encode(['asset_id' => $asset, 'client_id' => $client]) . "\n");
