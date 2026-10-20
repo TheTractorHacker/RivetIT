@@ -115,7 +115,7 @@ function rivetRmmScrCronWords(string $expr): string
     $at = static fn (string $hh, string $mm): string => sprintf('%02d:%02d UTC', (int) $hh, (int) $mm);
     $restStar = $dom === '*' && $mon === '*' && $dow === '*';
     if ($mi === '*' && $h === '*' && $restStar) {
-        return 'Every minute (UTC)';
+        return 'Every minute';
     }
     if ($step($mi) !== null && $h === '*' && $restStar) {
         return 'Every ' . $step($mi) . ' minutes';
