@@ -288,6 +288,12 @@ $eaTab = static function (string $name) use (&$eaTabs, &$eaCur): void { $eaTabs[
 </div>
 
 <?php
+// RivetCore 1.0.0-rc.22 change monitoring: the switch (off by default) and the presets in force. Read-only presets; the full management screens are a later task.
+require_once dirname(__DIR__) . '/includes/rmm_chg_ui.php';
+$chgRead = $rmm->changeActions()->settingsRead(rivetRmmPrincipal((int) $session_user_id, (string) $session_name));
+if ($chgRead->ok) {
+    echo rivetRmmChgAdminCard((array) $chgRead->data, (string) $csrf);
+}
 // RMM Phase 2 and 3 (RivetCore 1.0.0-rc.10): policies, script library with schedules and approvals, and alerting. Each sub-switch is off by default.
 $autoStorm = (array) ($rmm->alertingActions()->settings(rivetRmmPrincipal((int) $session_user_id, (string) $session_name))->data['storm'] ?? []);
 $autoSettings = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_rmm_approve_scripts_lvl3 AS a, config_rmm_escalation_contact AS c FROM settings WHERE company_id = 1')) ?: ['a' => 0, 'c' => ''];

@@ -308,6 +308,23 @@ if (isset($_POST['cleanup_stale_checks'])) {
     redirect();
 }
 
+// RivetCore 1.0.0-rc.22: the change_monitor switch (off by default). Core requires the storage acknowledgement to turn it on, needs rmm.admin, and audits.
+if (isset($_POST['save_change_monitor'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $chg_want = !empty($_POST['change_monitor']);
+    $chg_cur = (bool) ($rmm->changeActions()->settingsRead($ea_who)->data['enabled'] ?? false);
+    if ($chg_want === $chg_cur) {
+        flash_alert('No change to save.', 'info');
+        redirect();
+    }
+    $chg_r = $rmm->changeActions()->updateSettings($ea_who, ['features' => ['change_monitor' => $chg_want], 'accept_change_storage' => !empty($_POST['accept_change_storage'])]);
+    if ($chg_r->ok) {
+        $rmm->syncState();
+        logAction('Endpoint Agent', 'Change Monitoring ' . ($chg_want ? 'Enabled' : 'Disabled'), "$session_name turned change monitoring " . ($chg_want ? 'on' : 'off'));
+    }
+    ea_flash_result($chg_r, $chg_want ? 'Change monitoring is on.' : 'Change monitoring is off.');
+}
+
 // Software inventory switch and the two history limits (RivetCore 1.0.0-rc.9). RmmAdmin validates and audits; only values that changed are written, so an install on
 // the legacy feature defaults (features_json NULL) or the default limits stays that way until an administrator actually changes something here.
 if (isset($_POST['save_inventory_settings'])) {
