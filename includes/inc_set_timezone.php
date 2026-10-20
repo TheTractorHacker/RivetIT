@@ -17,3 +17,5 @@ date_default_timezone_set($session_timezone);
 
 // Set MySQL session time zone
 mysqli_query($mysqli, "SET time_zone = '{$_SESSION['session_utc_offset']}'");
+
+require_once __DIR__ . "/rivet_time.php";   // rivetFormatTime(): stored timestamps in the company zone
