@@ -27,14 +27,14 @@ function rivetRmmAlrSevPill(string $sev): string
     return $sev === 'crit' ? rivetRmmUiPill('crit', 'Critical') : rivetRmmUiPill('warn', 'Warning');
 }
 
-/** "3 h ago" with the UTC time under it. */
+/** "3 h ago" with the time in the company zone under it. */
 function rivetRmmAlrWhen(?string $iso): string
 {
     if ($iso === null || $iso === '') {
         return '<span class="text-muted">never</span>';
     }
 
-    return rivetRmmUiTime($iso) . '<div class="small text-muted">' . rmmH(str_replace('T', ' ', substr(rtrim($iso, 'Z'), 0, 16)) . ' UTC') . '</div>';
+    return rivetRmmUiTime($iso) . '<div class="small text-muted">' . rmmH(rivetFormatTime($iso, 'utc')) . '</div>';
 }
 
 /** "in 2 h 5 m" for a time ahead (or "now" when it is not ahead). */
@@ -70,16 +70,16 @@ function rivetRmmAlrMinutes(int $m): string
 }
 
 /**
- * The schedule of a window in words: "Once, 2026-10-12 22:00 to 2026-10-13 02:00 UTC" or "Every Saturday 22:00, 4 h, America/Chicago".
+ * The schedule of a window in words: "Once, 2026-10-12 22:00 to 2026-10-13 02:00 CDT" (company zone) or "Every Saturday 22:00, 4 h, America/Chicago".
  *
  * @param array<string,mixed> $w a presented window
  */
 function rivetRmmAlrScheduleWords(array $w): string
 {
     if (($w['kind'] ?? 'once') === 'once') {
-        $f = static fn (?string $iso): string => $iso === null ? '?' : str_replace('T', ' ', substr(rtrim($iso, 'Z'), 0, 16));
+        $f = static fn (?string $iso): string => $iso === null ? '?' : (rivetFormatTime($iso, 'utc', false) ?: '?');
 
-        return 'Once, ' . $f($w['starts_at'] ?? null) . ' to ' . $f($w['ends_at'] ?? null) . ' UTC';
+        return 'Once, ' . $f($w['starts_at'] ?? null) . ' to ' . $f($w['ends_at'] ?? null) . ' ' . rivetTimeZoneLabel();
     }
     $n = max(1, (int) ($w['recur_interval'] ?? 1));
     $days = array_filter(explode(',', (string) ($w['recur_days'] ?? '')), static fn ($d) => $d !== '');
@@ -742,14 +742,14 @@ function rivetRmmAlrWindowForm(array $vm): string
         . '<div class="form-check"><input class="form-check-input" type="radio" id="w-mode-mute" name="mode" value="mute"' . (($w['mode'] ?? 'mute') === 'mute' ? ' checked' : '') . '><label class="form-check-label" for="w-mode-mute"><strong>Mute.</strong> Alerts that would open are held back, and open after the window if the check is still bad. Escalation pauses. Scripts still run.</label></div>'
         . '<div class="form-check"><input class="form-check-input" type="radio" id="w-mode-suppress" name="mode" value="suppress"' . (($w['mode'] ?? '') === 'suppress' ? ' checked' : '') . '><label class="form-check-label" for="w-mode-suppress"><strong>Suppress.</strong> Results are recorded but not evaluated. Scheduled scripts for the device also pause until the window ends.</label></div></div>'
         . '<div class="col-md-6">' . $picker . ($reasons !== '' ? '<ul class="form-text small mb-0 ps-3">' . $reasons . '</ul>' : '') . '</div>'
-        . '<div class="col-md-6"><label class="form-label" for="w-kind">Schedule</label><select class="form-select" id="w-kind" name="kind"><option value="once"' . ($kind === 'once' ? ' selected' : '') . '>One time</option><option value="recurring"' . ($kind === 'recurring' ? ' selected' : '') . '>Repeating</option></select></div>'
+        . '<div class="col-md-6"><label class="form-label" for="w-kind">Schedule</label><select class="form-select" data-company-tz="' . rmmH(rivetCompanyTimezone()) . '" id="w-kind" name="kind"><option value="once"' . ($kind === 'once' ? ' selected' : '') . '>One time</option><option value="recurring"' . ($kind === 'recurring' ? ' selected' : '') . '>Repeating</option></select></div>'
         . '<div class="col-12"><label class="form-label" for="w-tz">Time zone</label>' . rivetRmmAlrZoneSelect('w-tz', 'timezone', $zone, $vm['default_zone'])
-        . '<div class="form-text">Times below are in this time zone. RivetCore stores them in UTC.</div></div>'
+        . '<div class="form-text">Times below are in this time zone. The company time zone is shown under each box.</div></div>'
         // one time
         . '<div class="col-12" data-rmm-when="#w-kind=once"><div class="row g-3"><div class="col-md-6"><label class="form-label" for="w-start">Starts</label><input class="form-control" type="datetime-local" id="w-start" name="starts_local" data-alr-local="start" value="'
-        . rmmH($once ? rivetRmmAlrToLocalInput($w['starts_at'], $zone) : '') . '"><div class="form-text" data-alr-utc="start" aria-live="polite">' . ($once ? 'UTC: ' . rmmH(str_replace('T', ' ', substr(rtrim((string) $w['starts_at'], 'Z'), 0, 16))) : '') . '</div></div>'
+        . rmmH($once ? rivetRmmAlrToLocalInput($w['starts_at'], $zone) : '') . '"><div class="form-text" data-alr-utc="start" aria-live="polite">' . ($once ? 'Company time: ' . rmmH(rivetFormatTime($w['starts_at'], 'utc')) : '') . '</div></div>'
         . '<div class="col-md-6"><label class="form-label" for="w-end">Ends</label><input class="form-control" type="datetime-local" id="w-end" name="ends_local" data-alr-local="end" value="'
-        . rmmH($once ? rivetRmmAlrToLocalInput($w['ends_at'], $zone) : '') . '"><div class="form-text" data-alr-utc="end" aria-live="polite">' . ($once ? 'UTC: ' . rmmH(str_replace('T', ' ', substr(rtrim((string) $w['ends_at'], 'Z'), 0, 16))) : '') . '</div></div>'
+        . rmmH($once ? rivetRmmAlrToLocalInput($w['ends_at'], $zone) : '') . '"><div class="form-text" data-alr-utc="end" aria-live="polite">' . ($once ? 'Company time: ' . rmmH(rivetFormatTime($w['ends_at'], 'utc')) : '') . '</div></div>'
         . '<div class="col-12 form-text">A one-time window can last up to 366 days.</div></div></div>'
         // repeating
         . '<div class="col-12" data-rmm-when="#w-kind=recurring"><div class="row g-3">'
