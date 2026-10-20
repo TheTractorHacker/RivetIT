@@ -71,10 +71,10 @@ $rmm->admin()->enable($admin); $fresh();
 // no agent published yet: the endpoint refuses with the reason and leaves no token
 [$c, $b] = $adEp(['action' => 'windows_commands', 'client_id' => 1, 'arch' => 'amd64', 'format' => 'exe']);
 $ok($c === 422 && str_contains((string) ($adJson($b)['error'] ?? ''), 'No agent binary is published') && $adTokens() === $adT0, 'windows_commands with no agent published: refused with the reason, no token');
-// Linux with nothing recorded: Core's own text, and the answer says so
+// Linux with nothing recorded or hosted (26.10.64): a clear message with the fix, no token, no broken command
 [$c, $b] = $adEp(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64']);
 $j = $adJson($b);
-$ok($c === 200 && ($j['self_contained'] ?? null) === false && str_contains((string) $j['command'], "./install-linux.sh --server") && str_contains((string) $j['command'], 'unpacked') && ($j['packages'] ?? null) === [] && $adTokens() === $adT0 + 1, 'Linux with nothing recorded: Core\'s text (unpack the tarball first), not self-contained, no packages, one token');
+$ok($c === 409 && ($j['success'] ?? true) === false && str_contains((string) $j['error'], 'Build or publish the agent first') && !str_contains($b, 'install-linux.sh --server') && $adTokens() === $adT0, 'Linux with nothing recorded or hosted: the fix message, no command, no token');
 
 // ================================================================ 2. published files
 $adTmp = sys_get_temp_dir() . '/ad_' . bin2hex(random_bytes(3)); mkdir($adTmp);
@@ -158,7 +158,7 @@ $ok($c === 200 && $j['self_contained'] === true && str_contains((string) $j['com
 $q("UPDATE endpoint_agent_linux_assets SET url='http://plain.example.test/a' WHERE kind='binary' AND arch='amd64'");
 [$c, $b] = $adEp(['action' => 'linux', 'client_id' => 1, 'arch' => 'amd64']);
 $j = $adJson($b);
-$ok($c === 200 && $j['self_contained'] === false && !str_contains((string) $j['command'], 'plain.example.test'), 'a recorded http address is never put into a command (Core\'s text is used)');
+$ok($c === 409 && !str_contains($b, 'plain.example.test'), 'a recorded http address is never put into a command (no command at all)');
 $q("UPDATE endpoint_agent_linux_assets SET url='https://github.com/TheTractorHacker/rivet-core/releases/download/agent-v0.9.1/rivetit-agent-linux-amd64' WHERE kind='binary' AND arch='amd64'");
 // run the command with a stand-in curl and install script
 $adShim = sys_get_temp_dir() . '/adshim_' . bin2hex(random_bytes(3)); mkdir($adShim);
