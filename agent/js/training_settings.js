@@ -118,8 +118,7 @@
         });
         if (others.length) {
             var names = others.length === 1 ? others[0] : others.slice(0, -1).join(', ') + ' and ' + others[others.length - 1];
-            if (!window.confirm('Unsaved changes in ' + names + ' will be lost.\n\nPress OK to continue anyway, or Cancel to go back and save them first.')) {
-                e.preventDefault();
+            if (!RivetDialog.gate(e, form, 'Unsaved changes in ' + names + ' will be lost.\n\nContinue anyway, or go back and save them first?', { title: 'Unsaved changes', okText: 'Continue anyway', cancelText: 'Go back', variant: 'warning' })) {
                 return;
             }
         }
