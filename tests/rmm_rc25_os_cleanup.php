@@ -156,3 +156,25 @@ $ok((int) $one('SELECT COUNT(*) FROM endpoint_agent_change_rules') === 0 && (int
 
 // ---------------------------------------------------------------- clean up what this test made
 $q("DELETE FROM endpoint_agent_checks"); $q("DELETE FROM endpoint_agent_devices"); $q("DELETE FROM rmm_alerts"); $q("UPDATE endpoint_agent_settings SET checks_json=NULL WHERE id=1");
+
+// ---------------------------------------------------------------- policy editor: "Applies to" (check templates keep and show their os)
+require_once "$root/includes/rmm_pol_ui.php";
+$cat = [];
+$mkRow = fn (array $o) => ['chk' => [array_merge(['key' => 'svc_x', 'type' => 'service', 'interval_s' => '300', 'mode' => 'override', 'lg' => ['service' => ['name' => 'nginx']]], $o)]];
+foreach (['linux', 'windows'] as $osv) {
+    [$set, $err] = rivetRmmPolBuildSettings($mkRow(['os' => $osv]), $cat);
+    $ok($err === [] && ($set['check.svc_x']['value']['os'] ?? '') === $osv, "policy editor stores os=$osv on the check template");
+}
+[$set, $err] = rivetRmmPolBuildSettings($mkRow(['os' => 'any']), $cat);
+$ok($err === [] && !isset($set['check.svc_x']['value']['os']), 'policy editor: "Windows and Linux" stores no os (a check without os goes everywhere, as before)');
+[$set, $err] = rivetRmmPolBuildSettings($mkRow([]), $cat);
+$ok($err === [] && !isset($set['check.svc_x']['value']['os']), 'policy editor: no os posted stores none');
+foreach (['mac', 'LINUX', ['linux'], '<script>'] as $bad) {
+    [$set, $err] = rivetRmmPolBuildSettings($mkRow(['os' => $bad]), $cat);
+    $ok($err !== [], 'policy editor refuses a hostile os ' . json_encode($bad));
+}
+$model = rivetRmmPolFormModel(['check.svc_x' => ['mode' => 'override', 'value' => ['type' => 'service', 'params' => ['name' => 'nginx'], 'interval_s' => 300, 'os' => 'linux']], 'check.svc_y' => ['mode' => 'override', 'value' => ['type' => 'service', 'params' => ['name' => 'nginx'], 'interval_s' => 300]]]);
+$ok($model['checks'][0]['os'] === 'linux' && $model['checks'][1]['os'] === 'any', 'the form model reads os back (an old template shows "Windows and Linux")');
+$rowHtml = rivetRmmPolCheckRow('0', $model['checks'][0], []);
+$ok(strpos($rowHtml, 'name="chk[0][os]"') !== false && strpos($rowHtml, '<option value="linux" selected>Linux only') !== false && strpos($rowHtml, 'Applies to') !== false, 'the check row has the Applies to selector with the stored value selected');
+$ok(strpos(rivetRmmPolCheckText(['type' => 'service', 'interval_s' => 300, 'os' => 'linux']), 'Linux devices only') !== false, 'the readable settings table names the OS');
