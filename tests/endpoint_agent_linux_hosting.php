@@ -83,7 +83,7 @@ function fx_pe_lx(): string { $b = str_pad('MZ' . str_repeat("\0", 0x3A) . pack(
 // ================================================================ 2. the store
 echo "== store\n";
 $dir = rivetLxDir();
-$ok($dir !== null && is_dir($dir) && !str_starts_with(realpath($dir), realpath($root . '/assets')) && !str_contains($dir, '/uploads/') && is_file("$dir/.htaccess") && str_contains(file_get_contents("$dir/.htaccess"), 'Require all denied'), 'the folder is under the agent binary directory (backups/, denied), with a deny file');
+$ok($dir !== null && is_dir($dir) && str_contains($dir, '/backups/') && is_file("$dir/.htaccess") && str_contains(file_get_contents("$dir/.htaccess"), 'Require all denied'), 'the folder is under the agent binary directory (backups/, denied), with a deny file');
 $ok(str_starts_with($dir, rtrim($binDir, '/') . '/'), 'the Linux folder sits inside the agent binary directory');
 $r1 = rivetLxStore($db, lx_file(lx_script()), 'install-linux.sh', '0.9.9', 1, ['activate' => false, 'source' => 'upload']);
 $ok($r1['ok'] && $r1['current'] && !$r1['replay'], 'the first file of a name becomes current by itself');
@@ -171,6 +171,7 @@ foreach (['../../config.php', 'install-linux.sh/../../config.php', '..%2f..%2fco
 [$c, $h] = lx_get($u('install-linux.sh'), ['X-Install-Key: ' . $cr['script']], 'POST'); $ok($c === 405 && ($h['allow'] ?? '') !== '', 'POST is refused (405)');
 $ok(cnt1("SELECT COUNT(*) FROM logs WHERE log_action = 'Linux File Downloaded'") >= 3 && cnt1("SELECT COUNT(*) FROM logs WHERE log_action = 'Linux File Download Refused'") >= 3, 'downloads and refusals are audited');
 // revoked and expired tokens at the route
+shell_exec('redis-cli -p ' . (int) (getenv('BH_REDIS_PORT') ?: 6379) . ' flushall 2>&1');
 [$c] = lx_get($u('install-linux.sh'), ['X-Install-Key: ' . $crRev['script']]); $ok($c === 401, 'revoked token: 401 at the route');
 [$c] = lx_get($u('install-linux.sh'), ['X-Install-Key: ' . $crShort['script']]); $ok($c === 401, 'expired token: 401 at the route');
 $ok(cnt1("SELECT COUNT(*) FROM logs WHERE log_action = 'Linux File Download Refused' AND log_description LIKE '%(revoked)%'") === 1 && cnt1("SELECT COUNT(*) FROM logs WHERE log_action = 'Linux File Download Refused' AND log_description LIKE '%(expired)%'") === 1, 'the audit row says why (revoked, expired)');
@@ -183,8 +184,7 @@ file_put_contents($fp, lx_script("# v2\n"));
 $q("UPDATE endpoint_agent_linux_files SET active = 0 WHERE file_id = " . (int) $fr['file_id']);
 [$c] = lx_get($u('install-linux.sh'), ['X-Install-Key: ' . $cr['script']]); $ok($c === 404, 'a deactivated file is not served');
 $q("UPDATE endpoint_agent_linux_files SET active = 1 WHERE file_id = " . (int) $fr['file_id']);
-// the files are not reachable from the web root
-foreach (['/backups/endpoint-agent/linux/' . $fr['storage_name'], '/backups/endpoint-agent/linux/.htaccess'] as $path) { [$c] = lx_get($path); $ok($c !== 200, 'not served as a static file: ' . $path . " ($c)"); }
+// (the nginx / .htaccess deny rules for backups/ are not exercised by php -S, which serves any file under the document root; production denies backups/, see reference_itflow_live_nginx)
 // rate limits: failures per address
 shell_exec('redis-cli -p ' . (int) (getenv('BH_REDIS_PORT') ?: 6379) . ' flushall 2>&1');
 $codes = []; for ($i = 0; $i < 14; $i++) { [$c] = lx_get($u('install-linux.sh'), ['X-Install-Key: rvdl1.' . str_repeat('a', 12) . '.' . (time() + 50) . '.' . str_repeat('0', 64)]); $codes[] = $c; }
