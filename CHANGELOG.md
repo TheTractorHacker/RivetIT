@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **In-app notification muting.** Settings > Notifications gets an "In-App Notifications" card (mirrors the existing mobile-push categories) to disable a category instance-wide, and each user gets a matching "What shows in your notification bell" picker under their own preferences. Muting a category stops `appNotify()` from creating the notification row at all for that user, not just hiding it - independent of the separate mobile-push on/off switch. DB 2.6.184 adds `settings.config_notify_enabled_types`, `user_settings.user_config_notify_types`.
+- **Fix: the cron "Update available" notice fired on every cron run** (every 5 minutes on an install with the full scheduler on), re-notifying every admin of the same already-known update repeatedly. Throttled to once per day per version; a genuinely new version still notifies immediately regardless of the throttle. DB 2.6.184 adds `settings.config_update_notify_last_version` / `config_update_notify_last_at`.
+
 ## [26.10.66] RivetIT — RivetCore 1.0.0-rc.29: hypervisors, device type, install apps with the agent, Mesh after approval; a real Linux Mesh/device-type bug fixed
 
 **Deploy notes:** pull this tag, run `composer install --no-dev` (RivetCore `^1.0.0-rc.29`), then Administration > Database updates (database 2.6.182: Core migrations 0033 software auto-install, 0034 Mesh after approval, 0035 device type, 0036 hypervisor visibility; `db.sql` mirrors all nine new tables and two new columns). Any database that already reached 2.6.182 under the earlier, narrower definition of that step (0033/0034 only) needs it re-run by hand once (its version string does not advance on its own): migrations are idempotent, so running the Core runner again is harmless and picks up 0035/0036. Hypervisor visibility and software auto-install stay off until an administrator switches them on under Administration > Endpoint agent.

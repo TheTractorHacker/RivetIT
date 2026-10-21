@@ -91,3 +91,34 @@ function push_allowed_for_user(int $user_id, string $type): bool {
     if ($category === null) return true; // unmapped types default to allowed
     return in_array($category, push_enabled_categories_for_user($user_id), true);
 }
+
+// Categories globally allowed to appear in the in-app notification bell, per admin settings. Null/empty config = all allowed.
+// Same category list as push (push_notification_categories()); this is a separate on/off axis, not tied to the push toggle.
+function notify_globally_enabled_categories(): array {
+    global $mysqli;
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_notify_enabled_types FROM settings WHERE company_id = 1"));
+    $raw = $row['config_notify_enabled_types'] ?? null;
+    if (!$raw) return array_keys(push_notification_categories());
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : array_keys(push_notification_categories());
+}
+
+// Categories this user wants shown in-app, intersected with what's globally allowed. Null user config = all globally-allowed categories.
+function notify_enabled_categories_for_user(int $user_id): array {
+    global $mysqli;
+    $global = notify_globally_enabled_categories();
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_config_notify_types FROM user_settings WHERE user_id = " . intval($user_id)));
+    $raw = $row['user_config_notify_types'] ?? null;
+    if (!$raw) return $global;
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) return $global;
+    return array_values(array_intersect($decoded, $global));
+}
+
+// Should a notification of $type be created at all for $user_id (the in-app bell)? Unmapped types (not in any category) always show -
+// only the "system"/"Cron"/"Update" style categories this feature targets are ever muted.
+function notify_allowed_for_user(int $user_id, string $type): bool {
+    $category = push_category_for_type($type);
+    if ($category === null) return true;
+    return in_array($category, notify_enabled_categories_for_user($user_id), true);
+}

@@ -1173,8 +1173,21 @@ $updates = fetchUpdates();
 $update_message = $updates->update_message;
 
 if ($updates->current_version !== $updates->latest_version) {
-    // Send Alert to inform Updates Available
-    appNotify("Update", "$update_message", "/admin/update.php");
+    // Throttled to once/day (previously re-sent on every cron run with no gate at all - a fresh "Update" notification
+    // for every admin on every tick of this schedule). A newly-available version still notifies immediately even if
+    // the last notice was under a day old, so bumping to a brand new release is never delayed by the throttle.
+    $update_notify_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_update_notify_last_version, config_update_notify_last_at FROM settings WHERE company_id = 1"));
+    $update_notify_last_version = $update_notify_row['config_update_notify_last_version'] ?? null;
+    $update_notify_last_at = $update_notify_row['config_update_notify_last_at'] ?? null;
+    $update_notify_due = $update_notify_last_version !== $updates->latest_version
+        || $update_notify_last_at === null
+        || strtotime($update_notify_last_at) <= (time() - 86400);
+    if ($update_notify_due) {
+        // Send Alert to inform Updates Available
+        appNotify("Update", "$update_message", "/admin/update.php");
+        $update_notify_version_esc = mysqli_real_escape_string($mysqli, (string) $updates->latest_version);
+        mysqli_query($mysqli, "UPDATE settings SET config_update_notify_last_version = '$update_notify_version_esc', config_update_notify_last_at = NOW() WHERE company_id = 1");
+    }
 }
 
 

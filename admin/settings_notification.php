@@ -507,4 +507,40 @@ require_once "includes/inc_all_admin.php";
     </div>
 </div>
 
+<!-- In-app notification categories (bell): independent of push above - gates whether a notification is created at all for a user, not just whether it's pushed to their phone. Cron/Update/etc. live in "System & Admin". -->
+<div class="card mb-4" id="inapp-notify-card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-bell me-2"></i>In-App Notifications</h3>
+    </div>
+    <div class="card-body">
+        <div class="small text-muted mb-2">Staff can only enable the bell for categories switched on here. Turning one off hides it in-app for everyone (independent of mobile push, above).</div>
+        <form method="post" action="post.php">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="rounded" style="border:1px solid var(--color-border,#eee);overflow:hidden;">
+                <?php
+                $notify_global_categories = notify_globally_enabled_categories();
+                $notify_cat_total = count(push_notification_categories());
+                $notify_cat_i = 0;
+                foreach (push_notification_categories() as $notify_cat_key => $notify_cat) {
+                    $notify_cat_i++;
+                ?>
+                <div class="d-flex align-items-center justify-content-between p-2 px-3"
+                     style="<?= $notify_cat_i < $notify_cat_total ? 'border-bottom:1px solid var(--color-border,#eee);' : '' ?>">
+                    <span><i class="<?= $notify_cat['icon'] ?> me-2 text-muted" style="width:1.1rem;text-align:center;"></i><?= nullable_htmlentities($notify_cat['label']) ?></span>
+                    <div class="form-check form-check form-switch mb-0">
+                        <input type="checkbox" class="form-check-input" id="notify_cat_<?= $notify_cat_key ?>"
+                               name="notify_categories[]" value="<?= $notify_cat_key ?>"
+                               <?= in_array($notify_cat_key, $notify_global_categories, true) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="notify_cat_<?= $notify_cat_key ?>"></label>
+                    </div>
+                </div>
+                <?php } ?>
+            </div>
+            <button type="submit" name="save_notify_categories" class="btn btn-sm btn-primary mt-3">
+                <i class="fas fa-save me-1"></i>Save Categories
+            </button>
+        </form>
+    </div>
+</div>
+
 <?php require_once "../includes/footer.php"; ?>

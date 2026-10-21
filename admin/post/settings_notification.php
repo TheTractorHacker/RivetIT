@@ -113,3 +113,19 @@ if (isset($_POST['save_push_categories'])) {
     redirect();
 
 }
+
+if (isset($_POST['save_notify_categories'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    $valid_keys  = array_keys(push_notification_categories());
+    $selected    = array_values(array_intersect($_POST['notify_categories'] ?? [], $valid_keys));
+    $json_esc    = mysqli_real_escape_string($mysqli, json_encode($selected));
+
+    mysqli_query($mysqli, "UPDATE settings SET config_notify_enabled_types = '$json_esc' WHERE company_id = 1");
+
+    logAction("Settings", "Edit", "$session_name updated globally allowed in-app notification categories");
+    flash_alert("In-app notification categories updated.");
+    redirect();
+
+}

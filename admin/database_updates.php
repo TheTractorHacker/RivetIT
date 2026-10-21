@@ -11624,3 +11624,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.183'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.183') {
+        // DB 2.6.184: in-app notification category muting (mirrors the existing mobile-push category columns, config_push_enabled_types /
+        // user_config_push_types) and a daily throttle for the "Update available" cron notification (previously re-sent on every cron run with
+        // no gate at all).
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN `config_notify_enabled_types` text DEFAULT NULL AFTER `config_push_enabled_types`,
+            ADD COLUMN `config_update_notify_last_version` varchar(100) DEFAULT NULL,
+            ADD COLUMN `config_update_notify_last_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `user_settings`
+            ADD COLUMN `user_config_notify_types` text DEFAULT NULL AFTER `user_config_push_types`");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.184'");
+    }

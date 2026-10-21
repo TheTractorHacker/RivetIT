@@ -200,6 +200,44 @@ $has_fcm = mysqli_num_rows(mysqli_query($mysqli, "SELECT token_id FROM api_token
             </button>
         </form>
         <?php } ?>
+
+        <?php
+        $notify_global_categories = notify_globally_enabled_categories();
+        $notify_my_categories     = notify_enabled_categories_for_user($session_user_id);
+        ?>
+        <div class="small text-muted fw-bold mb-1 text-uppercase mt-3" style="letter-spacing:.05em;font-size:.7rem;">
+            <i class="fas fa-bell me-1"></i>What shows in your notification bell
+        </div>
+        <?php if (empty($notify_global_categories)) { ?>
+        <div class="small text-muted mb-0">An administrator has not allowed any notification categories in-app yet.</div>
+        <?php } else { ?>
+        <form action="post.php" method="post">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="rounded" style="border:1px solid var(--color-border,#eee);overflow:hidden;">
+                <?php
+                $notify_allowed_cats = array_filter(push_notification_categories(), fn($k) => in_array($k, $notify_global_categories, true), ARRAY_FILTER_USE_KEY);
+                $notify_cat_total = count($notify_allowed_cats);
+                $notify_cat_i = 0;
+                foreach ($notify_allowed_cats as $notify_cat_key => $notify_cat) {
+                    $notify_cat_i++;
+                ?>
+                <div class="d-flex align-items-center justify-content-between p-2 px-3"
+                     style="<?= $notify_cat_i < $notify_cat_total ? 'border-bottom:1px solid var(--color-border,#eee);' : '' ?>">
+                    <span><i class="<?= $notify_cat['icon'] ?> me-2 text-muted" style="width:1.1rem;text-align:center;"></i><?= nullable_htmlentities($notify_cat['label']) ?></span>
+                    <div class="form-check form-check form-switch mb-0">
+                        <input type="checkbox" class="form-check-input" id="my_notify_cat_<?= $notify_cat_key ?>"
+                               name="notify_categories[]" value="<?= $notify_cat_key ?>"
+                               <?= in_array($notify_cat_key, $notify_my_categories, true) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="my_notify_cat_<?= $notify_cat_key ?>"></label>
+                    </div>
+                </div>
+                <?php } ?>
+            </div>
+            <button type="submit" name="save_my_notify_categories" class="btn btn-sm btn-primary mt-3">
+                <i class="fas fa-save me-1"></i>Save
+            </button>
+        </form>
+        <?php } ?>
     </div>
 </div>
 

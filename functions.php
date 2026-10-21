@@ -4285,6 +4285,13 @@ function appNotify($type, $details, $action = null, $client_id = 0, $entity_id =
             continue;
         }
 
+        // In-app notification category mute (Settings > Notifications, and the user's own preferences): a separate
+        // on/off axis from the mobile push categories above - muting "System & Admin" here stops Cron/Update/etc.
+        // from reaching the bell at all, independent of whether they'd still push.
+        if (!notify_allowed_for_user($user_id, $type)) {
+            continue;
+        }
+
         mysqli_query($mysqli, "INSERT INTO notifications SET notification_type = '$type_esc', notification = '$details_esc', notification_action = $action_sql, notification_client_id = $client_id, notification_entity_id = $entity_id, notification_user_id = $user_id");
 
         publishUserNotification($user_id, [
