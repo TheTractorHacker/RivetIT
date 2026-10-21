@@ -58,8 +58,19 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
                     <?php } ?>
                 </div>
 
-                <div class="form-group mb-2">
-                    <textarea class="form-control tinymceMailTemplate" name="body" rows="10"><?= nullable_htmlentities($mt_body) ?></textarea>
+                <ul class="nav nav-tabs nav-tabs-sm mb-2 mt-editor-tabs" role="tablist">
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link active small" data-bs-toggle="tab" data-bs-target="#mt-visual-<?= nullable_htmlentities($mt_event) ?>" data-pane="visual">Visual</button></li>
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link small" data-bs-toggle="tab" data-bs-target="#mt-source-<?= nullable_htmlentities($mt_event) ?>" data-pane="source" data-for="mt-body-<?= nullable_htmlentities($mt_event) ?>">HTML source</button></li>
+                </ul>
+                <div class="tab-content mb-2">
+                    <div class="tab-pane show active" id="mt-visual-<?= nullable_htmlentities($mt_event) ?>">
+                        <div class="form-group">
+                            <textarea class="form-control tinymceMailTemplate" id="mt-body-<?= nullable_htmlentities($mt_event) ?>" name="body" rows="10"><?= nullable_htmlentities($mt_body) ?></textarea>
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="mt-source-<?= nullable_htmlentities($mt_event) ?>">
+                        <textarea class="form-control mt-source-view" data-for="mt-body-<?= nullable_htmlentities($mt_event) ?>" rows="10" style="font-family:monospace;font-size:.8rem;" spellcheck="false"></textarea>
+                    </div>
                 </div>
 
                 <div class="small mb-3">
@@ -92,11 +103,33 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <div class="form-group mb-2">
                 <label class="small text-muted">Header HTML</label>
-                <textarea class="form-control tinymceMailTemplate" name="header_html" rows="4"><?= nullable_htmlentities($mt_hf['header']) ?></textarea>
+                <ul class="nav nav-tabs nav-tabs-sm mb-2 mt-editor-tabs" role="tablist">
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link active small" data-bs-toggle="tab" data-bs-target="#mt-visual-header" data-pane="visual">Visual</button></li>
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link small" data-bs-toggle="tab" data-bs-target="#mt-source-header" data-pane="source" data-for="mt-header-html">HTML source</button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane show active" id="mt-visual-header">
+                        <textarea class="form-control tinymceMailTemplate" id="mt-header-html" name="header_html" rows="4"><?= nullable_htmlentities($mt_hf['header']) ?></textarea>
+                    </div>
+                    <div class="tab-pane" id="mt-source-header">
+                        <textarea class="form-control mt-source-view" data-for="mt-header-html" rows="4" style="font-family:monospace;font-size:.8rem;" spellcheck="false"></textarea>
+                    </div>
+                </div>
             </div>
             <div class="form-group mb-3">
                 <label class="small text-muted">Footer HTML</label>
-                <textarea class="form-control tinymceMailTemplate" name="footer_html" rows="4"><?= nullable_htmlentities($mt_hf['footer']) ?></textarea>
+                <ul class="nav nav-tabs nav-tabs-sm mb-2 mt-editor-tabs" role="tablist">
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link active small" data-bs-toggle="tab" data-bs-target="#mt-visual-footer" data-pane="visual">Visual</button></li>
+                    <li class="nav-item" role="presentation"><button type="button" class="nav-link small" data-bs-toggle="tab" data-bs-target="#mt-source-footer" data-pane="source" data-for="mt-footer-html">HTML source</button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane show active" id="mt-visual-footer">
+                        <textarea class="form-control tinymceMailTemplate" id="mt-footer-html" name="footer_html" rows="4"><?= nullable_htmlentities($mt_hf['footer']) ?></textarea>
+                    </div>
+                    <div class="tab-pane" id="mt-source-footer">
+                        <textarea class="form-control mt-source-view" data-for="mt-footer-html" rows="4" style="font-family:monospace;font-size:.8rem;" spellcheck="false"></textarea>
+                    </div>
+                </div>
             </div>
             <button type="submit" name="save_mail_template_header_footer" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
         </form>
@@ -137,10 +170,9 @@ tinymce.init({
         { name: 'lists', items: ['bullist', 'numlist'] },
         { name: 'indentation', items: ['outdent', 'indent'] },
         { name: 'undo', items: ['undo', 'redo'] },
-        { name: 'code', items: ['code'] },
     ],
     convert_urls: false,
-    plugins: 'link lists code fullscreen',
+    plugins: 'link lists fullscreen',
     license_key: 'gpl',
     setup: function (editor) {
         editor.on('change keyup SetContent', function () {
@@ -148,6 +180,35 @@ tinymce.init({
             checkMailTemplateWarnings(editor.getElement());
         });
     },
+});
+
+// Visual / HTML source tabs: switching TO the source tab dumps the editor's current HTML into the plain textarea;
+// switching back (away from source, to visual) pushes whatever was typed in the source textarea back into the editor.
+document.addEventListener('show.bs.tab', function (e) {
+    var btn = e.target;
+    if (!btn.classList.contains('nav-link') || !btn.closest('.mt-editor-tabs')) { return; }
+    var pane = btn.dataset.pane;
+    var forId = btn.dataset.for;
+    if (pane === 'source' && forId) {
+        var ed = tinymce.get(forId);
+        var sourceTa = document.querySelector('.mt-source-view[data-for="' + forId + '"]');
+        if (ed && sourceTa) { sourceTa.value = ed.getContent(); }
+        return;
+    }
+    if (pane === 'visual') {
+        // The tab group's OTHER button carries data-for - find it to know which editor this visual pane belongs to.
+        var group = btn.closest('.mt-editor-tabs');
+        var sourceBtn = group.querySelector('[data-pane="source"]');
+        var forId2 = sourceBtn ? sourceBtn.dataset.for : null;
+        if (!forId2) { return; }
+        var ed2 = tinymce.get(forId2);
+        var sourceTa2 = document.querySelector('.mt-source-view[data-for="' + forId2 + '"]');
+        if (ed2 && sourceTa2) {
+            ed2.setContent(sourceTa2.value);
+            ed2.save();
+            checkMailTemplateWarnings(document.getElementById(forId2));
+        }
+    }
 });
 
 function checkMailTemplateWarnings(textarea) {
