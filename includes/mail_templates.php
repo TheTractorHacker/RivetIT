@@ -51,44 +51,152 @@ function mailTemplatePlaceholdersFor(string $event): array {
 }
 
 /**
- * The hardcoded text every call site used to send, verbatim where the ~2-3 historical duplicates of one event agreed, and the
- * fuller/more common variant where they had drifted (e.g. "Ticket Created -" vs "Ticket Created" in the subject; this app
- * always had three near-identical copies of the "created" email with tiny wording differences - there is no single "the"
- * original to preserve byte-for-byte). This is what ships as each event's row on day one, and what "Reset to default" restores.
+ * Strips the leading "<!--RIVETIT_BLOCKS:{...}-->" comment (Settings > Email Templates' drag-and-drop builder's own state)
+ * before any placeholder substitution ever sees the body - the JSON's own {"..."} braces would otherwise be mangled by the
+ * {placeholder} regex, and no real email should ever carry this comment.
  */
-function mailTemplateDefaults(): array {
+const MAIL_TEMPLATE_BLOCKS_RE = '/^<!--RIVETIT_BLOCKS:(.*?)-->\s*/s';
+
+function mailTemplateStripBlocksComment(string $body): string {
+    return (string) preg_replace(MAIL_TEMPLATE_BLOCKS_RE, '', $body, 1);
+}
+
+/**
+ * The block list behind a stored (or default) body, for the admin builder UI. Always returns at least one block: a body with
+ * no recognizable comment - a legacy row saved before the builder existed, or anything hand-edited through the "Advanced
+ * HTML" escape hatch in a way that does not round-trip - becomes a single 'html' block, so nothing is ever lost or hidden.
+ *
+ * @return list<array<string,mixed>>
+ */
+function mailTemplateBlocksFromBody(string $body): array {
+    if (preg_match(MAIL_TEMPLATE_BLOCKS_RE, $body, $m) === 1) {
+        $decoded = json_decode($m[1], true);
+        if (is_array($decoded) && is_array($decoded['blocks'] ?? null)) {
+            return $decoded['blocks'];
+        }
+    }
+
+    return [['type' => 'html', 'html' => mailTemplateStripBlocksComment($body)]];
+}
+
+/**
+ * One block's compiled HTML. Mirrors the JS compiler in admin/settings_mail_templates.php exactly (block type for block
+ * type) - kept here only so mailTemplateDefaults() can be generated from mailTemplateDefaultBlocks() instead of two
+ * hand-written copies of the same text drifting apart. A block the JS could not have produced (an unknown type, or one a
+ * future version adds) degrades to its raw 'html'/'label' text rather than vanishing.
+ */
+function mailTemplateCompileBlock(array $b): string {
+    switch ((string) ($b['type'] ?? '')) {
+        case 'reply_marker':
+            return "<i style='color: #808080'>##- Please type your reply above this line -##</i>";
+        case 'button':
+            return "<a href='" . (string) ($b['link'] ?? '') . "'>" . (string) ($b['label'] ?? 'Click here') . '</a>';
+        case 'divider':
+            return '<hr>';
+        case 'spacer':
+            return '<div style="height:' . max(4, min(200, (int) ($b['size'] ?? 16))) . 'px;"></div>';
+        default: // 'text', 'html', and anything unrecognized
+            return (string) ($b['html'] ?? '');
+    }
+}
+
+/** @param list<array<string,mixed>> $blocks */
+function mailTemplateCompileBlocks(array $blocks): string {
+    return implode('<br><br>', array_map('mailTemplateCompileBlock', $blocks));
+}
+
+/** Embeds the block list as a leading HTML comment ahead of its own compiled HTML, so re-opening the builder shows the same blocks instead of one opaque blob. */
+function mailTemplateSerializeBlocks(array $blocks): string {
+    return '<!--RIVETIT_BLOCKS:' . json_encode(['v' => 1, 'blocks' => $blocks]) . '-->' . mailTemplateCompileBlocks($blocks);
+}
+
+/**
+ * The default block list per event - the single source of truth mailTemplateDefaults() compiles from. Reconstructed from
+ * the hardcoded text every call site used to send, verbatim where the ~2-3 historical duplicates of one event agreed, and
+ * the fuller/more common variant where they had drifted (e.g. "Ticket Created -" vs "Ticket Created" in the subject; there
+ * is no single "the" original to preserve byte-for-byte). A plain inline link became its own Button block (clearer in a
+ * drag-and-drop builder than text with a link buried in it) - a deliberate, cosmetic-only change from the old hardcoded
+ * wording, never a behavior change: same placeholders, same destination.
+ */
+function mailTemplateDefaultBlocks(): array {
+    $signature = ['type' => 'text', 'html' => '--<br>{company_name} - Support<br>{from_email}<br>{company_phone}'];
+
     return [
         'ticket_created' => [
-            'subject' => 'Ticket Created - [{ticket_number}] - {subject}',
-            'body' => "<i style='color: #808080'>##- Please type your reply above this line -##</i><br><br>Hello {contact_name},<br><br>A ticket regarding \"{subject}\" has been created for you.<br><br>--------------------------------<br>{ticket_details}--------------------------------<br><br>Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}<br>Portal: <a href='{portal_link}'>View ticket</a><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'reply_marker'],
+            ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>A ticket regarding "{subject}" has been created for you.'],
+            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_details}--------------------------------'],
+            ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
+            ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
+            $signature,
         ],
         'ticket_reply' => [
-            'subject' => 'Ticket update - [{ticket_number}] - {subject}',
-            'body' => "<i style='color: #808080'>##- Please type your reply above this line -##</i><br><br>Hello {contact_name},<br><br>Your ticket regarding {subject} has been updated.<br><br>--------------------------------<br>{ticket_reply}<br>--------------------------------<br><br>Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}<br>Portal: <a href='{portal_link}'>View ticket</a><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'reply_marker'],
+            ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>Your ticket regarding {subject} has been updated.'],
+            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_reply}<br>--------------------------------'],
+            ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
+            ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
+            $signature,
         ],
         'ticket_resolved' => [
-            'subject' => 'Ticket resolved - [{ticket_number}] - {subject}',
-            'body' => "<i style='color: #808080'>##- Please type your reply above this line -##</i><br><br>Hello {contact_name},<br><br>Your ticket regarding {subject} has been resolved and closed.<br><br>--------------------------------<br>{ticket_reply}<br>--------------------------------<br><br>We hope this resolved things to your satisfaction - how would you rate it?<br>{csat_rating_html}<br>If you need further assistance, please reply or <a href='{portal_link}'>re-open</a> to let us know! <br><br>Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}<br>Portal: <a href='{portal_link}'>View ticket</a><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'reply_marker'],
+            ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>Your ticket regarding {subject} has been resolved and closed.'],
+            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_reply}<br>--------------------------------'],
+            ['type' => 'text', 'html' => 'We hope this resolved things to your satisfaction - how would you rate it?<br>{csat_rating_html}'],
+            ['type' => 'text', 'html' => "If you need further assistance, please reply or <a href='{portal_link}'>re-open</a> to let us know!"],
+            ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
+            ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
+            $signature,
         ],
         'ticket_closed' => [
             // Deliberately NO reply marker - "(do not reply)" is the point of this one (functions.php's addReply() would otherwise let a reply to it reopen the ticket).
-            'subject' => 'Ticket closed - [{ticket_number}] - {subject} | (do not reply)',
-            'body' => "Hello {contact_name},<br><br>Your ticket regarding \"{subject}\" has been closed. <br><br> We hope the request/issue was resolved to your satisfaction - how would you rate it?<br>{csat_rating_html}<a href='{portal_link}'>Or click here to leave feedback</a>. <br>If you need further assistance, please raise a new ticket using the below details. Please do not reply to this email. <br><br>Ticket: {ticket_number}<br>Subject: {subject}<br>Portal: <a href='{portal_link}'>View ticket</a><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>Your ticket regarding "{subject}" has been closed.'],
+            ['type' => 'text', 'html' => 'We hope the request/issue was resolved to your satisfaction - how would you rate it?<br>{csat_rating_html}'],
+            ['type' => 'button', 'label' => 'Leave feedback', 'link' => '{portal_link}'],
+            ['type' => 'text', 'html' => 'If you need further assistance, please raise a new ticket using the below details. Please do not reply to this email.'],
+            ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}'],
+            ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
+            $signature,
         ],
         'ticket_assigned' => [
             // Sent to the technician the ticket was assigned to, not the client contact - no reply marker, no portal link (an agent link instead).
-            'subject' => 'Ticket {ticket_number} assigned to you - {subject}',
-            'body' => 'Hi {technician_name}, <br><br>A ticket has been assigned to you!<br><br>Department: {client_name}<br>Ticket Number: {ticket_number}<br>Subject: {subject}<br><br>{agent_link} <br><br>Thanks, <br>{assigned_by_name}<br>{company_name}',
+            ['type' => 'text', 'html' => 'Hi {technician_name},<br><br>A ticket has been assigned to you!'],
+            ['type' => 'text', 'html' => 'Department: {client_name}<br>Ticket Number: {ticket_number}<br>Subject: {subject}'],
+            ['type' => 'button', 'label' => 'Open ticket', 'link' => '{agent_link}'],
+            ['type' => 'text', 'html' => 'Thanks,<br>{assigned_by_name}<br>{company_name}'],
         ],
         'password_reset' => [
-            'subject' => 'Password reset for {company_name} Department Portal',
-            'body' => "Hello {contact_name},<br><br>Someone (probably you) has requested a new password for your account on {company_name}'s Department Portal. <br><br><b>Please <a href='{portal_link}'>click here</a> to reset your password.</b> <br><br>Alternatively, copy and paste this URL into your browser:<br> {portal_link}<br><br><i>If you didn't request this change, you can safely ignore this email.</i><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'text', 'html' => "Hello {contact_name},<br><br>Someone (probably you) has requested a new password for your account on {company_name}'s Department Portal."],
+            ['type' => 'button', 'label' => 'Reset your password', 'link' => '{portal_link}'],
+            ['type' => 'text', 'html' => 'Alternatively, copy and paste this URL into your browser:<br>{portal_link}'],
+            ['type' => 'text', 'html' => "<i>If you didn't request this change, you can safely ignore this email.</i>"],
+            $signature,
         ],
         'password_changed' => [
-            'subject' => 'Password reset confirmation for {company_name} Department Portal',
-            'body' => "Hello {contact_name},<br><br>Your password for your account on {company_name}'s Department Portal was successfully reset. You should be all set! <br><br><b>If you didn't reset your password, please get in touch ASAP.</b><br><br>--<br>{company_name} - Support<br>{from_email}<br>{company_phone}",
+            ['type' => 'text', 'html' => "Hello {contact_name},<br><br>Your password for your account on {company_name}'s Department Portal was successfully reset. You should be all set!"],
+            ['type' => 'text', 'html' => "<b>If you didn't reset your password, please get in touch ASAP.</b>"],
+            $signature,
         ],
     ];
+}
+
+/** This is what ships as each event's row on day one, and what "Reset to default" restores - compiled from mailTemplateDefaultBlocks(), one source of truth. */
+function mailTemplateDefaults(): array {
+    $subjects = [
+        'ticket_created' => 'Ticket Created - [{ticket_number}] - {subject}',
+        'ticket_reply' => 'Ticket update - [{ticket_number}] - {subject}',
+        'ticket_resolved' => 'Ticket resolved - [{ticket_number}] - {subject}',
+        'ticket_closed' => 'Ticket closed - [{ticket_number}] - {subject} | (do not reply)',
+        'ticket_assigned' => 'Ticket {ticket_number} assigned to you - {subject}',
+        'password_reset' => 'Password reset for {company_name} Department Portal',
+        'password_changed' => 'Password reset confirmation for {company_name} Department Portal',
+    ];
+    $out = [];
+    foreach (mailTemplateDefaultBlocks() as $event => $blocks) {
+        $out[$event] = ['subject' => $subjects[$event], 'body' => mailTemplateSerializeBlocks($blocks)];
+    }
+
+    return $out;
 }
 
 /** Sample data for the admin preview/test-send, matching mailTemplatePlaceholdersFor()'s keys for every event. */
@@ -126,6 +234,26 @@ function mailTemplateHeaderFooter($mysqli): array {
 }
 
 /**
+ * Strips the builder's blocks comment (never meant to reach a real email), then substitutes {placeholder} tokens: the small
+ * fixed MAIL_TEMPLATE_RAW_KEYS set verbatim (already-trusted HTML this app built), everything else HTML-escaped (or, in
+ * 'text' mode, control-character-stripped only - a mail header, never HTML). Shared by renderMailTemplate() and the admin
+ * preview/test-send handler, so both ever strip/escape/substitute exactly one way.
+ *
+ * @param array<string,mixed> $vars
+ */
+function mailTemplateApplyPlaceholders(string $template, array $vars, string $mode = 'html'): string {
+    $template = mailTemplateStripBlocksComment($template);
+    $escaped = array_diff_key($vars, array_flip(MAIL_TEMPLATE_RAW_KEYS));
+    if ($mode === 'html') {
+        foreach (array_intersect_key($vars, array_flip(MAIL_TEMPLATE_RAW_KEYS)) as $k => $v) {
+            $template = str_replace('{' . $k . '}', (string) $v, $template);
+        }
+    }
+
+    return \ITFlow\Automation\Template::render($template, array_map('strval', $escaped), $mode);
+}
+
+/**
  * Render one mail event. $vars is plain strings keyed by placeholder name (see mailTemplatePlaceholdersFor()); a key this
  * event's defaults don't use is simply ignored, and a placeholder in the template with no matching key renders as '' (the
  * same "unknown placeholders are dropped, never shown raw" rule src/Automation/Template.php already uses for automation text).
@@ -141,15 +269,8 @@ function renderMailTemplate($mysqli, string $event, array $vars): ?array {
     $subjectTpl = $row['mail_template_subject'] ?? $defaults['subject'];
     $bodyTpl = $row['mail_template_body'] ?? $defaults['body'];
 
-    $raw = array_intersect_key($vars, array_flip(MAIL_TEMPLATE_RAW_KEYS));
-    $escaped = array_diff_key($vars, array_flip(MAIL_TEMPLATE_RAW_KEYS));
-
-    $body = $bodyTpl;
-    foreach ($raw as $k => $v) {
-        $body = str_replace('{' . $k . '}', (string) $v, $body);
-    }
-    $body = \ITFlow\Automation\Template::render($body, array_map('strval', $escaped), 'html');
-    $subject = \ITFlow\Automation\Template::render($subjectTpl, array_map('strval', $escaped), 'text');
+    $body = mailTemplateApplyPlaceholders($bodyTpl, $vars, 'html');
+    $subject = mailTemplateApplyPlaceholders($subjectTpl, $vars, 'text');
 
     $hf = mailTemplateHeaderFooter($mysqli);
     if ($hf['header'] !== '' || $hf['footer'] !== '') {

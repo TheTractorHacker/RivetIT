@@ -11681,3 +11681,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.186'");
     }
+
+    if ($rivetit_db_version() == '2.6.186') {
+        // DB 2.6.187: Email Templates' drag-and-drop block builder. mailTemplateDefaults() now returns each event's body with
+        // a leading "<!--RIVETIT_BLOCKS:...-->" comment describing it as a block list (text/button/divider/spacer/reply
+        // marker), compiled from mailTemplateDefaultBlocks() - the single source of truth, so the builder shows real blocks
+        // instead of one opaque HTML blob. 2.6.186 already seeded every row with the OLD plain-HTML defaults (no comment);
+        // upgrade only the rows nobody has touched yet (mail_template_updated_by = 0, i.e. never saved/reset through the
+        // admin page since) to the new block-ified text - anything an administrator already edited is left alone.
+        foreach (mailTemplateDefaults() as $event => $tpl) {
+            $e = mysqli_real_escape_string($mysqli, $event);
+            $s = mysqli_real_escape_string($mysqli, $tpl['subject']);
+            $b = mysqli_real_escape_string($mysqli, $tpl['body']);
+            mysqli_query($mysqli, "UPDATE `mail_templates` SET `mail_template_subject` = '$s', `mail_template_body` = '$b' WHERE `mail_template_event` = '$e' AND `mail_template_updated_by` = 0");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.187'");
+    }

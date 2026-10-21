@@ -87,6 +87,26 @@ $rHostile = renderMailTemplate($mysqli, 'ticket_created', ['contact_name' => '<b
 $ok(str_contains($rHostile['body'], '&lt;b&gt;x&lt;/b&gt;') && str_contains($rHostile['body'], '&lt;script&gt;'), 'only the fixed RAW_KEYS list skips HTML-escaping, never an admin-invented name');
 mailTemplateResetToDefault($mysqli, 'ticket_created', 1);
 
+// 10. Block builder: every default is now blocks-comment-prefixed, decompiles to the real block list (not a legacy single
+// 'html' fallback), and the comment never leaks into what actually gets rendered as the email.
+foreach (array_keys(mailTemplateEvents()) as $event) {
+    $defaultBody = mailTemplateDefaults()[$event]['body'];
+    $ok(str_starts_with($defaultBody, '<!--RIVETIT_BLOCKS:'), "$event's default body carries the blocks comment");
+    $decompiled = mailTemplateBlocksFromBody($defaultBody);
+    $ok(count($decompiled) > 1, "$event decompiles to its real multi-block list, not a single html fallback");
+    $rendered = renderMailTemplate($mysqli, $event, $vars);
+    $ok(!str_contains($rendered['body'], 'RIVETIT_BLOCKS'), "$event's rendered body never leaks the blocks comment into the real email");
+}
+
+// 11. A legacy/custom body with no comment (pre-builder, or hand-typed through "Advanced HTML") decompiles to one html block - nothing lost
+$ok(count(mailTemplateBlocksFromBody('Hello, plain legacy body.')) === 1 && mailTemplateBlocksFromBody('Hello, plain legacy body.')[0]['type'] === 'html', 'a body with no blocks comment falls back to a single html block');
+
+// 12. compileBlocks/stripBlocksComment round-trip
+$roundtripBlocks = [['type' => 'text', 'html' => 'Hi {contact_name}'], ['type' => 'button', 'label' => 'Go', 'link' => '{portal_link}']];
+$serialized = mailTemplateSerializeBlocks($roundtripBlocks);
+$ok(mailTemplateBlocksFromBody($serialized) === $roundtripBlocks, 'serialize -> decompile round-trips to the exact same block list');
+$ok(mailTemplateStripBlocksComment($serialized) === mailTemplateCompileBlocks($roundtripBlocks), 'stripping the comment leaves exactly the compiled HTML, nothing more or less');
+
 // 9. mailTemplateRequiresReplyMarker()/mailTemplateRequiresPortalLink() agree with the actual default text's shape
 $ok(mailTemplateRequiresReplyMarker('ticket_reply') && !mailTemplateRequiresReplyMarker('ticket_assigned'), 'reply-marker requirement matches which events are client-replyable');
 $ok(mailTemplateRequiresPortalLink('ticket_created') && !mailTemplateRequiresPortalLink('ticket_assigned'), 'portal-link requirement matches which events have a portal link at all');

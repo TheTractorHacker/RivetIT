@@ -48,37 +48,39 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 
                 <div class="form-group mb-3">
                     <label class="small text-muted">Subject</label>
-                    <input type="text" class="form-control" name="subject" maxlength="500" value="<?= nullable_htmlentities($mt_subject) ?>" required>
+                    <input type="text" class="form-control mt-subject-input" name="subject" maxlength="500" value="<?= nullable_htmlentities($mt_subject) ?>" required>
+                    <div class="mt-2">
+                        <span class="small text-muted me-2">Insert into subject:</span>
+                        <?php foreach ($mt_placeholders as $mt_ph) { ?>
+                            <button type="button" class="btn btn-xs btn-outline-secondary mb-1 mt-subject-placeholder-btn" data-placeholder="{<?= nullable_htmlentities($mt_ph) ?>}"><?= nullable_htmlentities($mt_ph) ?></button>
+                        <?php } ?>
+                    </div>
                 </div>
+
+                <label class="small text-muted d-block mb-1">Body - drag blocks to reorder</label>
+                <div class="mt-block-list mb-2" id="mt-blocks-<?= nullable_htmlentities($mt_event) ?>"
+                     data-event="<?= nullable_htmlentities($mt_event) ?>"
+                     data-needs-marker="<?= $mt_needs_marker ? '1' : '0' ?>"
+                     data-needs-link="<?= $mt_needs_link ? '1' : '0' ?>"
+                     data-placeholders='<?= htmlspecialchars(json_encode($mt_placeholders), ENT_QUOTES, "UTF-8") ?>'></div>
 
                 <div class="mb-2">
-                    <span class="small text-muted me-2">Insert:</span>
-                    <?php foreach ($mt_placeholders as $mt_ph) { ?>
-                        <button type="button" class="btn btn-xs btn-outline-secondary mb-1 mt-placeholder-btn" data-placeholder="{<?= nullable_htmlentities($mt_ph) ?>}"><?= nullable_htmlentities($mt_ph) ?></button>
-                    <?php } ?>
+                    <span class="small text-muted me-2">Add block:</span>
+                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="text"><i class="fas fa-font me-1"></i>Text</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="button"><i class="fas fa-square me-1"></i>Button</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="divider"><i class="fas fa-minus me-1"></i>Divider</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="spacer"><i class="fas fa-arrows-alt-v me-1"></i>Spacer</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="html"><i class="fas fa-code me-1"></i>Advanced HTML</button>
                 </div>
 
-                <ul class="nav nav-tabs nav-tabs-sm mb-2 mt-editor-tabs" role="tablist">
-                    <li class="nav-item" role="presentation"><button type="button" class="nav-link active small" data-bs-toggle="tab" data-bs-target="#mt-visual-<?= nullable_htmlentities($mt_event) ?>" data-pane="visual">Visual</button></li>
-                    <li class="nav-item" role="presentation"><button type="button" class="nav-link small" data-bs-toggle="tab" data-bs-target="#mt-source-<?= nullable_htmlentities($mt_event) ?>" data-pane="source" data-for="mt-body-<?= nullable_htmlentities($mt_event) ?>">HTML source</button></li>
-                </ul>
-                <div class="tab-content mb-2">
-                    <div class="tab-pane show active" id="mt-visual-<?= nullable_htmlentities($mt_event) ?>">
-                        <div class="form-group">
-                            <textarea class="form-control tinymceMailTemplate" id="mt-body-<?= nullable_htmlentities($mt_event) ?>" name="body" rows="10"><?= nullable_htmlentities($mt_body) ?></textarea>
-                        </div>
-                    </div>
-                    <div class="tab-pane" id="mt-source-<?= nullable_htmlentities($mt_event) ?>">
-                        <textarea class="form-control mt-source-view" data-for="mt-body-<?= nullable_htmlentities($mt_event) ?>" rows="10" style="font-family:monospace;font-size:.8rem;" spellcheck="false"></textarea>
-                    </div>
-                </div>
+                <textarea class="d-none mt-body-hidden" name="body" id="mt-body-<?= nullable_htmlentities($mt_event) ?>"><?= nullable_htmlentities($mt_body) ?></textarea>
 
                 <div class="small mb-3">
                     <?php if ($mt_needs_marker) { ?>
-                    <div class="mt-warning text-warning d-none" data-warn="marker"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has the "##- Please type your reply above this line -##" marker. A reply to this email will not be parsed correctly - keep that line (it can be anywhere in the body, but it must stay wrapped in an &lt;i&gt; tag).</div>
+                    <div class="mt-warning text-warning d-none" data-warn="marker"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has the reply marker. A reply to this email will not be parsed correctly - add back a "Reply marker" block.</div>
                     <?php } ?>
                     <?php if ($mt_needs_link) { ?>
-                    <div class="mt-warning text-warning d-none" data-warn="link"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has a <code>{portal_link}</code> placeholder. The recipient will have no way back into the ticket/portal from this email.</div>
+                    <div class="mt-warning text-warning d-none" data-warn="link"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has a <code>{portal_link}</code> anywhere. The recipient will have no way back into the ticket/portal from this email.</div>
                     <?php } ?>
                 </div>
 
@@ -151,6 +153,7 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
     </div>
 </div>
 
+<script src="../plugins/SortableJS/Sortable.min.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 tinymce.init({
     selector: '.tinymceMailTemplate',
@@ -182,8 +185,8 @@ tinymce.init({
     },
 });
 
-// Visual / HTML source tabs: switching TO the source tab dumps the editor's current HTML into the plain textarea;
-// switching back (away from source, to visual) pushes whatever was typed in the source textarea back into the editor.
+// Visual / HTML source tabs (header/footer only - the per-template body is the block builder below): switching TO the
+// source tab dumps the editor's current HTML into the plain textarea; switching back pushes it back into the editor.
 document.addEventListener('show.bs.tab', function (e) {
     var btn = e.target;
     if (!btn.classList.contains('nav-link') || !btn.closest('.mt-editor-tabs')) { return; }
@@ -196,7 +199,6 @@ document.addEventListener('show.bs.tab', function (e) {
         return;
     }
     if (pane === 'visual') {
-        // The tab group's OTHER button carries data-for - find it to know which editor this visual pane belongs to.
         var group = btn.closest('.mt-editor-tabs');
         var sourceBtn = group.querySelector('[data-pane="source"]');
         var forId2 = sourceBtn ? sourceBtn.dataset.for : null;
@@ -206,15 +208,15 @@ document.addEventListener('show.bs.tab', function (e) {
         if (ed2 && sourceTa2) {
             ed2.setContent(sourceTa2.value);
             ed2.save();
-            checkMailTemplateWarnings(document.getElementById(forId2));
         }
     }
 });
 
-function checkMailTemplateWarnings(textarea) {
-    var form = textarea.closest('form');
+function checkMailTemplateWarnings(elForForm) {
+    var form = elForForm.closest ? elForForm.closest('form') : null;
     if (!form) { return; }
-    var body = textarea.value;
+    var hidden = form.querySelector('.mt-body-hidden');
+    var body = hidden ? hidden.value : '';
     var markerOk = /<i[^>]*>\s*##-\s*Please\s+type\s+your\s+reply\s+above\s+this\s+line\s*-##\s*<\/i>/i.test(body);
     var linkOk = body.indexOf('{portal_link}') !== -1;
     var warn = form.querySelector('.mt-warning[data-warn="marker"]');
@@ -223,16 +225,247 @@ function checkMailTemplateWarnings(textarea) {
     if (warn) { warn.classList.toggle('d-none', linkOk); }
 }
 
+// ------------------------------------------------------------------------------------------------------------------
+// Block builder: a {placeholder}-aware drag-and-drop editor for the body of one template. Block types mirror
+// includes/mail_templates.php's mailTemplateCompileBlock() exactly, and the hidden "body" textarea this writes into
+// is a plain, ordinary form field - Save/Preview/Send-test/the backend never know blocks exist.
+var MT = {
+    uid: 0,
+    nextId: function (prefix) { return prefix + '-' + (++MT.uid); },
+
+    compileOne: function (b) {
+        switch (b.type) {
+            case 'reply_marker':
+                return "<i style='color: #808080'>##- Please type your reply above this line -##</i>";
+            case 'button':
+                return "<a href='" + (b.link || '') + "'>" + (b.label || 'Click here') + '</a>';
+            case 'divider':
+                return '<hr>';
+            case 'spacer':
+                return '<div style="height:' + (parseInt(b.size, 10) || 16) + 'px;"></div>';
+            default: // 'text', 'html'
+                return b.html || '';
+        }
+    },
+    compileHtml: function (blocks) { return blocks.map(MT.compileOne).join('<br><br>'); },
+    serialize: function (blocks) { return '<!--RIVETIT_BLOCKS:' + JSON.stringify({ v: 1, blocks: blocks }) + '-->' + MT.compileHtml(blocks); },
+    decompile: function (raw) {
+        var m = /^<!--RIVETIT_BLOCKS:([\s\S]*?)-->/.exec(raw || '');
+        if (m) {
+            try {
+                var parsed = JSON.parse(m[1]);
+                if (parsed && Array.isArray(parsed.blocks)) { return parsed.blocks; }
+            } catch (err) { /* fall through to the raw-HTML fallback below */ }
+        }
+        var stripped = (raw || '').replace(/^<!--RIVETIT_BLOCKS:[\s\S]*?-->\s*/, '');
+        return [{ type: 'html', html: stripped }];
+    },
+
+    labelFor: { text: 'Text', button: 'Button', divider: 'Divider', spacer: 'Spacer', html: 'Advanced HTML', reply_marker: 'Reply marker' },
+    iconFor: { text: 'font', button: 'square', divider: 'minus', spacer: 'arrows-alt-v', html: 'code', reply_marker: 'reply' },
+
+    placeholders: function (container) {
+        try { return JSON.parse(container.dataset.placeholders || '[]'); } catch (e) { return []; }
+    },
+
+    // A small "Insert: {x} {y} ..." row scoped to one field, not a global one - every block gets its own.
+    placeholderRow: function (placeholders, targetId) {
+        var row = document.createElement('div');
+        row.className = 'mt-inline-placeholders mt-1';
+        var label = document.createElement('span');
+        label.className = 'small text-muted me-1';
+        label.textContent = 'Insert:';
+        row.appendChild(label);
+        placeholders.forEach(function (p) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-xs btn-outline-secondary mt-1 me-1 mt-inline-placeholder-btn';
+            b.dataset.target = targetId;
+            b.dataset.placeholder = '{' + p + '}';
+            b.textContent = p;
+            row.appendChild(b);
+        });
+        return row;
+    },
+
+    // Builds one block's DOM. `data` is the block's own state (type plus its type-specific fields); fields read their
+    // live values straight back out of these elements when MT.collect() runs (the DOM IS the state - no parallel store).
+    renderBlock: function (data, placeholders) {
+        var type = data.type;
+        var el = document.createElement('div');
+        el.className = 'mt-block card card-sm mb-2';
+        el.dataset.type = type;
+
+        var head = document.createElement('div');
+        head.className = 'card-header d-flex align-items-center py-1 px-2';
+        head.innerHTML = '<span class="mt-drag-handle me-2" style="cursor:grab;" aria-hidden="true"><i class="fas fa-grip-vertical text-muted"></i></span>'
+            + '<span class="small fw-bold flex-grow-1"><i class="fas fa-' + (MT.iconFor[type] || 'cube') + ' me-1 text-muted"></i>' + (MT.labelFor[type] || type) + '</span>';
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-xs btn-outline-danger mt-block-delete';
+        del.innerHTML = '<i class="fas fa-trash"></i>';
+        head.appendChild(del);
+        el.appendChild(head);
+
+        var body = document.createElement('div');
+        body.className = 'card-body py-2 px-2';
+
+        if (type === 'reply_marker') {
+            body.innerHTML = '<span class="small text-muted"><i style="color:#808080;">##- Please type your reply above this line -##</i> (added automatically - this exact line is how a reply to this email is told apart from the quoted original)</span>';
+        } else if (type === 'divider') {
+            body.innerHTML = '<hr class="my-1">';
+        } else if (type === 'spacer') {
+            var sel = document.createElement('select');
+            sel.className = 'form-select form-select-sm mt-block-field';
+            sel.dataset.field = 'size';
+            [['8', 'Small'], ['16', 'Medium'], ['32', 'Large']].forEach(function (o) {
+                var opt = document.createElement('option');
+                opt.value = o[0]; opt.textContent = o[1];
+                if (String(data.size) === o[0]) { opt.selected = true; }
+                sel.appendChild(opt);
+            });
+            body.appendChild(sel);
+        } else if (type === 'button') {
+            var labelInput = document.createElement('input');
+            labelInput.type = 'text'; labelInput.className = 'form-control form-control-sm mb-2 mt-block-field'; labelInput.dataset.field = 'label';
+            labelInput.placeholder = 'Button text'; labelInput.value = data.label || 'Click here';
+            body.appendChild(labelInput);
+            var linkSel = document.createElement('select');
+            linkSel.className = 'form-select form-select-sm mt-block-field'; linkSel.dataset.field = 'link';
+            placeholders.forEach(function (p) {
+                var opt = document.createElement('option');
+                opt.value = '{' + p + '}'; opt.textContent = 'Links to: {' + p + '}';
+                if (data.link === '{' + p + '}') { opt.selected = true; }
+                linkSel.appendChild(opt);
+            });
+            body.appendChild(linkSel);
+        } else { // text or html
+            var taId = MT.nextId('mt-field');
+            var ta = document.createElement('textarea');
+            ta.id = taId; ta.className = 'form-control mt-block-field mt-block-editor-' + type; ta.dataset.field = 'html';
+            ta.rows = type === 'html' ? 6 : 3;
+            ta.value = data.html || '';
+            body.appendChild(ta);
+            body.appendChild(MT.placeholderRow(placeholders, taId));
+            // Deferred: the textarea must be in the DOM before TinyMCE can attach to it.
+            setTimeout(function () { MT.initBlockEditor(taId, type); }, 0);
+        }
+
+        el.appendChild(body);
+        return el;
+    },
+
+    initBlockEditor: function (id, type) {
+        var toolbar = type === 'html'
+            ? [{ name: 'formatting', items: ['bold', 'italic', 'forecolor'] }, { name: 'link', items: ['link'] }, { name: 'lists', items: ['bullist', 'numlist'] }, { name: 'code', items: ['code'] }]
+            : [{ name: 'formatting', items: ['bold', 'italic'] }, { name: 'link', items: ['link'] }];
+        tinymce.init({
+            selector: '#' + id,
+            browser_spellcheck: true, contextmenu: false, resize: true,
+            min_height: type === 'html' ? 160 : 90, max_height: 400,
+            promotion: false, branding: false, menubar: false, statusbar: false,
+            toolbar: toolbar, convert_urls: false,
+            plugins: type === 'html' ? 'link lists code' : 'link lists',
+            license_key: 'gpl',
+            setup: function (editor) {
+                editor.on('change keyup SetContent', function () {
+                    editor.save();
+                    var container = editor.getElement().closest('.mt-block-list');
+                    if (container) { MT.sync(container); }
+                });
+            },
+        });
+    },
+
+    defaultBlock: function (type, placeholders) {
+        if (type === 'button') { return { type: 'button', label: 'Click here', link: placeholders.length ? '{' + placeholders[0] + '}' : '' }; }
+        if (type === 'spacer') { return { type: 'spacer', size: 16 }; }
+        if (type === 'text' || type === 'html') { return { type: type, html: '' }; }
+        return { type: type };
+    },
+
+    render: function (container) {
+        var hidden = document.getElementById(container.dataset.event ? 'mt-body-' + container.dataset.event : '');
+        var placeholders = MT.placeholders(container);
+        var blocks = MT.decompile(hidden ? hidden.value : '');
+        container.innerHTML = '';
+        blocks.forEach(function (b) { container.appendChild(MT.renderBlock(b, placeholders)); });
+        new Sortable(container, { handle: '.mt-drag-handle', animation: 150, onEnd: function () { MT.sync(container); } });
+    },
+
+    collect: function (container) {
+        return Array.from(container.children).map(function (el) {
+            var type = el.dataset.type;
+            var b = { type: type };
+            el.querySelectorAll('.mt-block-field').forEach(function (f) {
+                if (f.tagName === 'TEXTAREA') { var ed = tinymce.get(f.id); if (ed) { ed.save(); } }
+                b[f.dataset.field] = f.value;
+            });
+            return b;
+        });
+    },
+
+    sync: function (container) {
+        var hiddenId = 'mt-body-' + container.dataset.event;
+        var hidden = document.getElementById(hiddenId);
+        if (!hidden) { return; }
+        var blocks = MT.collect(container);
+        hidden.value = MT.serialize(blocks);
+        checkMailTemplateWarnings(hidden);
+    },
+};
+
+document.querySelectorAll('.mt-block-list').forEach(function (c) { MT.render(c); });
+
+document.addEventListener('input', function (e) {
+    var field = e.target.closest('.mt-block-field');
+    if (field && field.tagName !== 'TEXTAREA') { // textareas sync via their own tinymce change handler
+        var container = field.closest('.mt-block-list');
+        if (container) { MT.sync(container); }
+    }
+});
+document.addEventListener('change', function (e) {
+    var field = e.target.closest('.mt-block-field');
+    if (field) {
+        var container = field.closest('.mt-block-list');
+        if (container) { MT.sync(container); }
+    }
+});
+
 document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.mt-placeholder-btn');
-    if (btn) {
-        var form = btn.closest('form');
-        var ta = form.querySelector('textarea.tinymceMailTemplate');
-        var ed = tinymce.get(ta.id);
-        if (ed) {
-            ed.insertContent(btn.dataset.placeholder);
-            ed.save();
-            checkMailTemplateWarnings(ta);
+    var del = e.target.closest('.mt-block-delete');
+    if (del) {
+        var block = del.closest('.mt-block');
+        var container = block.closest('.mt-block-list');
+        block.remove();
+        MT.sync(container);
+        return;
+    }
+    var add = e.target.closest('.mt-add-block');
+    if (add) {
+        var card = add.closest('.mail-template-card');
+        var container2 = card.querySelector('.mt-block-list');
+        var placeholders = MT.placeholders(container2);
+        container2.appendChild(MT.renderBlock(MT.defaultBlock(add.dataset.type, placeholders), placeholders));
+        MT.sync(container2);
+        return;
+    }
+    var inline = e.target.closest('.mt-inline-placeholder-btn');
+    if (inline) {
+        var ta = document.getElementById(inline.dataset.target);
+        var ed2 = tinymce.get(inline.dataset.target);
+        if (ed2) { ed2.insertContent(inline.dataset.placeholder); ed2.save(); }
+        else if (ta) { ta.value += inline.dataset.placeholder; }
+        var container3 = inline.closest('.mt-block-list');
+        if (container3) { MT.sync(container3); }
+        return;
+    }
+    var subjBtn = e.target.closest('.mt-subject-placeholder-btn');
+    if (subjBtn) {
+        var subjInput = subjBtn.closest('.form-group').querySelector('.mt-subject-input');
+        if (subjInput) {
+            subjInput.value += subjBtn.dataset.placeholder;
+            subjInput.focus();
         }
         return;
     }
@@ -240,10 +473,9 @@ document.addEventListener('click', function (e) {
     if (preview) {
         var event = preview.dataset.event;
         var form2 = preview.closest('form');
-        var ta2 = form2.querySelector('textarea.tinymceMailTemplate');
-        tinymce.get(ta2.id)?.save();
-        var subject = form2.querySelector('[name="subject"]').value;
-        var body2 = ta2.value;
+        MT.sync(form2.querySelector('.mt-block-list'));
+        var subject = form2.querySelector('.mt-subject-input').value;
+        var body2 = document.getElementById('mt-body-' + event).value;
         var fd = new FormData();
         fd.append('preview_mail_template', '1');
         fd.append('event', event);
@@ -267,16 +499,15 @@ document.addEventListener('click', function (e) {
             if (!(await RivetDialog.confirm('Send a test copy of this email to your own address now?'))) { return; }
             var event2 = test.dataset.event;
             var form3 = test.closest('form');
-            var ta3 = form3.querySelector('textarea.tinymceMailTemplate');
-            tinymce.get(ta3.id)?.save();
+            MT.sync(form3.querySelector('.mt-block-list'));
             fetch('post.php', {
                 method: 'POST',
                 body: (function () {
                     var fd2 = new FormData();
                     fd2.append('preview_mail_template', '1');
                     fd2.append('event', event2);
-                    fd2.append('subject', form3.querySelector('[name="subject"]').value);
-                    fd2.append('body', ta3.value);
+                    fd2.append('subject', form3.querySelector('.mt-subject-input').value);
+                    fd2.append('body', document.getElementById('mt-body-' + event2).value);
                     fd2.append('send_test', '1');
                     fd2.append('csrf_token', test.dataset.csrf);
                     return fd2;
@@ -289,5 +520,14 @@ document.addEventListener('click', function (e) {
                 .catch(function () { RivetDialog.alert('Network error sending the test email.'); });
         })();
     }
+});
+
+// Belt and suspenders: a genuine form submit (Save/Reset) serializes whatever is in the hidden textarea right now, but
+// make sure it reflects the on-screen blocks even if a block's change event hasn't fired yet (e.g. focus still in a field).
+document.querySelectorAll('.mail-template-form').forEach(function (form) {
+    form.addEventListener('submit', function () {
+        var container = form.querySelector('.mt-block-list');
+        if (container) { MT.sync(container); }
+    });
 });
 </script>

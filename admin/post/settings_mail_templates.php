@@ -74,14 +74,8 @@ if (isset($_POST['preview_mail_template'])) {
     // Render the UNSAVED draft text the admin is currently looking at, not whatever is in the database - a preview/test must
     // show the admin what they are about to save, including a template with mistakes they have not saved yet.
     $mt_vars = mailTemplateSampleVars($mt_event);
-    $mt_raw = array_intersect_key($mt_vars, array_flip(MAIL_TEMPLATE_RAW_KEYS));
-    $mt_escaped = array_diff_key($mt_vars, array_flip(MAIL_TEMPLATE_RAW_KEYS));
-    $mt_rendered_body = $mt_body;
-    foreach ($mt_raw as $mt_k => $mt_v) {
-        $mt_rendered_body = str_replace('{' . $mt_k . '}', (string) $mt_v, $mt_rendered_body);
-    }
-    $mt_rendered_body = \ITFlow\Automation\Template::render($mt_rendered_body, array_map('strval', $mt_escaped), 'html');
-    $mt_rendered_subject = \ITFlow\Automation\Template::render($mt_subject, array_map('strval', $mt_escaped), 'text');
+    $mt_rendered_body = mailTemplateApplyPlaceholders($mt_body, $mt_vars, 'html');
+    $mt_rendered_subject = mailTemplateApplyPlaceholders($mt_subject, $mt_vars, 'text');
     $mt_hf = mailTemplateHeaderFooter($mysqli);
     if ($mt_hf['header'] !== '' || $mt_hf['footer'] !== '') {
         $mt_rendered_body = $mt_hf['header'] . $mt_rendered_body . $mt_hf['footer'];
