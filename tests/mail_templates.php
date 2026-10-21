@@ -17,6 +17,9 @@ $mysqli->query("SET SESSION sql_mode=''");
 $GLOBALS['mysqli'] = $mysqli;
 
 require __DIR__ . '/../vendor/autoload.php';
+// renderMailTemplate() calls the real functions.php helper for the shell's default header line; a minimal stand-in here
+// keeps this test self-contained instead of pulling in functions.php's whole require chain.
+function getCompanyNameAndPhone(): array { return ['name' => 'Test Co', 'phone' => '555-0100']; }
 require __DIR__ . '/../includes/mail_templates.php';
 
 $fails = 0;
@@ -75,11 +78,22 @@ mailTemplateResetToDefault($mysqli, 'ticket_reply', 1);
 $rReset = renderMailTemplate($mysqli, 'ticket_reply', $vars);
 $ok(str_contains($rReset['body'], 'Your ticket regarding Printer &amp;'), 'Reset to default restores the exact canonical default text');
 
-// 7. Shared header/footer wraps every template
+// 7. Every rendered email is wrapped in the trustworthy-looking shell (light outer background, white card, accent
+// stripe) - not raw unstyled text - and a custom header/footer sits inside that shell, before/after the body itself.
+$rShell = renderMailTemplate($mysqli, 'ticket_created', $vars);
+$ok(str_contains($rShell['body'], 'background-color:#f4f5f7') && str_contains($rShell['body'], 'background-color:#ffffff'), 'every email is wrapped in the branded shell (light background, white card) with no admin action needed');
+$ok(str_contains($rShell['body'], 'Test Co'), 'the shell shows the company name by default when no custom header is set');
+
 $mysqli->query("UPDATE settings SET config_mail_template_header_html = '<div id=\"h\">H</div>', config_mail_template_footer_html = '<div id=\"f\">F</div>' WHERE company_id = 1");
 $rHf = renderMailTemplate($mysqli, 'ticket_created', $vars);
-$ok(str_starts_with($rHf['body'], '<div id="h">H</div>') && str_ends_with($rHf['body'], '<div id="f">F</div>'), 'shared header/footer wraps the body');
+$ok(str_contains($rHf['body'], '<div id="h">H</div>') && str_contains($rHf['body'], '<div id="f">F</div>'), 'a custom header/footer is still included, inside the shell');
+$ok(strpos($rHf['body'], '<div id="h">H</div>') < strpos($rHf['body'], 'Hello'), 'the custom header renders before the template body');
+$ok(strpos($rHf['body'], 'Hello') < strpos($rHf['body'], '<div id="f">F</div>'), 'the custom footer renders after the template body');
+$ok(!str_contains($rHf['body'], 'Test Co'), 'the default company-name header is skipped once a custom header is set (no double header)');
 $mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL, config_mail_template_footer_html = NULL WHERE company_id = 1");
+
+// Every button block renders as a real styled button (not a bare link) - table-wrapped for Outlook compatibility
+$ok(str_contains($rShell['body'], 'background-color:#206bc4') && str_contains($rShell['body'], '>View ticket</a>'), 'a button block renders as a real styled button, not a plain link');
 
 // 8. Hostile input: a made-up placeholder name in an admin-edited body is never treated as raw
 $mysqli->query("UPDATE mail_templates SET mail_template_body = 'Hi {contact_name} - {not_a_real_raw_key}' WHERE mail_template_event = 'ticket_created'");

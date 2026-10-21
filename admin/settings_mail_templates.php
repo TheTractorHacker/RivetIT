@@ -13,6 +13,41 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 
 ?>
 
+<style>
+.mt-add-block-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+.mt-add-block {
+    display: flex; flex-direction: column; align-items: center; gap: .25rem;
+    width: 5.5rem; padding: .6rem .25rem; border-radius: .5rem;
+    border: 1px dashed var(--color-border, #dee2e6); background: transparent;
+    color: var(--tblr-secondary, #6c757d); font-size: .72rem; line-height: 1.1;
+    transition: border-color .15s ease, background .15s ease, color .15s ease, transform .1s ease;
+}
+.mt-add-block i { font-size: 1.05rem; }
+.mt-add-block:hover { border-style: solid; border-color: var(--tblr-primary, #206bc4); color: var(--tblr-primary, #206bc4); background: rgba(32,107,196,.06); transform: translateY(-1px); }
+
+.mt-block-list { background: rgba(0,0,0,.015); border: 1px solid var(--color-border, #dee2e6); border-radius: .6rem; padding: .6rem; min-height: 3.5rem; }
+.mt-block-list:empty::after { content: 'No blocks yet - add one below.'; display: block; text-align: center; padding: 1rem; color: var(--tblr-secondary, #6c757d); font-size: .8rem; }
+.mt-block { border: 1px solid var(--color-border, #dee2e6); border-left-width: 4px; border-radius: .5rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); transition: box-shadow .15s ease; }
+.mt-block:hover { box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.mt-block.sortable-ghost { opacity: .4; }
+.mt-block.sortable-chosen { box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.mt-block[data-type="text"] { border-left-color: #206bc4; }
+.mt-block[data-type="button"] { border-left-color: #2fb344; }
+.mt-block[data-type="divider"], .mt-block[data-type="spacer"] { border-left-color: #a5a5a5; }
+.mt-block[data-type="html"] { border-left-color: #ae3ec9; }
+.mt-block[data-type="reply_marker"] { border-left-color: #f59f00; }
+.mt-block .card-header { background: rgba(0,0,0,.015); }
+.mt-drag-handle { cursor: grab; }
+.mt-drag-handle:active { cursor: grabbing; }
+.mt-inline-placeholders .btn { font-size: .68rem; padding: .1rem .4rem; }
+
+.mt-preview-pane { border: 1px solid var(--color-border, #dee2e6); border-radius: .6rem; overflow: hidden; height: 100%; display: flex; flex-direction: column; background: var(--color-surface, #fff); }
+.mt-preview-pane-header { background: rgba(0,0,0,.03); border-bottom: 1px solid var(--color-border, #dee2e6); padding: .5rem .75rem; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--tblr-secondary, #6c757d); display: flex; align-items: center; gap: .4rem; }
+.mt-preview-pane-subject { padding: .5rem .75rem; font-size: .82rem; font-weight: 600; border-bottom: 1px solid var(--color-border, #dee2e6); word-break: break-word; }
+.mt-preview-iframe { flex: 1; width: 100%; min-height: 360px; border: 0; background: #fff; }
+@media (max-width: 991.98px) { .mt-preview-pane { margin-top: 1rem; } .mt-preview-iframe { min-height: 260px; } }
+</style>
+
 <div class="card mb-3">
     <div class="card-header">
         <h3 class="card-title"><i class="fas fa-envelope-open-text me-2"></i>Email Templates</h3>
@@ -57,38 +92,48 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
                     </div>
                 </div>
 
-                <label class="small text-muted d-block mb-1">Body - drag blocks to reorder</label>
-                <div class="mt-block-list mb-2" id="mt-blocks-<?= nullable_htmlentities($mt_event) ?>"
-                     data-event="<?= nullable_htmlentities($mt_event) ?>"
-                     data-needs-marker="<?= $mt_needs_marker ? '1' : '0' ?>"
-                     data-needs-link="<?= $mt_needs_link ? '1' : '0' ?>"
-                     data-placeholders='<?= htmlspecialchars(json_encode($mt_placeholders), ENT_QUOTES, "UTF-8") ?>'></div>
+                <div class="row">
+                    <div class="col-lg-7">
+                        <label class="small text-muted d-block mb-1"><i class="fas fa-layer-group me-1" aria-hidden="true"></i>Body - drag blocks to reorder</label>
+                        <div class="mt-block-list mb-2" id="mt-blocks-<?= nullable_htmlentities($mt_event) ?>"
+                             data-event="<?= nullable_htmlentities($mt_event) ?>"
+                             data-needs-marker="<?= $mt_needs_marker ? '1' : '0' ?>"
+                             data-needs-link="<?= $mt_needs_link ? '1' : '0' ?>"
+                             data-placeholders='<?= htmlspecialchars(json_encode($mt_placeholders), ENT_QUOTES, "UTF-8") ?>'></div>
 
-                <div class="mb-2">
-                    <span class="small text-muted me-2">Add block:</span>
-                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="text"><i class="fas fa-font me-1"></i>Text</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="button"><i class="fas fa-square me-1"></i>Button</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="divider"><i class="fas fa-minus me-1"></i>Divider</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="spacer"><i class="fas fa-arrows-alt-v me-1"></i>Spacer</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary mt-add-block" data-type="html"><i class="fas fa-code me-1"></i>Advanced HTML</button>
-                </div>
+                        <div class="mt-add-block-bar">
+                            <button type="button" class="mt-add-block" data-type="text"><i class="fas fa-font" aria-hidden="true"></i>Text</button>
+                            <button type="button" class="mt-add-block" data-type="button"><i class="fas fa-square" aria-hidden="true"></i>Button</button>
+                            <button type="button" class="mt-add-block" data-type="divider"><i class="fas fa-minus" aria-hidden="true"></i>Divider</button>
+                            <button type="button" class="mt-add-block" data-type="spacer"><i class="fas fa-arrows-alt-v" aria-hidden="true"></i>Spacer</button>
+                            <button type="button" class="mt-add-block" data-type="reply_marker"><i class="fas fa-reply" aria-hidden="true"></i>Reply marker</button>
+                            <button type="button" class="mt-add-block" data-type="html"><i class="fas fa-code" aria-hidden="true"></i>Advanced HTML</button>
+                        </div>
 
-                <textarea class="d-none mt-body-hidden" name="body" id="mt-body-<?= nullable_htmlentities($mt_event) ?>"><?= nullable_htmlentities($mt_body) ?></textarea>
+                        <textarea class="d-none mt-body-hidden" name="body" id="mt-body-<?= nullable_htmlentities($mt_event) ?>"><?= nullable_htmlentities($mt_body) ?></textarea>
 
-                <div class="small mb-3">
-                    <?php if ($mt_needs_marker) { ?>
-                    <div class="mt-warning text-warning d-none" data-warn="marker"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has the reply marker. A reply to this email will not be parsed correctly - add back a "Reply marker" block.</div>
-                    <?php } ?>
-                    <?php if ($mt_needs_link) { ?>
-                    <div class="mt-warning text-warning d-none" data-warn="link"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has a <code>{portal_link}</code> anywhere. The recipient will have no way back into the ticket/portal from this email.</div>
-                    <?php } ?>
-                </div>
+                        <div class="small mb-3">
+                            <?php if ($mt_needs_marker) { ?>
+                            <div class="mt-warning text-warning d-none" data-warn="marker"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has the reply marker. A reply to this email will not be parsed correctly - add back a "Reply marker" block.</div>
+                            <?php } ?>
+                            <?php if ($mt_needs_link) { ?>
+                            <div class="mt-warning text-warning d-none" data-warn="link"><i class="fas fa-exclamation-triangle me-1"></i>This body no longer has a <code>{portal_link}</code> anywhere. The recipient will have no way back into the ticket/portal from this email.</div>
+                            <?php } ?>
+                        </div>
 
-                <div class="d-flex gap-2 flex-wrap">
-                    <button type="submit" name="save_mail_template" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
-                    <button type="button" class="btn btn-outline-secondary js-mt-preview" data-event="<?= nullable_htmlentities($mt_event) ?>"><i class="fas fa-eye me-1"></i>Preview</button>
-                    <button type="button" class="btn btn-outline-secondary js-mt-test" data-event="<?= nullable_htmlentities($mt_event) ?>" data-csrf="<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-paper-plane me-1"></i>Send test email to me</button>
-                    <button type="submit" name="reset_mail_template" class="btn btn-outline-danger ms-auto" formnovalidate><i class="fas fa-undo me-1"></i>Reset to default</button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" name="save_mail_template" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
+                            <button type="button" class="btn btn-outline-secondary js-mt-test" data-event="<?= nullable_htmlentities($mt_event) ?>" data-csrf="<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-paper-plane me-1"></i>Send test email to me</button>
+                            <button type="submit" name="reset_mail_template" class="btn btn-outline-danger ms-auto" formnovalidate><i class="fas fa-undo me-1"></i>Reset to default</button>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="mt-preview-pane">
+                            <div class="mt-preview-pane-header"><i class="fas fa-eye" aria-hidden="true"></i>Live preview <span class="fw-normal text-lowercase">(sample data)</span></div>
+                            <div class="mt-preview-pane-subject js-mt-preview-subject text-muted">&nbsp;</div>
+                            <iframe class="mt-preview-iframe js-mt-preview-frame"></iframe>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -135,21 +180,6 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
             </div>
             <button type="submit" name="save_mail_template_header_footer" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save</button>
         </form>
-    </div>
-</div>
-
-<div class="modal fade" id="mtPreviewModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Preview (sample data)</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="small text-muted mb-2" id="mtPreviewSubject"></div>
-                <iframe id="mtPreviewFrame" style="width:100%;height:60vh;border:1px solid var(--color-border,#dee2e6);border-radius:.375rem;"></iframe>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -237,16 +267,21 @@ var MT = {
     uid: 0,
     nextId: function (prefix) { return prefix + '-' + (++MT.uid); },
 
+    // Mirrors includes/mail_templates.php's mailTemplateCompileBlock() exactly - table-wrapped button (not just CSS
+    // background on the <a>: Outlook desktop renders with Word's engine, which honours a table cell's background far
+    // more reliably), a subtle divider instead of the browser-default thick black one. Keep both in sync.
     compileOne: function (b) {
         switch (b.type) {
             case 'reply_marker':
                 return "<i style='color: #808080'>##- Please type your reply above this line -##</i>";
             case 'button':
-                return "<a href='" + (b.link || '') + "'>" + (b.label || 'Click here') + '</a>';
+                return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:#206bc4;">'
+                    + '<a href="' + (b.link || '') + '" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:6px;font-family:inherit;">'
+                    + (b.label || 'Click here') + '</a></td></tr></table>';
             case 'divider':
-                return '<hr>';
+                return '<hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;">';
             case 'spacer':
-                return '<div style="height:' + (parseInt(b.size, 10) || 16) + 'px;"></div>';
+                return '<div style="height:' + (parseInt(b.size, 10) || 16) + 'px;line-height:1px;font-size:1px;">&nbsp;</div>';
             default: // 'text', 'html'
                 return b.html || '';
         }
@@ -416,16 +451,54 @@ var MT = {
         var blocks = MT.collect(container);
         hidden.value = MT.serialize(blocks);
         checkMailTemplateWarnings(hidden);
+        MT.schedulePreview(container.closest('form'));
+    },
+
+    previewTimers: {},
+    // Live preview, debounced (400ms of no further edits) so it is not hammering the server on every keystroke -
+    // re-renders with the SAME sample data as the "Send test email" path, through the real backend renderer, so what
+    // this shows is exactly what a recipient would see, shell and all.
+    schedulePreview: function (form) {
+        if (!form) { return; }
+        var event = form.dataset.event;
+        clearTimeout(MT.previewTimers[event]);
+        MT.previewTimers[event] = setTimeout(function () { MT.refreshPreview(form); }, 400);
+    },
+    refreshPreview: function (form) {
+        var event = form.dataset.event;
+        var subjectInput = form.querySelector('.mt-subject-input');
+        var bodyField = document.getElementById('mt-body-' + event);
+        var subjectEl = form.querySelector('.js-mt-preview-subject');
+        var frameEl = form.querySelector('.js-mt-preview-frame');
+        if (!subjectInput || !bodyField || !frameEl) { return; }
+        var fd = new FormData();
+        fd.append('preview_mail_template', '1');
+        fd.append('event', event);
+        fd.append('subject', subjectInput.value);
+        fd.append('body', bodyField.value);
+        fd.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+        fetch('post.php', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j.ok) { return; }
+                if (subjectEl) { subjectEl.textContent = j.subject; }
+                frameEl.srcdoc = j.body;
+            })
+            .catch(function () { /* the live preview is a convenience, not critical - stay quiet on a transient network error */ });
     },
 };
 
-document.querySelectorAll('.mt-block-list').forEach(function (c) { MT.render(c); });
+document.querySelectorAll('.mt-block-list').forEach(function (c) { MT.render(c); MT.schedulePreview(c.closest('form')); });
 
 document.addEventListener('input', function (e) {
     var field = e.target.closest('.mt-block-field');
     if (field && field.tagName !== 'TEXTAREA') { // textareas sync via their own tinymce change handler
         var container = field.closest('.mt-block-list');
         if (container) { MT.sync(container); }
+        return;
+    }
+    if (e.target.classList.contains('mt-subject-input')) {
+        MT.schedulePreview(e.target.closest('form'));
     }
 });
 document.addEventListener('change', function (e) {
@@ -470,31 +543,8 @@ document.addEventListener('click', function (e) {
         if (subjInput) {
             subjInput.value += subjBtn.dataset.placeholder;
             subjInput.focus();
+            MT.schedulePreview(subjInput.closest('form'));
         }
-        return;
-    }
-    var preview = e.target.closest('.js-mt-preview');
-    if (preview) {
-        var event = preview.dataset.event;
-        var form2 = preview.closest('form');
-        MT.sync(form2.querySelector('.mt-block-list'));
-        var subject = form2.querySelector('.mt-subject-input').value;
-        var body2 = document.getElementById('mt-body-' + event).value;
-        var fd = new FormData();
-        fd.append('preview_mail_template', '1');
-        fd.append('event', event);
-        fd.append('subject', subject);
-        fd.append('body', body2);
-        fd.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
-        fetch('post.php', { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (j) {
-                if (!j.ok) { RivetDialog.alert(j.error || 'Could not render the preview.'); return; }
-                document.getElementById('mtPreviewSubject').textContent = 'Subject: ' + j.subject;
-                document.getElementById('mtPreviewFrame').srcdoc = j.body;
-                new bootstrap.Modal(document.getElementById('mtPreviewModal')).show();
-            })
-            .catch(function () { RivetDialog.alert('Network error rendering the preview.'); });
         return;
     }
     var test = e.target.closest('.js-mt-test');

@@ -85,16 +85,27 @@ function mailTemplateBlocksFromBody(string $body): array {
  * hand-written copies of the same text drifting apart. A block the JS could not have produced (an unknown type, or one a
  * future version adds) degrades to its raw 'html'/'label' text rather than vanishing.
  */
+/**
+ * A real, styled button, not a bare link - table-wrapped (not just CSS background on the `<a>`) because Outlook desktop
+ * renders email HTML with Word's engine, which honours a table cell's background far more reliably than CSS background
+ * on an anchor. Mirrored exactly in the JS compiler (admin/settings_mail_templates.php) - keep both in sync.
+ */
+function mailTemplateButtonHtml(string $link, string $label): string {
+    return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:#206bc4;">'
+        . '<a href="' . $link . '" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:6px;font-family:inherit;">'
+        . $label . '</a></td></tr></table>';
+}
+
 function mailTemplateCompileBlock(array $b): string {
     switch ((string) ($b['type'] ?? '')) {
         case 'reply_marker':
             return "<i style='color: #808080'>##- Please type your reply above this line -##</i>";
         case 'button':
-            return "<a href='" . (string) ($b['link'] ?? '') . "'>" . (string) ($b['label'] ?? 'Click here') . '</a>';
+            return mailTemplateButtonHtml((string) ($b['link'] ?? ''), (string) ($b['label'] ?? 'Click here'));
         case 'divider':
-            return '<hr>';
+            return '<hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;">';
         case 'spacer':
-            return '<div style="height:' . max(4, min(200, (int) ($b['size'] ?? 16))) . 'px;"></div>';
+            return '<div style="height:' . max(4, min(200, (int) ($b['size'] ?? 16))) . 'px;line-height:1px;font-size:1px;">&nbsp;</div>';
         default: // 'text', 'html', and anything unrecognized
             return (string) ($b['html'] ?? '');
     }
@@ -234,6 +245,28 @@ function mailTemplateHeaderFooter($mysqli): array {
 }
 
 /**
+ * Wraps a compiled template body in a plain, widely-compatible transactional-email shell: a light outer background, a
+ * white card with a thin brand-colour accent stripe, a readable system font and generous padding - so every email this
+ * app sends looks like a deliberate, trustworthy piece of mail instead of unstyled text, with no admin action required.
+ * Table-based (not flexbox/CSS background on the body) because that is what actually renders consistently across real
+ * inboxes, Outlook desktop included. An admin's own header/footer (company logo, a disclaimer) sits inside this card,
+ * above/below the template body; with neither set, the company name alone is shown as a simple bold header.
+ */
+function mailTemplateWrapShell(string $bodyHtml, string $companyName, string $customHeaderHtml, string $customFooterHtml): string {
+    $header = $customHeaderHtml !== '' ? $customHeaderHtml
+        : ($companyName !== '' ? '<div style="font-size:19px;font-weight:700;color:#1f2937;margin-bottom:20px;">' . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . '</div>' : '');
+
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:32px 16px;">'
+        . '<tr><td align="center">'
+        . '<table role="presentation" width="100%" style="max-width:580px;background-color:#ffffff;border-radius:10px;" cellpadding="0" cellspacing="0">'
+        . '<tr><td style="height:4px;line-height:4px;font-size:0;background-color:#206bc4;border-radius:10px 10px 0 0;">&nbsp;</td></tr>'
+        . '<tr><td style="padding:32px 36px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;font-size:15px;line-height:1.65;">'
+        . $header . $bodyHtml . $customFooterHtml
+        . '</td></tr></table>'
+        . '</td></tr></table>';
+}
+
+/**
  * Strips the builder's blocks comment (never meant to reach a real email), then substitutes {placeholder} tokens: the small
  * fixed MAIL_TEMPLATE_RAW_KEYS set verbatim (already-trusted HTML this app built), everything else HTML-escaped (or, in
  * 'text' mode, control-character-stripped only - a mail header, never HTML). Shared by renderMailTemplate() and the admin
@@ -273,9 +306,8 @@ function renderMailTemplate($mysqli, string $event, array $vars): ?array {
     $subject = mailTemplateApplyPlaceholders($subjectTpl, $vars, 'text');
 
     $hf = mailTemplateHeaderFooter($mysqli);
-    if ($hf['header'] !== '' || $hf['footer'] !== '') {
-        $body = $hf['header'] . $body . $hf['footer'];
-    }
+    [$companyName] = array_values(getCompanyNameAndPhone());
+    $body = mailTemplateWrapShell($body, $companyName, $hf['header'], $hf['footer']);
 
     return ['subject' => $subject, 'body' => $body];
 }

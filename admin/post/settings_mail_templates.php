@@ -77,9 +77,8 @@ if (isset($_POST['preview_mail_template'])) {
     $mt_rendered_body = mailTemplateApplyPlaceholders($mt_body, $mt_vars, 'html');
     $mt_rendered_subject = mailTemplateApplyPlaceholders($mt_subject, $mt_vars, 'text');
     $mt_hf = mailTemplateHeaderFooter($mysqli);
-    if ($mt_hf['header'] !== '' || $mt_hf['footer'] !== '') {
-        $mt_rendered_body = $mt_hf['header'] . $mt_rendered_body . $mt_hf['footer'];
-    }
+    [$mt_company_name] = array_values(getCompanyNameAndPhone());
+    $mt_rendered_body = mailTemplateWrapShell($mt_rendered_body, $mt_company_name, $mt_hf['header'], $mt_hf['footer']);
 
     if (!empty($_POST['send_test'])) {
         $mt_me = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_email, user_name FROM users WHERE user_id = " . (int) $session_user_id));
