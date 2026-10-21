@@ -11697,3 +11697,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.187'");
     }
+
+    if ($rivetit_db_version() == '2.6.187') {
+        // DB 2.6.188: the "Quote box" block replaces the old plain-ASCII-dash ("--------------------------------")
+        // separator around a ticket's details/reply in the three ticket-event defaults. Same re-sync as 2.6.187: only
+        // rows nobody has touched yet (mail_template_updated_by = 0) get the new default text.
+        foreach (mailTemplateDefaults() as $event => $tpl) {
+            $e = mysqli_real_escape_string($mysqli, $event);
+            $s = mysqli_real_escape_string($mysqli, $tpl['subject']);
+            $b = mysqli_real_escape_string($mysqli, $tpl['body']);
+            mysqli_query($mysqli, "UPDATE `mail_templates` SET `mail_template_subject` = '$s', `mail_template_body` = '$b' WHERE `mail_template_event` = '$e' AND `mail_template_updated_by` = 0");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.188'");
+    }

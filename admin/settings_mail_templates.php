@@ -35,6 +35,7 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 .mt-block.sortable-ghost { opacity: .4; }
 .mt-block.sortable-chosen { box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 .mt-block[data-type="text"] { border-left-color: #206bc4; }
+.mt-block[data-type="quote"] { border-left-color: #0ca678; }
 .mt-block[data-type="button"] { border-left-color: #2fb344; }
 .mt-block[data-type="divider"], .mt-block[data-type="spacer"] { border-left-color: #a5a5a5; }
 .mt-block[data-type="html"] { border-left-color: #ae3ec9; }
@@ -108,6 +109,7 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 
                         <div class="mt-add-block-bar">
                             <button type="button" class="mt-add-block" data-type="text"><i class="fas fa-font" aria-hidden="true"></i>Text</button>
+                            <button type="button" class="mt-add-block" data-type="quote"><i class="fas fa-quote-left" aria-hidden="true"></i>Quote box</button>
                             <button type="button" class="mt-add-block" data-type="button"><i class="fas fa-square" aria-hidden="true"></i>Button</button>
                             <button type="button" class="mt-add-block" data-type="divider"><i class="fas fa-minus" aria-hidden="true"></i>Divider</button>
                             <button type="button" class="mt-add-block" data-type="spacer"><i class="fas fa-arrows-alt-v" aria-hidden="true"></i>Spacer</button>
@@ -290,6 +292,8 @@ var MT = {
                 return '<hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;">';
             case 'spacer':
                 return '<div style="height:' + (parseInt(b.size, 10) || 16) + 'px;line-height:1px;font-size:1px;">&nbsp;</div>';
+            case 'quote':
+                return '<div style="background-color:#f8f9fa;border-left:3px solid {mt_accent};border-radius:6px;padding:16px 18px;margin:18px 0;color:#374151;font-size:14px;line-height:1.6;">' + (b.html || '') + '</div>';
             default: // 'text', 'html'
                 return b.html || '';
         }
@@ -308,8 +312,8 @@ var MT = {
         return [{ type: 'html', html: stripped }];
     },
 
-    labelFor: { text: 'Text', button: 'Button', divider: 'Divider', spacer: 'Spacer', html: 'Advanced HTML', reply_marker: 'Reply marker' },
-    iconFor: { text: 'font', button: 'square', divider: 'minus', spacer: 'arrows-alt-v', html: 'code', reply_marker: 'reply' },
+    labelFor: { text: 'Text', quote: 'Quote box', button: 'Button', divider: 'Divider', spacer: 'Spacer', html: 'Advanced HTML', reply_marker: 'Reply marker' },
+    iconFor: { text: 'font', quote: 'quote-left', button: 'square', divider: 'minus', spacer: 'arrows-alt-v', html: 'code', reply_marker: 'reply' },
 
     placeholders: function (container) {
         try { return JSON.parse(container.dataset.placeholders || '[]'); } catch (e) { return []; }
@@ -427,7 +431,7 @@ var MT = {
     defaultBlock: function (type, placeholders) {
         if (type === 'button') { return { type: 'button', label: 'Click here', link: placeholders.length ? '{' + placeholders[0] + '}' : '' }; }
         if (type === 'spacer') { return { type: 'spacer', size: 16 }; }
-        if (type === 'text' || type === 'html') { return { type: type, html: '' }; }
+        if (type === 'text' || type === 'html' || type === 'quote') { return { type: type, html: '' }; }
         return { type: type };
     },
 

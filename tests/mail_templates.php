@@ -159,5 +159,11 @@ $ok(str_contains($rCustomHdr['body'], '<div id="custom">H</div>') && !str_contai
 $mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL WHERE company_id = 1");
 $mysqli->query("UPDATE companies SET company_logo = NULL WHERE company_id = 1");
 
+// 14. The "quote box" block (replacing the old plain-ASCII-dash separator for ticket details/replies): a styled box,
+// in the company's theme colour, not literal "--------" text.
+$rQuote = renderMailTemplate($mysqli, 'ticket_created', $vars);
+$ok(!str_contains($rQuote['body'], '--------------------------------'), 'the old ASCII-dash separator is gone from the default template');
+$ok(str_contains($rQuote['body'], 'border-left:3px solid #2563EB') && str_contains($rQuote['body'], 'Trusted HTML the technician wrote.'), 'ticket_details renders inside a styled quote box in the company theme colour');
+
 echo $fails === 0 ? "ALL PASS\n" : "$fails FAILURE(S)\n";
 exit($fails === 0 ? 0 : 1);

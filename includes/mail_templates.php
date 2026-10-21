@@ -112,6 +112,12 @@ function mailTemplateCompileBlock(array $b): string {
             return '<hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0;">';
         case 'spacer':
             return '<div style="height:' . max(4, min(200, (int) ($b['size'] ?? 16))) . 'px;line-height:1px;font-size:1px;">&nbsp;</div>';
+        case 'quote':
+            // A shaded, rounded "quoted content" box (a ticket's own details, a reply) instead of plain text fenced in
+            // ASCII dashes - the accent-coloured left edge is the literal token "{mt_accent}", resolved at render time
+            // the same way a Button's colour is (see mailTemplateButtonHtml()).
+            return '<div style="background-color:#f8f9fa;border-left:3px solid {mt_accent};border-radius:6px;padding:16px 18px;margin:18px 0;color:#374151;font-size:14px;line-height:1.6;">'
+                . (string) ($b['html'] ?? '') . '</div>';
         default: // 'text', 'html', and anything unrecognized
             return (string) ($b['html'] ?? '');
     }
@@ -142,7 +148,7 @@ function mailTemplateDefaultBlocks(): array {
         'ticket_created' => [
             ['type' => 'reply_marker'],
             ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>A ticket regarding "{subject}" has been created for you.'],
-            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_details}--------------------------------'],
+            ['type' => 'quote', 'html' => '{ticket_details}'],
             ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
             ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
             $signature,
@@ -150,7 +156,7 @@ function mailTemplateDefaultBlocks(): array {
         'ticket_reply' => [
             ['type' => 'reply_marker'],
             ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>Your ticket regarding {subject} has been updated.'],
-            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_reply}<br>--------------------------------'],
+            ['type' => 'quote', 'html' => '{ticket_reply}'],
             ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
             ['type' => 'button', 'label' => 'View ticket', 'link' => '{portal_link}'],
             $signature,
@@ -158,7 +164,7 @@ function mailTemplateDefaultBlocks(): array {
         'ticket_resolved' => [
             ['type' => 'reply_marker'],
             ['type' => 'text', 'html' => 'Hello {contact_name},<br><br>Your ticket regarding {subject} has been resolved and closed.'],
-            ['type' => 'text', 'html' => '--------------------------------<br>{ticket_reply}<br>--------------------------------'],
+            ['type' => 'quote', 'html' => '{ticket_reply}'],
             ['type' => 'text', 'html' => 'We hope this resolved things to your satisfaction - how would you rate it?<br>{csat_rating_html}'],
             ['type' => 'text', 'html' => "If you need further assistance, please reply or <a href='{portal_link}'>re-open</a> to let us know!"],
             ['type' => 'text', 'html' => 'Ticket: {ticket_number}<br>Subject: {subject}<br>Status: {status}'],
