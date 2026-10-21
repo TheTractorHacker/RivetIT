@@ -1031,21 +1031,38 @@ function rivetBuildHostPublish($mysqli, \RivetCore\Rmm\RmmModule $rmm, int $jobI
         $admin = $rmm->admin();
         $notes = [];
         $bad = null;
+        $notesText = 'Built on build host ' . ($j['host_name'] ?? '') . ' from ' . $j['source_ref'] . ' ' . substr((string) $j['commit_sha'], 0, 12);
         // Linux files first: storing them again is harmless (same bytes = replay), so a retry of Publish still works. They become the current ones only after the Windows files are in.
+        // rivetLxStore() keeps hosting install-linux.sh and the tarballs (the installer-download path, unrelated to self-update); the two raw ELF
+        // binaries are ALSO registered through the same Core path as Windows (RivetCore 1.0.0-rc.30, migration 0037) with os='linux', so a Linux
+        // device's self-update is offered and served from endpoint_agent_binaries/_releases with its own OS, never the Windows row of the same
+        // version/arch. Before this, only rivetLxStore() ran here: a Linux agent could never actually self-update at all (no release row existed
+        // for it), and the one time this WAS worked around by hand-publishing a Windows exe under the same version, a Linux agent downloaded it
+        // and correctly rejected it as not a valid ELF executable - the real incident this migration and this fix are for.
         $lxIds = [];
         foreach (RIVET_BH_LINUX as $ln) {
             if (!isset($paths[$ln]) || !is_file($paths[$ln])) {
                 continue;
             }
             $lr = rivetLxStore($mysqli, $paths[$ln], $ln, (string) $j['version'], $uid, ['activate' => false, 'ring' => $o['offer'] ? $o['ring'] : null, 'pct' => $o['pct'], 'source' => 'build_host',
-                'notes' => 'Built on build host ' . ($j['host_name'] ?? '') . ' from ' . $j['source_ref'] . ' ' . substr((string) $j['commit_sha'], 0, 12)]);
+                'notes' => $notesText]);
             if (!$lr['ok']) {
                 $bad = $lr['error'] ?? ($ln . ' could not be stored.');
                 break;
             }
             $lxIds[] = (int) $lr['file_id'];
         }
-        $notesText = 'Built on build host ' . ($j['host_name'] ?? '') . ' from ' . $j['source_ref'] . ' ' . substr((string) $j['commit_sha'], 0, 12);
+        foreach ($bad !== null ? [] : ['rivetit-agent-linux-amd64' => 'amd64', 'rivetit-agent-linux-arm64' => 'arm64'] as $ln => $arch) {
+            if (!isset($paths[$ln]) || !is_file($paths[$ln])) {
+                continue;   // optional, additive: an old build host may send no Linux binaries at all
+            }
+            $r = $admin->uploadBinary($who, $paths[$ln], (string) $j['version'], $arch, ['os' => 'linux', 'activate' => $o['activate'], 'release_ring' => $o['offer'] ? $o['ring'] : null, 'rollout_pct' => $o['pct'], 'notes' => $notesText]);
+            if (!$r->ok) {
+                $bad = $ln . ': ' . $r->message;
+                break;
+            }
+            $notes[] = $ln;
+        }
         foreach ($bad !== null ? [] : ['rivetit-agent-windows-amd64.exe' => 'amd64', 'rivetit-agent-windows-arm64.exe' => 'arm64'] as $n => $arch) {
             $r = $admin->uploadBinary($who, $paths[$n], (string) $j['version'], $arch, ['activate' => $o['activate'], 'release_ring' => $o['offer'] ? $o['ring'] : null, 'rollout_pct' => $o['pct'], 'notes' => $notesText]);
             if (!$r->ok) {

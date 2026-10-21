@@ -11637,3 +11637,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN `user_config_notify_types` text DEFAULT NULL AFTER `user_config_push_types`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.184'");
     }
+
+    if ($rivetit_db_version() == '2.6.184') {
+        // DB 2.6.185: RivetCore 1.0.0-rc.30 (migration 0037, agent OS). Fixes a real bug found on mwa: endpoint_agent_binaries and
+        // endpoint_agent_releases keyed only on version + arch, so a Linux agent could be offered (and could download) a Windows
+        // .exe as its self-update - which is exactly what happened to devpve. Adds `os` ('windows'/'linux', default 'windows' - every
+        // row that already exists really is a Windows binary, so nothing is backfilled) and widens the unique keys to include it.
+        // Same Core runner as every other DB step here (idempotent: skips 0033-0036 if somehow not yet applied).
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0037AgentOs::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.185'");
+        }
+    }

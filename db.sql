@@ -10032,8 +10032,9 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_releases` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `arch` varchar(10) NOT NULL DEFAULT '',
   `binary_id` int(11) DEFAULT NULL,
+  `os` varchar(10) NOT NULL DEFAULT 'windows',
   PRIMARY KEY (`release_id`),
-  UNIQUE KEY `uniq_version_ring_arch` (`version`,`ring`,`arch`)
+  UNIQUE KEY `uniq_version_ring_arch_os` (`version`,`ring`,`arch`,`os`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -10051,8 +10052,9 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_binaries` (
   `active` tinyint(1) NOT NULL DEFAULT 1,
   `is_current` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `os` varchar(10) NOT NULL DEFAULT 'windows',
   PRIMARY KEY (`binary_id`),
-  UNIQUE KEY `uniq_version_arch` (`version`,`arch`)
+  UNIQUE KEY `uniq_version_arch_os` (`version`,`arch`,`os`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT IGNORE INTO `endpoint_agent_settings` (`id`) VALUES (1);
