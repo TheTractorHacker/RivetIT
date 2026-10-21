@@ -11653,3 +11653,31 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.185'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.185') {
+        // DB 2.6.186: Email Templates (includes/mail_templates.php). The ticket created/reply/resolved/closed/assigned and
+        // portal password reset/confirmation emails used to be hardcoded HTML strings duplicated across several call sites;
+        // they now read from this table, falling back to the exact same default text when a row has never been edited, so
+        // nothing changes for an existing install until an administrator opens Settings > Email Templates and changes one.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `mail_templates` (
+            `mail_template_id` int(11) NOT NULL AUTO_INCREMENT,
+            `mail_template_event` varchar(40) NOT NULL,
+            `mail_template_subject` varchar(500) NOT NULL DEFAULT '',
+            `mail_template_body` mediumtext NOT NULL,
+            `mail_template_enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `mail_template_updated_at` datetime DEFAULT NULL,
+            `mail_template_updated_by` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`mail_template_id`),
+            UNIQUE KEY `uniq_mail_template_event` (`mail_template_event`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN `config_mail_template_header_html` mediumtext DEFAULT NULL,
+            ADD COLUMN `config_mail_template_footer_html` mediumtext DEFAULT NULL");
+        foreach (mailTemplateDefaults() as $event => $tpl) {
+            $e = mysqli_real_escape_string($mysqli, $event);
+            $s = mysqli_real_escape_string($mysqli, $tpl['subject']);
+            $b = mysqli_real_escape_string($mysqli, $tpl['body']);
+            mysqli_query($mysqli, "INSERT IGNORE INTO `mail_templates` (`mail_template_event`, `mail_template_subject`, `mail_template_body`, `mail_template_enabled`, `mail_template_updated_at`) VALUES ('$e', '$s', '$b', 1, NOW())");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.186'");
+    }

@@ -1445,6 +1445,23 @@ CREATE TABLE `email_queue` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Email Templates (DB 2.6.186): customizable subject/body for the client/technician-facing mail events this app sends,
+-- previously hardcoded HTML strings duplicated across several call sites. includes/mail_templates.php.
+--
+
+CREATE TABLE `mail_templates` (
+  `mail_template_id` int(11) NOT NULL AUTO_INCREMENT,
+  `mail_template_event` varchar(40) NOT NULL,
+  `mail_template_subject` varchar(500) NOT NULL DEFAULT '',
+  `mail_template_body` mediumtext NOT NULL,
+  `mail_template_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `mail_template_updated_at` datetime DEFAULT NULL,
+  `mail_template_updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`mail_template_id`),
+  UNIQUE KEY `uniq_mail_template_event` (`mail_template_event`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
 -- Table structure for table `endpoint_agent_change_records`
 --
 
@@ -4670,6 +4687,11 @@ CREATE TABLE `settings` (
   `config_rmm_extstore_write_url` text DEFAULT NULL,
   `config_rmm_extstore_read_url` text DEFAULT NULL,
   `config_rmm_extstore_token` text DEFAULT NULL,
+  `config_notify_enabled_types` text DEFAULT NULL,
+  `config_update_notify_last_version` varchar(100) DEFAULT NULL,
+  `config_update_notify_last_at` datetime DEFAULT NULL,
+  `config_mail_template_header_html` mediumtext DEFAULT NULL,
+  `config_mail_template_footer_html` mediumtext DEFAULT NULL,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -7469,6 +7491,7 @@ CREATE TABLE `user_settings` (
   `user_config_signature` longtext DEFAULT NULL,
   `user_config_theme_dark` tinyint(1) NOT NULL DEFAULT 0,
   `user_config_push_types` text DEFAULT NULL,
+  `user_config_notify_types` text DEFAULT NULL,
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

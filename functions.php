@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/branding.php';   // RivetIT product name and l
 require_once __DIR__ . '/includes/redis_functions.php';
 require_once __DIR__ . '/includes/firebase.php';
 require_once __DIR__ . '/includes/notification_categories.php';
+require_once __DIR__ . '/includes/mail_templates.php';
 require_once __DIR__ . '/includes/module_access.php';
 require_once __DIR__ . '/includes/billing_guards.php';  // pure money/invoice-state guards + insertStripePaymentOnce()
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
@@ -4867,17 +4868,23 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
     // External email
     $data = [];
     if ($config_ticket_client_general_notifications == 1 && !preg_match($bad_pattern, $contact_email)) {
-        $subject_email = "Ticket created - [$config_ticket_prefix$ticket_number] - $subject";
-        $body = "<i style='color: #808080'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Thank you for your email. A ticket regarding \"$subject\" has been automatically created for you.<br><br>Ticket: $config_ticket_prefix$ticket_number<br>Subject: $subject<br>Status: New<br>Portal: <a href='https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$id&url_key=$url_key'>View ticket</a><br><br>--<br>$company_name - Support<br>$from_email<br>$company_phone";
-        $data[] = [
-            'from' => $from_email,
-            'from_name' => $from_name,
-            'recipient' => $contact_email,
-            'recipient_name' => $contact_name,
-            'subject' => $subject_email,
-            'body' => mysqli_real_escape_string($mysqli, $body),
-            'ticket_id' => $id
-        ];
+        $mt = renderMailTemplate($mysqli, 'ticket_created', [
+            'contact_name' => $contact_name, 'ticket_number' => "$config_ticket_prefix$ticket_number", 'subject' => $subject,
+            'status' => 'New', 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $from_email,
+            'ticket_details' => '',
+        ]);
+        if ($mt !== null) {
+            $data[] = [
+                'from' => $from_email,
+                'from_name' => $from_name,
+                'recipient' => $contact_email,
+                'recipient_name' => $contact_name,
+                'subject' => $mt['subject'],
+                'body' => mysqli_real_escape_string($mysqli, $mt['body']),
+                'ticket_id' => $id
+            ];
+        }
     }
 
     // Internal email

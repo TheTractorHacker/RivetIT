@@ -220,46 +220,53 @@ if (isset($_POST['add_ticket'])) {
 
         // EMAILING
 
-        $subject = "Ticket Created [$ticket_prefix$ticket_number] - $ticket_subject";
-        $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>A ticket regarding \"$ticket_subject\" has been created for you.<br><br>--------------------------------<br>$ticket_details--------------------------------<br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: Open<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
-
         $ticket_from = resolveTicketFromIdentity($ticket_id);
+        $mt = renderMailTemplate($mysqli, 'ticket_created', [
+            'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+            'status' => 'Open', 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+            'ticket_details' => $ticket_details,
+        ]);
 
-        // Verify contact email is valid
-        if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+        if ($mt !== null) {
+            $subject = $mt['subject'];
+            $body = $mt['body'];
 
+            // Verify contact email is valid
+            if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-            // Email Ticket Contact
-            // Queue Mail
-            $data = [];
+                // Email Ticket Contact
+                // Queue Mail
+                $data = [];
 
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $contact_email,
-                'recipient_name' => $contact_name,
-                'subject' => $subject,
-                'body' => $body
-            ];
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $contact_email,
+                    'recipient_name' => $contact_name,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+
+            // Also Email all the watchers
+            $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+            $body .= "<br><br>----------------------------------------<br>YOU HAVE BEEN ADDED AS A COLLABORATOR FOR THIS TICKET";
+            while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                $watcher_email = sanitizeInput($row['watcher_email']);
+
+                // Queue Mail
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $watcher_email,
+                    'recipient_name' => $watcher_email,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+            addToMailQueue($data);
         }
-
-        // Also Email all the watchers
-        $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-        $body .= "<br><br>----------------------------------------<br>YOU HAVE BEEN ADDED AS A COLLABORATOR FOR THIS TICKET";
-        while ($row = mysqli_fetch_assoc($sql_watchers)) {
-            $watcher_email = sanitizeInput($row['watcher_email']);
-
-            // Queue Mail
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $watcher_email,
-                'recipient_name' => $watcher_email,
-                'subject' => $subject,
-                'body' => $body
-            ];
-        }
-        addToMailQueue($data);
 
         // END EMAILING
 
@@ -370,19 +377,22 @@ if (isset($_POST['edit_ticket'])) {
 
         $ticket_from = resolveTicketFromIdentity($ticket_id);
 
-        $subject = "Ticket Created - [$ticket_prefix$ticket_number] - $ticket_subject";
-        $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>A ticket regarding \"$ticket_subject\" has been created for you.<br><br>--------------------------------<br>$ticket_details--------------------------------<br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+        $mt = renderMailTemplate($mysqli, 'ticket_created', [
+            'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+            'status' => $ticket_status, 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+            'ticket_details' => $ticket_details,
+        ]);
 
-
-        // Only add contact to email queue if email is valid
-        if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+        // Only add contact to email queue if the template is enabled and the email is valid
+        if ($mt !== null && filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
             $data[] = [
                 'from' => $ticket_from['email'],
                 'from_name' => $ticket_from['name'],
                 'recipient' => $contact_email,
                 'recipient_name' => $contact_name,
-                'subject' => $subject,
-                'body' => $body
+                'subject' => $mt['subject'],
+                'body' => $mt['body']
             ];
         }
 
@@ -609,19 +619,25 @@ if (isset($_POST['edit_ticket_contact'])) {
         // Email content
         $data = []; // Queue array
 
-        $subject = "Ticket Created - [$ticket_prefix$ticket_number] - $ticket_subject";
-        $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>A ticket regarding \"$ticket_subject\" has been created for you.<br><br>--------------------------------<br>$ticket_details--------------------------------<br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+        $mt = renderMailTemplate($mysqli, 'ticket_created', [
+            'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+            'status' => $ticket_status, 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+            'ticket_details' => $ticket_details,
+        ]);
 
-        $data[] = [
-            'from' => $ticket_from['email'],
-            'from_name' => $ticket_from['name'],
-            'recipient' => $contact_email,
-            'recipient_name' => $contact_name,
-            'subject' => $subject,
-            'body' => $body
-        ];
+        if ($mt !== null) {
+            $data[] = [
+                'from' => $ticket_from['email'],
+                'from_name' => $ticket_from['name'],
+                'recipient' => $contact_email,
+                'recipient_name' => $contact_name,
+                'subject' => $mt['subject'],
+                'body' => $mt['body']
+            ];
 
-        addToMailQueue($data);
+            addToMailQueue($data);
+        }
     }
 
     // Custom action/notif handler
@@ -1214,22 +1230,27 @@ if (isset($_POST['assign_ticket'])) {
 
             $ticket_from = resolveTicketFromIdentity($ticket_id);
 
-            $subject = "$config_app_name - Ticket $ticket_prefix$ticket_number assigned to you - $ticket_subject";
-            $body = "Hi $agent_name, <br><br>A ticket has been assigned to you!<br><br>Department: $client_name<br>Ticket Number: $ticket_prefix$ticket_number<br> Subject: $ticket_subject<br><br>https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri <br><br>Thanks, <br>$session_name<br>$company_name";
+            $mt = renderMailTemplate($mysqli, 'ticket_assigned', [
+                'technician_name' => $agent_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+                'client_name' => $client_name, 'agent_link' => "https://$config_base_url/agent/ticket.php?ticket_id=$ticket_id$client_uri",
+                'assigned_by_name' => $session_name, 'company_name' => $company_name,
+            ]);
 
-            // Email Ticket Agent
-            // Queue Mail
-            $data = [
-                [
-                    'from' => $ticket_from['email'],
-                    'from_name' => $ticket_from['name'],
-                    'recipient' => $agent_email,
-                    'recipient_name' => $agent_name,
-                    'subject' => $subject,
-                    'body' => $body,
-                ]
-            ];
-            addToMailQueue($data);
+            if ($mt !== null) {
+                // Email Ticket Agent
+                // Queue Mail
+                $data = [
+                    [
+                        'from' => $ticket_from['email'],
+                        'from_name' => $ticket_from['name'],
+                        'recipient' => $agent_email,
+                        'recipient_name' => $agent_name,
+                        'subject' => $mt['subject'],
+                        'body' => $mt['body'],
+                    ]
+                ];
+                addToMailQueue($data);
+            }
         }
     }
 
@@ -1737,45 +1758,54 @@ if (isset($_POST['bulk_resolve_tickets'])) {
                     $company_phone = sanitizeInput(formatPhoneNumber($row['company_phone'], $row['company_phone_country_code']));
 
                     // EMAIL
-                    $subject = "Ticket resolved - [$ticket_prefix$ticket_number] - $ticket_subject";
                     $csat_rating_html = ($config_ticket_csat_enable == 1) ? csatEmailRatingLinksHtml($config_base_url, $ticket_id, $url_key) : '';
-                    $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Your ticket regarding \"$ticket_subject\" has been resolved and closed.<br><br>$details<br><br>We hope this resolved things to your satisfaction - how would you rate it?<br>$csat_rating_html<br>If you need further assistance, please reply or <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>re-open</a> to let us know! <br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Portal: https://$base_url/client/ticket.php?id=$ticket_id<br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+                    $mt = renderMailTemplate($mysqli, 'ticket_resolved', [
+                        'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+                        'status' => 'Resolved', 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+                        'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+                        'ticket_reply' => $details, 'csat_rating_html' => $csat_rating_html,
+                    ]);
 
-                    // Check email valid
-                    if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+                    if ($mt !== null) {
+                        $subject = $mt['subject'];
+                        $body = $mt['body'];
 
-                        $data = [];
+                        // Check email valid
+                        if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-                        // Email Ticket Contact
-                        // Queue Mail
+                            $data = [];
 
-                        $data[] = [
-                            'from' => $from_email,
-                            'from_name' => $from_name,
-                            'recipient' => $contact_email,
-                            'recipient_name' => $contact_name,
-                            'subject' => $subject,
-                            'body' => $body
-                        ];
+                            // Email Ticket Contact
+                            // Queue Mail
+
+                            $data[] = [
+                                'from' => $from_email,
+                                'from_name' => $from_name,
+                                'recipient' => $contact_email,
+                                'recipient_name' => $contact_name,
+                                'subject' => $subject,
+                                'body' => $body
+                            ];
+                        }
+
+                        // Also Email all the watchers
+                        $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+                        $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
+                        while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                            $watcher_email = sanitizeInput($row['watcher_email']);
+
+                            // Queue Mail
+                            $data[] = [
+                                'from' => $from_email,
+                                'from_name' => $from_name,
+                                'recipient' => $watcher_email,
+                                'recipient_name' => $watcher_email,
+                                'subject' => $subject,
+                                'body' => $body
+                            ];
+                        }
+                        addToMailQueue($data);
                     }
-
-                    // Also Email all the watchers
-                    $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-                    $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
-                    while ($row = mysqli_fetch_assoc($sql_watchers)) {
-                        $watcher_email = sanitizeInput($row['watcher_email']);
-
-                        // Queue Mail
-                        $data[] = [
-                            'from' => $from_email,
-                            'from_name' => $from_name,
-                            'recipient' => $watcher_email,
-                            'recipient_name' => $watcher_email,
-                            'subject' => $subject,
-                            'body' => $body
-                        ];
-                    }
-                    addToMailQueue($data);
                 } // End Mail IF
             } else {
                  $skipped_count++;
@@ -1905,43 +1935,52 @@ if (isset($_POST['bulk_ticket_reply'])) {
             // Send e-mail to client if public update & email is set up
             if ($private_note == 0 && (!empty($config_smtp_host) || !empty($config_smtp_provider))) {
 
-                $subject = "Ticket update - [$ticket_prefix$ticket_number] - $ticket_subject";
-                $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Your ticket regarding $ticket_subject has been updated.<br><br>--------------------------------<br>$ticket_reply<br>--------------------------------<br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status_name<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$from_email<br>$company_phone";
+                $mt = renderMailTemplate($mysqli, 'ticket_reply', [
+                    'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+                    'status' => $ticket_status_name, 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+                    'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $from_email,
+                    'ticket_reply' => $ticket_reply,
+                ]);
 
-                if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+                if ($mt !== null) {
+                    $subject = $mt['subject'];
+                    $body = $mt['body'];
 
-                    $data = [];
+                    if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-                    // Email Ticket Contact
-                    // Queue Mail
-                    $data[] = [
-                        'from' => $from_email,
-                        'from_name' => $from_name,
-                        'recipient' => $contact_email,
-                        'recipient_name' => $contact_name,
-                        'subject' => $subject,
-                        'body' => $body
-                    ];
+                        $data = [];
 
+                        // Email Ticket Contact
+                        // Queue Mail
+                        $data[] = [
+                            'from' => $from_email,
+                            'from_name' => $from_name,
+                            'recipient' => $contact_email,
+                            'recipient_name' => $contact_name,
+                            'subject' => $subject,
+                            'body' => $body
+                        ];
+
+                    }
+
+                    // Also Email all the watchers
+                    $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+                    $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
+                    while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                        $watcher_email = sanitizeInput($row['watcher_email']);
+
+                        // Queue Mail
+                        $data[] = [
+                            'from' => $from_email,
+                            'from_name' => $from_name,
+                            'recipient' => $watcher_email,
+                            'recipient_name' => $watcher_email,
+                            'subject' => $subject,
+                            'body' => $body
+                        ];
+                    }
+                    addToMailQueue($data);
                 }
-
-                // Also Email all the watchers
-                $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-                $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
-                while ($row = mysqli_fetch_assoc($sql_watchers)) {
-                    $watcher_email = sanitizeInput($row['watcher_email']);
-
-                    // Queue Mail
-                    $data[] = [
-                        'from' => $from_email,
-                        'from_name' => $from_name,
-                        'recipient' => $watcher_email,
-                        'recipient_name' => $watcher_email,
-                        'subject' => $subject,
-                        'body' => $body
-                    ];
-                }
-                addToMailQueue($data);
             } //End Mail IF
 
             // Notification for assigned ticket user
@@ -2319,52 +2358,61 @@ if (isset($_POST['add_ticket_reply'])) {
         // Send e-mail to client if public update & email is set up
         if ($ticket_reply_type == 'Public' && $send_email == 1 && (!empty($config_smtp_host) || !empty($config_smtp_provider))) {
 
-            // Slightly different email subject/text depending on if this update set auto-close
+            // Slightly different template depending on if this update set auto-close
 
+            $mt_vars = [
+                'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+                'status' => $ticket_status_name, 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+                'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+                'ticket_reply' => $ticket_reply,
+            ];
             if ($ticket_status == 4) {
                 // Resolved and closed
-                $subject = "Ticket resolved - [$ticket_prefix$ticket_number] - $ticket_subject";
-                $csat_rating_html = ($config_ticket_csat_enable == 1) ? csatEmailRatingLinksHtml($config_base_url, $ticket_id, $url_key) : '';
-                $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Your ticket regarding $ticket_subject has been resolved and closed.<br><br>--------------------------------<br>$ticket_reply<br>--------------------------------<br><br>We hope this resolved things to your satisfaction - how would you rate it?<br>$csat_rating_html<br>If you need further assistance, please reply or <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>re-open</a> to let us know! <br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status_name<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+                $mt_vars['csat_rating_html'] = ($config_ticket_csat_enable == 1) ? csatEmailRatingLinksHtml($config_base_url, $ticket_id, $url_key) : '';
+                $mt = renderMailTemplate($mysqli, 'ticket_resolved', $mt_vars);
             } else {
                 // Anything else
-                $subject = "Ticket update - [$ticket_prefix$ticket_number] - $ticket_subject";
-                $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Your ticket regarding $ticket_subject has been updated.<br><br>--------------------------------<br>$ticket_reply<br>--------------------------------<br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status_name<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+                $mt = renderMailTemplate($mysqli, 'ticket_reply', $mt_vars);
             }
 
-            if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+            if ($mt !== null) {
+                $subject = $mt['subject'];
+                $body = $mt['body'];
 
-                $data = [];
+                if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-                // Email Ticket Contact
-                // Queue Mail
-                $data[] = [
-                    'from' => $ticket_from['email'],
-                    'from_name' => $ticket_from['name'],
-                    'recipient' => $contact_email,
-                    'recipient_name' => $contact_name,
-                    'subject' => $subject,
-                    'body' => $body
-                ];
+                    $data = [];
+
+                    // Email Ticket Contact
+                    // Queue Mail
+                    $data[] = [
+                        'from' => $ticket_from['email'],
+                        'from_name' => $ticket_from['name'],
+                        'recipient' => $contact_email,
+                        'recipient_name' => $contact_name,
+                        'subject' => $subject,
+                        'body' => $body
+                    ];
+                }
+
+                // Also Email all the watchers
+                $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+                $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
+                while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                    $watcher_email = sanitizeInput($row['watcher_email']);
+
+                    // Queue Mail
+                    $data[] = [
+                        'from' => $ticket_from['email'],
+                        'from_name' => $ticket_from['name'],
+                        'recipient' => $watcher_email,
+                        'recipient_name' => $watcher_email,
+                        'subject' => $subject,
+                        'body' => $body
+                    ];
+                }
+                addToMailQueue($data);
             }
-
-            // Also Email all the watchers
-            $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-            $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
-            while ($row = mysqli_fetch_assoc($sql_watchers)) {
-                $watcher_email = sanitizeInput($row['watcher_email']);
-
-                // Queue Mail
-                $data[] = [
-                    'from' => $ticket_from['email'],
-                    'from_name' => $ticket_from['name'],
-                    'recipient' => $watcher_email,
-                    'recipient_name' => $watcher_email,
-                    'subject' => $subject,
-                    'body' => $body
-                ];
-            }
-            addToMailQueue($data);
 
         }
         //End Mail IF
@@ -2731,45 +2779,54 @@ if (isset($_GET['resolve_ticket'])) {
         $company_phone = sanitizeInput(formatPhoneNumber($row['company_phone'], $row['company_phone_country_code']));
 
         // EMAIL
-        $subject = "Ticket resolved - [$ticket_prefix$ticket_number] - $ticket_subject";
         $csat_rating_html = ($config_ticket_csat_enable == 1) ? csatEmailRatingLinksHtml($config_base_url, $ticket_id, $url_key) : '';
-        $body = "<i style=\'color: #808080\'>##- Please type your reply above this line -##</i><br><br>Hello $contact_name,<br><br>Your ticket regarding $ticket_subject has been resolved and closed.<br><br>We hope this resolved things to your satisfaction - how would you rate it?<br>$csat_rating_html<br>If you need further assistance, please reply or <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>re-open</a> to let us know! <br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Status: $ticket_status<br>Portal: <a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>View ticket</a><br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+        $mt = renderMailTemplate($mysqli, 'ticket_resolved', [
+            'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+            'status' => $ticket_status, 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+            'ticket_reply' => '', 'csat_rating_html' => $csat_rating_html,
+        ]);
 
-        // Check email valid
-        if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+        if ($mt !== null) {
+            $subject = $mt['subject'];
+            $body = $mt['body'];
 
-            $data = [];
+            // Check email valid
+            if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-            // Email Ticket Contact
-            // Queue Mail
+                $data = [];
 
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $contact_email,
-                'recipient_name' => $contact_name,
-                'subject' => $subject,
-                'body' => $body
-            ];
+                // Email Ticket Contact
+                // Queue Mail
+
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $contact_email,
+                    'recipient_name' => $contact_name,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+
+            // Also Email all the watchers
+            $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+            $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
+            while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                $watcher_email = sanitizeInput($row['watcher_email']);
+
+                // Queue Mail
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $watcher_email,
+                    'recipient_name' => $watcher_email,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+            addToMailQueue($data);
         }
-
-        // Also Email all the watchers
-        $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-        $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
-        while ($row = mysqli_fetch_assoc($sql_watchers)) {
-            $watcher_email = sanitizeInput($row['watcher_email']);
-
-            // Queue Mail
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $watcher_email,
-                'recipient_name' => $watcher_email,
-                'subject' => $subject,
-                'body' => $body
-            ];
-        }
-        addToMailQueue($data);
     }
     //End Mail IF
 
@@ -2848,45 +2905,54 @@ if (isset($_GET['close_ticket'])) {
         $company_phone = sanitizeInput(formatPhoneNumber($row['company_phone'], $row['company_phone_country_code']));
 
         // EMAIL
-        $subject = "Ticket closed - [$ticket_prefix$ticket_number] - $ticket_subject | (do not reply)";
         $csat_rating_html = ($config_ticket_csat_enable == 1) ? csatEmailRatingLinksHtml($config_base_url, $ticket_id, $url_key) : '';
-        $body = "Hello $contact_name,<br><br>Your ticket regarding \"$ticket_subject\" has been closed. <br><br> We hope the request/issue was resolved to your satisfaction - how would you rate it?<br>$csat_rating_html<a href=\'https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key\'>Or click here to leave feedback</a>. <br>If you need further assistance, please raise a new ticket using the below details. Please do not reply to this email. <br><br>Ticket: $ticket_prefix$ticket_number<br>Subject: $ticket_subject<br>Portal: https://$config_base_url/client/ticket.php?id=$ticket_id<br><br>--<br>$company_name - Support<br>$config_ticket_from_email<br>$company_phone";
+        $mt = renderMailTemplate($mysqli, 'ticket_closed', [
+            'contact_name' => $contact_name, 'ticket_number' => "$ticket_prefix$ticket_number", 'subject' => $ticket_subject,
+            'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$ticket_id&url_key=$url_key",
+            'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $config_ticket_from_email,
+            'csat_rating_html' => $csat_rating_html,
+        ]);
 
-        // Check email valid
-        if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
+        if ($mt !== null) {
+            $subject = $mt['subject'];
+            $body = $mt['body'];
 
-            $data = [];
+            // Check email valid
+            if (filter_var($contact_email, FILTER_VALIDATE_EMAIL)) {
 
-            // Email Ticket Contact
-            // Queue Mail
+                $data = [];
 
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $contact_email,
-                'recipient_name' => $contact_name,
-                'subject' => $subject,
-                'body' => $body
-            ];
+                // Email Ticket Contact
+                // Queue Mail
+
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $contact_email,
+                    'recipient_name' => $contact_name,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+
+            // Also Email all the watchers
+            $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
+            $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
+            while ($row = mysqli_fetch_assoc($sql_watchers)) {
+                $watcher_email = sanitizeInput($row['watcher_email']);
+
+                // Queue Mail
+                $data[] = [
+                    'from' => $ticket_from['email'],
+                    'from_name' => $ticket_from['name'],
+                    'recipient' => $watcher_email,
+                    'recipient_name' => $watcher_email,
+                    'subject' => $subject,
+                    'body' => $body
+                ];
+            }
+            addToMailQueue($data);
         }
-
-        // Also Email all the watchers
-        $sql_watchers = mysqli_query($mysqli, "SELECT watcher_email FROM ticket_watchers WHERE watcher_ticket_id = $ticket_id");
-        $body .= "<br><br>----------------------------------------<br>YOU ARE A COLLABORATOR ON THIS TICKET";
-        while ($row = mysqli_fetch_assoc($sql_watchers)) {
-            $watcher_email = sanitizeInput($row['watcher_email']);
-
-            // Queue Mail
-            $data[] = [
-                'from' => $ticket_from['email'],
-                'from_name' => $ticket_from['name'],
-                'recipient' => $watcher_email,
-                'recipient_name' => $watcher_email,
-                'subject' => $subject,
-                'body' => $body
-            ];
-        }
-        addToMailQueue($data);
     }
     //End Mail IF
 
