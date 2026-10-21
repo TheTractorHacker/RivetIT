@@ -198,14 +198,14 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 
 /* Contextual rows (awaiting reply, overdue, etc.): a muted tint + left accent
    reads as "this needs attention" without Bootstrap's default saturated fill. */
-.table-warning { --bs-table-bg: rgba(217,119,6,.09); box-shadow: inset 3px 0 0 #d97706; }
-.table-danger  { --bs-table-bg: rgba(220,38,38,.08); box-shadow: inset 3px 0 0 #dc2626; }
-.table-success { --bs-table-bg: rgba(5,150,105,.08); box-shadow: inset 3px 0 0 #059669; }
-.table-info    { --bs-table-bg: rgba(13,148,136,.08); box-shadow: inset 3px 0 0 #0d9488; }
-:root[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(217,119,6,.14); }
-:root[data-bs-theme="dark"] .table-danger  { --bs-table-bg: rgba(220,38,38,.14); }
-:root[data-bs-theme="dark"] .table-success { --bs-table-bg: rgba(5,150,105,.14); }
-:root[data-bs-theme="dark"] .table-info    { --bs-table-bg: rgba(13,148,136,.14); }
+.table-warning { --bs-table-bg: rgba(217,119,6,.09); --tblr-table-bg: rgba(217,119,6,.09); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #d97706; }
+.table-danger  { --bs-table-bg: rgba(220,38,38,.08); --tblr-table-bg: rgba(220,38,38,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #dc2626; }
+.table-success { --bs-table-bg: rgba(5,150,105,.08); --tblr-table-bg: rgba(5,150,105,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #059669; }
+.table-info    { --bs-table-bg: rgba(13,148,136,.08); --tblr-table-bg: rgba(13,148,136,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #0d9488; }
+:root[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(217,119,6,.14); --tblr-table-bg: rgba(217,119,6,.14); }
+:root[data-bs-theme="dark"] .table-danger  { --bs-table-bg: rgba(220,38,38,.14); --tblr-table-bg: rgba(220,38,38,.14); }
+:root[data-bs-theme="dark"] .table-success { --bs-table-bg: rgba(5,150,105,.14); --tblr-table-bg: rgba(5,150,105,.14); }
+:root[data-bs-theme="dark"] .table-info    { --bs-table-bg: rgba(13,148,136,.14); --tblr-table-bg: rgba(13,148,136,.14); }
 
 /* ---- Forms: tidy inputs ---- */
 /* One control height for the whole app. Native inputs and .btn resolved to 40px
