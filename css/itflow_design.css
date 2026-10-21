@@ -1030,3 +1030,9 @@ tr.asset-inline-moved-out > td {
 :root:not([data-bs-theme="dark"]) .text-success { color: #157a30 !important; }
 :root:not([data-bs-theme="dark"]) .text-secondary, :root:not([data-bs-theme="dark"]) .text-muted { color: #566570 !important; }
 :root:not([data-bs-theme="dark"]) .cred-desc { color: #566570; }
+
+/* Dark theme: helper text, tom-select placeholder and outline-danger buttons were under 4.5:1 on the dark surfaces. */
+:root[data-bs-theme="dark"] .text-secondary, :root[data-bs-theme="dark"] .text-muted { color: #a9b6bb !important; }
+:root[data-bs-theme="dark"] .ts-control input, :root[data-bs-theme="dark"] .ts-control > input::placeholder { color: #a9b6bb; }
+:root[data-bs-theme="dark"] .btn-outline-danger { color: #ff9a9a; border-color: #ff9a9a; }
+:root[data-bs-theme="dark"] .btn-outline-danger:hover { color: #fff; }
