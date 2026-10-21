@@ -195,6 +195,20 @@ function rivetRmmHvVmView(array $ctx, int $vmId): array
     return ['error' => '', 'vm' => (array) $r['data']];
 }
 
+/**
+ * Asset hints for a VM (RivetCore's HypervisorLinker, "suggest only": matches by hostname/short-name, never by MAC - the
+ * collectors never read VM network configuration at all, so a MAC match never actually fires from this data source). Nothing
+ * is linked or created; this is purely "you might mean this existing asset" for a technician to act on themselves.
+ *
+ * @return list<array{asset_id:int,asset_name:string,client_id:int,matched_by:string,confidence:string,same_client:bool}>
+ */
+function rivetRmmHvVmAssetSuggestions(array $ctx, int $vmId): array
+{
+    $r = rivetRmmHvCall($ctx, 'GET', ['vms', $vmId, 'asset-suggestions']);
+
+    return $r['ok'] && is_array($r['data']['data'] ?? null) ? (array) $r['data']['data'] : [];
+}
+
 function rivetRmmHvVmPage(array $vm, array $ctx): string
 {
     $h = 'rivetRmmHvH';
@@ -228,6 +242,22 @@ function rivetRmmHvVmPage(array $vm, array $ctx): string
         $facts .= $row('Ignored', $h($v['ignored_reason'] !== '' ? $v['ignored_reason'] : 'no reason given'));
     }
     $o .= rivetRmmUiCard('Facts', 'info-circle', '<dl class="row small mb-0 px-3 pt-2">' . $facts . '</dl>', '', '', true);
+
+    // Asset hints (HypervisorLinker, "suggest only"): a name/hostname match against this app's own assets, nothing linked or
+    // created automatically. The collectors never read VM network config, so a match is always by name, never a MAC.
+    $suggestions = rivetRmmHvVmAssetSuggestions($ctx, (int) $v['vm_id']);
+    if ($suggestions !== []) {
+        $srows = '';
+        foreach ($suggestions as $s) {
+            $confCls = ['high' => 'ok', 'medium' => 'warn', 'low' => 'off'][$s['confidence']] ?? 'off';
+            $srows .= '<tr><td class="ps-3"><a href="/agent/asset_details.php?client_id=' . (int) $s['client_id'] . '&asset_id=' . (int) $s['asset_id'] . '">' . $h($s['asset_name']) . '</a>'
+                . (empty($s['same_client']) ? ' <span class="small text-muted">(a different client)</span>' : '') . '</td>'
+                . '<td>' . rivetRmmUiPill($confCls, ucfirst((string) $s['confidence'])) . '</td>'
+                . '<td class="small text-muted">matched by ' . $h($s['matched_by']) . '</td></tr>';
+        }
+        $o .= rivetRmmUiCard('This might be an existing asset', 'link', '<p class="small text-muted px-3 pt-2 mb-1">A name match only - nothing is linked automatically. Open the asset to confirm, or ignore this if it is not the same device.</p>'
+            . '<div class="table-responsive"><table class="table table-sm mb-0">' . rivetRmmUiThead(['Asset', 'Confidence', '']) . '<tbody>' . $srows . '</tbody></table></div>', '', '', true);
+    }
 
     if ($v['alerts'] !== []) {
         $arows = '';
