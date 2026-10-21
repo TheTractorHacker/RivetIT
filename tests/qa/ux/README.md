@@ -44,3 +44,10 @@ Ad-hoc Playwright scripts used for this run live in the session scratchpad
 (`/tmp/claude-1000/…/scratchpad/ux_it/`), not copied into the repo — they're one-off probes, not a maintained suite.
 The most reusable one, if this run is repeated, is the page crawler pattern: log in once, loop over a list of paths,
 screenshot + capture console/network/h1/main checks for each, in both a light and a real-dark-mode session.
+
+## Run 2 scripts (all take the demo server on 127.0.0.1:8190; set QA_BASE to change)
+`axe_sweep.py <user> <label> <rules|all>` axe over `pages_agent.txt`; `axe_portal.py`; `click_sweep.py <user> <label> <pages-file>` Phase B control sweep;
+`overflow_sweep.py WxH <pages-file>`; `robustness_get.py` / `robustness_noparams.py` (500 probes); `form_fuzz.py`, `asset_addr_fuzz.py`,
+`admin_user_flow.py`, `admin_user_edit_disable_audit.py`; persona flows `portal_ticket_flow.py`, `portal_attach_reply.py`, `learner_flow.py`,
+`learner_exam.py`, `training_manager_flow.py`, `tech_tasks.py`, `search_manager_tablet.py`. The kiosk API checks Origin against
+`$config_base_url`: set it to your host:port in the worktree's config.php or course start returns 403.
