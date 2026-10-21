@@ -14,6 +14,9 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 ?>
 
 <style>
+.mt-card-toggle { cursor: pointer; user-select: none; }
+.mt-card-caret { transition: transform .15s ease; display: inline-block; }
+.mt-card-toggle[aria-expanded="true"] .mt-card-caret { transform: rotate(90deg); }
 .mt-add-block-bar { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
 .mt-add-block {
     display: flex; flex-direction: column; align-items: center; gap: .25rem;
@@ -67,10 +70,12 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
     $mt_placeholders = mailTemplatePlaceholdersFor($mt_event);
     ?>
     <div class="card mb-3 mail-template-card" id="mt-card-<?= nullable_htmlentities($mt_event) ?>">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h3 class="card-title mb-0"><?= nullable_htmlentities($mt_label) ?></h3>
+        <div class="card-header d-flex align-items-center justify-content-between mt-card-toggle" role="button" tabindex="0"
+             data-bs-toggle="collapse" data-bs-target="#mt-collapse-<?= nullable_htmlentities($mt_event) ?>" aria-expanded="false" aria-controls="mt-collapse-<?= nullable_htmlentities($mt_event) ?>">
+            <h3 class="card-title mb-0"><i class="fas fa-chevron-right me-2 mt-card-caret" aria-hidden="true"></i><?= nullable_htmlentities($mt_label) ?></h3>
             <span class="badge <?= $mt_enabled ? 'bg-success' : 'bg-secondary' ?>"><?= $mt_enabled ? 'Enabled' : 'Disabled' ?></span>
         </div>
+        <div class="collapse" id="mt-collapse-<?= nullable_htmlentities($mt_event) ?>">
         <div class="card-body">
             <form action="post.php" method="post" class="mail-template-form" data-event="<?= nullable_htmlentities($mt_event) ?>">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -136,6 +141,7 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
                     </div>
                 </div>
             </form>
+        </div>
         </div>
     </div>
 <?php } ?>
@@ -269,13 +275,15 @@ var MT = {
 
     // Mirrors includes/mail_templates.php's mailTemplateCompileBlock() exactly - table-wrapped button (not just CSS
     // background on the <a>: Outlook desktop renders with Word's engine, which honours a table cell's background far
-    // more reliably), a subtle divider instead of the browser-default thick black one. Keep both in sync.
+    // more reliably), a subtle divider instead of the browser-default thick black one. Keep both in sync. The button's
+    // background is the literal token "{mt_accent}", not a baked-in hex: it is resolved to the company's real theme
+    // colour at render/preview time, not here at save time, so a later theme change reaches every email automatically.
     compileOne: function (b) {
         switch (b.type) {
             case 'reply_marker':
                 return "<i style='color: #808080'>##- Please type your reply above this line -##</i>";
             case 'button':
-                return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:#206bc4;">'
+                return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:{mt_accent};">'
                     + '<a href="' + (b.link || '') + '" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:6px;font-family:inherit;">'
                     + (b.label || 'Click here') + '</a></td></tr></table>';
             case 'divider':
@@ -488,7 +496,15 @@ var MT = {
     },
 };
 
-document.querySelectorAll('.mt-block-list').forEach(function (c) { MT.render(c); MT.schedulePreview(c.closest('form')); });
+// Seven templates each with their own block list, several TinyMCE instances and a live-preview request is slow to build
+// all at once - render and start previewing a card's contents only the first time it is actually opened, not on page load.
+document.addEventListener('shown.bs.collapse', function (e) {
+    var container = e.target.querySelector('.mt-block-list');
+    if (!container || container.dataset.mtInitialized === '1') { return; }
+    container.dataset.mtInitialized = '1';
+    MT.render(container);
+    MT.schedulePreview(container.closest('form'));
+});
 
 document.addEventListener('input', function (e) {
     var field = e.target.closest('.mt-block-field');

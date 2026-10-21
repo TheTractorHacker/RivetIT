@@ -25,7 +25,9 @@ require __DIR__ . '/../includes/mail_templates.php';
 $fails = 0;
 $ok = function (bool $c, string $l) use (&$fails) { echo ($c ? 'PASS' : 'FAIL') . "  $l\n"; if (!$c) $fails++; };
 
-$mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL, config_mail_template_footer_html = NULL WHERE company_id = 1");
+$GLOBALS['config_base_url'] = 'support.example.test';
+$mysqli->query("INSERT INTO companies (company_id, company_name) VALUES (1, 'Test Co') ON DUPLICATE KEY UPDATE company_name = 'Test Co', company_logo = NULL");
+$mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL, config_mail_template_footer_html = NULL, config_theme = 'blue', config_theme_accent_custom = NULL WHERE company_id = 1");
 $mysqli->query("DELETE FROM mail_templates");
 foreach (mailTemplateDefaults() as $event => $tpl) {
     $mysqli->query("INSERT INTO mail_templates (mail_template_event, mail_template_subject, mail_template_body, mail_template_enabled, mail_template_updated_at)
@@ -93,7 +95,7 @@ $ok(!str_contains($rHf['body'], 'Test Co'), 'the default company-name header is 
 $mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL, config_mail_template_footer_html = NULL WHERE company_id = 1");
 
 // Every button block renders as a real styled button (not a bare link) - table-wrapped for Outlook compatibility
-$ok(str_contains($rShell['body'], 'background-color:#206bc4') && str_contains($rShell['body'], '>View ticket</a>'), 'a button block renders as a real styled button, not a plain link');
+$ok(str_contains($rShell['body'], 'background-color:#2563EB') && str_contains($rShell['body'], '>View ticket</a>'), "a button block renders as a real styled button in the company's theme colour, not a plain link");
 
 // 8. Hostile input: a made-up placeholder name in an admin-edited body is never treated as raw
 $mysqli->query("UPDATE mail_templates SET mail_template_body = 'Hi {contact_name} - {not_a_real_raw_key}' WHERE mail_template_event = 'ticket_created'");
@@ -124,6 +126,38 @@ $ok(mailTemplateStripBlocksComment($serialized) === mailTemplateCompileBlocks($r
 // 9. mailTemplateRequiresReplyMarker()/mailTemplateRequiresPortalLink() agree with the actual default text's shape
 $ok(mailTemplateRequiresReplyMarker('ticket_reply') && !mailTemplateRequiresReplyMarker('ticket_assigned'), 'reply-marker requirement matches which events are client-replyable');
 $ok(mailTemplateRequiresPortalLink('ticket_created') && !mailTemplateRequiresPortalLink('ticket_assigned'), 'portal-link requirement matches which events have a portal link at all');
+
+// 13. Branding: the company's real theme colour and logo, not a hardcoded blue - resolved straight from the database
+// (not trusted globals), because mail is sent from entry points that do not all load the same settings includes.
+$bBlue = mailTemplateBranding($mysqli);
+$ok($bBlue['accent'] === '#2563EB', "the schema's default theme (blue) resolves to its real hex, was: " . $bBlue['accent']);
+$ok($bBlue['logo_url'] === '', 'no logo uploaded: empty logo_url');
+
+$mysqli->query("UPDATE settings SET config_theme = '' WHERE company_id = 1");
+$bEmpty = mailTemplateBranding($mysqli);
+$ok($bEmpty['accent'] === '#206bc4', 'an empty/unmapped theme name falls back to a sane default, was: ' . $bEmpty['accent']);
+
+$mysqli->query("UPDATE settings SET config_theme = 'green' WHERE company_id = 1");
+$ok(mailTemplateBranding($mysqli)['accent'] === '#16A34A', 'a preset theme name resolves to its real hex');
+
+$mysqli->query("UPDATE settings SET config_theme_accent_custom = '#FF00AA' WHERE company_id = 1");
+$ok(mailTemplateBranding($mysqli)['accent'] === '#FF00AA', 'a custom accent hex overrides the preset');
+$mysqli->query("UPDATE settings SET config_theme = 'blue', config_theme_accent_custom = NULL WHERE company_id = 1");
+
+$mysqli->query("UPDATE companies SET company_logo = 'logo.png' WHERE company_id = 1");
+$ok(mailTemplateBranding($mysqli)['logo_url'] === 'https://support.example.test/uploads/settings/logo.png', 'the uploaded logo becomes an absolute URL (relative URLs cannot resolve in a mail client)');
+
+$rBrand = renderMailTemplate($mysqli, 'ticket_created', $vars);
+$ok(str_contains($rBrand['body'], 'background-color:#2563EB'), 'a button picks up the real company theme colour automatically, no caller action needed');
+$ok(!str_contains($rBrand['body'], '{mt_accent}'), 'the {mt_accent} token is always fully resolved, never leaks into a real email');
+$ok(str_contains($rBrand['body'], '<img src="https://support.example.test/uploads/settings/logo.png"'), 'the uploaded logo is shown as the header image');
+$ok(!str_contains($rBrand['body'], '>Test Co<'), 'the plain-text company-name header is skipped once a logo exists');
+
+$mysqli->query("UPDATE settings SET config_mail_template_header_html = '<div id=\"custom\">H</div>' WHERE company_id = 1");
+$rCustomHdr = renderMailTemplate($mysqli, 'ticket_created', $vars);
+$ok(str_contains($rCustomHdr['body'], '<div id="custom">H</div>') && !str_contains($rCustomHdr['body'], '<img src='), 'a custom header still wins outright over the logo');
+$mysqli->query("UPDATE settings SET config_mail_template_header_html = NULL WHERE company_id = 1");
+$mysqli->query("UPDATE companies SET company_logo = NULL WHERE company_id = 1");
 
 echo $fails === 0 ? "ALL PASS\n" : "$fails FAILURE(S)\n";
 exit($fails === 0 ? 0 : 1);

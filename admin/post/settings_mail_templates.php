@@ -74,11 +74,13 @@ if (isset($_POST['preview_mail_template'])) {
     // Render the UNSAVED draft text the admin is currently looking at, not whatever is in the database - a preview/test must
     // show the admin what they are about to save, including a template with mistakes they have not saved yet.
     $mt_vars = mailTemplateSampleVars($mt_event);
+    $mt_branding = mailTemplateBranding($mysqli);
+    $mt_vars['mt_accent'] = $mt_branding['accent'];
     $mt_rendered_body = mailTemplateApplyPlaceholders($mt_body, $mt_vars, 'html');
     $mt_rendered_subject = mailTemplateApplyPlaceholders($mt_subject, $mt_vars, 'text');
     $mt_hf = mailTemplateHeaderFooter($mysqli);
     [$mt_company_name] = array_values(getCompanyNameAndPhone());
-    $mt_rendered_body = mailTemplateWrapShell($mt_rendered_body, $mt_company_name, $mt_hf['header'], $mt_hf['footer']);
+    $mt_rendered_body = mailTemplateWrapShell($mt_rendered_body, $mt_company_name, $mt_hf['header'], $mt_hf['footer'], $mt_branding['accent'], $mt_branding['logo_url']);
 
     if (!empty($_POST['send_test'])) {
         $mt_me = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_email, user_name FROM users WHERE user_id = " . (int) $session_user_id));

@@ -80,22 +80,28 @@ function mailTemplateBlocksFromBody(string $body): array {
 }
 
 /**
+ * A real, styled button, not a bare link - table-wrapped (not just CSS background on the `<a>`) because Outlook desktop
+ * renders email HTML with Word's engine, which honours a table cell's background far more reliably than CSS background
+ * on an anchor. Mirrored exactly in the JS compiler (admin/settings_mail_templates.php) - keep both in sync.
+ *
+ * The background colour is the literal token "{mt_accent}", not a baked-in hex: this runs at compile/save time (when a
+ * template is saved, or when mailTemplateDefaults() builds the seeded defaults), long before a render knows the
+ * company's current theme colour. renderMailTemplate() and the admin preview handler always inject the real resolved
+ * hex as a placeholder named mt_accent right before substitution, so every button picks up the company's theme colour
+ * at SEND time - change the theme later and every email (including ones already saved) follows, with no re-save needed.
+ */
+function mailTemplateButtonHtml(string $link, string $label): string {
+    return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:{mt_accent};">'
+        . '<a href="' . $link . '" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:6px;font-family:inherit;">'
+        . $label . '</a></td></tr></table>';
+}
+
+/**
  * One block's compiled HTML. Mirrors the JS compiler in admin/settings_mail_templates.php exactly (block type for block
  * type) - kept here only so mailTemplateDefaults() can be generated from mailTemplateDefaultBlocks() instead of two
  * hand-written copies of the same text drifting apart. A block the JS could not have produced (an unknown type, or one a
  * future version adds) degrades to its raw 'html'/'label' text rather than vanishing.
  */
-/**
- * A real, styled button, not a bare link - table-wrapped (not just CSS background on the `<a>`) because Outlook desktop
- * renders email HTML with Word's engine, which honours a table cell's background far more reliably than CSS background
- * on an anchor. Mirrored exactly in the JS compiler (admin/settings_mail_templates.php) - keep both in sync.
- */
-function mailTemplateButtonHtml(string $link, string $label): string {
-    return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="border-radius:6px;background-color:#206bc4;">'
-        . '<a href="' . $link . '" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:6px;font-family:inherit;">'
-        . $label . '</a></td></tr></table>';
-}
-
 function mailTemplateCompileBlock(array $b): string {
     switch ((string) ($b['type'] ?? '')) {
         case 'reply_marker':
@@ -245,21 +251,45 @@ function mailTemplateHeaderFooter($mysqli): array {
 }
 
 /**
- * Wraps a compiled template body in a plain, widely-compatible transactional-email shell: a light outer background, a
- * white card with a thin brand-colour accent stripe, a readable system font and generous padding - so every email this
- * app sends looks like a deliberate, trustworthy piece of mail instead of unstyled text, with no admin action required.
- * Table-based (not flexbox/CSS background on the body) because that is what actually renders consistently across real
- * inboxes, Outlook desktop included. An admin's own header/footer (company logo, a disclaimer) sits inside this card,
- * above/below the template body; with neither set, the company name alone is shown as a simple bold header.
+ * The company's own branding, resolved straight from the database rather than trusted globals, because mail is sent
+ * from several different entry points (an authenticated admin page, cron/ticket_email_parser.php, the public
+ * client/login_reset.php) and not all of them load includes/load_global_settings.php or load_company_settings.php -
+ * this must work the same from every one of them.
+ *
+ * @return array{accent:string,logo_url:string} accent is '#RRGGBB' (Admin > Appearance's theme, or RivetIT blue when
+ *   none is configured); logo_url is the company's uploaded logo as an absolute URL (email clients cannot resolve a
+ *   relative one), or '' when there is no logo.
  */
-function mailTemplateWrapShell(string $bodyHtml, string $companyName, string $customHeaderHtml, string $customFooterHtml): string {
+function mailTemplateBranding($mysqli): array {
+    require_once __DIR__ . '/theme_accent.php';
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT settings.config_theme, settings.config_theme_accent_custom, companies.company_logo
+        FROM settings, companies WHERE companies.company_id = settings.company_id AND companies.company_id = 1"));
+    $accent = itflow_theme_accent_hex($row['config_theme'] ?? '', $row['config_theme_accent_custom'] ?? null);
+    $logo = (string) ($row['company_logo'] ?? '');
+    $base = (string) ($GLOBALS['config_base_url'] ?? '');
+
+    return ['accent' => $accent !== '' ? $accent : '#206bc4', 'logo_url' => $logo !== '' && $base !== '' ? 'https://' . $base . '/uploads/settings/' . rawurlencode($logo) : ''];
+}
+
+/**
+ * Wraps a compiled template body in a plain, widely-compatible transactional-email shell: a light outer background, a
+ * white card with a thin accent stripe in the company's own theme colour, a readable system font and generous padding
+ * - so every email this app sends looks like a deliberate, trustworthy piece of mail instead of unstyled text, with no
+ * admin action required. Table-based (not flexbox/CSS background on the body) because that is what actually renders
+ * consistently across real inboxes, Outlook desktop included. An admin's own header/footer (set under Settings > Email
+ * Templates) sits inside this card, above/below the template body and wins outright; failing that, the company's
+ * uploaded logo (Admin > Company); failing that, the company name alone as a simple bold header.
+ */
+function mailTemplateWrapShell(string $bodyHtml, string $companyName, string $customHeaderHtml, string $customFooterHtml, string $accentHex, string $logoUrl): string {
     $header = $customHeaderHtml !== '' ? $customHeaderHtml
-        : ($companyName !== '' ? '<div style="font-size:19px;font-weight:700;color:#1f2937;margin-bottom:20px;">' . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . '</div>' : '');
+        : ($logoUrl !== '' ? '<img src="' . htmlspecialchars($logoUrl, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . '" style="max-height:44px;max-width:220px;display:block;margin-bottom:20px;border:0;">'
+        : ($companyName !== '' ? '<div style="font-size:19px;font-weight:700;color:#1f2937;margin-bottom:20px;">' . htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8') . '</div>' : ''));
+    $accentHex = preg_match('/^#[0-9A-Fa-f]{6}$/D', $accentHex) === 1 ? $accentHex : '#206bc4';
 
     return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:32px 16px;">'
         . '<tr><td align="center">'
         . '<table role="presentation" width="100%" style="max-width:580px;background-color:#ffffff;border-radius:10px;" cellpadding="0" cellspacing="0">'
-        . '<tr><td style="height:4px;line-height:4px;font-size:0;background-color:#206bc4;border-radius:10px 10px 0 0;">&nbsp;</td></tr>'
+        . '<tr><td style="height:4px;line-height:4px;font-size:0;background-color:' . $accentHex . ';border-radius:10px 10px 0 0;">&nbsp;</td></tr>'
         . '<tr><td style="padding:32px 36px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;font-size:15px;line-height:1.65;">'
         . $header . $bodyHtml . $customFooterHtml
         . '</td></tr></table>'
@@ -302,12 +332,14 @@ function renderMailTemplate($mysqli, string $event, array $vars): ?array {
     $subjectTpl = $row['mail_template_subject'] ?? $defaults['subject'];
     $bodyTpl = $row['mail_template_body'] ?? $defaults['body'];
 
+    $branding = mailTemplateBranding($mysqli);
+    $vars['mt_accent'] = $branding['accent'];
     $body = mailTemplateApplyPlaceholders($bodyTpl, $vars, 'html');
     $subject = mailTemplateApplyPlaceholders($subjectTpl, $vars, 'text');
 
     $hf = mailTemplateHeaderFooter($mysqli);
     [$companyName] = array_values(getCompanyNameAndPhone());
-    $body = mailTemplateWrapShell($body, $companyName, $hf['header'], $hf['footer']);
+    $body = mailTemplateWrapShell($body, $companyName, $hf['header'], $hf['footer'], $branding['accent'], $branding['logo_url']);
 
     return ['subject' => $subject, 'body' => $body];
 }
