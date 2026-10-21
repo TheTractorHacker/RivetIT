@@ -18,7 +18,10 @@ def start(w=1920, h=1080, who='admin', portal=False):
     e, pw = USERS[who]
     pg.goto(BASE + ('/client/login.php' if portal else '/login.php'))
     pg.fill('input[name=email]', e); pg.fill('input[name=password]', pw)
-    pg.locator('button[type=submit]').first.click(); pg.wait_for_load_state('load'); time.sleep(.8)
+    pg.locator('button[type=submit]').first.click()
+    try: pg.wait_for_url(lambda u: 'login' not in u, timeout=15000)
+    except Exception: pass
+    pg.wait_for_load_state('domcontentloaded'); time.sleep(.8)
     return p, b, ctx, pg
 
 def axe(pg, rules=None):

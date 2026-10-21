@@ -24,7 +24,7 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
             <span class="portal-hero-avatar" aria-hidden="true"><?php echo nullable_htmlentities($session_contact_initials); ?></span>
         <?php } ?>
         <div class="flex-grow-1">
-            <h2 class="portal-profile-name"><?php echo $profile_name; ?></h2>
+            <h1 class="portal-profile-name"><?php echo $profile_name; ?></h1>
             <div class="text-secondary"><?php echo $profile_email; ?></div>
             <div class="portal-badges">
                 <span class="portal-badge"><i class="fas fa-building" aria-hidden="true"></i><?php echo nullable_htmlentities($session_client_name); ?></span>

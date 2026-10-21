@@ -16,7 +16,9 @@ require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
-    header("Location: post.php?logout");
+    // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
+    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    header("Location: index.php");
     exit();
 }
 
