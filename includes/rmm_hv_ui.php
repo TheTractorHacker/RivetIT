@@ -148,6 +148,23 @@ function rivetRmmHvHostPage(array $vm, array $ctx): string
     $o .= '<p class="small"><a href="rmm_hypervisors.php">&larr; All hosts</a>'
         . ($hst['asset_id'] !== null ? ' &middot; <a href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '"><i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Open the asset</a>' : '') . '</p>';
 
+    // Cluster membership (Proxmox only - Hyper-V failover clustering isn't collected): the node list is already
+    // gathered (pvesh cluster status) but was going entirely unused until now, visible only as a name + quorum pill.
+    if ($hst['cluster'] !== null) {
+        $nrows = '';
+        foreach ($hst['cluster']['nodes'] as $n) {
+            $nname = (string) ($n['name'] ?? '');
+            $isThis = strcasecmp($nname, $hst['hostname']) === 0;
+            $nrows .= '<tr' . ($isThis ? ' class="table-active"' : '') . '><td class="ps-3">' . $h($nname) . ($isThis ? ' <span class="small text-muted">(this host)</span>' : '') . '</td>'
+                . '<td>' . rivetRmmUiPill(!empty($n['online']) ? 'ok' : 'crit', !empty($n['online']) ? 'Online' : 'Offline') . '</td></tr>';
+        }
+        $clusterBody = '<p class="small text-muted px-3 pt-2 mb-2">' . (int) count($hst['cluster']['nodes']) . ' node' . (count($hst['cluster']['nodes']) === 1 ? '' : 's')
+            . ($hst['cluster']['quorate'] === false ? ', <span class="text-danger">no quorum</span>' : ($hst['cluster']['quorate'] === true ? ', quorate' : ''))
+            . ($hst['cluster']['failed_groups'] > 0 ? ', ' . (int) $hst['cluster']['failed_groups'] . ' failed HA group' . ($hst['cluster']['failed_groups'] === 1 ? '' : 's') : '') . '.</p>'
+            . ($nrows === '' ? '' : '<div class="table-responsive"><table class="table table-sm mb-0">' . rivetRmmUiThead(['Node', 'Status']) . '<tbody>' . $nrows . '</tbody></table></div>');
+        $o .= rivetRmmUiCard('Cluster "' . $h($hst['cluster']['name']) . '"', 'sitemap', $clusterBody, $hst['cluster']['quorate'] === false ? 'danger' : '', '', true);
+    }
+
     // Storage
     $srows = '';
     foreach ($hst['storage'] as $s) {
