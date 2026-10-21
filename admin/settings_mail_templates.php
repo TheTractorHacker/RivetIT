@@ -155,6 +155,10 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 
 <script src="../plugins/SortableJS/Sortable.min.js"></script>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+// tinymce.min.js loads with `defer` (includes/footer.php), so it is NOT yet defined while this inline script is parsed -
+// deferred scripts only run after the document finishes parsing, which is also when DOMContentLoaded fires (always after
+// every deferred script, in document order), so everything below waits for that instead of running immediately.
+document.addEventListener('DOMContentLoaded', function () {
 tinymce.init({
     selector: '.tinymceMailTemplate',
     browser_spellcheck: true,
@@ -530,4 +534,5 @@ document.querySelectorAll('.mail-template-form').forEach(function (form) {
         if (container) { MT.sync(container); }
     });
 });
+}); // end DOMContentLoaded
 </script>
