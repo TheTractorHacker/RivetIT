@@ -97,6 +97,7 @@ function rivetRmmHvHostsPage(array $vm, array $ctx): string
         $cluster = $hst['cluster'] !== null ? ($hst['cluster']['quorate'] === false ? rivetRmmUiPill('crit', 'No quorum') : rivetRmmUiPill('ok', $h($hst['cluster']['name']))) : '<span class="text-muted small">standalone</span>';
         $rows .= '<tr' . ($hst['stale'] || $hst['error'] !== '' ? ' class="table-warning"' : '') . '>'
             . '<td class="ps-3"><a href="?host_id=' . (int) $hst['device_id'] . '"><i class="fas ' . $icon . ' me-1" aria-hidden="true"></i>' . $h($hst['hostname']) . '</a>'
+            . ($hst['asset_id'] !== null ? ' <a class="small text-muted ms-1" href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '" title="Open the asset"><i class="fas fa-external-link-alt" aria-hidden="true"></i></a>' : '')
             . ($hst['ignored'] ? ' ' . rivetRmmUiPill('off', 'Ignored') : '') . ($hst['error'] !== '' ? '<div class="small text-danger">' . $h($hst['error']) . '</div>' : '') . '</td>'
             . '<td>' . $h($hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . ' <span class="text-muted small">' . $h($hst['version']) . '</span></td>'
             . '<td>' . $cluster . '</td>'
@@ -117,7 +118,7 @@ function rivetRmmHvHostsPage(array $vm, array $ctx): string
 function rivetRmmHvHostView(array $ctx, int $deviceId, array $get): array
 {
     $f = [];
-    foreach (['q', 'state', 'type', 'template', 'ignored', 'missing'] as $k) {
+    foreach (['q', 'state', 'type', 'template', 'ignored', 'missing', 'limit', 'offset'] as $k) {
         if (is_string($get[$k] ?? null) && trim((string) $get[$k]) !== '') {
             $f[$k] = trim((string) $get[$k]);
         }
@@ -144,7 +145,8 @@ function rivetRmmHvHostPage(array $vm, array $ctx): string
         $hst['ignored'] ? '' : 'Stop storing what "' . $hst['hostname'] . '" reports? Its VMs and storage are kept but no longer updated.') : '';
     $o = rivetRmmAutoHeader($hst['hostname'], 'server', $acts, ($hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . ' ' . $hst['version'] . '.'
         . ($hst['cluster'] !== null ? ' Cluster "' . $hst['cluster']['name'] . '"' . ($hst['cluster']['quorate'] === false ? ', no quorum.' : ', quorate.') : ' Standalone.'));
-    $o .= '<p class="small"><a href="rmm_hypervisors.php">&larr; All hosts</a></p>';
+    $o .= '<p class="small"><a href="rmm_hypervisors.php">&larr; All hosts</a>'
+        . ($hst['asset_id'] !== null ? ' &middot; <a href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '"><i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Open the asset</a>' : '') . '</p>';
 
     // Storage
     $srows = '';
@@ -243,4 +245,35 @@ function rivetRmmHvVmPage(array $vm, array $ctx): string
         '<div class="table-responsive"><table class="table table-sm mb-0">' . rivetRmmUiThead(['When', 'Change']) . '<tbody>' . $hrows . '</tbody></table></div>', '', '', true);
 
     return $o;
+}
+
+// ------------------------------------------------------------------ the per-device panel (asset page / RMM device page)
+
+/**
+ * The compact card for a device's own page (agent/asset_details.php, agent/rmm_agent_device.php via includes/rmm_ui_render.php's shared
+ * rivetRmmUiPanel()), same convention as every other RMM tab section (rivetRmmPatPanelSection(), rivetRmmSwPanelSection(), ...): '' when
+ * the hypervisor feature is off, the viewer may not see it, or (the common case) this particular device simply isn't a reporting
+ * hypervisor host, so the tab is never drawn. A summary and a link to the full host page (/agent/rmm_hypervisors.php?host_id=) — the VM
+ * table, filters and storage detail are not duplicated here, same as the Software tab links out to the fuller catalog.
+ *
+ * @param array<string,mixed> $vm rivetRmmUiPanel()'s view-model (device_id, user_id, features)
+ */
+function rivetRmmHvPanelSection(array $vm, \mysqli $mysqli, string $csrf): string
+{
+    if (empty($vm['features']['hypervisor'])) {
+        return '';
+    }
+    $uid = (int) ($vm['user_id'] ?? 0);
+    $deviceId = (int) $vm['device_id'];
+    $ctx = ['uid' => $uid, 'name' => (string) ($GLOBALS['session_name'] ?? ''), 'csrf' => $csrf, 'perm' => rivetRmmAutoPerm($mysqli, $uid), 'mysqli' => $mysqli];
+    $hv = rivetRmmHvHostView($ctx, $deviceId, ['limit' => '1']);   // the device page never needs more than the host's own summary fields
+    if ($hv['error'] !== '' || $hv['host'] === null) {
+        return '';   // not a hypervisor host, the feature is off, or the viewer lacks rmm.hypervisor.view: no tab either way
+    }
+    $h = 'rivetRmmHvH';
+    $host = $hv['host'];
+    return '<p class="small text-muted mb-2">This device reports as a ' . $h($host['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . ' hypervisor host, version ' . $h($host['version']) . ', '
+        . (int) $host['vm_count'] . ' VM' . ((int) $host['vm_count'] === 1 ? '' : 's') . ' (' . (int) $host['vms_running'] . ' running)'
+        . ($host['cluster'] !== null ? ', cluster "' . $h($host['cluster']['name']) . '"' . ($host['cluster']['quorate'] === false ? ' (no quorum)' : '') : '') . '.</p>'
+        . '<a class="btn btn-sm btn-primary" href="/agent/rmm_hypervisors.php?host_id=' . $deviceId . '"><i class="fas fa-server me-1" aria-hidden="true"></i>Open the host page</a>';
 }
