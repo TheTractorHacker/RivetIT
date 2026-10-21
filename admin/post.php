@@ -11,6 +11,8 @@ require_once "../includes/check_login.php";
 // Define a variable that we can use to only allow running post files via inclusion (prevents people/bots poking them)
 define('FROM_POST_HANDLER', true);
 
+require_once __DIR__ . '/../includes/post_guard.php';
+
 // Determine which files we should load
 
 // Parse URL & get the path
