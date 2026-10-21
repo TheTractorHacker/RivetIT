@@ -536,3 +536,5 @@ document.querySelectorAll('.mail-template-form').forEach(function (form) {
 });
 }); // end DOMContentLoaded
 </script>
+
+<?php require_once "../includes/footer.php"; ?>
