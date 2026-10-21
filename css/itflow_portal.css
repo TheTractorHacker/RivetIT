@@ -321,4 +321,14 @@
 .portal-ui .list-group-item .badge.text-bg-success { background-color: rgba(12, 163, 12, .13) !important; color: #0c7d0c !important; }
 :root[data-bs-theme="dark"] .portal-ui .list-group-item .badge.text-bg-danger { color: #f87171 !important; }
 :root[data-bs-theme="dark"] .portal-ui .list-group-item .badge.text-bg-success { color: #4ade80 !important; }
+/* Status pills in tables keep their meaning: the neutral slate above flattened Due soon / Overdue / Current (and
+   Open / Resolved) to the same grey, so the colour carried no information. */
+.portal-ui td > .badge.bg-danger, .portal-ui td > .badge.text-bg-danger { background-color: rgba(220, 38, 38, .13) !important; color: #b42323 !important; }
+.portal-ui td > .badge.bg-success, .portal-ui td > .badge.text-bg-success { background-color: rgba(12, 163, 12, .13) !important; color: #0c7d0c !important; }
+.portal-ui td > .badge.bg-warning, .portal-ui td > .badge.text-bg-warning { background-color: rgba(217, 119, 6, .16) !important; color: #92400e !important; }
+.portal-ui td > .badge.bg-info, .portal-ui td > .badge.text-bg-info { background-color: rgba(8, 145, 178, .14) !important; color: #0e6c85 !important; }
+:root[data-bs-theme="dark"] .portal-ui td > .badge.bg-danger, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-danger { color: #f87171 !important; }
+:root[data-bs-theme="dark"] .portal-ui td > .badge.bg-success, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-success { color: #4ade80 !important; }
+:root[data-bs-theme="dark"] .portal-ui td > .badge.bg-warning, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-warning { color: #fbbf24 !important; }
+:root[data-bs-theme="dark"] .portal-ui td > .badge.bg-info, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-info { color: #22d3ee !important; }
 .portal-status-dot { opacity: .8; filter: saturate(.8); }

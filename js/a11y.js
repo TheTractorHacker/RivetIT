@@ -124,7 +124,7 @@
             colourCtx.fillStyle = '#000'; colourCtx.fillStyle = str;
             colourCtx.fillRect(0, 0, 1, 1);
             var d = colourCtx.getImageData(0, 0, 1, 1).data;
-            return d[3] === 0 ? null : [d[0], d[1], d[2]];
+            return d[3] === 0 ? null : [d[0], d[1], d[2], d[3] / 255];
         } catch (e) { return null; }
     }
     function lum(c) {
@@ -136,13 +136,14 @@
         root.querySelectorAll('.badge[style*="background"], .badge[class*="bg-"], .badge[class*="badge-"]').forEach(function (el) {
             if (el.getAttribute('data-contrast-fixed')) { return; }
             var cs = getComputedStyle(el), bg = parseRgb(cs.backgroundColor), fg = parseRgb(cs.color);
-            if (!bg || !fg || /rgba\(.*,\s*0\)/.test(cs.backgroundColor)) { return; }
+            // translucent fills depend on what is behind them; only repair solid colours
+            if (!bg || !fg || bg[3] < 0.95) { return; }
             el.setAttribute('data-contrast-fixed', '1');
             var ratio = function (l1, l2) { var hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05); };
             if (ratio(lum(bg), lum(fg)) >= 4.5) { return; }
             if (lum(fg) > 0.5) {
                 // light text: keep the badge's hue, deepen the fill until white-ish text reaches 4.5:1
-                var c = bg.slice();
+                var c = bg.slice(0, 3);
                 for (var i = 0; i < 12 && ratio(lum(c), lum(fg)) < 4.5; i++) { c = c.map(function (v) { return v * 0.9; }); }
                 el.style.setProperty('background-color', toHex(c), 'important');
             } else {

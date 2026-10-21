@@ -11,9 +11,7 @@ $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
-if (isset($_GET['ticket_template_id'])) {
-    $ticket_template_id = intval($_GET['ticket_template_id']);
-}
+$ticket_template_id = intval($_GET['ticket_template_id'] ?? 0); // a missing id used to leave this undefined and fatal in the query below
 
 $sql_ticket_template = mysqli_query($mysqli, "SELECT * FROM ticket_templates WHERE ticket_template_id = $ticket_template_id LIMIT 1");
 
