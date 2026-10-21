@@ -1244,7 +1244,7 @@ body.dark-mode .content-wrapper small.text-muted {
 .cred-title { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; line-height: 1.35; font-weight: 500; }
 .cred-name { overflow-wrap: anywhere; }
 .cred-type-badge { font-size: .7rem; line-height: 1; padding: .3em .55em; }
-.cred-desc { color: var(--tblr-secondary-color, #6c7a91); font-size: .8rem; line-height: 1.4; }
+.cred-desc { color: var(--tblr-secondary-color, #566570); font-size: .8rem; line-height: 1.4; }
 .cred-tags { margin: .4rem 0 0 2.75rem; }
 
 /* Icon picker (includes/icon_picker.php + js/icon_picker.js). The panel sits in normal flow under the button so a

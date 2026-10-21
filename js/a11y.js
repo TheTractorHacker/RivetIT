@@ -50,6 +50,12 @@
                 var q = el.form.querySelector('input[type="search"], input[name="q"], input[name="query"]');
                 if (q) { name = 'Search'; }
             }
+            if (!name && el.tagName === 'A') {
+                // an avatar/icon-only link to the same place as a text link in its row takes that link's text
+                var row = el.closest('tr, .media, li, .card');
+                var twin = row && el.getAttribute('href') && [].slice.call(row.querySelectorAll('a[href="' + el.getAttribute('href').replace(/"/g, '') + '"]')).filter(function (a) { return a !== el && a.textContent.trim() !== ''; })[0];
+                if (twin) { name = twin.textContent.trim().replace(/\s+/g, ' ').slice(0, 60); }
+            }
             if (name) { el.setAttribute('aria-label', name); }
         });
     }
@@ -66,6 +72,12 @@
             if (id === 'selectAllCheckbox' || /select-?all/i.test(el.className + id)) { name = 'Select all rows'; }
             else if (/bulk-select|row-select|alert-chk|-chk\b/.test(el.className) || /\[\]$/.test(el.name || '')) { name = 'Select row'; }
             else if (el.name) { name = el.name.replace(/[\[\]_]+/g, ' ').trim(); }
+            if (!name) {
+                var host = el.closest('td, li, .form-check, .form-group, div');
+                var t = host && host.textContent.replace(/\s+/g, ' ').trim();
+                name = (t && t.length < 60) ? t : (el.className.match(/js-([a-z0-9-]+)/) || [])[1] || 'Toggle option';
+                name = name.replace(/-/g, ' ');
+            }
             if (name) { el.setAttribute('aria-label', name); }
         });
     }
@@ -98,6 +110,8 @@
             var span = document.createElement('span');
             span.className = 'visually-hidden';
             span.textContent = th.querySelector('input') ? 'Select' : 'Actions';
+            // visually-hidden is position:absolute: without a positioned ancestor it escapes a .table-responsive scroll box and widens the page
+            if (getComputedStyle(th).position === 'static') { th.style.position = 'relative'; }
             th.appendChild(span);
         });
     }
@@ -155,7 +169,8 @@
     function nameInputs(root) {
         root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]), textarea').forEach(function (el) {
             if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || (el.id && document.querySelector('label[for="' + el.id.replace(/"/g, '') + '"]')) || (el.closest && el.closest('label'))) { return; }
-            var n = el.getAttribute('title') || placeholderOf(el) || (el.id || el.name || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\[\]_-]+/g, ' ').trim();
+            var lab = el.closest('.form-group, .mb-3, .col, div') && el.closest('.form-group, .mb-3, .col, div').querySelector('label');
+            var n = el.getAttribute('title') || placeholderOf(el) || (lab && lab.textContent.trim()) || (el.id || el.name || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\[\]_-]+/g, ' ').trim();
             if (n) { el.setAttribute('aria-label', n.charAt(0).toUpperCase() + n.slice(1)); }
         });
         // title-only controls: mirror the title into aria-label (a title alone is not a reliable name)

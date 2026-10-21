@@ -1013,3 +1013,20 @@ tr.asset-inline-moved-out > td {
 .skip-link { position: absolute; left: .5rem; top: -4rem; z-index: 2000; padding: .5rem 1rem; background: var(--if-surface); color: var(--if-ink); border: 2px solid var(--if-primary); border-radius: var(--if-radius-sm); }
 .skip-link:focus { top: .5rem; }
 #main-content:focus { outline: none; }
+
+/* Wide data tables scroll inside their card below 1200px instead of widening the whole page. Bootstrap's
+   .table-responsive-sm only scrolls under 576px, and many lists use bare tables in .card-body. (Desktop is left alone so
+   row-action dropdowns near the bottom of a table are not clipped by an overflow container.) */
+@media (max-width: 1199.98px) {
+    .table-responsive-sm, .table-responsive-md, .table-responsive-lg,
+    .card-body:has(> table), .card-body:has(> .table) { overflow-x: auto; }
+}
+
+/* A flex child will not shrink below its content: without this a wide .table-responsive pushes the whole page wider
+   than the viewport instead of scrolling inside its own box. */
+.page-wrapper, .page-body, .page-body > main { min-width: 0; }
+
+/* Light-theme helper text: Tabler's success green and muted grey fall under 4.5:1 on white and on the amber/red row tints. */
+:root:not([data-bs-theme="dark"]) .text-success { color: #157a30 !important; }
+:root:not([data-bs-theme="dark"]) .text-secondary, :root:not([data-bs-theme="dark"]) .text-muted { color: #566570 !important; }
+:root:not([data-bs-theme="dark"]) .cred-desc { color: #566570; }

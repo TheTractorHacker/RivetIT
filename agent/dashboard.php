@@ -1271,7 +1271,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
                                     </a>
                                 </td>
                                 <td><a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= $ticket_subject ?></a></td>
-                                <td><a href="tickets.php?client_id=<?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong></a></td>
+                                <td><?php if ($client_name !== '') { ?><a href="tickets.php?client_id=<?php echo $client_id; ?>"><strong><?php echo $client_name; ?></strong></a><?php } else { echo '<span class="text-secondary">-</span>'; } ?></td>
                                 <td><?php echo $contact_display; ?></td>
                                 <td><span class='p-2 badge rounded-pill text-bg-<?php echo $ticket_priority_color; ?>'><?php echo $ticket_priority; ?></span></td>
                                 <td><span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span></td>
