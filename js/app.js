@@ -1350,4 +1350,23 @@ function initPasswordToggles() {
             RivetDialog.gate(e, form, form.getAttribute('data-confirm-submit'));
         }
     });
+
+    // A required field inside an inactive Bootstrap tab-pane/pill-pane (e.g. the
+    // Contact tab of the New Ticket modal) fails native validation with no
+    // visible message: the pane is display:none, so the browser can't place its
+    // validation bubble and the Create/Save click just appears to do nothing.
+    // Switch to that field's tab before the browser tries to show the bubble,
+    // so the same native validation UI lands somewhere the user can see it.
+    document.addEventListener('invalid', function (e) {
+        var el = e.target;
+        if (!el || !el.closest) { return; }
+        var pane = el.closest('.tab-pane');
+        if (!pane || !pane.id || pane.classList.contains('active')) { return; }
+        var trigger = document.querySelector(
+            '[data-bs-toggle="pill"][href="#' + pane.id + '"], [data-bs-toggle="tab"][href="#' + pane.id + '"]'
+        );
+        if (trigger && window.bootstrap && window.bootstrap.Tab) {
+            window.bootstrap.Tab.getOrCreateInstance(trigger).show();
+        }
+    }, true);
 })();
