@@ -49,8 +49,12 @@ if (isset($_GET['vendor_id'])) {
     }
 
     // Vendor Contacts
-    $sql_vendor_contacts = mysqli_query($mysqli, "SELECT * FROM vendor_contacts WHERE vendor_contact_vendor_id = $vendor_id AND vendor_contact_archived_at IS NULL ORDER BY vendor_contact_name DESC");
-    $vendor_contact_count = mysqli_num_rows($sql_vendor_contacts);
+    // vendor_contacts was dropped by DB 1.7.3; querying it fatalled the whole page (HTTP 500), so only read it where it still exists.
+    $sql_vendor_contacts = false;
+    if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'vendor_contacts'")) > 0) {
+        $sql_vendor_contacts = mysqli_query($mysqli, "SELECT * FROM vendor_contacts WHERE vendor_contact_vendor_id = $vendor_id AND vendor_contact_archived_at IS NULL ORDER BY vendor_contact_name DESC");
+    }
+    $vendor_contact_count = $sql_vendor_contacts ? mysqli_num_rows($sql_vendor_contacts) : 0;
 
     ?>
 
@@ -183,7 +187,7 @@ if (isset($_GET['vendor_id'])) {
                             <tbody>
                             <?php
 
-                            while ($row = mysqli_fetch_assoc($sql_vendor_contacts)) {
+                            while ($sql_vendor_contacts && $row = mysqli_fetch_assoc($sql_vendor_contacts)) {
                                 $vendor_contact_id = intval($row['vendor_contact_id']);
                                 $vendor_contact_name = nullable_htmlentities($row['vendor_contact_name']);
                                 $vendor_contact_title = nullable_htmlentities($row['vendor_contact_title']);

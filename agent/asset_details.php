@@ -43,6 +43,7 @@ if (isset($_GET['asset_id'])) {
     ");
 
     if (mysqli_num_rows($sql) == 0) {
+        $client_id = intval($client_id ?? 0); // the modals included below interpolate it; unset used to be a SQL syntax error (HTTP 500)
         echo "<center><h1 class='text-secondary mt-5'>Nothing to see here</h1><a class='btn btn-lg btn-secondary mt-3' href='javascript:history.back()'><i class='fa fa-fw fa-arrow-left'></i> Go Back</a></center>";
 
     } else {
