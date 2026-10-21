@@ -154,8 +154,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var ul = el('ul', { class: 'trb-nodes', role: 'group' });
         list.filter(function (b) { return matches(b, needle); }).forEach(function (b) { ul.appendChild(node(b, 0, needle)); });
-        if (!ul.firstChild) { ul.appendChild(el('li', { class: 'text-muted small px-2 py-1', text: needle ? 'No match.' : (isShared ? 'No shared banks yet.' : 'None.') })); }
-        return el('div', { class: 'trb-group' }, [head, ul]);
+        if (!ul.firstChild) { ul.appendChild(el('li', { class: 'text-muted small px-2 py-1', role: 'none', text: needle ? 'No match.' : (isShared ? 'No shared banks yet.' : 'None.') })); }
+        return el('div', { class: 'trb-group', role: 'none' }, [head, ul]);
     }
 
     function countsText(b) {
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var src = byId[dragId];
             if (validTarget(src, b)) { e.preventDefault(); moveBank(src, b.id); }
         });
-        var li = el('li', { class: 'trb-node' }, row);
+        var li = el('li', { class: 'trb-node', role: 'none' }, row);
         if (kids.length && isOpen) {
             var ul = el('ul', { class: 'trb-nodes', role: 'group' });
             kids.forEach(function (c) { ul.appendChild(node(c, depth + 1, needle)); });

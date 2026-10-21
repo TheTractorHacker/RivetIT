@@ -436,3 +436,4 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
        ----------------------------------------------------------------------- */
     ?>
     <div class="page">
+    <a class="skip-link" href="#main-content">Skip to main content</a>

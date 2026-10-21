@@ -1351,6 +1351,26 @@ function initPasswordToggles() {
         }
     });
 
+    // Every page gets exactly one level-1 heading for assistive tech. Legacy pages render their title as a
+    // card-title <h3>/<div>; promote that existing visible title (role=heading aria-level=1) instead of adding a
+    // second visible heading. A page with no title at all gets a visually-hidden h1 from the active nav item.
+    function ensurePageHeading() {
+        var main = document.getElementById('main-content');
+        if (!main || document.querySelector('h1, [role="heading"][aria-level="1"]')) { return; }
+        var cand = main.querySelector('.it-page-title, .page-title, .card-header .card-title, .card-title, h2, h3, h4');
+        if (cand && cand.textContent.trim() !== '') {
+            cand.setAttribute('role', 'heading');
+            cand.setAttribute('aria-level', '1');
+            return;
+        }
+        var nav = document.querySelector('.navbar-vertical .nav-link.active, .navbar-nav .nav-link.active');
+        var h = document.createElement('h1');
+        h.className = 'visually-hidden';
+        h.textContent = (nav && nav.textContent.trim()) || document.title || 'Page';
+        main.insertBefore(h, main.firstChild);
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', ensurePageHeading); } else { ensurePageHeading(); }
+
     // A required field inside an inactive Bootstrap tab-pane/pill-pane (e.g. the
     // Contact tab of the New Ticket modal) fails native validation with no
     // visible message: the pane is display:none, so the browser can't place its

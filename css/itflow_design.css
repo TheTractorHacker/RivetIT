@@ -1008,3 +1008,8 @@ tr.asset-inline-moved-out > td {
     white-space: nowrap;
     color: var(--if-muted, #5d6f76);
 }
+
+/* Skip link + programmatic focus target for <main id="main-content"> */
+.skip-link { position: absolute; left: .5rem; top: -4rem; z-index: 2000; padding: .5rem 1rem; background: var(--if-surface); color: var(--if-ink); border: 2px solid var(--if-primary); border-radius: var(--if-radius-sm); }
+.skip-link:focus { top: .5rem; }
+#main-content:focus { outline: none; }
