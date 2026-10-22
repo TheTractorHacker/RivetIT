@@ -19,7 +19,6 @@
     var empty = document.getElementById('trcl-empty');
     var catsEl = document.getElementById('trcl-cats');
     var searchEl = document.getElementById('trcl-search');
-    var uploadStatus = document.getElementById('trcl-upload-status');
 
     var presets = null;
     var state = { category: 'All', editing: null };
@@ -179,41 +178,59 @@
 
     searchEl.addEventListener('input', ui.debounce(renderGrid, 80));
 
-    // ---- upload + auto-share (mirrors training_cover_picker.js's own upload flow) ----
-    var fileInput = document.getElementById('trcl-file');
-    var chooseBtn = document.getElementById('trcl-choose');
+    // ---- bulk upload + auto-share: one or many at once (TrainingUploader.dropzone() runs the files through its
+    // own tested sequential queue - drag/drop, the button, progress - we just track each one's own row and
+    // share it the moment its upload finishes, same cover_gallery_add flow as a single upload). ----
     var drop = document.getElementById('trcl-drop');
-    chooseBtn.addEventListener('click', function () { fileInput.click(); });
+    var queueEl = document.getElementById('trcl-queue');
+    var rows = {};   // file identity (name+size+lastModified) -> <li>
 
     function labelFromFilename(name) {
         var base = (name || '').replace(/\.[^./\\]+$/, '').replace(/[_-]+/g, ' ').trim();
         return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'Untitled cover';
     }
 
-    function upload(file) {
-        if (!file || !window.TrainingUploader) { return; }
-        uploadStatus.textContent = 'Uploading…';
-        window.TrainingUploader.upload(file, { purpose: 'path_cover', onProgress: function (p) {
-            if (typeof p === 'number') { uploadStatus.textContent = 'Uploading… ' + Math.round(p * (p <= 1 ? 100 : 1)) + '%'; }
-        } }).then(function (d) {
-            var m = d && d.media;
-            if (!m) { throw new Error('Upload failed.'); }
-            uploadStatus.textContent = 'Sharing to the library…';
-            return api.post('cover_gallery_add', { media_id: m.id, label: labelFromFilename(file.name), category: (presets && presets.categories[0]) || 'Custom', tint: 'slate' });
-        }).then(function (d) {
-            uploadStatus.textContent = 'Added to the library.';
-            if (presets && d && d.cover) { presets.covers.unshift(d.cover); }
-            renderGrid();
-            window.setTimeout(function () { uploadStatus.textContent = ''; }, 2500);
-        }).catch(function (err) {
-            uploadStatus.textContent = (err && err.message) || 'Upload failed.';
-        });
+    function fileKey(file) { return file.name + '|' + file.size + '|' + (file.lastModified || 0); }
+
+    function queueRow(file) {
+        var li = el('li', { class: 'list-group-item d-flex align-items-center gap-2 small' }, [
+            el('span', { class: 'me-auto text-truncate', title: file.name, text: file.name }),
+            el('span', { class: 'text-muted', text: 'Queued…' })
+        ]);
+        rows[fileKey(file)] = li;
+        queueEl.appendChild(li);
+        return li;
     }
 
-    fileInput.addEventListener('change', function () { upload(fileInput.files[0]); fileInput.value = ''; });
-    ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('is-over'); }); });
-    ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('is-over'); }); });
-    drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { upload(e.dataTransfer.files[0]); } });
+    function rowSet(file, text, cls) {
+        var li = rows[fileKey(file)];
+        if (!li) { return; }
+        li.querySelector('span:last-child').textContent = text;
+        li.className = 'list-group-item d-flex align-items-center gap-2 small' + (cls ? ' ' + cls : '');
+    }
+
+    window.TrainingUploader.dropzone(drop, {
+        purpose: 'path_cover',
+        multiple: true,
+        onStart: function (file) { queueRow(file); },
+        onProgress: function (file, p) { rowSet(file, 'Uploading… ' + Math.round((p.fraction || 0) * 100) + '%'); },
+        onDone: function (file, d) {
+            var m = d && d.media;
+            if (!m) { rowSet(file, 'Upload failed.', 'text-danger'); return; }
+            rowSet(file, 'Sharing…');
+            api.post('cover_gallery_add', { media_id: m.id, label: labelFromFilename(file.name), category: (presets && presets.categories[0]) || 'Custom', tint: 'slate' }).then(function (d2) {
+                rowSet(file, 'Added.', 'text-success');
+                if (presets && d2 && d2.cover) { presets.covers.unshift(d2.cover); }
+                renderGrid();
+                window.setTimeout(function () { var li = rows[fileKey(file)]; if (li) { li.remove(); delete rows[fileKey(file)]; } }, 3000);
+            }, function (err) {
+                rowSet(file, (err && err.message) || 'Could not share it.', 'text-danger');
+            });
+        },
+        onError: function (file, err) {
+            rowSet(file, (err && err.message) || 'Upload failed.', 'text-danger');
+        }
+    });
 
     load();
 })();
