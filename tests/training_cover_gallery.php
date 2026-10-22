@@ -68,8 +68,34 @@ $ok($threw2, 'sharing a nonexistent media_id is refused');
 $cc = CoverLibrary::customCovers($ctx);
 $ok(count($cc) === 1, 'customCovers() returns exactly the one shared row');
 
+// IDOR guard: sharing/overwriting is scoped to who actually uploaded the media, admins excepted.
+$db->query("DELETE FROM training_media WHERE media_id IN (3, 4)");
+$db->query("INSERT INTO training_media (media_id, media_sha256, media_kind, media_mime, media_ext, media_bytes, media_path, media_uploaded_by, media_created_at_utc, media_row_sha256)
+    VALUES (3, SHA2('cover-gallery-test-3', 256), 'image', 'image/jpeg', 'jpg', 1000, '/tmp/x3.jpg', 2, UTC_TIMESTAMP(3), SHA2('row3', 256)),
+           (4, SHA2('cover-gallery-test-4', 256), 'image', 'image/jpeg', 'jpg', 1000, '/tmp/x4.jpg', 3, UTC_TIMESTAMP(3), SHA2('row4', 256))");
+
+$ctx2 = new Ctx($db, 2, false, 2, 'https://support.example.test', TrainingSettings::fromDb($db), 'test');
+$ctx3 = new Ctx($db, 3, false, 2, 'https://support.example.test', TrainingSettings::fromDb($db), 'test');
+
+$threw3 = false;
+try { CoverLibrary::addCustom($ctx3, 3, 'Not mine', 'X', 'red'); } catch (\InvalidArgumentException $e) { $threw3 = true; }
+$ok($threw3, "a non-admin user cannot share another user's upload (IDOR guard)");
+
+$shared3 = CoverLibrary::addCustom($ctx2, 3, 'Mine', 'Equipment', 'blue');
+$ok($shared3['media_id'] === 3, 'the actual uploader can share their own upload');
+
+$threw4 = false;
+try { CoverLibrary::addCustom($ctx3, 3, 'Hijacked', 'X', 'red'); } catch (\InvalidArgumentException $e) { $threw4 = true; }
+$ok($threw4, "a non-admin user cannot overwrite someone else's existing gallery entry");
+
+$overridden = CoverLibrary::addCustom($ctx, 3, 'Admin override', 'Equipment', 'blue');
+$ok($overridden['label'] === 'Admin override', "an admin can update another user's existing gallery entry");
+
+$adminAdd = CoverLibrary::addCustom($ctx, 4, 'Admin added', 'Equipment', 'blue');
+$ok($adminAdd['media_id'] === 4, "an admin can share another user's upload with no prior entry");
+
 $db->query("DELETE FROM training_cover_gallery");
-$db->query("DELETE FROM training_media WHERE media_id IN (1, 2)");
+$db->query("DELETE FROM training_media WHERE media_id IN (1, 2, 3, 4)");
 
 echo $fails === 0 ? "ALL PASS\n" : "$fails FAILURE(S)\n";
 exit($fails === 0 ? 0 : 1);

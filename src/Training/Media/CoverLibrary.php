@@ -175,13 +175,27 @@ final class CoverLibrary
      */
     public static function addCustom(Ctx $c, int $mediaId, string $label, string $category, string $tint): array
     {
-        $media = Db::one($c->db, 'SELECT media_id, media_kind FROM training_media WHERE media_id = ?', 'i', [$mediaId]);
+        $media = Db::one($c->db, 'SELECT media_id, media_kind, media_uploaded_by FROM training_media WHERE media_id = ?', 'i', [$mediaId]);
         if ($media === null || (string) $media['media_kind'] !== 'image') {
             throw new \InvalidArgumentException('CoverLibrary: that upload is not an image.');
+        }
+        // IDOR guard: a media_id is a bare integer an author never sees for anything but their own upload's reply -
+        // without this, any course author could pull an arbitrary media row (another course's cover, a KB image, an
+        // evidence photo) into the gallery, where it is visible to every course author in the company. Only the
+        // person who uploaded it, or an admin, may publish it.
+        if ((int) $media['media_uploaded_by'] !== $c->userId && !$c->isAdmin) {
+            throw new \InvalidArgumentException('CoverLibrary: you can only share a cover you uploaded yourself.');
         }
         $tintName = isset(self::TINTS[$tint]) ? $tint : 'slate';
         $label = trim($label) !== '' ? mb_substr(trim($label), 0, 100) : 'Untitled cover';
         $category = trim($category) !== '' ? mb_substr(trim($category), 0, 50) : 'Custom';
+        // Same guard against overwriting someone ELSE's existing gallery entry for this media_id: only its original
+        // sharer, or an admin, may update it (re-sharing your own upload to fix a typo is fine; relabeling another
+        // author's shared cover out from under them is not).
+        $existing = Db::one($c->db, 'SELECT gallery_id, gallery_added_by FROM training_cover_gallery WHERE gallery_media_id = ?', 'i', [$mediaId]);
+        if ($existing !== null && (int) $existing['gallery_added_by'] !== $c->userId && !$c->isAdmin) {
+            throw new \InvalidArgumentException('CoverLibrary: this cover was already shared by someone else.');
+        }
         Db::exec($c->db, 'INSERT INTO training_cover_gallery (gallery_media_id, gallery_label, gallery_category, gallery_tint, gallery_added_by, gallery_created_at)
             VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE gallery_label = VALUES(gallery_label), gallery_category = VALUES(gallery_category), gallery_tint = VALUES(gallery_tint)',
