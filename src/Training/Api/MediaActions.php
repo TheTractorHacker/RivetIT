@@ -159,6 +159,20 @@ final class MediaActions
         });
     }
 
+    /** POST cover_gallery_remove (L2): takes a shared cover off the gallery (CoverLibrary::removeCustom() - ownership-checked, never deletes the media). */
+    public static function coverGalleryRemove(Ctx $c, ApiContext $a): array
+    {
+        $galleryId = (int) $a->int('gallery_id', true, 1);
+        return self::run(static function () use ($c, $galleryId): array {
+            try {
+                CoverLibrary::removeCustom($c, $galleryId);
+            } catch (\InvalidArgumentException $e) {
+                throw ApiException::validation(['gallery_id' => $e->getMessage()]);
+            }
+            return ['removed' => true];
+        });
+    }
+
     /**
      * POST cover_preset_ingest (L2): stores a gallery cover as media (deduplicated) and returns it.
      * The caller then sets it with course_update / path_save {cover_media_id, color}, so the

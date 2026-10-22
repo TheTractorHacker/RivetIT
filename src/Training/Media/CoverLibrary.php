@@ -143,8 +143,11 @@ final class CoverLibrary
     /** Covers an author shared to the gallery from their own upload - same row shape as a built-in cover, plus media_id. */
     public static function customCovers(Ctx $c): array
     {
-        $rows = Db::all($c->db, 'SELECT g.gallery_id, g.gallery_media_id, g.gallery_label, g.gallery_category, g.gallery_tint, m.media_path
-            FROM training_cover_gallery g JOIN training_media m ON m.media_id = g.gallery_media_id ORDER BY g.gallery_created_at DESC');
+        $rows = Db::all($c->db, 'SELECT g.gallery_id, g.gallery_media_id, g.gallery_label, g.gallery_category, g.gallery_tint,
+                g.gallery_added_by, g.gallery_created_at, u.user_name, m.media_path
+            FROM training_cover_gallery g JOIN training_media m ON m.media_id = g.gallery_media_id
+            LEFT JOIN users u ON u.user_id = g.gallery_added_by
+            ORDER BY g.gallery_created_at DESC');
         $out = [];
         foreach ($rows as $r) {
             $tintName = isset(self::TINTS[(string) $r['gallery_tint']]) ? (string) $r['gallery_tint'] : 'slate';
@@ -153,9 +156,33 @@ final class CoverLibrary
                 'tint' => $tintName, 'color' => self::TINTS[$tintName], 'keywords' => [],
                 'media_id' => (int) $r['gallery_media_id'], 'thumb_url' => MediaStore::url((int) $r['gallery_media_id']),
                 'image_url' => MediaStore::url((int) $r['gallery_media_id']),
+                // For the standalone library page (gallery_id doubles as the 'custom:N' key's own N; added_by/
+                // added_by_name/created_at let it show "Shared by X" and who may remove/edit it without a round trip).
+                'gallery_id' => (int) $r['gallery_id'], 'added_by' => (int) $r['gallery_added_by'],
+                'added_by_name' => $r['user_name'] !== null ? (string) $r['user_name'] : null,
+                'created_at' => (string) $r['gallery_created_at'],
             ];
         }
         return $out;
+    }
+
+    /**
+     * Removes a shared cover from the gallery (never deletes the underlying media or touches any course/path
+     * still using it as its cover - this only takes it off the picker's gallery list). Same ownership rule as
+     * addCustom(): only the person who shared it, or an admin, may remove it.
+     *
+     * @throws \InvalidArgumentException unknown gallery_id, or not this user's to remove
+     */
+    public static function removeCustom(Ctx $c, int $galleryId): void
+    {
+        $row = Db::one($c->db, 'SELECT gallery_id, gallery_added_by FROM training_cover_gallery WHERE gallery_id = ?', 'i', [$galleryId]);
+        if ($row === null) {
+            throw new \InvalidArgumentException('CoverLibrary: that gallery cover was not found.');
+        }
+        if ((int) $row['gallery_added_by'] !== $c->userId && !$c->isAdmin) {
+            throw new \InvalidArgumentException('CoverLibrary: you can only remove a cover you shared yourself.');
+        }
+        Db::exec($c->db, 'DELETE FROM training_cover_gallery WHERE gallery_id = ?', 'i', [$galleryId]);
     }
 
     /** @return list<string> the distinct categories shared covers have used, beyond the 7 built-in ones - so the picker's category filter still finds them. */

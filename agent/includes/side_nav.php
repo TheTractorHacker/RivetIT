@@ -17,7 +17,7 @@ $section_pages = [
     'service_desk'  => ['tickets.php', 'ticket.php', 'recurring_tickets.php', 'service_catalog.php', 'service_catalog_approvals.php', 'csat.php', 'mail_requests.php', 'problems.php', 'problem_details.php', 'changes.php', 'change_details.php'],
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
-    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php', 'training_revision_compare.php'],
+    'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_cover_library.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php', 'training_revision_compare.php'],
     'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
     'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
     'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
@@ -332,6 +332,10 @@ foreach ($section_pages as $key => $pages) {
                         <a href="/agent/training_achievements.php" class="dropdown-item<?php if ($current_page == "training_achievements.php") { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-award"></i></span>
                             <span class="text-truncate">Achievements</span>
+                        </a>
+                        <a href="/agent/training_cover_library.php" class="dropdown-item<?php if ($current_page == "training_cover_library.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-images"></i></span>
+                            <span class="text-truncate">Cover Library</span>
                         </a>
                         <?php } ?>
                         <a href="/agent/training_people.php" class="dropdown-item<?php if ($current_page == "training_people.php") { echo " active"; } ?>">

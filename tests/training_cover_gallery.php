@@ -94,6 +94,34 @@ $ok($overridden['label'] === 'Admin override', "an admin can update another user
 $adminAdd = CoverLibrary::addCustom($ctx, 4, 'Admin added', 'Equipment', 'blue');
 $ok($adminAdd['media_id'] === 4, "an admin can share another user's upload with no prior entry");
 
+// removeCustom() (the standalone Cover Library's "Remove" button): ownership-checked the same way as addCustom().
+// $overridden is the same gallery row as $shared3 (addCustom() upserts by media_id); gallery_added_by stays
+// ctx2's (the original sharer) even after the admin's relabel, since the UPDATE clause never touches it.
+$beforeRemove = count(CoverLibrary::customCovers($ctx));
+$sharedGalleryId = (int) str_replace('custom:', '', $overridden['key']);
+$threw5 = false;
+try { CoverLibrary::removeCustom($ctx3, $sharedGalleryId); } catch (\InvalidArgumentException $e) { $threw5 = true; }
+$ok($threw5, "a non-admin user cannot remove someone else's shared cover");
+$ok(count(CoverLibrary::customCovers($ctx)) === $beforeRemove, 'the refused remove changed nothing');
+
+$ownGalleryId = (int) str_replace('custom:', '', $shared3['key']);
+CoverLibrary::removeCustom($ctx2, $ownGalleryId);
+$ok(count(array_filter(CoverLibrary::customCovers($ctx), static fn($c) => $c['media_id'] === 3)) === 0, 'the sharer can remove their own shared cover');
+
+$adminGalleryId = (int) str_replace('custom:', '', $adminAdd['key']);
+CoverLibrary::removeCustom($ctx, $adminGalleryId);
+$ok(count(array_filter(CoverLibrary::customCovers($ctx), static fn($c) => $c['media_id'] === 4)) === 0, "an admin can remove anyone's shared cover");
+
+$threw6 = false;
+try { CoverLibrary::removeCustom($ctx, 999999); } catch (\InvalidArgumentException $e) { $threw6 = true; }
+$ok($threw6, 'removing a nonexistent gallery_id is refused, not a silent no-op');
+
+// The scratch DB has no `users` row for user_id 1 (schema-only clone), so added_by_name is null here - the
+// LEFT JOIN working as intended for a since-deleted user, not a bug. The field just has to be present.
+$row1 = CoverLibrary::customCovers($ctx)[0] ?? null;
+$ok($row1 !== null && $row1['added_by'] === 1 && array_key_exists('added_by_name', $row1) && array_key_exists('gallery_id', $row1) && array_key_exists('created_at', $row1),
+    'customCovers() reports who shared the remaining cover (and when), for the standalone library page');
+
 $db->query("DELETE FROM training_cover_gallery");
 $db->query("DELETE FROM training_media WHERE media_id IN (1, 2, 3, 4)");
 

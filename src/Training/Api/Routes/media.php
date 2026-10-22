@@ -19,4 +19,5 @@ return [
     'cover_presets'       => ['handler' => MediaActions::class . '::coverPresets',      'method' => 'GET',  'level' => 2],
     'cover_preset_ingest' => ['handler' => MediaActions::class . '::coverPresetIngest', 'method' => 'POST', 'level' => 2],
     'cover_gallery_add'   => ['handler' => MediaActions::class . '::coverGalleryAdd',   'method' => 'POST', 'level' => 2],
+    'cover_gallery_remove' => ['handler' => MediaActions::class . '::coverGalleryRemove', 'method' => 'POST', 'level' => 2],
 ];
