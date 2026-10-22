@@ -76,11 +76,13 @@
         return card;
     }
 
-    function toggleEdit(card, cover) {
-        var existing = card.querySelector('.trcl-edit');
-        if (existing) { existing.remove(); return; }
-        document.querySelectorAll('.trcl-edit').forEach(function (n) { n.remove(); });
-
+    /**
+     * The label/category/tint edit form, shared by a grid card's "Edit" and a just-uploaded queue row (so a
+     * bulk upload can be relabeled/recategorized right there instead of only from the grid afterward).
+     * @param cover {media_id, label, category, tint} - the fields to start from
+     * @param opts {saveLabel?, onSaved(cover), onCancel?}
+     */
+    function buildEditFields(cover, opts) {
         var labelInput = el('input', { type: 'text', class: 'form-control form-control-sm', value: cover.label, maxlength: '100' });
         var catSelect = el('select', { class: 'form-select form-select-sm' });
         presets.categories.forEach(function (c) { catSelect.appendChild(el('option', { value: c, text: c, selected: c === cover.category ? '' : null })); });
@@ -101,7 +103,7 @@
             swatches.appendChild(b);
         });
         var status = el('span', { class: 'trcl-edit__status' });
-        var saveBtn = el('button', { type: 'button', class: 'btn btn-primary btn-sm', text: 'Save' });
+        var saveBtn = el('button', { type: 'button', class: 'btn btn-primary btn-sm', text: opts.saveLabel || 'Save' });
         saveBtn.addEventListener('click', function () {
             var isNewCat = catSelect.value === '__new__';
             var category = (isNewCat ? catNew.value : catSelect.value).trim();
@@ -114,23 +116,35 @@
                 saveBtn.disabled = false;
                 status.textContent = 'Saved.';
                 var idx = presets.covers.findIndex(function (c) { return c.key === d.cover.key; });
-                if (idx !== -1) { presets.covers[idx] = d.cover; }
+                if (idx !== -1) { presets.covers[idx] = d.cover; } else { presets.covers.unshift(d.cover); }
                 if (isNewCat && presets.categories.indexOf(category) === -1) { presets.categories.push(category); renderCats(); }
-                window.setTimeout(renderGrid, 400);
+                renderGrid();
+                opts.onSaved(d.cover);
             }, function (err) {
                 saveBtn.disabled = false;
                 status.textContent = (err && err.message) || 'Not saved.';
             });
         });
-        var cancelBtn = el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm', text: 'Cancel', on: { click: function () { card.querySelector('.trcl-edit').remove(); } } });
-
-        var form = el('div', { class: 'trcl-edit' }, [
+        var actions = [status, saveBtn];
+        if (opts.onCancel) {
+            actions.splice(1, 0, el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm', text: 'Cancel', on: { click: opts.onCancel } }));
+        }
+        return el('div', { class: 'trcl-edit' }, [
             el('label', { class: 'form-label small mb-0', text: 'Label' }), labelInput,
             el('label', { class: 'form-label small mb-0', text: 'Category' }), catSelect, catNew,
             el('label', { class: 'form-label small mb-0', text: 'Tint' }), swatches,
-            el('div', { class: 'trcl-edit__actions' }, [status, cancelBtn, saveBtn])
+            el('div', { class: 'trcl-edit__actions' }, actions)
         ]);
-        card.appendChild(form);
+    }
+
+    function toggleEdit(card, cover) {
+        var existing = card.querySelector('.trcl-edit');
+        if (existing) { existing.remove(); return; }
+        document.querySelectorAll('.trcl-edit').forEach(function (n) { n.remove(); });
+        card.appendChild(buildEditFields(cover, {
+            onCancel: function () { var f = card.querySelector('.trcl-edit'); if (f) { f.remove(); } },
+            onSaved: function () { var f = card.querySelector('.trcl-edit'); if (f) { f.remove(); } }
+        }));
     }
 
     function removeCover(cover) {
@@ -193,9 +207,11 @@
     function fileKey(file) { return file.name + '|' + file.size + '|' + (file.lastModified || 0); }
 
     function queueRow(file) {
-        var li = el('li', { class: 'list-group-item d-flex align-items-center gap-2 small' }, [
-            el('span', { class: 'me-auto text-truncate', title: file.name, text: file.name }),
-            el('span', { class: 'text-muted', text: 'Queued…' })
+        var li = el('li', { class: 'list-group-item small' }, [
+            el('div', { class: 'd-flex align-items-center gap-2' }, [
+                el('span', { class: 'me-auto text-truncate', title: file.name, text: file.name }),
+                el('span', { class: 'text-muted', text: 'Queued…' })
+            ])
         ]);
         rows[fileKey(file)] = li;
         queueEl.appendChild(li);
@@ -205,8 +221,27 @@
     function rowSet(file, text, cls) {
         var li = rows[fileKey(file)];
         if (!li) { return; }
-        li.querySelector('span:last-child').textContent = text;
-        li.className = 'list-group-item d-flex align-items-center gap-2 small' + (cls ? ' ' + cls : '');
+        var status = li.firstElementChild.lastElementChild;
+        status.textContent = text;
+        status.className = cls || 'text-muted';
+    }
+
+    /** Once a bulk-uploaded file is shared, its row grows the same label/category/tint fields a grid card's Edit
+        uses, pre-filled from the filename-derived label it was just given - so you can fix it right there
+        instead of hunting the new card down in the grid afterward. "Done" just dismisses the row. */
+    function rowEditable(file, cover) {
+        var li = rows[fileKey(file)];
+        if (!li) { return; }
+        li.appendChild(buildEditFields(cover, {
+            saveLabel: 'Save',
+            onCancel: function () { li.remove(); delete rows[fileKey(file)]; },
+            onSaved: function (updated) {
+                cover = updated;
+                var actions = li.querySelector('.trcl-edit__actions');
+                if (actions.querySelector('.trcl-row-done')) { return; }   // already added on an earlier save
+                actions.appendChild(el('button', { type: 'button', class: 'btn btn-outline-secondary btn-sm trcl-row-done', text: 'Done', on: { click: function () { li.remove(); delete rows[fileKey(file)]; } } }));
+            }
+        }));
     }
 
     window.TrainingUploader.dropzone(drop, {
@@ -219,10 +254,10 @@
             if (!m) { rowSet(file, 'Upload failed.', 'text-danger'); return; }
             rowSet(file, 'Sharing…');
             api.post('cover_gallery_add', { media_id: m.id, label: labelFromFilename(file.name), category: (presets && presets.categories[0]) || 'Custom', tint: 'slate' }).then(function (d2) {
-                rowSet(file, 'Added.', 'text-success');
+                rowSet(file, 'Added - check the label/category below:', 'text-success');
                 if (presets && d2 && d2.cover) { presets.covers.unshift(d2.cover); }
                 renderGrid();
-                window.setTimeout(function () { var li = rows[fileKey(file)]; if (li) { li.remove(); delete rows[fileKey(file)]; } }, 3000);
+                rowEditable(file, d2.cover);
             }, function (err) {
                 rowSet(file, (err && err.message) || 'Could not share it.', 'text-danger');
             });
