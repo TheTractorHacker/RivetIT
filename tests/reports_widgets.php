@@ -104,5 +104,17 @@ $ok(DashboardLayout::apply($l, 'size', 'csat', 'lg', $allowed)[0]['size'] === 'l
 $ok(DashboardLayout::apply($l, 'toggle', 'csat', '', $allowed)[0]['hidden'] === true, 'apply: hide');
 $ok(count(DashboardLayout::apply([], 'add', 'tickets_by_status', '', $allowed)) === 1, 'apply: add');
 
+// reorder() - the drag-and-drop save (agent/js/my_dashboard.js), replacing the old up/down buttons
+$rl = [['id' => 'csat', 'size' => 'sm', 'hidden' => false], ['id' => 'my_tickets', 'size' => 'lg', 'hidden' => true], ['id' => 'workflow_tasks_due', 'size' => 'md', 'hidden' => false]];
+$reordered = DashboardLayout::reorder($rl, ['workflow_tasks_due', 'csat', 'my_tickets']);
+$ok(array_column($reordered, 'id') === ['workflow_tasks_due', 'csat', 'my_tickets'], 'reorder: matches the dragged order');
+$ok($reordered[2]['size'] === 'lg' && $reordered[2]['hidden'] === true, 'reorder: keeps each entry\'s own size/hidden, only the order changes');
+$ok(array_column(DashboardLayout::reorder($rl, ['csat', 'bogus_id']), 'id') === ['csat', 'my_tickets', 'workflow_tasks_due'], 'reorder: an id not in the layout is ignored; anything left out of the order keeps its old relative place at the end');
+$ok(DashboardLayout::reorder($rl, []) === $rl, 'reorder: an empty order leaves the layout unchanged');
+// user 7's stored layout was left corrupt by the earlier "corrupt stored JSON" test - start it fresh here.
+DashboardLayout::save($mysqli, 7, [['id' => 'csat'], ['id' => 'my_tickets']], $allowed);
+DashboardLayout::save($mysqli, 7, DashboardLayout::reorder(DashboardLayout::load($mysqli, 7, $allowed), ['my_tickets', 'csat']), $allowed);
+$ok(array_column(DashboardLayout::load($mysqli, 7, $allowed), 'id') === ['my_tickets', 'csat'], 'reorder: saves and loads back through the normal layout round trip');
+
 echo $fails ? "\n$fails FAILED\n" : "\nALL PASSED\n";
 exit($fails ? 1 : 0);

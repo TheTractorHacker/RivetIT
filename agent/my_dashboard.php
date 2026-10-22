@@ -38,6 +38,18 @@ $allowed = WidgetRegistry::available($ctx);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['layout_action'])) {
     validateCSRFToken($_POST['csrf_token'] ?? '');
     $layout = DashboardLayout::load($mysqli, $session_user_id, $allowed);
+    // Drag-and-drop reorder (agent/js/my_dashboard.js): a plain fetch() with the dragged DOM's new widget-id
+    // order, not a page navigation - answers JSON instead of redirecting, since Sortable already moved the
+    // cards client-side and a reload would just be a flash with nothing new to show.
+    if ($_POST['layout_action'] === 'reorder') {
+        $order = json_decode((string) ($_POST['order'] ?? '[]'), true);
+        $order = is_array($order) ? array_values(array_filter($order, 'is_string')) : [];
+        $layout = DashboardLayout::reorder($layout, $order);
+        DashboardLayout::save($mysqli, $session_user_id, $layout, $allowed);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
+        exit;
+    }
     $layout = DashboardLayout::apply($layout, (string) $_POST['layout_action'], (string) ($_POST['widget'] ?? ''), (string) ($_POST['size'] ?? ''), $allowed);
     DashboardLayout::save($mysqli, $session_user_id, $layout, $allowed);
     header('Location: my_dashboard.php' . (!empty($_POST['customise']) ? '?customise=1' : ''));
@@ -59,6 +71,12 @@ $post_button = static function (string $action, string $widget, string $label, s
         . '<button type="submit" class="btn btn-sm ' . $class . '" title="' . nullable_htmlentities($label) . '" aria-label="' . nullable_htmlentities($label) . '"><i class="fas fa-fw ' . $icon . '"></i></button></form>';
 };
 ?>
+<style nonce="<?php echo $csp_nonce; ?>">
+    .dash-drag { cursor: grab; }
+    .dash-drag:active { cursor: grabbing; }
+    #dash-widgets .sortable-ghost { opacity: .4; }
+    #dash-widgets .sortable-chosen .card { box-shadow: 0 0 0 2px var(--tblr-primary, #0054a6); }
+</style>
 
 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap" style="gap:.5rem;">
     <div>
@@ -99,7 +117,7 @@ $post_button = static function (string $action, string $widget, string $label, s
     </div></div>
 <?php } ?>
 
-<div class="row g-3">
+<div class="row g-3" id="dash-widgets" data-csrf="<?php echo $csrf; ?>">
 <?php foreach ($layout as $i => $entry) {
     $wid = $entry['id'];
     $def = $defs[$wid];
@@ -109,11 +127,12 @@ $post_button = static function (string $action, string $widget, string $label, s
     <div class="col-12 col-md-<?php echo $col === 4 ? 6 : $col; ?> col-xl-<?php echo $col; ?>" data-widget="<?php echo nullable_htmlentities($wid); ?>">
         <div class="card h-100<?php echo $entry['hidden'] ? ' opacity-50' : ''; ?>">
             <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h3 class="card-title mb-0"><i class="fas fa-fw <?php echo nullable_htmlentities($def['icon']); ?> me-2"></i><?php echo nullable_htmlentities($def['title']); ?></h3>
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <?php if ($customise) { ?><span class="dash-drag me-2" title="Drag to reorder" aria-hidden="true"><i class="fas fa-fw fa-grip-vertical text-muted"></i></span><?php } ?>
+                    <i class="fas fa-fw <?php echo nullable_htmlentities($def['icon']); ?> me-2"></i><?php echo nullable_htmlentities($def['title']); ?>
+                </h3>
                 <?php if ($customise) { ?>
                 <div class="d-flex gap-1">
-                    <?php echo $post_button('up', $wid, 'Move up', 'fa-arrow-up'); ?>
-                    <?php echo $post_button('down', $wid, 'Move down', 'fa-arrow-down'); ?>
                     <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Wide'] as $sz => $szl) {
                         echo $post_button('size', $wid, "Size: $szl", $sz === 'sm' ? 'fa-compress-alt' : ($sz === 'md' ? 'fa-columns' : 'fa-expand-alt'), '<input type="hidden" name="size" value="' . $sz . '">', $entry['size'] === $sz ? 'btn-secondary' : 'btn-outline-secondary');
                     } ?>
@@ -130,4 +149,8 @@ $post_button = static function (string $action, string $widget, string $label, s
 <?php } ?>
 </div>
 
+<?php if ($customise) { ?>
+<script src="/plugins/SortableJS/Sortable.min.js" defer></script>
+<script src="/agent/js/my_dashboard.js?v=<?php echo filemtime(__DIR__ . '/js/my_dashboard.js'); ?>" defer></script>
+<?php } ?>
 <?php require_once "../includes/footer.php"; ?>

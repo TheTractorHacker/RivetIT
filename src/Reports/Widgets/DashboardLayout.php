@@ -100,4 +100,31 @@ final class DashboardLayout
         }
         return array_values($layout);
     }
+
+    /**
+     * Reorders $layout to match $orderIds (the widget ids read from the dragged-and-dropped DOM, in their new
+     * order), keeping each entry's own size/hidden. An id in $orderIds the layout does not have is ignored
+     * (nothing to reorder); an id the layout has that $orderIds left out keeps its old relative order, appended
+     * at the end - defensive only, since a drag only ever reorders the widgets already on the page.
+     *
+     * @param list<string> $orderIds
+     */
+    public static function reorder(array $layout, array $orderIds): array
+    {
+        $byId = [];
+        foreach ($layout as $e) {
+            $byId[$e['id']] = $e;
+        }
+        $out = [];
+        foreach ($orderIds as $id) {
+            if (isset($byId[$id])) {
+                $out[] = $byId[$id];
+                unset($byId[$id]);
+            }
+        }
+        foreach ($byId as $e) {
+            $out[] = $e;
+        }
+        return $out;
+    }
 }
