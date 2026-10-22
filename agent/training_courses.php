@@ -72,7 +72,7 @@ if ($tr_can_author) {
         $tr_t['cover'] = CoverLibrary::defaultFor($tr_t['kind'], $tr_t['key']);   // as template_list does
         $tr_templates[] = $tr_t;
     }
-    $tr_covers = CoverLibrary::api();   // the New course window shows the cover it will use
+    $tr_covers = CoverLibrary::api($tr_ctx);   // the New course window shows the cover it will use
 }
 
 $tr_data = [

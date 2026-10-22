@@ -132,10 +132,31 @@ final class MediaActions
      * @param callable():T $fn
      * @return T
      */
-    /** GET cover_presets (L2): the built-in cover gallery - covers, categories, tints, defaults. */
+    /** GET cover_presets (L2): the cover gallery - the 30 built-in illustrations plus every cover an author has shared. */
     public static function coverPresets(Ctx $c, ApiContext $a): array
     {
-        return CoverLibrary::api();
+        return CoverLibrary::api($c);
+    }
+
+    /**
+     * POST cover_gallery_add (L2): shares an upload the caller already owns (their own course's cover) to the gallery,
+     * so it becomes a pickable option for every other course too - no file movement, the media row already exists.
+     * Re-sharing the same media_id just updates its label/category/tint (CoverLibrary::addCustom()'s own dedup).
+     */
+    public static function coverGalleryAdd(Ctx $c, ApiContext $a): array
+    {
+        $mediaId = (int) $a->int('media_id', true, 1);
+        $label = (string) $a->str('label', 100);
+        $category = (string) $a->str('category', 50);
+        $tint = (string) $a->str('tint', 20);
+        return self::run(static function () use ($c, $mediaId, $label, $category, $tint): array {
+            try {
+                $cover = CoverLibrary::addCustom($c, $mediaId, $label, $category, $tint);
+            } catch (\InvalidArgumentException $e) {
+                throw ApiException::validation(['media_id' => $e->getMessage()]);
+            }
+            return ['cover' => $cover];
+        });
     }
 
     /**

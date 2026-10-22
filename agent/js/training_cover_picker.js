@@ -65,11 +65,28 @@
         n.fileInput = el('input', { type: 'file', class: 'd-none', accept: 'image/jpeg,image/png,image/webp,image/gif' });
         n.uploadBtn = el('button', { type: 'button', class: 'btn btn-outline-primary', on: { click: function () { n.fileInput.click(); } } }, [icon('upload'), ' Choose an image…']);
         n.uploadStatus = el('div', { class: 'small text-muted mt-2', 'aria-live': 'polite' });
+
+        // Shown only after a fresh upload: sharing it makes the SAME image a pickable gallery option for every other
+        // course too (cover_gallery_add), not just this one. Opt-in, not automatic - an author's draft screenshot
+        // shouldn't silently become everyone's dropdown option.
+        n.galleryLabel = el('input', { type: 'text', class: 'form-control form-control-sm', placeholder: 'Label, e.g. "Forklift in our warehouse"', maxlength: '100' });
+        n.galleryCategory = el('input', { type: 'text', class: 'form-control form-control-sm', placeholder: 'Category, e.g. "Equipment"', maxlength: '50' });
+        n.galleryBtn = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: shareToGallery } }, [icon('images'), ' Add to shared gallery']);
+        n.galleryStatus = el('span', { class: 'small text-muted ms-2' });
+        n.galleryForm = el('div', { class: 'tr-cover-share mt-3 pt-3', hidden: true, style: 'border-top:1px solid var(--color-border,#dee2e6);' }, [
+            el('div', { class: 'small fw-medium mb-2' }, [icon('share-alt'), ' Also add this to the shared gallery, for other courses to pick too']),
+            el('div', { class: 'row g-2 align-items-center' }, [
+                el('div', { class: 'col-sm-5' }, [n.galleryLabel]),
+                el('div', { class: 'col-sm-4' }, [n.galleryCategory]),
+                el('div', { class: 'col-sm-3' }, [n.galleryBtn]),
+            ]),
+            n.galleryStatus,
+        ]);
         n.drop = el('div', { class: 'tr-cover-drop' }, [
             el('div', { class: 'tr-cover-drop__icon' }, [icon('image')]),
             el('div', { class: 'fw-medium', text: 'Drop a photo or image here' }),
             el('div', { class: 'small text-muted mb-3', text: 'JPEG, PNG, WebP or GIF. A wide image (16:9) fills the card best; a PNG with a transparent background sits on the tint like the gallery art.' }),
-            n.uploadBtn, n.fileInput, n.uploadStatus
+            n.uploadBtn, n.fileInput, n.uploadStatus, n.galleryForm
         ]);
 
         n.tabGallery = el('button', { type: 'button', class: 'nav-link active', role: 'tab', 'aria-selected': 'true', text: 'Gallery', on: { click: function () { showTab('gallery'); } } });
@@ -184,13 +201,23 @@
     }
 
     function choosePreset(cover) {
-        state.choice = { kind: 'preset', key: cover.key };
+        // A shared cover (cover.media_id set) is already a training_media row - apply it the same way an upload
+        // applies, no server round trip needed. Only a built-in illustration needs cover_preset_ingest at apply time.
+        state.choice = cover.media_id
+            ? { kind: 'media', id: cover.media_id, url: cover.image_url, key: cover.key }
+            : { kind: 'preset', key: cover.key };
         if (!state.colorTouched) {
             state.color = cover.color;
             renderSwatches();
         }
         renderGrid();
         renderPreview();
+    }
+
+    function chosenGalleryKey() {
+        if (state.choice.kind === 'preset') { return state.choice.key; }
+        if (state.choice.kind === 'media' && state.choice.key) { return state.choice.key; }
+        return null;
     }
 
     // -------------------------------------------------------------------------------- render
@@ -220,7 +247,7 @@
             if (state.category !== 'All' && cover.category !== state.category && !q) { return; }
             if (!matches(cover, q)) { return; }
             shown++;
-            var selected = state.choice.kind === 'preset' && state.choice.key === cover.key;
+            var selected = chosenGalleryKey() === cover.key;
             var art = el('span', { class: 'tr-cover-art tr-cover-tile__art' }, [el('img', { src: cover.thumb_url, alt: '', loading: 'lazy' })]);
             tint(art, state.colorTouched || selected ? state.color : cover.color);
             var tile = el('button', {
@@ -278,7 +305,8 @@
             label = c ? 'Gallery · ' + c.label : '';
         } else if (state.choice.kind === 'media') {
             url = state.choice.url;
-            label = state.choice.uploaded ? 'Your upload' : 'Current cover';
+            var g = state.choice.key ? coverByKey(state.choice.key) : null;
+            label = g ? 'Gallery · ' + g.label : (state.choice.uploaded ? 'Your upload' : 'Current cover');
         } else {
             label = 'No cover';
         }
@@ -303,6 +331,7 @@
         if (!file || !window.TrainingUploader) { return; }
         var status = modal.uploadStatus;
         status.textContent = 'Uploading…';
+        modal.galleryForm.hidden = true;
         var opts = Object.assign({ purpose: state.opts.purpose || 'course_cover' }, state.opts.uploadOpts || {});
         opts.onProgress = function (p) { if (typeof p === 'number') { status.textContent = 'Uploading… ' + Math.round(p * (p <= 1 ? 100 : 1)) + '%'; } };
         var token = state;
@@ -312,10 +341,49 @@
             if (!m) { throw new Error('Upload failed.'); }
             state.choice = { kind: 'media', id: m.id, url: m.url, uploaded: true };
             status.textContent = 'Uploaded. Check the preview, then choose "Use this cover".';
+            modal.galleryLabel.value = '';
+            modal.galleryCategory.value = '';
+            modal.galleryStatus.textContent = '';
+            modal.galleryBtn.disabled = false;
+            modal.galleryForm.hidden = false;
             renderGrid();
             renderPreview();
         }).catch(function (err) {
             if (state === token) { status.textContent = (err && err.message) || 'Upload failed.'; }
+        });
+    }
+
+    /** Shares the just-uploaded cover to the gallery (cover_gallery_add) so other courses can pick the same image. */
+    function shareToGallery() {
+        if (!state || state.choice.kind !== 'media' || !state.choice.uploaded) { return; }
+        var label = modal.galleryLabel.value.trim();
+        if (!label) {
+            modal.galleryStatus.textContent = 'Give it a short label first.';
+            modal.galleryLabel.focus();
+            return;
+        }
+        var token = state;
+        modal.galleryBtn.disabled = true;
+        modal.galleryStatus.textContent = 'Saving…';
+        api.post('cover_gallery_add', {
+            media_id: state.choice.id,
+            label: label,
+            category: modal.galleryCategory.value.trim() || 'Custom',
+            tint: state.color && presets ? (function () {
+                var found = presets.tints.filter(function (t) { return t.color === state.color; })[0];
+                return found ? found.name : 'slate';
+            })() : 'slate',
+        }).then(function (d) {
+            if (state !== token) { return; }
+            modal.galleryStatus.textContent = 'Added to the shared gallery.';
+            modal.galleryBtn.disabled = true;
+            if (presets && d && d.cover) { presets.covers.push(d.cover); }   // visible in the Gallery tab immediately, no reload
+            state.choice.key = d && d.cover ? d.cover.key : state.choice.key;
+            renderGrid();
+        }, function (err) {
+            if (state !== token) { return; }
+            modal.galleryBtn.disabled = false;
+            modal.galleryStatus.textContent = (err && err.message) || 'Could not save that. Try again.';
         });
     }
 
@@ -362,6 +430,7 @@
         modal.search.value = '';
         modal.uploadStatus.textContent = '';
         modal.uploadBtn.disabled = false;
+        modal.galleryForm.hidden = true;
         busy(false);
         showTab('gallery');
         modal.tabUpload.hidden = opts.allowUpload === false;

@@ -11710,3 +11710,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.188'");
     }
+
+    if ($rivetit_db_version() == '2.6.188') {
+        // DB 2.6.189: Training course covers - an author's own upload can now be shared to the cover gallery so other
+        // courses can pick the same image, instead of only the 30 built-in stock illustrations.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `training_cover_gallery` (
+            `gallery_id` int(11) NOT NULL AUTO_INCREMENT,
+            `gallery_media_id` int(11) NOT NULL,
+            `gallery_label` varchar(100) NOT NULL,
+            `gallery_category` varchar(50) NOT NULL,
+            `gallery_tint` varchar(20) NOT NULL,
+            `gallery_added_by` int(11) NOT NULL,
+            `gallery_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`gallery_id`),
+            UNIQUE KEY `uq_training_cover_gallery_media` (`gallery_media_id`),
+            KEY `idx_training_cover_gallery_category` (`gallery_category`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.189'");
+    }

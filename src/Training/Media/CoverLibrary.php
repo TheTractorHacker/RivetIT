@@ -3,6 +3,7 @@
 namespace ITFlow\Training\Media;
 
 use ITFlow\Training\Core\Ctx;
+use ITFlow\Training\Core\Db;
 
 /**
  * The built-in cover gallery (plan A20).
@@ -104,25 +105,91 @@ final class CoverLibrary
         return self::KIND_COVERS[$kind] ?? 'general';
     }
 
-    /** The gallery as the picker needs it (the cover_presets action). */
-    public static function api(): array
+    /**
+     * The gallery as the picker needs it (the cover_presets action): the 30 built-in illustrations plus every cover an
+     * author has shared (addCustom()). A shared cover is already a training_media row - the picker applies it the same
+     * way it applies an upload ({media_id, url}, no re-ingest), so it carries 'media_id' and a 'custom:N' key instead of
+     * a built-in one; everything else (label/category/tint/thumb_url/image_url) has the identical shape either way.
+     */
+    public static function api(Ctx $c): array
     {
         $covers = [];
         foreach (self::COVERS as [$k]) {
-            $c = self::get($k);
-            $c['thumb_url'] = self::webUrl($k, true);
-            $c['image_url'] = self::webUrl($k, false);
-            $covers[] = $c;
+            $cov = self::get($k);
+            $cov['thumb_url'] = self::webUrl($k, true);
+            $cov['image_url'] = self::webUrl($k, false);
+            $covers[] = $cov;
+        }
+        foreach (self::customCovers($c) as $cov) {
+            $covers[] = $cov;
         }
         $tints = [];
         foreach (self::TINTS as $name => $hex) {
             $tints[] = ['name' => $name, 'color' => $hex];
         }
+        $categories = self::CATEGORIES;
+        foreach (self::customCategories($c) as $cat) {
+            if (!in_array($cat, $categories, true)) {
+                $categories[] = $cat;
+            }
+        }
         $defaults = self::TEMPLATE_COVERS;
         foreach (self::KIND_COVERS as $kind => $key) {
             $defaults['kind:' . $kind] = $key;
         }
-        return ['categories' => self::CATEGORIES, 'tints' => $tints, 'covers' => $covers, 'defaults' => $defaults];
+        return ['categories' => $categories, 'tints' => $tints, 'covers' => $covers, 'defaults' => $defaults];
+    }
+
+    /** Covers an author shared to the gallery from their own upload - same row shape as a built-in cover, plus media_id. */
+    public static function customCovers(Ctx $c): array
+    {
+        $rows = Db::all($c->db, 'SELECT g.gallery_id, g.gallery_media_id, g.gallery_label, g.gallery_category, g.gallery_tint, m.media_path
+            FROM training_cover_gallery g JOIN training_media m ON m.media_id = g.gallery_media_id ORDER BY g.gallery_created_at DESC');
+        $out = [];
+        foreach ($rows as $r) {
+            $tintName = isset(self::TINTS[(string) $r['gallery_tint']]) ? (string) $r['gallery_tint'] : 'slate';
+            $out[] = [
+                'key' => 'custom:' . (int) $r['gallery_id'], 'label' => (string) $r['gallery_label'], 'category' => (string) $r['gallery_category'],
+                'tint' => $tintName, 'color' => self::TINTS[$tintName], 'keywords' => [],
+                'media_id' => (int) $r['gallery_media_id'], 'thumb_url' => MediaStore::url((int) $r['gallery_media_id']),
+                'image_url' => MediaStore::url((int) $r['gallery_media_id']),
+            ];
+        }
+        return $out;
+    }
+
+    /** @return list<string> the distinct categories shared covers have used, beyond the 7 built-in ones - so the picker's category filter still finds them. */
+    private static function customCategories(Ctx $c): array
+    {
+        $rows = Db::all($c->db, 'SELECT DISTINCT gallery_category FROM training_cover_gallery ORDER BY gallery_category');
+        return array_map(static fn(array $r): string => (string) $r['gallery_category'], $rows);
+    }
+
+    /**
+     * Shares an already-uploaded cover (a training_media row an author just uploaded for their own course) to the
+     * gallery, so it becomes a pickable option for every other course too. Re-sharing the same media_id updates its
+     * label/category/tint rather than creating a duplicate entry - the UNIQUE key on gallery_media_id is what a second
+     * call races against, not application logic, so this stays correct under concurrent requests.
+     *
+     * @throws \InvalidArgumentException the media row does not exist, or is not an image (a cover must be one)
+     */
+    public static function addCustom(Ctx $c, int $mediaId, string $label, string $category, string $tint): array
+    {
+        $media = Db::one($c->db, 'SELECT media_id, media_kind FROM training_media WHERE media_id = ?', 'i', [$mediaId]);
+        if ($media === null || (string) $media['media_kind'] !== 'image') {
+            throw new \InvalidArgumentException('CoverLibrary: that upload is not an image.');
+        }
+        $tintName = isset(self::TINTS[$tint]) ? $tint : 'slate';
+        $label = trim($label) !== '' ? mb_substr(trim($label), 0, 100) : 'Untitled cover';
+        $category = trim($category) !== '' ? mb_substr(trim($category), 0, 50) : 'Custom';
+        Db::exec($c->db, 'INSERT INTO training_cover_gallery (gallery_media_id, gallery_label, gallery_category, gallery_tint, gallery_added_by, gallery_created_at)
+            VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE gallery_label = VALUES(gallery_label), gallery_category = VALUES(gallery_category), gallery_tint = VALUES(gallery_tint)',
+            'issis', [$mediaId, $label, $category, $tintName, $c->userId]);
+        $row = Db::one($c->db, 'SELECT gallery_id FROM training_cover_gallery WHERE gallery_media_id = ?', 'i', [$mediaId]);
+        $galleryId = (int) ($row['gallery_id'] ?? 0);
+        return ['key' => 'custom:' . $galleryId, 'label' => $label, 'category' => $category, 'tint' => $tintName, 'color' => self::TINTS[$tintName],
+            'keywords' => [], 'media_id' => $mediaId, 'thumb_url' => MediaStore::url($mediaId), 'image_url' => MediaStore::url($mediaId)];
     }
 
     /**

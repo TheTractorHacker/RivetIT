@@ -6515,6 +6515,24 @@ CREATE TABLE `training_media` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- An uploaded course cover an author chose to share, so it shows up as a gallery option for other courses too
+-- (DB 2.6.189). One row per media_id: dedup is the unique key, not application logic.
+--
+
+CREATE TABLE `training_cover_gallery` (
+  `gallery_id` int(11) NOT NULL AUTO_INCREMENT,
+  `gallery_media_id` int(11) NOT NULL,
+  `gallery_label` varchar(100) NOT NULL,
+  `gallery_category` varchar(50) NOT NULL,
+  `gallery_tint` varchar(20) NOT NULL,
+  `gallery_added_by` int(11) NOT NULL,
+  `gallery_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`gallery_id`),
+  UNIQUE KEY `uq_training_cover_gallery_media` (`gallery_media_id`),
+  KEY `idx_training_cover_gallery_category` (`gallery_category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
 -- Table structure for table `training_media_pages`
 --
 
