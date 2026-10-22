@@ -159,7 +159,7 @@ $n = DashboardLayout::normalize([
     ['id' => 'tickets_by_status', 'size' => 'lg'], ['id' => 'tickets_by_status', 'size' => 'sm'], ['id' => 'workflow_tasks_due'], ['id' => 'bogus'],
     ['id' => 'my_tickets', 'size' => 'huge', 'hidden' => 1], 'junk', ['id' => ['x']], ['no' => 'id'],
 ], $allowed);
-$ok(count($n) === 2 && $n[0] === ['id' => 'tickets_by_status', 'size' => 'lg', 'hidden' => false] && $n[1]['id'] === 'my_tickets' && $n[1]['size'] === 'md' && $n[1]['hidden'] === true, 'normalize: dedupes, drops unknown/unavailable, defaults a bad size, keeps order');
+$ok(count($n) === 2 && $n[0] === ['id' => 'tickets_by_status', 'size' => 'lg', 'hidden' => false, 'chart' => 'list'] && $n[1]['id'] === 'my_tickets' && $n[1]['size'] === 'md' && $n[1]['hidden'] === true, 'normalize: dedupes, drops unknown/unavailable, defaults a bad size, keeps order');
 $ok(DashboardLayout::normalize('nonsense', $allowed) === [] && DashboardLayout::normalize(null, $allowed) === [], 'normalize: non-array input');
 $many = array_map(fn($i) => ['id' => 'tickets_by_status'], range(1, 100));
 $ok(count(DashboardLayout::normalize($many, $allowed)) === 1, 'normalize: duplicates cannot bloat the layout');
@@ -183,6 +183,35 @@ $ok(DashboardLayout::apply($l, 'add', 'workflow_tasks_due', '', $allowed) === $l
 $ok(DashboardLayout::apply($l, 'size', 'csat', 'lg', $allowed)[0]['size'] === 'lg' && DashboardLayout::apply($l, 'size', 'csat', 'xl', $allowed)[0]['size'] === 'sm', 'apply: size validated');
 $ok(DashboardLayout::apply($l, 'toggle', 'csat', '', $allowed)[0]['hidden'] === true, 'apply: hide');
 $ok(count(DashboardLayout::apply([], 'add', 'tickets_by_status', '', $allowed)) === 1, 'apply: add');
+
+// --- chart type switching (WidgetRegistry::chartOptions/defaultChart, DashboardLayout 'chart' field + apply('chart'), WidgetRenderer's $chart param)
+$ok(WidgetRegistry::chartOptions('tickets_by_status') === ['list' => 'List', 'bar' => 'Bar', 'pie' => 'Pie'], 'a "bars"-shaped widget offers list/bar/pie');
+$ok(WidgetRegistry::chartOptions('created_vs_closed') === ['bar' => 'Bar', 'line' => 'Line'], 'a "series"-shaped widget offers bar/line');
+$ok(WidgetRegistry::chartOptions('avg_resolution') === [], 'a stat widget has no chart type to switch');
+$ok(WidgetRegistry::defaultChart('tickets_by_status') === 'list' && WidgetRegistry::defaultChart('created_vs_closed') === 'bar' && WidgetRegistry::defaultChart('avg_resolution') === null, 'defaultChart() matches each shape\'s current rendering');
+
+$l2 = DashboardLayout::apply([], 'add', 'tickets_by_status', '', $allowed);
+$ok($l2[0]['chart'] === 'list', 'apply(add): new entry gets the widget\'s default chart type');
+$l2 = DashboardLayout::apply($l2, 'chart', 'tickets_by_status', '', $allowed, 'pie');
+$ok($l2[0]['chart'] === 'pie', 'apply(chart): switches to an offered chart type');
+$l2 = DashboardLayout::apply($l2, 'chart', 'tickets_by_status', '', $allowed, 'bogus');
+$ok($l2[0]['chart'] === 'pie', 'apply(chart): an unknown chart type is ignored, keeps the previous one');
+$l3 = DashboardLayout::apply([], 'add', 'avg_resolution', '', $allowed);
+$l3 = DashboardLayout::apply($l3, 'chart', 'avg_resolution', '', $allowed, 'pie');
+$ok($l3[0]['chart'] === null, 'apply(chart): a widget with no chart options cannot be switched');
+$ok(DashboardLayout::normalize([['id' => 'tickets_by_status', 'chart' => 'pie']], $allowed)[0]['chart'] === 'pie', 'normalize: a valid stored chart choice is kept');
+$ok(DashboardLayout::normalize([['id' => 'tickets_by_status', 'chart' => 'nonsense']], $allowed)[0]['chart'] === 'list', 'normalize: an invalid stored chart choice falls back to the default');
+
+$barsChart = WidgetRenderer::render(['type' => 'bars', 'items' => [['label' => 'a', 'value' => 3], ['label' => 'b', 'value' => 1]]], 'pie');
+$ok(strpos($barsChart, 'class="dash-chartjs"') !== false && strpos($barsChart, '&quot;type&quot;:&quot;pie&quot;') !== false, 'renderer: a "bars" widget switched to pie emits a chartjs canvas, not the progress-bar list');
+$barsList = WidgetRenderer::render(['type' => 'bars', 'items' => [['label' => 'a', 'value' => 3]]], 'list');
+$ok(strpos($barsList, 'progress') !== false, 'renderer: "list" (the default) keeps the original progress-bar rendering');
+$seriesLine = WidgetRenderer::render(['type' => 'series', 'labels' => ['d1'], 'a' => [1], 'b' => [2], 'a_label' => 'Created', 'b_label' => 'Closed'], 'line');
+$ok(strpos($seriesLine, 'class="dash-chartjs"') !== false && strpos($seriesLine, '&quot;type&quot;:&quot;line&quot;') !== false, 'renderer: a "series" widget switched to line emits a chartjs canvas, not the SVG bars');
+$seriesBar = WidgetRenderer::render(['type' => 'series', 'labels' => ['d1'], 'a' => [1], 'b' => [2], 'a_label' => 'Created', 'b_label' => 'Closed'], 'bar');
+$ok(strpos($seriesBar, '<svg') !== false, 'renderer: "bar" (the default) keeps the original SVG rendering');
+$pieLabelEscape = WidgetRenderer::render(['type' => 'bars', 'items' => [['label' => '<script>alert(1)</script>', 'value' => 1]]], 'pie');
+$ok(strpos($pieLabelEscape, '<script>') === false, 'renderer: chart payload JSON is htmlspecialchars-escaped in the data attribute, not just json_encode-escaped');
 
 // reorder() - the drag-and-drop save (agent/js/my_dashboard.js), replacing the old up/down buttons
 $rl = [['id' => 'csat', 'size' => 'sm', 'hidden' => false], ['id' => 'my_tickets', 'size' => 'lg', 'hidden' => true], ['id' => 'workflow_tasks_due', 'size' => 'md', 'hidden' => false]];

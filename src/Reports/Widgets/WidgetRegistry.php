@@ -18,6 +18,29 @@ final class WidgetRegistry
 {
     public const SIZES = ['sm' => 4, 'md' => 6, 'lg' => 12];
 
+    // Widgets whose data() shape is 'bars' or 'series' can also render as a Chart.js chart (WidgetRenderer) -
+    // everything else (stat/table) has nothing to switch between, so chartOptions() returns [].
+    private const BARS_WIDGETS = ['tickets_by_status', 'tickets_by_priority', 'assets_by_type', 'rmm_alerts_open', 'rmm_patches_pending', 'training_achievements_month'];
+    private const SERIES_WIDGETS = ['created_vs_closed'];
+
+    /** @return array<string,string> value => label, in default-first order; [] if this widget has no alternate chart type. */
+    public static function chartOptions(string $id): array
+    {
+        if (in_array($id, self::BARS_WIDGETS, true)) {
+            return ['list' => 'List', 'bar' => 'Bar', 'pie' => 'Pie'];
+        }
+        if (in_array($id, self::SERIES_WIDGETS, true)) {
+            return ['bar' => 'Bar', 'line' => 'Line'];
+        }
+        return [];
+    }
+
+    public static function defaultChart(string $id): ?string
+    {
+        $opts = self::chartOptions($id);
+        return $opts ? array_key_first($opts) : null;
+    }
+
     public static function definitions(): array
     {
         return [

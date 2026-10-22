@@ -10,7 +10,16 @@ final class WidgetRenderer
         return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    public static function render(?array $d): string
+    /** A small canvas Chart.js (already loaded on every agent page, see includes/footer.php) will pick up via
+     * its `.dash-chartjs` class - initialized client-side (js/dashboard_widget_charts.js) so the color theme
+     * (js/chart_theme.js) and dark mode apply the same way they do to every other chart in the app. */
+    private static function chartCanvas(array $payload): string
+    {
+        return '<div style="position:relative;height:180px"><canvas class="dash-chartjs" data-chart="'
+            . self::esc(json_encode($payload, JSON_UNESCAPED_SLASHES)) . '"></canvas></div>';
+    }
+
+    public static function render(?array $d, ?string $chart = null): string
     {
         if ($d === null) {
             return '<div class="text-muted">Not available.</div>';
@@ -21,6 +30,10 @@ final class WidgetRenderer
             case 'bars':
                 if (empty($d['items'])) {
                     return '<div class="text-muted">' . self::esc($d['empty'] ?? 'Nothing to show.') . '</div>';
+                }
+                if ($chart === 'bar' || $chart === 'pie') {
+                    return self::chartCanvas(['type' => $chart, 'labels' => array_column($d['items'], 'label'),
+                        'datasets' => [['label' => '', 'data' => array_column($d['items'], 'value')]]]);
                 }
                 $max = max(1, max(array_column($d['items'], 'value')));
                 $h = '';
@@ -54,6 +67,12 @@ final class WidgetRenderer
                 }
                 return $h . '</tbody></table></div>';
             case 'series':
+                if ($chart === 'line') {
+                    return self::chartCanvas(['type' => 'line', 'labels' => $d['labels'], 'datasets' => [
+                        ['label' => $d['a_label'], 'data' => $d['a']],
+                        ['label' => $d['b_label'], 'data' => $d['b']],
+                    ]]);
+                }
                 $max = max(1, max(array_merge($d['a'], $d['b'])));
                 $n = count($d['labels']);
                 $w = 600; $hgt = 120; $bw = $w / max(1, $n);

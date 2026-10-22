@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['layout_action'])) {
         echo json_encode(['success' => true]);
         exit;
     }
-    $layout = DashboardLayout::apply($layout, (string) $_POST['layout_action'], (string) ($_POST['widget'] ?? ''), (string) ($_POST['size'] ?? ''), $allowed);
+    $layout = DashboardLayout::apply($layout, (string) $_POST['layout_action'], (string) ($_POST['widget'] ?? ''), (string) ($_POST['size'] ?? ''), $allowed, (string) ($_POST['chart'] ?? ''));
     DashboardLayout::save($mysqli, $session_user_id, $layout, $allowed);
     header('Location: my_dashboard.php' . (!empty($_POST['customise']) ? '?customise=1' : ''));
     exit;
@@ -136,19 +136,27 @@ $post_button = static function (string $action, string $widget, string $label, s
                     <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Wide'] as $sz => $szl) {
                         echo $post_button('size', $wid, "Size: $szl", $sz === 'sm' ? 'fa-compress-alt' : ($sz === 'md' ? 'fa-columns' : 'fa-expand-alt'), '<input type="hidden" name="size" value="' . $sz . '">', $entry['size'] === $sz ? 'btn-secondary' : 'btn-outline-secondary');
                     } ?>
+                    <?php
+                    $chartOpts = WidgetRegistry::chartOptions($wid);
+                    $chartIcons = ['list' => 'fa-list', 'bar' => 'fa-chart-bar', 'pie' => 'fa-chart-pie', 'line' => 'fa-chart-line'];
+                    foreach ($chartOpts as $cv => $cl) {
+                        echo $post_button('chart', $wid, "Chart: $cl", $chartIcons[$cv] ?? 'fa-chart-bar', '<input type="hidden" name="chart" value="' . $cv . '">', ($entry['chart'] ?? '') === $cv ? 'btn-secondary' : 'btn-outline-secondary');
+                    }
+                    ?>
                     <?php echo $post_button('toggle', $wid, $entry['hidden'] ? 'Show' : 'Hide', $entry['hidden'] ? 'fa-eye' : 'fa-eye-slash'); ?>
                     <?php echo $post_button('remove', $wid, 'Remove', 'fa-times', '', 'btn-outline-danger'); ?>
                 </div>
                 <?php } ?>
             </div>
             <div class="card-body">
-                <?php echo $entry['hidden'] ? '<div class="text-muted">Hidden. Choose Show to bring it back.</div>' : WidgetRenderer::render(WidgetRegistry::data($wid, $mysqli, $ctx)); ?>
+                <?php echo $entry['hidden'] ? '<div class="text-muted">Hidden. Choose Show to bring it back.</div>' : WidgetRenderer::render(WidgetRegistry::data($wid, $mysqli, $ctx), $entry['chart'] ?? null); ?>
             </div>
         </div>
     </div>
 <?php } ?>
 </div>
 
+<script src="/agent/js/dashboard_widget_charts.js?v=<?php echo filemtime(__DIR__ . '/js/dashboard_widget_charts.js'); ?>" defer></script>
 <?php if ($customise) { ?>
 <script src="/plugins/SortableJS/Sortable.min.js" defer></script>
 <script src="/agent/js/my_dashboard.js?v=<?php echo filemtime(__DIR__ . '/js/my_dashboard.js'); ?>" defer></script>

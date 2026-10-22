@@ -4,8 +4,9 @@ namespace ITFlow\Reports\Widgets;
 
 /**
  * A user's "My dashboard" layout (dashboard_layouts.layout_widgets): an ordered list of
- * ['id' => widget id, 'size' => sm|md|lg, 'hidden' => bool]. Everything read from or written to the table passes
- * through normalize(), so unknown widgets, duplicate ids, bad sizes and widgets the user may not see are dropped.
+ * ['id' => widget id, 'size' => sm|md|lg, 'hidden' => bool, 'chart' => a WidgetRegistry::chartOptions($id) key or
+ * null]. Everything read from or written to the table passes through normalize(), so unknown widgets, duplicate
+ * ids, bad sizes/chart types and widgets the user may not see are dropped.
  */
 final class DashboardLayout
 {
@@ -28,7 +29,9 @@ final class DashboardLayout
                 continue;
             }
             $size = (isset($e['size']) && is_string($e['size']) && isset(WidgetRegistry::SIZES[$e['size']])) ? $e['size'] : WidgetRegistry::definitions()[$id]['size'];
-            $out[] = ['id' => $id, 'size' => $size, 'hidden' => !empty($e['hidden'])];
+            $chartOpts = WidgetRegistry::chartOptions($id);
+            $chart = (isset($e['chart']) && is_string($e['chart']) && isset($chartOpts[$e['chart']])) ? $e['chart'] : WidgetRegistry::defaultChart($id);
+            $out[] = ['id' => $id, 'size' => $size, 'hidden' => !empty($e['hidden']), 'chart' => $chart];
             $seen[$id] = true;
             if (count($out) >= self::MAX_WIDGETS) {
                 break;
@@ -64,9 +67,9 @@ final class DashboardLayout
 
     /**
      * Apply one customisation step to a layout and return the new layout (the caller saves it).
-     * Actions: add, remove, up, down, size, toggle, reset.
+     * Actions: add, remove, up, down, size, chart, toggle, reset.
      */
-    public static function apply(array $layout, string $action, string $id, string $size, array $allowedIds): array
+    public static function apply(array $layout, string $action, string $id, string $size, array $allowedIds, string $chart = ''): array
     {
         $idx = null;
         foreach ($layout as $i => $e) {
@@ -75,7 +78,7 @@ final class DashboardLayout
         switch ($action) {
             case 'add':
                 if ($idx === null && in_array($id, $allowedIds, true)) {
-                    $layout[] = ['id' => $id, 'size' => WidgetRegistry::definitions()[$id]['size'] ?? 'md', 'hidden' => false];
+                    $layout[] = ['id' => $id, 'size' => WidgetRegistry::definitions()[$id]['size'] ?? 'md', 'hidden' => false, 'chart' => WidgetRegistry::defaultChart($id)];
                 } elseif ($idx !== null) {
                     $layout[$idx]['hidden'] = false;
                 }
@@ -91,6 +94,9 @@ final class DashboardLayout
                 break;
             case 'size':
                 if ($idx !== null && isset(WidgetRegistry::SIZES[$size])) { $layout[$idx]['size'] = $size; }
+                break;
+            case 'chart':
+                if ($idx !== null && isset(WidgetRegistry::chartOptions($id)[$chart])) { $layout[$idx]['chart'] = $chart; }
                 break;
             case 'toggle':
                 if ($idx !== null) { $layout[$idx]['hidden'] = !$layout[$idx]['hidden']; }
