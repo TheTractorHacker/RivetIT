@@ -397,8 +397,9 @@ $ts_module_on = !empty($config_module_enable_training);
     .tao-acc > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
         padding: .65rem .9rem; background: var(--if-surface, #fff); font-weight: 600; }
     .tao-acc > summary::-webkit-details-marker { display: none; }
+    .tao-acc > summary::marker { content: ""; }
     .tao-acc > summary:hover { background: rgba(var(--if-primary-rgb, 13, 148, 136), .05); }
-    .tao-acc > summary::before { content: "\f0da"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: .75rem;
+    .tao-acc > summary::before { content: "\f0da"; font-family: "Font Awesome 5 Free"; font-weight: 900; font-size: .75rem;
         color: var(--if-muted, #5d6f76); transition: transform .15s ease; }
     .tao-acc[open] > summary::before { transform: rotate(90deg); }
     .tao-acc > summary > i:first-of-type { color: var(--if-primary, #0d9488); }
@@ -412,6 +413,7 @@ $ts_module_on = !empty($config_module_enable_training);
     .tao-skill-form button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
     .tao-create-btn { width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 50%; }
     .tao-create-btn::-webkit-details-marker { display: none; }
+    .tao-create-btn::marker { content: ""; }
     .tao-create-pop { margin-top: .4rem; padding: .6rem .7rem; border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 10px);
         background: var(--if-bg, #eef2f2); max-width: 20rem; }
 </style>
