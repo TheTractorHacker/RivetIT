@@ -307,9 +307,23 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
                     <?php if ($tao_pair_lost) { ?>
                         <div class="alert alert-warning py-2 small mb-2">The certification type and level saved here<?php if ($tao_lost_label !== '') { ?> (<strong><?php echo nullable_htmlentities($tao_lost_label); ?></strong>)<?php } ?> are not offered by this Odoo any more (archived or deleted in Odoo, or no longer marked Certification). New certifications wait; résumé lines and notes keep sending.</div>
                     <?php } ?>
-                    <p class="small mb-0">Odoo has no certification skill type<?php echo $tao_pair_lost ? ' now' : ' yet'; ?>. In Odoo, open <strong>Employees &rsaquo; Configuration &rsaquo; Skill Types</strong>, click New,
+                    <p class="small mb-2">Odoo has no certification skill type<?php echo $tao_pair_lost ? ' now' : ' yet'; ?>. Create one here, or in Odoo: open <strong>Employees &rsaquo; Configuration &rsaquo; Skill Types</strong>, click New,
                         tick <strong>Certification</strong>, add one level such as <strong>Certified</strong> and at least one skill (Odoo requires one), save,
                         then click <strong>Check Odoo</strong> above<?php if (!$tao_t['staging']) { ?> and, on this production Odoo, <strong>Check now</strong> under Employee links (Odoo) before you save<?php } ?>.</p>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-5">
+                            <label class="form-label small mb-1" for="taoNewSkillType">Certification type name</label>
+                            <input type="text" class="form-control form-control-sm" id="taoNewSkillType" name="skill_type_name" maxlength="100" placeholder="e.g. Certifications" form="taoSkillTypeCreate">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small mb-1" for="taoNewSkillLevel">Level name</label>
+                            <input type="text" class="form-control form-control-sm" id="taoNewSkillLevel" name="skill_level_name" maxlength="100" placeholder="Certified" form="taoSkillTypeCreate">
+                        </div>
+                        <div class="col-sm-3">
+                            <button type="submit" name="ta_odoo_skill_type_create" class="btn btn-outline-primary btn-sm w-100" form="taoSkillTypeCreate">Create in Odoo</button>
+                        </div>
+                    </div>
+                    <div class="form-text">Creates the type and one 100%-progress level in Odoo, then you choose it below and Save.</div>
                 <?php } else { ?>
                     <label class="form-label small mb-1" for="taoSkillType">Certification type and level</label>
                     <select class="form-select<?php if ($tao_pair_lost) { echo ' is-invalid'; } ?>" id="taoSkillType" name="skill_type_level"<?php if ($tao_pair_lost) { echo ' aria-describedby="taoSkillLost"'; } ?>>
@@ -361,6 +375,11 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
             </div>
             <p class="small text-muted"><i class="fas fa-fw fa-eye me-1" aria-hidden="true"></i>Odoo is a copy, not evidence. Every Odoo user can read résumé lines, and employees with Odoo logins can edit or delete the line on their own résumé (for example remove "(revoked)" or change a date); HR officers can change certifications and notes. Check a record in <?= htmlspecialchars(APP_NAME) ?> or with the certificate QR code.</p>
             <button type="submit" name="ta_odoo_save" class="btn btn-primary"><i class="fas fa-check me-2" aria-hidden="true"></i>Save Odoo write-back</button>
+        </form>
+        <?php /* Submitted by the "Create in Odoo" button above (inputs tagged form="taoSkillTypeCreate"): a separate
+                 form, since a <form> cannot nest inside the targets_form above it. */ ?>
+        <form id="taoSkillTypeCreate" action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-none" aria-hidden="true">
+            <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
         </form>
         <?php } elseif ($tao_t !== null) { ?>
             <p class="small text-muted mb-0">Run <strong>Check Odoo</strong> first; the settings appear once this Odoo has been checked.</p>

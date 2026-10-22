@@ -222,18 +222,32 @@ final class Pusher
         return null;
     }
 
-    /** An hr.skill of $typeId named exactly $name (the admin's "Create skill in Odoo" reuses it), or null. */
+    /**
+     * An hr.skill of $typeId named exactly $name (the admin's "Create skill in Odoo" reuses it), or null.
+     * Tries the 'name' field/domain first; some Odoos (19's JSON-2 API needs each field individually exposed)
+     * only expose id/display_name for hr.skill, so a failure there retries on display_name instead.
+     */
     public function findSkillByName(int $typeId, string $name): ?array
     {
-        $rows = $this->call('hr.skill', 'search_read', [
-            'domain' => [['skill_type_id', '=', $typeId], ['name', '=', $name]],
-            'fields' => ['id', 'name', 'skill_type_id'],
-            'limit' => 1,
-            'order' => 'id asc',
-        ]);
+        try {
+            $rows = $this->call('hr.skill', 'search_read', [
+                'domain' => [['skill_type_id', '=', $typeId], ['name', '=', $name]],
+                'fields' => ['id', 'name', 'skill_type_id'],
+                'limit' => 1,
+                'order' => 'id asc',
+            ]);
+        } catch (\Throwable) {
+            $rows = $this->call('hr.skill', 'search_read', [
+                'domain' => [['skill_type_id', '=', $typeId], ['display_name', '=', $name]],
+                'fields' => ['id', 'display_name', 'skill_type_id'],
+                'limit' => 1,
+                'order' => 'id asc',
+            ]);
+        }
         foreach (is_array($rows) ? $rows : [] as $r) {
             if (is_array($r) && is_int($r['id'] ?? null) && $r['id'] > 0) {
-                return ['id' => $r['id'], 'name' => is_string($r['name'] ?? null) ? $r['name'] : $name];
+                $rname = $r['name'] ?? $r['display_name'] ?? null;
+                return ['id' => $r['id'], 'name' => is_string($rname) ? $rname : $name];
             }
         }
         return null;
@@ -243,6 +257,31 @@ final class Pusher
     public function createSkillInType(int $typeId, string $name): int
     {
         return $this->createOne('hr.skill', ['name' => $name, 'skill_type_id' => $typeId]);
+    }
+
+    /**
+     * Creates hr.skill.type {name, is_certification} - an admin action, for the install that has no
+     * certification type at all yet. is_certification isn't on every Odoo version; a create that refuses
+     * it is retried without the flag rather than failing the whole action over one optional field.
+     * @return int the new skill type id
+     */
+    public function createSkillType(string $name): int
+    {
+        try {
+            return $this->createOne('hr.skill.type', ['name' => $name, 'is_certification' => true]);
+        } catch (\Throwable) {
+            return $this->createOne('hr.skill.type', ['name' => $name]);
+        }
+    }
+
+    /**
+     * Creates hr.skill.level {name, skill_type_id, level_progress, default_level} under a type this action just
+     * created - one level, 100% progress, marked default (Odoo requires every skill type to have a level at
+     * 100% before it can be used). @return int the new skill level id
+     */
+    public function createSkillLevel(int $typeId, string $name): int
+    {
+        return $this->createOne('hr.skill.level', ['name' => $name, 'skill_type_id' => $typeId, 'level_progress' => 100, 'default_level' => true]);
     }
 
     /** true when the key works; rethrows OdooAuthException; any other failure => false. */

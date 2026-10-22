@@ -96,7 +96,7 @@ final class Discovery
         $sk = $this->try('hr.employee.skill', 'fields_get', ['attributes' => ['type']], $errors);
         $out['skill']['available'] = is_array($sk) && $sk !== [];
         if ($out['skill']['available']) {
-            $ct = $this->try('hr.skill.type', 'search_read', ['domain' => [], 'fields' => ['id', 'name']], $errors);
+            $ct = $this->searchReadNamed('hr.skill.type', ['domain' => [], 'fields' => ['id', 'name']], $errors);
             $ids = [];
             foreach (is_array($ct) ? $ct : [] as $t) {
                 if (is_array($t) && is_int($t['id'] ?? null)) {
@@ -105,7 +105,8 @@ final class Discovery
                 }
             }
             if ($ids) {
-                $lv = $this->try('hr.skill.level', 'search_read', ['domain' => [['skill_type_id', 'in', $ids]], 'fields' => ['id', 'name', 'skill_type_id', 'default_level']], $errors);
+                $lv = $this->searchReadNamed('hr.skill.level',
+                    ['domain' => [['skill_type_id', 'in', $ids]], 'fields' => ['id', 'name', 'skill_type_id', 'default_level']], $errors);
                 foreach (is_array($lv) ? $lv : [] as $l) {
                     if (is_array($l) && is_int($l['id'] ?? null)) {
                         $out['skill']['levels'][] = [
@@ -116,8 +117,8 @@ final class Discovery
                         ];
                     }
                 }
-                $sk = $this->try('hr.skill', 'search_read', ['domain' => [['skill_type_id', 'in', $ids]], 'fields' => ['id', 'name', 'skill_type_id'],
-                    'order' => 'name asc', 'limit' => 2000], $errors);
+                $sk = $this->searchReadNamed('hr.skill',
+                    ['domain' => [['skill_type_id', 'in', $ids]], 'fields' => ['id', 'name', 'skill_type_id'], 'order' => 'name asc', 'limit' => 2000], $errors);
                 foreach (is_array($sk) ? $sk : [] as $k) {
                     if (is_array($k) && is_int($k['id'] ?? null) && $k['id'] > 0) {
                         $out['skill']['skills'][] = [
@@ -173,6 +174,38 @@ final class Discovery
     }
 
     /** One read-only call; on failure records a short error and returns null. */
+    /**
+     * search_read with a 'name' field/order, tolerant of an Odoo whose JSON-2 API only exposes id/display_name
+     * for this model (the hr.skill* models: Odoo 19's API needs each field individually exposed, and 'name'
+     * is not always on that list yet). Tries 'name' first (quiet - most Odoos have it); on failure, retries with
+     * 'display_name' and maps it back onto a 'name' key, so every caller downstream can still read row['name'].
+     *
+     * @return list<array>
+     */
+    private function searchReadNamed(string $model, array $kwargs, array &$errors): array
+    {
+        $rows = $this->try($model, 'search_read', $kwargs, $errors, quiet: true);
+        if (is_array($rows)) {
+            return $rows;
+        }
+        $fallback = $kwargs;
+        $fallback['fields'] = array_map(static fn($f) => $f === 'name' ? 'display_name' : $f, $kwargs['fields'] ?? []);
+        if (is_string($kwargs['order'] ?? null)) {
+            $fallback['order'] = preg_replace('/\bname\b/', 'display_name', $kwargs['order']);
+        }
+        $rows = $this->try($model, 'search_read', $fallback, $errors);
+        if (!is_array($rows)) {
+            return [];
+        }
+        foreach ($rows as &$r) {
+            if (is_array($r) && !array_key_exists('name', $r) && array_key_exists('display_name', $r)) {
+                $r['name'] = $r['display_name'];
+            }
+        }
+        unset($r);
+        return $rows;
+    }
+
     private function try(string $model, string $method, array $kwargs, array &$errors, bool $quiet = false): mixed
     {
         $left = $this->deadline - microtime(true);

@@ -27,7 +27,7 @@ use ITFlow\Training\Upstream\Schema;
 final class OdooAdmin
 {
     public const KEYS = ['ta_odoo_discover', 'ta_odoo_save', 'ta_odoo_retry', 'ta_odoo_skip', 'ta_odoo_retry_failed', 'ta_odoo_map',
-                         'ta_odoo_skill_map', 'ta_odoo_skill_create'];
+                         'ta_odoo_skill_map', 'ta_odoo_skill_create', 'ta_odoo_skill_type_create'];
 
     /** The page section the actions return to. */
     public const ANCHOR = 'odoo-writeback';
@@ -57,6 +57,7 @@ final class OdooAdmin
                 'ta_odoo_map' => self::map($db, $post, $userId),
                 'ta_odoo_skill_map' => self::skillMap($db, $post, $userId),
                 'ta_odoo_skill_create' => self::skillCreate($db, $post, $userId),
+                'ta_odoo_skill_type_create' => self::skillTypeCreate($db, $post, $userId),
             };
         } catch (\RuntimeException $e) {
             if (in_array($e->getMessage(), ['conflict', 'not_ready'], true)) {
@@ -370,6 +371,61 @@ final class OdooAdmin
         self::log($db, $userId, 'training.odoo_map_saved', 'skill', $label . ' is sent as the Odoo certification skill "' . $cfg['skills'][$skillId] . '" (#' . $skillId . ')',
             ['entity' => $entity, 'entity_id' => $id, 'skill_id' => $skillId, 'target' => $t->key]);
         return ['success', $label . ' is sent as the Odoo certification "' . $cfg['skills'][$skillId] . '".'];
+    }
+
+    /**
+     * ta_odoo_skill_type_create: the admin's "Create skill type in Odoo" - for an install with no certification
+     * type yet ("no certification type in Odoo yet" below the Certification skill checkbox). Creates one
+     * hr.skill.type plus one hr.skill.level in it (100% progress, marked default - Odoo requires a 100% level
+     * before a type can be used), then folds both into the stored discovery so they're choosable in the form
+     * below at once, without another Check Odoo round trip. An Odoo write the owner triggers, never automatic.
+     */
+    private static function skillTypeCreate(\mysqli $db, array $post, int $userId): array
+    {
+        $t = Target::current($db);
+        if ($t === null) {
+            return ['error', 'No enabled Odoo integration is configured.'];
+        }
+        if (!$t->https) {
+            return ['error', 'Creating a certification type in Odoo needs an https:// Odoo address.'];
+        }
+        $ta = AutomationSettings::load($db);
+        $disc = self::discoveryFor($ta, $t);
+        if ($disc === null) {
+            return ['error', 'Check Odoo first, then create the certification type.'];
+        }
+        $typeName = trim((string) Text::clip(preg_replace('/\s+/u', ' ', (string) ($post['skill_type_name'] ?? '')) ?? '', 100));
+        if ($typeName === '') {
+            return ['error', 'Give the certification type a name.'];
+        }
+        $levelName = trim((string) Text::clip(preg_replace('/\s+/u', ' ', (string) ($post['skill_level_name'] ?? '')) ?? '', 100));
+        if ($levelName === '') {
+            $levelName = 'Certified';
+        }
+        foreach ((array) ($disc['skill']['cert_types'] ?? []) as $ty) {
+            if (strcasecmp((string) ($ty['name'] ?? ''), $typeName) === 0) {
+                return ['error', 'Odoo already has a certification type named "' . $typeName . '" (from the last Check Odoo). Choose it below instead.'];
+            }
+        }
+        $pusher = new Pusher($t->connector(), $disc, $ta);
+        try {
+            $typeId = $pusher->createSkillType($typeName);
+            $levelId = $pusher->createSkillLevel($typeId, $levelName);
+        } catch (\ITFlow\Integrations\Odoo\OdooAuthException $e) {
+            error_log('Training Odoo skill type create: ' . $e->getMessage());
+            return ['error', 'Odoo refused the request (the key, or the integration user may not create skill types: it needs Employees: Officer). Nothing was created.'];
+        } catch (\Throwable $e) {
+            error_log('Training Odoo skill type create: ' . get_class($e) . ': ' . $e->getMessage());
+            return ['error', 'Odoo did not create the certification type: ' . Text::clip($e->getMessage(), 240)];
+        }
+        $disc['skill']['available'] = true;
+        $disc['skill']['cert_types'][] = ['id' => $typeId, 'name' => $typeName];
+        $disc['skill']['levels'][] = ['id' => $levelId, 'name' => $levelName, 'type_id' => $typeId, 'default' => true];
+        AutomationSettings::stamp($db, ['tauto_odoo_discovery_json' => json_encode($disc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR)]);
+        self::log($db, $userId, 'training.odoo_skill_type_created', 'skill_type',
+            'Created the Odoo certification type "' . $typeName . '" (#' . $typeId . ') with level "' . $levelName . '" (#' . $levelId . ') in ' . $t->host() . ' / ' . $t->database,
+            ['type_id' => $typeId, 'level_id' => $levelId, 'target' => $t->key]);
+        return ['success', 'Created the certification type "' . $typeName . '" with level "' . $levelName . '" in Odoo. Choose it below under Certification skill, then Save.'];
     }
 
     /**
