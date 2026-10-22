@@ -261,13 +261,14 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
     }
     $client = (int) $dev['client_id'];
     $authz = $rmm->authorizer();
+    global $session_is_admin;   // a framework admin always sees admin-only controls, even without the RMM module's own ADMIN ability grant
     $perm = [
         'view' => true,
         'run_saved' => $authz->allowed($userId, RmmAbility::JOB_RUN_SAVED, $client),
         'reboot' => $authz->allowed($userId, RmmAbility::JOB_REBOOT, $client),
         'run_script' => $authz->allowed($userId, RmmAbility::JOB_RUN_SCRIPT, $client),
         'remote' => $authz->allowed($userId, RmmAbility::REMOTE_LAUNCH, $client),
-        'admin' => $authz->allowed($userId, RmmAbility::ADMIN, $client),
+        'admin' => $authz->allowed($userId, RmmAbility::ADMIN, $client) || !empty($session_is_admin),
         'manage' => $authz->allowed($userId, RmmAbility::DEVICE_MANAGE, $client),   // tags
         'remote_manage' => $authz->allowed($userId, RmmAbility::REMOTE_MANAGE, $client),   // rc.16: push / remove the MeshCentral agent, read a mesh job's result
     ];
@@ -504,6 +505,7 @@ function rivetRmmUiPanel(\mysqli $mysqli, int $assetId, int $userId, ?int $devic
         'jobs' => (array) ($view['jobs'] ?? []),
         'mesh' => ['mapped' => !empty($view['mesh']['mapped']), 'source' => $view['mesh']['source'] ?? null, 'node_id' => $perm['admin'] ? ($view['mesh']['node_id'] ?? '') : '',
             'configured' => $meshConfigured],
+        'automation_disabled' => !empty($dev['device_automation_disabled']),
         'clock' => is_array($view['clock'] ?? null) ? $view['clock'] : null,   // rc.23: RmmReadModel::deviceView()['clock'], present once a skew was measured or a check-in was refused for its time
         'mesh_agent' => is_array($view['mesh_agent'] ?? null) ? $view['mesh_agent'] : null,   // rc.12: RmmReadModel::deviceView()['mesh_agent'], present only once the device reported a Mesh agent
         'mesh_agent_conflict_url' => $meshConflictUrl,

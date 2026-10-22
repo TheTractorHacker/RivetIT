@@ -239,6 +239,20 @@
         });
     });
 
+    // ---- Automation (administrators): "another tool already manages this device" (rmm-automation-disabled, RivetCore 1.0.0-rc.32).
+    var autoToggle = document.getElementById('rmm-automation-disabled');
+    if (autoToggle) {
+        autoToggle.addEventListener('change', function () {
+            var checked = autoToggle.checked;
+            autoToggle.disabled = true;
+            post('set_automation_disabled', { disabled: checked ? '1' : '' }).then(function (d) {
+                autoToggle.disabled = false;
+                if (!d.success) { autoToggle.checked = !checked; }
+                say(d.success ? d.message : (d.error || 'Not saved.'), !!d.success);
+            }).catch(function () { autoToggle.disabled = false; autoToggle.checked = !checked; say('Network error.', false); });
+        });
+    }
+
     // ---- jobs: cancel, lazy output
     Array.prototype.forEach.call(panel.querySelectorAll('.rmm-cancel-btn'), function (b) {
         b.addEventListener('click', function () {

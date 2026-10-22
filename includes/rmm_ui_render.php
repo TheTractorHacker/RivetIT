@@ -590,6 +590,28 @@ function rivetRmmUiRemoteCard(array $vm): string
         . ($m['configured'] ? ($m['mapped'] ? rivetRmmUiPill('ok', 'MeshCentral node mapped') : rivetRmmUiPill('off', 'No node mapped')) : rivetRmmUiPill('off', 'Not configured')) . '</div>' . $body . '</section></div>';
 }
 
+/**
+ * "Another tool already manages this device" (administrators only, RivetCore 1.0.0-rc.32): turns off scheduled
+ * scripts and scheduled patch installs for a device a different RMM/patch agent already handles. Monitoring,
+ * inventory, patch scanning/compliance and a deliberate manual run are unaffected. Empty string for a non-admin
+ * (nothing to show or explain).
+ */
+function rivetRmmUiAutomationCard(array $vm): string
+{
+    if (!$vm['perm']['admin']) {
+        return '';
+    }
+    $on = !empty($vm['automation_disabled']);
+    $body = '<div class="card-body py-2"><div class="form-check form-switch">'
+        . '<input class="form-check-input" type="checkbox" role="switch" id="rmm-automation-disabled"' . ($on ? ' checked' : '') . '>'
+        . '<label class="form-check-label" for="rmm-automation-disabled">Another tool already manages this device</label></div>'
+        . '<div class="form-text">Turns off this device\'s scheduled scripts and scheduled patch installs, so a different RMM or patch agent already on it and RivetCore\'s own automation never fight. Monitoring, inventory, patch scanning/compliance and running a script or installing a patch on this device right now are unaffected.</div></div>';
+
+    return '<div class="col-lg-6"><section class="card card-dark mb-3" id="rmm-automation"><div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px">'
+        . '<h6 class="mb-0 me-auto"><i class="fas fa-robot me-2 text-secondary" aria-hidden="true"></i>Automation</h6>'
+        . ($on ? rivetRmmUiPill('off', 'Disabled here') : rivetRmmUiPill('ok', 'Managed by RivetCore')) . '</div>' . $body . '</section></div>';
+}
+
 function rivetRmmUiChecksCard(array $vm): string
 {
     $c = $vm['check_counts'];
@@ -628,7 +650,7 @@ function rivetRmmUiOverview(array $vm, string $performanceHtml, string $performa
     } elseif ($performanceNote !== '') {
         $o .= '<h6 class="ifm-family mt-3">Performance</h6><div class="card card-dark mb-3"><div class="card-body">' . $performanceNote . '</div></div>';
     }
-    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
+    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . rivetRmmUiAutomationCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
 
     return $o;
 }
