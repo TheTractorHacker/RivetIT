@@ -11,7 +11,9 @@ rpt_extract_functions(['ticketResolutionColumnExists', 'ticketResolutionStartSql
 if (!ticketResolutionColumnExists($mysqli)) { $q("ALTER TABLE tickets ADD COLUMN ticket_resolution_started_at datetime DEFAULT NULL"); }
 use ITFlow\Reports\Widgets\{DashboardLayout, WidgetContext, WidgetRegistry, WidgetRenderer};
 
-foreach (['tickets', 'assets', 'clients', 'ticket_statuses', 'dashboard_layouts', 'software', 'domains'] as $t) { $q("DELETE FROM $t"); }
+foreach (['tickets', 'assets', 'clients', 'ticket_statuses', 'dashboard_layouts', 'software', 'domains', 'contacts',
+    'endpoint_agent_devices', 'rmm_alerts', 'rmm_patch_available', 'training_completions', 'training_completion_voids',
+    'training_assignments', 'training_achievement_awards', 'projects'] as $t) { $q("DELETE FROM $t"); }
 $q("INSERT INTO clients (client_id, client_name) VALUES (1,'Dept A'),(2,'Dept B')");
 $q("INSERT INTO ticket_statuses SET ticket_status_id=1, ticket_status_name='Open', ticket_status_color='#000'");
 $q("INSERT INTO ticket_statuses SET ticket_status_id=2, ticket_status_name='Unresolved', ticket_status_color='#000'");
@@ -27,6 +29,53 @@ $q("INSERT INTO assets SET asset_name='a1', asset_type='Laptop', asset_client_id
 $q("INSERT INTO assets SET asset_name='b1', asset_type='Laptop', asset_client_id=2, asset_warranty_expire=CURDATE() + INTERVAL 10 DAY");
 $q("INSERT INTO assets SET asset_name='b2', asset_type='Server', asset_client_id=2");
 $q("INSERT INTO domains SET domain_name='b.example', domain_client_id=2, domain_expire=CURDATE() + INTERVAL 5 DAY");
+
+// --- RMM / Training / Projects widgets fixture data (A = client 1, B = client 2)
+$q("INSERT INTO contacts SET contact_id=1, contact_name='Alice A', contact_client_id=1");
+$q("INSERT INTO contacts SET contact_id=2, contact_name='Bob B', contact_client_id=2");
+
+$q("INSERT INTO endpoint_agent_devices SET install_id=UUID(), hostname='a-online', client_id=1, link_state='linked', last_checkin_at=NOW() - INTERVAL 1 MINUTE");
+$q("INSERT INTO endpoint_agent_devices SET install_id=UUID(), hostname='a-offline', client_id=1, link_state='linked', last_checkin_at=NOW() - INTERVAL 1 HOUR");
+$q("INSERT INTO endpoint_agent_devices SET install_id=UUID(), hostname='b-offline', client_id=2, link_state='linked', last_checkin_at=NULL");
+$q("INSERT INTO endpoint_agent_devices SET install_id=UUID(), hostname='b-revoked', client_id=2, link_state='linked', revoked_at=NOW(), last_checkin_at=NOW() - INTERVAL 1 HOUR");
+$devA = (int) $one("SELECT device_id FROM endpoint_agent_devices WHERE hostname='a-offline'");
+$devB = (int) $one("SELECT device_id FROM endpoint_agent_devices WHERE hostname='b-offline'");
+
+$q("INSERT INTO rmm_alerts SET client_id=1, integration_id=1, severity='critical', status='new', message='m'");
+$q("INSERT INTO rmm_alerts SET client_id=1, integration_id=1, severity='warning', status='acknowledged', message='m'");
+$q("INSERT INTO rmm_alerts SET client_id=2, integration_id=1, severity='critical', status='resolved', resolved_at=NOW(), message='m'");
+
+$q("INSERT INTO rmm_patch_available SET device_id=$devA, client_id=1, update_id='u1', status='available', first_seen_at=NOW(), last_seen_at=NOW()");
+$q("INSERT INTO rmm_patch_available SET device_id=$devA, client_id=1, update_id='u2', status='approved', first_seen_at=NOW(), last_seen_at=NOW()");
+$q("INSERT INTO rmm_patch_available SET device_id=$devB, client_id=2, update_id='u3', status='available', first_seen_at=NOW(), last_seen_at=NOW()");
+
+$completionDefaults = "completion_course_kind='training', completion_source_key='k', completion_method='online', completion_proof='self_pin', completion_completed_on=CURDATE()";
+$q("INSERT INTO training_completions SET completion_contact_id=1, completion_course_id=1, $completionDefaults, completion_snap_contact_name='Alice A', completion_snap_course_name='Safety', completion_snap_client_id=1, completion_expires_on=CURDATE() + INTERVAL 10 DAY");
+$q("INSERT INTO training_completions SET completion_contact_id=2, completion_course_id=1, $completionDefaults, completion_snap_contact_name='Bob B', completion_snap_course_name='Safety', completion_snap_client_id=2, completion_expires_on=CURDATE() + INTERVAL 10 DAY");
+// voided completion expiring soon for A must NOT count
+$q("INSERT INTO training_completions SET completion_contact_id=1, completion_course_id=2, $completionDefaults, completion_snap_contact_name='Alice A', completion_snap_course_name='Voided', completion_snap_client_id=1, completion_expires_on=CURDATE() + INTERVAL 5 DAY");
+$voidedId = (int) $one("SELECT completion_id FROM training_completions WHERE completion_snap_course_name='Voided'");
+$q("INSERT INTO training_completion_voids SET cvoid_completion_id=$voidedId, cvoid_reason='r', cvoid_by_user_id=1, cvoid_at_utc=NOW(3), cvoid_row_sha256=SHA2('x',256)");
+
+$assignDefaults = "tassign_reason='requirement', tassign_anchor='a', tassign_original_due_on=CURDATE() - INTERVAL 30 DAY, tassign_created_at_utc=NOW(3)";
+$q("INSERT INTO training_assignments SET tassign_contact_id=1, tassign_course_id=1, $assignDefaults, tassign_required=1, tassign_status='open', tassign_due_on=CURDATE() - INTERVAL 1 DAY");
+$q("INSERT INTO training_assignments SET tassign_contact_id=2, tassign_course_id=1, $assignDefaults, tassign_required=1, tassign_status='open', tassign_due_on=CURDATE() - INTERVAL 1 DAY");
+$q("INSERT INTO training_assignments SET tassign_contact_id=1, tassign_course_id=2, $assignDefaults, tassign_required=0, tassign_status='open', tassign_due_on=CURDATE() - INTERVAL 1 DAY"); // not required - must not count
+
+$awardDefaults = "taward_achievement_id=1, taward_achievement_uid='uid1', taward_rule_type='r', taward_source='rule', taward_snap_icon='fa-star', taward_snap_color='#000000', taward_row_sha256=SHA2('y',256)";
+$q("INSERT INTO training_achievement_awards SET taward_contact_id=1, $awardDefaults, taward_snap_name='First Aid', taward_awarded_at_utc=NOW(3)");
+$q("INSERT INTO training_achievement_awards SET taward_contact_id=2, $awardDefaults, taward_snap_name='First Aid', taward_awarded_at_utc=NOW(3)");
+$q("INSERT INTO training_achievement_awards SET taward_contact_id=1, $awardDefaults, taward_snap_name='Old', taward_awarded_at_utc=NOW(3) - INTERVAL 2 MONTH"); // not this month - must not count
+
+$q("INSERT INTO projects SET project_name='Open A', project_client_id=1");
+$q("INSERT INTO projects SET project_name='Open B', project_client_id=2");
+$q("INSERT INTO projects SET project_name='Done A', project_client_id=1, project_completed_at=NOW()"); // completed - must not count
+
+// created 60 days ago so they fall outside the createdVsClosed 30-day window and don't disturb that fixture
+$q("INSERT INTO tickets SET ticket_prefix='T', ticket_number=30, ticket_subject='task due', ticket_status=1, ticket_client_id=1, ticket_project_id=1, ticket_created_at=NOW() - INTERVAL 60 DAY, ticket_due_at=NOW() + INTERVAL 3 DAY");
+$q("INSERT INTO tickets SET ticket_prefix='T', ticket_number=31, ticket_subject='task overdue', ticket_status=1, ticket_client_id=1, ticket_project_id=1, ticket_created_at=NOW() - INTERVAL 60 DAY, ticket_due_at=NOW() - INTERVAL 1 DAY");
+$q("INSERT INTO tickets SET ticket_prefix='T', ticket_number=32, ticket_subject='task other dept', ticket_status=1, ticket_client_id=2, ticket_project_id=2, ticket_created_at=NOW() - INTERVAL 60 DAY, ticket_due_at=NOW() - INTERVAL 1 DAY");
+$q("INSERT INTO tickets SET ticket_prefix='T', ticket_number=33, ticket_subject='not a project task', ticket_status=1, ticket_client_id=1, ticket_project_id=0, ticket_created_at=NOW() - INTERVAL 60 DAY, ticket_due_at=NOW() - INTERVAL 1 DAY");
 
 $all = fn(string $m, int $l = 1) => true;
 $supportOnly = fn(string $m, int $l = 1) => $m === 'module_support';
@@ -47,7 +96,7 @@ $ok(count(array_filter($ex['rows'], fn($r) => $r['cells'][0] === 'Domain')) === 
 
 // --- department restriction
 $st = fn($c) => array_sum(array_column(WidgetRegistry::data('tickets_by_status', $mysqli, $c)['items'], 'value'));
-$ok($st($ctx($all)) === 5 && $st($ctx($all, [1])) === 2, 'open tickets by status: restricted user counts only their department');
+$ok($st($ctx($all)) === 9 && $st($ctx($all, [1])) === 5, 'open tickets by status: restricted user counts only their department (incl. the project-task fixture tickets)');
 $ab = WidgetRegistry::data('assets_by_type', $mysqli, $ctx($all, [1]));
 $ok(array_sum(array_column($ab['items'], 'value')) === 1, 'assets by type is department-restricted');
 $sla = WidgetRegistry::data('sla_at_risk', $mysqli, $ctx($all, [1]));
@@ -66,6 +115,37 @@ $rA = WidgetRegistry::data('avg_resolution', $mysqli, $ctx($all, [1]));
 $ok($rA['value'] === '2 h', 'avg resolution is department-restricted');
 $open = WidgetRegistry::data('avg_resolution', $mysqli, $ctx($all, [99]));
 $ok($open['value'] === '-', 'no resolved tickets in scope: dash, not 0');
+
+// --- RMM / Training / Projects widgets
+$off = WidgetRegistry::data('rmm_devices_offline', $mysqli, $ctx($all));
+$ok($off['value'] === '2', "rmm_devices_offline: a-offline and b-offline count, a-online and revoked b do not (got {$off['value']})");
+$offA = WidgetRegistry::data('rmm_devices_offline', $mysqli, $ctx($all, [1]));
+$ok($offA['value'] === '1', 'rmm_devices_offline is department-restricted');
+
+$al = WidgetRegistry::data('rmm_alerts_open', $mysqli, $ctx($all, [1]));
+$ok(array_sum(array_column($al['items'], 'value')) === 2, 'rmm_alerts_open: only unresolved, department-restricted');
+
+$pp = WidgetRegistry::data('rmm_patches_pending', $mysqli, $ctx($all, [1]));
+$items = array_column($pp['items'], 'value', 'label');
+$ok($items['Pending approval'] === 1 && $items['Approved, not yet installed'] === 1, 'rmm_patches_pending: department-restricted available/approved counts');
+
+$te = WidgetRegistry::data('training_expiring', $mysqli, $ctx($all, [1]));
+$ok(count($te['rows']) === 1 && $te['rows'][0]['cells'][1] === 'Safety', 'training_expiring: voided completion excluded, department-restricted');
+
+$to = WidgetRegistry::data('training_overdue', $mysqli, $ctx($all, [1]));
+$ok($to['value'] === '1', 'training_overdue: only required+open+past-due, department-restricted (non-required excluded)');
+
+$ta = WidgetRegistry::data('training_achievements_month', $mysqli, $ctx($all, [1]));
+$ok(array_sum(array_column($ta['items'], 'value')) === 1, 'training_achievements_month: this month only, department-restricted');
+
+$po = WidgetRegistry::data('projects_open', $mysqli, $ctx($all, [1]));
+$ok($po['value'] === '1', 'projects_open: completed project excluded, department-restricted');
+
+$ptd = WidgetRegistry::data('project_tasks_due', $mysqli, $ctx($all, [1]));
+$ok(count($ptd['rows']) === 2 && $ptd['rows'][0]['cells'][1] === 'task overdue', 'project_tasks_due: next 7 days (incl. overdue), ticket_project_id!=0, department-restricted');
+
+$pto = WidgetRegistry::data('project_tasks_overdue', $mysqli, $ctx($all, [1]));
+$ok(count($pto['rows']) === 1 && $pto['rows'][0]['cells'][1] === 'task overdue', 'project_tasks_overdue: only past-due project tasks, department-restricted');
 
 // --- rendering escapes
 $html = WidgetRenderer::render(['type' => 'table', 'columns' => ['<b>'], 'rows' => [['cells' => ['<script>alert(1)</script>'], 'href' => 'https://evil.example/']]]);

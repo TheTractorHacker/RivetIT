@@ -31,6 +31,15 @@ final class WidgetRegistry
             'assets_by_type'      => ['title' => 'Assets by type',                'icon' => 'fa-laptop',             'modules' => ['module_assets', 'module_support'], 'size' => 'md'],
             'expiring'            => ['title' => 'Expiring warranties, licenses and domains (60 days)', 'icon' => 'fa-calendar-times', 'modules' => ['module_assets', 'module_support', 'module_client'], 'size' => 'lg'],
             'workflow_tasks_due'  => ['title' => 'Workflow tasks due',            'icon' => 'fa-tasks',              'modules' => ['module_client'], 'size' => 'md'],
+            'rmm_devices_offline' => ['title' => 'RMM devices offline',           'icon' => 'fa-plug',               'modules' => ['module_rmm'], 'size' => 'sm'],
+            'rmm_alerts_open'     => ['title' => 'Open RMM alerts',               'icon' => 'fa-bell',               'modules' => ['module_rmm', 'module_rmm_alerts'], 'size' => 'md'],
+            'rmm_patches_pending' => ['title' => 'Patches pending',               'icon' => 'fa-shield-alt',         'modules' => ['module_rmm'], 'size' => 'md'],
+            'training_expiring'   => ['title' => 'Training expiring (60 days)',   'icon' => 'fa-calendar-times',     'modules' => ['module_training'], 'size' => 'lg'],
+            'training_overdue'    => ['title' => 'Overdue required training',     'icon' => 'fa-exclamation-triangle', 'modules' => ['module_training'], 'size' => 'sm'],
+            'training_achievements_month' => ['title' => 'Achievements this month', 'icon' => 'fa-award',            'modules' => ['module_training'], 'size' => 'md'],
+            'projects_open'       => ['title' => 'Open projects',                 'icon' => 'fa-project-diagram',    'modules' => ['module_support'], 'size' => 'sm'],
+            'project_tasks_due'   => ['title' => 'Project tasks due (7 days)',     'icon' => 'fa-tasks',              'modules' => ['module_support'], 'size' => 'md'],
+            'project_tasks_overdue' => ['title' => 'Overdue project tasks',       'icon' => 'fa-exclamation-triangle', 'modules' => ['module_support'], 'size' => 'md'],
         ];
     }
 
@@ -78,6 +87,15 @@ final class WidgetRegistry
             'assets_by_type'      => self::assetsByType($db, $ctx),
             'expiring'            => self::expiring($db, $ctx),
             'workflow_tasks_due'  => self::workflowTasksDue($db, $ctx),
+            'rmm_devices_offline' => self::rmmDevicesOffline($db, $ctx),
+            'rmm_alerts_open'     => self::rmmAlertsOpen($db, $ctx),
+            'rmm_patches_pending' => self::rmmPatchesPending($db, $ctx),
+            'training_expiring'   => self::trainingExpiring($db, $ctx),
+            'training_overdue'    => self::trainingOverdue($db, $ctx),
+            'training_achievements_month' => self::trainingAchievementsMonth($db, $ctx),
+            'projects_open'       => self::projectsOpen($db, $ctx),
+            'project_tasks_due'   => self::projectTasksDue($db, $ctx),
+            'project_tasks_overdue' => self::projectTasksOverdue($db, $ctx),
             default               => null,
         };
     }
@@ -214,5 +232,111 @@ final class WidgetRegistry
             $rows[] = ['cells' => [$r['title'], $r['contact_name'], $r['due_at']], 'href' => '/agent/workflow_run.php?run_id=' . (int) $r['run_id']];
         }
         return ['type' => 'table', 'columns' => ['Task', 'Person', 'Due'], 'rows' => $rows, 'empty' => 'No workflow tasks due in the next 7 days.'];
+    }
+
+    // ------------------------------------------------------------------------------------------------ RMM
+
+    private static function rmmDevicesOffline(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM endpoint_agent_devices
+            WHERE link_state = 'linked' AND revoked_at IS NULL AND retired_at IS NULL
+              AND (last_checkin_at IS NULL OR last_checkin_at < NOW() - INTERVAL 15 MINUTE)" . $ctx->scope('client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'device offline 15+ minutes' : 'devices offline 15+ minutes'];
+    }
+
+    private static function rmmAlertsOpen(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT COALESCE(NULLIF(a.severity, ''), 'Unknown') AS n, COUNT(*) AS c FROM rmm_alerts a
+            WHERE a.status <> 'resolved' AND a.resolved_at IS NULL" . $ctx->scope('a.client_id') . " GROUP BY n ORDER BY FIELD(n, 'critical', 'warning', 'info', 'Unknown'), n");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => ucfirst((string) $r['n']), 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No open RMM alerts.'];
+    }
+
+    private static function rmmPatchesPending(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT pa.status AS n, COUNT(*) AS c FROM rmm_patch_available pa
+            JOIN endpoint_agent_devices d ON d.device_id = pa.device_id
+            WHERE pa.status IN ('available', 'approved') AND d.link_state = 'linked' AND d.revoked_at IS NULL AND d.retired_at IS NULL"
+            . $ctx->scope('d.client_id') . " GROUP BY pa.status");
+        $counts = ['available' => 0, 'approved' => 0];
+        while ($r = mysqli_fetch_assoc($res)) { $counts[$r['n']] = (int) $r['c']; }
+        $items = [
+            ['label' => 'Pending approval', 'value' => $counts['available']],
+            ['label' => 'Approved, not yet installed', 'value' => $counts['approved']],
+        ];
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No patches pending.'];
+    }
+
+    // ------------------------------------------------------------------------------------------------ Training
+
+    private static function trainingExpiring(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT c.completion_id, c.completion_snap_contact_name, c.completion_snap_course_name, c.completion_expires_on
+            FROM training_completions c LEFT JOIN training_completion_voids v ON v.cvoid_completion_id = c.completion_id
+            WHERE v.cvoid_id IS NULL AND c.completion_expires_on IS NOT NULL AND c.completion_expires_on <= CURDATE() + INTERVAL 60 DAY"
+            . $ctx->scope('c.completion_snap_client_id') . " ORDER BY c.completion_expires_on ASC LIMIT 15");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['completion_snap_contact_name'], $r['completion_snap_course_name'], $r['completion_expires_on']],
+                'href' => '/agent/training_record.php?id=' . (int) $r['completion_id']];
+        }
+        return ['type' => 'table', 'columns' => ['Person', 'Course', 'Expires'], 'rows' => $rows, 'empty' => 'Nothing expires in the next 60 days.'];
+    }
+
+    private static function trainingOverdue(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM training_assignments ta JOIN contacts c ON c.contact_id = ta.tassign_contact_id
+            WHERE ta.tassign_status = 'open' AND ta.tassign_required = 1 AND ta.tassign_due_on < CURDATE()" . $ctx->scope('c.contact_client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'required training overdue' : 'required trainings overdue'];
+    }
+
+    private static function trainingAchievementsMonth(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT a.taward_snap_name AS n, COUNT(*) AS c FROM training_achievement_awards a JOIN contacts c ON c.contact_id = a.taward_contact_id
+            WHERE a.taward_awarded_at_utc >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')" . $ctx->scope('c.contact_client_id') . " GROUP BY n ORDER BY c DESC LIMIT 12");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No achievements earned yet this month.'];
+    }
+
+    // ------------------------------------------------------------------------------------------------ Projects
+
+    private static function projectsOpen(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM projects
+            WHERE project_completed_at IS NULL AND project_archived_at IS NULL" . $ctx->scope('project_client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'open project' : 'open projects'];
+    }
+
+    private static function projectTasksDue(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_due_at FROM tickets
+            WHERE " . self::OPEN . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at <= NOW() + INTERVAL 7 DAY"
+            . $ctx->scope('ticket_client_id') . " ORDER BY ticket_due_at ASC LIMIT 10");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], $r['ticket_due_at']], 'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];
+        }
+        return ['type' => 'table', 'columns' => ['Task', 'Subject', 'Due'], 'rows' => $rows, 'empty' => 'No project tasks due in the next 7 days.'];
+    }
+
+    private static function projectTasksOverdue(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_due_at FROM tickets
+            WHERE " . self::OPEN . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at < NOW()"
+            . $ctx->scope('ticket_client_id') . " ORDER BY ticket_due_at ASC LIMIT 10");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], $r['ticket_due_at']], 'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];
+        }
+        return ['type' => 'table', 'columns' => ['Task', 'Subject', 'Was due'], 'rows' => $rows, 'empty' => 'No overdue project tasks.'];
     }
 }
