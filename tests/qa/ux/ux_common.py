@@ -10,7 +10,8 @@ AXE = open(os.path.join(HERE, 'axe.min.js')).read()
 USERS = {'admin': ('alex.morgan@summitridge.example', 'DemoAdmin#2026'),
          'tech': ('priya.nair@summitridge.example', 'DemoPass#2026'),
          'tech2': ('marcus.lee@summitridge.example', 'DemoPass#2026'),
-         'portal': ('sophie.tran@summitridge.example', 'DemoPass#2026')}
+         'portal': ('sophie.tran@summitridge.example', 'DemoPass#2026'),
+         'scratch': ('admin@scratch.test', 'Scratch-Admin-1234')}
 
 def start(w=1920, h=1080, who='admin', portal=False):
     p = sync_playwright().start(); b = p.chromium.launch()

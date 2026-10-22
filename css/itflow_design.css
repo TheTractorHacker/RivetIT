@@ -1088,3 +1088,12 @@ main p a:not(.btn), main small a:not(.btn), main .small a:not(.btn), main li > a
 :root[data-bs-theme="dark"] a[aria-current="true"]:not(.btn) { color: #9dbcff; }
 main .form-text a, main .text-secondary a, main .text-muted a, main .alert a { text-decoration: underline; }
 .admin-breadcrumb a { text-decoration: underline; }
+
+/* Contrast (RMM pages): help text, tab links, tinted alerts and outline-primary buttons */
+:root:not([data-bs-theme="dark"]) .form-text, :root:not([data-bs-theme="dark"]) .form-hint { color: #566570; }
+:root:not([data-bs-theme="dark"]) .nav-tabs .nav-link:not(.active), :root:not([data-bs-theme="dark"]) .nav-pills .nav-link:not(.active) { color: #4d5b66; }
+:root:not([data-bs-theme="dark"]) .alert-warning { color: #6b4200; }
+:root:not([data-bs-theme="dark"]) .alert-info { color: #1b5a8f; }
+:root:not([data-bs-theme="dark"]) .alert-success { color: #166628; }
+:root:not([data-bs-theme="dark"]) .btn-outline-primary { color: #1c4fcf; }
+:root:not([data-bs-theme="dark"]) .btn-check:checked + .btn-outline-primary, :root:not([data-bs-theme="dark"]) .btn-outline-primary.active, :root:not([data-bs-theme="dark"]) .btn-outline-primary:hover { color: #fff; }
