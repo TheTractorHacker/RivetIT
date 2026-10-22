@@ -69,5 +69,10 @@ switch ($action) {
         $out($rmm->inventory()->refreshSoftware($who, $device_id));
     case 'set_mesh_node':
         $out($tech->setMeshNode($who, $device_id, (string) ($_POST['mesh_node_id'] ?? '')));
+    // RivetCore 1.0.0-rc.31: a device another tool (a second RMM/patch agent) already manages - RivetCore's own
+    // scheduled scripts and patch installs never fire on it. Monitoring, inventory, patch scanning and a
+    // deliberate "run now" are unaffected.
+    case 'set_automation_disabled':
+        $out($tech->setAutomationDisabled($who, $device_id, !empty($_POST['disabled'])));
 }
 $out(ActionResult::fail(422, 'invalid', 'Unknown action.'));

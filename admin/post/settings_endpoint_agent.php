@@ -913,6 +913,8 @@ if (isset($_POST['device_action'])) {
             $r = $ea_tech->setRing($ea_who, $id, (string) ($_POST['ring'] ?? '')); break;
         case 'clear_update_failures':
             $r = $ea_tech->clearUpdateFailures($ea_who, $id); break;
+        case 'set_automation_disabled':
+            $r = $ea_tech->setAutomationDisabled($ea_who, $id, !empty($_POST['automation_disabled'])); break;
         case 'transfer':
             $r = $ea_tech->transfer($ea_who, $id, intval($_POST['client_id'] ?? 0), 0); break;
     }

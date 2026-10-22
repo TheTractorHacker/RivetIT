@@ -216,6 +216,13 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
         <div class="col-lg-4"><button class="btn btn-sm btn-primary" type="submit">Save mapping</button> <span class="small text-muted">Leave empty to clear. An id set here is kept when the Mesh agent reports a different one, unless the MeshCentral setting that lets the agent\'s node replace it is on.</span></div>
     </form>
 </div></div>
+<div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">Automation (administrators)</h5></div><div class="card-body">
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="ea-automation-disabled"<?= !empty($dev['device_automation_disabled']) ? ' checked' : '' ?>>
+        <label class="form-check-label" for="ea-automation-disabled">Another tool already manages this device</label>
+    </div>
+    <div class="form-text">Turns off this device's scheduled scripts and scheduled patch installs - for a device a different RMM or patch agent already handles, so the two never fight. Monitoring, inventory, patch scanning/compliance and running a script on this device right now are unaffected; so is manually installing a patch.</div>
+</div></div>
 <?php } ?>
 <?php if ($cfg['coexistence_policy'] !== '') { ?><div class="small text-muted mb-3"><?= nl2br($h($cfg['coexistence_policy'])) ?></div><?php } ?>
 
@@ -266,6 +273,16 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
     document.querySelectorAll('.ea-cancel').forEach(function (b) { b.addEventListener('click', function () { post('cancel_job', {job_id: b.dataset.job}).then(function (d) { if (d.success) { location.reload(); } else { msg(d.error, false); } }); }); });
     var mf = document.getElementById('ea-mesh-form');
     if (mf) mf.addEventListener('submit', function (e) { e.preventDefault(); post('set_mesh_node', {mesh_node_id: document.getElementById('ea-node').value}).then(function (d) { msg(d.success ? 'Mapping saved.' : d.error, !!d.success); if (d.success) { window.setTimeout(function () { location.reload(); }, 700); } }); });
+    var ad = document.getElementById('ea-automation-disabled');
+    if (ad) ad.addEventListener('change', function () {
+        var checked = ad.checked;
+        ad.disabled = true;
+        post('set_automation_disabled', {disabled: checked ? '1' : ''}).then(function (d) {
+            ad.disabled = false;
+            if (!d.success) { ad.checked = !checked; }
+            msg(d.success ? d.message : (d.error || 'Not saved.'), !!d.success);
+        }).catch(function () { ad.disabled = false; ad.checked = !checked; msg('Network error.', false); });
+    });
 })();
 </script>
 <?php require_once "../includes/footer.php"; ?>

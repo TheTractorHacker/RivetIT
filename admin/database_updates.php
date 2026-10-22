@@ -11736,3 +11736,19 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `training_odoo_outbox` MODIFY COLUMN `todoo_mode` enum('resume','skill','note','badge') NOT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.190'");
     }
+
+    if ($rivetit_db_version() == '2.6.190') {
+        // DB 2.6.191: RivetCore 1.0.0-rc.32 (migration 0039, device_automation_disabled). A per-device switch for an
+        // asset another tool (a second RMM/patch agent) already manages: scheduled scripts and scheduled patch
+        // installs never fire on it; monitoring, inventory, patch scanning/compliance and a deliberate manual
+        // "run now" are unaffected. Same Core runner as every other DB step here (idempotent: skips 0033-0038 if
+        // somehow not yet applied).
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class) && class_exists(\RivetCore\Rmm\Migration\Migration0039AutomationDisabled::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.191'");
+        }
+    }

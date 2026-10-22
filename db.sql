@@ -9964,6 +9964,7 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_devices` (
   `revoked_at` datetime DEFAULT NULL,
   `revoked_reason` varchar(100) DEFAULT NULL,
   `retired_at` datetime DEFAULT NULL,
+  `device_automation_disabled` tinyint(1) NOT NULL DEFAULT 0,
   `enrolled_via_token_id` int(11) DEFAULT NULL,
   `enroll_count` int(11) NOT NULL DEFAULT 1,
   `first_seen_at` datetime NOT NULL DEFAULT current_timestamp(),

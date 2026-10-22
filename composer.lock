@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ee1f02d7cdd4be672f1e4d4b65cd1625",
+    "content-hash": "beb4057a969a3d383846e6765baea855",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1923,23 +1923,23 @@
         },
         {
             "name": "rivet/rivet-core",
-            "version": "v1.0.0-rc.30",
+            "version": "v1.0.0-rc.32",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TheTractorHacker/rivet-core",
-                "reference": "3ecb2284a284927a1613e6cbab8dddf6eefe1a87"
+                "reference": "68a3dc78e2c1af23eb6a4a99e3b1e39b3266ec1c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/3ecb2284a284927a1613e6cbab8dddf6eefe1a87",
-                "reference": "3ecb2284a284927a1613e6cbab8dddf6eefe1a87",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/68a3dc78e2c1af23eb6a4a99e3b1e39b3266ec1c",
+                "reference": "68a3dc78e2c1af23eb6a4a99e3b1e39b3266ec1c",
                 "shasum": ""
             },
             "require": {
                 "ext-openssl": "*",
                 "ext-sodium": "*",
                 "guzzlehttp/guzzle": "^7.0 || ^8.0",
-                "php": ">=8.2",
+                "php": ">=8.5",
                 "predis/predis": "^3.5",
                 "psr/log": "^3",
                 "psr/simple-cache": "^3.0"
@@ -1979,7 +1979,7 @@
                 "issues": "https://github.com/TheTractorHacker/rivet-core/issues",
                 "source": "https://github.com/TheTractorHacker/rivet-core"
             },
-            "time": "2026-10-21T12:08:23+00:00"
+            "time": "2026-10-22T18:19:38+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
