@@ -51,6 +51,7 @@ final class Discovery
             'resume' => ['available' => false, 'fields' => [], 'course_type_values' => [], 'types' => [], 'suggested_type_id' => null],
             'skill' => ['available' => false, 'cert_types' => [], 'levels' => [], 'skills' => []],
             'note' => ['available' => false, 'why' => 'chatter'],
+            'badge' => ['available' => false],
             'gamification' => ['employees_with_users' => null],
             'can_read_resume' => false,
         ];
@@ -143,6 +144,12 @@ final class Discovery
         $out['can_read_resume'] = is_int($n);
         $u = $this->try('hr.employee', 'search_count', ['domain' => [['user_id', '!=', false]]], $errors);
         $out['gamification']['employees_with_users'] = is_int($u) ? $u : null;
+
+        // Badges (2.6.190): the Gamification app's gamification.badge.user, Odoo's own employee "Badges" tab.
+        // No per-record mapping to check here (unlike skill) - every achievement just gets its own badge,
+        // created automatically the first time it is earned - only whether the model exists at all.
+        $bg = $this->try('gamification.badge.user', 'fields_get', ['attributes' => []], $errors, quiet: true);
+        $out['badge']['available'] = is_array($bg) && $bg !== [];
 
         $out['errors'] = $errors;
         return $out;

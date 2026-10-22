@@ -41,6 +41,7 @@ final class PayloadBuilder
     {
         return [
             'title' => 'Achievement: ' . (string) $dto['achievement_name'],
+            'badge_name' => (string) $dto['achievement_name'],   // the Badge target (gamification.badge.user): no "Achievement: " prefix
             'date_start' => (string) $dto['awarded_on'],
             'date_end' => null,
             'cert_number' => null,

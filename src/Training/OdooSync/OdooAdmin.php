@@ -182,6 +182,9 @@ final class OdooAdmin
         if ($send['note'] && !PushService::noteReady($disc)) {
             return ['error', 'HR notes cannot be sent to this Odoo' . self::noteWhy($disc, ': ', '') . '. Untick "HR note".'];
         }
+        if (!empty($send['badge']) && empty($disc['badge']['available'])) {
+            return ['error', 'This Odoo does not offer badges (the Gamification app). Untick "Badge", or install it in Odoo and click Check Odoo again.'];
+        }
         $types = [];
         foreach ((array) ($disc['resume']['types'] ?? []) as $ty) {
             if (($ty['is_course'] ?? null) !== false) {

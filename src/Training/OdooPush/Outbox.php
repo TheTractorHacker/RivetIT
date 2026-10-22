@@ -39,6 +39,9 @@ final class Outbox
             $repo = new OutboxRepo($c->db);
             $marker = null;
             foreach ($modes as $mode) {
+                if ($mode === 'badge') {
+                    continue;   // achievements only, never a course completion - see PushService's own policy gate
+                }
                 $cand = $records->pushCandidate($completionId, $since, $t->key, $mode);
                 if ($cand === null) {
                     continue;

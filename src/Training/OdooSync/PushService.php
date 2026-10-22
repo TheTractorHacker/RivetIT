@@ -414,6 +414,10 @@ final class PushService
                 }
 
                 // Policy at push time: document kind, opted-out course, achievements switched off.
+                if ($mode === 'badge' && !$isAward) {
+                    $this->fail($repo, $id, 'policy', 'badge_courses_not_supported: badges are only sent for achievements, never courses', $out, $mode, $rec);
+                    continue;
+                }
                 if (!$isAward && ($dto['course_kind'] ?? 'training') !== 'training') {
                     $this->fail($repo, $id, 'policy', 'document_kind: acknowledgments are not sent to Odoo', $out, $mode, $rec);
                     continue;

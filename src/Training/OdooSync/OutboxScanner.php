@@ -50,7 +50,9 @@ final class OutboxScanner
 
         if ($countOnly) {
             foreach ($modes as $mode) {
-                $out['creates'] += count($this->records->pushCandidates($since, $t->key, self::MAX_ROWS, $mode));
+                if ($mode !== 'badge') {   // achievements only, never a course completion
+                    $out['creates'] += count($this->records->pushCandidates($since, $t->key, self::MAX_ROWS, $mode));
+                }
                 if ($awardIds) {
                     $out['awards'] += count($this->learner->awardCandidates($since, $t->key, $awardIds, self::MAX_ROWS, $mode));
                 }
@@ -60,6 +62,9 @@ final class OutboxScanner
         }
 
         foreach ($modes as $mode) {
+            if ($mode === 'badge') {
+                continue;   // achievements only, never a course completion - see PushService's own policy gate
+            }
             $n = 0;
             do {
                 $rows = $this->records->pushCandidates($since, $t->key, $limit, $mode);

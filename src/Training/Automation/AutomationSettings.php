@@ -34,6 +34,7 @@ final class AutomationSettings
         'tauto_odoo_send_resume' => 1,
         'tauto_odoo_send_skill' => 0,
         'tauto_odoo_send_note' => 0,
+        'tauto_odoo_send_badge' => 0,
         'tauto_odoo_resume_type_id' => null,
         'tauto_odoo_award_type_id' => null,
         'tauto_odoo_skill_type_id' => null,
@@ -66,7 +67,7 @@ final class AutomationSettings
 
     /** Form-editable, versioned columns by group. */
     public const GROUPS = [
-        'odoo'      => ['tauto_odoo_push_enabled', 'tauto_odoo_mode', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note',
+        'odoo'      => ['tauto_odoo_push_enabled', 'tauto_odoo_mode', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note', 'tauto_odoo_send_badge',
                         'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
                         'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_skill_label', 'tauto_odoo_push_awards', 'tauto_odoo_push_since',
                         'tauto_odoo_target_key', 'tauto_odoo_target_confirmed_at_utc', 'tauto_odoo_key_expires_on'],
@@ -81,16 +82,16 @@ final class AutomationSettings
                            'tauto_daily_last_run_on', 'tauto_daily_last_result'];
 
     /** The 2.6.97 target columns: the switches and the certification label (absent before that update). */
-    public const TARGET_COLS = ['tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note', 'tauto_odoo_skill_label'];
+    public const TARGET_COLS = ['tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note', 'tauto_odoo_send_badge', 'tauto_odoo_skill_label'];
 
-    private const INT_COLS = ['tauto_id', 'tauto_odoo_push_enabled', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note',
+    private const INT_COLS = ['tauto_id', 'tauto_odoo_push_enabled', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill', 'tauto_odoo_send_note', 'tauto_odoo_send_badge',
         'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
         'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_push_awards', 'tauto_reminders_enabled',
         'tauto_escalate_after_days', 'tauto_video_recheck_enabled', 'tauto_verify_enabled', 'tauto_version', 'tauto_updated_by'];
 
     /** Every column but the signature PNG (the worker never needs it). */
     private const WORKER_COLS = ['tauto_id', 'tauto_odoo_push_enabled', 'tauto_odoo_mode', 'tauto_odoo_send_resume', 'tauto_odoo_send_skill',
-        'tauto_odoo_send_note', 'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
+        'tauto_odoo_send_note', 'tauto_odoo_send_badge', 'tauto_odoo_resume_type_id', 'tauto_odoo_award_type_id',
         'tauto_odoo_skill_type_id', 'tauto_odoo_skill_level_id', 'tauto_odoo_skill_label', 'tauto_odoo_push_awards', 'tauto_odoo_push_since', 'tauto_odoo_target_key',
         'tauto_odoo_target_confirmed_at_utc', 'tauto_odoo_discovery_json', 'tauto_odoo_discovered_at_utc', 'tauto_odoo_key_expires_on',
         'tauto_odoo_paused_reason', 'tauto_odoo_last_run_at_utc', 'tauto_odoo_last_result', 'tauto_reminders_enabled', 'tauto_reminder_weekdays',

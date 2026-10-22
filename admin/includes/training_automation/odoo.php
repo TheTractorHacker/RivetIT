@@ -228,6 +228,7 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
             // A target can be ticked when this Odoo offers it; one that is on stays changeable (so it can be switched off).
             $tao_skill_ok = !empty($tao_tready) && (isset($tao_on['skill']) || (!empty($tao_disc['skill']['available']) && !empty($tao_disc['skill']['cert_types'])));
             $tao_note_ok = !empty($tao_tready) && (isset($tao_on['note']) || !empty($tao['note_ready']));
+            $tao_badge_ok = !empty($tao_tready) && (isset($tao_on['badge']) || !empty($tao_disc['badge']['available']));
             $tao_opts = (array) ($tao['skill_options'] ?? []);
             $tao_saved_pair = ($tao['settings']['skill_type_id'] ?? null) !== null && ($tao['settings']['skill_level_id'] ?? null) !== null
                 ? intval($tao['settings']['skill_type_id']) . ':' . intval($tao['settings']['skill_level_id']) : '';
@@ -257,11 +258,16 @@ $tao_tpause = (array) ($tao['target_pauses'] ?? []);   // mode => reason: paused
                         <input type="checkbox" class="form-check-input" id="taoSendNote" name="send_note" value="1"<?php if (isset($tao_on['note'])) { echo ' checked'; } ?><?php if (!$tao_note_ok) { echo ' disabled'; } ?>>
                         <label class="form-check-label" for="taoSendNote">HR note (internal)</label><?php if ($tao_tready && !$tao_note_ok) { ?> <span class="small text-muted">(not available on this Odoo)</span><?php } ?>
                     </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="taoSendBadge" name="send_badge" value="1"<?php if (isset($tao_on['badge'])) { echo ' checked'; } ?><?php if (!$tao_badge_ok) { echo ' disabled'; } ?>>
+                        <label class="form-check-label" for="taoSendBadge">Badge</label><?php if ($tao_tready && !$tao_badge_ok) { ?> <span class="small text-muted">(not available on this Odoo, or Check Odoo has not run yet)</span><?php } ?>
+                    </div>
                 </div>
                 <?php if (!$tao_tready) { ?>
                     <div class="form-text text-warning">Certification skills and HR notes need the database update (Admin &rsaquo; Update). Until then records are sent as résumé lines only.</div>
                 <?php } else { ?>
                     <div class="form-text">Any combination. Each one is sent, retried and revoked on its own; a record is never sent twice to the same place.</div>
+                    <div class="form-text"><strong>Badge</strong> is achievements only, never courses: earning an achievement grants a matching badge on Odoo's own "Badges" tab on the employee, created automatically the first time it is earned. No type/level to set up, and never revoked on a void (Odoo badges are a one-time award).</div>
                 <?php } ?>
             </fieldset>
             <div class="row">

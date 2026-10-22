@@ -43,6 +43,8 @@ final class Pusher
 
     private ?int $ownUid = null;
     private bool $ownUidRead = false;
+    /** 'employee_id' | 'user_id' | null (not yet resolved), cached per run - see badgeIdentity(). */
+    private ?string $badgeField = null;
 
     /**
      * @param array $discovery the stored Discovery::run() result for this target
@@ -174,6 +176,7 @@ final class Pusher
             'resume' => $close ? $this->closeResume($payload, $createRow) : $this->createResume($row, $payload, $employeeId),
             'skill' => $close ? $this->closeSkill($payload, $createRow) : $this->createSkill($payload, $employeeId, $opts),
             'note' => $close ? $this->closeNote($row, $payload, $createRow) : $this->createNote($row, $payload, $employeeId),
+            'badge' => $close ? $this->closeBadge($createRow) : $this->createBadge($row, $payload, $employeeId),
             default => throw new \LogicException('Unknown Odoo write-back target: ' . (string) ($row['todoo_mode'] ?? '')),
         };
     }
@@ -196,6 +199,9 @@ final class Pusher
                 return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
             case 'note':
                 $hits = $this->ownNotes($marker, $employeeId);
+                return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
+            case 'badge':
+                $hits = $this->ownBadges($marker, $employeeId);
                 return $hits ? ['id' => $hits[0]['id'], 'employee_id' => $hits[0]['employee_id']] : null;
             case 'skill':
                 $sent = $opts['sent'] ?? null;
@@ -616,6 +622,140 @@ final class Pusher
         }
         usort($hits, static fn($a, $b) => $a['id'] <=> $b['id']);
         return $hits;
+    }
+
+    // --------------------------------------------------------------------------------------------- badge (2.6.190)
+
+    /**
+     * Achievement only: a gamification.badge named after the achievement (created the first time it is earned,
+     * reused after) and a gamification.badge.user grant on the employee, idempotent on $marker in the comment
+     * field (same marker-before-create rule as a note). No validity period, no close/void handling beyond a
+     * no-op (closeBadge): Odoo badges are a one-time award, never revoked.
+     */
+    private function createBadge(array $row, array $payload, int $employeeId): array
+    {
+        $marker = (string) $row['todoo_marker'];
+        $own = $this->ownBadges($marker, $employeeId);
+        foreach ($own as $h) {
+            if ($h['employee_id'] === $employeeId) {
+                return ['model' => 'gamification.badge.user', 'res_id' => $h['id']];
+            }
+        }
+        if ($own !== []) {
+            throw new \DomainException('employee_changed');
+        }
+        $badgeName = trim((string) ($payload['badge_name'] ?? ''));
+        if ($badgeName === '') {
+            throw new PushException('permanent', 'no_name: the achievement has no name to give the badge');
+        }
+        $badgeId = $this->findBadgeByOdooName($badgeName)['id'] ?? $this->createOne('gamification.badge', ['name' => $badgeName]);
+        [$field, $value] = $this->badgeIdentity($employeeId);
+        $id = $this->createOne('gamification.badge.user', [$field => $value, 'badge_id' => $badgeId, 'comment' => $marker]);
+        return ['model' => 'gamification.badge.user', 'res_id' => $id];
+    }
+
+    /** A void: never revoked (no validity period, no "voided" concept for a badge) - confirms the grant, writes nothing. */
+    private function closeBadge(?array $createRow): array
+    {
+        $resId = (int) ($createRow['todoo_odoo_res_id'] ?? 0);
+        if ($resId < 1) {
+            throw new PushException('policy', 'create_not_sent');
+        }
+        return ['model' => 'gamification.badge.user', 'res_id' => $resId];
+    }
+
+    /**
+     * gamification.badge.user grants carrying $marker in their comment that this integration may treat as its
+     * own (same ownLines/ownNotes rule). @return list<array{id:int, employee_id:int}>
+     */
+    public function ownBadges(string $marker, int $employeeId): array
+    {
+        [$field, $value] = $this->badgeIdentity($employeeId);
+        $uid = $this->ownUid();
+        $domain = [[$field, '=', $value], ['comment', 'ilike', $marker]];
+        if ($uid !== null) {
+            $domain[] = ['create_uid', '=', $uid];
+        }
+        $rows = $this->call('gamification.badge.user', 'search_read', [
+            'domain' => $domain,
+            'fields' => ['id', 'comment', 'create_uid'],
+            'limit' => 5,
+            'order' => 'id asc',
+        ]);
+        $hits = [];
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            if (!is_array($r) || !is_int($r['id'] ?? null)) {
+                continue;
+            }
+            if (!Marker::inHtml(is_string($r['comment'] ?? null) ? $r['comment'] : null, $marker)) {
+                continue;
+            }
+            if ($uid !== null && self::m2oId($r['create_uid'] ?? null) !== $uid) {
+                continue;
+            }
+            $hits[] = ['id' => $r['id'], 'employee_id' => $employeeId];
+        }
+        usort($hits, static fn($a, $b) => $a['id'] <=> $b['id']);
+        return $hits;
+    }
+
+    /**
+     * Which field identifies the employee on gamification.badge.user, resolved once per run and cached: Odoo's
+     * own employee-native "Badges" tab (recent versions) uses employee_id directly; an older Odoo, or one whose
+     * JSON-2 API has not exposed that field (the hr.skill lesson: a field existing in the ORM is not always on
+     * the JSON-2 API's per-model exposed-field list), needs the employee's linked Odoo user (user_id) instead.
+     *
+     * @return array{0:string, 1:int} [field name, the value to filter/create with]
+     * @throws PushException permanent 'no_odoo_login' when neither field works (no linked Odoo user either)
+     */
+    private function badgeIdentity(int $employeeId): array
+    {
+        if ($this->badgeField === null) {
+            $fg = null;
+            try {
+                $fg = $this->call('gamification.badge.user', 'fields_get', ['attributes' => []]);
+            } catch (\Throwable) {
+                $fg = null;
+            }
+            $this->badgeField = (is_array($fg) && array_key_exists('employee_id', $fg)) ? 'employee_id' : 'user_id';
+        }
+        if ($this->badgeField === 'employee_id') {
+            return ['employee_id', $employeeId];
+        }
+        $uid = $this->employeeOdooUserId($employeeId);
+        if ($uid === null) {
+            throw new PushException('permanent', 'no_odoo_login: this employee has no Odoo user account to grant a badge to (this Odoo\'s badges need one)');
+        }
+        return ['user_id', $uid];
+    }
+
+    /** The res.users id linked to this hr.employee (Odoo's own user_id field), or null. */
+    private function employeeOdooUserId(int $employeeId): ?int
+    {
+        $rows = $this->call('hr.employee', 'read', ['ids' => [$employeeId], 'fields' => ['user_id']]);
+        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        $uid = is_array($row) ? self::m2oId($row['user_id'] ?? null) : 0;
+        return $uid > 0 ? $uid : null;
+    }
+
+    /** An existing gamification.badge named exactly $name (reused instead of creating a duplicate), or null. */
+    private function findBadgeByOdooName(string $name): ?array
+    {
+        try {
+            $rows = $this->call('gamification.badge', 'search_read', [
+                'domain' => [['name', '=', $name]], 'fields' => ['id'], 'limit' => 1, 'order' => 'id asc',
+            ]);
+        } catch (\Throwable) {
+            $rows = $this->call('gamification.badge', 'search_read', [
+                'domain' => [['display_name', '=', $name]], 'fields' => ['id'], 'limit' => 1, 'order' => 'id asc',
+            ]);
+        }
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            if (is_array($r) && is_int($r['id'] ?? null) && $r['id'] > 0) {
+                return ['id' => $r['id']];
+            }
+        }
+        return null;
     }
 
     /**

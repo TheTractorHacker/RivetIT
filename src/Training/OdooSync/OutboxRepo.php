@@ -37,7 +37,7 @@ final class OutboxRepo
     public function enqueue(Target $t, string $sourceType, int $sourceId, string $action, int $contactId, string $mode, string $marker, string $nowUtc): bool
     {
         if (!in_array($sourceType, ['completion', 'award'], true) || !in_array($action, ['create', 'close'], true)
-            || !in_array($mode, ['resume', 'skill', 'note'], true) || preg_match(Marker::RE, $marker) !== 1) {
+            || !Targets::valid($mode) || preg_match(Marker::RE, $marker) !== 1) {
             throw new \InvalidArgumentException('OutboxRepo::enqueue: bad arguments');
         }
         return Db::exec($this->db, "INSERT IGNORE INTO training_odoo_outbox (todoo_target_key, todoo_integration_id, todoo_source_type, todoo_source_id,
@@ -231,12 +231,12 @@ final class OutboxRepo
             [$targetKey, $sourceType, $sourceId, $mode]);
     }
 
-    /** Every create row of one record (one per target it was queued for), mode order resume, skill, note. */
+    /** Every create row of one record (one per target it was queued for), mode order resume, skill, note, badge. */
     public function findCreates(string $targetKey, string $sourceType, int $sourceId): array
     {
         return Db::all($this->db, 'SELECT ' . self::COLS . " FROM training_odoo_outbox
             WHERE todoo_target_key = ? AND todoo_source_type = ? AND todoo_source_id = ? AND todoo_action = 'create'
-            ORDER BY FIELD(todoo_mode, 'resume', 'skill', 'note')", 'ssi', [$targetKey, $sourceType, $sourceId]);
+            ORDER BY FIELD(todoo_mode, 'resume', 'skill', 'note', 'badge')", 'ssi', [$targetKey, $sourceType, $sourceId]);
     }
 
     /**
