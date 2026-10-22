@@ -1,0 +1,2509 @@
+{
+ "unique_modals": 258,
+ "failures": [
+  {
+   "role": "tech",
+   "page": "agent/domains.php",
+   "modal": "/agent/modals/vendor/vendor_details.php?id=2",
+   "trigger": "NameHarbor Domains",
+   "status": 403,
+   "bytes": 135,
+   "php_error": null,
+   "empty": false
+  },
+  {
+   "role": "tech",
+   "page": "agent/domains.php",
+   "modal": "/agent/modals/vendor/vendor_details.php?id=3",
+   "trigger": "Cobalt Cloud Hosting",
+   "status": 403,
+   "bytes": 135,
+   "php_error": null,
+   "empty": false
+  },
+  {
+   "role": "tech",
+   "page": "agent/domains.php",
+   "modal": "/agent/modals/vendor/vendor_details.php?id=1",
+   "trigger": "Lakeshore Technology Partners",
+   "status": 403,
+   "bytes": 135,
+   "php_error": null,
+   "empty": false
+  },
+  {
+   "page": "agent/index.php",
+   "error": "Page.evaluate: Execution context was destroyed, most likely because of a navigation"
+  }
+ ],
+ "clicks": [
+  {
+   "role": "tech",
+   "page": "agent/accounts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/alerts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/asset_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/asset_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 318,
+    "top": 28,
+    "bottom": -39.828125,
+    "h": 1012.171875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/assets.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/assets.php",
+   "trigger": "New Asset",
+   "shown": true,
+   "info": {
+    "len": 330,
+    "top": 28,
+    "bottom": -39.828125,
+    "h": 1012.171875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/backups.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/calendar.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/calendar.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 41,
+    "top": 28,
+    "bottom": -708.40625,
+    "h": 343.59375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/campaigns.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/certificate_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/certificates.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/certificates.php",
+   "trigger": "New Certificate",
+   "shown": true,
+   "info": {
+    "len": 129,
+    "top": 28,
+    "bottom": -526.609375,
+    "h": 525.390625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/change_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/changes.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/changes.php",
+   "trigger": "New Change",
+   "shown": true,
+   "info": {
+    "len": 133,
+    "top": 28,
+    "bottom": -198.921875,
+    "h": 853.078125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/client_autopay.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/client_overview.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/client_overview.php",
+   "trigger": "Edit this site",
+   "shown": true,
+   "info": {
+    "len": 2371,
+    "top": 28,
+    "bottom": 7.328125,
+    "h": 1059.328125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/clients.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/clients.php",
+   "trigger": "New Department",
+   "shown": true,
+   "info": {
+    "len": 436,
+    "top": 28,
+    "bottom": -147.625,
+    "h": 904.375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contact_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contact_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 701,
+    "top": 28,
+    "bottom": 402.15625,
+    "h": 1454.15625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contacts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contacts.php",
+   "trigger": "New Contact",
+   "shown": true,
+   "info": {
+    "len": 281,
+    "top": 28,
+    "bottom": -102.625,
+    "h": 949.375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contracts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/contracts.php",
+   "trigger": "New Contract",
+   "shown": true,
+   "info": {
+    "len": 653,
+    "top": 28,
+    "bottom": 37.03125,
+    "h": 1089.03125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/credentials.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/credentials.php",
+   "trigger": "New Credential",
+   "shown": true,
+   "info": {
+    "len": 172,
+    "top": 28,
+    "bottom": -39.828125,
+    "h": 1012.171875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/csat.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/dashboard.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/document_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/document_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 193,
+    "top": 28,
+    "bottom": -105.625,
+    "h": 946.375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/domain_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/domains.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/domains.php",
+   "trigger": "New Domain",
+   "shown": true,
+   "info": {
+    "len": 739,
+    "top": 28,
+    "bottom": -203.421875,
+    "h": 848.578125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/expenses.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/files.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/firewalls.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/global_search.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/intune_devices.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/invoice.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/invoices.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/invoices.php",
+   "trigger": "New Invoice",
+   "shown": true,
+   "info": {
+    "len": 101,
+    "top": 28,
+    "bottom": -546.8125,
+    "h": 505.1875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/it_dashboard.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/kb_article.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/kb_article_versions.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/kb_articles.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/locations.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/locations.php",
+   "trigger": "New Location",
+   "shown": true,
+   "info": {
+    "len": 2350,
+    "top": 28,
+    "bottom": 7.328125,
+    "h": 1059.328125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/mdm_devices.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/my_dashboard.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/network.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/network_drives.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/network_drives.php",
+   "trigger": "New Network Drive",
+   "shown": true,
+   "info": {
+    "len": 191,
+    "top": 28,
+    "bottom": -369.640625,
+    "h": 682.359375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/networks.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/networks.php",
+   "trigger": "New Network",
+   "shown": true,
+   "info": {
+    "len": 113,
+    "top": 28,
+    "bottom": -526.609375,
+    "h": 525.390625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/notifications.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/opportunities.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/opportunities.php",
+   "trigger": "New Opportunity",
+   "shown": true,
+   "info": {
+    "len": 797,
+    "top": 28,
+    "bottom": -248.046875,
+    "h": 803.953125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/org_chart.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/outtake_form.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/payments.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/pipeline.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/pipeline.php",
+   "trigger": "New Opportunity",
+   "shown": true,
+   "info": {
+    "len": 798,
+    "top": 28,
+    "bottom": -248.046875,
+    "h": 803.953125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/printers.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/printers.php",
+   "trigger": "New Printer",
+   "shown": true,
+   "info": {
+    "len": 173,
+    "top": 28,
+    "bottom": -127.25,
+    "h": 924.75,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/problem_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/problems.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/problems.php",
+   "trigger": "New Problem",
+   "shown": true,
+   "info": {
+    "len": 55,
+    "top": 28,
+    "bottom": -632.03125,
+    "h": 419.96875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/products.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/products.php",
+   "trigger": "New\nService",
+   "shown": true,
+   "info": {
+    "len": 124,
+    "top": 28,
+    "bottom": -409.640625,
+    "h": 642.359375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/project_details.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/project_details.php",
+   "trigger": "New Milestone",
+   "shown": true,
+   "info": {
+    "len": 100,
+    "top": 28,
+    "bottom": -530.4375,
+    "h": 521.5625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/project_gantt.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/project_kanban.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/project_kanban.php",
+   "trigger": "New Task",
+   "shown": true,
+   "info": {
+    "len": 376,
+    "top": 28,
+    "bottom": -466.015625,
+    "h": 585.984375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/projects.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/projects.php",
+   "trigger": "New Project",
+   "shown": true,
+   "info": {
+    "len": 423,
+    "top": 28,
+    "bottom": -264.421875,
+    "h": 787.578125,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/quote.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/quotes.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/quotes.php",
+   "trigger": "New Quote",
+   "shown": true,
+   "info": {
+    "len": 84,
+    "top": 28,
+    "bottom": -546.8125,
+    "h": 505.1875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/racks.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/racks.php",
+   "trigger": "New Rack",
+   "shown": true,
+   "info": {
+    "len": 274,
+    "top": 28,
+    "bottom": -122.625,
+    "h": 929.375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_expenses.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_invoice.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_invoices.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_invoices.php",
+   "trigger": "New Recurring Invoice",
+   "shown": true,
+   "info": {
+    "len": 140,
+    "top": 28,
+    "bottom": -546.8125,
+    "h": 505.1875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_tickets.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/recurring_tickets.php",
+   "trigger": "New Recurring Ticket",
+   "shown": true,
+   "info": {
+    "len": 547,
+    "top": 28,
+    "bottom": -359.609375,
+    "h": 692.390625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/revenues.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_agent_alerts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_agent_device.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_alerts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_approvals.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_asset.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_assets.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_checks.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_dashboard.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_escalations.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_fields.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_fleet.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_hypervisors.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_log_rules.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_logs.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_maintenance.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_patch_policies.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_patch_updates.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_patches.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_policies.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_schedules.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_script_library.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_scripts.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_software.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_software_assignments.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_software_report.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/rmm_starter_pack.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/segments.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/service_catalog.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/service_catalog_approvals.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/services.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/services.php",
+   "trigger": "New Service",
+   "shown": true,
+   "info": {
+    "len": 125,
+    "top": 28,
+    "bottom": -247.84375,
+    "h": 804.15625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/software.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/software.php",
+   "trigger": "New License",
+   "shown": true,
+   "info": {
+    "len": 350,
+    "top": 28,
+    "bottom": -365.015625,
+    "h": 686.984375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/ticket.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/ticket.php",
+   "trigger": "Edit Ticket",
+   "shown": true,
+   "info": {
+    "len": 549,
+    "top": 28,
+    "bottom": -310.609375,
+    "h": 741.390625,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/ticket_list.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/ticket_list.php",
+   "trigger": "Save current view",
+   "shown": true,
+   "info": {
+    "len": 1897,
+    "top": 28,
+    "bottom": 506.4375,
+    "h": 1558.4375,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/tickets.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/tickets.php",
+   "trigger": "New Ticket",
+   "shown": true,
+   "info": {
+    "len": 923,
+    "top": 28,
+    "bottom": -278.8125,
+    "h": 773.1875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_achievements.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_assignments.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_awards.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_banks.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_course.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_courses.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_dashboard.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_device_bulk.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_device_fleet.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_device_setup.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_device_slips.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_devices.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_item_analysis.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_locked.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_paths.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_people.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_pin_slips.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_preview.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_quiz.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_record.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_records.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_reports.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_revision_compare.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_rule.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_session.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_settings.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/training_transcript.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/transfers.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/trips.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/vendor_details.php",
+   "trigger": "",
+   "shown": false,
+   "info": null,
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/vendors.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/vendors.php",
+   "trigger": "New Vendor",
+   "shown": true,
+   "info": {
+    "len": 105,
+    "top": 28,
+    "bottom": -445.8125,
+    "h": 606.1875,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/workflow_preview.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  },
+  {
+   "role": "tech",
+   "page": "agent/worksheet.php",
+   "trigger": "",
+   "shown": true,
+   "info": {
+    "len": 67,
+    "top": 28,
+    "bottom": -722,
+    "h": 330,
+    "vh": 1080,
+    "scroll": "visible"
+   },
+   "js_errors": []
+  }
+ ]
+}

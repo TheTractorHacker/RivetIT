@@ -1,0 +1,4323 @@
+[
+ {
+  "module": "admin",
+  "file": "admin/ai_model.php",
+  "url": "/admin/ai_model.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ai_provider.php",
+  "url": "/admin/ai_provider.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/api_docs.php",
+  "url": "/admin/api_docs.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/api_keys.php",
+  "url": "/admin/api_keys.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/app_log.php",
+  "url": "/admin/app_log.php",
+  "params": [
+   "type",
+   "category"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/audit_log.php",
+  "url": "/admin/audit_log.php",
+  "params": [
+   "user",
+   "client",
+   "type",
+   "action"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/audit_trail.php",
+  "url": "/admin/audit_trail.php",
+  "params": [
+   "export",
+   "q",
+   "type",
+   "actor",
+   "from",
+   "to",
+   "page"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/automation.php",
+  "url": "/admin/automation.php?rule_id=1",
+  "params": [
+   "tab",
+   "rule_id",
+   "status"
+  ],
+  "ids": {
+   "rule_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "log"
+  ]
+ },
+ {
+  "module": "admin",
+  "file": "admin/automation_test.php",
+  "url": "/admin/automation_test.php?rule_id=1",
+  "params": [
+   "rule_id"
+  ],
+  "ids": {
+   "rule_id": "1"
+  },
+  "skip": "fires an automation test",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/backup.php",
+  "url": "/admin/backup.php",
+  "params": [],
+  "ids": {},
+  "skip": "backup feature (view-only page skipped to be safe)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/backup_recovery_panel.php",
+  "url": "/admin/backup_recovery_panel.php",
+  "params": [],
+  "ids": {},
+  "skip": "backup feature",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/canned_responses.php",
+  "url": "/admin/canned_responses.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/catalog_setup.php",
+  "url": "/admin/catalog_setup.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/category.php",
+  "url": "/admin/category.php",
+  "params": [
+   "category",
+   "archived"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/comet_status.php",
+  "url": "/admin/comet_status.php",
+  "params": [],
+  "ids": {},
+  "skip": "Comet backup integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/compliance_report.php",
+  "url": "/admin/compliance_report.php",
+  "params": [
+   "format",
+   "framework",
+   "snapshot"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/compliance_status.php",
+  "url": "/admin/compliance_status.php",
+  "params": [
+   "framework"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/contract_template.php",
+  "url": "/admin/contract_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/credential_restore.php",
+  "url": "/admin/credential_restore.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/cron.php",
+  "url": "/admin/cron.php",
+  "params": [],
+  "ids": {},
+  "skip": "cron page - cron features out of scope",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/custom_link.php",
+  "url": "/admin/custom_link.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/database_updates.php",
+  "url": "/admin/database_updates.php",
+  "params": [],
+  "ids": {},
+  "skip": "DB migration include - runs updates when loaded",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/debug.php",
+  "url": "/admin/debug.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/document_template.php",
+  "url": "/admin/document_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/document_template_details.php",
+  "url": "/admin/document_template_details.php",
+  "params": [
+   "document_template_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/email_log.php",
+  "url": "/admin/email_log.php?mailbox_id=3",
+  "params": [
+   "outcome",
+   "mailbox_id"
+  ],
+  "ids": {
+   "mailbox_id": "3"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/employee_workflow_template_details.php",
+  "url": "/admin/employee_workflow_template_details.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/employee_workflow_templates.php",
+  "url": "/admin/employee_workflow_templates.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/event_rules.php",
+  "url": "/admin/event_rules.php",
+  "params": [
+   "new",
+   "edit",
+   "recipe"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/holidays.php",
+  "url": "/admin/holidays.php",
+  "params": [
+   "country",
+   "year"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/identity_provider.php",
+  "url": "/admin/identity_provider.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/index.php",
+  "url": "/admin/index.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/job_queue.php",
+  "url": "/admin/job_queue.php",
+  "params": [
+   "status"
+  ],
+  "ids": {},
+  "skip": "job queue (cron/sync jobs)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/kb_articles_archive.php",
+  "url": "/admin/kb_articles_archive.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/labor_type.php",
+  "url": "/admin/labor_type.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/mail_queue.php",
+  "url": "/admin/mail_queue.php",
+  "params": [],
+  "ids": {},
+  "skip": "mail queue - send side effects if retry GET used",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/mail_requests.php",
+  "url": "/admin/mail_requests.php",
+  "params": [],
+  "ids": {},
+  "skip": "mail requests - Email sync area",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/mailbox.php",
+  "url": "/admin/mailbox.php",
+  "params": [],
+  "ids": {},
+  "skip": "Email sync / mailbox integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/maintenance.php",
+  "url": "/admin/maintenance.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/modules.php",
+  "url": "/admin/modules.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/oauth_microsoft_mail_callback.php",
+  "url": "/admin/oauth_microsoft_mail_callback.php",
+  "params": [
+   "state",
+   "code",
+   "error",
+   "error_description"
+  ],
+  "ids": {},
+  "skip": "OAuth callback (Email sync integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/onboarding_template_details.php",
+  "url": "/admin/onboarding_template_details.php?project_template_id=1",
+  "params": [
+   "project_template_id"
+  ],
+  "ids": {
+   "project_template_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/onboarding_templates.php",
+  "url": "/admin/onboarding_templates.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payment_method.php",
+  "url": "/admin/payment_method.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payment_provider.php",
+  "url": "/admin/payment_provider.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_deductions.php",
+  "url": "/admin/payroll_deductions.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_employee.php",
+  "url": "/admin/payroll_employee.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_employees.php",
+  "url": "/admin/payroll_employees.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_period.php",
+  "url": "/admin/payroll_period.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_periods.php",
+  "url": "/admin/payroll_periods.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_run.php",
+  "url": "/admin/payroll_run.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_runs.php",
+  "url": "/admin/payroll_runs.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/payroll_settings.php",
+  "url": "/admin/payroll_settings.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/people_import.php",
+  "url": "/admin/people_import.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/portal_preview.php",
+  "url": "/admin/portal_preview.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/portal_users.php",
+  "url": "/admin/portal_users.php",
+  "params": [
+   "show"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/post.php",
+  "url": "/admin/post.php",
+  "params": [],
+  "ids": {},
+  "skip": "POST handler (no GET view)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/project_template.php",
+  "url": "/admin/project_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/project_template_details.php",
+  "url": "/admin/project_template_details.php?project_template_id=1",
+  "params": [
+   "project_template_id"
+  ],
+  "ids": {
+   "project_template_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/roles.php",
+  "url": "/admin/roles.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/saved_payment_method.php",
+  "url": "/admin/saved_payment_method.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/server_tasks.php",
+  "url": "/admin/server_tasks.php",
+  "params": [
+   "recheck"
+  ],
+  "ids": {},
+  "skip": "server tasks (update/backup/cron runners)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/service_catalog.php",
+  "url": "/admin/service_catalog.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings.php",
+  "url": "/admin/settings.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_ai.php",
+  "url": "/admin/settings_ai.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_appearance.php",
+  "url": "/admin/settings_appearance.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_calendar_sync.php",
+  "url": "/admin/settings_calendar_sync.php",
+  "params": [],
+  "ids": {},
+  "skip": "calendar sync integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_comet.php",
+  "url": "/admin/settings_comet.php",
+  "params": [],
+  "ids": {},
+  "skip": "Comet integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_company.php",
+  "url": "/admin/settings_company.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_compliance.php",
+  "url": "/admin/settings_compliance.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_custom_fields.php",
+  "url": "/admin/settings_custom_fields.php",
+  "params": [
+   "table"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_default.php",
+  "url": "/admin/settings_default.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_endpoint_agent.php",
+  "url": "/admin/settings_endpoint_agent.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_integrations.php",
+  "url": "/admin/settings_integrations.php",
+  "params": [
+   "tab"
+  ],
+  "ids": {},
+  "skip": "Integrations (live side effects)",
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "backups",
+   "devicesync",
+   "directorysync",
+   "firewalls",
+   "odoo",
+   "rmm",
+   "unifi"
+  ]
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_invoice.php",
+  "url": "/admin/settings_invoice.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_kb.php",
+  "url": "/admin/settings_kb.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_localization.php",
+  "url": "/admin/settings_localization.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_mail.php",
+  "url": "/admin/settings_mail.php",
+  "params": [],
+  "ids": {},
+  "skip": "mail integration settings",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_mail_templates.php",
+  "url": "/admin/settings_mail_templates.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_manageengine_mdm.php",
+  "url": "/admin/settings_manageengine_mdm.php",
+  "params": [],
+  "ids": {},
+  "skip": "MDM integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_mcp.php",
+  "url": "/admin/settings_mcp.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_mesh_wizard.php",
+  "url": "/admin/settings_mesh_wizard.php",
+  "params": [],
+  "ids": {},
+  "skip": "MeshCentral wizard (live connection)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_module.php",
+  "url": "/admin/settings_module.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_notification.php",
+  "url": "/admin/settings_notification.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_portal.php",
+  "url": "/admin/settings_portal.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_project.php",
+  "url": "/admin/settings_project.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_quote.php",
+  "url": "/admin/settings_quote.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_redis.php",
+  "url": "/admin/settings_redis.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_rmm.php",
+  "url": "/admin/settings_rmm.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_security.php",
+  "url": "/admin/settings_security.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_telemetry.php",
+  "url": "/admin/settings_telemetry.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_theme.php",
+  "url": "/admin/settings_theme.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_ticket.php",
+  "url": "/admin/settings_ticket.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_training.php",
+  "url": "/admin/settings_training.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_training_compliance.php",
+  "url": "/admin/settings_training_compliance.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_training_kiosk.php",
+  "url": "/admin/settings_training_kiosk.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_unifi.php",
+  "url": "/admin/settings_unifi.php",
+  "params": [],
+  "ids": {},
+  "skip": "UniFi integration",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_webhook_guides.php",
+  "url": "/admin/settings_webhook_guides.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/settings_webhooks.php",
+  "url": "/admin/settings_webhooks.php",
+  "params": [
+   "detect",
+   "add"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/sla_calendars.php",
+  "url": "/admin/sla_calendars.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/sla_policies.php",
+  "url": "/admin/sla_policies.php",
+  "params": [
+   "archived"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/software_template.php",
+  "url": "/admin/software_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/sync_watch_panel.php",
+  "url": "/admin/sync_watch_panel.php",
+  "params": [],
+  "ids": {},
+  "skip": "sync panel (integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/tag.php",
+  "url": "/admin/tag.php",
+  "params": [
+   "type",
+   "archived"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/tax.php",
+  "url": "/admin/tax.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/template_library.php",
+  "url": "/admin/template_library.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticket_automation.php",
+  "url": "/admin/ticket_automation.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticket_automation_log.php",
+  "url": "/admin/ticket_automation_log.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticket_status.php",
+  "url": "/admin/ticket_status.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticket_template.php",
+  "url": "/admin/ticket_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticket_template_details.php",
+  "url": "/admin/ticket_template_details.php?ticket_template_id=1",
+  "params": [
+   "ticket_template_id"
+  ],
+  "ids": {
+   "ticket_template_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/ticketing_setup.php",
+  "url": "/admin/ticketing_setup.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/update.php",
+  "url": "/admin/update.php",
+  "params": [],
+  "ids": {},
+  "skip": "runs git/update logic - update feature",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/users.php",
+  "url": "/admin/users.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/vendor_template.php",
+  "url": "/admin/vendor_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/webhook_edit.php",
+  "url": "/admin/webhook_edit.php",
+  "params": [
+   "id",
+   "dest",
+   "tab"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/webhook_new.php",
+  "url": "/admin/webhook_new.php",
+  "params": [
+   "dest",
+   "destination",
+   "step"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/worksheet_template.php",
+  "url": "/admin/worksheet_template.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "admin",
+  "file": "admin/worksheet_template_details.php",
+  "url": "/admin/worksheet_template_details.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/accounts.php",
+  "url": "/agent/accounts.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/ajax.php",
+  "url": "/agent/ajax.php?client_id=16&ticket_id=248&credential_id=125",
+  "params": [
+   "relationship_search",
+   "type",
+   "client_id",
+   "exclude_type",
+   "exclude_id",
+   "q",
+   "global_search_live",
+   "certificate_fetch_parse_json_details",
+   "domain",
+   "ticket_add_view",
+   "ticket_id",
+   "ticket_query_views",
+   "share_generate_link",
+   "csrf_token",
+   "id",
+   "contact_email",
+   "note",
+   "views",
+   "expires",
+   "get_active_clients",
+   "get_client_contacts",
+   "search_contacts",
+   "mdm_search_assets",
+   "asset_inline_update",
+   "get_client_assets",
+   "get_client_locations",
+   "get_client_vendors",
+   "get_totp_token_via_id",
+   "credential_id",
+   "get_readable_pass",
+   "client_duplicate_check",
+   "name",
+   "contact_email_check",
+   "email",
+   "ai_reword",
+   "ai_create_document_template",
+   "ai_ticket_summary",
+   "ai_ticket_reply_draft",
+   "apex_domain_check",
+   "get_internal_users",
+   "project_gantt",
+   "comet_client_status"
+  ],
+  "ids": {
+   "client_id": "16",
+   "ticket_id": "248",
+   "credential_id": "125"
+  },
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/alerts.php",
+  "url": "/agent/alerts.php?client_id=16",
+  "params": [
+   "source",
+   "status",
+   "severity",
+   "client_id",
+   "q"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/asset_details.php",
+  "url": "/agent/asset_details.php?client_id=16&asset_id=92",
+  "params": [
+   "client_id",
+   "asset_id",
+   "view",
+   "swq",
+   "swp",
+   "swr"
+  ],
+  "ids": {
+   "client_id": "16",
+   "asset_id": "92"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/assets.php",
+  "url": "/agent/assets.php?client_id=16",
+  "params": [
+   "client_id",
+   "client",
+   "archived",
+   "scope",
+   "type",
+   "location",
+   "tags",
+   "show_column"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/backups.php",
+  "url": "/agent/backups.php?client_id=16",
+  "params": [
+   "client_id",
+   "q"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/calendar.php",
+  "url": "/agent/calendar.php?client_id=16&calendar_id=1",
+  "params": [
+   "client_id",
+   "calendar_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "calendar_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/calendar_feed.php",
+  "url": "/agent/calendar_feed.php",
+  "params": [
+   "token"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/campaigns.php",
+  "url": "/agent/campaigns.php",
+  "params": [
+   "segment_id",
+   "campaign_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/certificate_details.php",
+  "url": "/agent/certificate_details.php?client_id=16",
+  "params": [
+   "client_id",
+   "id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/certificates.php",
+  "url": "/agent/certificates.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "scope",
+   "client"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/change_details.php",
+  "url": "/agent/change_details.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/changes.php",
+  "url": "/agent/changes.php",
+  "params": [
+   "status",
+   "risk"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/client_autopay.php",
+  "url": "/agent/client_autopay.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/client_overview.php",
+  "url": "/agent/client_overview.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/clients.php",
+  "url": "/agent/clients.php",
+  "params": [
+   "tags",
+   "industry",
+   "referral"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/contact_details.php",
+  "url": "/agent/contact_details.php?client_id=16&contact_id=1",
+  "params": [
+   "client_id",
+   "contact_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "contact_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/contacts.php",
+  "url": "/agent/contacts.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "tags",
+   "client",
+   "location"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/contracts.php",
+  "url": "/agent/contracts.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/credential_reveal.php",
+  "url": "/agent/credential_reveal.php",
+  "params": [],
+  "ids": {},
+  "skip": "reveals secrets",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/credentials.php",
+  "url": "/agent/credentials.php?client_id=16&folder_id=1",
+  "params": [
+   "client_id",
+   "archived",
+   "scope",
+   "folder_id",
+   "tags",
+   "client",
+   "location",
+   "type"
+  ],
+  "ids": {
+   "client_id": "16",
+   "folder_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/crm_ajax.php",
+  "url": "/agent/crm_ajax.php",
+  "params": [
+   "log_activity",
+   "complete_activity",
+   "segment_preview"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/csat.php",
+  "url": "/agent/csat.php?client_id=16",
+  "params": [
+   "client_id",
+   "client",
+   "rating",
+   "tech",
+   "followup"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/dashboard.php",
+  "url": "/agent/dashboard.php",
+  "params": [
+   "year",
+   "enable_financial",
+   "financial_chart_type",
+   "technical_chart_type"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/document_details.php",
+  "url": "/agent/document_details.php?client_id=16&document_id=1",
+  "params": [
+   "client_id",
+   "document_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "document_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/domain_details.php",
+  "url": "/agent/domain_details.php?client_id=16",
+  "params": [
+   "client_id",
+   "id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/domains.php",
+  "url": "/agent/domains.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "scope",
+   "client"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/expenses.php",
+  "url": "/agent/expenses.php",
+  "params": [
+   "account",
+   "vendor",
+   "category"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/files.php",
+  "url": "/agent/files.php?client_id=16&folder_id=1",
+  "params": [
+   "client_id",
+   "folder_id",
+   "view",
+   "folders_expanded",
+   "q",
+   "sort",
+   "order"
+  ],
+  "ids": {
+   "client_id": "16",
+   "folder_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/firewalls.php",
+  "url": "/agent/firewalls.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/global_search.php",
+  "url": "/agent/global_search.php",
+  "params": [
+   "query"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/index.php",
+  "url": "/agent/index.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/intune_devices.php",
+  "url": "/agent/intune_devices.php?client_id=16",
+  "params": [
+   "compliance",
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/invoice.php",
+  "url": "/agent/invoice.php?client_id=16",
+  "params": [
+   "client_id",
+   "invoice_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/invoices.php",
+  "url": "/agent/invoices.php?client_id=16",
+  "params": [
+   "client_id",
+   "status",
+   "category"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/it_dashboard.php",
+  "url": "/agent/it_dashboard.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_article.php",
+  "url": "/agent/kb_article.php?client_id=16",
+  "params": [
+   "client_id",
+   "id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_article_attachment.php",
+  "url": "/agent/kb_article_attachment.php",
+  "params": [
+   "id",
+   "download"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_article_upload.php",
+  "url": "/agent/kb_article_upload.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_article_versions.php",
+  "url": "/agent/kb_article_versions.php?client_id=16&kb_article_id=1",
+  "params": [
+   "client_id",
+   "kb_article_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "kb_article_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_articles.php",
+  "url": "/agent/kb_articles.php?client_id=16",
+  "params": [
+   "client_id",
+   "filter_client_id",
+   "filter_category_id",
+   "filter_needs_review"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_embed.php",
+  "url": "/agent/kb_embed.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_media.php",
+  "url": "/agent/kb_media.php",
+  "params": [
+   "s",
+   "f",
+   "download"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/kb_progress.php",
+  "url": "/agent/kb_progress.php",
+  "params": [
+   "a"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/locations.php",
+  "url": "/agent/locations.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "scope",
+   "client",
+   "tags"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/mail_requests.php",
+  "url": "/agent/mail_requests.php",
+  "params": [],
+  "ids": {},
+  "skip": "mail requests - Email sync area",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/mdm_devices.php",
+  "url": "/agent/mdm_devices.php?client_id=16",
+  "params": [
+   "view",
+   "platform",
+   "state",
+   "q",
+   "older",
+   "client_id",
+   "dismissed"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/my_dashboard.php",
+  "url": "/agent/my_dashboard.php",
+  "params": [
+   "customise"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/network.php",
+  "url": "/agent/network.php?client_id=16",
+  "params": [
+   "client_id",
+   "status",
+   "device_type",
+   "q"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/network_drives.php",
+  "url": "/agent/network_drives.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/networks.php",
+  "url": "/agent/networks.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "client",
+   "location"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/notifications.php",
+  "url": "/agent/notifications.php",
+  "params": [
+   "dismissed"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/opportunities.php",
+  "url": "/agent/opportunities.php?client_id=16",
+  "params": [
+   "client_id",
+   "stage",
+   "status"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/org_chart.php",
+  "url": "/agent/org_chart.php?client_id=16&location_id=1",
+  "params": [
+   "client_id",
+   "location_id",
+   "status"
+  ],
+  "ids": {
+   "client_id": "16",
+   "location_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/outlook_calendar_callback.php",
+  "url": "/agent/outlook_calendar_callback.php",
+  "params": [
+   "state",
+   "error",
+   "error_description",
+   "code"
+  ],
+  "ids": {},
+  "skip": "OAuth callback (integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/outlook_calendar_connect.php",
+  "url": "/agent/outlook_calendar_connect.php",
+  "params": [],
+  "ids": {},
+  "skip": "starts OAuth to Microsoft (integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/outtake_form.php",
+  "url": "/agent/outtake_form.php?client_id=16&ticket_id=248",
+  "params": [
+   "client_id",
+   "outtake_id",
+   "ticket_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "ticket_id": "248"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/payments.php",
+  "url": "/agent/payments.php?client_id=16",
+  "params": [
+   "client_id",
+   "method",
+   "account"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/pipeline.php",
+  "url": "/agent/pipeline.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/post.php",
+  "url": "/agent/post.php",
+  "params": [],
+  "ids": {},
+  "skip": "POST handler",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/printers.php",
+  "url": "/agent/printers.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/problem_details.php",
+  "url": "/agent/problem_details.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/problems.php",
+  "url": "/agent/problems.php",
+  "params": [
+   "status"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/products.php",
+  "url": "/agent/products.php",
+  "params": [
+   "type",
+   "category"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/project_details.php",
+  "url": "/agent/project_details.php?client_id=16&project_id=4",
+  "params": [
+   "client_id",
+   "project_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "project_id": "4"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/project_gantt.php",
+  "url": "/agent/project_gantt.php?client_id=16&project_id=4",
+  "params": [
+   "client_id",
+   "project_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "project_id": "4"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/project_kanban.php",
+  "url": "/agent/project_kanban.php?client_id=16&project_id=4",
+  "params": [
+   "client_id",
+   "project_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "project_id": "4"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/projects.php",
+  "url": "/agent/projects.php?client_id=16",
+  "params": [
+   "client_id",
+   "status",
+   "archived"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/quote.php",
+  "url": "/agent/quote.php?client_id=16",
+  "params": [
+   "client_id",
+   "quote_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/quotes.php",
+  "url": "/agent/quotes.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/racks.php",
+  "url": "/agent/racks.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/recurring_expenses.php",
+  "url": "/agent/recurring_expenses.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/recurring_invoice.php",
+  "url": "/agent/recurring_invoice.php?client_id=16",
+  "params": [
+   "client_id",
+   "recurring_invoice_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/recurring_invoices.php",
+  "url": "/agent/recurring_invoices.php?client_id=16",
+  "params": [
+   "client_id",
+   "status"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/recurring_tickets.php",
+  "url": "/agent/recurring_tickets.php?client_id=16",
+  "params": [
+   "client_id",
+   "category",
+   "assigned_agent",
+   "billable"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/revenues.php",
+  "url": "/agent/revenues.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_add_device.php",
+  "url": "/agent/rmm_add_device.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": "enrolment",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_agent_alerts.php",
+  "url": "/agent/rmm_agent_alerts.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_agent_device.php",
+  "url": "/agent/rmm_agent_device.php",
+  "params": [
+   "device_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_alerts.php",
+  "url": "/agent/rmm_alerts.php?asset_id=92&client_id=16",
+  "params": [
+   "status",
+   "severity",
+   "asset_id",
+   "client_id",
+   "q"
+  ],
+  "ids": {
+   "asset_id": "92",
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_approvals.php",
+  "url": "/agent/rmm_approvals.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_asset.php",
+  "url": "/agent/rmm_asset.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_assets.php",
+  "url": "/agent/rmm_assets.php?client_id=16",
+  "params": [
+   "status",
+   "client_id",
+   "integration_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_checks.php",
+  "url": "/agent/rmm_checks.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_dashboard.php",
+  "url": "/agent/rmm_dashboard.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_escalations.php",
+  "url": "/agent/rmm_escalations.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_fields.php",
+  "url": "/agent/rmm_fields.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_fleet.php",
+  "url": "/agent/rmm_fleet.php?client_id=16",
+  "params": [
+   "installer",
+   "client_id",
+   "status",
+   "q",
+   "ring",
+   "page",
+   "tag",
+   "group",
+   "software",
+   "osw",
+   "osv"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_hypervisors.php",
+  "url": "/agent/rmm_hypervisors.php",
+  "params": [
+   "host_id",
+   "vm_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_job_output.php",
+  "url": "/agent/rmm_job_output.php",
+  "params": [
+   "device_id",
+   "job_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_log_rules.php",
+  "url": "/agent/rmm_log_rules.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_logs.php",
+  "url": "/agent/rmm_logs.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_maintenance.php",
+  "url": "/agent/rmm_maintenance.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_patch_policies.php",
+  "url": "/agent/rmm_patch_policies.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_patch_updates.php",
+  "url": "/agent/rmm_patch_updates.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_patches.php",
+  "url": "/agent/rmm_patches.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_policies.php",
+  "url": "/agent/rmm_policies.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_schedules.php",
+  "url": "/agent/rmm_schedules.php?schedule_id=1",
+  "params": [
+   "schedule_id",
+   "new"
+  ],
+  "ids": {
+   "schedule_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_script_library.php",
+  "url": "/agent/rmm_script_library.php",
+  "params": [
+   "script_id",
+   "new"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_script_run.php",
+  "url": "/agent/rmm_script_run.php?run_id=1",
+  "params": [
+   "run_id"
+  ],
+  "ids": {
+   "run_id": "1"
+  },
+  "skip": "runs an RMM script",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_scripts.php",
+  "url": "/agent/rmm_scripts.php",
+  "params": [
+   "category",
+   "q"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_software.php",
+  "url": "/agent/rmm_software.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_software_assignments.php",
+  "url": "/agent/rmm_software_assignments.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_software_report.php",
+  "url": "/agent/rmm_software_report.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_software_report_csv.php",
+  "url": "/agent/rmm_software_report_csv.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/rmm_starter_pack.php",
+  "url": "/agent/rmm_starter_pack.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/segments.php",
+  "url": "/agent/segments.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/service_catalog.php",
+  "url": "/agent/service_catalog.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/service_catalog_approvals.php",
+  "url": "/agent/service_catalog_approvals.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/services.php",
+  "url": "/agent/services.php?client_id=16",
+  "params": [
+   "client_id",
+   "client"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/software.php",
+  "url": "/agent/software.php?client_id=16",
+  "params": [
+   "client_id",
+   "archived",
+   "scope",
+   "client"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/sse_ticket_stream.php",
+  "url": "/agent/sse_ticket_stream.php?ticket_id=248",
+  "params": [
+   "ticket_id"
+  ],
+  "ids": {
+   "ticket_id": "248"
+  },
+  "skip": null,
+  "ajax": true,
+  "sse": true,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/ticket.php",
+  "url": "/agent/ticket.php?client_id=16&ticket_id=248",
+  "params": [
+   "client_id",
+   "ticket_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "ticket_id": "248"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/ticket_attachment_upload.php",
+  "url": "/agent/ticket_attachment_upload.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/ticket_kanban.php",
+  "url": "/agent/ticket_kanban.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/ticket_list.php",
+  "url": "/agent/ticket_list.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/tickets.php",
+  "url": "/agent/tickets.php?client_id=16",
+  "params": [
+   "client_id",
+   "status",
+   "billable",
+   "unbilled",
+   "project",
+   "tags",
+   "due_today",
+   "overdue",
+   "view"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training.php",
+  "url": "/agent/training.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_achievements.php",
+  "url": "/agent/training_achievements.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_ajax.php",
+  "url": "/agent/training_ajax.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_assignments.php",
+  "url": "/agent/training_assignments.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "rules"
+  ]
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_awards.php",
+  "url": "/agent/training_awards.php?contact_id=1&achievement_id=1",
+  "params": [
+   "contact_id",
+   "achievement_id"
+  ],
+  "ids": {
+   "contact_id": "1",
+   "achievement_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_banks.php",
+  "url": "/agent/training_banks.php",
+  "params": [
+   "bank_id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_certificate.php",
+  "url": "/agent/training_certificate.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_course.php",
+  "url": "/agent/training_course.php?course_id=1",
+  "params": [
+   "course_id"
+  ],
+  "ids": {
+   "course_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_courses.php",
+  "url": "/agent/training_courses.php?category_id=1",
+  "params": [
+   "kind",
+   "status",
+   "category_id",
+   "tag_ids",
+   "mine",
+   "sort"
+  ],
+  "ids": {
+   "category_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_dashboard.php",
+  "url": "/agent/training_dashboard.php?client_id=16&course_id=1",
+  "params": [
+   "client_id",
+   "course_id",
+   "months"
+  ],
+  "ids": {
+   "client_id": "16",
+   "course_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_device_bulk.php",
+  "url": "/agent/training_device_bulk.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_device_fleet.php",
+  "url": "/agent/training_device_fleet.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_device_setup.php",
+  "url": "/agent/training_device_setup.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_device_slips.php",
+  "url": "/agent/training_device_slips.php",
+  "params": [
+   "t",
+   "cleared"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_devices.php",
+  "url": "/agent/training_devices.php",
+  "params": [
+   "tab"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "guide",
+   "people"
+  ]
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_evidence.php",
+  "url": "/agent/training_evidence.php",
+  "params": [
+   "m",
+   "a",
+   "dl"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_evidence_upload.php",
+  "url": "/agent/training_evidence_upload.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_item_analysis.php",
+  "url": "/agent/training_item_analysis.php",
+  "params": [
+   "lang",
+   "kind",
+   "period"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_locked.php",
+  "url": "/agent/training_locked.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_media.php",
+  "url": "/agent/training_media.php",
+  "params": [
+   "m",
+   "dl"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_paths.php",
+  "url": "/agent/training_paths.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_pdf.php",
+  "url": "/agent/training_pdf.php",
+  "params": [
+   "doc",
+   "dl",
+   "lang"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_people.php",
+  "url": "/agent/training_people.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "groups",
+   "links",
+   "trainers"
+  ]
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_pin_slips.php",
+  "url": "/agent/training_pin_slips.php",
+  "params": [
+   "t",
+   "cleared"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_preview.php",
+  "url": "/agent/training_preview.php?course_id=1&revision_id=1",
+  "params": [
+   "course_id",
+   "revision_id",
+   "lang",
+   "lesson",
+   "source"
+  ],
+  "ids": {
+   "course_id": "1",
+   "revision_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_quiz.php",
+  "url": "/agent/training_quiz.php?lesson_id=1",
+  "params": [
+   "lesson_id"
+  ],
+  "ids": {
+   "lesson_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_record.php",
+  "url": "/agent/training_record.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_records.php",
+  "url": "/agent/training_records.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "sessions"
+  ]
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_reports.php",
+  "url": "/agent/training_reports.php",
+  "params": [
+   "tab"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": [
+   "course",
+   "expiring",
+   "matrix"
+  ]
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_revision_compare.php",
+  "url": "/agent/training_revision_compare.php",
+  "params": [
+   "kind"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_rule.php",
+  "url": "/agent/training_rule.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_session.php",
+  "url": "/agent/training_session.php",
+  "params": [
+   "new"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_settings.php",
+  "url": "/agent/training_settings.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_transcript.php",
+  "url": "/agent/training_transcript.php?contact_id=1",
+  "params": [
+   "contact_id",
+   "print"
+  ],
+  "ids": {
+   "contact_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_upload.php",
+  "url": "/agent/training_upload.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/training_video_frame.php",
+  "url": "/agent/training_video_frame.php",
+  "params": [
+   "p",
+   "id",
+   "h"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/transfers.php",
+  "url": "/agent/transfers.php",
+  "params": [
+   "account_from",
+   "account_to"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/trips.php",
+  "url": "/agent/trips.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/vendor_details.php",
+  "url": "/agent/vendor_details.php?client_id=16&vendor_id=1",
+  "params": [
+   "client_id",
+   "vendor_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "vendor_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/vendors.php",
+  "url": "/agent/vendors.php?client_id=16",
+  "params": [
+   "client_id"
+  ],
+  "ids": {
+   "client_id": "16"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/workflow_preview.php",
+  "url": "/agent/workflow_preview.php?contact_id=1&workflow_template_id=1",
+  "params": [
+   "contact_id",
+   "workflow_template_id"
+  ],
+  "ids": {
+   "contact_id": "1",
+   "workflow_template_id": "1"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/workflow_run.php",
+  "url": "/agent/workflow_run.php?run_id=1",
+  "params": [
+   "run_id"
+  ],
+  "ids": {
+   "run_id": "1"
+  },
+  "skip": "executes a workflow",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "agent",
+  "file": "agent/worksheet.php",
+  "url": "/agent/worksheet.php?client_id=16&ticket_id=248",
+  "params": [
+   "client_id",
+   "worksheet_id",
+   "ticket_id"
+  ],
+  "ids": {
+   "client_id": "16",
+   "ticket_id": "248"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/allowance.php",
+  "url": "/client/allowance.php",
+  "params": [
+   "month",
+   "year"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/assets.php",
+  "url": "/client/assets.php",
+  "params": [
+   "scope"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/certificates.php",
+  "url": "/client/certificates.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/compliance.php",
+  "url": "/client/compliance.php",
+  "params": [
+   "framework"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/contact_add.php",
+  "url": "/client/contact_add.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/contact_edit.php",
+  "url": "/client/contact_edit.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/contacts.php",
+  "url": "/client/contacts.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/contracts.php",
+  "url": "/client/contracts.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/document.php",
+  "url": "/client/document.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/documents.php",
+  "url": "/client/documents.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/domains.php",
+  "url": "/client/domains.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/functions.php",
+  "url": "/client/functions.php",
+  "params": [],
+  "ids": {},
+  "skip": "include file, not a page",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/index.php",
+  "url": "/client/index.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/invoices.php",
+  "url": "/client/invoices.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/kb_article.php",
+  "url": "/client/kb_article.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/kb_articles.php",
+  "url": "/client/kb_articles.php",
+  "params": [
+   "q"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/kb_embed.php",
+  "url": "/client/kb_embed.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/kb_media.php",
+  "url": "/client/kb_media.php",
+  "params": [
+   "f",
+   "s",
+   "p",
+   "e",
+   "download"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/kb_progress.php",
+  "url": "/client/kb_progress.php",
+  "params": [
+   "a"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/login_microsoft.php",
+  "url": "/client/login_microsoft.php",
+  "params": [],
+  "ids": {},
+  "skip": "SSO flow (integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/login_odoo.php",
+  "url": "/client/login_odoo.php",
+  "params": [
+   "code",
+   "state",
+   "error"
+  ],
+  "ids": {},
+  "skip": "Odoo login flow (Odoo)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/login_oidc.php",
+  "url": "/client/login_oidc.php",
+  "params": [
+   "code",
+   "error",
+   "state",
+   "as"
+  ],
+  "ids": {},
+  "skip": "SSO flow (integration)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/login_reset.php",
+  "url": "/client/login_reset.php",
+  "params": [
+   "token",
+   "email",
+   "client"
+  ],
+  "ids": {},
+  "skip": "password reset flow (sends email)",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/my_approvals.php",
+  "url": "/client/my_approvals.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/onboarding_request.php",
+  "url": "/client/onboarding_request.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/portal_theme.css.php",
+  "url": "/client/portal_theme.css.php",
+  "params": [
+   "a",
+   "r"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": true,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/post.php",
+  "url": "/client/post.php?approval_id=1",
+  "params": [
+   "approve_ticket_task",
+   "csrf_token",
+   "approval_id",
+   "approval_url_key",
+   "resolve_ticket",
+   "reopen_ticket",
+   "close_ticket",
+   "logout",
+   "add_payment_by_provider",
+   "invoice_id",
+   "create_stripe_checkout",
+   "stripe_save_card",
+   "session_id",
+   "delete_saved_payment",
+   "client_serve_contract_doc"
+  ],
+  "ids": {
+   "approval_id": "1"
+  },
+  "skip": "POST handler",
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/profile.php",
+  "url": "/client/profile.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/quotes.php",
+  "url": "/client/quotes.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/recurring_invoices.php",
+  "url": "/client/recurring_invoices.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/saved_payment_methods.php",
+  "url": "/client/saved_payment_methods.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/service_catalog.php",
+  "url": "/client/service_catalog.php",
+  "params": [
+   "q"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/sse_ticket_stream.php",
+  "url": "/client/sse_ticket_stream.php?ticket_id=248",
+  "params": [
+   "ticket_id"
+  ],
+  "ids": {
+   "ticket_id": "248"
+  },
+  "skip": null,
+  "ajax": true,
+  "sse": true,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/ticket.php",
+  "url": "/client/ticket.php",
+  "params": [
+   "id"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/ticket_add.php",
+  "url": "/client/ticket_add.php?catalog_item_id=1&asset_id=92",
+  "params": [
+   "catalog_item_id",
+   "asset_id"
+  ],
+  "ids": {
+   "catalog_item_id": "1",
+   "asset_id": "92"
+  },
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/ticket_view_all.php",
+  "url": "/client/ticket_view_all.php",
+  "params": [
+   "status"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/tickets.php",
+  "url": "/client/tickets.php",
+  "params": [
+   "status"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/training.php",
+  "url": "/client/training.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/training_manage.php",
+  "url": "/client/training_manage.php",
+  "params": [
+   "export"
+  ],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/training_start.php",
+  "url": "/client/training_start.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ },
+ {
+  "module": "client",
+  "file": "client/unpaid_invoices.php",
+  "url": "/client/unpaid_invoices.php",
+  "params": [],
+  "ids": {},
+  "skip": null,
+  "ajax": false,
+  "sse": false,
+  "tabs": []
+ }
+]
