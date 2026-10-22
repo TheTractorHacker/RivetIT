@@ -70,14 +70,15 @@
         // course too (cover_gallery_add), not just this one. Opt-in, not automatic - an author's draft screenshot
         // shouldn't silently become everyone's dropdown option.
         n.galleryLabel = el('input', { type: 'text', class: 'form-control form-control-sm', placeholder: 'Label, e.g. "Forklift in our warehouse"', maxlength: '100' });
-        n.galleryCategory = el('input', { type: 'text', class: 'form-control form-control-sm', placeholder: 'Category, e.g. "Equipment"', maxlength: '50' });
+        n.galleryCategorySelect = el('select', { class: 'form-select form-select-sm', 'aria-label': 'Category' });
+        n.galleryCategoryNew = el('input', { type: 'text', class: 'form-control form-control-sm mt-1', placeholder: 'New category name', maxlength: '50', hidden: true });
         n.galleryBtn = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: shareToGallery } }, [icon('images'), ' Add to shared gallery']);
         n.galleryStatus = el('span', { class: 'small text-muted ms-2' });
         n.galleryForm = el('div', { class: 'tr-cover-share mt-3 pt-3', hidden: true, style: 'border-top:1px solid var(--color-border,#dee2e6);' }, [
             el('div', { class: 'small fw-medium mb-2' }, [icon('share-alt'), ' Also add this to the shared gallery, for other courses to pick too']),
             el('div', { class: 'row g-2 align-items-center' }, [
                 el('div', { class: 'col-sm-5' }, [n.galleryLabel]),
-                el('div', { class: 'col-sm-4' }, [n.galleryCategory]),
+                el('div', { class: 'col-sm-4' }, [n.galleryCategorySelect, n.galleryCategoryNew]),
                 el('div', { class: 'col-sm-3' }, [n.galleryBtn]),
             ]),
             n.galleryStatus,
@@ -147,6 +148,11 @@
             }
         });
         n.custom.addEventListener('input', function () { setColor(n.custom.value.toUpperCase(), true); });
+        n.galleryCategorySelect.addEventListener('change', function () {
+            var isNew = n.galleryCategorySelect.value === '__new__';
+            n.galleryCategoryNew.hidden = !isNew;
+            if (isNew) { n.galleryCategoryNew.focus(); }
+        });
         n.remove.addEventListener('click', function () {
             state.choice = { kind: 'none' };
             renderGrid();
@@ -326,6 +332,17 @@
         modal.error.hidden = true;
     }
 
+    /** Fills the category dropdown from the categories the gallery already has, plus a "new category" option. */
+    function populateGalleryCategories() {
+        var cats = (presets && presets.categories) || [];
+        modal.galleryCategorySelect.textContent = '';
+        cats.forEach(function (c) { modal.galleryCategorySelect.appendChild(el('option', { value: c, text: c })); });
+        modal.galleryCategorySelect.appendChild(el('option', { value: '__new__', text: '+ New category…' }));
+        modal.galleryCategorySelect.value = cats.length ? cats[0] : '__new__';
+        modal.galleryCategoryNew.value = '';
+        modal.galleryCategoryNew.hidden = modal.galleryCategorySelect.value !== '__new__';
+    }
+
     // --------------------------------------------------------------------------------- actions
     function upload(file) {
         if (!file || !window.TrainingUploader) { return; }
@@ -342,7 +359,7 @@
             state.choice = { kind: 'media', id: m.id, url: m.url, uploaded: true };
             status.textContent = 'Uploaded. Check the preview, then choose "Use this cover".';
             modal.galleryLabel.value = '';
-            modal.galleryCategory.value = '';
+            populateGalleryCategories();
             modal.galleryStatus.textContent = '';
             modal.galleryBtn.disabled = false;
             modal.galleryForm.hidden = false;
@@ -362,13 +379,20 @@
             modal.galleryLabel.focus();
             return;
         }
+        var isNewCat = modal.galleryCategorySelect.value === '__new__';
+        var category = (isNewCat ? modal.galleryCategoryNew.value : modal.galleryCategorySelect.value).trim();
+        if (!category) {
+            modal.galleryStatus.textContent = 'Name the new category first.';
+            modal.galleryCategoryNew.focus();
+            return;
+        }
         var token = state;
         modal.galleryBtn.disabled = true;
         modal.galleryStatus.textContent = 'Saving…';
         api.post('cover_gallery_add', {
             media_id: state.choice.id,
             label: label,
-            category: modal.galleryCategory.value.trim() || 'Custom',
+            category: category,
             tint: state.color && presets ? (function () {
                 var found = presets.tints.filter(function (t) { return t.color === state.color; })[0];
                 return found ? found.name : 'slate';
@@ -378,6 +402,7 @@
             modal.galleryStatus.textContent = 'Added to the shared gallery.';
             modal.galleryBtn.disabled = true;
             if (presets && d && d.cover) { presets.covers.push(d.cover); }   // visible in the Gallery tab immediately, no reload
+            if (presets && isNewCat && presets.categories.indexOf(category) === -1) { presets.categories.push(category); }
             state.choice.key = d && d.cover ? d.cover.key : state.choice.key;
             renderGrid();
         }, function (err) {
