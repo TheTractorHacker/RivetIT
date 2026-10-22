@@ -42,6 +42,10 @@ $ok($added['category'] === 'Equipment', 'category is kept as given');
 $ok($added['tint'] === 'green' && $added['color'] === '#16A34A', 'a known tint name resolves to its real hex');
 $ok($added['media_id'] === 1, 'the shared cover points at the right media row');
 $ok(str_starts_with($added['key'], 'custom:'), "a shared cover's key is namespaced 'custom:', never collides with a built-in key");
+// Regression: addCustom()'s own return must carry the same gallery_id/added_by fields as customCovers() - the
+// Cover Library page replaces its cached cover with this return value after a save (no extra round trip), and
+// without these its canManage() check loses the Edit/Remove buttons until a full page reload.
+$ok($added['gallery_id'] > 0 && $added['added_by'] === 1, "addCustom()'s return includes gallery_id/added_by, not just customCovers()'s");
 
 $api1 = CoverLibrary::api($ctx);
 $ok(count($api1['covers']) === 31, 'the shared cover now appears in the gallery');

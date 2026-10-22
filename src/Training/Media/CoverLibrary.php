@@ -227,10 +227,15 @@ final class CoverLibrary
             VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE gallery_label = VALUES(gallery_label), gallery_category = VALUES(gallery_category), gallery_tint = VALUES(gallery_tint)',
             'issis', [$mediaId, $label, $category, $tintName, $c->userId]);
-        $row = Db::one($c->db, 'SELECT gallery_id FROM training_cover_gallery WHERE gallery_media_id = ?', 'i', [$mediaId]);
+        $row = Db::one($c->db, 'SELECT g.gallery_id, g.gallery_added_by, g.gallery_created_at, u.user_name
+            FROM training_cover_gallery g LEFT JOIN users u ON u.user_id = g.gallery_added_by WHERE g.gallery_media_id = ?', 'i', [$mediaId]);
         $galleryId = (int) ($row['gallery_id'] ?? 0);
+        // Same fields as customCovers(): the JS replaces its cached cover with this return value after a save
+        // (no extra round trip), and canManage() there needs gallery_id/added_by to still show Edit/Remove after it.
         return ['key' => 'custom:' . $galleryId, 'label' => $label, 'category' => $category, 'tint' => $tintName, 'color' => self::TINTS[$tintName],
-            'keywords' => [], 'media_id' => $mediaId, 'thumb_url' => MediaStore::url($mediaId), 'image_url' => MediaStore::url($mediaId)];
+            'keywords' => [], 'media_id' => $mediaId, 'thumb_url' => MediaStore::url($mediaId), 'image_url' => MediaStore::url($mediaId),
+            'gallery_id' => $galleryId, 'added_by' => (int) ($row['gallery_added_by'] ?? $c->userId),
+            'added_by_name' => $row['user_name'] ?? null, 'created_at' => (string) ($row['gallery_created_at'] ?? '')];
     }
 
     /**
