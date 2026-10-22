@@ -419,6 +419,12 @@ $ts_module_on = !empty($config_module_enable_training);
     .tao-create-pop { position: absolute; z-index: 30; top: calc(100% + .4rem); right: 0; width: max-content;
         padding: .6rem .7rem; border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 10px);
         background: var(--if-surface, #fff); box-shadow: 0 10px 28px rgba(16, 24, 32, .16); max-width: 18rem; }
+    /* Marks the row a Save/Create/toggle just acted on, after the page reload brings you back to it. */
+    .tao-row-flash { animation: tao-row-flash 1.6s ease-out; }
+    @keyframes tao-row-flash {
+        0% { background-color: rgba(var(--if-primary-rgb, 13, 148, 136), .22); }
+        100% { background-color: transparent; }
+    }
 </style>
 
 <div class="ts-page">

@@ -570,7 +570,7 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
     }
     $fid = 'taoSk' . ($entity === 'course' ? 'C' : 'A') . intval($e['id']); ?>
     <div class="tao-skillcell">
-        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-skill-form">
+        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-skill-form tao-row-action">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
             <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
             <input type="hidden" name="entity_id" value="<?php echo intval($e['id']); ?>">
@@ -588,7 +588,7 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
         <?php } else { ?>
         <details class="tao-create">
             <summary class="tao-create-btn btn btn-outline-secondary btn-sm" title="Create a skill in Odoo named after this <?php echo nullable_htmlentities($entity); ?>"><i class="fas fa-plus" aria-hidden="true"></i></summary>
-            <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-create-pop small">
+            <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-create-pop small tao-row-action">
                 <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                 <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
                 <input type="hidden" name="entity_id" value="<?php echo intval($e['id']); ?>">
@@ -603,7 +603,7 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
 };
 /** The single on/off toggle for "Sent to Odoo" (replaces a status badge + a separate button). */
 $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao_post, $tao_csrf): void { ?>
-    <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
+    <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline tao-row-action">
         <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
         <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
         <input type="hidden" name="entity_id" value="<?php echo intval($id); ?>">
@@ -614,7 +614,7 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
     </form>
 <?php };
 ?>
-        <details class="tao-acc mb-2">
+        <details class="tao-acc mb-2" id="tao-acc-course">
             <summary>
                 <i class="fas fa-fw fa-graduation-cap" aria-hidden="true"></i> Courses
                 <span class="tao-acc-counts">
@@ -632,7 +632,7 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
                     <thead><tr><th>Course</th><th>Sent to Odoo</th><th>Certification skill</th></tr></thead>
                     <tbody>
                     <?php foreach ($tao['courses'] as $tao_c) { $tao_on = (int) $tao_c['push'] === 1; ?>
-                        <tr>
+                        <tr data-tao-row="course-<?php echo intval($tao_c['id']); ?>">
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_c['name']); ?><?php if (!empty($tao_c['code'])) { ?> <span class="text-muted small font-monospace"><?php echo nullable_htmlentities((string) $tao_c['code']); ?></span><?php } ?></td>
                             <td><?php $tao_push_toggle('course', (int) $tao_c['id'], $tao_on); ?></td>
                             <td><?php $tao_skill_cell('course', $tao_c); ?></td>
@@ -643,7 +643,7 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
             </div>
             <?php } ?>
         </details>
-        <details class="tao-acc">
+        <details class="tao-acc" id="tao-acc-achievement">
             <summary>
                 <i class="fas fa-fw fa-award" aria-hidden="true"></i> Achievements
                 <span class="tao-acc-counts">
@@ -661,7 +661,7 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
                     <thead><tr><th>Achievement</th><th>Sent to Odoo</th><th>Certification skill</th></tr></thead>
                     <tbody>
                     <?php foreach ($tao['achievements'] as $tao_a) { $tao_on = (int) $tao_a['push'] === 1; ?>
-                        <tr>
+                        <tr data-tao-row="achievement-<?php echo intval($tao_a['id']); ?>">
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_a['name']); ?></td>
                             <td><?php $tao_push_toggle('achievement', (int) $tao_a['id'], $tao_on); ?></td>
                             <td><?php $tao_skill_cell('achievement', $tao_a); ?></td>
@@ -674,4 +674,52 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
         </details>
     </div>
 </div>
+<script nonce="<?php echo nullable_htmlentities($csp_nonce ?? ''); ?>">
+// Every row action here (Sent to Odoo toggle, certification Save, Create in Odoo) is a plain form
+// post - this page reloads. Without this, that reload dumps you back at the top of the Send to Odoo
+// card with Courses/Achievements collapsed again, so saving one row of a long list meant re-opening
+// and re-scrolling to find it every single time. Remembers which accordion sections were open and
+// restores them, and remembers which row a submit came from (sessionStorage, this tab only) to
+// re-open its section, scroll it into view and flash it after the reload.
+(function () {
+    var KEY_OPEN = 'taoOpenSections';
+    var KEY_ROW = 'taoLastRow';
+    var accs = Array.prototype.slice.call(document.querySelectorAll('#odoo-send details.tao-acc[id]'));
+
+    function readOpen() { try { return JSON.parse(sessionStorage.getItem(KEY_OPEN) || '[]'); } catch (e) { return []; } }
+    function saveOpen() {
+        try { sessionStorage.setItem(KEY_OPEN, JSON.stringify(accs.filter(function (d) { return d.open; }).map(function (d) { return d.id; }))); } catch (e) { /* private mode etc. */ }
+    }
+    var open = readOpen();
+    accs.forEach(function (d) {
+        if (open.indexOf(d.id) !== -1) { d.open = true; }
+        d.addEventListener('toggle', saveOpen);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('#odoo-send .tao-row-action'), function (form) {
+        form.addEventListener('submit', function () {
+            var row = form.closest('tr[data-tao-row]');
+            var acc = form.closest('details.tao-acc[id]');
+            if (!row || !acc) { return; }
+            try { sessionStorage.setItem(KEY_ROW, JSON.stringify({ acc: acc.id, row: row.getAttribute('data-tao-row') })); } catch (e) { /* ignore */ }
+        });
+    });
+
+    var last = null;
+    try { last = JSON.parse(sessionStorage.getItem(KEY_ROW) || 'null'); } catch (e) { last = null; }
+    if (last) {
+        sessionStorage.removeItem(KEY_ROW);
+        var acc = document.getElementById(last.acc);
+        var row = acc && acc.querySelector('tr[data-tao-row="' + last.row.replace(/"/g, '') + '"]');
+        if (acc && row) {
+            acc.open = true;
+            window.requestAnimationFrame(function () {
+                row.scrollIntoView({ block: 'center' });
+                row.classList.add('tao-row-flash');
+                setTimeout(function () { row.classList.remove('tao-row-flash'); }, 1600);
+            });
+        }
+    }
+})();
+</script>
 <?php } ?>
