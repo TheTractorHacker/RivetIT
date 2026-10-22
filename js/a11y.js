@@ -22,7 +22,8 @@
         if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) { return true; }
         if (el.tagName !== 'SELECT' && el.tagName !== 'INPUT' && el.textContent && el.textContent.trim() !== '') { return true; }
         if (el.getAttribute('title')) { return true; }
-        if (el.id && document.querySelector('label[for="' + el.id.replace(/"/g, '') + '"]')) { return true; }
+        var lbl = el.id && document.querySelector('label[for="' + el.id.replace(/"/g, '') + '"]');
+        if (lbl && lbl.textContent.trim() !== '') { return true; }
         if (el.closest && el.closest('label')) { return true; }
         return !!el.querySelector('img[alt]:not([alt=""])');
     }
@@ -69,7 +70,10 @@
             if (hasName(el)) { return; }
             var id = el.id || '';
             var name = '';
+            var rowText = (el.closest('tr, li, .d-flex, .form-switch, .form-check') || {}).textContent;
+            rowText = rowText ? rowText.replace(/\s+/g, ' ').trim() : '';
             if (id === 'selectAllCheckbox' || /select-?all/i.test(el.className + id)) { name = 'Select all rows'; }
+            else if (rowText && rowText.length < 50 && !/bulk-select/.test(el.className)) { name = rowText; }
             else if (/bulk-select|row-select|alert-chk|-chk\b/.test(el.className) || /\[\]$/.test(el.name || '')) { name = 'Select row'; }
             else if (el.name) { name = el.name.replace(/[\[\]_]+/g, ' ').trim(); }
             if (!name) {
@@ -227,6 +231,20 @@
         });
     }
 
+    // Standalone pages (sign in, MFA enrolment, password reset, guest sign-in) have no app shell: give them the same landmark + h1.
+    function standalonePage() {
+        if (document.getElementById('main-content')) { return; }
+        var box = document.querySelector('.page-center .container-tight, .page-center .container, .container-tight');
+        if (!box) { return; }
+        box.id = 'main-content'; box.setAttribute('role', 'main');
+        if (!document.querySelector('h1, [role="heading"][aria-level="1"]')) {
+            var h = document.createElement('h1');
+            h.className = 'visually-hidden';
+            h.textContent = (document.title || '').split('|')[0].trim() || 'Sign in';
+            box.insertBefore(h, box.firstChild);
+        }
+    }
+
     function run(root) {
         root = root || document;
         try {
@@ -243,6 +261,7 @@
     }
 
     function init() {
+        standalonePage();
         run(document);
         if (window.MutationObserver) {
             new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label'] });

@@ -1080,3 +1080,11 @@ main p a:not(.btn), main small a:not(.btn), main .small a:not(.btn), main li > a
 
 /* Calendar: keyboard focus must be visible on FullCalendar's own links and buttons */
 .fc a:focus-visible, .fc .fc-button:focus-visible, .fc .fc-event:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 2px; }
+
+/* Contrast: accent-filled buttons, the theme toggle's active segment, alerts, settings nav in dark, links inside help text */
+.btn-primary { background-color: color-mix(in srgb, var(--color-accent, #206bc4) 84%, #000); border-color: color-mix(in srgb, var(--color-accent, #206bc4) 84%, #000); }
+.btn-outline-secondary.active, .btn-check:checked + .btn-outline-secondary { background-color: #4a5a63; border-color: #4a5a63; color: #fff; }
+:root:not([data-bs-theme="dark"]) .alert-danger { color: #8f1d1d; }
+:root[data-bs-theme="dark"] a[aria-current="true"]:not(.btn) { color: #9dbcff; }
+main .form-text a, main .text-secondary a, main .text-muted a, main .alert a { text-decoration: underline; }
+.admin-breadcrumb a { text-decoration: underline; }

@@ -1367,5 +1367,6 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 <script src="js/login_prevent_resubmit.js"></script>
 <script src="js/webauthn_signin.js"></script>
 
+<script src="/js/a11y.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/a11y.js') ?>" defer></script>
 </body>
 </html>

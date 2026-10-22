@@ -3,7 +3,7 @@ from ux_common import *
 import collections
 who,label=sys.argv[1:3]
 p,b,ctx,pg=start(who=who)
-paths=[l.strip() for l in open(os.path.join(HERE,'pages_agent.txt')) if l.strip()]+['/admin/users.php','/admin/audit_log.php']
+paths=[l.strip() for l in open(sys.argv[3] if len(sys.argv)>3 else os.path.join(HERE,'pages_agent.txt')) if l.strip()]
 agg=collections.defaultdict(list)
 for u in paths:
     try:

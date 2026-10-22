@@ -54,7 +54,7 @@ render_page_header(
                     <input type="search" class="form-control" id="trb-q" placeholder="Name, serial or asset tag" autocomplete="off" maxlength="80">
                 </div>
                 <div class="form-hint mb-2">Tablets, phones, laptops and desktops that are not archived. Tick each one to add it below.</div>
-                <div class="list-group list-group-flush border rounded" id="trb-assets" style="max-height: 260px; overflow-y: auto;" role="listbox" aria-label="Assets" aria-multiselectable="true"></div>
+                <div class="list-group list-group-flush border rounded" id="trb-assets" style="max-height: 260px; overflow-y: auto;" role="group" aria-label="Assets"></div>
             </div>
         </div>
         <?php } ?>
