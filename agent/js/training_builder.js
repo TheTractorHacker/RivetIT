@@ -2047,6 +2047,35 @@
             if (readOnly) { prereqSel.disable(); }
         }
 
+        // certification (course_set_certified) - Training-manager level 3, no framework Admin needed
+        if ($('tr-set-cert')) {
+            var certBox = $('tr-set-cert');
+            certBox.checked = !!detail.odoo_certified;
+            certBox.addEventListener('change', function () {
+                var wantCertified = certBox.checked;
+                var st = $('tr-set-cert-state');
+                var errEl = $('tr-set-cert-error');
+                certBox.disabled = true;
+                st.setAttribute('data-state', 'saving');
+                st.textContent = 'Saving…';
+                errEl.textContent = '';
+                api.post('course_set_certified', { course_id: courseId, certified: wantCertified }).then(function (r) {
+                    certBox.disabled = readOnly;
+                    detail.odoo_certified = !!r.certified;
+                    certBox.checked = detail.odoo_certified;
+                    st.setAttribute('data-state', 'saved');
+                    st.textContent = 'Saved';
+                }, function (err) {
+                    certBox.disabled = readOnly;
+                    certBox.checked = !wantCertified;
+                    st.setAttribute('data-state', 'error');
+                    st.textContent = 'Not saved';
+                    errEl.textContent = (err && ((err.fields && err.fields.certified) || err.message)) || 'Not saved.';
+                });
+            });
+            if (readOnly) { certBox.disabled = true; }
+        }
+
         // languages (course_set_languages)
         function postLanguages(languages, required, defaultLang) {
             var st = $('tr-set-lang-state');

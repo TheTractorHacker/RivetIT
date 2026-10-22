@@ -285,7 +285,18 @@ final class CourseService
             'unsectioned_lesson_ids' => $unsectioned,
             'lessons' => $summaries,
             'quiz_summaries' => (new QuizService($this->c))->summariesForCourse($courseId),
+            'odoo_certified' => self::odooCertified($db, $courseId),
         ];
+    }
+
+    /** Whether this course is currently mapped to an Odoo certification skill (the "Certified" toggle). */
+    private static function odooCertified(\mysqli $db, int $courseId): bool
+    {
+        if (!\ITFlow\Training\Upstream\Schema::has($db, \ITFlow\Training\Upstream\Schema::P5)) {
+            return false;
+        }
+        $row = Db::one($db, "SELECT tomap_odoo_skill_id FROM training_odoo_map WHERE tomap_entity = 'course' AND tomap_entity_id = ?", 'i', [$courseId]);
+        return $row !== null && (int) ($row['tomap_odoo_skill_id'] ?? 0) > 0;
     }
 
     /** CourseDetail.course for one course (used by course_update responses and conflicts). */

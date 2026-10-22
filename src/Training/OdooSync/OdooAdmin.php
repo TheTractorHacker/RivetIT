@@ -429,6 +429,85 @@ final class OdooAdmin
     }
 
     /**
+     * The course/achievement editor's "Certified" toggle (Training\Api\CourseActions, a Training-level-2+
+     * author action - NOT one of the admin-only ta_odoo_* keys above, and not routed through admin/post.php,
+     * so a Training manager never needs a framework Admin account for it). Maps the course/achievement to an
+     * Odoo skill named after it, creating that skill in Odoo if it does not exist yet, under the certification
+     * type an actual admin already chose and saved (Admin > Training > Automation > Odoo write-back). It can
+     * only use a type/level an admin configured; it never changes write-back settings, the certification
+     * type/level, and never creates a new skill TYPE - those stay admin-only. Un-certifying just clears the
+     * mapping; nothing is ever deleted in Odoo.
+     *
+     * @return array{0:string,1:string} [flash type, message], same shape as handle()
+     */
+    public static function setCertified(\mysqli $db, string $entity, int $id, bool $certified, int $userId): array
+    {
+        if (!in_array($entity, ['course', 'achievement'], true) || $id < 1) {
+            return ['error', 'Invalid request.'];
+        }
+        $row = $entity === 'course'
+            ? Db::one($db, "SELECT course_name AS n FROM training_courses WHERE course_id = ? AND course_kind = 'training'", 'i', [$id])
+            : Db::one($db, 'SELECT achievement_name AS n FROM training_achievements WHERE achievement_id = ?', 'i', [$id]);
+        if ($row === null) {
+            return ['error', 'That ' . $entity . ' was not found.'];
+        }
+        $name = (string) $row['n'];
+        $label = ucfirst($entity) . ' "' . $name . '"';
+        if (!$certified) {
+            Db::exec($db, 'UPDATE training_odoo_map SET tomap_odoo_skill_id = NULL, tomap_target_key = NULL, tomap_updated_by = ?
+                WHERE tomap_entity = ? AND tomap_entity_id = ?', 'isi', [$userId, $entity, $id]);
+            self::log($db, $userId, 'training.odoo_map_saved', 'skill', $label . ': no Odoo certification skill', ['entity' => $entity, 'entity_id' => $id, 'skill_id' => null]);
+            return ['success', $label . ' is no longer sent to Odoo as a certification.'];
+        }
+        $t = Target::current($db);
+        if ($t === null) {
+            return ['error', 'Odoo is not connected yet. Ask an admin to set it up (Admin › Integrations › Odoo).'];
+        }
+        if (!$t->https) {
+            return ['error', 'Certifying needs an https:// Odoo address. Ask an admin to fix the Odoo integration.'];
+        }
+        $ta = AutomationSettings::load($db);
+        $disc = self::discoveryFor($ta, $t);
+        $cfg = $disc === null ? null : PushService::skillConfig($ta, $disc);
+        if ($cfg === null) {
+            return ['error', 'Ask an admin to set up the Odoo certification type first (Admin › Training › Automation › Odoo write-back).'];
+        }
+        $skillName = trim((string) Text::clip(preg_replace('/\s+/u', ' ', $name) ?? $name, 200));
+        if ($skillName === '') {
+            return ['error', 'This ' . $entity . ' has no name to give the skill.'];
+        }
+        $pusher = new Pusher($t->connector(), $disc, $ta);
+        try {
+            $found = $pusher->findSkillByName($cfg['type_id'], $skillName);
+            $created = $found === null;
+            $skillId = $found['id'] ?? $pusher->createSkillInType($cfg['type_id'], $skillName);
+        } catch (\ITFlow\Integrations\Odoo\OdooAuthException $e) {
+            error_log('Training Odoo certify: ' . $e->getMessage());
+            return ['error', 'Odoo refused the request. Ask an admin to check the Odoo integration (it needs Employees: Officer).'];
+        } catch (\Throwable $e) {
+            error_log('Training Odoo certify: ' . get_class($e) . ': ' . $e->getMessage());
+            return ['error', 'Odoo did not create the skill: ' . Text::clip($e->getMessage(), 240)];
+        }
+        $known = false;
+        foreach ((array) ($disc['skill']['skills'] ?? []) as $k) {
+            $known = $known || (int) ($k['id'] ?? 0) === $skillId;
+        }
+        if (!$known) {
+            $disc['skill']['skills'][] = ['id' => $skillId, 'name' => $skillName, 'type_id' => $cfg['type_id']];
+            AutomationSettings::stamp($db, ['tauto_odoo_discovery_json' => json_encode($disc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR)]);
+        }
+        self::upsertSkill($db, $entity, $id, $skillId, $t->key, $userId);
+        if ($entity === 'achievement') {
+            // Achievements default to "not sent"; certifying one only to have it sit unsent would be confusing.
+            Db::exec($db, 'UPDATE training_odoo_map SET tomap_push = 1 WHERE tomap_entity = ? AND tomap_entity_id = ?', 'si', [$entity, $id]);
+        }
+        self::log($db, $userId, $created ? 'training.odoo_skill_created' : 'training.odoo_map_saved', 'skill',
+            ($created ? 'Created the Odoo certification skill "' : 'Reused the Odoo certification skill "') . $skillName . '" (#' . $skillId . ') in ' . $t->host() . ' / ' . $t->database . ' for ' . $label,
+            ['entity' => $entity, 'entity_id' => $id, 'skill_id' => $skillId, 'type_id' => $cfg['type_id'], 'created' => $created, 'target' => $t->key]);
+        return ['success', $label . ' is sent to Odoo as the certification "' . $skillName . '".'];
+    }
+
+    /**
      * ta_odoo_skill_create: the admin's "Create skill in Odoo" - one hr.skill named after the course (achievement) in the
      * saved certification type; an existing skill with exactly that name in that type is reused instead. Then mapped.
      * An Odoo write the owner triggers, never automatic; nothing else is created and nothing is deleted.

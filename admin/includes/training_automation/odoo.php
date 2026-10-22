@@ -569,13 +569,14 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
         return;
     }
     $fid = 'taoSk' . ($entity === 'course' ? 'C' : 'A') . intval($e['id']); ?>
-    <div class="d-flex flex-wrap align-items-start gap-1">
-        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-flex gap-1 align-items-center">
+    <div class="tao-skillcell">
+        <?php if ($m['state'] === 'ok') { ?><span class="tao-chip is-on"><i class="fas fa-fw fa-circle-check me-1" aria-hidden="true"></i>Certified skill</span><?php } ?>
+        <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-skill-form">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
             <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
             <input type="hidden" name="entity_id" value="<?php echo intval($e['id']); ?>">
             <label class="visually-hidden" for="<?php echo nullable_htmlentities($fid); ?>">Odoo certification skill for <?php echo nullable_htmlentities((string) $e['name']); ?></label>
-            <select class="form-select form-select-sm" id="<?php echo nullable_htmlentities($fid); ?>" name="skill_id" style="max-width: 16rem;">
+            <select class="form-select form-select-sm" id="<?php echo nullable_htmlentities($fid); ?>" name="skill_id" style="max-width: 14rem;">
                 <option value="">Not sent as a certification</option>
                 <?php foreach ($tao_skills as $tao_sid => $tao_sn) { ?>
                     <option value="<?php echo intval($tao_sid); ?>"<?php if ($m['state'] === 'ok' && intval($m['skill_id']) === intval($tao_sid)) { echo ' selected'; } ?>><?php echo nullable_htmlentities((string) $tao_sn); ?></option>
@@ -584,44 +585,55 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
             <button type="submit" name="ta_odoo_skill_map" class="btn btn-outline-primary btn-sm">Save</button>
         </form>
         <?php if ($m['state'] !== 'ok') { ?>
-        <details class="text-start">
-            <summary class="btn btn-outline-secondary btn-sm">Create in Odoo&hellip;</summary>
-            <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="mt-2 small">
+        <details class="tao-create">
+            <summary class="tao-create-btn btn btn-outline-secondary btn-sm" title="Create a skill in Odoo named after this <?php echo nullable_htmlentities($entity); ?>"><i class="fas fa-plus" aria-hidden="true"></i></summary>
+            <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-create-pop small">
                 <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
                 <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
                 <input type="hidden" name="entity_id" value="<?php echo intval($e['id']); ?>">
-                <p class="mb-1">Creates the skill "<?php echo nullable_htmlentities((string) $e['name']); ?>" in the Odoo certification type (or uses an existing skill with exactly that name) and maps it here.</p>
-                <button type="submit" name="ta_odoo_skill_create" class="btn btn-primary btn-sm">Create skill in Odoo</button>
+                <p class="mb-2">Creates the skill "<?php echo nullable_htmlentities((string) $e['name']); ?>" in the Odoo certification type (or uses an existing skill with exactly that name) and maps it here.</p>
+                <button type="submit" name="ta_odoo_skill_create" class="btn btn-primary btn-sm w-100">Create skill in Odoo</button>
             </form>
         </details>
         <?php } ?>
     </div>
-    <?php if ($m['state'] === 'other_odoo') { ?><div class="small text-warning">Mapped on another Odoo; map it again.</div><?php } ?>
-    <?php if ($m['state'] === 'not_in_type') { ?><div class="small text-warning">Mapped to Odoo skill #<?php echo intval($m['skill_id']); ?>, which is not in the chosen certification type; map it again.</div><?php }
+    <?php if ($m['state'] === 'other_odoo') { ?><div class="small text-warning mt-1">Mapped on another Odoo; map it again.</div><?php } ?>
+    <?php if ($m['state'] === 'not_in_type') { ?><div class="small text-warning mt-1">Mapped to Odoo skill #<?php echo intval($m['skill_id']); ?>, which is not in the chosen certification type; map it again.</div><?php }
 };
+/** The single on/off toggle for "Sent to Odoo" (replaces a status badge + a separate button). */
+$tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao_post, $tao_csrf): void { ?>
+    <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
+        <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
+        <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
+        <input type="hidden" name="entity_id" value="<?php echo intval($id); ?>">
+        <input type="hidden" name="push" value="<?php echo $on ? '0' : '1'; ?>">
+        <button type="submit" name="ta_odoo_map" class="btn btn-sm tao-toggle <?php echo $on ? 'btn-success' : 'btn-outline-secondary'; ?>">
+            <i class="fas fa-fw <?php echo $on ? 'fa-check' : 'fa-xmark'; ?>" aria-hidden="true"></i><?php echo $on ? 'Sending' : 'Not sending'; ?>
+        </button>
+    </form>
+<?php };
 ?>
-        <details class="mb-2">
-            <summary>Courses (<?php echo intval(count($tao['courses'])); ?>, <?php echo intval(count(array_filter($tao['courses'], static fn($x) => (int) $x['push'] === 0))); ?> turned off, <?php echo intval(count(array_filter($tao['courses'], static fn($x) => ($x['skill']['state'] ?? '') === 'ok'))); ?> with a certification skill)</summary>
+        <details class="tao-acc mb-2">
+            <summary>
+                <i class="fas fa-fw fa-graduation-cap" aria-hidden="true"></i> Courses
+                <span class="tao-acc-counts">
+                    <span class="tao-chip"><?php echo intval(count($tao['courses'])); ?> total</span>
+                    <?php $tao_c_off = count(array_filter($tao['courses'], static fn($x) => (int) $x['push'] === 0)); if ($tao_c_off) { ?><span class="tao-chip"><?php echo intval($tao_c_off); ?> turned off</span><?php } ?>
+                    <?php $tao_c_cert = count(array_filter($tao['courses'], static fn($x) => ($x['skill']['state'] ?? '') === 'ok')); ?>
+                    <span class="tao-chip<?php echo $tao_c_cert ? ' is-on' : ''; ?>"><?php echo intval($tao_c_cert); ?> certified</span>
+                </span>
+            </summary>
             <?php if (!$tao['courses']) { ?>
                 <p class="text-muted small mt-2 mb-0">No training courses yet.</p>
             <?php } else { ?>
             <div class="table-responsive mt-2" style="max-height: 520px;">
                 <table class="table table-sm table-vcenter mb-0">
-                    <thead><tr><th>Course</th><th>Sent to Odoo</th><th class="text-end"></th><th>Certification skill</th></tr></thead>
+                    <thead><tr><th>Course</th><th>Sent to Odoo</th><th>Certification skill</th></tr></thead>
                     <tbody>
                     <?php foreach ($tao['courses'] as $tao_c) { $tao_on = (int) $tao_c['push'] === 1; ?>
                         <tr>
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_c['name']); ?><?php if (!empty($tao_c['code'])) { ?> <span class="text-muted small font-monospace"><?php echo nullable_htmlentities((string) $tao_c['code']); ?></span><?php } ?></td>
-                            <td><span class="badge <?php echo nullable_htmlentities($tao_on ? 'text-bg-success' : 'text-bg-secondary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Yes' : 'No'); ?></span></td>
-                            <td class="text-end">
-                                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
-                                    <input type="hidden" name="entity" value="course">
-                                    <input type="hidden" name="entity_id" value="<?php echo intval($tao_c['id']); ?>">
-                                    <input type="hidden" name="push" value="<?php echo nullable_htmlentities($tao_on ? '0' : '1'); ?>">
-                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo nullable_htmlentities($tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Turn off' : 'Send to Odoo'); ?></button>
-                                </form>
-                            </td>
+                            <td><?php $tao_push_toggle('course', (int) $tao_c['id'], $tao_on); ?></td>
                             <td><?php $tao_skill_cell('course', $tao_c); ?></td>
                         </tr>
                     <?php } ?>
@@ -630,28 +642,27 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
             </div>
             <?php } ?>
         </details>
-        <details>
-            <summary>Achievements (<?php echo intval(count($tao['achievements'])); ?>, <?php echo intval(count(array_filter($tao['achievements'], static fn($x) => (int) $x['push'] === 1))); ?> sent, <?php echo intval(count(array_filter($tao['achievements'], static fn($x) => ($x['skill']['state'] ?? '') === 'ok'))); ?> with a certification skill)</summary>
+        <details class="tao-acc">
+            <summary>
+                <i class="fas fa-fw fa-award" aria-hidden="true"></i> Achievements
+                <span class="tao-acc-counts">
+                    <span class="tao-chip"><?php echo intval(count($tao['achievements'])); ?> total</span>
+                    <?php $tao_a_on = count(array_filter($tao['achievements'], static fn($x) => (int) $x['push'] === 1)); if ($tao_a_on) { ?><span class="tao-chip"><?php echo intval($tao_a_on); ?> sent</span><?php } ?>
+                    <?php $tao_a_cert = count(array_filter($tao['achievements'], static fn($x) => ($x['skill']['state'] ?? '') === 'ok')); ?>
+                    <span class="tao-chip<?php echo $tao_a_cert ? ' is-on' : ''; ?>"><?php echo intval($tao_a_cert); ?> certified</span>
+                </span>
+            </summary>
             <?php if (!$tao['achievements']) { ?>
                 <p class="text-muted small mt-2 mb-0">No achievements yet.</p>
             <?php } else { ?>
             <div class="table-responsive mt-2" style="max-height: 520px;">
                 <table class="table table-sm table-vcenter mb-0">
-                    <thead><tr><th>Achievement</th><th>Sent to Odoo</th><th class="text-end"></th><th>Certification skill</th></tr></thead>
+                    <thead><tr><th>Achievement</th><th>Sent to Odoo</th><th>Certification skill</th></tr></thead>
                     <tbody>
                     <?php foreach ($tao['achievements'] as $tao_a) { $tao_on = (int) $tao_a['push'] === 1; ?>
                         <tr>
                             <td class="text-break"><?php echo nullable_htmlentities((string) $tao_a['name']); ?></td>
-                            <td><span class="badge <?php echo nullable_htmlentities($tao_on ? 'text-bg-success' : 'text-bg-secondary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Yes' : 'No'); ?></span></td>
-                            <td class="text-end">
-                                <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
-                                    <input type="hidden" name="entity" value="achievement">
-                                    <input type="hidden" name="entity_id" value="<?php echo intval($tao_a['id']); ?>">
-                                    <input type="hidden" name="push" value="<?php echo nullable_htmlentities($tao_on ? '0' : '1'); ?>">
-                                    <button type="submit" name="ta_odoo_map" class="btn btn-sm <?php echo nullable_htmlentities($tao_on ? 'btn-outline-secondary' : 'btn-outline-primary'); ?>"><?php echo nullable_htmlentities($tao_on ? 'Turn off' : 'Send to Odoo'); ?></button>
-                                </form>
-                            </td>
+                            <td><?php $tao_push_toggle('achievement', (int) $tao_a['id'], $tao_on); ?></td>
                             <td><?php $tao_skill_cell('achievement', $tao_a); ?></td>
                         </tr>
                     <?php } ?>

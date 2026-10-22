@@ -152,6 +152,23 @@ final class CourseActions
         return ['prereqs' => (new PrereqService($c))->set((int) $a->int('course_id', true, 1), $a->ints('requires'))];
     }
 
+    /**
+     * The course editor's "Certified" toggle - maps/unmaps this course to an Odoo certification skill under the
+     * type an admin already configured, without needing a framework Admin account (OdooSync\OdooAdmin::setCertified,
+     * Training-manager level 3). Not a framework Admin-only action: course_set_certified is routed through the
+     * regular agent-side API, never admin/post.php.
+     */
+    public static function courseSetCertified(Ctx $c, ApiContext $a): array
+    {
+        $courseId = (int) $a->int('course_id', true, 1);
+        $certified = (bool) $a->bool('certified', false);
+        [$type, $msg] = \ITFlow\Training\OdooSync\OdooAdmin::setCertified($c->db, 'course', $courseId, $certified, $c->userId);
+        if ($type === 'error') {
+            throw ApiException::validation(['certified' => $msg]);
+        }
+        return ['message' => $msg, 'certified' => $certified];
+    }
+
     // ---- outline and sections ------------------------------------------------------------------
 
     public static function outlineReorder(Ctx $c, ApiContext $a): array

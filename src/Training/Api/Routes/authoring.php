@@ -21,6 +21,10 @@ return [
     'course_delete'        => ['handler' => CourseActions::class . '::courseDelete',       'method' => 'POST', 'level' => 3],
     'course_set_tags'      => ['handler' => CourseActions::class . '::courseSetTags',      'method' => 'POST', 'level' => 2],
     'course_set_prereqs'   => ['handler' => CourseActions::class . '::courseSetPrereqs',   'method' => 'POST', 'level' => 2],
+    // Training-manager level (3), not a framework Admin account: maps/unmaps this course to an Odoo certification
+    // skill under the type an admin already configured (OdooSync\OdooAdmin::setCertified). Never touches Odoo
+    // write-back settings or the certification type/level themselves - those stay in Admin > Training > Automation.
+    'course_set_certified' => ['handler' => CourseActions::class . '::courseSetCertified', 'method' => 'POST', 'level' => 3],
 
     'outline_reorder'      => ['handler' => CourseActions::class . '::outlineReorder',     'method' => 'POST', 'level' => 2],
     'section_create'       => ['handler' => CourseActions::class . '::sectionCreate',      'method' => 'POST', 'level' => 2],

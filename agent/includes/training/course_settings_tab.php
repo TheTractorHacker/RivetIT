@@ -176,6 +176,23 @@ $tr_ro = $tr_archived ? ' disabled' : '';
         </div>
     </section>
 
+    <?php if ($tr_ctx->level >= 3) { ?>
+    <section class="card" data-tr-card="odoo-cert" aria-labelledby="tr-set-cert">
+        <div class="card-header">
+            <h2 class="card-title" id="tr-set-cert"><i class="fas fa-fw fa-award me-1" aria-hidden="true"></i>Certification</h2>
+            <span class="tr-save-state" data-state="idle" aria-live="polite" id="tr-set-cert-state"></span>
+        </div>
+        <div class="card-body">
+            <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" id="tr-set-cert" role="switch"<?= $tr_ro ?>>
+                <label class="form-check-label" for="tr-set-cert">Send this course to Odoo as a certification</label>
+            </div>
+            <div class="form-hint" id="tr-set-cert-hint">Completing this course maps to a skill in Odoo named after it, created automatically the first time you turn this on. No admin access needed; an admin must have already set up an Odoo certification type (Admin &rsaquo; Training &rsaquo; Automation &rsaquo; Odoo write-back).</div>
+            <div class="tr-field-error" id="tr-set-cert-error" role="alert"></div>
+        </div>
+    </section>
+    <?php } ?>
+
     <details class="card" data-tr-card="completion">
         <summary class="card-header">
             <h2 class="card-title"><i class="fas fa-chevron-right tr-summary-chev me-2" aria-hidden="true"></i>Completion rules <span class="text-muted fw-normal small">(used when assignments go live)</span></h2>

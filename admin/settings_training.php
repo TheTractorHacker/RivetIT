@@ -390,6 +390,30 @@ $ts_module_on = !empty($config_module_enable_training);
     .ts-section-head h2 { margin: 0; font-size: 1.25rem; }
     .ts-section-head h2 i { color: var(--if-primary, #0d9488); }
     .ts-section-head p { margin: .2rem 0 0; font-size: .875rem; color: var(--if-muted, #5d6f76); }
+
+    /* Odoo write-back: the Send to Odoo course/achievement list (admin/includes/training_automation/odoo.php #odoo-send). */
+    .tao-acc { border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 12px); overflow: hidden; }
+    .tao-acc + .tao-acc { margin-top: .75rem; }
+    .tao-acc > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+        padding: .65rem .9rem; background: var(--if-surface, #fff); font-weight: 600; }
+    .tao-acc > summary::-webkit-details-marker { display: none; }
+    .tao-acc > summary:hover { background: rgba(var(--if-primary-rgb, 13, 148, 136), .05); }
+    .tao-acc > summary::before { content: "\f0da"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: .75rem;
+        color: var(--if-muted, #5d6f76); transition: transform .15s ease; }
+    .tao-acc[open] > summary::before { transform: rotate(90deg); }
+    .tao-acc > summary > i:first-of-type { color: var(--if-primary, #0d9488); }
+    .tao-acc-counts { display: flex; flex-wrap: wrap; gap: .35rem; margin-left: auto; font-weight: 400; }
+    .tao-chip { font-size: .72rem; padding: .18rem .55rem; border-radius: 999px; background: var(--if-bg, #eef2f2); color: var(--if-muted, #5d6f76); white-space: nowrap; }
+    .tao-chip.is-on { background: rgba(47, 179, 68, .14); color: #1b7a2e; }
+    .tao-toggle { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; font-size: .78rem; padding: .25rem .7rem; }
+    .tao-skillcell { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .tao-skill-form { display: flex; gap: 0; }
+    .tao-skill-form select { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .tao-skill-form button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    .tao-create-btn { width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 50%; }
+    .tao-create-btn::-webkit-details-marker { display: none; }
+    .tao-create-pop { margin-top: .4rem; padding: .6rem .7rem; border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 10px);
+        background: var(--if-bg, #eef2f2); max-width: 20rem; }
 </style>
 
 <div class="ts-page">
