@@ -96,3 +96,48 @@ new TomSelect(contactSelectEl, {
 });
 
 })();
+
+// "Another tool already manages this device" (RivetCore 1.0.0-rc.32): saves on its own through the same
+// agent/post/rmm_agent.php action RMM's own device pages use, independent of this modal's Save button - it
+// has no name attribute, so it is never part of the main #edit_asset form submission.
+(function () {
+
+const toggle = document.getElementById("asset-edit-automation-disabled");
+if (!toggle) {
+    return;
+}
+
+const csrfEl = document.querySelector('input[name="csrf_token"]');
+const helpEl = document.getElementById("asset-edit-automation-help");
+
+toggle.addEventListener("change", function () {
+    const checked = toggle.checked;
+    const deviceId = toggle.getAttribute("data-device-id");
+    toggle.disabled = true;
+    const body = new URLSearchParams({
+        action: "set_automation_disabled",
+        device_id: deviceId,
+        disabled: checked ? "1" : "",
+        csrf_token: csrfEl ? csrfEl.value : ""
+    });
+    fetch("/agent/post/rmm_agent.php", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString()
+    }).then(function (r) { return r.json(); }).then(function (d) {
+        toggle.disabled = false;
+        if (!d.success) {
+            toggle.checked = !checked;
+        }
+        if (helpEl) {
+            helpEl.textContent = d.success ? (d.message || "Saved.") : (d.error || "Not saved.");
+        }
+    }).catch(function () {
+        toggle.disabled = false;
+        toggle.checked = !checked;
+        if (helpEl) { helpEl.textContent = "Network error. Not saved."; }
+    });
+});
+
+})();

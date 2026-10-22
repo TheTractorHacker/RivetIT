@@ -66,6 +66,28 @@ while ($row = mysqli_fetch_assoc($sql_asset_tags)) {
 
 enforceClientAccess();
 
+// RivetCore 1.0.0-rc.32: the Automation toggle, shown in Details only for an asset with a linked RMM device,
+// and only to an administrator (RMM's own ADMIN ability, or the framework Admin flag - same either/or as the
+// RMM panel itself). Nothing is queried, and nothing is shown, for an asset that was never RMM-managed.
+$rmm_automation_device_id = null;
+$rmm_automation_disabled = false;
+if (rivetRmmEnabled($mysqli)) {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_ui.php';
+    $deviceId = rivetRmmUiDeviceIdForAsset($mysqli, $asset_id);
+    if ($deviceId !== null) {
+        $rmmMod = rivetRmmModule($mysqli);
+        $rmmAuthz = $rmmMod->authorizer();
+        $rmmIsAdmin = $rmmAuthz->allowed((int) $session_user_id, \RivetCore\Rmm\Authz\RmmAbility::ADMIN, $client_id) || !empty($session_is_admin);
+        if ($rmmIsAdmin) {
+            $rmmDev = $rmmMod->technician()->visibleDevice((int) $session_user_id, $deviceId);
+            if ($rmmDev !== null) {
+                $rmm_automation_device_id = $deviceId;
+                $rmm_automation_disabled = !empty($rmmDev['device_automation_disabled']);
+            }
+        }
+    }
+}
+
 ob_start();
 ?>
 
@@ -225,6 +247,17 @@ ob_start();
                         <input type="text" class="form-control" name="description" placeholder="Description of the asset" maxlength="255" value="<?= $asset_description ?>">
                     </div>
                 </div>
+
+                <?php if ($rmm_automation_device_id !== null) { ?>
+                <div class="form-group border-top pt-3 mt-3">
+                    <div class="form-check form-switch">
+                        <!-- No name attribute: saves on change through its own request, same action RMM's own device pages use - not part of this form's Save. -->
+                        <input class="form-check-input" type="checkbox" role="switch" id="asset-edit-automation-disabled" data-device-id="<?= $rmm_automation_device_id ?>"<?= $rmm_automation_disabled ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="asset-edit-automation-disabled">Another tool already manages this device (RMM)</label>
+                    </div>
+                    <div class="form-text" id="asset-edit-automation-help">Turns off this device's scheduled scripts and scheduled patch installs, so a different RMM or patch agent already on it and RivetCore's own automation never fight. Monitoring, inventory, patch scanning/compliance and running a script or installing a patch right now are unaffected. Saves immediately.</div>
+                </div>
+                <?php } ?>
 
             </div>
 
