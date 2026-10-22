@@ -90,8 +90,8 @@
                 var first = el.options && el.options[0];
                 if (first && first.value === '' && first.text.trim() !== '') { name = first.text.replace(/^[-\s]+|[-\s]+$/g, ''); }
             }
-            if (!name && el.name) { name = el.name.replace(/[\[\]_]+/g, ' ').trim(); }
-            if (name) { el.setAttribute('aria-label', name); }
+            if (!name && (el.name || el.id)) { name = (el.name || el.id).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\[\]_-]+/g, ' ').trim(); }
+            if (name) { el.setAttribute('aria-label', name.charAt(0).toUpperCase() + name.slice(1)); }
         });
         // Tom Select search input mirrors its <select>'s name
         root.querySelectorAll('.ts-wrapper').forEach(function (w) {
@@ -154,11 +154,11 @@
             if (!bg || !fg || bg[3] < 0.95) { return; }
             el.setAttribute('data-contrast-fixed', '1');
             var ratio = function (l1, l2) { var hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05); };
-            if (ratio(lum(bg), lum(fg)) >= 4.5) { return; }
+            if (ratio(lum(bg), lum(fg)) >= 4.6) { return; }
             if (lum(fg) > 0.5) {
                 // light text: keep the badge's hue, deepen the fill until white-ish text reaches 4.5:1
                 var c = bg.slice(0, 3);
-                for (var i = 0; i < 12 && ratio(lum(c), lum(fg)) < 4.5; i++) { c = c.map(function (v) { return v * 0.9; }); }
+                for (var i = 0; i < 12 && ratio(lum(c), lum(fg)) < 4.6; i++) { c = c.map(function (v) { return v * 0.9; }); }
                 el.style.setProperty('background-color', toHex(c), 'important');
             } else {
                 el.style.setProperty('color', ratio(lum(bg), 0) >= ratio(lum(bg), 1) ? '#000' : '#fff', 'important');
@@ -190,11 +190,48 @@
         root.querySelectorAll('i[aria-label]:not([role])').forEach(function (el) { el.setAttribute('role', 'img'); });
     }
 
+    // Headings must descend one level at a time. Legacy cards use whatever tag looked right (h6 under h1, h3 tiles);
+    // keep the tag and styling, correct only the exposed level (aria-level) where it would skip.
+    function fixHeadingOrder() {
+        var main = document.getElementById('main-content');
+        if (!main) { return; }
+        var prev = 0;
+        [].slice.call(main.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')).forEach(function (h) {
+            if (!h.offsetParent && getComputedStyle(h).position !== 'fixed') { return; }
+            var level = parseInt(h.getAttribute('aria-level') || (/^H[1-6]$/.test(h.tagName) ? h.tagName.charAt(1) : '2'), 10);
+            if (prev === 0) { level = 1; } else if (level > prev + 1) { level = prev + 1; }
+            var native = /^H[1-6]$/.test(h.tagName) ? parseInt(h.tagName.charAt(1), 10) : 0;
+            if (level !== native || h.getAttribute('aria-level')) { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', String(level)); }
+            prev = level;
+        });
+    }
+
+    // Leftovers: dangling references and decorative/empty widgets (FullCalendar writes aria-controls="" on "+n more")
+    function tidyAria(root) {
+        root.querySelectorAll('a[aria-expanded]:not([role]):not([data-bs-toggle])').forEach(function (a) { a.setAttribute('role', 'button'); });
+        root.querySelectorAll('[aria-controls=""]').forEach(function (el) { el.removeAttribute('aria-controls'); });
+        root.querySelectorAll('[role="img"]:not([aria-label]):not([aria-labelledby])').forEach(function (el) {
+            var t = el.getAttribute('title') || el.textContent.trim();
+            if (t) { el.setAttribute('aria-label', t); } else { el.setAttribute('aria-hidden', 'true'); }
+        });
+        // a link whose only content is empty markup (e.g. a ticket with no department) is not a control
+        root.querySelectorAll('a[href]').forEach(function (a) {
+            if (!a.getAttribute('aria-label') && !a.getAttribute('title') && a.textContent.trim() === '' && !a.querySelector('img,svg,i,input')) {
+                a.setAttribute('aria-hidden', 'true'); a.setAttribute('tabindex', '-1');
+            }
+        });
+        root.querySelectorAll('input[disabled]:not([aria-label]), input[readonly]:not([aria-label])').forEach(function (el) {
+            var g = el.closest('.input-group');
+            var t = (g && g.querySelector('.input-group-text') && g.querySelector('.input-group-text').textContent.trim()) || el.value;
+            if (t && !(el.id && document.querySelector('label[for="' + el.id.replace(/"/g, '') + '"]'))) { el.setAttribute('aria-label', t); }
+        });
+    }
+
     function run(root) {
         root = root || document;
         try {
             nameButtonsAndLinks(root); nameCheckboxes(root); nameSelects(root);
-            nameTableHeaders(root); nameProgressBars(root); roleIcons(root); nameInputs(root); fixBadgeContrast(root);
+            nameTableHeaders(root); nameProgressBars(root); roleIcons(root); nameInputs(root); fixBadgeContrast(root); tidyAria(root); fixHeadingOrder();
         } catch (e) { /* a11y polish must never break a page */ }
     }
 

@@ -1036,3 +1036,47 @@ tr.asset-inline-moved-out > td {
 :root[data-bs-theme="dark"] .ts-control input, :root[data-bs-theme="dark"] .ts-control > input::placeholder { color: #a9b6bb; }
 :root[data-bs-theme="dark"] .btn-outline-danger { color: #ff9a9a; border-color: #ff9a9a; }
 :root[data-bs-theme="dark"] .btn-outline-danger:hover { color: #fff; }
+
+
+/* ---- Contrast pass (run 3) -------------------------------------------------------------------------------------
+   Contextual rows: Tabler also colours STRIPED / HOVER / ACTIVE cells from its own --tblr-table-*-color (black) and
+   --tblr-table-striped-bg (cream), so odd rows kept black text on a dark tint. Cover every variant and state. */
+.table-primary, .table-secondary, .table-light, .table-dark { --tblr-table-color: var(--if-ink); --bs-table-color: var(--if-ink); }
+.table-primary   { --tblr-table-bg: rgba(var(--if-primary-rgb), .09); }
+.table-secondary { --tblr-table-bg: rgba(93, 111, 118, .10); }
+.table-light     { --tblr-table-bg: rgba(93, 111, 118, .05); }
+.table-dark      { --tblr-table-bg: rgba(15, 23, 28, .90); --tblr-table-color: #e7eeef; }
+:root[data-bs-theme="dark"] .table-secondary { --tblr-table-bg: rgba(169, 182, 187, .12); }
+:root[data-bs-theme="dark"] .table-light { --tblr-table-bg: rgba(169, 182, 187, .08); }
+.table-warning, .table-danger, .table-success, .table-info, .table-primary, .table-secondary, .table-light {
+    --tblr-table-striped-color: var(--if-ink); --tblr-table-active-color: var(--if-ink); --tblr-table-hover-color: var(--if-ink);
+    --tblr-table-striped-bg: var(--tblr-table-bg); --tblr-table-active-bg: var(--tblr-table-bg); --tblr-table-hover-bg: var(--tblr-table-bg);
+    --tblr-table-color-state: var(--if-ink); --tblr-table-color-type: var(--if-ink);
+}
+.table-warning > *, .table-danger > *, .table-success > *, .table-info > *, .table-primary > *, .table-secondary > *, .table-light > * { color: var(--if-ink); }
+
+/* Dark surfaces that stayed light because a utility hard-codes white */
+:root[data-bs-theme="dark"] .bg-white, :root[data-bs-theme="dark"] .card-footer.bg-white { background-color: var(--if-surface) !important; }
+:root[data-bs-theme="dark"] .bg-light { background-color: color-mix(in srgb, var(--if-surface) 90%, #fff) !important; }
+:root[data-bs-theme="dark"] .text-dark:not(.badge):not([class*="bg-"]) { color: var(--if-ink) !important; }
+:root[data-bs-theme="dark"] .text-danger { color: #ff8585 !important; }
+:root[data-bs-theme="dark"] .nav-tabs .nav-link:not(.active), :root[data-bs-theme="dark"] .nav-pills .nav-link:not(.active) { color: #a9b6bb; }
+:root[data-bs-theme="dark"] .tr-chip[aria-pressed="true"], :root[data-bs-theme="dark"] .trb-node__name { color: #9dbcff; }
+:root[data-bs-theme="dark"] .fc .fc-daygrid-day-number, :root[data-bs-theme="dark"] .fc .fc-col-header-cell-cushion { color: #b3c8ff; }
+
+/* Filled buttons: white label needs >= 4.5:1 (Tabler's success/info/danger/warning fills do not give it) */
+.btn-danger  { background-color: #c52f2f; border-color: #c52f2f; color: #fff; }
+.btn-success { background-color: #1d7f33; border-color: #1d7f33; color: #fff; }
+.btn-info    { background-color: #2a6cb0; border-color: #2a6cb0; color: #fff; }
+.btn-warning { background-color: #f5a30a; border-color: #f5a30a; color: #1b1b1b; }
+.btn-danger:hover  { background-color: #a82424; border-color: #a82424; }
+.btn-success:hover { background-color: #166628; border-color: #166628; }
+.btn-info:hover    { background-color: #21588f; border-color: #21588f; }
+
+/* Links that sit inside running text must not rely on colour alone */
+main p a:not(.btn), main small a:not(.btn), main .small a:not(.btn), main li > a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) { text-decoration: underline; }
+:root[data-bs-theme="dark"] .fc .fc-event .fc-event-time, :root[data-bs-theme="dark"] .fc .fc-event .fc-event-title, :root[data-bs-theme="dark"] .fc .fc-daygrid-dot-event .fc-event-time { color: #e7eeef !important; }
+:root[data-bs-theme="dark"] .trb-node .trb-node__name, :root[data-bs-theme="dark"] .trb-node__open .trb-node__name { color: #9dbcff !important; }
+
+/* Calendar: keyboard focus must be visible on FullCalendar's own links and buttons */
+.fc a:focus-visible, .fc .fc-button:focus-visible, .fc .fc-event:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 2px; }

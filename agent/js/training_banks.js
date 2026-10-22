@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function group(title, list, needle, isShared) {
-        var head = el('div', { class: 'trb-group__head' }, [el('span', { text: title }), el('span', { text: String(list.length) })]);
+        var head = el('div', { class: 'trb-group__head', role: 'none' }, [el('span', { text: title }), el('span', { text: String(list.length) })]);
         if (isShared) {
             // Drop here to make a shared bank top level.
             head.addEventListener('dragover', function (e) {
