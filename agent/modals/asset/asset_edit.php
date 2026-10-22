@@ -69,6 +69,7 @@ enforceClientAccess();
 // RivetCore 1.0.0-rc.32: the Automation toggle, shown in Details only for an asset with a linked RMM device,
 // and only to an administrator (RMM's own ADMIN ability, or the framework Admin flag - same either/or as the
 // RMM panel itself). Nothing is queried, and nothing is shown, for an asset that was never RMM-managed.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';   // rivetRmmEnabled(), rivetRmmModule()
 $rmm_automation_device_id = null;
 $rmm_automation_disabled = false;
 if (rivetRmmEnabled($mysqli)) {
