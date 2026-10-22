@@ -252,7 +252,7 @@ ob_start();
                 <div class="form-group border-top pt-3 mt-3">
                     <div class="form-check form-switch">
                         <!-- No name attribute: saves on change through its own request, same action RMM's own device pages use - not part of this form's Save. -->
-                        <input class="form-check-input" type="checkbox" role="switch" id="asset-edit-automation-disabled" data-device-id="<?= $rmm_automation_device_id ?>"<?= $rmm_automation_disabled ? ' checked' : '' ?>>
+                        <input class="form-check-input" type="checkbox" role="switch" id="asset-edit-automation-disabled" data-device-id="<?= (int) $rmm_automation_device_id ?>"<?= $rmm_automation_disabled ? ' checked' : '' ?>>
                         <label class="form-check-label" for="asset-edit-automation-disabled">Another tool already manages this device (RMM)</label>
                     </div>
                     <div class="form-text" id="asset-edit-automation-help">Turns off this device's scheduled scripts and scheduled patch installs, so a different RMM or patch agent already on it and RivetCore's own automation never fight. Monitoring, inventory, patch scanning/compliance and running a script or installing a patch right now are unaffected. Saves immediately.</div>
