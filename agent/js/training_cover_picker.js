@@ -66,16 +66,17 @@
         n.uploadBtn = el('button', { type: 'button', class: 'btn btn-outline-primary', on: { click: function () { n.fileInput.click(); } } }, [icon('upload'), ' Choose an image…']);
         n.uploadStatus = el('div', { class: 'small text-muted mt-2', 'aria-live': 'polite' });
 
-        // Shown only after a fresh upload: sharing it makes the SAME image a pickable gallery option for every other
-        // course too (cover_gallery_add), not just this one. Opt-in, not automatic - an author's draft screenshot
-        // shouldn't silently become everyone's dropdown option.
+        // Shown after a fresh upload: the cover is shared to the gallery automatically (cover_gallery_add), so
+        // every other course can pick the same image too. This form lets the author rename/recategorize it
+        // right away; re-clicking the button just updates the same gallery entry (dedup by media_id).
         n.galleryLabel = el('input', { type: 'text', class: 'form-control form-control-sm', placeholder: 'Label, e.g. "Forklift in our warehouse"', maxlength: '100' });
         n.galleryCategorySelect = el('select', { class: 'form-select form-select-sm', 'aria-label': 'Category' });
         n.galleryCategoryNew = el('input', { type: 'text', class: 'form-control form-control-sm mt-1', placeholder: 'New category name', maxlength: '50', hidden: true });
-        n.galleryBtn = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: shareToGallery } }, [icon('images'), ' Add to shared gallery']);
+        n.galleryBtnLabel = el('span', { text: 'Add to shared gallery' });
+        n.galleryBtn = el('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', on: { click: shareToGallery } }, [icon('images'), ' ', n.galleryBtnLabel]);
         n.galleryStatus = el('span', { class: 'small text-muted ms-2' });
         n.galleryForm = el('div', { class: 'tr-cover-share mt-3 pt-3', hidden: true, style: 'border-top:1px solid var(--color-border,#dee2e6);' }, [
-            el('div', { class: 'small fw-medium mb-2' }, [icon('share-alt'), ' Also add this to the shared gallery, for other courses to pick too']),
+            el('div', { class: 'small fw-medium mb-2' }, [icon('share-alt'), ' Shared to the gallery automatically. Rename or recategorize it here if you like:']),
             el('div', { class: 'row g-2 align-items-center' }, [
                 el('div', { class: 'col-sm-5' }, [n.galleryLabel]),
                 el('div', { class: 'col-sm-4' }, [n.galleryCategorySelect, n.galleryCategoryNew]),
@@ -332,6 +333,12 @@
         modal.error.hidden = true;
     }
 
+    /** A sane starting label from the uploaded file's own name, e.g. "forklift_3rd-floor.jpg" -> "Forklift 3rd floor". */
+    function labelFromFilename(name) {
+        var base = (name || '').replace(/\.[^./\\]+$/, '').replace(/[_-]+/g, ' ').trim();
+        return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'Untitled cover';
+    }
+
     /** Fills the category dropdown from the categories the gallery already has, plus a "new category" option. */
     function populateGalleryCategories() {
         var cats = (presets && presets.categories) || [];
@@ -358,13 +365,15 @@
             if (!m) { throw new Error('Upload failed.'); }
             state.choice = { kind: 'media', id: m.id, url: m.url, uploaded: true };
             status.textContent = 'Uploaded. Check the preview, then choose "Use this cover".';
-            modal.galleryLabel.value = '';
+            modal.galleryLabel.value = labelFromFilename(file.name);
+            modal.galleryBtnLabel.textContent = 'Add to shared gallery';
             populateGalleryCategories();
             modal.galleryStatus.textContent = '';
             modal.galleryBtn.disabled = false;
             modal.galleryForm.hidden = false;
             renderGrid();
             renderPreview();
+            shareToGallery();   // shared to the gallery right away; the form above just lets the author tweak it
         }).catch(function (err) {
             if (state === token) { status.textContent = (err && err.message) || 'Upload failed.'; }
         });
@@ -400,8 +409,14 @@
         }).then(function (d) {
             if (state !== token) { return; }
             modal.galleryStatus.textContent = 'Added to the shared gallery.';
-            modal.galleryBtn.disabled = true;
-            if (presets && d && d.cover) { presets.covers.push(d.cover); }   // visible in the Gallery tab immediately, no reload
+            modal.galleryBtn.disabled = false;
+            modal.galleryBtnLabel.textContent = 'Update';
+            if (presets && d && d.cover) {
+                // Re-sharing the same media_id updates the SAME gallery entry server-side; mirror that
+                // here instead of pushing a duplicate tile into the cached list.
+                var idx = presets.covers.findIndex ? presets.covers.findIndex(function (c) { return c.key === d.cover.key; }) : -1;
+                if (idx === -1) { presets.covers.push(d.cover); } else { presets.covers[idx] = d.cover; }
+            }
             if (presets && isNewCat && presets.categories.indexOf(category) === -1) { presets.categories.push(category); }
             state.choice.key = d && d.cover ? d.cover.key : state.choice.key;
             renderGrid();
