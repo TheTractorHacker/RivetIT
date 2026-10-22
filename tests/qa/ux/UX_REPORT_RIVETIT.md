@@ -1,4 +1,4 @@
-# RivetIT UX/UI QA Report - 2026-10-21 (run 2: all defects fixed, coverage gaps closed)
+# RivetIT UX/UI QA Report - 2026-10-21 (run 3: open items fixed, remaining areas executed)
 
 Scope: web (Phases A-D). Android (Phase E) is a separate session. Worktree `/home/sysadmin/qa-ux-rivetit`, branch `qa-ux-20261021`, own server `127.0.0.1:8190` (stopped at the end). Demo data only; test records are `QA-UI-` (tickets TCK-255/256/257, users 15/16, asset "QA-UI- asset good", a training assignment for Sophie Tran). Nothing pushed or deployed. Scripts are in this folder (`ux_common.py` plus the sweeps named below); screenshots in `screenshots/` (committed) and `out/` (scratch, not committed).
 
@@ -6,7 +6,7 @@ Scope: web (Phases A-D). Android (Phase E) is a separate session. Worktree `/hom
 | Check | Scope | Result |
 |---|---|---|
 | Visual review (light + real server-side dark) | ~25 pages read by eye at 1920x1080, 1366x768, 2560x1440 spot checks | 2 visual defects fixed (D1, D14) |
-| axe-core | 50 agent/admin pages as admin (dark) and as technician (light) + 24 portal pages | landmark/h1: 0 violations on all 74. Violating nodes admin-dark 794 -> 146 -> ~120 after last CSS; light 74 -> 41 |
+| axe-core (all rules) | 50 agent/admin pages as admin (dark) and as technician (light), 24 portal pages (landmark/h1), 19 guest/kiosk/SSO/MFA/device pages | **0 violating nodes** on the 51 agent/admin pages in both themes (admin-dark 794 -> 0, light 74 -> 0); portal landmark/h1 0; misc pages 0 after fixes |
 | Click sweep (Phase B) | 213 pages: 50 agent, 114 admin, 24 detail pages with real ids, 24 portal (459 links, re-run after D17). ~4,900 same-origin links fetched, ~460 modal triggers opened, ~380 dropdowns and 42 tabs clicked; destructive controls (delete/archive/disable/reset/post.php/csrf links) skipped by design | 0 JS errors; remaining "fails" are by design (RMM-off 403 notice pages, fragment endpoints that 404 when their panel is off, a binary PDF the harness could not decode); real ones fixed (D12, D13) |
 | Overflow sweep | 189 pages x 768x1024 and 1024x768 | 17 pages overflowed -> 0 |
 | Robustness | 51 detail/list pages with no id / id=0 / page=-5 / page=abc / page=huge / bad sort; add-forms with blank, whitespace and 400-char names | 73 HTTP 500s -> 0 |
@@ -32,20 +32,28 @@ Before/after screenshots for D1 and D2 are in `screenshots/`; the others are ver
 | D13 | Medium | admin ticket/document template details without id | n/a | HTTP 500 | | fixed | admin/ticket_template_details.php, admin/document_template_details.php |
 | D14 | Medium | Portal Training table | light+dark | Colour carries no meaning | Due soon / Overdue / Current were all the same grey | fixed | css/itflow_portal.css |
 | D15 | Medium | Global search with no hits | both | Feedback: empty state | blank card; now "No results for ..." with advice | fixed | agent/global_search.php |
-| D16 | Medium | 17 pages (RMM assets/checks/scripts, Intune, credentials, admin users/audit/mail/webhooks...) | 768 and 1024 | Layout: horizontal page scroll | tables widened the page; now scroll inside their card; 0/189 pages overflow | fixed | css/itflow_design.css, js/a11y.js |
+| D16 | Medium | 17 pages (RMM assets/checks/scripts, Intune, credentials, admin users/audit/mail/webhooks...) | 768 and 1024 | Layout: horizontal page scroll | tables widened the page; now scroll inside their card (rule extended to bare tables in `.card` and `.col-*`); re-run after all run-3 changes: 0 of 186 pages overflow at 768x1024 and 1024x768 (ticket pages excluded: their SSE stream never finishes loading) | fixed | css/itflow_design.css, js/a11y.js |
 | D17 | High | 15 portal pages (contracts, invoices, documents, allowance, contacts...) | n/a | Error recovery | a contact without the needed role was **signed out of the whole portal** (`post.php?logout`); now returned Home with a reason | fixed | client/*.php (15 files) |
 | D18 | Low | light/dark helper text, TomSelect placeholder, outline-danger, `.cred-desc` | both | Contrast | below 4.5:1 | fixed for the shared classes | css/itflow_design.css, css/itflow_custom.css |
+| D20 | Medium | 19 pages (dashboard, my dashboard, tickets, calendar, catalog...) | both | Heading order skipped levels (h1 -> h5/h6) | `heading-order` 21 nodes -> 0: levels are corrected with `aria-level` while tag and styling stay untouched, so nothing changes visually | fixed | js/a11y.js |
+| D21 | High | dark theme: 76 contrast nodes on 19 pages | dark | Colour contrast | measured fg/bg per node (`contrast_detail.py`): striped/hover cells of every contextual row kept black text, `bg-white` footers and `table-secondary` rows stayed light, `.text-dark/.text-danger/.nav-tabs`, filled buttons, calendar events; all brought to >= 4.5:1 with theme-token overrides in the shared layer (shim files untouched) | fixed: 0 nodes | css/itflow_design.css, css/itflow_custom.css |
+| D22 | Medium | Calendar | both | ARIA / focus | `aria-controls=""` and `aria-expanded` on a plain link (FullCalendar "+n more"), decorative role=img, no focus ring: fixed in our wrapper (no plugin edits) | fixed: 0 nodes | js/a11y.js, css/itflow_design.css |
+| D23 | Medium | tickets/dashboard rows with no department, read-only inputs, empty `<label>` switches (user preferences), id-only selects (RMM) | both | Accessibility | empty links hidden from AT, empty labels no longer count as names, names derived from row text/ids | fixed | js/a11y.js, agent/dashboard.php |
+| D24 | High | Sign-in, MFA enrolment, password reset (standalone pages) | both | no `<main>`/h1, unnamed copy button, 3.7:1 primary button | `js/a11y.js` gives them the landmark + h1; accent-filled buttons darkened; axe 0 | fixed | login.php, client/login_reset.php, agent/user/mfa_enforcement.php, js/a11y.js, css/itflow_design.css |
+| D25 | Medium | custom nav links in the top bar | both | icon-only link with the title on the `<li>` | now `aria-label` + `title` on the link | fixed (found when my QA custom link broke 51 pages' axe) | includes/top_nav.php |
+| D26 | High | **fresh install**: `update_cli.php --update_db` aborted at DB 2.6.184 and 2.6.186 ("Duplicate column name") | n/a | Install path | found by building a scratch RMM install: db.sql already carries those settings columns while setup records an older marker | fixed: update 2.6.183 -> 2.6.188 completes | admin/database_updates.php |
+| D27 | Low | question banks, bulk device setup | both | invalid ARIA tree/listbox | tree with buttons inside it replaced by labelled lists; checkbox rows are a group | fixed | agent/js/training_banks.js, agent/training_banks.php, agent/training_device_bulk.php, agent/js/training_quiz_builder.js |
 | D19 | Low | my own first a11y.js badge pass (found by testing) | light | regression | white text on pale translucent portal pills, and hidden header text widening tablet pages | fixed before the run ended | js/a11y.js |
 
 ### Unfixed (with reasons)
 | ID | What | Why not fixed |
 |---|---|---|
-| U1 | `heading-order` (moderate) on 19 pages: stat tiles / card titles are h3-h6 under the promoted h1 | page-by-page information-architecture choice (which tiles become h2); axe "moderate", no visible effect |
-| U2 | Dark-theme `color-contrast`: ~76 nodes on 19 pages, colour-coded badges/buttons with data-driven or token colours | needs a design decision on the dark token palette; shared classes were fixed, the rest is per component |
-| U3 | Calendar: FullCalendar's own `aria-allowed-attr` / `role-img-alt` (10 nodes) | third-party markup under `plugins/` |
-| U4 | `link-in-text-block` (5 nodes), 7 `link-name` nodes (ticket rows with no department render an empty link), 1 `label` (disabled input on user_details) | data-dependent, low impact |
-| U5 | `/admin/backup_recovery_panel.php`, `sync_watch_panel.php` answer 404 and RMM settings link to pages that answer a designed 403 "RMM module off" | by design (fragments, module switch); see P5 |
-| Env | Learner "Start course" returned 403 on my port: the kiosk API only accepts Origin = `$config_base_url` (demo config says `localhost:8080`). I set the worktree's gitignored config.php to `127.0.0.1:8190` | environment, not product |
+| U1 | Learner signature + PIN step and the certificate: the exam is passed (100%, "You passed!") but "Sign to finish" needs a mouse signature and the learner's PIN, and the PIN is set by the learner from a setup slip | not automatable here without the slip flow; no defect seen on the way |
+| U2 | SSO/IdP: `/admin/identity_provider.php` and `/login_oidc.php` forms were viewed and axe-checked, not submitted | no real IdP; submitting would only store fake endpoints |
+| U3 | Projects have no delete/archive in the list menu (only Edit) | feature gap, not a bug; see not-tested |
+| U4 | RMM remote tools, file transfer, MeshCentral and external metric store switches were not turned on | each needs a risk acknowledgement and a real endpoint |
+| U5 | `/admin/backup_recovery_panel.php`, `sync_watch_panel.php` answer 404 (fragment endpoints) | by design |
+| Env | kiosk 403 when the request origin is not `$config_base_url`; `https://` in the kiosk Start URL on an http dev server | environment, not product |
 
 ## 3. B. Improvement proposals (not implemented)
 Correction to run 1: P1 (bulk actions on the ticket list) was wrong - the list already has "Bulk Action (n)" and saved Ticket Views. Retracted.
@@ -73,6 +81,11 @@ Correction to run 1: P1 (bulk actions on the ticket list) was wrong - the list a
 | Detail pages with real ids (ticket, department overview, asset, contact, location, domain, software, project, document, credential, vendor, certificate, course, user, filtered lists) | full click sweep | pass |
 | Portal (24 pages) | click sweep (459 links) + axe + new ticket, attachment, reply, KB, training | pass after D17 |
 | Training: manager assign + export; learner start -> lessons -> exam -> graded result | `training_manager_flow.py`, `learner_flow.py`, `learner_exam.py` | works end to end (learner scored 50% on arbitrary answers: "Not this time", 1 try left) |
+| Guest ticket view, kiosk (index, check-in, trainer, me), SSO/MFA pages (user security, MFA enforcement, preferences, integrations, identity provider, security settings), kiosk setup wizard (enrolled `QA-UI- kiosk iPad`) | `misc_pages.py`, device-setup walk-through | axe 0 after D24; wizard works end to end |
+| Admin forms: every page-level settings form on 114 admin pages saved with current values (140 submits) + 37 New/Add modals filled with `QA-UI-` data | `admin_forms.py` | 0 HTTP errors, 0 modals left open |
+| Create / edit / delete cycles: software licence (archive), project (edit), recurring ticket (delete), calendar event (delete) | `crud_cycle.py`, `calendar_cycle.py` | pass; flash messages and list state correct |
+| Training: manager grants extra try (Locked courses), learner passes exam with correct answers | `grant_try.py`, `learner_pass.py` | 100% / Passed |
+| RMM with the module enabled (own scratch DB + own server on 8192, since dropped): dashboard, assets, alerts, checks, scripts, fleet, patching, software, hypervisor, policies, logs, starter pack, add-device, settings (28 pages), 7 feature forms saved | `rmm_pages.py`, click sweep | all 200, axe contrast fixed (D21), no JS errors |
 | Known open items: blank names, 500s (page, id, size), duplicate e-mail, invalid IP/MAC, unlabeled controls, tablet overflow, no h1/main | all re-tested | fixed (D3-D13, D16); the calendar-font/CSP item was not observed in this run |
 
 ## 5. Persona tasks (clicks from login, navigation only)
@@ -98,9 +111,8 @@ Correction to run 1: P1 (bulk actions on the ticket list) was wrong - the list a
 | Anyone | global search | 2 | no-hit state fixed (D15) |
 
 ## 6. Not tested (candid)
-- Android (separate phase); kiosk device enrolment/setup, guest/signature pages, SSO/MFA/passkey login.
-- Passing the exam and the certificate (my answers were arbitrary); training authoring.
-- Submitting every admin settings form (pages, links and modals were exercised; only users, assets and add-forms were submitted).
-- RMM pages with the module on (it is off here); e-mail sending, backups, updates, cron (forbidden by the rules).
-- Create/edit/delete cycles for software/licences, projects, calendar, recurring tickets, KB authoring.
-- U1/U2 were measured, not fixed.
+- Android (separate phase).
+- Learner signature + PIN and the certificate (U1); SSO/OIDC/passkey sign-in with a real provider (U2).
+- RMM remote tools, file transfer, MeshCentral, external metric store (U4); RMM with real agents/devices (the scratch install has none, so lists were empty states).
+- Project archive/delete (no control exists), KB authoring, saved-view CRUD, e-mail sending, backups, updates, cron (forbidden by the rules).
+- The 114 admin pages' remaining add/edit modals beyond the first five New/Add triggers per page, and any form that sends mail or calls an external service (skipped by design).

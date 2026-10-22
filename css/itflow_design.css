@@ -1019,7 +1019,7 @@ tr.asset-inline-moved-out > td {
    row-action dropdowns near the bottom of a table are not clipped by an overflow container.) */
 @media (max-width: 1199.98px) {
     .table-responsive-sm, .table-responsive-md, .table-responsive-lg,
-    .card-body:has(> table), .card-body:has(> .table) { overflow-x: auto; }
+    .card-body:has(> table), .card-body:has(> .table), .card:has(> table), .card:has(> .table), [class*="col-"]:has(> table), [class*="col-"]:has(> .table) { overflow-x: auto; }
 }
 
 /* A flex child will not shrink below its content: without this a wide .table-responsive pushes the whole page wider
