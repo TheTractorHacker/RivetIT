@@ -407,15 +407,18 @@ $ts_module_on = !empty($config_module_enable_training);
     .tao-chip { font-size: .72rem; padding: .18rem .55rem; border-radius: 999px; background: var(--if-bg, #eef2f2); color: var(--if-muted, #5d6f76); white-space: nowrap; }
     .tao-chip.is-on { background: rgba(47, 179, 68, .14); color: #1b7a2e; }
     .tao-toggle { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; font-size: .78rem; padding: .25rem .7rem; }
-    .tao-skillcell { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-    .tao-skill-form { display: flex; gap: 0; }
-    .tao-skill-form select { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-    .tao-skill-form button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    .tao-skillcell { display: flex; flex-wrap: nowrap; align-items: center; gap: .4rem; }
+    .tao-skill-form { display: flex; gap: 0; flex: 0 0 auto; }
+    .tao-skill-form select { border-top-right-radius: 0; border-bottom-right-radius: 0; width: 12.5rem; }
+    .tao-skill-form button { border-top-left-radius: 0; border-bottom-left-radius: 0; flex: 0 0 auto; }
+    .tao-create { position: relative; flex: 0 0 auto; }
     .tao-create-btn { width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 50%; }
     .tao-create-btn::-webkit-details-marker { display: none; }
     .tao-create-btn::marker { content: ""; }
-    .tao-create-pop { margin-top: .4rem; padding: .6rem .7rem; border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 10px);
-        background: var(--if-bg, #eef2f2); max-width: 20rem; }
+    /* Floats over the table instead of pushing the row's height (and its neighbours) around when opened. */
+    .tao-create-pop { position: absolute; z-index: 30; top: calc(100% + .4rem); right: 0; width: max-content;
+        padding: .6rem .7rem; border: 1px solid var(--if-border, #e3e9ea); border-radius: var(--if-radius, 10px);
+        background: var(--if-surface, #fff); box-shadow: 0 10px 28px rgba(16, 24, 32, .16); max-width: 18rem; }
 </style>
 
 <div class="ts-page">

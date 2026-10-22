@@ -570,13 +570,12 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
     }
     $fid = 'taoSk' . ($entity === 'course' ? 'C' : 'A') . intval($e['id']); ?>
     <div class="tao-skillcell">
-        <?php if ($m['state'] === 'ok') { ?><span class="tao-chip is-on"><i class="fas fa-fw fa-circle-check me-1" aria-hidden="true"></i>Certified skill</span><?php } ?>
         <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-skill-form">
             <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tao_csrf); ?>">
             <input type="hidden" name="entity" value="<?php echo nullable_htmlentities($entity); ?>">
             <input type="hidden" name="entity_id" value="<?php echo intval($e['id']); ?>">
             <label class="visually-hidden" for="<?php echo nullable_htmlentities($fid); ?>">Odoo certification skill for <?php echo nullable_htmlentities((string) $e['name']); ?></label>
-            <select class="form-select form-select-sm" id="<?php echo nullable_htmlentities($fid); ?>" name="skill_id" style="max-width: 14rem;">
+            <select class="form-select form-select-sm" id="<?php echo nullable_htmlentities($fid); ?>" name="skill_id">
                 <option value="">Not sent as a certification</option>
                 <?php foreach ($tao_skills as $tao_sid => $tao_sn) { ?>
                     <option value="<?php echo intval($tao_sid); ?>"<?php if ($m['state'] === 'ok' && intval($m['skill_id']) === intval($tao_sid)) { echo ' selected'; } ?>><?php echo nullable_htmlentities((string) $tao_sn); ?></option>
@@ -584,7 +583,9 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
             </select>
             <button type="submit" name="ta_odoo_skill_map" class="btn btn-outline-primary btn-sm">Save</button>
         </form>
-        <?php if ($m['state'] !== 'ok') { ?>
+        <?php if ($m['state'] === 'ok') { ?>
+            <span class="tao-chip is-on"><i class="fas fa-fw fa-circle-check me-1" aria-hidden="true"></i>Certified</span>
+        <?php } else { ?>
         <details class="tao-create">
             <summary class="tao-create-btn btn btn-outline-secondary btn-sm" title="Create a skill in Odoo named after this <?php echo nullable_htmlentities($entity); ?>"><i class="fas fa-plus" aria-hidden="true"></i></summary>
             <form action="<?php echo nullable_htmlentities($tao_post); ?>" method="post" class="tao-create-pop small">
