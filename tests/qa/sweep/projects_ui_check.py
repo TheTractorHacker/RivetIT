@@ -10,6 +10,9 @@ def check(name, ok, detail=''):
 LISTS = ['/agent/projects.php?client_id=16', '/agent/tickets.php?client_id=16', '/agent/assets.php?client_id=16', '/agent/contacts.php?client_id=16', '/agent/clients.php',
          '/agent/kb_articles.php', '/agent/domains.php?client_id=16', '/agent/vendors.php?client_id=16', '/agent/payments.php?client_id=16', '/agent/invoices.php?client_id=16',
          '/agent/files.php?client_id=16', '/agent/credentials.php?client_id=16', '/agent/software.php?client_id=16', '/agent/expenses.php']
+# self-contained: the drag target task exists in project 4 / To Do
+if not mysql("select 1 from tasks where task_name='QA-UI-200371'"):
+    mysql("insert into tasks (task_name, task_status, task_project_id, task_order) values ('QA-UI-200371', 'To Do', 4, 0)")
 p = sync_playwright().start()
 for who, theme in (('admin', 'light'), ('admin_d', 'dark')):
     for (w, h) in ((1920, 1080), (1366, 768)):
