@@ -89,7 +89,9 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
          theme THEN the design layer. -->
     <link rel="stylesheet" href="../../css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="../../css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
+    <link rel="stylesheet" href="../../css/itflow_custom.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.edition.css') ?>">
     <link rel="stylesheet" href="../../css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+    <link rel="stylesheet" href="../../css/itflow_design.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.edition.css') ?>">
 
     <!-- Token seam: maps this app's --if-* / --color-* tokens onto Tabler's --tblr-*. -->
     <link rel="stylesheet" href="../../css/itflow.bind-tabler.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow.bind-tabler.css') ?>">

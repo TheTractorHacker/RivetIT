@@ -1,0 +1,32 @@
+{
+    "schema": 1,
+    "core_version": "1.0.0-rc.34",
+    "files": {
+        "css/file_upload.css": "0643d5ce607c9634d8f74bc908136a037b03e5b96ef922f284eaa65e156ff9a7",
+        "css/itflow.bind-tabler.css": "1cd17cfec03663fb6d597b7de3db1576c589dee92aa0561a8100dd43c4b45485",
+        "css/itflow.compat-color.css": "2f73fbd2d89ead2f5ce6617cd91a57d03f885d19411132cfec627f31e8e5df6e",
+        "css/itflow.shim-adminlte.css": "b47eb8c81942c9b791875eea141ab7078a26a85de6a1f4f61ad285cccefa4bad",
+        "css/itflow.shim-bs4.css": "48c0fcb9f10bce08798320e6fc8150a90dc033c29240e0c591044f8ad5352c4b",
+        "css/itflow_bs5_bridge.css": "b4d2c95980c1dff99ead8e9ffe07d7e5fa7f6b01f64114f7a060954ed2ebd620",
+        "css/itflow_custom.css": "945ec7f6062813fea4418e7f404c934126c85a4770b40d8339441394a616aece",
+        "css/itflow_design.css": "8e7f3478f98f5ddb23c3eba2832ee6e8237a89482e9af80a9384cc75e816d239",
+        "css/itflow_metrics.css": "6f877a8093e58902c0f16701bbf82448fc6e750e15a3cbcf99ee004ace1dee02",
+        "css/itflow_motion.css": "9c9e612c4598e4da452d5344f2411f0235800b47e3f38b4c36981c6c39c8d1b2",
+        "css/itflow_rmm.css": "82e38823de12e6cd8396520b1dd16b85555fd286dfd16d6f12f88c1050b357f3",
+        "css/itflow_rmm_automation.css": "613ec8f79c5cd8a9d71034404310d44badda97ee0ba5150b7b405a78c58ae7b5",
+        "css/itflow_rmm_logs.css": "ae225db0ef85bb0d63c3097976e6d99c317d076a813bc76fac97c72dbbe72708",
+        "css/itflow_rmm_patches.css": "911caf082fd18b58004d5a485f8041346a122235124048fcfafbc1e9f8a8f073",
+        "css/itflow_rmm_remote.css": "02f3e15c308a8ed441160ef901633fababcbac773938ca1b9e3a49b647d24654",
+        "css/itflow_rmm_scale.css": "99071e0c1d87a4fe1f52c08effa48a9148e7dc97c59df99124991cca7c6d15ef",
+        "css/itflow_rmm_software.css": "5d0219e13531330e89a3e5dec37bf480ff2cade4c645635f72545262a84abcb9",
+        "css/itflow_rmm_ui.css": "d8c6ee3c46148e57dd0b24fa4b1ac4237d53115bff9f114cfbc11c1ded117810",
+        "css/webhook_form.css": "54d224d7006cfb1725024478b02ddb9bde4f5522a44d6d19f6d57db1ebe31bc5",
+        "css/webhook_guides.css": "3ddd81fc6b81d3465808c467ef07e2d04a9ab8325e3b732622a003689f5d700b",
+        "js/chart_theme.js": "070865bb4ceb8e29db408bec92dbc683c8ff350fb77f308b504c30ea0632e7ea",
+        "js/date_range_picker.js": "fd0445c9ca151dfbb968c1d262f5a4ea5ebf5e37e6d127425de8960b63700d0e",
+        "js/event_picker.js": "4b5da886f94f68343265942092b8dec4dacf440c3f4c7fb21bcd7245b2a04855",
+        "js/icon_picker.js": "3dde00674bb3970314aac1c5ffea56461a888ef0f0dba492d3fbba25668e7d0b",
+        "js/webhook_guides.js": "7744477f9ea686efe58122dd4bf8021eec898f00e0ecf5a8213a78815e745cd5",
+        "js/webhook_wizard.js": "28f6c1efe21e638f8926c485205de65e7839556ae537c27e14554e46ad264771"
+    }
+}

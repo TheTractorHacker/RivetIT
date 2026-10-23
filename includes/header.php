@@ -182,7 +182,14 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
 
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
+    <!-- Edition override: the rules RivetCore's shared itflow_custom.css doesn't carry (client-portal chrome,
+         KB utility classes the portal renders) - see docs/ui/DESIGN_ASSETS.md "Split files". Must come right
+         after itflow_custom.css; never edit the shared file itself, add rules here instead. -->
+    <link rel="stylesheet" href="/css/itflow_custom.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.edition.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+    <!-- Edition override: the one rule cut from itflow_design.css (the company-logo chip on the portal navbar
+         and login page - tenant branding, so it stays in the edition by design). -->
+    <link rel="stylesheet" href="/css/itflow_design.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.edition.css') ?>">
     <link rel="stylesheet" href="/css/file_upload.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/file_upload.css') ?>">
 
     <!-- Motion layer. Owns every animation in the app, including the single global

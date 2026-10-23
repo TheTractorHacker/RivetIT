@@ -1036,7 +1036,9 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
 
     <link rel="stylesheet" href="css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
+    <link rel="stylesheet" href="css/itflow_custom.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.edition.css') ?>">
     <link rel="stylesheet" href="css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+    <link rel="stylesheet" href="css/itflow_design.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.edition.css') ?>">
 
     <!-- Motion layer. Owns every animation in the app, including the single global
          prefers-reduced-motion guard, so no later rule can forget it. Must sit AFTER

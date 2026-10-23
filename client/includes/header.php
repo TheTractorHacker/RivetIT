@@ -252,7 +252,12 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
     <link rel="stylesheet" href="/css/itflow_bs5_bridge.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_bs5_bridge.css') ?>">
     <link rel="stylesheet" href="/css/itflow_custom.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.css') ?>">
+    <!-- Portal chrome (.client-portal-nav, .portal-*) and the KB utility classes the portal renders live here now,
+         cut out of the shared itflow_custom.css - see docs/ui/DESIGN_ASSETS.md "Split files". -->
+    <link rel="stylesheet" href="/css/itflow_custom.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_custom.edition.css') ?>">
     <link rel="stylesheet" href="/css/itflow_design.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.css') ?>">
+    <!-- The company-logo chip on the portal navbar (tenant branding), cut out of the shared itflow_design.css. -->
+    <link rel="stylesheet" href="/css/itflow_design.edition.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_design.edition.css') ?>">
     <link rel="stylesheet" href="/css/file_upload.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/file_upload.css') ?>">
 
     <!-- Motion layer. Owns every animation in the app, including the single global

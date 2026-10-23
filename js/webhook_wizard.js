@@ -17,6 +17,8 @@
   var destId = root.getAttribute('data-wz-dest') || '';
   var destName = root.getAttribute('data-wz-dest-name') || '';
   var webhookId = root.getAttribute('data-wz-id') || '';
+  var networksUrl = root.getAttribute('data-wz-networks') || 'settings_webhooks.php#internal-networks';
+  var editUrl = root.getAttribute('data-wz-edit') || 'webhook_edit.php';
 
   // ---- small helpers ---------------------------------------------------------------------------------------------
   function $(sel, ctx) { return (ctx || root).querySelector(sel); }
@@ -201,7 +203,7 @@
     var span = el('span', '', r.message);
     urlState.appendChild(span);
     if (r.state === 'private') {
-      var a = el('a', 'ms-1', 'Open Internal network access'); a.href = 'settings_webhooks.php#internal-networks'; a.target = '_blank'; a.rel = 'noopener';
+      var a = el('a', 'ms-1', 'Open Internal network access'); a.href = networksUrl; a.target = '_blank'; a.rel = 'noopener';
       span.appendChild(document.createTextNode(' ')); span.appendChild(a);
     }
     urlState.hidden = false;
@@ -761,8 +763,8 @@
       var enabled = $('#wz-enabled') && $('#wz-enabled').checked;
       var n = selectedEventCount();
       $('[data-wz-donesub]').textContent = destName + ' webhook created with ' + n + (n === 1 ? ' event' : ' events') + (enabled ? ' and switched on.' : '. It is switched off until you enable it.');
-      var dl = $('[data-wz-deliveries]'); if (dl) { dl.href = 'webhook_edit.php?id=' + encodeURIComponent(d.id) + '&tab=deliveries'; }
-      history.replaceState({ step: 'done' }, '', 'webhook_edit.php?id=' + encodeURIComponent(d.id));
+      var dl = $('[data-wz-deliveries]'); if (dl) { dl.href = editUrl + '?id=' + encodeURIComponent(d.id) + '&tab=deliveries'; }
+      history.replaceState({ step: 'done' }, '', editUrl + '?id=' + encodeURIComponent(d.id));
       if (andTest) { doneTest(); }
     }
     function doneTest() {
