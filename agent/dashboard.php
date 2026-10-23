@@ -649,7 +649,7 @@ if ($user_config_dashboard_financial_enable == 1 && $config_module_enable_accoun
         <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
             <div class="inner">
                 <h3><?php echo $clients_added; ?></h3>
-                <p>New Departments</p>
+                <p>Departments Added This Year</p>
             </div>
             <div class="icon"><i class="fa fa-users"></i></div>
         </a>
@@ -958,7 +958,7 @@ if (true) {  // Technical dashboard is always shown now - no more enable toggle.
         <a class="small-box bg-secondary" href="clients.php?dtf=<?php echo $year; ?>-01-01&dtt=<?php echo $year; ?>-12-31">
             <div class="inner">
                 <h3><?php echo $clients_added; ?></h3>
-                <p>New Departments</p>
+                <p>Departments Added This Year</p>
             </div>
             <div class="icon"><i class="fa fa-users"></i></div>
         </a>
