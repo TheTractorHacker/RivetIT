@@ -93,11 +93,28 @@ if ($method === 'PUT' || $method === 'POST') {
     if ($new_pass) {
         require_once __DIR__ . '/../../includes/security_policy.php';
         require_once __DIR__ . '/../../includes/security_sessions.php';
+        require_once __DIR__ . '/../../includes/security_crypto.php';
+        require_once $DOCUMENT_ROOT . '/plugins/totp/totp.php';
         // Verify current password
         $user = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT user_password FROM users WHERE user_id = $api_user_id LIMIT 1"));
+            "SELECT user_password, user_token FROM users WHERE user_id = $api_user_id LIMIT 1"));
         if (!password_verify($cur_pass, $user['user_password'])) {
             api_error(401, 'Current password is incorrect');
+        }
+        // A valid API bearer token alone used to be enough to change the account password - the token was only
+        // ever checked against MFA once, at the login step that issued it. If MFA is on, this step-up re-checks
+        // it too, the same as disabling MFA now does (agent/user/post/profile.php) - otherwise a stolen/leaked
+        // bearer token could set a new password with no second factor at all.
+        $own_totp_secret = secUserTotpSecret($user['user_token'] ?? '', (int) $api_user_id);
+        if (!empty($own_totp_secret)) {
+            $totp_code = trim((string) ($body['totp_code'] ?? ''));
+            $totp_ok = !empty($totp_code) && (
+                TokenAuth6238::verifyOnce($own_totp_secret, $totp_code)
+                || (secLooksLikeRecoveryCode($totp_code) && secRecoveryCodeConsume($mysqli, (int) $api_user_id, $totp_code, (string) ($_SERVER['REMOTE_ADDR'] ?? '')))
+            );
+            if (!$totp_ok) {
+                api_error(401, 'MFA code required to change your password');
+            }
         }
         // Staff password policy (length from Admin > Settings > Security, not the name or email, optional breach check)
         $policy_error = secPasswordPolicyError($new_pass, ['name' => trim($body['name'] ?? ''), 'email' => trim($body['email'] ?? ''), 'username' => trim($body['email'] ?? '')], $mysqli);

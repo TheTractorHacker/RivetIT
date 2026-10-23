@@ -352,14 +352,31 @@ if (isset($_POST['enable_mfa'])) {
 
 }
 
-if (isset($_GET['disable_mfa'])){
+if (isset($_POST['disable_mfa'])){
+
+    validateCSRFToken($_POST['csrf_token']);
 
     if ($session_user_config_force_mfa) {
         flash_alert("Multi-Factor authentication cannot be disabled for your account", 'error');
         redirect();
     }
 
-    validateCSRFToken($_GET['csrf_token']);
+    // Step-up check: the session alone used to be enough to turn MFA off (GET + CSRF token, no code) - anyone
+    // riding an already-authenticated session (a stolen session cookie, or a CSRF token leaked some other way)
+    // could disable it permanently with nothing more than that session. Now requires the current TOTP code or
+    // a recovery code, same as a fresh login's MFA step.
+    require_once "../../plugins/totp/totp.php";
+    $own_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_token FROM users WHERE user_id = $session_user_id"));
+    $own_totp_secret = secUserTotpSecret($own_row['user_token'] ?? '', (int) $session_user_id);
+    $current_code = trim($_POST['current_code'] ?? '');
+    $code_ok = !empty($current_code) && (
+        TokenAuth6238::verifyOnce($own_totp_secret, $current_code)
+        || (secLooksLikeRecoveryCode($current_code) && secRecoveryCodeConsume($mysqli, $session_user_id, $current_code, (string) getIP()))
+    );
+    if (!$code_ok) {
+        flash_alert("Incorrect code - MFA was not disabled", 'error');
+        redirect('user_security.php');
+    }
 
     mysqli_query($mysqli,"UPDATE users SET user_token = '' WHERE user_id = $session_user_id");
     secRecoveryCodesDelete($mysqli, $session_user_id);

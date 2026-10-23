@@ -88,10 +88,10 @@ function tps_local(?string $utc): ?string
             <?php require_once "modals/user_mfa_modal.php"; ?>
         <?php } else { ?>
             <span class="badge text-bg-success me-2"><i class="fas fa-check me-1"></i>Enabled</span>
-            <a href="post.php?disable_mfa&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-               class="btn btn-outline-danger btn-sm confirm-link">
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#disableMFAModal">
                 <i class="fas fa-unlock me-1"></i>Disable
-            </a>
+            </button>
+            <?php require_once "modals/user_mfa_disable_modal.php"; ?>
         <?php } ?>
     </div>
     <?php if (!empty($session_token)) { ?>
