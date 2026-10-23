@@ -224,7 +224,7 @@ $sql_creds = mysqli_query($mysqli,
         <div class="card card-dark mb-3">
             <div class="card-header py-2 d-flex align-items-center">
                 <h6 class="mb-0 mr-auto"><i class="fas fa-bell me-2"></i>Active Alerts</h6>
-                <a href="/agent/rmm_alerts.php?asset_id=<?= $asset_id ?>" class="btn btn-xs btn-secondary">All</a>
+                <a href="/agent/alerts.php?asset_id=<?= $asset_id ?>" class="btn btn-xs btn-secondary">All</a>
             </div>
             <div class="card-body p-0">
             <?php

@@ -59,7 +59,7 @@ function rivetRmmUiPill(string $kind, string $text, string $extraClass = ''): st
 {
     [$col, $icon] = rivetRmmUiKind($kind);
 
-    return '<span class="badge text-bg-' . $col . ($extraClass !== '' ? ' ' . nullable_htmlentities($extraClass) : '') . '"><i class="fas ' . $icon . ' me-1" aria-hidden="true"></i>'
+    return '<span class="badge rmmx-pill rmmx-pill-' . $kind . ' text-bg-' . $col . ($extraClass !== '' ? ' ' . nullable_htmlentities($extraClass) : '') . '"><i class="fas ' . $icon . '" aria-hidden="true"></i>'
         . nullable_htmlentities($text) . '</span>';
 }
 

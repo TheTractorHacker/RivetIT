@@ -208,6 +208,7 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
     <!-- RMM asset panel and agent fleet page (includes/rmm_ui_render.php). Scoped under .rmm-*, built from --if-* tokens and the .ifm-* cards above,
          so it must follow itflow_metrics.css and stay BEFORE itflow.bind-tabler.css. -->
     <link rel="stylesheet" href="/css/itflow_rmm.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm.css') ?>">
+    <link rel="stylesheet" href="/css/itflow_rmm_ui.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_ui.css') ?>">
     <link rel="stylesheet" href="/css/itflow_rmm_automation.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_automation.css') ?>">
     <!-- RMM Phase 6 and 8 and the scale settings (RivetCore 1.0.0-rc.11): the Remote tab, the Logs pages and the Administration scale panel. Same layer, same rules. -->
     <link rel="stylesheet" href="/css/itflow_rmm_remote.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/itflow_rmm_remote.css') ?>">

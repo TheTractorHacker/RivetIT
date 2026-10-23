@@ -534,7 +534,7 @@ function rivetRmmUiAlertsCard(array $vm): string
             . implode('', array_map(static fn ($a) => $item($a, false), $vm['alerts']['recent'])) . '</ul>';
     }
     $head = ($open !== [] ? rivetRmmUiPill('crit', count($open) . ' open') : rivetRmmUiPill('ok', 'None open'))
-        . '<a class="small ms-2" href="/agent/rmm_alerts.php?status=all&amp;asset_id=' . (int) $vm['asset_id'] . '">All alerts for this device</a>';
+        . '<a class="small ms-2" href="/agent/alerts.php?status=all&amp;asset_id=' . (int) $vm['asset_id'] . '">All alerts for this device</a>';
 
     return '<div class="col-lg-6">' . '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-' . ($open !== [] ? 'danger' : 'success') . ')" id="rmm-alerts"><div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px">'
         . '<h6 class="mb-0 me-auto"><i class="fas fa-bell me-2 text-warning" aria-hidden="true"></i>Alerts</h6>' . $head . '</div>' . $o . '</section></div>';
@@ -603,7 +603,7 @@ function rivetRmmUiChecksCard(array $vm): string
             . '<td class="rmm-wrap">' . rmmH($ch['detail']) . '<div class="text-muted small">reported ' . rivetRmmUiTime($ch['last_reported_at']) . '</div></td>'
             . '<td class="text-nowrap small">' . ($changed === null ? '<span class="text-muted">not recorded</span>' : ($ch['status'] === 'ok' ? 'steady for ' : 'since ') . rmmH($changed)) . '</td>'
             . ($vm['check_history_on'] ? '<td class="rmm-trend-cell">' . rivetRmmUiTrendCell((string) $ch['key'], $vm['trends'][(string) $ch['key']] ?? null, (bool) $vm['offline']) . '</td>' : '')
-            . '<td>' . ($ch['alert_id'] ? '<a class="badge text-bg-light border" href="/agent/rmm_alerts.php?status=all&amp;asset_id=' . (int) $vm['asset_id'] . '">alert #' . (int) $ch['alert_id'] . '</a>' : '<span class="text-muted">none</span>') . '</td></tr>';
+            . '<td>' . ($ch['alert_id'] ? '<a class="badge text-bg-light border" href="/agent/alerts.php?status=all&amp;asset_id=' . (int) $vm['asset_id'] . '">alert #' . (int) $ch['alert_id'] . '</a>' : '<span class="text-muted">none</span>') . '</td></tr>';
     }
     if ($vm['checks'] === []) {
         $table = rivetRmmUiEmpty('fas fa-heartbeat', 'No check result yet', $vm['state'] === 'never' ? 'The device has not checked in yet.' : 'No checks are configured, or none has reported since the agent last restarted.');
@@ -1095,7 +1095,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
         . rivetRmmUiInfoBox('secondary', 'moon', 'Stale', $c['stale'], 'quiet over 7 days', '/agent/rmm_fleet.php?status=stale')
         . rivetRmmUiInfoBox('primary', 'hourglass-half', 'Never seen', $c['never'], 'enrolled, no check-in', '/agent/rmm_fleet.php?status=never')
         . rivetRmmUiInfoBox($c['pending_approval'] > 0 ? 'warning' : 'secondary', 'user-clock', 'Need approval', $c['pending_approval'], 'waiting for a decision', '/agent/rmm_fleet.php?status=pending_approval')
-        . rivetRmmUiInfoBox($f['open_alerts'] > 0 ? 'danger' : 'secondary', 'bell', 'Open alerts', $f['open_alerts'], 'agent alerts', '/agent/rmm_alerts.php?status=new');
+        . rivetRmmUiInfoBox($f['open_alerts'] > 0 ? 'danger' : 'secondary', 'bell', 'Open alerts', $f['open_alerts'], 'agent alerts', '/agent/alerts.php?status=new');
 
     $legend = static fn (string $col, string $l, int $n): string => '<li class="d-flex align-items-center gap-2"><span class="ifm-legend-swatch" style="background:' . $col . '"></span>' . rmmH($l) . ' <b class="ms-auto">' . $n . '</b></li>';
     $donut = rivetRmmUiDonut([['n' => $c['online'], 'l' => 'online', 'col' => 'var(--tblr-success)'], ['n' => $c['offline'], 'l' => 'offline', 'col' => 'var(--tblr-danger)'],
@@ -1242,7 +1242,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
         . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device', 'btn-outline-primary btn-sm') : '')
         . rivetRmmMeshBulkTrigger($f['mesh_bulk'] ?? null)
         . '<a href="/agent/rmm_assets.php" class="btn btn-info btn-sm"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
-        . '<a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
+        . '<a href="/agent/alerts.php" class="btn btn-warning btn-sm"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
         . ($f['perm']['admin'] ? '<a href="/admin/settings_endpoint_agent.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-cog me-1" aria-hidden="true"></i>Administration</a>' : '') . '</div>'
         . ($installerGate !== null ? rivetRmmInstallerNotice($installerGate, $installer) : '')
         . ($c['total'] === 0 && $f['filters'] === [] ? '<section class="card card-dark mb-3"><div class="card-body">' . rivetRmmUiEmpty('fas fa-satellite-dish', 'No agent is enrolled yet',

@@ -270,7 +270,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
     <a href="/agent/rmm_assets.php" class="btn btn-info btn-sm me-2">
         <i class="fas fa-desktop me-1"></i>All Assets
     </a>
-    <a href="/agent/rmm_alerts.php" class="btn btn-warning btn-sm me-2">
+    <a href="/agent/alerts.php" class="btn btn-warning btn-sm me-2">
         <i class="fas fa-bell me-1"></i>Alerts<?php if ($alert_counts['new_cnt'] > 0): ?> <span class="badge text-bg-light"><?= intval($alert_counts['new_cnt']) ?></span><?php endif; ?>
     </a>
     <?php if (lookupUserPermission('module_rmm_sync') >= 1 && $default_intg): ?>
@@ -324,7 +324,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
         </div></a>
     </div>
     <div class="col-6 col-md-2">
-        <a href="/agent/rmm_alerts.php?status=new" class="text-decoration-none">
+        <a href="/agent/alerts.php?status=new" class="text-decoration-none">
         <div class="info-box <?= intval($alert_counts['critical_cnt']) > 0 ? 'bg-danger' : 'bg-warning' ?> mb-0">
             <span class="info-box-icon"><i class="fas fa-exclamation-triangle"></i></span>
             <div class="info-box-content">
@@ -612,7 +612,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                     <i class="fas fa-check-double me-1"></i>Ack All
                 </button>
                 <?php endif; ?>
-                <a href="/agent/rmm_alerts.php" class="btn btn-xs btn-secondary">All Alerts</a>
+                <a href="/agent/alerts.php" class="btn btn-xs btn-secondary">All Alerts</a>
             </div>
             <div class="card-body p-0" id="alertList">
             <?php if (mysqli_num_rows($sql_new_alerts) === 0): ?>
@@ -706,7 +706,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                         </td>
                         <td class="text-center">
                             <?php if ($cl['alerts'] > 0): ?>
-                            <a href="/agent/rmm_alerts.php?client_id=<?= intval($cl['client_id']) ?>" class="badge text-bg-warning"><?= intval($cl['alerts']) ?></a>
+                            <a href="/agent/alerts.php?client_id=<?= intval($cl['client_id']) ?>" class="badge text-bg-warning"><?= intval($cl['alerts']) ?></a>
                             <?php else: ?>
                             <span class="text-muted">0</span>
                             <?php endif; ?>
