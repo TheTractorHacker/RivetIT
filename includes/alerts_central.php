@@ -103,7 +103,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
     $rmmFrom = " FROM rmm_alerts a LEFT JOIN assets ast ON ast.asset_id = a.asset_id LEFT JOIN clients c ON c.client_id = a.client_id LEFT JOIN users u ON u.user_id = a.acknowledged_by
          LEFT JOIN tickets t ON t.ticket_id = a.ticket_id LEFT JOIN rmm_integrations i ON i.id = a.integration_id";
 
-    $map = static function (array $r, string $source) use ($esc): array {
+    $map = static function (array $r, string $source): array {
         return [
             'source' => $source, 'id' => (int) $r['id'], 'severity' => $r['severity'] ?: 'info', 'message' => (string) $r['message'], 'subject' => $r['asset_name'] ?: null,
             'subject_url' => $r['asset_id'] ? '/agent/asset_details.php?asset_id=' . (int) $r['asset_id'] : null, 'client_id' => $r['client_id'] ? (int) $r['client_id'] : null,
@@ -116,7 +116,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
     if (in_array($f['source'], ['all', 'rmm'], true)) {
         $w = "COALESCE(i.type, '') <> 'rivetit_agent'" . $scope('a.client_id');
         $w .= alertsCentralStatusClause('a.status', $f['status']);
-        if ($f['severity'] !== '') { $w .= " AND a.severity = '" . $esc($f['severity']) . "'"; }
+        if ($f['severity'] !== '') { $w .= " AND a.severity = '" . $f['severity'] . "'"; }
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (a.message LIKE '$like' OR ast.asset_name LIKE '$like' OR c.client_name LIKE '$like')"; }
@@ -127,7 +127,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
     if ($f['source'] === 'network') {
         $w = "ast.asset_type IN ('Firewall/Router','Switch','Access Point')" . $scope('a.client_id');
         $w .= alertsCentralStatusClause('a.status', $f['status']);
-        if ($f['severity'] !== '') { $w .= " AND a.severity = '" . $esc($f['severity']) . "'"; }
+        if ($f['severity'] !== '') { $w .= " AND a.severity = '" . $f['severity'] . "'"; }
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (a.message LIKE '$like' OR ast.asset_name LIKE '$like' OR c.client_name LIKE '$like')"; }
@@ -142,7 +142,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         $metaJoin = ' LEFT JOIN rmm_alert_meta m ON m.meta_id = (SELECT MAX(m2.meta_id) FROM rmm_alert_meta m2 WHERE m2.alert_id = a.id) LEFT JOIN endpoint_agent_devices d ON d.device_id = m.device_id';
         $w = "i.type = 'rivetit_agent'" . $scope('a.client_id');
         $w .= alertsCentralStatusClause($stSql, $f['status']);
-        if ($f['severity'] !== '') { $w .= " AND $svSql = '" . $esc($f['severity']) . "'"; }
+        if ($f['severity'] !== '') { $w .= " AND $svSql = '" . $f['severity'] . "'"; }
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (COALESCE(m.message, a.message) LIKE '$like' OR ast.asset_name LIKE '$like' OR d.hostname LIKE '$like' OR c.client_name LIKE '$like' OR m.check_key LIKE '$like')"; }
@@ -163,7 +163,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         $stM = "CASE m.state WHEN 'open' THEN 'new' ELSE m.state END";
         $svM = "CASE m.severity WHEN 'crit' THEN 'critical' WHEN 'warn' THEN 'warning' ELSE m.severity END";
         $w .= alertsCentralStatusClause($stM, $f['status']);
-        if ($f['severity'] !== '') { $w .= " AND $svM = '" . $esc($f['severity']) . "'"; }
+        if ($f['severity'] !== '') { $w .= " AND $svM = '" . $f['severity'] . "'"; }
         if ($f['client'] > 0) { $w .= ' AND m.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND d.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (m.message LIKE '$like' OR d.hostname LIKE '$like' OR c.client_name LIKE '$like' OR m.check_key LIKE '$like')"; }
@@ -181,7 +181,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
     if (in_array($f['source'], ['all', 'backup'], true)) {
         $w = '1=1' . $scope('a.alert_client_id');
         $w .= alertsCentralStatusClause('a.alert_status', $f['status']);
-        if ($f['severity'] !== '') { $w .= " AND a.alert_severity = '" . $esc($f['severity']) . "'"; }
+        if ($f['severity'] !== '') { $w .= " AND a.alert_severity = '" . $f['severity'] . "'"; }
         if ($f['client'] > 0) { $w .= ' AND a.alert_client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND 1=0'; }   // backup alerts are not tied to an asset
         if ($like !== null) { $w .= " AND (a.alert_message LIKE '$like' OR a.alert_device_name LIKE '$like' OR c.client_name LIKE '$like')"; }

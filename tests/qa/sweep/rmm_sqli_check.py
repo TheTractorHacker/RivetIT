@@ -29,6 +29,10 @@ _, _, _, n16 = get('status=all&client_id=16'); _, _, _, nx = get('status=all&cli
 check('client_id="16 OR 1=1" is read as 16 (no widened scope)', nx == n16 and nx < base_n, (n16, nx, base_n))
 _, _, _, ns = get('status=all&severity=' + up.quote("critical' OR '1'='1", safe=''))
 check('severity with an injected clause falls back to "any" (whitelist), it does not match everything through the clause', ns == base_n, (ns, base_n))
+# a real severity filter must still work on every source (it used to share an escaping helper that was removed once: the page then fataled only for valid values)
+for src in ('all', 'agent', 'rmm', 'backup', 'network'):
+    st, body, dt, n = get(f'status=all&source={src}&severity=critical')
+    check(f'severity=critical works on source={src} (200, no error text)', st == 200 and not ERR.search(re.sub(r'<script.*?</script>', '', body, flags=re.S)) and n is not None, (st, n))
 # % and _ are literal
 msgs_pct = int(mysql("select count(*) from rmm_alerts where message like '%\\%%'")[0][0]) + int(mysql("select count(*) from comet_backup_alerts where alert_message like '%\\%%'")[0][0])
 _, _, _, npct = get('status=all&q=' + up.quote('%', safe=''))

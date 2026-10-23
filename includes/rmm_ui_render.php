@@ -22,7 +22,8 @@ foreach (['rmm_pol_ui.php', 'rmm_scr_ui.php', 'rmm_alr_ui.php', 'rmm_rem_ui.php'
 
 function rmmH($v): string
 {
-    return nullable_htmlentities((string) $v);
+    // A list value (the starter pack's "cert_paths" example is an array) used to raise "Array to string conversion" and print the word Array.
+    return nullable_htmlentities(is_array($v) ? implode("\n", array_map('strval', $v)) : (string) $v);
 }
 
 /** The app's empty state (includes/ui/empty_state.php) as a string. */
