@@ -210,6 +210,17 @@ function rivetRmmMeshAgentHtml(?array $m, array $opt = []): string
     } elseif ($state === 'kept_manual') {
         $hint .= '<div class="alert alert-info py-2 mb-2" role="status" data-mesh-hint="kept_manual"><i class="fas fa-info-circle me-1" aria-hidden="true"></i><strong>The agent reported a different Mesh node than the one an administrator mapped by hand, so the mapping was kept.</strong>'
             . ' To use the agent\'s node, change the mapping below or turn on <em>Let the agent\'s node replace a node I mapped by hand</em> in the MeshCentral settings.</div>';
+    } elseif ($state === 'needs_approval') {
+        // RivetCore 1.0.0-rc.31 (F1): a reported node id is no longer mapped by itself; it waits here until an administrator maps it (the
+        // existing manual-mapping action, set_mesh_node), so a cloned/reused node id is never auto-attached to the wrong device. The Approve
+        // button below (admin-only, wired in js/rmm_panel.js and agent/rmm_agent_device.php's own script) calls that SAME action with this
+        // device's own reported node_id pre-filled, for the old one-click feel UPGRADING.md offers as optional.
+        $nodeId = (string) ($m['node_id'] ?? '');
+        $approve = $nodeId !== '' && !empty($opt['can_approve'])
+            ? ' <button type="button" class="btn btn-sm btn-warning ms-0 mt-2" id="rmm-mesh-approve-btn" data-node="' . $h($nodeId) . '">Approve this node</button>'
+            : '';
+        $hint .= '<div class="alert alert-warning py-2 mb-2" role="alert" data-mesh-hint="needs_approval"><i class="fas fa-user-check me-1" aria-hidden="true"></i><strong>This device reported a Mesh node that has not been approved yet, so nothing was mapped.</strong>'
+            . ' Check this node in MeshCentral, then map it.' . $approve . '</div>';
     }
 
     return $afterLine . '<div id="rmm-mesh-agent" data-state="' . $h($state !== '' ? $state : (!empty($m['installed']) ? 'installed' : 'reported')) . '">' . $hint . '<dl class="row small mb-0">' . $rows . '</dl></div>';

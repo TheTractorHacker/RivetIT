@@ -112,6 +112,13 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         </a>
                     </li>
 
+                    <li class="nav-item<?php if ($current_page == "panel_deploy.php") { echo " active"; } ?>">
+                        <a href="/agent/panel_deploy.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "panel_deploy.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-comment-dots"></i></span>
+                            <span class="nav-link-title">RivetPanel</span>
+                        </a>
+                    </li>
+
                     <li class="nav-item<?php if ($current_page == "projects.php" || $current_page == "project_details.php") { echo " active"; } ?>">
                         <a href="/agent/projects.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "projects.php" || $current_page == "project_details.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-project-diagram"></i></span>

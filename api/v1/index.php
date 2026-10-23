@@ -128,6 +128,14 @@ if ($resource === 'agent_enroll' || $resource === 'agent_checkin' || $resource =
     exit;
 }
 
+// RivetPanel device-credential endpoints (the desktop ticket/chat helper's per-device bearer token - never the legacy X-Api-Key or a
+// user session; see vendor/rivet/rivet-core/docs/panel/PANEL_API.md). Twin of the agent_* block above and routed here for the same
+// reason: a panel device credential is not an api_tokens row, and PanelApi bounds and rate-limits its own body read.
+if ($resource === 'panel_enroll' || $resource === 'panel_me' || $resource === 'panel_categories' || $resource === 'panel_tickets' || $resource === 'panel_ticket_chat') {
+    require __DIR__ . '/' . $resource . '.php';
+    exit;
+}
+
 // Build host endpoints (Agent updates > Local build): authenticated ONLY by a build host token, never by an API key. Routed above the Bearer parsing and the pre-auth body read.
 if ($resource === 'build_host') {
     require __DIR__ . '/build_host.php';

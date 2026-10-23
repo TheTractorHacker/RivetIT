@@ -239,6 +239,18 @@
         });
     });
 
+    // ---- Approve a Mesh node waiting for approval (RivetCore 1.0.0-rc.31, F1): one click calls the SAME set_mesh_node action the form above
+    // posts, with the device's own reported node id (data-node) already filled in - no separate approval endpoint exists or is needed.
+    var meshApprove = document.getElementById('rmm-mesh-approve-btn');
+    if (meshApprove) {
+        meshApprove.addEventListener('click', function () {
+            post('set_mesh_node', { mesh_node_id: meshApprove.dataset.node || '' }).then(function (d) {
+                say(d.success ? 'Node approved and mapped.' : (d.error || 'Not saved.'), !!d.success);
+                if (d.success) { window.setTimeout(function () { window.location.reload(); }, 700); }
+            }).catch(function () { say('Network error.', false); });
+        });
+    }
+
     // ---- Automation (administrators): "another tool already manages this device" (rmm-automation-disabled, RivetCore 1.0.0-rc.32).
     var autoToggle = document.getElementById('rmm-automation-disabled');
     if (autoToggle) {

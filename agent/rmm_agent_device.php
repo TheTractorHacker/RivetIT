@@ -203,7 +203,7 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
         $oar = $oa ? mysqli_fetch_row($oa) : null;
         $conflictUrl = $oar && (int) $oar[0] > 0 ? '/agent/asset_details.php?asset_id=' . (int) $oar[0] . '#rmm-overview' : null;
     }
-    if (!empty($view['mesh_agent']) || isset($view['mesh_after_approval'])) { echo rivetRmmMeshAgentHtml($view['mesh_agent'] ?? null, ['conflict_url' => $conflictUrl, 'after_approval' => $view['mesh_after_approval'] ?? null]); }
+    if (!empty($view['mesh_agent']) || isset($view['mesh_after_approval'])) { echo rivetRmmMeshAgentHtml($view['mesh_agent'] ?? null, ['conflict_url' => $conflictUrl, 'after_approval' => $view['mesh_after_approval'] ?? null, 'can_approve' => $is_admin]); }
     echo rivetRmmMeshPushControls($push_state); ?>
 </div></div>
 <?php if ($push_state !== null) { echo rivetRmmMeshPushDialog((string) $_SESSION['csrf_token']); } ?>
@@ -273,6 +273,17 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
     document.querySelectorAll('.ea-cancel').forEach(function (b) { b.addEventListener('click', function () { post('cancel_job', {job_id: b.dataset.job}).then(function (d) { if (d.success) { location.reload(); } else { msg(d.error, false); } }); }); });
     var mf = document.getElementById('ea-mesh-form');
     if (mf) mf.addEventListener('submit', function (e) { e.preventDefault(); post('set_mesh_node', {mesh_node_id: document.getElementById('ea-node').value}).then(function (d) { msg(d.success ? 'Mapping saved.' : d.error, !!d.success); if (d.success) { window.setTimeout(function () { location.reload(); }, 700); } }); });
+    // RivetCore 1.0.0-rc.31 (F1): "Approve this node" calls the same set_mesh_node action with the device's own reported node id (data-node),
+    // so an administrator confirms rather than retyping it.
+    var meshApprove = document.getElementById('rmm-mesh-approve-btn');
+    if (meshApprove) {
+        meshApprove.addEventListener('click', function () {
+            post('set_mesh_node', {mesh_node_id: meshApprove.dataset.node || ''}).then(function (d) {
+                msg(d.success ? 'Node approved and mapped.' : (d.error || 'Not saved.'), !!d.success);
+                if (d.success) { window.setTimeout(function () { location.reload(); }, 700); }
+            });
+        });
+    }
     var ad = document.getElementById('ea-automation-disabled');
     if (ad) ad.addEventListener('change', function () {
         var checked = ad.checked;

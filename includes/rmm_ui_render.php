@@ -566,7 +566,7 @@ function rivetRmmUiRemoteCard(array $vm): string
     $body .= '</div>';
     // RivetCore rc.12: what the device reported about its MeshCentral agent (present only once it reported one). An administrator also sees the hint that nothing was reported yet.
     if (!empty($vm['mesh_agent']) || isset($vm['mesh_after_approval']) || ($m['configured'] && $perm['admin']) || $push !== '') {
-        $body .= '<div class="card-body border-top py-2"><div class="ifm-toolbar-label mb-1">MeshCentral agent</div>' . rivetRmmMeshAgentHtml($vm['mesh_agent'] ?? null, ['conflict_url' => $vm['mesh_agent_conflict_url'] ?? null, 'after_approval' => $vm['mesh_after_approval'] ?? null]) . $push . '</div>';
+        $body .= '<div class="card-body border-top py-2"><div class="ifm-toolbar-label mb-1">MeshCentral agent</div>' . rivetRmmMeshAgentHtml($vm['mesh_agent'] ?? null, ['conflict_url' => $vm['mesh_agent_conflict_url'] ?? null, 'after_approval' => $vm['mesh_after_approval'] ?? null, 'can_approve' => $perm['admin']]) . $push . '</div>';
     }
     if ($perm['admin']) {
         $body .= '<div class="card-body border-top py-2"><form id="rmm-mesh-form" class="row g-2 align-items-end"><div class="col-12"><label class="form-label small mb-1" for="rmm-mesh-node">MeshCentral node id (administrators)</label>'
