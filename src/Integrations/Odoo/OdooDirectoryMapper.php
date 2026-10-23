@@ -362,10 +362,14 @@ class OdooDirectoryMapper {
     // blank out a human-entered contact_email - the field is only included in
     // the SET clause when Odoo actually supplied a value.
     private function applyEmployeeFields(int $contactId, string $nameEsc, string $email, string $emailEsc, string $employmentStatus, bool $active, int $contactClientId, string $mappedSetSql): void {
+        // A person archived by hand in Training > People (odoo_archive_hold) stays archived while Odoo still lists them as active.
+        $held = $this->archiveHoldAvailable()
+            ? "EXISTS (SELECT 1 FROM contact_odoo_links h WHERE h.contact_id = $contactId AND h.odoo_archive_hold = 1)"
+            : '0';
         $sql = "UPDATE contacts SET
             contact_name='$nameEsc',
             contact_employment_status='$employmentStatus',
-            contact_archived_at=" . ($active ? 'NULL' : 'COALESCE(contact_archived_at, NOW())');
+            contact_archived_at=" . ($active ? "IF($held, COALESCE(contact_archived_at, NOW()), NULL)" : 'COALESCE(contact_archived_at, NOW())');
 
         if ($email !== '') {
             $sql .= ", contact_email='$emailEsc'";
@@ -386,6 +390,15 @@ class OdooDirectoryMapper {
         mysqli_query($this->mysqli, $sql);
         // employee.terminated when Odoo marks someone inactive, employee.hired when they become active again (off unless auto-start is on)
         \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, $contactId, $lifecycleBefore);
+    }
+
+    private function archiveHoldAvailable(): bool {
+        static $has = null;
+        if ($has === null) {
+            $r = mysqli_query($this->mysqli, "SHOW COLUMNS FROM contact_odoo_links LIKE 'odoo_archive_hold'");
+            $has = $r && mysqli_num_rows($r) > 0;
+        }
+        return $has;
     }
 
     private function upsertEmployeeLink(int $contactId, int $odooEmployeeId): void {

@@ -11721,3 +11721,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.188'");
     }
+
+    if ($rivetit_db_version() == '2.6.188') {
+        // DB 2.6.189: Training > People can archive a person. For a person the Odoo directory sync owns, the archive must survive
+        // the next sync (the mapper un-archives anyone still active in Odoo), so the link row carries a hold the mapper respects.
+        $has_hold = mysqli_query($mysqli, "SHOW COLUMNS FROM `contact_odoo_links` LIKE 'odoo_archive_hold'");
+        if ($has_hold && mysqli_num_rows($has_hold) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `contact_odoo_links` ADD COLUMN `odoo_archive_hold` TINYINT(1) NOT NULL DEFAULT 0");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.189'");
+    }

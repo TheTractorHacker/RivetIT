@@ -57,7 +57,7 @@
 .tro-card__foot { padding: 12px 20px; border-top: 1px solid var(--if-border, #e3e9ea); }
 
 .tro-tabs { border-bottom: 1px solid var(--if-border, #e3e9ea); padding: 0 12px; }
-.tro-tabs .nav { gap: 4px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.tro-tabs .nav { gap: 4px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding-bottom: 1px; scrollbar-width: thin; }   /* the links' -1px margin would otherwise overflow by 1px and show a vertical scrollbar */
 .tro-tabs .nav-link {
   display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
   padding: 14px 12px 12px; color: var(--if-muted, #5d6f76); font-weight: 500;
@@ -651,3 +651,8 @@ td.tro-inline-cell { background: var(--tro-surface-2); }
 .tro-cleared > li { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--if-ink, #16232a); min-width: 0; }
 .tro-cleared > li > i { color: var(--if-muted, #5d6f76); flex: none; }
 .tro-cleared > li > span { overflow-wrap: anywhere; }
+
+/* People roster: archived rows read as inactive; the job cell shows a dash instead of repeating "No job position". */
+.tro-table tr.tro-row-archived > td { opacity: .62; }
+.tro-table tr.tro-row-archived > td.tro-actions { opacity: 1; }
+#tro-pr-table > :not(caption) > * > * { padding-top: 10px; padding-bottom: 10px; }
