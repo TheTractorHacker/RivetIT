@@ -323,6 +323,7 @@ final class PathService
                 'achievement' => $r['tpath_achievement_id'] === null ? null : ($achievements[(int) $r['tpath_achievement_id']] ?? null),
                 'version' => (int) $r['tpath_version'],
                 'archived' => $r['tpath_archived_at'] !== null,
+                'updated_at' => (string) $r['tpath_updated_at'],
                 'i18n' => ($i18n[$id] ?? []) === [] ? new \stdClass() : $i18n[$id],
                 'courses' => $list,
                 'course_count' => count($list),

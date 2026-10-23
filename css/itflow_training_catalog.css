@@ -469,3 +469,51 @@
   .tr-path-card:hover, .tr-ach-card:hover { transform: translateY(-2px); box-shadow: var(--if-shadow-md); }
   .tr-cat-icon, .tr-cat-swatch { transition: border-color .12s ease, box-shadow .12s ease; }
 }
+
+/* =============================================================================
+   Learning paths: toolbar, "new" tile, tidier editor (cover/colour rows, course rows, footer)
+   ============================================================================= */
+.tr-path-toolbar { gap: 10px 12px; margin-bottom: 16px; }
+.tr-path-toolbar__search { position: relative; flex: 1 1 14rem; max-width: 22rem; }
+.tr-path-toolbar__search > i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--if-muted); pointer-events: none; }
+.tr-path-toolbar__search .form-control { padding-left: 34px; }
+.tr-path-toolbar__sort { width: auto; min-width: 12rem; }
+.tr-path-toolbar__count { font-size: .9375rem; font-weight: 500; color: var(--if-ink); }
+.tr-path-grid { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+.tr-path-card--new {
+  align-items: center; justify-content: center; gap: 6px; min-height: 12rem; padding: 20px; text-align: center;
+  background: transparent; border: 2px dashed var(--if-border-strong); box-shadow: none; color: var(--if-muted); cursor: pointer;
+}
+.tr-path-card--new:hover, .tr-path-card--new:focus-visible { border-color: var(--if-primary); color: var(--if-ink); background: color-mix(in srgb, var(--if-primary) 5%, transparent); outline: none; }
+.tr-path-card--new__plus { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: color-mix(in srgb, var(--if-primary) 12%, transparent); color: var(--if-primary); }
+.tr-path-card--new__title { font-weight: 600; color: var(--if-ink); }
+.tr-path-card .tr-chip[tabindex]:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 2px; }
+
+/* Editor panel: pinned header/footer, nothing clipped at the top, scrolling body */
+.tr-path-editor { top: 0; max-height: 100vh; max-height: 100dvh; }
+.tr-path-editor .offcanvas-header { position: sticky; top: 0; z-index: 2; background: var(--if-surface); border-bottom: 1px solid var(--if-border); padding: 14px 20px; }
+.tr-path-editor .offcanvas-body { padding: 18px 20px 12px; }
+.tr-path-editor__footer { padding: 12px 20px; box-shadow: 0 -4px 12px -8px rgba(0, 0, 0, .25); }
+.tr-path-editor__footer .btn { min-height: 38px; }
+.tr-cat-swatches { gap: 10px; flex-wrap: nowrap; }
+.tr-cat-swatch { flex: none; }
+.tr-path-cover-row { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }
+.tr-path-cover-row .tr-cat-cover { flex: 1 1 14rem; min-width: 0; aspect-ratio: auto; min-height: 7rem; }
+.tr-path-cover-actions { display: flex; flex-direction: column; gap: 8px; flex: 0 0 11.5rem; justify-content: center; }
+.tr-path-cover-actions .btn { width: 100%; text-align: left; }
+.tr-path-courses-block .tr-path-courses { max-height: none; }
+.tr-path-course { display: grid; grid-template-columns: 20px 26px minmax(0, 1fr) auto auto; gap: 8px 10px; align-items: center; padding: 10px 12px; }
+.tr-path-course__main { grid-column: 3; }
+.tr-path-course__req { grid-column: 4; display: flex; align-items: center; gap: 8px; }
+.tr-path-course__sub { flex-direction: column; align-items: flex-start; }
+.tr-path-course__actions { grid-column: 5; }
+.tr-path-course__actions .btn:disabled { opacity: .3; cursor: not-allowed; }
+.tr-path-course__req .form-check-input:checked { background-color: var(--trr-ok-fg, #15803d); border-color: var(--trr-ok-fg, #15803d); }
+.tr-path-course__req .form-check-label { white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .tr-path-course { grid-template-columns: 20px 26px minmax(0, 1fr); }
+  .tr-path-course__req { grid-column: 3; }
+  .tr-path-course__actions { grid-column: 3; justify-self: start; }
+  .tr-path-cover-actions { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; }
+  .tr-path-cover-actions .btn { width: auto; }
+}

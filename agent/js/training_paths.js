@@ -47,8 +47,22 @@
         }
 
         // ------------------------------------------------------------------ path cards
+        var searchEl = document.getElementById('tr-path-search');
+        var sortEl = document.getElementById('tr-path-sort');
         function visiblePaths() {
-            return paths.filter(function (p) { return !p.archived || (showArchived && showArchived.checked); });
+            var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            var list = paths.filter(function (p) {
+                if (p.archived && !(showArchived && showArchived.checked)) { return false; }
+                return !q || p.name.toLowerCase().indexOf(q) !== -1 || (p.description || '').toLowerCase().indexOf(q) !== -1;
+            });
+            var by = sortEl ? sortEl.value : 'name';
+            list.sort(function (a, b) {
+                if (a.archived !== b.archived) { return a.archived ? 1 : -1; }
+                if (by === 'courses') { return (b.course_count - a.course_count) || a.name.localeCompare(b.name); }
+                if (by === 'recent') { return String(b.updated_at || '').localeCompare(String(a.updated_at || '')) || a.name.localeCompare(b.name); }
+                return a.name.localeCompare(b.name);
+            });
+            return list;
         }
 
         function card(p) {
@@ -68,7 +82,8 @@
                 on: { click: function (e) { e.preventDefault(); (canEdit ? openEditor : openView)(p); } } });
             var meta = [plural(p.course_count, 'course', 'courses'), fmtMinutes(p.est_minutes)].filter(Boolean).join(' · ');
             var foot = el('div', { class: 'tr-path-card__foot' }, [
-                el('span', { class: 'tr-chip', title: p.sequential ? 'Courses open one after another' : 'Courses can be taken in any order' },
+                el('span', { class: 'tr-chip', tabindex: '0', title: p.sequential ? 'In order: each course opens when the one before it is complete.' : 'Any order: learners can take the courses in any order.',
+                    'aria-label': p.sequential ? 'In order: each course opens when the one before it is complete' : 'Any order: learners can take the courses in any order' },
                     [icon(p.sequential ? 'list-ol' : 'random'), ' ', p.sequential ? 'In order' : 'Any order']),
                 p.achievement ? el('span', { class: 'tr-path-card__award' }, [medal(p.achievement, 'xs'), el('span', { class: 'text-truncate', text: p.achievement.name })]) : null
             ]);
@@ -85,21 +100,35 @@
 
         function renderGrid() {
             var list = visiblePaths();
+            var q = searchEl ? searchEl.value.trim() : '';
             grid.textContent = '';
             grid.removeAttribute('aria-busy');
-            if (list.length === 0) {
-                var actions = canEdit ? [el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { openEditor(null); } } }, [icon('plus'), ' New path'])] : [];
+            var live = paths.filter(function (p) { return !p.archived; }).length;
+            if (list.length === 0 && q) {
+                grid.appendChild(el('div', { class: 'tr-empty tr-cat-empty' }, [
+                    el('div', { class: 'tr-cat-empty__icon', 'aria-hidden': 'true' }, [icon('search')]),
+                    el('p', { class: 'tr-cat-empty__title', text: 'No learning paths match "' + q + '"' }),
+                    el('div', {}, [el('button', { type: 'button', class: 'btn btn-outline-secondary', text: 'Clear search', on: { click: function () { searchEl.value = ''; renderGrid(); searchEl.focus(); } } })])
+                ]));
+            } else if (list.length === 0) {
+                var actions = canEdit ? [el('button', { type: 'button', class: 'btn btn-primary', on: { click: function () { openEditor(null); } } }, [icon('plus'), ' New learning path'])] : [];
                 grid.appendChild(el('div', { class: 'tr-empty tr-cat-empty' }, [
                     el('div', { class: 'tr-cat-empty__icon', 'aria-hidden': 'true' }, [icon('route')]),
                     el('p', { class: 'tr-cat-empty__title', text: 'No learning paths yet' }),
-                    el('p', { class: 'text-muted', text: canEdit ? 'Put courses in order, like "New-Hire Safety Orientation".' : 'Learning paths appear here once they are set up.' }),
+                    el('p', { class: 'text-muted', text: canEdit ? 'A path puts courses in order, like "New-Hire Safety Orientation". Learners finish it to earn an achievement.' : 'Learning paths appear here once they are set up.' }),
                     el('div', {}, actions)
                 ]));
             } else {
                 list.forEach(function (p) { grid.appendChild(card(p)); });
+                if (canEdit && !q) {
+                    grid.appendChild(el('button', { type: 'button', class: 'tr-path-card tr-path-card--new', on: { click: function () { openEditor(null); } } }, [
+                        el('span', { class: 'tr-path-card--new__plus', 'aria-hidden': 'true' }, [icon('plus')]),
+                        el('span', { class: 'tr-path-card--new__title', text: 'New learning path' }),
+                        el('span', { class: 'text-muted small', text: 'Put courses in order and award an achievement.' })
+                    ]));
+                }
             }
-            var live = paths.filter(function (p) { return !p.archived; }).length;
-            countEl.textContent = plural(live, 'learning path', 'learning paths');
+            countEl.textContent = q ? list.length + ' of ' + plural(live, 'learning path', 'learning paths') : plural(live, 'learning path', 'learning paths');
         }
 
         function upsertPath(p) {
@@ -110,6 +139,8 @@
         }
 
         if (showArchived) { showArchived.addEventListener('change', renderGrid); }
+        if (searchEl) { searchEl.addEventListener('input', renderGrid); }
+        if (sortEl) { sortEl.addEventListener('change', renderGrid); }
 
         // ------------------------------------------------------------------ read-only view (level 1)
         function openView(p) {
@@ -218,14 +249,14 @@
                     el('div', { class: 'tr-path-course__main' }, [
                         el('div', { class: 'tr-path-course__name', title: c.name }, [c.name, statusBadge(c.status)]),
                         el('div', { class: 'tr-path-course__sub' }, [
-                            el('span', { class: 'small text-muted', text: [c.kind === 'document' ? 'Document' : plural(c.lessons_count || 0, 'lesson', 'lessons'), fmtMinutes(c.est_minutes)].filter(Boolean).join(' · ') }),
-                            el('div', { class: 'form-check form-switch tr-path-course__req' }, [sw, el('label', { class: 'form-check-label small', for: 'tr-pc-req-' + c.course_id, text: 'Required' })])
+                            el('span', { class: 'small text-muted', text: [c.kind === 'document' ? 'Document' : plural(c.lessons_count || 0, 'lesson', 'lessons'), fmtMinutes(c.est_minutes)].filter(Boolean).join(' · ') })
                         ])
                     ]),
+                    el('div', { class: 'form-check form-switch tr-path-course__req', title: 'Required courses must be completed to finish the path' }, [sw, el('label', { class: 'form-check-label small', for: 'tr-pc-req-' + c.course_id, text: 'Required' })]),
                     el('div', { class: 'btn-group btn-group-sm tr-path-course__actions' }, [
-                        el('button', { type: 'button', class: 'btn btn-ghost-secondary', 'aria-label': 'Move up', disabled: i === 0, on: { click: function () { move(i, -1); } } }, [icon('arrow-up')]),
-                        el('button', { type: 'button', class: 'btn btn-ghost-secondary', 'aria-label': 'Move down', disabled: i === editor.courses.length - 1, on: { click: function () { move(i, 1); } } }, [icon('arrow-down')]),
-                        el('button', { type: 'button', class: 'btn btn-ghost-danger', 'aria-label': 'Remove ' + c.name, on: { click: function () { editor.courses.splice(i, 1); markDirty(); renderCourses(); } } }, [icon('times')])
+                        el('button', { type: 'button', class: 'btn btn-ghost-secondary', 'aria-label': 'Move ' + c.name + ' up', title: 'Move up', disabled: i === 0, on: { click: function () { move(i, -1); } } }, [icon('arrow-up')]),
+                        el('button', { type: 'button', class: 'btn btn-ghost-secondary', 'aria-label': 'Move ' + c.name + ' down', title: 'Move down', disabled: i === editor.courses.length - 1, on: { click: function () { move(i, 1); } } }, [icon('arrow-down')]),
+                        el('button', { type: 'button', class: 'btn btn-ghost-danger', 'aria-label': 'Remove ' + c.name, title: 'Remove from path', on: { click: function () { editor.courses.splice(i, 1); markDirty(); renderCourses(); } } }, [icon('times')])
                     ])
                 ]));
             });
@@ -350,6 +381,8 @@
             }
             var btn = field('tr-path-save');
             btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            btn.textContent = 'Saving…';
             var req = { data: collect() };
             if (editor.path) { req.path_id = editor.path.id; req.version = editor.version; }
             api.post('path_save', req).then(function (p) {
@@ -364,7 +397,7 @@
                 } else if (!showFieldErrors(err.fields)) {
                     ui.toast(err.message, { type: 'error' });
                 }
-            }).then(function () { btn.disabled = false; });
+            }).then(function () { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Save'; });
         }
 
         function archive(restore) {
@@ -529,8 +562,13 @@
             });
             if (!shown.length) {
                 var msg = !prereqs.length ? 'No courses yet.'
-                    : (q ? 'No courses match.' : 'No prerequisites yet.' + (canEdit ? ' Find a course above to add one.' : ''));
-                prereqBody.appendChild(el('tr', {}, [el('td', { colspan: canEdit ? 4 : 3, class: 'text-muted text-center py-4', text: msg })]));
+                    : (q ? 'No courses match.' : 'No course has a prerequisite yet.');
+                var kids = [el('div', { class: 'text-muted', text: msg })];
+                if (prereqs.length && !q && canEdit) {
+                    kids.push(el('button', { type: 'button', class: 'btn btn-outline-primary btn-sm mt-2', text: 'Add a prerequisite',
+                        on: { click: function () { var sw = document.getElementById('tr-prereq-all'); if (sw) { sw.checked = true; sw.dispatchEvent(new Event('change', { bubbles: true })); } var f = document.getElementById('tr-prereq-search'); if (f) { f.focus(); } } } }));
+                }
+                prereqBody.appendChild(el('tr', {}, [el('td', { colspan: canEdit ? 4 : 3, class: 'text-center py-4' }, kids)]));
                 return;
             }
             shown.forEach(function (c) {
