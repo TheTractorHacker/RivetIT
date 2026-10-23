@@ -130,8 +130,9 @@ function rivetRmmAutoScriptsOn(): string
 /** The page title row: title and icon on the left, the page's buttons (already HTML) on the right, then an optional one-line explanation. */
 function rivetRmmAutoHeader(string $title, string $icon, string $actionsHtml = '', string $intro = ''): string
 {
-    return '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-' . rmmH($icon) . ' me-2" aria-hidden="true"></i>' . rmmH($title) . '</h4>'
-        . $actionsHtml . '</div>' . ($intro !== '' ? '<p class="text-muted small mb-3">' . rmmH($intro) . '</p>' : '');
+    // The shared RMM page header (css/itflow_rmm_ui.css .rmmx-head): title, actions on the right, a short readable intro (max ~75ch) under it.
+    return '<div class="rmmx-head"><h1><i class="fas fa-' . rmmH($icon) . ' text-secondary" aria-hidden="true"></i>' . rmmH($title) . '</h1>'
+        . ($actionsHtml !== '' ? '<div class="rmmx-head-actions">' . $actionsHtml . '</div>' : '') . ($intro !== '' ? '<p class="rmmx-sub">' . rmmH($intro) . '</p>' : '') . '</div>';
 }
 
 /** A hidden CSRF field plus the return target (validated again by the handler). */

@@ -20,7 +20,7 @@ function rmmxKpi(array $k): string
 {
     $zero = (string) $k['value'] === '0' || $k['value'] === 0;
     $cls = 'rmmx-kpi rmmx-tone-' . rmmxH($k['tone'] ?? 'neutral') . ($zero ? ' is-zero' : '') . (!empty($k['active']) ? ' is-active' : '');
-    $inner = '<span class="rmmx-kpi-icon" aria-hidden="true"><i class="fas ' . rmmxH($k['icon'] ?? 'fa-circle') . '"></i></span><span class="rmmx-kpi-body"><span class="rmmx-kpi-value d-block">' . rmmxH($k['value'])
+    $inner = '<span class="rmmx-kpi-icon" aria-hidden="true"><i class="' . (in_array($k['icon'] ?? '', ['fa-windows', 'fa-linux', 'fa-apple', 'fa-android'], true) ? 'fab' : 'fas') . ' ' . rmmxH($k['icon'] ?? 'fa-circle') . '"></i></span><span class="rmmx-kpi-body"><span class="rmmx-kpi-value d-block">' . rmmxH($k['value'])
         . '</span><span class="rmmx-kpi-label d-block">' . rmmxH($k['label']) . '</span>' . (!empty($k['sub']) ? '<span class="rmmx-kpi-sub d-block">' . rmmxH($k['sub']) . '</span>' : '') . '</span>';
     $title = !empty($k['title']) ? ' title="' . rmmxH($k['title']) . '"' : '';
     if (!empty($k['href'])) {
@@ -33,7 +33,7 @@ function rmmxKpi(array $k): string
 /** @param list<array<string,mixed>> $kpis */
 function rmmxKpiGrid(array $kpis): string
 {
-    return '<div class="rmmx-kpis">' . implode('', array_map('rmmxKpi', $kpis)) . '</div>';
+    return '<div class="rmmx-kpis">' . implode('', array_map(static fn ($k): string => is_array($k) ? rmmxKpi($k) : (string) $k, $kpis)) . '</div>';
 }
 
 /** Page header: title, optional one-paragraph intro (max ~75ch), actions on the right. */
@@ -95,4 +95,18 @@ function rmmxEmpty(string $icon, string $title, string $text = '', string $actio
 {
     return '<div class="rmmx-empty"><i class="fas ' . rmmxH($icon) . '" aria-hidden="true"></i><div class="rmmx-empty-title">' . rmmxH($title) . '</div>' . ($text !== '' ? '<div>' . rmmxH($text) . '</div>' : '')
         . ($actionsHtml !== '' ? '<div class="mt-3">' . $actionsHtml . '</div>' : '') . '</div>';
+}
+
+/** Platform with an OS icon and a name (never a bare glyph). $language is the script language: powershell/cmd -> Windows, bash/sh -> Linux. */
+function rmmxPlatform(string $language): string
+{
+    $l = strtolower($language);
+    if (str_contains($l, 'power') || str_contains($l, 'cmd') || str_contains($l, 'bat') || str_contains($l, 'win')) {
+        return '<span class="rmmx-os"><i class="fab fa-windows" aria-hidden="true"></i><span>Windows</span></span>';
+    }
+    if (str_contains($l, 'bash') || str_contains($l, 'sh') || str_contains($l, 'python') || str_contains($l, 'linux')) {
+        return '<span class="rmmx-os"><i class="fab fa-linux" aria-hidden="true"></i><span>Linux</span></span>';
+    }
+
+    return '<span class="rmmx-os"><i class="fas fa-desktop" aria-hidden="true"></i><span>' . rmmxH($language !== '' ? $language : 'Any') . '</span></span>';
 }

@@ -35,14 +35,14 @@ function rivetRmmUiEmpty(string $icon, string $title, string $subtitle = '', str
 /** A card shell with the coloured top edge used across the panel. */
 function rivetRmmUiCard(string $title, string $icon, string $body, string $edge = '', string $headerExtra = '', bool $flush = false, string $id = ''): string
 {
-    return '<section class="card card-dark mb-3"' . ($edge !== '' ? ' style="border-top:3px solid var(--tblr-' . rmmH($edge) . ')"' : '') . ($id !== '' ? ' id="' . rmmH($id) . '"' : '') . '>'
+    return '<section class="card card-dark mb-3 rmmx-uicard"' . ($edge !== '' ? ' style="border-top:3px solid var(--tblr-' . rmmH($edge) . ')"' : '') . ($id !== '' ? ' id="' . rmmH($id) . '"' : '') . '>'
         . '<div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px"><h6 class="mb-0 me-auto"><i class="fas fa-' . rmmH($icon) . ' me-2" aria-hidden="true"></i>' . $title . '</h6>'
         . $headerExtra . '</div><div class="card-body' . ($flush ? ' p-0' : '') . '">' . $body . '</div></section>';
 }
 
 function rivetRmmUiThead(array $cols): string
 {
-    $o = '<thead class="rmm-thead"><tr>';
+    $o = '<thead class="rmm-thead rmmx-thead"><tr>';
     foreach ($cols as $i => $c) {
         $o .= '<th scope="col"' . ($i === 0 ? ' class="ps-3"' : '') . '>' . rmmH($c) . '</th>';
     }
