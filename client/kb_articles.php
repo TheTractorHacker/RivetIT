@@ -85,11 +85,8 @@ if (isset($kb_groups['Uncategorized'])) {
                     $kb_article_client_id = intval($row['kb_article_client_id']);
                     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
 
-                    $kb_article_preview = strip_tags($row['kb_article_content_raw'] ?? '');
-                    $kb_article_preview = trim(preg_replace('/\s+/', ' ', $kb_article_preview));
-                    if (mb_strlen($kb_article_preview) > 150) {
-                        $kb_article_preview = mb_substr($kb_article_preview, 0, 150) . '...';
-                    }
+                    require_once __DIR__ . '/../includes/kb_excerpt.php';
+                    $kb_article_preview = kbExcerpt($row['kb_article_content_raw'] ?? '', $row['kb_article_title'] ?? '');
                 ?>
                     <div class="col-md-4 mb-4">
                         <div class="card h-100">
@@ -103,7 +100,7 @@ if (isset($kb_groups['Uncategorized'])) {
                                 <p class="card-text text-muted small"><?= nullable_htmlentities($kb_article_preview) ?></p>
                             </div>
                             <div class="card-footer d-flex align-items-center justify-content-between bg-white">
-                                <small class="text-muted"><?= date('M j, Y', strtotime($kb_article_updated_at)) ?></small>
+                                <small class="text-muted"><?= date('Y-m-d', strtotime($kb_article_updated_at)) ?></small>
                                 <a href="kb_article.php?id=<?= $kb_article_id ?>" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-eye"></i> View
                                 </a>

@@ -135,6 +135,16 @@ $page_title = $row['project_name'];
                 on_date_change: function (task) { persistSchedule(task); },
                 on_progress_change: function (task) { persistSchedule(task); }
             });
+            // Stretch the columns so the chart fills its card instead of stopping two thirds of the way across.
+            var fit = function () {
+                var avail = target.parentElement ? target.parentElement.clientWidth : 0;
+                var cols = gantt.dates ? gantt.dates.length : 0;
+                if (avail && cols && gantt.options.column_width * cols < avail) {
+                    gantt.options.column_width = Math.floor(avail / cols);
+                    gantt.change_view_mode(currentView);
+                }
+            };
+            fit();
         })
         .catch(function (err) {
             console.error(err);

@@ -63,13 +63,18 @@ if ($need_manual || $need_auto) {
     chdir($app . '/admin');          // the handler uses ../includes relative requires
     require_once $app . '/admin/post/backup.php';
 
-    if ($need_manual) {
-        $r = build_backup($mysqli, 'manual', $BACKUP_DIR);
-        echo "85-admin-config: stored {$r['name']}\n";
-    }
-    if ($need_auto) {
-        $r = build_backup($mysqli, 'auto', $BACKUP_DIR);
-        echo "85-admin-config: stored {$r['name']}\n";
+    // A backup needs an encryption passphrase (Admin > Backup). A fresh demo has none, and that must not abort the whole build.
+    try {
+        if ($need_manual) {
+            $r = build_backup($mysqli, 'manual', $BACKUP_DIR);
+            echo "85-admin-config: stored {$r['name']}\n";
+        }
+        if ($need_auto) {
+            $r = build_backup($mysqli, 'auto', $BACKUP_DIR);
+            echo "85-admin-config: stored {$r['name']}\n";
+        }
+    } catch (\Throwable $e) {
+        echo '85-admin-config: backups skipped (' . $e->getMessage() . ")\n";
     }
 } else {
     echo "85-admin-config: backups already present\n";

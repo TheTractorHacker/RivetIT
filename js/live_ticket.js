@@ -48,6 +48,13 @@
             statusBadge.textContent = data.status_name;
             statusBadge.style.backgroundColor = data.status_color;
         }
+        var pillLabel = document.querySelector('#ticketStatusPill .ticket-status-label');
+        if (pillLabel) {
+            var pill = document.getElementById('ticketStatusPill');
+            pillLabel.textContent = data.status_name;
+            pill.style.backgroundColor = data.status_color;
+            pill.setAttribute('aria-label', 'Ticket status: ' + data.status_name + '. Change status');
+        }
         if (statusText) {
             statusText.textContent = data.status_name;
         }

@@ -283,14 +283,47 @@ function initSelect2Widgets() {
         };
         var ph = el.getAttribute('data-placeholder');
         if (ph) { opts.placeholder = ph; }
+        if (!el.multiple && el.tagName === 'SELECT') {
+            // A single select must behave like a dropdown, not like a text box:
+            //  - an empty-valued "- Choose a Template -" row is a placeholder, not a choice, so it is not listed again in the open list
+            //    (a filter's "All ..." row is a real choice and stays);
+            //  - short lists have no caret and no typing at all (click anywhere opens the list, arrows/Enter work);
+            //  - long lists keep search, but the caret lives in the search box inside the open list, never in the closed control.
+            var emptyOpt = el.querySelector('option[value=""]');
+            var allChoice = emptyOpt && /^\s*[-\u2013\u2014]?\s*(All|Any|Everyone|Anyone|No\s+filter)\b/i.test(emptyOpt.textContent);   // "- All Departments -" is a real filter choice, not a placeholder
+            var placeholderRow = emptyOpt && !allChoice && (el.required || /^\s*[-\u2013\u2014].*[-\u2013\u2014]\s*$/.test(emptyOpt.textContent) || /^(Department|Contact|Select|Choose)\b/i.test(emptyOpt.textContent.trim()));
+            if (placeholderRow) {
+                if (!opts.placeholder) { opts.placeholder = emptyOpt.textContent.trim(); }
+                opts.allowEmptyOption = false;
+                if (!el.required && !el.disabled) { opts.plugins = opts.plugins.concat(['clear_button']); }
+            }
+            // "- Choose a Template -" with value 0 is a placeholder too (value 0 must still submit, so it stays in the data), just not drawn in the open list.
+            var firstOpt = el.options[0];
+            if (firstOpt && firstOpt.value === '0' && /^\s*-\s*(Choose|Select|Pick)\b.*-\s*$/i.test(firstOpt.textContent)) {
+                opts.render = { option: function (data, escape) {
+                    return '<div class="option' + (data.value === '0' ? ' ts-placeholder-row' : '') + '">' + escape(data.text) + '</div>';
+                } };
+            }
+            var realOptions = el.querySelectorAll('option:not([value=""])').length;
+            var searchable = el.getAttribute('data-searchable');
+            if (searchable === '0' || (searchable !== '1' && realOptions <= 12)) {
+                opts.controlInput = null;
+            } else {
+                opts.plugins = opts.plugins.concat(['dropdown_input']);
+            }
+        }
         // data-searchable="0" - a plain click-to-pick dropdown, no typeahead
         // text box. For short, fixed option lists (ticket filter pills, etc.)
         // the search input is friction, not help - clicking should show the
         // full list immediately, not ask the user to type first.
-        if (el.getAttribute('data-searchable') === '0') {
-            opts.controlInput = null;
-        }
-        try { new TomSelect(el, opts); } catch (err) { /* noop */ }
+        if (el.multiple && el.getAttribute('data-searchable') === '0') { opts.controlInput = null; }
+        try {
+            var tsInstance = new TomSelect(el, opts);
+            // A closed single select without a text input (controlInput: null) cannot show TomSelect's placeholder, so draw it from the control itself.
+            if (opts.placeholder && !el.multiple && opts.controlInput === null && tsInstance && tsInstance.control) {
+                tsInstance.control.setAttribute('data-ts-ph', opts.placeholder);
+            }
+        } catch (err) { /* noop */ }
     });
 }
 if (document.readyState === 'loading') {
@@ -564,7 +597,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 200,
+        min_height: 130,
         max_height: 600,
         promotion: false,
         branding: false,
@@ -700,7 +733,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 200,
+        min_height: 130,
         max_height: 600,
         promotion: false,
         branding: false,
@@ -1350,4 +1383,43 @@ function initPasswordToggles() {
             RivetDialog.gate(e, form, form.getAttribute('data-confirm-submit'));
         }
     });
+
+    // Every page gets exactly one level-1 heading for assistive tech. Legacy pages render their title as a
+    // card-title <h3>/<div>; promote that existing visible title (role=heading aria-level=1) instead of adding a
+    // second visible heading. A page with no title at all gets a visually-hidden h1 from the active nav item.
+    function ensurePageHeading() {
+        var main = document.getElementById('main-content');
+        if (!main || document.querySelector('h1, [role="heading"][aria-level="1"]')) { return; }
+        var cand = main.querySelector('.it-page-title, .page-title, .card-header .card-title, .card-title, h2, h3, h4');
+        if (cand && cand.textContent.trim() !== '') {
+            cand.setAttribute('role', 'heading');
+            cand.setAttribute('aria-level', '1');
+            return;
+        }
+        var nav = document.querySelector('.navbar-vertical .nav-link.active, .navbar-nav .nav-link.active');
+        var h = document.createElement('h1');
+        h.className = 'visually-hidden';
+        h.textContent = (nav && nav.textContent.trim()) || document.title || 'Page';
+        main.insertBefore(h, main.firstChild);
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', ensurePageHeading); } else { ensurePageHeading(); }
+
+    // A required field inside an inactive Bootstrap tab-pane/pill-pane (e.g. the
+    // Contact tab of the New Ticket modal) fails native validation with no
+    // visible message: the pane is display:none, so the browser can't place its
+    // validation bubble and the Create/Save click just appears to do nothing.
+    // Switch to that field's tab before the browser tries to show the bubble,
+    // so the same native validation UI lands somewhere the user can see it.
+    document.addEventListener('invalid', function (e) {
+        var el = e.target;
+        if (!el || !el.closest) { return; }
+        var pane = el.closest('.tab-pane');
+        if (!pane || !pane.id || pane.classList.contains('active')) { return; }
+        var trigger = document.querySelector(
+            '[data-bs-toggle="pill"][href="#' + pane.id + '"], [data-bs-toggle="tab"][href="#' + pane.id + '"]'
+        );
+        if (trigger && window.bootstrap && window.bootstrap.Tab) {
+            window.bootstrap.Tab.getOrCreateInstance(trigger).show();
+        }
+    }, true);
 })();

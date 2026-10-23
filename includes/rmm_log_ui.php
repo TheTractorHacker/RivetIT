@@ -886,7 +886,7 @@ function rivetRmmLogRulesPage(array $vm): string
         $st = $vm['states'][$id] ?? ['devices' => 0, 'alerts' => 0];
         $alertLink = $vm['alerting']
             ? '<a href="' . rmmH('/agent/rmm_agent_alerts.php?' . http_build_query(['state' => 'active', 'check_key' => $r['check_key']])) . '">' . (int) $st['alerts'] . ' open alert' . ($st['alerts'] === 1 ? '' : 's') . '</a>'
-            : '<a href="/agent/rmm_alerts.php">RMM Alerts</a>';
+            : '<a href="/agent/alerts.php">RMM Alerts</a>';
         $scope = (int) $r['client_id'] === 0 ? 'All departments' : ($vm['clients'][(int) $r['client_id']] ?? ('Department #' . (int) $r['client_id']));
         $rows .= '<tr><td class="ps-3"><strong class="rmm-wrap">' . rmmH($r['name']) . '</strong><div class="small text-muted"><code class="rmm-mono">' . rmmH($r['check_key']) . '</code></div></td>'
             . '<td>' . ($r['enabled'] ? rivetRmmUiPill('ok', 'On') : rivetRmmUiPill('off', 'Off')) . '</td><td class="rmm-wrap">' . rmmH($scope) . '</td>'

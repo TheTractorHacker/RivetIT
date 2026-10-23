@@ -33,7 +33,7 @@
  */
 ?>
 
-</div><!-- /.container -->
+</main><!-- /#main-content.container -->
 </div><!-- /.page-body -->
 
 <footer class="footer footer-transparent d-print-none">
@@ -65,6 +65,7 @@
 
 <!--- TinyMCE -->
 <script src="/plugins/tinymce/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="/js/tinymce_theme.js"></script>
 
 <script src="/js/portal_tinymce_init.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal_tinymce_init.js'); ?>"></script>
 
@@ -77,6 +78,7 @@
 <script src="/js/keepalive.js"></script>
 
 <script src="/js/portal.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal.js'); ?>"></script>
+<script src="/js/a11y.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/a11y.js'); ?>"></script>
 <script src="/js/file_upload.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/file_upload.js'); ?>"
         data-file-limit="<?= htmlspecialchars(ini_get('upload_max_filesize')) ?>"
         data-request-limit="<?= htmlspecialchars(ini_get('post_max_size')) ?>"></script>

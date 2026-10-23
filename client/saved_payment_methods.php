@@ -23,7 +23,9 @@ require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_billing_contact) {
     ob_end_clean();
-    header("Location: post.php?logout");
+    // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
+    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    header("Location: index.php");
     exit();
 }
 
@@ -37,7 +39,7 @@ $stripe_provider_query = mysqli_query($mysqli, "
 $stripe_provider = mysqli_fetch_assoc($stripe_provider_query);
 
 if (!$stripe_provider) {
-    echo "Stripe payment error - Stripe provider is not configured.";
+    echo "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle me-2'></i>Online payments are not set up yet. Please contact support.</div>";
     include_once 'includes/footer.php';
     exit();
 }
@@ -69,7 +71,7 @@ while ($row = mysqli_fetch_assoc($saved_methods_query)) {
 
 // Stripe not properly configured
 if (!$stripe_public_key || !$stripe_secret_key) {
-    echo "Stripe payment error - Stripe credentials missing. Please contact support.";
+    echo "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle me-2'></i>Online payments are not set up yet. Please contact support.</div>";
     include_once 'includes/footer.php';
     exit();
 }

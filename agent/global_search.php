@@ -200,6 +200,7 @@ if (isset($_GET['query'])) {
 
     <div class="card-body">
 
+    <?php ob_start(); // result cards are buffered so a search with no hits can say so instead of rendering an empty card ?>
     <div class="row">
         <?php if ($sql_clients && mysqli_num_rows($sql_clients) > 0) { ?>
 
@@ -472,7 +473,7 @@ if (isset($_GET['query'])) {
                                 <tr>
                                     <td><a href="document_details.php?client_id=<?php echo $client_id ?>&document_id=<?php echo $document_id; ?>"><?php echo $document_name; ?></a></td>
                                     <td>
-                                        <a href="documents.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a>
+                                        <a href="files.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a>
                                     </td>
                                 </tr>
 
@@ -1093,6 +1094,15 @@ if (isset($_GET['query'])) {
         <?php } ?>
 
     </div>
+    <?php
+    $gs_results_html = ob_get_clean();
+    if (strpos($gs_results_html, 'card-title') === false) { ?>
+        <div class="text-center text-secondary py-5">
+            <i class="fas fa-fw fa-search fa-2x mb-3" aria-hidden="true"></i>
+            <p class="mb-1"><strong>No results for &ldquo;<?php echo $q; ?>&rdquo;</strong></p>
+            <p class="small mb-0">Check the spelling, try fewer or different words, or search by a ticket number, asset name or contact.</p>
+        </div>
+    <?php } else { echo $gs_results_html; } ?>
 
 </div>
 

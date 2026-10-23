@@ -30,7 +30,7 @@ if (isset($_POST['add_ticket'])) {
     $vendor_id = intval($_POST['vendor_id']);
     $asset_id = intval($_POST['asset_id']);
     $location_id = intval($_POST['location_id']);
-    $project_id = intval($_POST['project_id']);
+    $project_id = intval($_POST['project_id'] ?? 0);
     $use_primary_contact = intval($_POST['use_primary_contact'] ?? 0);
     $ticket_template_id = intval($_POST['ticket_template_id']);
     $billable = intval($_POST['billable'] ?? 0);
@@ -275,7 +275,7 @@ if (isset($_POST['add_ticket'])) {
     // Custom action/notif handler
     customAction('ticket_create', $ticket_id);
 
-    logAction("Ticket", "Create", "$session_name created ticket $config_ticket_prefix$ticket_number - $ticket_subject", $client_id, $ticket_id);
+    logAction("Ticket", "Create", "$session_name created ticket $config_ticket_prefix$ticket_number - $subject", $client_id, $ticket_id);
     queueWebhookEvent('ticket.created', getWebhookTicketPayload($ticket_id));
 
     flash_alert("Ticket <strong>$config_ticket_prefix$ticket_number</strong> created");
@@ -1141,6 +1141,7 @@ if (isset($_POST['quick_status_ticket'])) {
     customAction('ticket_update', $ticket_id);
 
     publishTicketEvent($ticket_id, 'status', ['status_id' => $new_status_id, 'status_name' => $new_status_name, 'status_color' => $new_status_color, 'by' => $session_name]);
+    queueWebhookEvent('ticket.status_changed', getWebhookTicketPayload($ticket_id));
 
     echo json_encode(['ok' => true, 'name' => $new_status_name, 'color' => $new_status_color]);
     exit;

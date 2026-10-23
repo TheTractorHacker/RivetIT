@@ -94,10 +94,12 @@
             ? '<img loading="lazy" decoding="async" src="' + escapeHtml(person.photo) + '" alt="">'
             : '<span>' + escapeHtml(person.initials || person.name.slice(0, 2).toUpperCase()) + '</span>';
         var subtitle = person.title || person.team || person.department;
-        var count = Number(person.reports) > 0 ? '<b class="org-d3-count" title="Direct reports">' + escapeHtml(person.reports) + '</b>' : '';
+        var reports = Number(person.reports);
+        var count = reports > 0 ? '<b class="org-d3-count" title="' + reports + (reports === 1 ? ' direct report' : ' direct reports') + '" aria-label="' + reports + (reports === 1 ? ' direct report' : ' direct reports') + '"><i class="fas fa-users" aria-hidden="true"></i> ' + reports + '</b>' : '';
         var note = person.context ? 'Context' : (person.managerUnavailable ? 'Manager unavailable' : '');
         var context = note ? '<i class="org-d3-context" title="' + escapeHtml(note) + '">' + escapeHtml(note) + '</i>' : '';
-        return '<div class="org-d3-person' + selected + '"><div class="org-d3-avatar">' + avatar + '</div><div class="org-d3-text"><a href="' + escapeHtml(person.href) + '" title="' + escapeHtml(person.name) + '">' + escapeHtml(person.name) + '</a><span title="' + escapeHtml(subtitle) + '">' + escapeHtml(subtitle) + '</span></div>' + count + context + '</div>';
+        var tip = [person.name, person.title, person.team, person.department].filter(function (part, i, all) { return part && all.indexOf(part) === i; }).join(' · ');
+        return '<div class="org-d3-person' + selected + '" title="' + escapeHtml(tip) + '"><div class="org-d3-avatar">' + avatar + '</div><div class="org-d3-text"><a href="' + escapeHtml(person.href) + '">' + escapeHtml(person.name) + '</a><span title="' + escapeHtml(subtitle) + '">' + escapeHtml(subtitle) + '</span></div>' + count + context + '</div>';
     }
 
     function wireListSearch() {
@@ -202,12 +204,13 @@
                     .nodeWidth(function () { return 214; })
                     .nodeHeight(function () { return 64; })
                     .siblingsMargin(function () { return 14; })
-                    .childrenMargin(function () { return 35; })
+                    .childrenMargin(function () { return 46; })
                     .neighbourMargin(function () { return 24; })
                     .compactMarginPair(function () { return 30; })
                     .compactMarginBetween(function () { return 12; })
-                    .nodeButtonWidth(function () { return 24; })
-                    .nodeButtonHeight(function () { return 24; })
+                    .nodeButtonWidth(function () { return 22; })
+                    .nodeButtonHeight(function () { return 22; })
+                    .nodeButtonY(function () { return -3; })   // sit just under the card, overlapping only its border line, never the text
                     .initialExpandLevel(1)
                     .duration(0)
                     .svgHeight(Math.max(420, Math.min(window.innerHeight * .68, 700)))
@@ -215,9 +218,17 @@
                     .buttonContent(function (_ref) {
                         var node = _ref.node;
                         var expanded = !!node.children;
-                        return '<span class="org-d3-toggle" aria-hidden="true">' + (expanded ? '−' : '+') + '</span>';
+                        var who = node.data.name || 'group';
+                        return '<span class="org-d3-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" aria-label="' + (expanded ? 'Collapse' : 'Expand') + ' ' + escapeHtml(who) + '" title="' + (expanded ? 'Collapse' : 'Expand') + ' ' + escapeHtml(who) + '">' + (expanded ? '−' : '+') + '</span>';
                     })
-                    .render();
+                    .render()
+                    .fit({ animate: false });
+                canvas.addEventListener('keydown', function (event) {
+                    if ((event.key === 'Enter' || event.key === ' ') && event.target.classList && event.target.classList.contains('org-d3-toggle')) {
+                        event.preventDefault();
+                        event.target.click();
+                    }
+                });
                 source.remove();
                 loading.hidden = true;
                 if (chartSearch.value) { updateSearch(); }
@@ -238,7 +249,7 @@
             document.getElementById('orgChartSearchPrev').addEventListener('click', function () { navigateMatch(-1); });
             document.getElementById('orgChartSearchNext').addEventListener('click', function () { navigateMatch(1); });
         }
-        document.getElementById('orgChartExpandAll').addEventListener('click', function () { if (chart) { chart.expandAll(); } });
+        document.getElementById('orgChartExpandAll').addEventListener('click', function () { if (chart) { chart.expandAll(); chart.fit({ animate: false }); } });
         document.getElementById('orgChartCollapseAll').addEventListener('click', function () {
             if (!chart) { return; }
             model.data.forEach(function (item) {
@@ -250,6 +261,7 @@
             selected = null;
             matchIndex = -1;
             chart.initialExpandLevel(1).render();
+            chart.fit({ animate: false });
         });
         document.getElementById('orgChartZoomOut').addEventListener('click', function () { if (chart) { chart.zoomOut(); } });
         document.getElementById('orgChartZoomIn').addEventListener('click', function () { if (chart) { chart.zoomIn(); } });

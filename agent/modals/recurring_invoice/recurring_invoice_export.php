@@ -11,8 +11,8 @@
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
                 <div class="modal-body">
-
-                </div>
+        <p class="mb-0 text-secondary">Download everything you can see here as a CSV file that opens in Excel or any spreadsheet.</p>
+    </div>
                 <div class="modal-footer">
                     <button type="submit" name="export_client_recurring_csv" class="btn btn-primary text-bold"><i class="fas fa-fw fa-download me-2"></i>Download CSV</button>
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fas fa-times me-2"></i>Cancel</button>

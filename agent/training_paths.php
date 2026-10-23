@@ -59,12 +59,22 @@ render_page_header(
 ?>
 
 <div class="tr-catalog" id="tr-paths">
-    <div class="tr-cat-toolbar">
-        <span class="text-muted small" id="tr-path-count" aria-live="polite"></span>
+    <div class="tr-cat-toolbar tr-path-toolbar">
+        <div class="tr-path-toolbar__search">
+            <i class="fas fa-search" aria-hidden="true"></i>
+            <input type="search" class="form-control" id="tr-path-search" placeholder="Search learning paths" aria-label="Search learning paths" maxlength="100">
+        </div>
+        <label class="visually-hidden" for="tr-path-sort">Sort learning paths</label>
+        <select class="form-select tr-path-toolbar__sort" id="tr-path-sort">
+            <option value="name">Sort: Name</option>
+            <option value="recent">Sort: Recently updated</option>
+            <option value="courses">Sort: Most courses</option>
+        </select>
+        <span class="tr-path-toolbar__count" id="tr-path-count" aria-live="polite"></span>
         <?php if ($tr_can_edit) { ?>
         <div class="form-check form-switch mb-0 ms-auto">
             <input class="form-check-input" type="checkbox" role="switch" id="tr-show-archived">
-            <label class="form-check-label small" for="tr-show-archived">Show archived</label>
+            <label class="form-check-label" for="tr-show-archived">Show archived</label>
         </div>
         <?php } ?>
     </div>
@@ -82,7 +92,7 @@ render_page_header(
         <div class="card-header">
             <div>
                 <h3 class="card-title" id="tr-prereq-title"><i class="fas fa-sitemap me-2 text-muted"></i>Prerequisites</h3>
-                <div class="text-muted small">A course can require others first. Loops are not allowed.</div>
+                <div class="text-muted small">A course can require others first. Loops are not allowed. Turn on All courses to pick any course.</div>
             </div>
             <div class="card-actions ms-auto d-flex flex-wrap align-items-center gap-3">
                 <div class="form-check form-switch mb-0">
@@ -175,26 +185,26 @@ render_page_header(
             </details>
             <?php } ?>
 
-            <div class="row g-3 mb-3">
-                <div class="col-sm-6">
-                    <span class="form-label d-block" id="tr-path-color-label">Color</span>
-                    <div class="tr-cat-swatches" id="tr-path-colors" role="radiogroup" aria-labelledby="tr-path-color-label"></div>
-                </div>
-                <div class="col-sm-6">
-                    <span class="form-label d-block">Cover</span>
+            <div class="mb-3">
+                <span class="form-label d-block" id="tr-path-color-label">Color</span>
+                <div class="tr-cat-swatches" id="tr-path-colors" role="radiogroup" aria-labelledby="tr-path-color-label"></div>
+            </div>
+            <div class="mb-3">
+                <span class="form-label d-block" id="tr-path-cover-label">Cover</span>
+                <div class="tr-path-cover-row">
                     <div class="tr-cat-cover tr-drop" id="tr-path-cover">
                         <img class="tr-cat-cover__img" id="tr-path-cover-img" alt="" hidden>
-                        <div class="tr-drop__hint" id="tr-path-cover-hint"><i class="fas fa-image me-1"></i>Drop an image</div>
+                        <div class="tr-drop__hint" id="tr-path-cover-hint"><i class="fas fa-image me-1" aria-hidden="true"></i>Drop an image</div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="tr-path-cover-gallery"><i class="fas fa-images me-1"></i>Choose a cover…</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="tr-path-cover-upload"><i class="fas fa-upload me-1"></i>Upload…</button>
-                        <button type="button" class="btn btn-sm btn-link text-danger" id="tr-path-cover-remove" hidden>Remove</button>
+                    <div class="tr-path-cover-actions">
+                        <button type="button" class="btn btn-outline-secondary" id="tr-path-cover-gallery"><i class="fas fa-images me-2" aria-hidden="true"></i>Choose a cover…</button>
+                        <button type="button" class="btn btn-outline-secondary" id="tr-path-cover-upload"><i class="fas fa-upload me-2" aria-hidden="true"></i>Upload…</button>
+                        <button type="button" class="btn btn-outline-secondary text-danger" id="tr-path-cover-remove" hidden><i class="fas fa-times me-2" aria-hidden="true"></i>Remove cover</button>
                         <input type="file" class="d-none" id="tr-path-cover-file" accept="image/jpeg,image/png,image/webp,image/gif">
                     </div>
-                    <div class="small text-muted" id="tr-path-cover-status" aria-live="polite"></div>
-                    <div class="invalid-feedback" data-field="cover_media_id"></div>
                 </div>
+                <div class="small text-muted mt-1" id="tr-path-cover-status" aria-live="polite"></div>
+                <div class="invalid-feedback" data-field="cover_media_id"></div>
             </div>
 
             <div class="form-check form-switch mb-3">
@@ -203,19 +213,18 @@ render_page_header(
                 <div class="form-hint">Each course opens when the one before it is complete.</div>
             </div>
 
-            <div class="mb-3">
-                <div class="d-flex align-items-baseline mb-1">
+            <div class="mb-3 tr-path-courses-block">
+                <div class="d-flex align-items-baseline mb-2">
                     <span class="form-label mb-0" id="tr-path-courses-label">Courses</span>
                     <span class="ms-auto small text-muted" id="tr-path-courses-meta"></span>
                 </div>
-                <ol class="tr-path-courses list-unstyled" id="tr-path-courses" aria-labelledby="tr-path-courses-label"></ol>
-                <div class="tr-empty tr-path-courses-empty text-muted small" id="tr-path-courses-empty">No courses yet. Add the first one below.</div>
-                <div class="invalid-feedback d-block" data-field="courses"></div>
-                <label class="form-label mt-2" for="tr-path-course-add">Add courses</label>
-                <div class="d-flex gap-2">
-                    <select class="form-select" id="tr-path-course-add" multiple data-placeholder="Search courses"></select>
-                    <button type="button" class="btn btn-outline-primary" id="tr-path-course-add-btn">Add</button>
+                <div class="d-flex gap-2 mb-2">
+                    <select class="form-select" id="tr-path-course-add" multiple data-placeholder="Search courses to add" aria-label="Add courses"></select>
+                    <button type="button" class="btn btn-outline-primary" id="tr-path-course-add-btn"><i class="fas fa-plus me-2" aria-hidden="true"></i>Add</button>
                 </div>
+                <ol class="tr-path-courses list-unstyled" id="tr-path-courses" aria-labelledby="tr-path-courses-label"></ol>
+                <div class="tr-empty tr-path-courses-empty text-muted small" id="tr-path-courses-empty">No courses yet. Search above and add the first one.</div>
+                <div class="invalid-feedback d-block" data-field="courses"></div>
             </div>
 
             <div class="mb-3">
@@ -227,9 +236,9 @@ render_page_header(
         </form>
     </div>
     <div class="tr-path-editor__footer" id="tr-path-footer">
-        <button type="button" class="btn btn-outline-danger" id="tr-path-archive" hidden>Archive</button>
-        <button type="button" class="btn btn-outline-secondary" id="tr-path-restore" hidden>Restore</button>
-        <button type="button" class="btn btn-link ms-auto" data-bs-dismiss="offcanvas">Cancel</button>
+        <button type="button" class="btn btn-outline-danger" id="tr-path-archive" hidden><i class="fas fa-archive me-2" aria-hidden="true"></i>Archive</button>
+        <button type="button" class="btn btn-outline-secondary" id="tr-path-restore" hidden><i class="fas fa-undo me-2" aria-hidden="true"></i>Restore</button>
+        <button type="button" class="btn btn-outline-secondary ms-auto" data-bs-dismiss="offcanvas">Cancel</button>
         <button type="button" class="btn btn-primary" id="tr-path-save">Save</button>
     </div>
 </div>

@@ -1820,7 +1820,7 @@
         this.q = q;
         this.touched = false;
         this.collapsed = b.mode === 'bank' && !b.expanded[q.id];
-        this.el = el('article', { class: 'trq-card' + (this.collapsed ? ' is-collapsed' : ''), role: 'listitem', dataset: { id: q.id } });
+        this.el = el('div', { class: 'trq-card' + (this.collapsed ? ' is-collapsed' : ''), role: 'listitem', dataset: { id: q.id } });
         this.store = b.questionStore(q);
         this.render();
     }

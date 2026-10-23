@@ -22,6 +22,7 @@ require_once __DIR__ . '/rivet_time.php';
 require_once __DIR__ . '/rmm_bootstrap.php';
 require_once __DIR__ . '/rmm_mesh_push.php';   // rc.16: push the MeshCentral agent to an enrolled device (state, buttons, dialogs, the fleet's bulk dialog)
 
+require_once __DIR__ . '/rmm_ui_kit.php';
 use RivetCore\Rmm\Authz\RmmAbility;
 
 // ------------------------------------------------------------------ constants and tiny formatters
@@ -59,7 +60,7 @@ function rivetRmmUiPill(string $kind, string $text, string $extraClass = ''): st
 {
     [$col, $icon] = rivetRmmUiKind($kind);
 
-    return '<span class="badge text-bg-' . $col . ($extraClass !== '' ? ' ' . nullable_htmlentities($extraClass) : '') . '"><i class="fas ' . $icon . ' me-1" aria-hidden="true"></i>'
+    return '<span class="badge rmmx-pill rmmx-pill-' . $kind . ' text-bg-' . $col . ($extraClass !== '' ? ' ' . nullable_htmlentities($extraClass) : '') . '"><i class="fas ' . $icon . '" aria-hidden="true"></i>'
         . nullable_htmlentities($text) . '</span>';
 }
 

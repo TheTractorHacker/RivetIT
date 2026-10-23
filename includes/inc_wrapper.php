@@ -53,4 +53,4 @@ if (!empty($itflow_top_nav_html)) {
 }
 ?>
     <div class="page-body">
-        <div class="container-xl">
+        <main id="main-content" class="container-xl" tabindex="-1">

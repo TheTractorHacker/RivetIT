@@ -4,12 +4,13 @@
 defined('FROM_API') || die();
 
 $csp_nonce = base64_encode(random_bytes(16));
+$docs_dark = ($_GET['theme'] ?? '') === 'dark';
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$csp_nonce'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
 ?><!DOCTYPE html>
-<html lang="en">
+<html lang="en"<?= $docs_dark ? ' data-theme="dark"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,6 +25,11 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
   .reference-help pre { overflow: auto; margin: .7rem 0 0; padding: .9rem; border-radius: .4rem; background: #18212b; color: #f4f6f8; font-size: .8rem; }
   .reference-error { display: none; margin: 2rem; padding: 1rem; border: 1px solid #e5e9ee; border-radius: .5rem; }
   @media (max-width: 600px) { .reference-top, .reference-help { padding-left: .85rem; padding-right: .85rem; } }
+  html[data-theme="dark"] body { color: #e6e9ee; background: #151b23; }
+  html[data-theme="dark"] .reference-top, html[data-theme="dark"] .reference-help { border-bottom-color: #2c3642; }
+  html[data-theme="dark"] .reference-help { color: #b3bcc6; }
+  html[data-theme="dark"] .reference-top a, html[data-theme="dark"] .reference-help summary { color: #5cc4bd; }
+  html[data-theme="dark"] .reference-error { border-color: #2c3642; }
 </style>
 </head>
 <body>
@@ -62,6 +68,7 @@ int main() {
     Scalar.createApiReference('#scalar', {
       url: '/api/v1/openapi',
       layout: 'modern',
+      <?= $docs_dark ? "darkMode: true, forceDarkModeState: 'dark', hideDarkModeToggle: true," : '' ?>
       withDefaultFonts: false,
       telemetry: false,
       agent: { disabled: true },

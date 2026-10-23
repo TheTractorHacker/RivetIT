@@ -40,11 +40,8 @@ ob_start();
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="contract_id" value="<?= $contract_id ?>">
             <div class="input-group">
-                <div class="custom-file">
-                    <input type="file" class="custom-file-input" id="doc_upload" name="contract_document"
-                           accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" required>
-                    <label class="custom-file-label" for="doc_upload">Choose file…</label>
-                </div>
+                <input type="file" class="form-control" data-upload-enhanced="1" id="doc_upload" name="contract_document" aria-label="Contract document"
+                       accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" required>
                 <div class="input-group-append">
                     <button class="btn btn-primary" type="submit" name="upload_contract_document">
                         <i class="fas fa-upload me-1"></i>Upload

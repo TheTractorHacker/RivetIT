@@ -23,11 +23,11 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
 require_once __DIR__ . '/includes/training_common.php';
 ?>
 
-<div class="row mb-4">
-    <div class="col">
+<div class="row mb-4 gy-2">
+    <div class="col-12 col-xl">
         <h3><i class="fas fa-fw fa-graduation-cap me-2"></i>Training</h3>
     </div>
-    <div class="col-auto">
+    <div class="col-12 col-xl-auto d-flex flex-wrap gap-2">
         <form action="training_start.php" method="post" class="d-inline">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <button type="submit" class="btn btn-primary"><i class="fas fa-play me-2"></i>Start training</button>

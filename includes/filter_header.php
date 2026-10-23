@@ -17,7 +17,8 @@ $url_query_strings_sort = http_build_query($get_copy);
 
 // Paging
 if (isset($_GET['page'])) {
-    $page = intval($_GET['page']);
+    // a negative, non-numeric or absurdly large page used to reach LIMIT as a negative/float offset and fatal the page
+    $page = max(1, min(intval($_GET['page']), 1000000));
     $record_from = (($page)-1)*$user_config_records_per_page;
     $record_to = $user_config_records_per_page;
 } else {
@@ -41,10 +42,10 @@ if (isset($_GET['order']) && $_GET['order'] == 'DESC') {
 // (functions.php) instead. $disp is kept for any older caller.
 if(isset($order) && $order == "ASC") {
     $disp = "DESC";
-    $order_icon = "<i class='fas fa-sort-down'></i>";
+    $order_icon = "<i class='fas fa-sort-up'></i>";   // ascending = arrow up (it used to be inverted)
 } else {
     $disp = "ASC";
-    $order_icon = "<i class='fas fa-sort-up'></i>";
+    $order_icon = "<i class='fas fa-sort-down'></i>";
 }
 
 // Search
@@ -63,6 +64,25 @@ if (isset($_GET['q'])) {
 // Sortby
 if (!empty($_GET['sort'])) {
     $sort = sanitizeInput(preg_replace('/[^a-z_]/', '', $_GET['sort'])); // JQ 2023-05-09 - See issue #673 on GitHub to see the reasoning why we used preg_replace technically sanitizeInput() should have been enough to escape SQL Commands
+}
+
+// An unknown ?sort= column reaches the page's ORDER BY and throws; send the visitor to the same list without the sort
+// instead of a blank 500 (the column is regex-limited to a-z_ above, so this is a usability fix, not an injection one).
+if (!empty($_GET['sort'])) {
+    set_exception_handler(function (Throwable $e) {
+        if ($e instanceof mysqli_sql_exception && stripos($e->getMessage(), 'ORDER BY') !== false) {
+            $rest = $_GET;
+            unset($rest['sort'], $rest['order']);
+            $to = strtok($_SERVER['REQUEST_URI'], '?') . ($rest ? '?' . http_build_query($rest) : '');
+            if (!headers_sent()) {
+                header('Location: ' . $to);
+            } else {
+                echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($to, ENT_QUOTES) . '"><p class="m-3">That sort option is not available. <a href="' . htmlspecialchars($to, ENT_QUOTES) . '">Reset sorting</a></p>';
+            }
+            exit;
+        }
+        throw $e;
+    });
 }
 
 // Date Handling

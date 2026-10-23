@@ -18,9 +18,21 @@ if ($dhcp == 1) {
 $ipv6 = sanitizeInput($_POST['ipv6']);
 $nat_ip = sanitizeInput($_POST['nat_ip']);
 $mac = sanitizeInput($_POST['mac']);
+// Server-side address validation: the form's input mask is client-side only, so a scripted or masked-off submit stored
+// "999.1.1" / "zz:zz" as the asset's IP/MAC. Empty and DHCP stay valid.
+foreach ([['IP address', $ip, 'ip'], ['IPv6 address', $ipv6, 'ip'], ['NAT IP address', $nat_ip, 'ip'], ['MAC address', $mac, 'mac']] as [$__label, $__val, $__kind]) {
+    $__val = trim((string) $__val);
+    $__ok = $__val === ''
+        || ($__kind === 'ip' && (strcasecmp($__val, 'DHCP') === 0 || filter_var($__val, FILTER_VALIDATE_IP) !== false))
+        || ($__kind === 'mac' && preg_match('/^([0-9A-Fa-f]{2}[:\-.]?){5}[0-9A-Fa-f]{2}$/', $__val) === 1);
+    if (!$__ok) {
+        flash_alert("That is not a valid $__label: " . htmlspecialchars($__val, ENT_QUOTES) . ". Nothing was saved.", 'error');
+        redirect();
+    }
+}
 $uri = sanitizeInput($_POST['uri']);
 $uri_2 = sanitizeInput($_POST['uri_2']);
-$uri_client = sanitizeInput($_POST['uri_client']);
+$uri_client = sanitizeInput($_POST['uri_client'] ?? '');
 $anydesk_id = sanitizeInput($_POST['anydesk_id'] ?? '');
 $status = sanitizeInput($_POST['status']);
 $location = intval($_POST['location'] ?? 0);

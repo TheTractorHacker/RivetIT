@@ -2,6 +2,8 @@
 
 require_once '../../../includes/modal_header.php';
 
+$account_filter = $vendor_filter = $category_filter = 0; // the export modal opens with no filter pre-selected
+
 ob_start();
 
 ?>

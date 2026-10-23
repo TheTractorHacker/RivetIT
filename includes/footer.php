@@ -57,7 +57,7 @@ if (basename(dirname($_SERVER['REQUEST_URI'])) === 'guest') { ?>
    app-wrapper from AdminLTE 4. Same depth, different names.)
    ============================================================================ */
 ?>
-</div><!-- /.container-xl (guest: /.container - same depth, see note above) -->
+</main><!-- /#main-content.container-xl (guest: .container - same depth, see note above) -->
 </div><!-- /.page-body -->
 </div><!-- /.page-wrapper -->
 </div><!-- /.page -->
@@ -104,11 +104,13 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 <script src="/plugins/moment/moment.min.js" defer></script>
 <script src="/plugins/chart.js/chart.umd.min.js" defer></script>
 <script src="/plugins/tinymce/tinymce.min.js" referrerpolicy="origin" defer></script>
+<script src="/js/tinymce_theme.js" defer></script>
 <script src="/plugins/marked/marked.min.js" defer></script>
 <script src="/plugins/turndown/turndown.js" defer></script>
 <script src="/plugins/turndown/turndown-plugin-gfm.js" defer></script>
 <script src="/plugins/clipboardjs/clipboard.min.js" defer></script>
 <script src="/js/keepalive.js" defer></script>
+<script src="/js/list_ui.js" defer></script>
 <script src="/plugins/intl-tel-input/js/intlTelInput.min.js" defer></script>
 
 <!-- plugins/adminlte4/js/adminlte.min.js is GONE. Nothing outside plugins/ ever
@@ -129,7 +131,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 // [data-asset-metrics] element, which only agent/asset_details.php emits. It is last
 // because it reads the Chart.defaults that chart_theme.js sets, and it must also land
 // after plugins/chart.js above - both hold with defer, which preserves document order.
-foreach (['rivet_dialog.js', 'shell.js', 'chart_theme.js', 'app.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js', 'icon_picker.js', 'date_range_picker.js', 'event_picker.js', 'webhook_form.js'] as $__asset) {
+foreach (['rivet_dialog.js', 'shell.js', 'chart_theme.js', 'app.js', 'a11y.js', 'file_upload.js', 'ajax_modal.js', 'confirm_modal.js', 'asset_metrics.js', 'phone_format.js', 'icon_picker.js', 'date_range_picker.js', 'event_picker.js', 'webhook_form.js'] as $__asset) {
     $__asset_path = __DIR__ . '/../js/' . $__asset;
     $__asset_version = file_exists($__asset_path) ? filemtime($__asset_path) : time();
     echo '<script src="/js/' . $__asset . '?v=' . $__asset_version . '" defer></script>' . "\n";

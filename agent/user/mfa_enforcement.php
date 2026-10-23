@@ -207,6 +207,7 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
 
     </script>
 
+<script src="/js/a11y.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/a11y.js') ?>" defer></script>
 </body>
 
 </html>

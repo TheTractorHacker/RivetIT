@@ -64,7 +64,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <button type="button"
                         class="btn btn-primary ajax-modal"
                         data-modal-url="modals/product/product_add.php?type=<?= $type_filter ?>">
-                        <i class="fas fa-plus me-2"></i>New <strong><?= ucwords($type_filter); ?></strong>
+                        <i class="fas fa-plus me-2"></i><span>New <strong><?= ucwords($type_filter); ?></strong></span>
                     </button>
                     <?php } ?>
                     <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>

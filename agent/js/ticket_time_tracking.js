@@ -65,7 +65,7 @@
             }
             timerInterval = setInterval(countTime, 1000);
             let btn = document.getElementById("startStopTimer");
-            if (btn) btn.innerHTML = "<i class='fas fa-pause'></i>";
+            if (btn) btn.innerHTML = "<i class='fas fa-pause me-1'></i>Pause";
             localStorage.setItem("ticket-timer-running-" + ticketID, "true");
         }
 
@@ -78,7 +78,7 @@
             localStorage.setItem(getLocalStorageKey("pausedTime"), currentElapsed.toString());
             localStorage.removeItem(getLocalStorageKey("startTime"));
             let btn = document.getElementById("startStopTimer");
-            if (btn) btn.innerHTML = "<i class='fas fa-play'></i>";
+            if (btn) btn.innerHTML = "<i class='fas fa-play me-1'></i>Start";
             localStorage.setItem("ticket-timer-running-" + ticketID, "false");
         }
 
@@ -95,7 +95,7 @@
             clearTimeStorage();
             displayTime();
             let btn = document.getElementById("startStopTimer");
-            if (btn) btn.innerHTML = "<i class='fas fa-play'></i>";
+            if (btn) btn.innerHTML = "<i class='fas fa-play me-1'></i>Start";
             localStorage.setItem("ticket-timer-running-" + ticketID, "false");
         }
 
@@ -119,7 +119,7 @@
             clearTimeStorage();
             displayTime();
             let btn = document.getElementById("startStopTimer");
-            if (btn) btn.innerHTML = "<i class='fas fa-play'></i>";
+            if (btn) btn.innerHTML = "<i class='fas fa-play me-1'></i>Start";
         }
 
         function handleInputFocus() {

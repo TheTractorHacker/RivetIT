@@ -14,7 +14,9 @@
 
     function refresh() {
         var n = picks().filter(function (c) { return c.checked; }).length;
-        if (counter) { counter.textContent = n === 0 ? 'Nothing selected.' : n + ' selected.'; }
+        if (counter) { counter.textContent = n === 0 ? 'Nothing selected' : n + ' selected'; }
+        var lbl = document.getElementById('pack-install-label');
+        if (lbl) { lbl.textContent = n === 0 ? 'Install selected' : 'Install selected (' + n + ')'; }
         buttons.forEach(function (b) {
             b.classList.toggle('disabled', n === 0);
             b.setAttribute('aria-disabled', n === 0 ? 'true' : 'false');
@@ -39,5 +41,31 @@
         if (act && act.getAttribute('aria-disabled') === 'true') { e.preventDefault(); e.stopPropagation(); if (counter) { counter.focus && counter.focus(); } }
     }, true);
 
+    // State filter (segmented control) and collapsible groups: pure show/hide of rows already on the page.
+    var rows = function () { return Array.prototype.slice.call(form.querySelectorAll('#pack-items tbody tr[data-state]')); };
+    var filter = 'all';
+    function applyView() {
+        rows().forEach(function (r) {
+            var g = form.querySelector('.rmmx-group-toggle[data-pack-group="' + (r.getAttribute('data-group') || '').replace(/"/g, '') + '"]');
+            var collapsed = g && g.getAttribute('aria-expanded') === 'false';
+            r.hidden = collapsed || (filter !== 'all' && r.getAttribute('data-state') !== filter);
+        });
+        form.querySelectorAll('tr.rmmx-group').forEach(function (h) {
+            var name = h.getAttribute('data-group-head');
+            var any = rows().some(function (r) { return r.getAttribute('data-group') === name && (filter === 'all' || r.getAttribute('data-state') === filter); });
+            h.hidden = !any;
+        });
+    }
+    document.addEventListener('click', function (e) {
+        var f = e.target.closest ? e.target.closest('[data-pack-filter]') : null;
+        if (f) {
+            filter = f.getAttribute('data-pack-filter');
+            document.querySelectorAll('[data-pack-filter]').forEach(function (b) { var on = b === f; b.classList.toggle('is-active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+            applyView();
+            return;
+        }
+        var g = e.target.closest ? e.target.closest('.rmmx-group-toggle') : null;
+        if (g) { g.setAttribute('aria-expanded', g.getAttribute('aria-expanded') === 'true' ? 'false' : 'true'); g.classList.toggle('is-collapsed'); applyView(); }
+    });
     refresh();
 })();

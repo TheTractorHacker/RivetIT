@@ -24,7 +24,7 @@ $tr_tab = tro_get_enum('tab', ['roster', 'groups', 'trainers', 'links'], 'roster
 $tr_scope = tro_scope($mysqli, $tr_ctx);
 
 // Roster filter states: the people_roster `state` values (auto|include|exclude|eligible|ineligible|all).
-$tr_states = ['eligible', 'ineligible', 'include', 'exclude'];
+$tr_states = ['eligible', 'ineligible', 'include', 'exclude', 'archived'];
 $tr_filters = [
     'q' => tro_get_str('q', 100),
     'client_id' => tro_get_id('client_id', true),
@@ -41,6 +41,8 @@ $tr_trainers = $tr_tab === 'trainers' ? tro_action($mysqli, 'trainer_list') : nu
 $tr_routes = [
     'roster_set' => tro_has_route('roster_set'),
     'hire_date_set' => tro_has_route('hire_date_set'),
+    // Archiving is a Contacts action too: Training level 3 AND write access to Departments (the server checks both).
+    'roster_archive' => tro_has_route('roster_archive') && (int) lookupUserPermission('module_client') >= 2,
     'jobgroup_save' => tro_has_route('jobgroup_save'),
     'jobgroup_archive' => tro_has_route('jobgroup_archive'),
     'jobgroup_titles' => tro_has_route('jobgroup_titles'),
@@ -81,6 +83,7 @@ $tr_state_labels = [
     'ineligible' => 'Not on the roster',
     'include' => 'Included by hand',
     'exclude' => 'Excluded',
+    'archived' => 'Archived',
 ];
 ?>
 

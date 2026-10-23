@@ -51,7 +51,7 @@ $purifier_config->set('Attr.DefaultImageAlt', '');
 \ITFlow\KB\InteractiveBlocks::apply($purifier_config);
 $purifier = new HTMLPurifier($purifier_config);
 
-$kb_article_id = intval($_GET['id']);
+$kb_article_id = intval($_GET['id'] ?? 0);
 
 $sql = mysqli_query(
     $mysqli,

@@ -122,7 +122,7 @@ $icon_for = static function (string $platform): string {
 ?>
 
 <div class="d-flex align-items-center mb-3">
-    <h4 class="mb-0 me-auto"><i class="fas fa-tablet-alt me-2"></i>Mobile devices <small class="text-muted">ManageEngine MDM</small></h4>
+    <h4 class="mb-0 me-auto"><i class="fas fa-tablet-alt me-2"></i>Mobile devices <span class="badge text-bg-light border fw-normal ms-2 align-middle">ManageEngine MDM</span></h4>
     <?php if ($session_is_admin) { ?>
         <a href="/admin/settings_integrations.php?tab=devicesync" class="btn btn-secondary btn-sm"><i class="fas fa-cog me-1"></i>Settings</a>
     <?php } ?>
@@ -136,16 +136,16 @@ $icon_for = static function (string $platform): string {
 <?php } else { ?>
 
 <!-- Fleet overview -->
-<div class="row mb-3">
+<div class="row g-3 mb-3 mdm-kpis">
     <div class="col-6 col-md-3"><div class="small-box bg-info"><div class="inner"><h3><?= $fleet['total'] ?></h3><p>Linked devices</p></div>
-        <div class="icon"><i class="fas fa-tablet-alt"></i></div><a href="?" class="small-box-footer">Show all <i class="fas fa-arrow-circle-right"></i></a></div></div>
-    <div class="col-6 col-md-3"><div class="small-box bg-danger"><div class="inner"><h3><?= $fleet['noncompliant'] + $fleet['lost'] ?></h3><p>Not compliant or lost (<?= $fleet['lost'] ?> lost)</p></div>
-        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div><a href="?state=noncompliant" class="small-box-footer">Not compliant <i class="fas fa-arrow-circle-right"></i></a></div></div>
-    <div class="col-6 col-md-3"><div class="small-box bg-warning"><div class="inner"><h3><?= $fleet['stale'] ?></h3><p>Not seen in <?= $stale_days ?>+ days</p></div>
-        <div class="icon"><i class="fas fa-clock"></i></div><a href="?state=stale" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a></div></div>
+        <div class="icon"><i class="fas fa-tablet-alt"></i></div><a href="?" class="small-box-footer stretched-link">View <i class="fas fa-arrow-circle-right"></i></a></div></div>
+    <div class="col-6 col-md-3"><div class="small-box <?= (($fleet['noncompliant'] + $fleet['lost']) > 0 ? 'bg-danger' : 'bg-success') ?>"><div class="inner"><h3><?= $fleet['noncompliant'] + $fleet['lost'] ?></h3><p>Not compliant or lost (<?= $fleet['lost'] ?> lost)</p></div>
+        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div><a href="?state=noncompliant" class="small-box-footer stretched-link">View <i class="fas fa-arrow-circle-right"></i></a></div></div>
+    <div class="col-6 col-md-3"><div class="small-box <?= $fleet['stale'] > 0 ? 'bg-warning' : 'bg-success' ?>"><div class="inner"><h3><?= $fleet['stale'] ?></h3><p>Not seen in <?= $stale_days ?>+ days</p></div>
+        <div class="icon"><i class="fas fa-clock"></i></div><a href="?state=stale" class="small-box-footer stretched-link">View <i class="fas fa-arrow-circle-right"></i></a></div></div>
     <?php if (!$restricted) { ?>
-    <div class="col-6 col-md-3"><div class="small-box bg-secondary"><div class="inner"><h3><?= $fleet['unmatched'] ?></h3><p>Unmatched (need review)</p></div>
-        <div class="icon"><i class="fas fa-question-circle"></i></div><a href="?view=unmatched" class="small-box-footer">Review <i class="fas fa-arrow-circle-right"></i></a></div></div>
+    <div class="col-6 col-md-3"><div class="small-box <?= $fleet['unmatched'] > 0 ? 'bg-secondary' : 'bg-success' ?>"><div class="inner"><h3><?= $fleet['unmatched'] ?></h3><p>Unmatched (need review)</p></div>
+        <div class="icon"><i class="fas fa-question-circle"></i></div><a href="?view=unmatched" class="small-box-footer stretched-link">View <i class="fas fa-arrow-circle-right"></i></a></div></div>
     <?php } ?>
 </div>
 

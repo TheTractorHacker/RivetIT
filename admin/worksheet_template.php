@@ -54,8 +54,16 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <td><?= $tmpl_desc ?></td>
                         <td class="text-center"><?= $field_count ?></td>
                         <td class="text-center">
-                            <a href="worksheet_template_details.php?id=<?= $tmpl_id ?>" class="btn btn-sm btn-secondary"><i class="fas fa-edit me-1"></i>Edit</a>
-                            <a href="post.php?delete_worksheet_template=<?= $tmpl_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-danger confirm-link"><i class="fas fa-trash"></i></a>
+                            <div class="dropdown dropstart">
+                                <button class="btn btn-light btn-sm text-secondary" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $tmpl_name ?>">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item" href="worksheet_template_details.php?id=<?= $tmpl_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item text-danger confirm-link" href="post.php?delete_worksheet_template=<?= $tmpl_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash-alt me-2"></i>Delete</a>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 <?php } ?>

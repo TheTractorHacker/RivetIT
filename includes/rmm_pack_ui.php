@@ -64,10 +64,13 @@ function rivetRmmPackStatePill(string $state): string
 
 function rivetRmmPackPlatformChip(string $platform): string
 {
-    $map = ['windows' => ['fa-brands fa-windows', 'Windows'], 'linux' => ['fa-brands fa-linux', 'Linux'], 'any' => ['fas fa-desktop', 'Windows and Linux']];
-    [$icon, $text] = $map[$platform] ?? ['fas fa-desktop', ucfirst($platform)];
+    // OS glyphs are Font Awesome BRANDS ("fab"): the old "fa-brands" class drew a broken box glyph with this app's icon font. Name always shown, glyph is decoration.
+    $map = ['windows' => [['fab fa-windows'], 'Windows'], 'linux' => [['fab fa-linux'], 'Linux'], 'any' => [['fab fa-windows', 'fab fa-linux'], 'Windows and Linux']];
+    [$icons, $text] = $map[$platform] ?? [['fas fa-desktop'], ucfirst($platform)];
+    $g = '';
+    foreach ($icons as $i) { $g .= '<i class="' . rmmH($i) . '" aria-hidden="true"></i>'; }
 
-    return '<span class="badge text-bg-light border"><i class="' . rmmH($icon) . ' me-1" aria-hidden="true"></i>' . rmmH($text) . '</span>';
+    return '<span class="rmmx-os rmmx-os-chip">' . $g . '<span>' . rmmH($text) . '</span></span>';
 }
 
 /** What Core says an item would do / did, as a pill (the same vocabulary as the script/policy pack result tables). */
@@ -149,9 +152,13 @@ function rivetRmmPackItemRow(array $it, string $csrf, string $returnTo, array $t
     $state = (string) ($it['state'] ?? 'not_installed');
     $live = (bool) ($it['enabled'] ?? false) || (int) ($it['assignments'] ?? 0) > 0;
     $instanceWide = (bool) ($it['instance_wide'] ?? false);
-    $name = '<strong>' . rmmH($it['name']) . '</strong>';
-    $badges = rivetRmmPackStatePill($state) . ' ' . rivetRmmPackPlatformChip((string) $it['platform']) . ($live ? ' ' . rivetRmmUiPill('warn', 'In use') : '') . ($instanceWide ? ' ' . rivetRmmUiPill('info', 'Applies to all devices') : '');
-    $why = '<details><summary class="small">Why</summary><p class="small mb-1">' . rmmH((string) $it['why']) . '</p>';
+    // "Pack: " / "Pack add-on: " repeats on every row; show it as a small type tag (display only, the stored name is unchanged).
+    $rawName = (string) $it['name'];
+    $kindTag = '';
+    if (preg_match('/^(Pack add-on|Pack):\\s*(.+)$/u', $rawName, $mm)) { $kindTag = '<span class="rmmx-tag me-2">' . ($mm[1] === 'Pack' ? 'Pack' : 'Add-on') . '</span>'; $rawName = $mm[2]; }
+    $name = '<span class="fw-semibold">' . $kindTag . rmmH($rawName) . '</span>';
+    $badges = '<div class="rmmx-badges">' . rivetRmmPackStatePill($state) . ($live ? rivetRmmUiPill('warn', 'In use') : '') . ($instanceWide ? rivetRmmUiPill('info', 'Applies to all devices') : '') . '</div><div class="mt-1">' . rivetRmmPackPlatformChip((string) $it['platform']) . '</div>';
+    $why = '<details class="rmmx-why"><summary>Why</summary><div class="rmmx-why-body">' . rmmH((string) $it['why']) . '</div>';
     $ws = (array) ($it['why_settings'] ?? []);
     if ($ws !== []) {
         $why .= '<table class="table table-sm mb-0"><tbody>';
@@ -175,6 +182,9 @@ function rivetRmmPackItemRow(array $it, string $csrf, string $returnTo, array $t
             $actions .= ' ' . rivetRmmAutoActionForm(RIVET_RMM_PACK_HANDLER, 'reset', ['ids[]' => $id], $csrf, $returnTo, '<i class="fas fa-undo me-1" aria-hidden="true"></i>Reset to pack version', 'btn btn-sm btn-outline-secondary',
                 'This replaces your changes to this policy with the pack version.');
         }
+        if ($state === 'not_installed') {
+            $actions .= rivetRmmAutoActionForm(RIVET_RMM_PACK_HANDLER, 'install', ['ids[]' => $id], $csrf, $returnTo, '<i class="fas fa-download me-1" aria-hidden="true"></i>Install', 'btn btn-sm btn-outline-primary');
+        }
         if ($state !== 'not_installed') {
             $actions .= ' ' . rivetRmmAutoActionForm(RIVET_RMM_PACK_HANDLER, 'uninstall', ['ids[]' => $id], $csrf, $returnTo, '<i class="fas fa-trash-alt me-1" aria-hidden="true"></i>Uninstall', 'btn btn-sm btn-outline-danger',
                 'Uninstall this item? Core only removes it while it is untouched, switched off and unassigned; anything you edited or assigned is left alone.');
@@ -189,8 +199,8 @@ function rivetRmmPackItemRow(array $it, string $csrf, string $returnTo, array $t
         ? '<div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="pack_confirm_iw" name="confirm_instance_wide" value="1"' . ($confirmInstanceWide ? ' checked' : '') . '><label class="form-check-label small" for="pack_confirm_iw">Yes, apply to all devices</label></div>'
         : '';
 
-    return '<tr><td class="ps-3">' . $checkbox . '</td><td>' . $name . '<div class="small text-muted">' . rmmH((string) $it['summary']) . '</div>' . $why . $pickCell . '</td><td>' . $badges . '</td>'
-        . '<td class="rmm-table-actions">' . ($actions === '' ? '<span class="text-muted small">&mdash;</span>' : $actions) . '</td></tr>';
+    return '<tr data-state="' . rmmH($state) . '" data-group="' . rmmH((string) ($it['group'] ?? '')) . '"><td class="checkbox-column">' . $checkbox . '</td><td class="rmmx-title">' . $name . '<div class="rmmx-desc">' . rmmH((string) $it['summary']) . '</div>' . $why . $pickCell . '</td><td>' . $badges . '</td>'
+        . '<td class="rmm-table-actions text-end">' . ($instanceWide ? '<span class="text-muted small">Choose it by hand and confirm below</span>' : $actions) . '</td></tr>';
 }
 
 /** Install-time parameters for the items that have any, one small block per item, grouped under one card. */
@@ -216,7 +226,7 @@ function rivetRmmPackParamsBlock(array $items, array $paramVals): string
                 $fields .= '<div class="col-md-6"><label class="form-label" for="' . $fid . '">' . $label . '</label><input class="form-control" id="' . $fid . '" name="' . $fname . '" type="text" maxlength="64" autocomplete="off" value="' . rmmH($val) . '"></div>';
             }
         }
-        $o .= '<div class="mb-3"><div class="fw-semibold small mb-1">' . rmmH((string) $it['name']) . '</div><div class="row g-2">' . $fields . '</div></div>';
+        $o .= '<div class="mb-3"><div class="fw-semibold small mb-1">' . rmmH(preg_replace('/^(Pack add-on|Pack):\\s*/u', '', (string) $it['name'])) . '</div><div class="row g-2">' . $fields . '</div></div>';
     }
 
     return $o;
@@ -231,37 +241,40 @@ function rivetRmmPackCard(array $vm, array $ctx): string
     $returnTo = '/agent/rmm_policies.php#pack-card';
     $csrf = (string) $ctx['csrf'];
     $o = $vm['result'] !== null ? rivetRmmPackResultCard($vm['result']) : '';
-    $notice = '<div class="alert alert-info d-flex gap-2" role="status"><i class="fas fa-info-circle mt-1" aria-hidden="true"></i><div>Installing creates the policies switched off and assigned to nothing. '
-        . 'Nothing changes on your devices until you switch one on and assign it.</div></div>';
+    $notice = '<div class="rmmx-info" role="note"><i class="fas fa-info-circle" aria-hidden="true"></i><div><strong>Installing is safe.</strong> It creates the policies switched off and assigned to nothing, so nothing changes on your devices until you switch one on and assign it.</div></div>';
     $ticked = array_flip(array_map('strval', (array) ($vm['result']['ids'] ?? [])));
     $paramVals = (array) ($vm['result']['params'] ?? []);
     $confirmIw = !empty($vm['result']['confirm_instance_wide']);
     $rows = '';
     foreach ($vm['groups'] as $group => $items) {
-        $rows .= '<tr class="rmm-thead"><th colspan="4" class="ps-3">' . rmmH($group) . '</th></tr>';
+        $rows .= '<tr class="rmmx-group" data-group-head="' . rmmH($group) . '"><td colspan="4"><button type="button" class="rmmx-group-toggle" aria-expanded="true" data-pack-group="' . rmmH($group) . '"><i class="fas fa-chevron-down" aria-hidden="true"></i><span>' . rmmH($group) . '</span> <span class="text-muted fw-normal">&middot; ' . count($items) . '</span></button></td></tr>';
         foreach ($items as $it) {
             $rows .= rivetRmmPackItemRow($it, $csrf, $returnTo, $ticked, $confirmIw);
         }
     }
-    $table = '<div class="table-responsive"><table class="table table-hover table-sm mb-0" id="pack-items"><caption class="visually-hidden">Policy starter pack items</caption>'
-        . '<thead><tr class="rmm-thead"><th scope="col" class="ps-3" style="width:2.5rem"><span class="visually-hidden">Select</span></th><th scope="col">Item</th><th scope="col">State</th><th scope="col">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table></div>';
+    $table = '<div class="rmmx-scroll"><table class="rmmx-table" id="pack-items"><caption class="visually-hidden">Policy starter pack items</caption>'
+        . '<thead><tr><th scope="col" class="checkbox-column"><span class="visually-hidden">Select</span></th><th scope="col">Item</th><th scope="col">State</th><th scope="col" class="text-end">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table></div>';
     $params = rivetRmmPackParamsBlock($vm['items'], $paramVals);
     $c = $vm['counts'];
-    $chips = '<div class="d-flex flex-wrap gap-2 mb-3">' . '<span class="badge text-bg-secondary">' . (int) $c['not_installed'] . ' not installed</span>'
-        . '<span class="badge text-bg-success">' . (int) $c['installed'] . ' installed</span>' . '<span class="badge text-bg-info">' . (int) $c['update_available'] . ' update available</span>'
-        . '<span class="badge text-bg-warning">' . (int) $c['edited'] . ' edited</span></div>';
-    $actions = '<div class="rmm-sticky-form d-flex flex-wrap gap-2 align-items-center" id="pack-actions"><span class="small text-muted me-auto" id="pack-selected" role="status" aria-live="polite">Nothing selected.</span>'
-        . '<button type="button" class="btn btn-sm btn-outline-secondary" data-pack-select="recommended">Select recommended</button>'
-        . '<button type="button" class="btn btn-sm btn-outline-secondary" data-pack-select="all">Select all</button>'
-        . '<button type="button" class="btn btn-sm btn-outline-secondary" data-pack-select="none">Clear</button>'
-        . '<button type="submit" name="action" value="plan" class="btn btn-outline-primary" id="pack-plan"><i class="fas fa-clipboard-list me-1" aria-hidden="true"></i>Plan</button>'
-        . '<button type="submit" name="action" value="install" class="btn btn-primary" id="pack-install" data-rmm-confirm="Install the selected items? Every item is created switched off and assigned to nothing. Nothing changes on your devices until you switch one on and assign it." data-rmm-confirm-label="Install"><i class="fas fa-download me-1" aria-hidden="true"></i>Install selected</button></div>';
+    $seg = static fn (string $key, string $label, int $n, string $tip, bool $on = false): string => '<button type="button" class="' . ($on ? 'is-active' : '') . '" data-pack-filter="' . $key . '" aria-pressed="' . ($on ? 'true' : 'false') . '" title="' . rmmH($tip) . '"' . ($n === 0 && $key !== 'all' ? ' data-zero="1"' : '') . '>' . rmmH($label) . ' <span class="rmmx-count">' . $n . '</span></button>';
+    $chips = '<div class="rmmx-seg mb-3" role="group" aria-label="Filter the items by state">'
+        . $seg('all', 'All', (int) $c['not_installed'] + (int) $c['installed'] + (int) $c['update_available'] + (int) $c['edited'], 'Show every item', true)
+        . $seg('not_installed', 'Not installed', (int) $c['not_installed'], 'Items that are not installed yet')
+        . $seg('installed', 'Installed', (int) $c['installed'], 'Items installed and unchanged from the pack')
+        . $seg('update_available', 'Update available', (int) $c['update_available'], 'Installed items the pack has a newer version of')
+        . $seg('edited', 'Edited', (int) $c['edited'], 'Items you changed after installing (the pack will not overwrite them)') . '</div>';
+    $actions = '<div class="rmmx-bar" id="pack-actions" role="region" aria-label="Selection actions"><span class="rmmx-bar-count" id="pack-selected" role="status" aria-live="polite">Nothing selected</span>'
+        . '<button type="button" class="btn btn-outline-secondary" data-pack-select="recommended">Select recommended</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-pack-select="all">Select all</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-pack-select="none">Clear</button>'
+        . '<button type="submit" name="action" value="plan" class="btn btn-outline-primary" id="pack-plan" title="Dry run: shows what installing the selection would do, and changes nothing"><i class="fas fa-clipboard-list me-1" aria-hidden="true"></i>Plan</button>'
+        . '<button type="submit" name="action" value="install" class="btn btn-primary" id="pack-install" data-rmm-confirm="Install the selected items? Every item is created switched off and assigned to nothing. Nothing changes on your devices until you switch one on and assign it." data-rmm-confirm-label="Install"><i class="fas fa-download me-1" aria-hidden="true"></i><span id="pack-install-label">Install selected</span></button></div>';
     $o .= rivetRmmUiCard('Starter policies', 'box-open',
         $notice . $chips
-        . '<form method="post" action="/agent/post/' . RIVET_RMM_PACK_HANDLER . '.php" id="pack-form">' . rivetRmmAutoHidden($csrf, $returnTo)
+        . '<form method="post" action="/agent/post/' . RIVET_RMM_PACK_HANDLER . '.php" id="pack-form" class="rmmx-pad-bottom">' . rivetRmmAutoHidden($csrf, $returnTo)
         . $table
         . ($params === '' ? '' : '<div class="p-3 border-top"><div class="small text-muted mb-2">Install-time parameters. Leave a field at its default unless you need another value.</div>' . $params . '</div>')
-        . '<div class="p-3 border-top">' . $actions . '</div></form>',
+        . '<div class="px-3 pb-3">' . $actions . '</div></form>',
         '', '<span class="small text-muted">' . rmmH($vm['pack']['name']) . ' ' . rmmH($vm['pack']['version']) . '</span>', true, 'pack-card');
 
     return $o;

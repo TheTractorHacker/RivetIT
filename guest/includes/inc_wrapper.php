@@ -36,4 +36,4 @@
 ?>
 <div class="page-wrapper">
     <div class="page-body">
-        <div class="container">
+        <main id="main-content" class="container" tabindex="-1">

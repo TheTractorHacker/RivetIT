@@ -9,6 +9,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 if (isset($_POST['add_contract_template'])) {
 
     validateCSRFToken($_POST['csrf_token']);
+    requireFilledPost(['name' => 'The template name', 'description' => 'The description']);
 
     // Sanitize text inputs
     $name = sanitizeInput($_POST['name']);

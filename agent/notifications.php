@@ -187,7 +187,7 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
         </div>
         <?php } ?>
 
-        <?php require_once "../includes/filter_footer.php"; ?>
+        <?php $suppress_filter_empty = true; require_once "../includes/filter_footer.php"; ?>
     </div>
 </div>
 

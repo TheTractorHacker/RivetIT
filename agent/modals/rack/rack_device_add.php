@@ -11,6 +11,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM racks WHERE rack_id = $rack_id LIMIT
 $row = mysqli_fetch_assoc($sql);
 $rack_name = nullable_htmlentities($row['rack_name']);
 $client_id = intval($row['rack_client_id']);
+$rack_units = intval($row['rack_units'] ?? 0);
 
 enforceClientAccess();
 

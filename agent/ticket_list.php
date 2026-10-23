@@ -61,13 +61,12 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     Ticket <?php if ($sort == 'ticket_number') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th>
+                            <th class="tk-col-subject">
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_subject&order=<?php echo sortLinkOrder('ticket_subject'); ?>">
                                     Subject <?php if ($sort == 'ticket_subject') { echo $order_icon; } ?>
                                 </a>
                             </th>
 
-                            <th>Board</th>
                             <th>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=category_name&order=<?php echo sortLinkOrder('category_name'); ?>">
                                     Category <?php if ($sort == 'category_name') { echo $order_icon; } ?>
@@ -302,7 +301,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 </td>
 
                                 <!-- Ticket Subject -->
-                                <td>
+                                <td class="tk-col-subject">
                                     <a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>"><?= $ticket_subject ?></a>
                                     <?php if (!empty($row['ticket_merged_into_id'])) { ?>
                                     <small class="text-muted ms-1"><i class="fas fa-code-branch fa-sm"></i> Merged</small>
@@ -318,15 +317,6 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <?php } ?>
                                 </td>
 
-                                <!-- Board -->
-                                <td>
-                                    <?php if ($ticket_board_name) { ?>
-                                    <span class="badge rounded-pill tkt-pill-badge text-bg-light border"><?= htmlspecialchars($ticket_board_name) ?></span>
-                                    <?php } else { ?>
-                                    <span class="text-muted">-</span>
-                                    <?php } ?>
-                                </td>
-
                                 <!-- Category pill -->
                                 <td>
                                     <?php
@@ -336,7 +326,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <div class="dropdown">
                                         <span class="badge rounded-pill tkt-pill-badge dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
                                              style="background:<?= htmlspecialchars($cat_color) ?>;color:#fff;cursor:pointer;">
-                                            <?= htmlspecialchars($cat_label) ?>
+                                            <?= $cat_label ?>
                                         </span>
                                         <div class="dropdown-menu shadow-sm" style="min-width:180px;max-height:280px;overflow-y:auto;">
                                             <h6 class="dropdown-header">Set Category</h6>
@@ -368,7 +358,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     </div>
                                     <?php } else { ?>
                                     <span class="badge rounded-pill tkt-pill-badge" style="background:<?= htmlspecialchars($cat_color) ?>;color:#fff;">
-                                        <?= htmlspecialchars($cat_label) ?>
+                                        <?= $cat_label ?>
                                     </span>
                                     <?php } ?>
                                 </td>
@@ -494,7 +484,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <div class="dropdown">
                                         <span class="badge rounded-pill tkt-pill-badge dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
                                              style="background:<?= $agent_color ?>;color:#fff;cursor:pointer;">
-                                            <?= htmlspecialchars($agent_label) ?>
+                                            <?= $agent_label ?>
                                         </span>
                                         <div class="dropdown-menu shadow-sm" style="min-width:160px;">
                                             <h6 class="dropdown-header">Assign To</h6>
@@ -516,7 +506,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     </div>
                                     <?php } else { ?>
                                     <span class="badge rounded-pill tkt-pill-badge" style="background:<?= $agent_color ?>;color:#fff;">
-                                        <?= htmlspecialchars($agent_label) ?>
+                                        <?= $agent_label ?>
                                     </span>
                                     <?php } ?>
                                 </td>

@@ -11,6 +11,7 @@ return [
     'people_search'     => ['handler' => PeopleActions::class . '::search',          'method' => 'GET',  'level' => 1],
     'people_roster'     => ['handler' => PeopleActions::class . '::roster',          'method' => 'GET',  'level' => 1],
     'roster_set'        => ['handler' => PeopleActions::class . '::rosterSet',       'method' => 'POST', 'level' => 3],
+    'roster_archive'    => ['handler' => PeopleActions::class . '::rosterArchive',    'method' => 'POST', 'level' => 3],
     'odoo_attr_options' => ['handler' => PeopleActions::class . '::odooAttrOptions', 'method' => 'GET',  'level' => 1],
     'hire_date_set'     => ['handler' => PeopleActions::class . '::hireDateSet',     'method' => 'POST', 'level' => 3],
     'jobgroup_list'     => ['handler' => PeopleActions::class . '::jobgroupList',    'method' => 'GET',  'level' => 1],

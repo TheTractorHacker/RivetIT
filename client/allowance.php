@@ -16,7 +16,9 @@ require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
-    header("Location: post.php?logout");
+    // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
+    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    header("Location: index.php");
     exit();
 }
 
@@ -91,7 +93,7 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
     $pct_badge = $u['pct'] === null ? '' : ($u['pct'] >= 100 ? 'text-bg-danger' : ($u['pct'] >= 80 ? 'text-bg-warning' : 'text-bg-success'));
     ?>
     <div class="d-flex align-items-center flex-wrap py-2 border-bottom">
-        <div class="me-3" style="min-width:110px"><i class="fas fa-fw <?= $icon ?> me-1 text-muted"></i><?= $label ?></div>
+        <div class="me-3 portal-allowance-label"><i class="fas fa-fw <?= $icon ?> me-1 text-muted"></i><?= $label ?></div>
         <div class="me-3"><strong><?= number_format($u['used'], 2) ?></strong> / <?= number_format($u['included'], 2) ?> hrs used</div>
         <div class="me-3 <?= $over ? 'text-danger fw-bold' : 'text-muted' ?>">
             <?= $over ? number_format(abs($u['remaining']), 2) . ' hrs over' : number_format($u['remaining'], 2) . ' hrs remaining' ?>
@@ -103,11 +105,11 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
     <?php
 }
 ?>
-<div class="container-fluid mt-3">
+<div class="container-fluid px-0">
 <div class="card">
     <div class="card-header d-flex align-items-center flex-wrap">
         <h4 class="mb-0 me-auto"><i class="fas fa-hourglass-half me-2"></i>Monthly Support Allowance</h4>
-        <form method="get" class="d-flex" style="gap:.5rem">
+        <form method="get" class="d-flex gap-2">
             <select class="form-control form-control-sm" name="month">
                 <?php foreach ($month_names as $m => $mname) { ?>
                     <option value="<?= $m ?>" <?= $m == $month ? 'selected' : '' ?>><?= $mname ?></option>
@@ -168,7 +170,7 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
                                     $ticket_subject = nullable_htmlentities($t['ticket_subject']);
                                     $method = nullable_htmlentities($t['ticket_delivery_method']);
                                     $method_badge = $method === 'Onsite' ? 'text-bg-primary' : 'text-bg-info';
-                                    $date = date('M j, Y', strtotime($t['ticket_created_at']));
+                                    $date = date('Y-m-d', strtotime($t['ticket_created_at']));
                                 ?>
                                 <tr>
                                     <td class="text-nowrap"><a href="ticket.php?id=<?= $ticket_id ?>">#<?= $ticket_number ?></a> <?= $ticket_subject ?></td>

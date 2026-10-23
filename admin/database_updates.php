@@ -11629,12 +11629,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         // DB 2.6.184: in-app notification category muting (mirrors the existing mobile-push category columns, config_push_enabled_types /
         // user_config_push_types) and a daily throttle for the "Update available" cron notification (previously re-sent on every cron run with
         // no gate at all).
-        mysqli_query($mysqli, "ALTER TABLE `settings`
-            ADD COLUMN `config_notify_enabled_types` text DEFAULT NULL AFTER `config_push_enabled_types`,
-            ADD COLUMN `config_update_notify_last_version` varchar(100) DEFAULT NULL,
-            ADD COLUMN `config_update_notify_last_at` datetime DEFAULT NULL");
-        mysqli_query($mysqli, "ALTER TABLE `user_settings`
-            ADD COLUMN `user_config_notify_types` text DEFAULT NULL AFTER `user_config_push_types`");
+        // db.sql is a schema snapshot that already carries these columns on a fresh install (setup records its older marker so
+        // later migrations run); ADD COLUMN on a column that is there fataled the whole update. Add only what is missing.
+        $add_missing_columns = function (string $table, array $columns) use ($mysqli) {
+            foreach ($columns as $col => $ddl) {
+                if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `$table` LIKE '$col'")) === 0) {
+                    mysqli_query($mysqli, "ALTER TABLE `$table` ADD COLUMN `$col` $ddl");
+                }
+            }
+        };
+        $add_missing_columns('settings', [
+            'config_notify_enabled_types' => 'text DEFAULT NULL AFTER `config_push_enabled_types`',
+            'config_update_notify_last_version' => 'varchar(100) DEFAULT NULL',
+            'config_update_notify_last_at' => 'datetime DEFAULT NULL',
+        ]);
+        $add_missing_columns('user_settings', ['user_config_notify_types' => 'text DEFAULT NULL AFTER `user_config_push_types`']);
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.184'");
     }
 
@@ -11670,9 +11679,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             PRIMARY KEY (`mail_template_id`),
             UNIQUE KEY `uniq_mail_template_event` (`mail_template_event`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "ALTER TABLE `settings`
-            ADD COLUMN `config_mail_template_header_html` mediumtext DEFAULT NULL,
-            ADD COLUMN `config_mail_template_footer_html` mediumtext DEFAULT NULL");
+        foreach (['config_mail_template_header_html', 'config_mail_template_footer_html'] as $__col) {
+            if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE '$__col'")) === 0) {
+                mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN `$__col` mediumtext DEFAULT NULL");
+            }
+        }
         foreach (mailTemplateDefaults() as $event => $tpl) {
             $e = mysqli_real_escape_string($mysqli, $event);
             $s = mysqli_real_escape_string($mysqli, $tpl['subject']);
@@ -11751,4 +11762,14 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ))->run();
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.191'");
         }
+    }
+
+    if ($rivetit_db_version() == '2.6.191') {
+        // DB 2.6.192: Training > People can archive a person. For a person the Odoo directory sync owns, the archive must survive
+        // the next sync (the mapper un-archives anyone still active in Odoo), so the link row carries a hold the mapper respects.
+        $has_hold = mysqli_query($mysqli, "SHOW COLUMNS FROM `contact_odoo_links` LIKE 'odoo_archive_hold'");
+        if ($has_hold && mysqli_num_rows($has_hold) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `contact_odoo_links` ADD COLUMN `odoo_archive_hold` TINYINT(1) NOT NULL DEFAULT 0");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.192'");
     }
