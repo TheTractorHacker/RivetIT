@@ -111,20 +111,20 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
             <div class="trr-kpi__label">Compliance</div>
             <div class="trr-kpi__row">
                 <div class="trr-kpi__value"><?= $trr_k['compliance_pct'] === null ? '—' : (int) $trr_k['compliance_pct'] . '%' ?></div>
-                <span class="trr-kpi__spark"><?= trr_sparkline(array_merge($trr_trend['values'])) ?></span>
+                <?php if ($trr_trend['points'] >= 3) { ?><span class="trr-kpi__spark" title="Compliance at each month end, last <?= (int) $trr_months ?> months"><?= trr_sparkline(array_merge($trr_trend['values'])) ?></span><?php } ?>
             </div>
             <div class="trr-kpi__sub">
                 <?php if ($trr_k['compliance_delta_pts'] !== null) {
                     $trr_d = (int) $trr_k['compliance_delta_pts'];
                     ?>
-                <span class="trr-delta trr-delta--<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down' : 'flat') ?>"><i class="fas fa-arrow-<?= $trr_d >= 0 ? 'up' : 'down' ?>" aria-hidden="true"></i><?= ($trr_d > 0 ? '+' : '') . $trr_d ?> pts</span> vs 3 months ago
+                <span class="trr-delta trr-delta--<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down' : 'flat') ?>" title="Compliance now compared with three months ago. Higher is better."><i class="fas fa-arrow-<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down' : 'right') ?>" aria-hidden="true"></i><?= ($trr_d > 0 ? '+' : '') . $trr_d ?> pts</span> vs 3 months ago
                 <?php } else { ?>
                 <?= (int) $trr_k['current'] ?> of <?= (int) $trr_k['required'] ?> required are current
                 <?php } ?>
             </div>
         </div>
         <a class="trr-kpi trr-kpi--link<?= $trr_k['overdue'] > 0 || (int) ($trr_k['lapsed_open'] ?? 0) > 0 ? ' trr-kpi--alert' : '' ?>" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'overdue', 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">
-            <div class="trr-kpi__label">Overdue <span class="trr-kpi__icon trr-kpi__icon--err"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span></div>
+            <div class="trr-kpi__label">Overdue <?php if ($trr_k['overdue'] > 0 || (int) ($trr_k['lapsed_open'] ?? 0) > 0) { ?><span class="trr-kpi__icon trr-kpi__icon--err"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span><?php } else { ?><span class="trr-kpi__icon trr-kpi__icon--ok"><i class="fas fa-check" aria-hidden="true"></i></span><?php } ?></div>
             <div class="trr-kpi__value<?= $trr_k['overdue'] > 0 ? ' trr-kpi__value--err' : '' ?>"><?= (int) $trr_k['overdue'] ?></div>
             <div class="trr-kpi__sub">
                 <?php if ($trr_k['overdue'] > 0) { ?><span class="trr-chip trr-chip--err">Needs action</span> <?= (int) $trr_k['overdue_people'] ?> <?= $trr_k['overdue_people'] === 1 ? 'person' : 'people' ?><?php } else { ?>Nothing overdue<?php } ?>
@@ -132,7 +132,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
             </div>
         </a>
         <a class="trr-kpi trr-kpi--link" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'expiring', 'days' => 30, 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">
-            <div class="trr-kpi__label">Expiring in 30 days <span class="trr-kpi__icon trr-kpi__icon--warn"><i class="far fa-clock" aria-hidden="true"></i></span></div>
+            <div class="trr-kpi__label">Expiring in 30 days <span class="trr-kpi__icon trr-kpi__icon--<?= (int) $trr_k['expiring_30'] > 0 ? 'warn' : 'neutral' ?>"><i class="far fa-clock" aria-hidden="true"></i></span></div>
             <div class="trr-kpi__value"><?= (int) $trr_k['expiring_30'] ?></div>
             <div class="trr-kpi__sub"><?= (int) $trr_k['renewals_assigned'] ?> <?= $trr_k['renewals_assigned'] === 1 ? 'renewal' : 'renewals' ?> already assigned</div>
         </a>
@@ -141,7 +141,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
             <div class="trr-kpi__value"><?= (int) $trr_k['completions_month'] ?></div>
             <div class="trr-kpi__sub">
                 <?php $trr_d = (int) $trr_k['completions_month'] - (int) $trr_k['completions_prev_month']; ?>
-                <strong class="trr-delta trr-delta--<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down' : 'flat') ?>"><?= ($trr_d > 0 ? '+' : '') . $trr_d ?></strong> vs <?= trr_h($trr_k['prev_month_label']) ?>
+                <strong class="trr-delta trr-delta--<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down-soft' : 'flat') ?>" title="Completions this month compared with <?= trr_h($trr_k['prev_month_label']) ?>"><i class="fas fa-arrow-<?= $trr_d > 0 ? 'up' : ($trr_d < 0 ? 'down' : 'right') ?>" aria-hidden="true"></i><?= ($trr_d > 0 ? '+' : '') . $trr_d ?></strong> vs <?= trr_h($trr_k['prev_month_label']) ?>
             </div>
         </div>
         <div class="trr-kpi">
@@ -162,8 +162,25 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                     </div>
                     <div class="trr-legend-inline" aria-hidden="true"><span class="trr-legend-inline__line"></span>Compliance <span class="trr-legend-inline__dash"></span>Target</div>
                 </div>
-                <?php if ($trr_trend['points'] >= 2) { ?>
-                <div class="trr-trend"><canvas id="trr-trend-chart" role="img" aria-label="Monthly compliance, <?= (int) $trr_trend['points'] ?> months, target <?= (int) $trr_trend['target'] ?>%"></canvas></div>
+                <?php if ($trr_trend['points'] >= 2) {
+                    $trr_first_i = null; $trr_alt = [];
+                    foreach ($trr_trend['values'] as $trr_vi => $trr_v) {
+                        if ($trr_v !== null) { $trr_first_i ??= $trr_vi; $trr_alt[] = (new DateTimeImmutable($trr_trend['months'][$trr_vi] . '-01'))->format('M Y') . ' ' . (int) $trr_v . '%'; }
+                    }
+                    ?>
+                <div class="trr-trend"><canvas id="trr-trend-chart" role="img" aria-label="Monthly compliance against a <?= (int) $trr_trend['target'] ?>% target: <?= trr_h(implode(', ', $trr_alt)) ?>"></canvas></div>
+                <?php if ($trr_first_i > 0) { ?>
+                <p class="trr-trend__note"><i class="fas fa-info-circle" aria-hidden="true"></i> History starts in <?= trr_h((new DateTimeImmutable($trr_trend['months'][$trr_first_i] . '-01'))->format('F Y')) ?>: the nightly snapshot began then, so earlier months have no data (they are not 0%).</p>
+                <?php } ?>
+                <table class="visually-hidden">
+                    <caption>Compliance by month end, target <?= (int) $trr_trend['target'] ?>%</caption>
+                    <thead><tr><th scope="col">Month</th><th scope="col">Compliance</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($trr_trend['values'] as $trr_vi => $trr_v) { ?>
+                        <tr><th scope="row"><?= trr_h((new DateTimeImmutable($trr_trend['months'][$trr_vi] . '-01'))->format('F Y')) ?></th><td><?= $trr_v === null ? 'No data' : (int) $trr_v . '%' ?></td></tr>
+                    <?php } ?>
+                    </tbody>
+                </table>
                 <?php } else { ?>
                 <div class="trr-placeholder"><i class="fas fa-chart-line" aria-hidden="true"></i><p>The trend starts after the first nightly snapshot.</p></div>
                 <?php } ?>

@@ -38,26 +38,50 @@
         });
         var family = (window.Chart.defaults && window.Chart.defaults.font && window.Chart.defaults.font.family) || 'sans-serif';
 
+        var surface = cssVar('--if-surface', '#ffffff');
+        // End-point value labels: placed inside the plot, beside the point rather than on the line, flipped when there is no room.
         var endLabels = {
             id: 'trrEndLabels',
             afterDatasetsDraw: function (chart) {
                 var meta = chart.getDatasetMeta(0);
                 var ctx = chart.ctx;
+                var area = chart.chartArea;
                 ctx.save();
                 ctx.font = '600 12px ' + family;
-                ctx.fillStyle = ink;
+                ctx.textBaseline = 'middle';
+                ctx.lineJoin = 'round';
+                var placed = [];
+                function draw(text, x, y, align) {
+                    var w = ctx.measureText(text).width;
+                    var left = align === 'right' ? x - w : x;
+                    // keep inside the drawing area, then nudge away from labels already drawn
+                    left = Math.max(area.left + 2, Math.min(left, area.right - w - 2));
+                    y = Math.max(area.top + 8, Math.min(y, area.bottom - 8));
+                    placed.forEach(function (p) { if (Math.abs(p.y - y) < 14 && left < p.x + p.w && left + w > p.x) { y = p.y + 15; } });
+                    placed.push({ x: left, y: y, w: w });
+                    ctx.strokeStyle = surface; ctx.lineWidth = 4; ctx.strokeText(text, left, y);
+                    ctx.fillStyle = ink; ctx.fillText(text, left, y);
+                }
                 [firstIdx, lastIdx].forEach(function (i, n) {
-                    if (i < 0 || !meta.data[i] || (n === 0 && firstIdx === lastIdx)) { return; }
+                    if (i < 0 || !meta.data[i] || (n === 1 && firstIdx === lastIdx)) { return; }
                     var pt = meta.data[i];
-                    ctx.textAlign = n === 0 ? 'left' : 'right';
-                    ctx.fillText(values[i] + '%', pt.x + (n === 0 ? 2 : 4), pt.y - 10);
+                    var text = values[i] + '%';
+                    var w = ctx.measureText(text).width;
+                    if (n === 0) {
+                        // first point: left of the point when there is room, else below-right (the line rises away from it)
+                        if (pt.x - 10 - w >= area.left) { draw(text, pt.x - 9, pt.y, 'right'); } else { draw(text, pt.x + 8, pt.y + 14, 'left'); }
+                    } else {
+                        // last point: left of it and above, where the rising line is not
+                        if (pt.y - 14 >= area.top + 8) { draw(text, pt.x - 8, pt.y - 12, 'right'); } else { draw(text, pt.x - 10, pt.y + 14, 'right'); }
+                    }
                 });
-                // Target caption above the dashed line, at the left edge.
-                var y = chart.scales.y.getPixelForValue(target);
+                // Target caption above the dashed line at the left edge, on a surface halo so gridlines do not cross it.
+                var ty = chart.scales.y.getPixelForValue(target);
                 ctx.font = '500 11px ' + family;
-                ctx.fillStyle = muted;
                 ctx.textAlign = 'left';
-                ctx.fillText('Target ' + target + '%', chart.chartArea.left + 6, y - 6);
+                var cap = 'Target ' + target + '%';
+                ctx.strokeStyle = surface; ctx.lineWidth = 4; ctx.strokeText(cap, area.left + 6, ty - 9);
+                ctx.fillStyle = muted; ctx.fillText(cap, area.left + 6, ty - 9);
                 ctx.restore();
             }
         };
@@ -73,7 +97,7 @@
                         data: values,
                         borderColor: primary,
                         backgroundColor: rgbaFromToken('--if-primary-rgb', '.10', 'rgba(13,148,136,.10)'),
-                        fill: 'start',
+                        fill: known.length >= 3 ? 'start' : false,
                         tension: 0.25,
                         cubicInterpolationMode: 'monotone',
                         spanGaps: true,
@@ -99,17 +123,24 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
-                layout: { padding: { top: 16, right: 8 } },
+                layout: { padding: { top: 22, right: 14, bottom: 2 } },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         filter: function (item) { return item.datasetIndex === 0 && typeof item.raw === 'number'; },
-                        callbacks: { label: function (item) { return 'Compliance ' + item.raw + '%'; } }
+                        callbacks: {
+                            title: function (items) {
+                                var m = (trend.months || [])[items[0].dataIndex];
+                                if (!m) { return items[0].label; }
+                                try { return new Date(m + '-01T12:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' }); } catch (e) { return m; }
+                            },
+                            label: function (item) { return 'Compliance ' + item.raw + '% (target ' + target + '%)'; }
+                        }
                     }
                 },
                 scales: {
-                    x: { grid: { display: false } },
-                    y: { min: min, max: 100, ticks: { stepSize: 10, callback: function (v) { return v + '%'; } }, title: { display: true, text: 'Compliance (%)' } }
+                    x: { grid: { display: false }, ticks: { padding: 6, maxRotation: 0, autoSkip: true } },
+                    y: { min: min, max: 100, ticks: { stepSize: 10, padding: 6, callback: function (v) { return v + '%'; } }, title: { display: true, text: 'Compliance (%)', padding: { bottom: 8 }, font: { size: 12, weight: '500' }, color: muted } }
                 }
             },
             plugins: [endLabels]
