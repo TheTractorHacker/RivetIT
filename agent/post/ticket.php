@@ -3887,10 +3887,21 @@ if (isset($_GET['delete_ticket_attachment'])) {
     $att = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM ticket_attachments WHERE ticket_attachment_id = $attachment_id AND ticket_attachment_ticket_id = $ticket_id LIMIT 1"));
 
     if ($att) {
-        $ref_name = $att['ticket_attachment_reference_name'];
-        $file_path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/tickets/$ticket_id/$ref_name";
-        if (is_file($file_path)) {
-            unlink($file_path);
+        // A row is not a trust boundary - the same guard api/v1/ticket_attachments.php's read path and
+        // agent/post/kb_article.php's delete path already apply to this exact kind of column, and it matters
+        // more here because the string is interpolated into a path that is then unlink()ed. The column is only
+        // ever written by the upload handler with a server-generated name, so there is no known way to get a
+        // traversal sequence into it today; this is the guard that means a future writer, or a restored/edited
+        // row, cannot turn "delete this attachment" into "delete any file www-data can reach".
+        //
+        // A name that fails still has its ROW removed - the attachment disappears from the ticket either way.
+        // Only the unlink is skipped, because a name we cannot parse is a path we have no business constructing.
+        $ref_name = (string) $att['ticket_attachment_reference_name'];
+        if (isUploadReferenceName($ref_name)) {
+            $file_path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/tickets/$ticket_id/$ref_name";
+            if (is_file($file_path)) {
+                unlink($file_path);
+            }
         }
 
         mysqli_query($mysqli, "DELETE FROM ticket_attachments WHERE ticket_attachment_id = $attachment_id");

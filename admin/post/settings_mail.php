@@ -78,7 +78,9 @@ if (isset($_POST['oauth_connect_microsoft_mail'])) {
     try {
         $state = bin2hex(random_bytes(32));
     } catch (Throwable $e) {
-        $state = sha1(uniqid((string) mt_rand(), true));
+        // random_bytes() only throws when the system has no CSPRNG source at all; this is a last-resort
+        // fallback for that case, not the normal path. sha256 (not sha1) over a non-predictable seed.
+        $state = hash('sha256', uniqid((string) mt_rand(), true));
     }
 
     $_SESSION['mail_oauth_state'] = $state;

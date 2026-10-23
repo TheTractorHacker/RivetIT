@@ -17,6 +17,20 @@ $BACKUP_DIR = $_SERVER['DOCUMENT_ROOT'] . '/backups';
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Throttle for the manual "build a fresh backup" actions (full DB dump + zip, same build_backup() cost
+ * as the cron auto-backup). CSRF + admin-session auth already gate this handler, but neither stops a
+ * logged-in admin session (or one riding a stolen session cookie) from repeatedly re-triggering an
+ * expensive dump/zip to tie up the PHP worker and disk I/O. Same Redis-backed throttle as the login
+ * guards (rivetRateLimit, includes/redis_guards.php) - fails open if Redis is unavailable, since this is
+ * an abuse guard, not a hard dependency, and must never block a real backup when Redis is down.
+ */
+function backup_build_throttle_wait(int $userId): int {
+    require_once __DIR__ . '/../../includes/redis_guards.php';
+    $r = rivetRateLimit('backup:build:' . $userId, 3, 60);
+    return $r['allowed'] ? 0 : max(1, (int) $r['retry_after']);
+}
+
 function fwrite_ln($fh, string $s): void {
     fwrite($fh, $s . PHP_EOL);
 }
@@ -485,6 +499,13 @@ function backup_upload_to_s3(string $filePath, string $fileName, bool $manual = 
 if (isset($_GET['backup_download_fresh'])) {
     validateCSRFToken($_GET['csrf_token']);
 
+    if (($wait = backup_build_throttle_wait($session_user_id)) > 0) {
+        header("HTTP/1.1 429 Too Many Requests");
+        header("Retry-After: $wait");
+        flash_alert('Too many backups requested. Please wait a minute and try again.', 'error');
+        redirect();
+    }
+
     try {
         $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
     } catch (BackupPassphraseRequired $e) {
@@ -507,6 +528,12 @@ if (isset($_GET['backup_download_fresh'])) {
 // ── Save backup to server ─────────────────────────────────────────────────────
 if (isset($_GET['backup_save'])) {
     validateCSRFToken($_GET['csrf_token']);
+    if (($wait = backup_build_throttle_wait($session_user_id)) > 0) {
+        header("HTTP/1.1 429 Too Many Requests");
+        header("Retry-After: $wait");
+        flash_alert('Too many backups requested. Please wait a minute and try again.', 'error');
+        redirect();
+    }
     try {
         $result = build_backup($mysqli, 'manual', $BACKUP_DIR);
     } catch (BackupPassphraseRequired $e) {
@@ -527,6 +554,12 @@ if (isset($_GET['backup_s3_now'])) {
     validateCSRFToken($_GET['csrf_token']);
     if (empty($config_backup_s3_bucket)) {
         flash_alert('Remote storage is not configured - save a bucket under Remote Storage first.', 'error');
+        redirect();
+    }
+    if (($wait = backup_build_throttle_wait($session_user_id)) > 0) {
+        header("HTTP/1.1 429 Too Many Requests");
+        header("Retry-After: $wait");
+        flash_alert('Too many backups requested. Please wait a minute and try again.', 'error');
         redirect();
     }
     try {

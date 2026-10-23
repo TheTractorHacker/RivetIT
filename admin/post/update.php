@@ -87,6 +87,19 @@ if (isset($_GET['update'])) {
 
     validateAdminRole(); // Old function
 
+    // Throttle: this exec()s git fetch/pull and composer install, and (via update_pre_backup()) a full
+    // DB dump + zip - repeated clicks (or a stolen admin session replaying the request) could tie up the
+    // web server / disk I/O with no lock protecting this path (unlike update_db below, which takes a
+    // Redis lock). Same abuse-guard throttle as Admin > Backup's manual build actions.
+    require_once __DIR__ . '/../../includes/redis_guards.php';
+    $update_throttle = rivetRateLimit('app_update:' . $session_user_id, 3, 60);
+    if (!$update_throttle['allowed']) {
+        header("HTTP/1.1 429 Too Many Requests");
+        header("Retry-After: " . max(1, (int) $update_throttle['retry_after']));
+        flash_alert('Update was just run. Please wait a minute and try again.', 'error');
+        redirect();
+    }
+
     if (($backup_error = update_pre_backup()) !== null) {
         flash_alert($backup_error, 'error');
         redirect();

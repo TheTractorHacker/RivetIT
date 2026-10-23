@@ -15,6 +15,14 @@ if (isset($_POST['add_user'])) {
 
     require_once 'user_model.php';
 
+    // Same email-format check admin/post/portal_users.php applies when creating a department login - an
+    // unvalidated value here becomes this agent's login identity, and login.php itself requires
+    // FILTER_VALIDATE_EMAIL to even attempt a sign-in, so a malformed address created here can never log in.
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Enter a valid email address.", 'error');
+        redirect();
+    }
+
     // Staff password policy: length, not the name / email, optional breach check
     $policy_error = secPasswordPolicyError(trim((string) ($_POST['password'] ?? '')), ['name' => trim((string) ($_POST['name'] ?? '')), 'email' => trim((string) ($_POST['email'] ?? '')), 'username' => trim((string) ($_POST['email'] ?? ''))], $mysqli);
     if ($policy_error !== null) {
@@ -117,6 +125,13 @@ if (isset($_POST['edit_user'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     require_once 'user_model.php';
+
+    // Same email-format check as add_user above (and admin/post/portal_users.php's edit handler) - this is
+    // still the field used to sign in.
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Enter a valid email address.", 'error');
+        redirect();
+    }
 
     $user_id = intval($_POST['user_id']);
     $new_password = trim($_POST['new_password']);

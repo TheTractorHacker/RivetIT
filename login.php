@@ -556,8 +556,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         }
                     }
 
+                    // Per-account throttle on MFA code / recovery code guesses (same Redis throttle as the
+                    // password step above) - the password step's rivetLoginThrottle() call does not run
+                    // again here, so without this an attacker who already has a session token from the
+                    // role-choice/password step could brute-force the 6-digit code with no per-account limit
+                    // (only the IP-wide 15-per-10-min lockout at the top of this file would eventually catch it).
+                    $mfa_throttled = false;
+                    if ($is_mfa_step && (!empty($current_code) || trim((string) ($_POST['recovery_code'] ?? '')) !== '')) {
+                        require_once __DIR__ . '/includes/redis_guards.php';
+                        $mfa_wait = rivetLoginThrottle('mfa:' . $user_email, (string) getIP());
+                        if ($mfa_wait > 0) {
+                            $mfa_throttled = true;
+                            header("HTTP/1.1 429 Too Many Requests");
+                            header("Retry-After: $mfa_wait");
+                            logAction("Login", "Throttled", "Too many MFA attempts for $user_email");
+                            $response = "
+                              <div class='alert alert-danger'>
+                                Too many attempts. Please wait a few minutes and try again.
+                              </div>";
+                        }
+                    }
+
                     // Validate MFA code
-                    if (!$mfa_is_complete && !empty($current_code) && TokenAuth6238::verifyOnce($token, $current_code)) {
+                    if (!$mfa_throttled && !$mfa_is_complete && !empty($current_code) && TokenAuth6238::verifyOnce($token, $current_code)) {
                         $mfa_is_complete = true;
                         $extended_log    = 'with MFA';
                         secUserTotpRewrap($mysqli, $user_id, $selectedRow['user_token'] ?? null);   // lazily wrap a legacy plaintext seed
@@ -566,7 +587,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                     // A single-use recovery code in place of the authenticator code (only on the MFA step, only when MFA is set up)
                     $recovery_input = trim((string) ($_POST['recovery_code'] ?? ''));
                     $used_recovery_code = false;
-                    if (!$mfa_is_complete && $is_mfa_step && !empty($token) && $recovery_input !== '' && secRecoveryCodeConsume($mysqli, $user_id, $recovery_input, (string) getIP())) {
+                    if (!$mfa_throttled && !$mfa_is_complete && $is_mfa_step && !empty($token) && $recovery_input !== '' && secRecoveryCodeConsume($mysqli, $user_id, $recovery_input, (string) getIP())) {
                         $mfa_is_complete    = true;
                         $used_recovery_code = true;
                         $extended_log       = 'with a MFA recovery code';

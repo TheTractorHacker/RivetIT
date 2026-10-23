@@ -1762,13 +1762,16 @@ if (isset($_GET['client_serve_contract_doc'])) {
     if (!$doc || intval($doc['contract_client_id']) !== intval($session_client_id)) {
         http_response_code(403); exit('Access denied');
     }
-    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/{$doc['doc_contract_id']}/{$doc['doc_filename']}";
+    // basename(): same guard agent/post/contract.php's serve_contract_document applies to this identical
+    // doc_filename column - it's always server-generated today, but a row is not a trust boundary.
+    $path = $_SERVER['DOCUMENT_ROOT'] . "/uploads/contracts/" . intval($doc['doc_contract_id']) . "/" . basename((string) $doc['doc_filename']);
     if (!is_file($path)) { http_response_code(404); exit('File not found'); }
     $safe = preg_replace('/[^\w.\-]/', '_', $doc['doc_original_name']);
     header('Content-Type: ' . $doc['doc_mime_type']);
     header('Content-Disposition: inline; filename="' . $safe . '"');
     header('Content-Length: ' . filesize($path));
     header('Cache-Control: private');
+    header('X-Content-Type-Options: nosniff');
     readfile($path);
     exit;
 }

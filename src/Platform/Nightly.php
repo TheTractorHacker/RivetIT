@@ -77,7 +77,21 @@ final class Nightly
             RecoveryAlerts::clear($db, 'audit_chain.key');
         }
 
-        return ['status' => $res['status'], 'checked' => $res['checked'], 'broken_at' => $res['broken_at']];
+        // late_unsealed: a row whose audit_id sits BEFORE the current sealed head but was never sealed (row_hash still NULL).
+        // seal() only ever walks forward from the newest sealed row, so such a row is permanently skipped - it never enters the
+        // chain and verify()'s own row-by-row walk above (which only reads row_hash IS NOT NULL rows) never sees it either. A
+        // forged historical entry inserted with an audit_id below the current head would look exactly like this and pass as
+        // "ok" above with no other signal, so it gets its own alert instead of being silently dropped.
+        if ((int) ($res['late_unsealed'] ?? 0) > 0) {
+            RecoveryAlerts::raise($db, 'audit_chain.late_unsealed', 'Audit trail has unsealed historical entries',
+                (int) $res['late_unsealed'] . ' audit row(s) sit before the chain\'s current head but were never sealed into it, so the chain cannot vouch for them. '
+                . 'Review Administration > Audit trail - this can happen after a restore, or if a row was inserted out of order.',
+                'audit.chain_broken', ['status' => 'late_unsealed', 'late_unsealed' => $res['late_unsealed']], '/admin/audit_trail.php');
+        } else {
+            RecoveryAlerts::clear($db, 'audit_chain.late_unsealed');
+        }
+
+        return ['status' => $res['status'], 'checked' => $res['checked'], 'broken_at' => $res['broken_at'], 'late_unsealed' => $res['late_unsealed'] ?? 0];
     }
 
     /**
