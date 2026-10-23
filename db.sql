@@ -9921,6 +9921,8 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_enrollment_tokens` (
   `last_used_at` datetime DEFAULT NULL,
   `created_by` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `kind` varchar(10) NOT NULL DEFAULT 'agent',
+  `contact_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`token_id`),
   UNIQUE KEY `uniq_selector` (`token_selector`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9987,6 +9989,8 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_devices` (
   `last_reject_reason` varchar(200) DEFAULT NULL,
   `last_reject_at` datetime DEFAULT NULL,
   `detected_type` varchar(20) DEFAULT NULL,
+  `kind` varchar(10) NOT NULL DEFAULT 'agent',
+  `contact_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`device_id`),
   UNIQUE KEY `uniq_install` (`install_id`),
   KEY `idx_token_hash` (`token_hash`),
@@ -9994,6 +9998,28 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_devices` (
   KEY `idx_machine_guid` (`machine_guid`),
   KEY `idx_serial` (`serial`),
   KEY `idx_client` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `panel_client_settings` (
+  `client_id` int(11) NOT NULL,
+  `allow_client_level_tickets` tinyint(1) NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `panel_ticket_owner` (
+  `owner_id` int(11) NOT NULL AUTO_INCREMENT,
+  `ticket_id` int(11) DEFAULT NULL,
+  `device_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  `contact_id` int(11) DEFAULT NULL,
+  `request_id` char(36) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`owner_id`),
+  UNIQUE KEY `uniq_ticket` (`ticket_id`),
+  UNIQUE KEY `uniq_device_request` (`device_id`,`request_id`),
+  KEY `idx_device_created` (`device_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `endpoint_agent_checkins` (

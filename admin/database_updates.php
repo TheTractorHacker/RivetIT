@@ -11824,3 +11824,21 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_module_enable_accounting` = 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.194'");
     }
+
+    if ($rivetit_db_version() == '2.6.194') {
+        // DB 2.6.195: RivetCore 1.0.0-rc.35. Re-runs CoreMigrations::all() through the same Core runner as the 2.6.191 step -
+        // idempotent, so it also catches 0038/0039 here if an install somehow skipped straight past 2.6.191 to a later
+        // version without ever running the runner. 0040 (panel_api) adds endpoint_agent_enrollment_tokens.kind/contact_id
+        // and endpoint_agent_devices.kind/contact_id (both additive, existing rows become kind='agent'), plus
+        // panel_client_settings and panel_ticket_owner - the RivetPanel device-token API (UPGRADING.md "Adopting the
+        // RivetPanel API"). Nothing is enabled by this step alone: the agent protocol is unchanged, and the Panel API
+        // routes/pages are separate application code.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.195'");
+        }
+    }
