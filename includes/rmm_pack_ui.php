@@ -226,7 +226,7 @@ function rivetRmmPackParamsBlock(array $items, array $paramVals): string
                 $fields .= '<div class="col-md-6"><label class="form-label" for="' . $fid . '">' . $label . '</label><input class="form-control" id="' . $fid . '" name="' . $fname . '" type="text" maxlength="64" autocomplete="off" value="' . rmmH($val) . '"></div>';
             }
         }
-        $o .= '<div class="mb-3"><div class="fw-semibold small mb-1">' . rmmH((string) $it['name']) . '</div><div class="row g-2">' . $fields . '</div></div>';
+        $o .= '<div class="mb-3"><div class="fw-semibold small mb-1">' . rmmH(preg_replace('/^(Pack add-on|Pack):\\s*/u', '', (string) $it['name'])) . '</div><div class="row g-2">' . $fields . '</div></div>';
     }
 
     return $o;
