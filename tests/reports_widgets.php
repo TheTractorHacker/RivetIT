@@ -359,5 +359,14 @@ DashboardLayout::save($mysqli, 7, [['id' => 'csat'], ['id' => 'my_tickets']], $a
 DashboardLayout::save($mysqli, 7, DashboardLayout::reorder(DashboardLayout::load($mysqli, 7, $allowed), ['my_tickets', 'csat']), $allowed);
 $ok(array_column(DashboardLayout::load($mysqli, 7, $allowed), 'id') === ['my_tickets', 'csat'], 'reorder: saves and loads back through the normal layout round trip');
 
+// --- Add-a-widget categories (WidgetRegistry::categories()) - every definitions() id appears in exactly one
+// category, so a widget added without being filed under a category silently disappears from "Add a widget".
+$catIds = [];
+foreach (WidgetRegistry::categories() as $cat => $ids) { foreach ($ids as $id) { $catIds[] = $id; } }
+$defIds = array_keys(WidgetRegistry::definitions());
+sort($catIds);
+sort($defIds);
+$ok($catIds === $defIds, 'categories(): covers every definitions() id exactly once, no gaps or dupes');
+
 echo $fails ? "\n$fails FAILED\n" : "\nALL PASSED\n";
 exit($fails ? 1 : 0);

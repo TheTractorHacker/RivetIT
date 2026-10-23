@@ -34,6 +34,31 @@ final class WidgetRegistry
         'finance_unbilled_or_recurring_added', 'finance_vendors_added', 'finance_miles_traveled', 'finance_cash_flow', 'finance_income_by_category',
         'finance_expense_by_category', 'finance_expense_by_vendor', 'finance_account_balances', 'finance_latest_income', 'finance_latest_expenses', 'finance_trip_flow'];
 
+    // Grouping only - for "Add a widget" (agent/my_dashboard.php), so 55 widgets (and counting) reads as a few
+    // short labeled rows instead of one giant wrapped wall. Every definitions() id appears in exactly one group;
+    // tests/reports_widgets.php asserts that, so a new widget added to one list without the other fails loudly.
+    private const CATEGORIES = [
+        'Tickets' => ['tickets_by_status', 'tickets_by_priority', 'sla_at_risk', 'my_tickets', 'created_vs_closed', 'avg_resolution', 'csat',
+            'tickets_opened_today', 'tickets_resolved_week', 'tickets_waiting_on_customer', 'tickets_flow_year', 'tickets_by_category',
+            'tickets_by_technician_open', 'tickets_created_year', 'tickets_resolved_year', 'avg_resolution_year', 'tickets_resolved_by_technician_year',
+            'tickets_recently_resolved', 'tickets_automation_recent'],
+        'Assets'    => ['assets_by_type', 'expiring', 'assets_by_status', 'assets_added_year'],
+        'Departments' => ['departments_active', 'departments_added_year', 'contacts_added_year', 'workflow_runs_in_progress', 'workflow_tasks_due'],
+        'RMM'       => ['rmm_devices_offline', 'rmm_alerts_open', 'rmm_patches_pending'],
+        'Training'  => ['training_expiring', 'training_overdue', 'training_achievements_month'],
+        'Projects'  => ['projects_open', 'project_tasks_due', 'project_tasks_overdue'],
+        'Financial' => ['invoices_unpaid', 'finance_income', 'finance_expenses', 'finance_profit', 'finance_recurring_income', 'finance_recurring_expense',
+            'finance_unbilled_or_recurring_added', 'finance_vendors_added', 'finance_miles_traveled', 'finance_cash_flow', 'finance_income_by_category',
+            'finance_expense_by_category', 'finance_expense_by_vendor', 'finance_account_balances', 'finance_latest_income', 'finance_latest_expenses', 'finance_trip_flow'],
+        'General'   => ['needs_attention'],
+    ];
+
+    /** @return array<string,string[]> category label => widget ids, in display order. */
+    public static function categories(): array
+    {
+        return self::CATEGORIES;
+    }
+
     /** @return array<string,string> value => label, in default-first order; [] if this widget has no alternate chart type. */
     public static function chartOptions(string $id): array
     {

@@ -95,6 +95,9 @@ $post_button = static function (string $action, string $widget, string $label, s
     .dash-drag:active { cursor: grabbing; }
     #dash-widgets .sortable-ghost { opacity: .4; }
     #dash-widgets .sortable-chosen .card { box-shadow: 0 0 0 2px var(--tblr-primary, #0054a6); }
+    .dash-add-category { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem; }
+    button[data-bs-target="#dash-add-widget"] .fa-chevron-down { transition: transform .15s ease; }
+    button[data-bs-target="#dash-add-widget"][aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
 </style>
 
 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap" style="gap:.5rem;">
@@ -137,12 +140,38 @@ $post_button = static function (string $action, string $widget, string $label, s
 
 <?php if ($customise && $addable) { ?>
 <div class="card mb-3">
-    <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
-        <span class="text-muted">Add a widget:</span>
-        <?php foreach ($addable as $wid) { ?>
-            <?php echo $post_button('add', $wid, 'Add ' . $defs[$wid]['title'], 'fa-plus', '', 'btn-outline-primary'); ?>
-            <span class="me-2"><i class="fas fa-fw <?php echo nullable_htmlentities($defs[$wid]['icon']); ?> me-1"></i><?php echo nullable_htmlentities($defs[$wid]['title']); ?></span>
-        <?php } ?>
+    <div class="card-header py-2 d-flex align-items-center justify-content-between">
+        <strong><i class="fas fa-fw fa-plus me-1"></i>Add a widget</strong>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dash-add-widget" aria-expanded="false" aria-controls="dash-add-widget">
+            <?php echo count($addable); ?> available <i class="fas fa-fw fa-chevron-down ms-1"></i>
+        </button>
+    </div>
+    <div class="collapse" id="dash-add-widget">
+        <div class="card-body py-2">
+            <?php foreach (WidgetRegistry::categories() as $catLabel => $catIds) {
+                $catAddable = array_values(array_intersect($catIds, $addable));
+                if (!$catAddable) { continue; }
+            ?>
+            <div class="mb-3">
+                <div class="dash-add-category text-muted">
+                    <?php echo nullable_htmlentities($catLabel); ?>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php foreach ($catAddable as $wid) { ?>
+                        <form method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
+                            <input type="hidden" name="layout_action" value="add">
+                            <input type="hidden" name="widget" value="<?php echo nullable_htmlentities($wid); ?>">
+                            <input type="hidden" name="customise" value="1">
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-fw <?php echo nullable_htmlentities($defs[$wid]['icon']); ?> me-1"></i><?php echo nullable_htmlentities($defs[$wid]['title']); ?>
+                            </button>
+                        </form>
+                    <?php } ?>
+                </div>
+            </div>
+            <?php } ?>
+        </div>
     </div>
 </div>
 <?php } ?>
