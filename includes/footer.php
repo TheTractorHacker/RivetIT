@@ -110,6 +110,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 <script src="/plugins/turndown/turndown-plugin-gfm.js" defer></script>
 <script src="/plugins/clipboardjs/clipboard.min.js" defer></script>
 <script src="/js/keepalive.js" defer></script>
+<script src="/js/list_ui.js" defer></script>
 <script src="/plugins/intl-tel-input/js/intlTelInput.min.js" defer></script>
 
 <!-- plugins/adminlte4/js/adminlte.min.js is GONE. Nothing outside plugins/ ever

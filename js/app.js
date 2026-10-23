@@ -290,7 +290,8 @@ function initSelect2Widgets() {
             //  - short lists have no caret and no typing at all (click anywhere opens the list, arrows/Enter work);
             //  - long lists keep search, but the caret lives in the search box inside the open list, never in the closed control.
             var emptyOpt = el.querySelector('option[value=""]');
-            var placeholderRow = emptyOpt && (el.required || /^\s*[-\u2013\u2014].*[-\u2013\u2014]\s*$/.test(emptyOpt.textContent) || /^(Department|Contact|Select|Choose)\b/i.test(emptyOpt.textContent.trim()));
+            var allChoice = emptyOpt && /^\s*[-\u2013\u2014]?\s*(All|Any|Everyone|Anyone|No\s+filter)\b/i.test(emptyOpt.textContent);   // "- All Departments -" is a real filter choice, not a placeholder
+            var placeholderRow = emptyOpt && !allChoice && (el.required || /^\s*[-\u2013\u2014].*[-\u2013\u2014]\s*$/.test(emptyOpt.textContent) || /^(Department|Contact|Select|Choose)\b/i.test(emptyOpt.textContent.trim()));
             if (placeholderRow) {
                 if (!opts.placeholder) { opts.placeholder = emptyOpt.textContent.trim(); }
                 opts.allowEmptyOption = false;
@@ -316,7 +317,13 @@ function initSelect2Widgets() {
         // the search input is friction, not help - clicking should show the
         // full list immediately, not ask the user to type first.
         if (el.multiple && el.getAttribute('data-searchable') === '0') { opts.controlInput = null; }
-        try { new TomSelect(el, opts); } catch (err) { /* noop */ }
+        try {
+            var tsInstance = new TomSelect(el, opts);
+            // A closed single select without a text input (controlInput: null) cannot show TomSelect's placeholder, so draw it from the control itself.
+            if (opts.placeholder && !el.multiple && opts.controlInput === null && tsInstance && tsInstance.control) {
+                tsInstance.control.setAttribute('data-ts-ph', opts.placeholder);
+            }
+        } catch (err) { /* noop */ }
     });
 }
 if (document.readyState === 'loading') {

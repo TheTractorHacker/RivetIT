@@ -2598,3 +2598,43 @@ main, main :where(div, span, a, p, li, strong, small, h1, h2, h3, h4, h5, h6, td
 
 /* 24. A badge inside a table cell with a very long value (a pasted colour string, a 300-character label) kept `white-space: nowrap` and widened the whole page; let it wrap when it has to. */
 .table td .badge, .table th .badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+
+/* === list-ui (qa-b): sortable headers, filter chips, status badge, sticky list header === */
+.status-badge {
+    display: inline-flex; align-items: center; gap: .4rem; min-width: 6.5rem; height: 1.75rem; padding: 0 .75rem;
+    border-radius: 50rem; font-size: .8125rem; font-weight: 600; line-height: 1; white-space: nowrap;
+    background: var(--sb-bg-l); color: var(--sb-fg-l); box-shadow: inset 0 0 0 1px var(--sb-bd-l);
+}
+.status-badge-dot { flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--sb-dot); }
+.status-badge-label { overflow: hidden; text-overflow: ellipsis; }
+.status-badge-neutral { background: #eef1f4; color: #3b4652; box-shadow: inset 0 0 0 1px #d5dbe1; }
+.status-badge-neutral .status-badge-dot { background: #8793a1; }
+.status-badge-empty { background: transparent; color: #5b6674; box-shadow: inset 0 0 0 1px #c3ccd5; border-style: dashed; font-weight: 500; }
+:root[data-bs-theme="dark"] .status-badge { background: var(--sb-bg-d); color: var(--sb-fg-d); box-shadow: inset 0 0 0 1px var(--sb-bd-d); }
+:root[data-bs-theme="dark"] .status-badge-neutral { background: #2a3441; color: #cbd5e1; box-shadow: inset 0 0 0 1px #3d4a5a; }
+:root[data-bs-theme="dark"] .status-badge-empty { background: transparent; color: #9aa6b5; box-shadow: inset 0 0 0 1px #4a5868; }
+
+.sort-link { color: inherit; text-decoration: none; white-space: nowrap; }
+.sort-link .sort-icon { margin-left: .2rem; opacity: .35; font-size: .85em; }
+.sort-link:hover, .sort-link.is-active { color: var(--tblr-primary, #1f5fbf); text-decoration: none; }
+.sort-link:hover .sort-icon, .sort-link.is-active .sort-icon { opacity: .95; }
+.sort-link:focus-visible { outline: 2px solid var(--tblr-primary, #1f5fbf); outline-offset: 2px; border-radius: 3px; }
+
+.filter-chip { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; padding: .2rem .35rem .2rem .65rem; border-radius: 50rem; font-size: .8125rem; background: var(--tblr-bg-surface-secondary, #eef2f6); border: 1px solid var(--tblr-border-color, #d5dbe1); color: var(--tblr-body-color, #1b2430); }
+.filter-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-chip-x { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; color: inherit; opacity: .7; text-decoration: none; font-size: .7rem; }
+.filter-chip-x:hover, .filter-chip-x:focus-visible { opacity: 1; background: rgba(127, 127, 127, .25); }
+@media (min-width: 768px) { #assetMoreFilters.collapse:not(.show) { display: block !important; } }
+
+.table-sticky-head { max-height: calc(100vh - 16rem); min-height: 12rem; overflow: auto; }
+.table-sticky-head thead th, .table-sticky-head thead td { position: sticky; top: 0; z-index: 3; background: var(--tblr-bg-surface-secondary, #f6f8fb); box-shadow: inset 0 -1px 0 var(--tblr-border-color, #dde2e8); }
+.assets-table > :not(caption) > * > * { padding: .5rem .75rem; vertical-align: middle; }
+.assets-table .asset-inline-caret { opacity: 0; font-size: .65em; }
+.assets-table .asset-inline-trigger:hover .asset-inline-caret,
+.assets-table .asset-inline-trigger:focus-visible .asset-inline-caret { opacity: .8; }
+@media (hover: none) { .assets-table .asset-inline-caret { opacity: .5; } }
+.assets-table .asset-inline-text.text-secondary { opacity: .6; }
+/* === end list-ui === */
+
+/* Placeholder of a closed single TomSelect that has no text input (see js/app.js initSelect2Widgets). */
+.ts-wrapper.single:not(.has-items) .ts-control[data-ts-ph]::before { content: attr(data-ts-ph); color: var(--tblr-secondary-color, #6c7a89); opacity: .85; }
