@@ -2,24 +2,24 @@
 /*
  * Department restrictions in reports (src/Reports/ReportScope + the real getXxxReport helpers from functions.php),
  * on a scratch database. A user limited to department A must not see department B in:
- *   service desk, CSAT, technician performance, ticket day breakdown, AR aging, MRR, RMM health;
+ *   service desk, CSAT, technician performance, ticket day breakdown, RMM health;
  * an administrator / unrestricted user sees both; cron/CLI (no session globals) stays company-wide.
  */
 require __DIR__ . '/reports_bootstrap.php';
 use ITFlow\Reports\ReportScope;
 
 foreach (['report_business_days', 'getServiceDeskReport', 'getTicketDayBreakdownReport', 'getTechnicianPerformanceReport', 'getCsatReport', 'getCsatAggregateByGroup',
-          'getMrrReport', 'getArAgingReport', 'getRmmHealthReport', 'ticketResolutionColumnExists', 'ticketResolutionStartSql', 'ticketResolutionEndSql', 'ticketResolvedOnlySql',
+          'getRmmHealthReport', 'ticketResolutionColumnExists', 'ticketResolutionStartSql', 'ticketResolutionEndSql', 'ticketResolvedOnlySql',
           'getGroupedTicketSeries'] as $fn) {
     $src = file_get_contents(__DIR__ . '/../functions.php');
     if (preg_match('/^function ' . preg_quote($fn, '/') . '\(.*?^}\n/ms', $src, $m) && !function_exists($fn)) { eval($m[0]); }
 }
 // functions a helper might call that we did not list: fall back to extracting every function the helpers reference
-foreach (['getServiceDeskReport', 'getTicketDayBreakdownReport', 'getTechnicianPerformanceReport', 'getCsatReport', 'getMrrReport', 'getArAgingReport', 'getRmmHealthReport'] as $h) {
+foreach (['getServiceDeskReport', 'getTicketDayBreakdownReport', 'getTechnicianPerformanceReport', 'getCsatReport', 'getRmmHealthReport'] as $h) {
     if (!function_exists($h)) { echo "FAIL  helper $h not loaded\n"; exit(1); }
 }
 
-foreach (['tickets', 'ticket_replies', 'invoices', 'payments', 'recurring_invoices', 'rmm_alerts', 'clients', 'ticket_statuses'] as $t) { $q("DELETE FROM $t"); }
+foreach (['tickets', 'ticket_replies', 'rmm_alerts', 'clients', 'ticket_statuses'] as $t) { $q("DELETE FROM $t"); }
 $q("DELETE FROM users WHERE user_id = 7");
 $q("INSERT INTO clients (client_id, client_name) VALUES (1,'Dept A'),(2,'Dept B')");
 $q("INSERT INTO users (user_id, user_name, user_email, user_password, user_type, user_status) VALUES (7,'Tech One','t1@example.com','x',1,1)");
@@ -33,10 +33,6 @@ foreach ([[1, 1], [1, 2], [2, 3], [2, 4], [2, 5]] as [$c, $n]) { mkTicket($q, $c
 mkTicket($q, 1, 10); mkTicket($q, 2, 11); mkTicket($q, 2, 12);
 $q("INSERT INTO ticket_replies SET ticket_reply_ticket_id=(SELECT ticket_id FROM tickets WHERE ticket_number=1), ticket_reply='x', ticket_reply_time_worked='01:00:00', ticket_reply_by=7, ticket_reply_created_at=NOW()");
 $q("INSERT INTO ticket_replies SET ticket_reply_ticket_id=(SELECT ticket_id FROM tickets WHERE ticket_number=3), ticket_reply='x', ticket_reply_time_worked='03:00:00', ticket_reply_by=7, ticket_reply_created_at=NOW()");
-$q("INSERT INTO invoices SET invoice_prefix='I', invoice_number=1, invoice_status='Sent', invoice_amount=100, invoice_due=CURDATE() - INTERVAL 10 DAY, invoice_client_id=1, invoice_date=CURDATE(), invoice_scope='', invoice_url_key='a'");
-$q("INSERT INTO invoices SET invoice_prefix='I', invoice_number=2, invoice_status='Sent', invoice_amount=900, invoice_due=CURDATE() - INTERVAL 10 DAY, invoice_client_id=2, invoice_date=CURDATE(), invoice_scope='', invoice_url_key='b'");
-$q("INSERT INTO recurring_invoices SET recurring_invoice_scope='', recurring_invoice_frequency='month', recurring_invoice_status=1, recurring_invoice_amount=50, recurring_invoice_client_id=1, recurring_invoice_next_date=CURDATE()");
-$q("INSERT INTO recurring_invoices SET recurring_invoice_scope='', recurring_invoice_frequency='month', recurring_invoice_status=1, recurring_invoice_amount=500, recurring_invoice_client_id=2, recurring_invoice_next_date=CURDATE()");
 
 $from = date('Y-m-d', strtotime('-10 day')); $to = date('Y-m-d');
 $asAdmin = function () { unset($GLOBALS['client_access_string']); $GLOBALS['session_is_admin'] = true; };
@@ -70,11 +66,6 @@ $ok(round($tp_a['totals']['billable_seconds'] + $tp_a['totals']['nonbillable_sec
 $asA(); $db_a = getTicketDayBreakdownReport($mysqli, $from, $to); $asAdmin(); $db_all = getTicketDayBreakdownReport($mysqli, $from, $to);
 $sum = fn($r) => array_sum(array_column($r['days'], 'created'));
 $ok($sum($db_a) === 3 && $sum($db_all) === 8, 'day breakdown: created restricted=3 admin=8');
-
-// --- AR aging + MRR
-$asA(); $ar_a = getArAgingReport($mysqli); $mrr_a = getMrrReport($mysqli); $asAdmin(); $ar_all = getArAgingReport($mysqli); $mrr_all = getMrrReport($mysqli);
-$ok(round($ar_a['buckets']['total']) == 100 && round($ar_all['buckets']['total']) == 1000 && count($ar_a['clients']) === 1, 'AR aging: restricted sees $100, admin $1000');
-$ok(round($mrr_a['mrr']) == 50 && round($mrr_all['mrr']) == 550, "MRR: restricted 50, admin 550 (got {$mrr_a['mrr']}/{$mrr_all['mrr']})");
 
 // --- Explicit client_id still wins over (and cannot widen) the session scope
 $asA(); $sd_b = getServiceDeskReport($mysqli, $from, $to, 2);

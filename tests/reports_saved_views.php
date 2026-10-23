@@ -22,11 +22,10 @@ $ok(ReportCatalog::sanitizeParams('service_desk', ['canned_date' => 'drop table'
 $ok(ReportCatalog::sanitizeParams('ticket_summary', ['year' => '2026']) === ['year' => '2026'], 'year accepted');
 $ok(ReportCatalog::sanitizeParams('ticket_summary', ['year' => '2026 OR 1=1']) === [], 'year with SQL is dropped');
 $ok(ReportCatalog::sanitizeParams('ticket_summary', ['year' => 'all']) === [], 'year=all only where the report allows it');
-$ok(ReportCatalog::sanitizeParams('income_by_client', ['year' => 'all']) === ['year' => 'all'], 'year=all allowed on income_by_client');
 $ok(ReportCatalog::sanitizeParams('credential_rotation', ['days' => '0']) === [] && ReportCatalog::sanitizeParams('credential_rotation', ['days' => '90']) === ['days' => '90'], 'days range enforced');
 $ok(ReportCatalog::sanitizeParams('ticket_by_client', ['month' => '13', 'year' => '2026']) === ['year' => '2026'], 'month out of range dropped');
 $ok(ReportCatalog::sanitizeParams('ticket_by_client', ['month' => ['1'], 'year' => ['2026']]) === [], 'array values are dropped');
-$ok(ReportCatalog::sanitizeParams('ticket_charges', ['uninvoiced' => '1']) === ['uninvoiced' => '1'], 'flag kept');
+$ok(ReportCatalog::sanitizeParams('client_ticket_time_detail', ['billable_only' => '1']) === ['billable_only' => '1'], 'enum flag-like param kept');
 $ok(ReportCatalog::sanitizeParams('no_such_report', ['year' => '2026']) === [], 'unknown report has no parameters');
 $ok(ReportCatalog::url('csat', ['canned_date' => 'thisyear', 'x' => 'y']) === '/agent/reports/csat.php?canned_date=thisyear', 'url() only emits whitelisted params');
 $ok(ReportCatalog::keyFromScript('/agent/reports/csat.php') === 'csat' && ReportCatalog::keyFromScript('/agent/reports/schedules.php') === null, 'keyFromScript');

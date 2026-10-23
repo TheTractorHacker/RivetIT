@@ -396,8 +396,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 
 <?php
 $portal_nav_page = basename($_SERVER['PHP_SELF']);
-$portal_finance_pages = ['invoices.php', 'recurring_invoices.php', 'quotes.php', 'saved_payment_methods.php'];
-$portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php', 'assets.php', 'contracts.php', 'allowance.php', 'documents.php', 'domains.php', 'certificates.php', 'ticket_view_all.php'];
+$portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 'assets.php', 'contracts.php', 'allowance.php', 'documents.php', 'domains.php', 'certificates.php', 'ticket_view_all.php'];
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark" aria-label="Department portal navigation">
     <div class="container">
@@ -520,20 +519,6 @@ $portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php',
                 <?php if (intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) { ?>
                     <li class="nav-item">
                         <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "training.php") {echo "active";} ?>" href="/client/training.php">Training</a>
-                    </li>
-                <?php } ?>
-
-                <?php if (($session_contact_primary == 1 || $session_contact_is_billing_contact) && $config_module_enable_accounting == 1) { ?>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle <?php echo in_array($portal_nav_page, $portal_finance_pages, true) ? 'active' : ''; ?>" href="#" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            Billing
-                        </a>
-                        <div class="dropdown-menu" aria-labelledby="navbarDropdown1">
-                            <a class="dropdown-item" href="/client/invoices.php">Invoices</a>
-                            <a class="dropdown-item" href="/client/recurring_invoices.php">Recurring Invoices</a>
-                            <a class="dropdown-item" href="/client/quotes.php">Quotes</a>
-                            <a class="dropdown-item" href="/client/saved_payment_methods.php">Saved Payments</a>
-                        </div>
                     </li>
                 <?php } ?>
 

@@ -22,8 +22,6 @@ $settings_groups = [
         'items' => [
             ['Ticketing', 'Ticket defaults and customer satisfaction.', 'settings_ticket.php', 'fa-life-ring', (bool) $config_module_enable_ticketing],
             ['Projects', 'Project defaults and options.', 'settings_project.php', 'fa-project-diagram', (bool) $config_module_enable_ticketing],
-            ['Invoices', 'Invoice numbering and payment terms.', 'settings_invoice.php', 'fa-file-invoice', (bool) $config_module_enable_accounting],
-            ['Quotes', 'Quote defaults and numbering.', 'settings_quote.php', 'fa-comment-dollar', (bool) $config_module_enable_accounting],
             ['Payroll', 'Pay periods, deductions, and payroll options.', 'payroll_settings.php', 'fa-money-check', (bool) $config_module_enable_payroll],
             ['Training', 'Courses, compliance, kiosks, and automation.', 'settings_training.php', 'fa-hard-hat'],
             ['Knowledge Base', 'Article access and Knowledge Base status.', 'settings_kb.php', 'fa-book', lookupUserPermission('module_kb') >= 1],

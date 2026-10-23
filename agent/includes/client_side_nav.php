@@ -135,6 +135,13 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                     </a>
                 </li>
 
+                <li class="nav-item<?php if ($current_page == "price_quotes.php" || $current_page == "price_quote.php") { echo " active"; } ?>">
+                    <a href="/agent/price_quotes.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "price_quotes.php" || $current_page == "price_quote.php") { echo " active"; } ?>">
+                        <span class="nav-link-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-link-title">Price Quotes</span>
+                    </a>
+                </li>
+
                 <li class="nav-item<?php if ($current_page == "calendar.php") { echo " active"; } ?>">
                     <a href="/agent/calendar.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "calendar.php") { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fas fa-calendar-alt"></i></span>
@@ -312,73 +319,6 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         </a>
                     </li>
                     <?php } ?>
-
-                <?php } ?>
-
-                <?php if ($config_module_enable_accounting == 1) { ?>
-
-                    <li class="nav-item nav-section-title">BILLING</li>
-
-                    <?php if (lookupUserPermission("module_sales") >= 1) { ?>
-
-                        <li class="nav-item<?php if ($current_page == "invoices.php" || $current_page == "invoice.php") { echo " active"; } ?>">
-                            <a href="/agent/invoices.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "invoices.php" || $current_page == "invoice.php") { echo " active"; } ?>">
-                                <span class="nav-link-icon"><i class="fas fa-file-invoice"></i></span>
-                                <span class="nav-link-title">Invoices</span>
-                                <?php
-                                if ($num_invoices > 0) { ?>
-                                    <span class="ms-auto badge <?php if ($num_invoices_open > 0) { ?> text-bg-danger <?php } ?> text-light"><?php echo $num_invoices; ?></span>
-                                <?php } ?>
-                            </a>
-                        </li>
-
-                        <li class="nav-item<?php if ($current_page == "recurring_invoices.php" || $current_page == "recurring_invoice.php") { echo " active"; } ?>">
-                            <a href="/agent/recurring_invoices.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "recurring_invoices.php" || $current_page == "recurring_invoice.php") { echo " active"; } ?>">
-                                <span class="nav-link-icon"><i class="fas fa-redo-alt"></i></span>
-                                <span class="nav-link-title">Recurring Invoices</span>
-                                <?php
-                                if ($num_recurring_invoices) { ?>
-                                    <span class="ms-auto badge"><?php echo $num_recurring_invoices; ?></span>
-                                <?php } ?>
-                            </a>
-                        </li>
-
-                        <li class="nav-item<?php if ($current_page == "quotes.php" || $current_page == "quote.php") { echo " active"; } ?>">
-                            <a href="/agent/quotes.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "quotes.php" || $current_page == "quote.php") { echo " active"; } ?>">
-                                <span class="nav-link-icon"><i class="fas fa-comment-dollar"></i></span>
-                                <span class="nav-link-title">Quotes</span>
-                                <?php
-                                if ($num_quotes > 0) { ?>
-                                    <span class="ms-auto badge text-light"><?php echo $num_quotes; ?></span>
-                                <?php } ?>
-                            </a>
-                        </li>
-
-                    <?php } ?>
-
-                    <?php if (lookupUserPermission("module_financial") >= 1) { ?>
-                        <li class="nav-item<?php if ($current_page == "payments.php") { echo " active"; } ?>">
-                            <a href="/agent/payments.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "payments.php") { echo " active"; } ?>">
-                                <span class="nav-link-icon"><i class="fas fa-credit-card"></i></span>
-                                <span class="nav-link-title">Payments</span>
-                                <?php
-                                if ($num_payments > 0) { ?>
-                                    <span class="ms-auto badge text-light"><?php echo $num_payments; ?></span>
-                                <?php } ?>
-                            </a>
-                        </li>
-                    <?php } ?>
-
-                    <li class="nav-item<?php if ($current_page == "trips.php") { echo " active"; } ?>">
-                        <a href="/agent/trips.php?client_id=<?php echo $client_id; ?>" class="nav-link<?php if ($current_page == "trips.php") { echo " active"; } ?>">
-                            <span class="nav-link-icon"><i class="fas fa-route"></i></span>
-                            <span class="nav-link-title">Trips</span>
-                            <?php
-                            if ($num_trips > 0) { ?>
-                                <span class="ms-auto badge text-light"><?php echo $num_trips; ?></span>
-                            <?php } ?>
-                        </a>
-                    </li>
 
                 <?php } ?>
 

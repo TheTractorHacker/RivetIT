@@ -416,14 +416,6 @@ if (isset($_GET['archive_client'])) {
     // Archive client
     mysqli_query($mysqli, "UPDATE clients SET client_archived_at = NOW() WHERE client_id = $client_id");
 
-    // Stop recurring invoices
-    $sql_recurring_invoices = mysqli_query($mysqli, "SELECT * FROM recurring_invoices WHERE recurring_invoice_client_id = $client_id AND recurring_invoice_status = 1");
-    while ($row = mysqli_fetch_assoc($sql_recurring_invoices)) {
-        $recurring_invoice_id = intval($row['recurring_invoice_id']);
-        mysqli_query($mysqli,"UPDATE recurring_invoices SET recurring_invoice_status = 0 WHERE recurring_invoice_id = $recurring_invoice_id AND recurring_invoice_client_id = $client_id");
-        mysqli_query($mysqli,"INSERT INTO history SET history_status = 0, history_description = 'Recurring Invoice inactive as department archived', history_recurring_invoice_id = $recurring_invoice_id");
-    }
-
     // Get Client Name
     $client_name = sanitizeInput(getFieldById('clients', $client_id, 'client_name'));
 
@@ -510,16 +502,6 @@ if (isset($_GET['delete_client'])) {
     mysqli_query($mysqli, "DELETE FROM files WHERE file_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM folders WHERE folder_client_id = $client_id");
 
-    //Delete Invoices and Invoice Referencing data
-    $sql = mysqli_query($mysqli, "SELECT invoice_id FROM invoices WHERE invoice_client_id = $client_id");
-    while($row = mysqli_fetch_assoc($sql)) {
-        $invoice_id = $row['invoice_id'];
-        mysqli_query($mysqli, "DELETE FROM invoice_items WHERE item_invoice_id = $invoice_id");
-        mysqli_query($mysqli, "DELETE FROM payments WHERE payment_invoice_id = $invoice_id");
-        mysqli_query($mysqli, "DELETE FROM history WHERE history_invoice_id = $invoice_id");
-    }
-    mysqli_query($mysqli, "DELETE FROM invoices WHERE invoice_client_id = $client_id");
-
     // Delete Locations and location tags
     mysqli_query($mysqli, "DELETE FROM locations WHERE location_client_id = $client_id");
 
@@ -528,24 +510,6 @@ if (isset($_GET['delete_client'])) {
     mysqli_query($mysqli, "DELETE FROM networks WHERE network_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM notifications WHERE notification_client_id = $client_id");
 
-    //Delete Quote and related items
-    $sql = mysqli_query($mysqli, "SELECT quote_id FROM quotes WHERE quote_client_id = $client_id");
-    while($row = mysqli_fetch_assoc($sql)) {
-        $quote_id = $row['quote_id'];
-
-        mysqli_query($mysqli, "DELETE FROM quote_items WHERE item_quote_id = $quote_id");
-    }
-    mysqli_query($mysqli, "DELETE FROM quotes WHERE quote_client_id = $client_id");
-
-    // Delete Recurring Invoices and associated items
-    $sql = mysqli_query($mysqli, "SELECT recurring_invoice_id FROM recurring_invoices WHERE recurring_invoice_client_id = $client_id");
-    while($row = mysqli_fetch_assoc($sql)) {
-        $recurring_invoice_id = $row['recurring_invoice_id'];
-        mysqli_query($mysqli, "DELETE FROM recurring_invoice_items WHERE item_recurring_invoice_id = $recurring_invoice_id");
-    }
-    mysqli_query($mysqli, "DELETE FROM recurring_invoices WHERE recurring_invoice_client_id = $client_id");
-
-    mysqli_query($mysqli, "DELETE FROM revenues WHERE revenue_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM recurring_tickets WHERE recurring_ticket_client_id = $client_id");
 
     // Delete Services
@@ -565,7 +529,6 @@ if (isset($_GET['delete_client'])) {
         mysqli_query($mysqli, "DELETE FROM ticket_views WHERE view_ticket_id = $ticket_id");
     }
     mysqli_query($mysqli, "DELETE FROM tickets WHERE ticket_client_id = $client_id");
-    mysqli_query($mysqli, "DELETE FROM trips WHERE trip_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM vendors WHERE vendor_client_id = $client_id");
 
     //Delete Client Files
@@ -1555,11 +1518,6 @@ if (isset($_POST["export_client_pdf"])) {
     $export_tickets = intval($_POST["export_tickets"]);
     $export_recurring_tickets = intval($_POST["export_recurring_tickets"]);
     $export_vendors = intval($_POST["export_vendors"]);
-    $export_invoices = intval($_POST["export_invoices"]);
-    $export_recurring_invoices = intval($_POST["export_recurring_invoices"]);
-    $export_quotes = intval($_POST["export_quotes"]);
-    $export_payments = intval($_POST["export_payments"]);
-    $export_trips = intval($_POST["export_trips"]);
     $export_logs = intval($_POST["export_logs"]);
 
     logAction("Department", "Export", "$session_name exported department data to a PDF file", $client_id, $client_id);

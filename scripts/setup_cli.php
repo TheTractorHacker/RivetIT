@@ -387,18 +387,8 @@ mysqli_query($mysqli,"INSERT INTO settings SET company_id = 1, config_current_da
 setCanonicalVaultKey($mysqli, $site_encryption_master_key);
 
 // Categories
-mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Office Supplies', category_type = 'Expense', category_color = 'blue'");
-mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Travel', category_type = 'Expense', category_color = 'red'");
-mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Advertising', category_type = 'Expense', category_color = 'green'");
-mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Service', category_type = 'Income', category_color = 'blue'");
 mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Friend', category_type = 'Referral', category_color = 'blue'");
 mysqli_query($mysqli,"INSERT INTO categories SET category_name = 'Search Engine', category_type = 'Referral', category_color = 'red'");
-
-// Payment Methods
-mysqli_query($mysqli,"INSERT INTO payment_methods SET payment_method_name = 'Cash'");
-mysqli_query($mysqli,"INSERT INTO payment_methods SET payment_method_name = 'Check'");
-mysqli_query($mysqli,"INSERT INTO payment_methods SET payment_method_name = 'ACH'");
-mysqli_query($mysqli,"INSERT INTO payment_methods SET payment_method_name = 'Credit Card'");
 
 // Calendar
 mysqli_query($mysqli,"INSERT INTO calendars SET calendar_name = 'Default', calendar_color = 'blue'");
@@ -501,7 +491,6 @@ mysqli_query($mysqli, "INSERT INTO categories SET category_name = 'Other', categ
 // Finalizing
 mysqli_query($mysqli,"UPDATE companies SET company_locale = '$locale', company_currency = '$currency_code' WHERE company_id = 1");
 mysqli_query($mysqli,"UPDATE settings SET config_timezone = '$timezone' WHERE company_id = 1");
-mysqli_query($mysqli,"INSERT INTO accounts SET account_name = 'Cash', account_currency_code = '$currency_code'");
 
 // Telemetry was removed: this used to optionally POST installation/company details to the upstream
 // ITFlow project's telemetry.itflow.org. RivetIT sends nothing anywhere; config_telemetry keeps its

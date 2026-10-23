@@ -21,7 +21,6 @@ $ticket_category = intval($row['ticket_category']);
 $ticket_subject = nullable_htmlentities($row['ticket_subject']);
 $ticket_details = nullable_htmlentities($row['ticket_details']);
 $ticket_priority = nullable_htmlentities($row['ticket_priority']);
-$ticket_billable = intval($row['ticket_billable']);
 $ticket_vendor_ticket_number = nullable_htmlentities($row['ticket_vendor_ticket_number']);
 $ticket_created_at = nullable_htmlentities($row['ticket_created_at']);
 $ticket_due_at = nullable_htmlentities($row['ticket_due_at']);
@@ -171,14 +170,6 @@ ob_start();
                     </div>
                 </div>
 
-                <?php if ($config_module_enable_accounting && lookupUserPermission("module_sales") >= 2) { ?>
-                <div class="form-group">
-                    <div class="form-check form-check form-switch">
-                        <input type="checkbox" class="form-check-input" name="billable" <?php if ($ticket_billable == 1) { echo "checked"; } ?> value="1" id="billableSwitch<?php echo $ticket_id; ?>">
-                        <label class="form-check-label" for="billableSwitch<?php echo $ticket_id; ?>">Mark Billable</label>
-                    </div>
-                </div>
-                <?php } ?>
 
             </div>
 

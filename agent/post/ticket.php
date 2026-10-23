@@ -33,7 +33,6 @@ if (isset($_POST['add_ticket'])) {
     $project_id = intval($_POST['project_id'] ?? 0);
     $use_primary_contact = intval($_POST['use_primary_contact'] ?? 0);
     $ticket_template_id = intval($_POST['ticket_template_id']);
-    $billable = intval($_POST['billable'] ?? 0);
     // Validate/clean due field
     $dueInput = $_POST['due'] ?? null;
     if ($dueInput === null || trim($dueInput) === '') {
@@ -113,7 +112,7 @@ if (isset($_POST['add_ticket'])) {
     $contract_id_sql = $contract_id > 0 ? $contract_id : 'NULL';
     $delivery_method_sql = $delivery_method !== null ? "'" . mysqli_real_escape_string($mysqli, $delivery_method) . "'" : 'NULL';
 
-    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Agent', ticket_category = $category_id, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_billable = '$billable', ticket_status = '$ticket_status', ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_due_at = $due, ticket_client_id = $client_id, ticket_invoice_id = 0, ticket_project_id = $project_id, ticket_contract_id = $contract_id_sql, ticket_sla_response_due = $sla_response_due, ticket_sla_resolution_due = $sla_resolution_due, ticket_delivery_method = $delivery_method_sql, ticket_catalog_item_id = $catalog_item_sql");
+    mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Agent', ticket_category = $category_id, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = '$ticket_status', ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_due_at = $due, ticket_client_id = $client_id, ticket_project_id = $project_id, ticket_contract_id = $contract_id_sql, ticket_sla_response_due = $sla_response_due, ticket_sla_resolution_due = $sla_resolution_due, ticket_delivery_method = $delivery_method_sql, ticket_catalog_item_id = $catalog_item_sql");
 
     $ticket_id = mysqli_insert_id($mysqli);
 
@@ -296,7 +295,6 @@ if (isset($_POST['edit_ticket'])) {
     $notify = intval($_POST['contact_notify'] ?? 0);
     $category_id = intval($_POST['category_id']);
     $ticket_subject = sanitizeInput($_POST['subject']);
-    $billable = intval($_POST['billable'] ?? 0);
     $ticket_priority = sanitizeInput($_POST['priority']);
     $details = mysqli_real_escape_string($mysqli, $_POST['details']);
     $vendor_ticket_number = sanitizeInput($_POST['vendor_ticket_number']);
@@ -324,7 +322,7 @@ if (isset($_POST['edit_ticket'])) {
         enforceClientAccess();
     }
 
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id, ticket_subject = '$ticket_subject', ticket_priority = '$ticket_priority', ticket_billable = $billable, ticket_details = '$details', ticket_due_at = $due, ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_contact_id = $contact_id, ticket_assigned_to = $assigned_to, ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_project_id = $project_id WHERE ticket_id = $ticket_id");
+    mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id, ticket_subject = '$ticket_subject', ticket_priority = '$ticket_priority', ticket_details = '$details', ticket_due_at = $due, ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_contact_id = $contact_id, ticket_assigned_to = $assigned_to, ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_project_id = $project_id WHERE ticket_id = $ticket_id");
 
     recalculateTicketSla($mysqli, $ticket_id);
     queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'details', 'changed_by_user_id' => intval($session_user_id)]);
@@ -2075,7 +2073,6 @@ if (isset($_POST['bulk_add_asset_ticket'])) {
     $project_id = intval($_POST['bulk_project']);
     $use_primary_contact = intval($_POST['use_primary_contact']);
     $ticket_template_id = intval($_POST['bulk_ticket_template_id']);
-    $billable = intval($_POST['bulk_billable'] ?? 0);
 
     // Check to see if adding a ticket by template
     if($ticket_template_id) {
@@ -2135,7 +2132,7 @@ if (isset($_POST['bulk_add_asset_ticket'])) {
             //Generate a unique URL key for clients to access
             $url_key = randomString(32);
 
-            mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_category = $category_id, ticket_subject = '$subject_asset_prepended', ticket_details = '$details', ticket_priority = '$priority', ticket_billable = $billable, ticket_status = $ticket_status, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_project_id = $project_id");
+            mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_category = $category_id, ticket_subject = '$subject_asset_prepended', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_project_id = $project_id");
 
             $ticket_id = mysqli_insert_id($mysqli);
 
@@ -2199,7 +2196,6 @@ if (isset($_POST['add_ticket_reply'])) {
     $seconds = intval($_POST['seconds']);
     $ticket_reply_time_worked = sanitizeInput(sprintf("%02d:%02d:%02d", $hours, $minutes, $seconds));
     $reply_labor_type_id = intval($_POST['reply_labor_type_id'] ?? 0);
-    $reply_charge_now    = isset($_POST['reply_charge_now']) ? 1 : 0;
 
     // Derive onsite from the labor type name (matches "onsite" or "on-site")
     $reply_onsite = 0;
@@ -2292,27 +2288,6 @@ if (isset($_POST['add_ticket_reply'])) {
         markTicketSummaryStale($mysqli, $ticket_id);
 
         publishTicketEvent($ticket_id, 'reply', ['reply_id' => $ticket_reply_id, 'reply_type' => $ticket_reply_type, 'by' => $session_name, 'by_type' => 'agent']);
-
-        // Auto-create charge if a labor type was selected, time logged, and Charge now checked
-        if ($reply_labor_type_id > 0 && $reply_charge_now && ($hours > 0 || $minutes > 0 || $seconds > 0)) {
-            $lt_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM labor_types WHERE labor_type_id = $reply_labor_type_id LIMIT 1"));
-            if ($lt_row) {
-                $lt_name  = mysqli_real_escape_string($mysqli, $lt_row['labor_type_name']);
-                $lt_rate  = floatval($lt_row['labor_type_rate']);
-                // Round logged time up to the nearest half hour for billing (minimum 0.5)
-                $charge_qty   = ceil(($hours + ($minutes / 60) + ($seconds / 3600)) * 2) / 2;
-                if ($charge_qty <= 0) $charge_qty = 0.5;
-                $charge_total = round($charge_qty * $lt_rate, 2);
-                mysqli_query($mysqli, "INSERT INTO ticket_charges SET
-                    charge_ticket_id    = $ticket_id,
-                    charge_labor_type_id= $reply_labor_type_id,
-                    charge_name         = '$lt_name',
-                    charge_quantity     = $charge_qty,
-                    charge_unit_price   = $lt_rate,
-                    charge_total        = $charge_total,
-                    charge_created_by   = $session_user_id");
-            }
-        }
 
         // Get Ticket Details
         $ticket_sql = mysqli_query($mysqli, "SELECT contact_name, contact_email, ticket_prefix, ticket_number, ticket_subject, ticket_status, ticket_status_name, ticket_url_key, ticket_first_response_at, ticket_created_by, ticket_assigned_to, ticket_client_id
@@ -3042,205 +3017,6 @@ if (isset($_POST['schedule_ticket_reopen']) || isset($_POST['clear_ticket_reopen
 
 }
 
-if (isset($_POST['add_invoice_from_ticket'])) {
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_support', 2);
-    enforceUserPermission('module_sales', 2);
-
-    $invoice_id = intval($_POST['invoice_id']);
-    $ticket_id = intval($_POST['ticket_id']);
-    $date = sanitizeInput($_POST['date']);
-    $category = intval($_POST['category']);
-    $scope = sanitizeInput($_POST['scope']);
-
-    $sql = mysqli_query(
-        $mysqli,
-        "SELECT * FROM tickets
-        LEFT JOIN clients ON ticket_client_id = client_id
-        LEFT JOIN contacts ON ticket_contact_id = contact_id
-        LEFT JOIN assets ON ticket_asset_id = asset_id
-        LEFT JOIN locations ON ticket_location_id = location_id
-        WHERE ticket_id = $ticket_id"
-    );
-
-    $row = mysqli_fetch_assoc($sql);
-    $client_id = intval($row['client_id']);
-    $client_net_terms = intval($row['client_net_terms']);
-    if ($client_net_terms == 0) {
-        $client_net_terms = $config_default_net_terms;
-    }
-
-    $ticket_prefix = sanitizeInput($row['ticket_prefix']);
-    $ticket_number = intval($row['ticket_number']);
-    $ticket_category = sanitizeInput($row['ticket_category']);
-    $ticket_subject = sanitizeInput($row['ticket_subject']);
-    $ticket_created_at = sanitizeInput($row['ticket_created_at']);
-    $ticket_updated_at = sanitizeInput($row['ticket_updated_at']);
-    $ticket_closed_at = sanitizeInput($row['ticket_closed_at']);
-
-    $contact_id = intval($row['contact_id']);
-    $contact_name = sanitizeInput($row['contact_name']);
-    $contact_email = sanitizeInput($row['contact_email']);
-
-    $asset_id = intval($row['asset_id']);
-
-    $location_name = sanitizeInput($row['location_name']);
-
-    enforceClientAccess();
-
-    if ($invoice_id == 0) {
-
-        $invoice_prefix = sanitizeInput($config_invoice_prefix);
-
-        // Atomically increment and get the new invoice number
-        mysqli_query($mysqli, "
-            UPDATE settings
-            SET
-                config_invoice_next_number = LAST_INSERT_ID(config_invoice_next_number),
-                config_invoice_next_number = config_invoice_next_number + 1
-            WHERE company_id = 1
-        ");
-
-        $invoice_number = mysqli_insert_id($mysqli);
-
-        //Generate a unique URL key for clients to access
-        $url_key = randomString(32);
-
-        mysqli_query($mysqli, "INSERT INTO invoices SET invoice_prefix = '$config_invoice_prefix', invoice_number = $invoice_number, invoice_scope = '$scope', invoice_date = '$date', invoice_due = DATE_ADD('$date', INTERVAL $client_net_terms day), invoice_currency_code = '$session_company_currency', invoice_category_id = $category, invoice_status = 'Draft', invoice_url_key = '$url_key', invoice_client_id = $client_id");
-        $invoice_id = mysqli_insert_id($mysqli);
-    } else {
-        $sql_invoice = mysqli_query($mysqli, "SELECT invoice_prefix, invoice_number FROM invoices WHERE invoice_id = $invoice_id");
-        $row = mysqli_fetch_assoc($sql_invoice);
-        $invoice_prefix = sanitizeInput($row['invoice_prefix']);
-        $invoice_number = intval($row['invoice_number']);
-    }
-
-    //Add Item
-    $item_name = sanitizeInput($_POST['item_name']);
-    $item_description = sanitizeInput($_POST['item_description']);
-    $qty = floatval($_POST['qty']);
-    $price = floatval($_POST['price']);
-    $tax_id = intval($_POST['tax_id']);
-
-    $subtotal = $price * $qty;
-
-    if ($tax_id > 0) {
-        $sql = mysqli_query($mysqli, "SELECT * FROM taxes WHERE tax_id = $tax_id");
-        $row = mysqli_fetch_assoc($sql);
-        $tax_percent = floatval($row['tax_percent']);
-        $tax_amount = $subtotal * $tax_percent / 100;
-    } else {
-        $tax_amount = 0;
-    }
-
-    $total = $subtotal + $tax_amount;
-
-    mysqli_query($mysqli, "INSERT INTO invoice_items SET item_name = '$item_name', item_description = '$item_description', item_quantity = $qty, item_price = $price, item_subtotal = $subtotal, item_tax = $tax_amount, item_total = $total, item_order = 1, item_tax_id = $tax_id, item_invoice_id = $invoice_id");
-
-    //Update Invoice Balances
-
-    $sql = mysqli_query($mysqli, "SELECT * FROM invoices WHERE invoice_id = $invoice_id");
-    $row = mysqli_fetch_assoc($sql);
-
-    $new_invoice_amount = floatval($row['invoice_amount']) + $total;
-
-    mysqli_query($mysqli, "UPDATE invoices SET invoice_amount = $new_invoice_amount WHERE invoice_id = $invoice_id");
-
-    mysqli_query($mysqli, "INSERT INTO history SET history_status = 'Draft', history_description = 'Invoice created from Ticket $ticket_prefix$ticket_number', history_invoice_id = $invoice_id");
-
-    // Add internal note to ticket, and link to invoice in database
-    mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Created invoice <a href=\"invoice.php?invoice_id=$invoice_id\">$config_invoice_prefix$invoice_number</a> for this ticket.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
-
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_invoice_id = $invoice_id WHERE ticket_id = $ticket_id");
-
-    logAction("Invoice", "Create", "$session_name created invoice $invoice_prefix$invoice_number from Ticket $ticket_prefix$ticket_number", $client_id, $invoice_id);
-
-    flash_alert("Invoice $invoice_prefix$invoice_number created from ticket");
-
-    redirect("invoice.php?invoice_id=$invoice_id");
-
-}
-
-if (isset($_POST['add_quote_from_ticket'])) {
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_support', 2);
-    enforceUserPermission('module_sales', 2);
-
-    require_once 'quote_model.php';
-
-    $ticket_id = intval($_POST['ticket_id']);
-    $scope = sanitizeInput($_POST['scope']);
-    $date = sanitizeInput($_POST['date']);
-    $expire = sanitizeInput($_POST['expire']);
-    $category = intval($_POST['category']);
-    $item_name = sanitizeInput($_POST['item_name']);
-    $item_description = sanitizeInput($_POST['item_description']);
-    $qty = floatval($_POST['qty']);
-    $price = floatval($_POST['price']);
-    $tax_id = intval($_POST['tax_id']);
-
-    // Totals
-    $subtotal = $price * $qty;
-    $tax_amount = 0;
-    if ($tax_id > 0) {
-        $sql = mysqli_query($mysqli, "SELECT * FROM taxes WHERE tax_id = $tax_id");
-        $row = mysqli_fetch_assoc($sql);
-        $tax_percent = floatval($row['tax_percent']);
-        $tax_amount = $subtotal * $tax_percent / 100;
-    }
-    $total = floatval($subtotal + $tax_amount);
-
-    // Ticket info
-    $sql = mysqli_query(
-        $mysqli,
-        "SELECT ticket_prefix, ticket_number, ticket_client_id FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"
-    );
-    $row = mysqli_fetch_assoc($sql);
-    $ticket_prefix = sanitizeInput($row['ticket_prefix']);
-    $ticket_number = intval($row['ticket_number']);
-    $client_id = intval($row['ticket_client_id']);
-
-    enforceClientAccess();
-
-    // Atomically increment and get the new quote number
-    mysqli_query($mysqli, "
-        UPDATE settings
-        SET
-            config_quote_next_number = LAST_INSERT_ID(config_quote_next_number),
-            config_quote_next_number = config_quote_next_number + 1
-        WHERE company_id = 1
-    ");
-
-    $quote_number = mysqli_insert_id($mysqli);
-
-    //Generate a unique URL key for clients to access
-    $quote_url_key = randomString(32);
-
-    mysqli_query($mysqli,"INSERT INTO quotes SET quote_prefix = '$config_quote_prefix', quote_number = $quote_number, quote_scope = '$scope', quote_date = '$date', quote_expire = '$expire', quote_amount = $total, quote_currency_code = '$session_company_currency', quote_category_id = $category, quote_status = 'Draft', quote_url_key = '$quote_url_key', quote_client_id = $client_id");
-
-    $quote_id = mysqli_insert_id($mysqli);
-
-    // Add line item
-    mysqli_query($mysqli, "INSERT INTO quote_items SET item_name = '$item_name', item_description = '$item_description', item_quantity = $qty, item_price = $price, item_subtotal = $subtotal, item_tax = $tax_amount, item_total = $total, item_order = 1, item_tax_id = $tax_id, item_quote_id = $quote_id");
-
-    // Add internal note to ticket, and link to invoice in database
-    mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Created quote <a href=\"quote.php?quote_id=$quote_id\">$config_quote_prefix$quote_number</a> for this ticket.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
-    mysqli_query($mysqli, "UPDATE tickets SET ticket_quote_id = $quote_id WHERE ticket_id = $ticket_id LIMIT 1");
-
-    // Logging + redirects
-    mysqli_query($mysqli,"INSERT INTO history SET history_status = 'Draft', history_description = 'Quote created from Ticket $ticket_prefix$ticket_number!', history_quote_id = $quote_id");
-    logAction("Quote", "Create", "$session_name created quote $config_quote_prefix$quote_number from ticket $ticket_prefix$ticket_number", $client_id, $quote_id);
-
-    customAction('quote_create', $quote_id);
-
-    flash_alert("Quote <strong>$config_quote_prefix$quote_number</strong> created");
-    redirect("quote.php?quote_id=$quote_id");
-
-}
 
 if (isset($_POST['export_tickets_csv'])) {
 
@@ -3307,40 +3083,6 @@ if (isset($_POST['export_tickets_csv'])) {
 
 }
 
-if (isset($_POST['edit_ticket_billable_status'])) {
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_support', 2);
-    enforceUserPermission('module_sales', 2);
-
-    $ticket_id = intval($_POST['ticket_id']);
-    $billable_status = intval($_POST['billable_status']);
-    if ($billable_status == 0 ) {
-        $billable_wording = "Not";
-    }
-
-    // Get ticket details for logging
-    $sql = mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_client_id FROM tickets WHERE ticket_id = $ticket_id");
-    $row = mysqli_fetch_assoc($sql);
-    $ticket_prefix = sanitizeInput($row['ticket_prefix']);
-    $ticket_number = intval($row['ticket_number']);
-    $client_id = intval($row['ticket_client_id']);
-
-    // Don't Enforce Client Access if Ticket doesn't have an assigned client
-    if ($client_id) {
-        enforceClientAccess();
-    }
-
-    mysqli_query($mysqli,"UPDATE tickets SET ticket_billable = $billable_status WHERE ticket_id = $ticket_id");
-
-    logAction("Ticket", "Edit", "$session_name marked ticket $ticket_prefix$ticket_number as $billable_wording Billable", $client_id, $ticket_id);
-
-    flash_alert("Ticket marked <strong>$billable_wording Billable</strong>");
-
-    redirect();
-
-}
 
 if (isset($_POST['edit_ticket_schedule'])) {
 
@@ -3697,108 +3439,6 @@ if (isset($_GET['cancel_ticket_schedule'])) {
 
 }
 
-// ── Ticket Charges ──────────────────────────────────────────────────────────
-
-if (isset($_POST['add_ticket_charge'])) {
-
-    validateCSRFToken($_POST['csrf_token']);
-    enforceUserPermission('module_support', 2);
-
-    $ticket_id        = intval($_POST['ticket_id']);
-    $client_id        = intval(getFieldById('tickets', $ticket_id, 'ticket_client_id'));
-    if ($client_id) { enforceClientAccess(); }
-    $product_id       = intval($_POST['charge_product_id'] ?? 0);
-    $labor_type_id    = intval($_POST['charge_labor_type_id'] ?? 0);
-    $charge_name      = sanitizeInput($_POST['charge_name']);
-    $charge_desc      = mysqli_real_escape_string($mysqli, $_POST['charge_description'] ?? '');
-    $charge_qty       = round(floatval($_POST['charge_quantity']), 2);
-    $charge_price     = round(floatval($_POST['charge_unit_price']), 2);
-    $charge_total     = round($charge_qty * $charge_price, 2);
-    $charge_tax_id    = intval($_POST['charge_tax_id'] ?? 0);
-
-    mysqli_query($mysqli, "INSERT INTO ticket_charges SET
-        charge_ticket_id    = $ticket_id,
-        charge_product_id   = $product_id,
-        charge_labor_type_id= $labor_type_id,
-        charge_name         = '$charge_name',
-        charge_description  = '$charge_desc',
-        charge_quantity     = $charge_qty,
-        charge_unit_price   = $charge_price,
-        charge_total        = $charge_total,
-        charge_tax_id       = $charge_tax_id,
-        charge_created_by   = $session_user_id");
-
-    logAction("Ticket", "Edit", "Added charge $charge_name to ticket", $client_id, $ticket_id);
-
-    flash_alert("Charge added", 'success');
-    redirect();
-}
-
-if (isset($_POST['edit_ticket_charge'])) {
-
-    validateCSRFToken($_POST['csrf_token']);
-    enforceUserPermission('module_support', 2);
-
-    $charge_id      = intval($_POST['charge_id']);
-    $charge_name    = sanitizeInput($_POST['charge_name']);
-    $charge_desc    = mysqli_real_escape_string($mysqli, $_POST['charge_description'] ?? '');
-    $charge_qty     = round(floatval($_POST['charge_quantity']), 2);
-    $charge_price   = round(floatval($_POST['charge_unit_price']), 2);
-    $charge_total   = round($charge_qty * $charge_price, 2);
-    $charge_tax_id  = intval($_POST['charge_tax_id'] ?? 0);
-
-    // Derive ticket_id/client_id FROM the charge row itself (matching the sibling
-    // delete_ticket_charge handler below) rather than trusting a separately-POSTed
-    // ticket_id - the access check must be validated against the SAME resource the
-    // UPDATE actually targets, or an attacker can pass a ticket_id they legitimately
-    // own alongside an unrelated charge_id belonging to another client's ticket.
-    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT charge_ticket_id FROM ticket_charges WHERE charge_id = $charge_id LIMIT 1"));
-    $ticket_id = intval($r['charge_ticket_id'] ?? 0);
-    if (!$ticket_id) {
-        flash_alert("No charge with that ID found.", 'error');
-        redirect();
-    }
-
-    $tr = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_client_id FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
-    $client_id = intval($tr['ticket_client_id'] ?? 0);
-    if ($client_id) { enforceClientAccess(); }
-
-    mysqli_query($mysqli, "UPDATE ticket_charges SET
-        charge_name        = '$charge_name',
-        charge_description = '$charge_desc',
-        charge_quantity    = $charge_qty,
-        charge_unit_price  = $charge_price,
-        charge_total       = $charge_total,
-        charge_tax_id      = $charge_tax_id
-        WHERE charge_id = $charge_id AND charge_ticket_id = $ticket_id");
-
-    logAction("Ticket", "Edit", "Updated charge $charge_name on ticket", $client_id, $ticket_id);
-
-    flash_alert("Charge updated", 'success');
-    redirect();
-}
-
-if (isset($_GET['delete_ticket_charge'])) {
-
-    validateCSRFToken($_GET['csrf_token']);
-    enforceUserPermission('module_support', 2);
-
-    $charge_id = intval($_GET['delete_ticket_charge']);
-    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT charge_ticket_id, charge_name FROM ticket_charges WHERE charge_id = $charge_id LIMIT 1"));
-    $ticket_id   = intval($r['charge_ticket_id'] ?? 0);
-    $charge_name = sanitizeInput($r['charge_name'] ?? 'charge');
-
-    $tr = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_client_id FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
-    $client_id = intval($tr['ticket_client_id'] ?? 0);
-    if ($client_id) { enforceClientAccess(); }
-
-    mysqli_query($mysqli, "UPDATE ticket_charges SET charge_archived_at = NOW() WHERE charge_id = $charge_id");
-
-    logAction("Ticket", "Edit", "Deleted charge $charge_name from ticket", $client_id, $ticket_id);
-
-    flash_alert("Charge deleted", 'error');
-    redirect();
-}
 
 if (isset($_POST['upload_ticket_attachment'])) {
 

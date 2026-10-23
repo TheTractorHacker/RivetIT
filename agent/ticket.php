@@ -46,8 +46,6 @@ if (isset($_GET['ticket_id'])) {
         LEFT JOIN asset_interfaces ON interface_asset_id = asset_id AND interface_primary = 1
         LEFT JOIN vendors ON ticket_vendor_id = vendor_id
         LEFT JOIN projects ON ticket_project_id = project_id
-        LEFT JOIN quotes ON ticket_quote_id = quote_id
-        LEFT JOIN invoices ON ticket_invoice_id = invoice_id
         LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
         LEFT JOIN categories ON ticket_category = category_id
         WHERE ticket_id = $ticket_id
@@ -83,7 +81,6 @@ if (isset($_GET['ticket_id'])) {
         $ticket_subject = nullable_htmlentities($row['ticket_subject']);
         $ticket_details = $purifier->purify($row['ticket_details']);
         $ticket_priority = nullable_htmlentities($row['ticket_priority']);
-        $ticket_billable = intval($row['ticket_billable']);
         $ticket_scheduled_for = nullable_htmlentities($row['ticket_schedule']);
         $ticket_schedule_end  = nullable_htmlentities($row['ticket_schedule_end'] ?? '');
         $ticket_appt_notes    = nullable_htmlentities($row['ticket_appointment_notes'] ?? '');
@@ -243,16 +240,6 @@ if (isset($_GET['ticket_id'])) {
         $location_state = nullable_htmlentities($row['location_state']);
         $location_zip = nullable_htmlentities($row['location_zip']);
         $location_phone = formatPhoneNumber($row['location_phone']);
-
-        $quote_id = intval($row['ticket_quote_id']);
-        $quote_prefix = nullable_htmlentities($row['quote_prefix']);
-        $quote_number = intval($row['quote_number']);
-        $quote_created_at = nullable_htmlentities($row['quote_created_at']);
-
-        $invoice_id = intval($row['ticket_invoice_id']);
-        $invoice_prefix = nullable_htmlentities($row['invoice_prefix']);
-        $invoice_number = intval($row['invoice_number']);
-        $invoice_created_at = nullable_htmlentities($row['invoice_created_at']);
 
         $project_id = intval($row['project_id']);
         $project_prefix = nullable_htmlentities($row['project_prefix']);
@@ -450,15 +437,6 @@ if (isset($_GET['ticket_id'])) {
         );
 
 
-        // Get Charges
-        $sql_charges = mysqli_query($mysqli, "SELECT tc.*, t.tax_percent, t.tax_name, lt.labor_type_name, lt.labor_type_color FROM ticket_charges tc LEFT JOIN taxes t ON tc.charge_tax_id = t.tax_id LEFT JOIN labor_types lt ON tc.charge_labor_type_id = lt.labor_type_id WHERE tc.charge_ticket_id = $ticket_id AND tc.charge_archived_at IS NULL ORDER BY tc.charge_id ASC");
-        $charge_rows = [];
-        $charges_subtotal = 0.00;
-        while ($cr = mysqli_fetch_assoc($sql_charges)) {
-            $charges_subtotal += floatval($cr['charge_total']);
-            $charge_rows[] = $cr;
-        }
-
         // Get Tasks
         $sql_tasks = mysqli_query( $mysqli, "SELECT * FROM tasks WHERE task_ticket_id = $ticket_id ORDER BY task_order ASC, task_id ASC");
         $task_count = mysqli_num_rows($sql_tasks);
@@ -522,18 +500,6 @@ if (isset($_GET['ticket_id'])) {
                     <!-- Action toolbar -->
                     <?php if (lookupUserPermission("module_support") >= 2) { ?>
                     <div class="d-flex flex-wrap align-items-center d-print-none" style="gap:.5rem;">
-
-                        <?php if ($config_module_enable_accounting && $ticket_billable == 1 && empty($quote_id) && empty($invoice_id) && lookupUserPermission("module_sales") >= 2) { ?>
-                        <a href="#" class="btn btn-light btn-sm ajax-modal" data-modal-url="modals/ticket/ticket_quote_add.php?ticket_id=<?= $ticket_id ?>" data-modal-size="lg">
-                            <i class="fas fa-fw fa-comment-dollar me-2"></i>Quote
-                        </a>
-                        <?php }
-
-                        if ($config_module_enable_accounting && $ticket_billable == 1 && empty($invoice_id) && lookupUserPermission("module_sales") >= 2) { ?>
-                            <a href="#" class="btn btn-light btn-sm ajax-modal" data-modal-url="modals/ticket/ticket_invoice_add.php?ticket_id=<?= $ticket_id ?>" data-modal-size="lg">
-                                <i class="fas fa-fw fa-file-invoice me-2"></i>Invoice
-                            </a>
-                        <?php } ?>
 
                         <?php if (!empty($ticket_resolved_at) || !empty($ticket_closed_at)) { ?>
                             <a href="post.php?reopen_ticket=<?= $ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-light btn-sm">
@@ -889,38 +855,6 @@ if (isset($_GET['ticket_id'])) {
                     <?php } ?>
                     <!-- End SLA -->
 
-                    <!-- Billable -->
-                    <?php if ($config_module_enable_accounting && lookupUserPermission("module_sales") >= 1) { ?>
-                    <div class="border-top pt-3">
-
-                        <?php if ($quote_id) { ?>
-                            <div class="mt-1">
-                                <i class="fa fa-fw fa-comment-dollar text-secondary me-2"></i>Quoted: <a href="quote.php?quote_id=<?php echo $quote_id ?>"><?php echo "$quote_prefix$quote_number"; ?></a>
-                            </div>
-                        <?php } ?>
-
-                        <?php if ($invoice_id) { ?>
-                            <div class="mt-1">
-                                <i class="fa fa-fw fa-dollar-sign text-secondary me-2"></i>Invoiced: <a href="invoice.php?invoice_id=<?php echo $invoice_id ?>"><?php echo "$invoice_prefix$invoice_number"; ?></a>
-                            </div>
-                        <?php } else { ?>
-                            <div class="mt-1">
-                                <i class="fa fa-fw fa-dollar-sign text-secondary me-2"></i>Billable:
-                                <a class="ajax-modal" href="#"
-                                   data-modal-url="modals/ticket/ticket_billable.php?id=<?= $ticket_id ?>">
-                                    <?php
-                                    if ($ticket_billable == 1) {
-                                        echo "<span class='text-bold text-dark'>Yes</span>";
-                                    } else {
-                                        echo "<span class='text-muted'>No</span>";
-                                    }
-                                    ?>
-                                </a>
-                            </div>
-                        <?php } ?>
-
-                    </div>
-                    <?php } ?>
                     <!-- End billable options -->
 
             </div>
@@ -1013,18 +947,6 @@ if (isset($_GET['ticket_id'])) {
                             while ($lt = mysqli_fetch_assoc($sql_lt_reply)) $lt_reply_rows[] = $lt;
                             ?>
                             <div class="form-row align-items-center mt-3" style="background:var(--color-surface-alt);border-radius:var(--input-radius);padding:.75rem;">
-
-                                <!-- Charge now -->
-                                <?php if ($config_module_enable_ticket_charges && $lt_reply_rows) { ?>
-                                <div class="col-auto">
-                                    <div class="form-group mb-2">
-                                        <div class="form-check form-check">
-                                            <input type="checkbox" class="form-check-input" id="reply_charge_now" name="reply_charge_now" value="1" checked>
-                                            <label class="form-check-label font-weight-600" for="reply_charge_now">Charge now</label>
-                                        </div>
-                                    </div>
-                                </div>
-                                <?php } ?>
 
                                 <!-- Submit with status split-button (Syncro-style) -->
                                 <div class="col-auto ml-auto">
@@ -2203,98 +2125,6 @@ if (isset($_GET['ticket_id'])) {
                     </div>
                 </div>
                 <!-- End Attachments Card -->
-
-                <!-- Charges Card -->
-                <?php if ($config_module_enable_ticket_charges && (empty($ticket_resolved_at) || !empty($charge_rows))) { ?>
-                <div class="card ticket-sidebar-compact" style="order:10;">
-                    <div class="card-header px-3 py-2">
-                        <h5 class="card-title mt-1" data-bs-toggle="collapse" data-bs-target="#sidebarBody-charges" aria-expanded="false" style="cursor:pointer;">
-                            <i class="fas fa-fw fa-dollar-sign me-2"></i>Charges
-                            <?php if ($charge_rows) { ?>
-                                <span class="badge text-bg-secondary ms-1">$<?= number_format($charges_subtotal, 2) ?></span>
-                            <?php } ?>
-                        </h5>
-                        <div class="card-tools">
-                            <?php if (empty($ticket_resolved_at) && lookupUserPermission("module_support") >= 2) { ?>
-                            <a href="#" class="btn btn-tool ajax-modal"
-                               data-modal-url="modals/ticket/ticket_charge_add.php?ticket_id=<?= $ticket_id ?>&client_id=<?= $client_id ?>">
-                                <i class="fas fa-plus"></i>
-                            </a>
-                            <?php } ?>
-                            <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#sidebarBody-charges" aria-expanded="false"><i class="fas fa-chevron-down"></i></button>
-                        </div>
-                    </div>
-                    <div class="collapse" id="sidebarBody-charges">
-                    <div class="card-body p-0">
-                        <?php if (empty($charge_rows)) { ?>
-                            <p class="text-secondary text-center p-3 mb-0">No charges yet.</p>
-                        <?php } else { ?>
-                        <div class="table-responsive">
-                        <table class="table table-sm mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>Item</th>
-                                    <th class="text-end" style="white-space:nowrap;">Qty</th>
-                                    <th class="text-end" style="white-space:nowrap;"><span class="d-none d-md-inline">Unit </span>Price</th>
-                                    <th class="text-end" style="white-space:nowrap;">Total</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($charge_rows as $cr) {
-                                    $cr_id    = intval($cr['charge_id']);
-                                    $cr_name  = nullable_htmlentities($cr['charge_name']);
-                                    $cr_desc  = nullable_htmlentities($cr['charge_description']);
-                                    $cr_qty   = floatval($cr['charge_quantity']);
-                                    $cr_price = floatval($cr['charge_unit_price']);
-                                    $cr_total = floatval($cr['charge_total']);
-                                    $cr_tax      = $cr['tax_name'] ? nullable_htmlentities($cr['tax_name']) . ' ' . floatval($cr['tax_percent']) . '%' : '';
-                                    $cr_lt_name  = nullable_htmlentities($cr['labor_type_name']);
-                                    $cr_lt_color = nullable_htmlentities($cr['labor_type_color'] ?? '#6c757d');
-                                    $cr_invoiced = !empty($cr['charge_invoiced_at']);
-                                ?>
-                                <tr>
-                                    <td style="min-width:120px;">
-                                        <?php if ($cr_lt_name) { ?>
-                                            <span class="badge rounded-pill text-white me-1" style="background:<?= $cr_lt_color ?>;"><?= $cr_lt_name ?></span>
-                                        <?php } ?>
-                                        <strong><?= $cr_name ?></strong>
-                                        <?php if ($cr_desc) { ?><br><small class="text-muted"><?= $cr_desc ?></small><?php } ?>
-                                        <?php if ($cr_tax) { ?><br><small class="text-muted"><?= $cr_tax ?></small><?php } ?>
-                                    </td>
-                                    <td class="text-end" style="white-space:nowrap;"><?= $cr_qty ?></td>
-                                    <td class="text-end" style="white-space:nowrap;">$<?= number_format($cr_price, 2) ?></td>
-                                    <td class="text-end" style="white-space:nowrap;"><strong>$<?= number_format($cr_total, 2) ?></strong></td>
-                                    <td class="text-end" style="white-space:nowrap;">
-                                        <?php if (!$cr_invoiced && empty($ticket_resolved_at) && lookupUserPermission("module_support") >= 2) { ?>
-                                        <a href="#" class="btn btn-xs btn-secondary ajax-modal"
-                                           data-modal-url="modals/ticket/ticket_charge_edit.php?charge_id=<?= $cr_id ?>"
-                                           title="Edit"><i class="fas fa-edit"></i></a>
-                                        <a href="post.php?delete_ticket_charge=<?= $cr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                                           class="btn btn-xs btn-danger confirm-link ms-1"
-                                           title="Delete"><i class="fas fa-trash"></i></a>
-                                        <?php } elseif ($cr_invoiced) { ?>
-                                        <span class="badge text-bg-success">Invoiced</span>
-                                        <?php } ?>
-                                    </td>
-                                </tr>
-                                <?php } ?>
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="3" class="text-end"><strong>Subtotal</strong></td>
-                                    <td class="text-end" style="white-space:nowrap;"><strong>$<?= number_format($charges_subtotal, 2) ?></strong></td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                        </div>
-                        <?php } ?>
-                    </div>
-                    </div>
-                </div>
-                <?php } ?>
-                <!-- End Charges Card -->
 
                 <!-- Contact card -->
                 <?php if ($contact_id) { ?>

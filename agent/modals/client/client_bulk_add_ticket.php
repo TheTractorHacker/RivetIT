@@ -121,14 +121,6 @@ ob_start();
             </div>
         </div>
 
-        <?php if ($config_module_enable_accounting) { ?>
-        <div class="form-group">
-            <div class="form-check form-check form-switch">
-                <input type="checkbox" class="form-check-input" name="bulk_billable" <?php if ($config_ticket_default_billable == 1) { echo "checked"; } ?> value="1" id="billableSwitch">
-                <label class="form-check-label" for="billableSwitch">Billable</label>
-            </div>
-        </div>
-        <?php } ?>
 
     </div>
 

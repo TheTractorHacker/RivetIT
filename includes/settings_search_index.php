@@ -23,7 +23,7 @@
  */
 
 function getSettingsSearchIndex(): array {
-    global $config_module_enable_accounting, $config_module_enable_ticketing, $config_module_enable_itdoc,
+    global $config_module_enable_ticketing, $config_module_enable_itdoc,
            $config_module_enable_rmm, $config_module_enable_unifi,
            $config_module_enable_intune, $config_client_portal_enable;
 
@@ -49,8 +49,6 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Notifications',           'keywords' => ['notification', 'alert'],                                                'url' => '/admin/settings_notification.php',       'visible' => true],
         ['label' => 'Email Templates',         'keywords' => ['email', 'template', 'ticket email', 'password reset email'],              'url' => '/admin/settings_mail_templates.php',      'visible' => true],
         ['label' => 'Defaults',                'keywords' => ['default', 'default technician'],                                        'url' => '/admin/settings_default.php',            'visible' => true],
-        ['label' => 'Invoice Settings',        'keywords' => ['invoice', 'tax id', 'late fee', 'recurring invoice'],                    'url' => '/admin/settings_invoice.php',            'visible' => (bool) $config_module_enable_accounting],
-        ['label' => 'Quote Settings',          'keywords' => ['quote', 'estimate'],                                                    'url' => '/admin/settings_quote.php',              'visible' => (bool) $config_module_enable_accounting],
         ['label' => 'Project Settings',        'keywords' => ['project'],                                                              'url' => '/admin/settings_project.php',            'visible' => true],
         ['label' => 'Ticket Settings',         'keywords' => ['ticket', 'csat', 'customer satisfaction', 'rating', 'survey'],           'url' => '/admin/settings_ticket.php',             'visible' => true],
         ['label' => 'Outlook Calendar Sync',   'keywords' => ['outlook', 'calendar', 'azure', 'sync', 'appointment'],                   'url' => '/admin/settings_calendar_sync.php',      'visible' => true],

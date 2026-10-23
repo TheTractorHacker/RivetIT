@@ -25,14 +25,12 @@ $loc = fn(array $r) => preg_match('/^Location: (.*)$/mi', $r['headers'], $m) ? t
 $tok = fn(string $u) => 'csrftok' . substr($u, 4);
 
 // --- seed
-foreach (['tickets', 'saved_reports', 'report_schedules', 'dashboard_layouts', 'report_exports', 'recurring_invoices', 'clients'] as $t) { $q("DELETE FROM $t"); }
+foreach (['tickets', 'saved_reports', 'report_schedules', 'dashboard_layouts', 'report_exports', 'clients'] as $t) { $q("DELETE FROM $t"); }
 $q("INSERT INTO clients (client_id, client_name) VALUES (1,'Dept A'),(2,'Dept B')");
 $q("INSERT INTO ticket_statuses (ticket_status_id, ticket_status_name, ticket_status_color) VALUES (1,'Open','#000') ON DUPLICATE KEY UPDATE ticket_status_name = 'Open'");
 foreach ([[1, 1], [1, 2], [2, 3], [2, 4], [2, 5]] as [$c, $n]) {
     $q("INSERT INTO tickets SET ticket_prefix='T', ticket_number=$n, ticket_subject='s$n', ticket_status=1, ticket_priority='High', ticket_client_id=$c, ticket_created_at=NOW()");
 }
-$q("INSERT INTO recurring_invoices SET recurring_invoice_scope='', recurring_invoice_frequency='month', recurring_invoice_status=1, recurring_invoice_amount=50, recurring_invoice_client_id=1, recurring_invoice_next_date=CURDATE()");
-$q("INSERT INTO recurring_invoices SET recurring_invoice_scope='', recurring_invoice_frequency='month', recurring_invoice_status=1, recurring_invoice_amount=500, recurring_invoice_client_id=2, recurring_invoice_next_date=CURDATE()");
 $year = date('Y');
 
 // --- toolbar, export, print
@@ -43,12 +41,8 @@ $r = http('GET', "/agent/reports/ticket_summary.php?year=$year&print=1", 'user11
 $ok($r['code'] === 200 && strpos($r['body'], 'window.print()') !== false && strpos($r['body'], 'id="rpt-save-view"') === false, 'print view auto-prints and drops the toolbar');
 $r = http('GET', "/agent/reports/ticket_summary.php?year=$year&export=csv", 'user11');
 $ok($r['code'] === 200 && stripos($r['headers'], 'text/csv') !== false && strpos($r['body'], "\xEF\xBB\xBF") === 0 && strpos($r['body'], '<html') === false && strpos($r['body'], 'Tickets raised') !== false, 'native CSV export still works');
-$r = http('GET', "/agent/reports/recurring_by_client.php?export=csv", 'user11');
-$ok($r['code'] === 200 && stripos($r['headers'], 'text/csv') !== false && strpos($r['body'], 'Dept A') !== false && strpos($r['body'], 'Dept B') !== false && stripos($r['body'], '<div') === false, 'a report with no CSV of its own now exports its table (fallback)');
 $r = http('GET', "/agent/reports/ticket_by_client.php?year=$year&export=csv", 'user11');
 $ok($r['code'] === 200 && stripos($r['headers'], 'text/csv') !== false && strpos($r['body'], 'Dept A') !== false, 'ticket_by_client exports CSV');
-$r = http('GET', "/agent/reports/recurring_by_client.php?export=csv", 'user13');
-$ok($r['code'] === 403, 'recurring_by_client CSV still needs the report\'s own module (read-only support user is denied)');
 
 // --- saved views
 $name = '<script>alert(1)</script> Q';
@@ -76,8 +70,8 @@ $ok($loc($r) === "/agent/reports/ticket_summary.php?year=$year", 'shared view op
 $r = http('POST', '/agent/reports/saved_views.php', 'user13', ['csrf_token' => 'csrftok13', 'action' => 'delete', 'id' => $id]);
 $ok((int) $one("SELECT COUNT(*) FROM saved_reports") === 1, 'a shared view still cannot be deleted by a non-owner');
 // a view of a report the user's role cannot read cannot be saved
-$r = http('POST', '/agent/reports/saved_views.php', 'user13', ['csrf_token' => 'csrftok13', 'action' => 'save', 'report' => 'profit_loss', 'name' => 'fin', 'p' => []]);
-$ok((int) $one("SELECT COUNT(*) FROM saved_reports WHERE saved_report_key = 'profit_loss'") === 0, 'cannot save a view of a report the role cannot open');
+$r = http('POST', '/agent/reports/saved_views.php', 'user13', ['csrf_token' => 'csrftok13', 'action' => 'save', 'report' => 'credential_rotation', 'name' => 'fin', 'p' => []]);
+$ok((int) $one("SELECT COUNT(*) FROM saved_reports WHERE saved_report_key = 'credential_rotation'") === 0, 'cannot save a view of a report the role cannot open');
 $r = http('POST', '/agent/reports/saved_views.php', 'user13', ['csrf_token' => 'csrftok13', 'action' => 'save', 'report' => 'ticket_summary', 'name' => 'Mine', 'p' => ['year' => $year]]);
 $mine = (int) $one("SELECT saved_report_id FROM saved_reports WHERE saved_report_user_id = 13");
 $ok($mine > 0, 'a read-only Reporting user can save their own view');
@@ -91,16 +85,8 @@ $tot = function (string $csv) { foreach (preg_split('/\r?\n/', $csv) as $l) { if
 $ra = http('GET', "/agent/reports/ticket_summary.php?year=$year&export=csv", 'user11');
 $sumcol = fn(string $csv) => array_sum(array_map(fn($l) => (int) (str_getcsv($l)[1] ?? 0), array_slice(array_filter(preg_split('/\r?\n/', $csv)), 1, 12)));
 $ok($sumcol($ra['body']) === 5 && $sumcol($r['body']) === 2, 'ticket_summary CSV: administrator sees 5 tickets, restricted user only their department\'s 2');
-$r = http('GET', "/agent/reports/recurring_by_client.php?export=csv", 'user12');
-$ok(strpos($r['body'], 'Dept A') !== false && strpos($r['body'], 'Dept B') === false, 'recurring_by_client: restricted user sees only their department');
 $r = http('GET', "/agent/reports/ticket_by_client.php?year=$year&export=csv", 'user12');
 $ok(strpos($r['body'], 'Dept A') !== false && strpos($r['body'], 'Dept B') === false, 'ticket_by_client: restricted user sees only their department');
-$r = http('GET', "/agent/reports/profit_loss.php", 'user12');
-$ok($r['code'] === 403, 'company-wide profit & loss is refused for a department-restricted user');
-$r = http('GET', "/agent/reports/profit_loss.php", 'user11');
-$ok($r['code'] === 200, '...and still opens for the administrator');
-$r = http('GET', "/agent/reports/", 'user12');
-$ok($r['code'] === 200 && strpos($r['body'], 'profit_loss.php') === false, 'hub hides company-wide reports from a restricted user');
 
 // --- schedules
 $post = ['add_schedule' => 1, 'schedule_source' => 'r:service_desk', 'schedule_delivery' => 'csv', 'schedule_frequency' => 'daily', 'schedule_recipients' => 'ops@example.com'];
@@ -111,8 +97,6 @@ $ok((int) $one("SELECT COUNT(*) FROM report_schedules") === 0, 'adding a schedul
 http('POST', '/agent/reports/schedules.php', 'user12', $post + ['csrf_token' => 'csrftok12']);
 $s = mysqli_fetch_assoc($q("SELECT * FROM report_schedules"));
 $ok($s && $s['schedule_format'] === 'csv' && (int) $s['schedule_owner_user_id'] === 12 && $s['schedule_report'] === 'service_desk', 'Reporting level 2 adds a CSV schedule owned by them');
-http('POST', '/agent/reports/schedules.php', 'user12', ['add_schedule' => 1, 'schedule_source' => 'r:profit_loss', 'schedule_delivery' => 'csv', 'schedule_frequency' => 'daily', 'schedule_recipients' => 'ops@example.com', 'csrf_token' => 'csrftok12']);
-$ok((int) $one("SELECT COUNT(*) FROM report_schedules") === 1 || (int) $one("SELECT COUNT(*) FROM report_schedules WHERE schedule_report = 'profit_loss'") === 1, 'schedule of a report the role can read (financial level 1) is accepted');
 http('POST', '/agent/reports/schedules.php', 'user12', ['add_schedule' => 1, 'schedule_source' => 'r:credential_rotation', 'schedule_delivery' => 'csv', 'schedule_frequency' => 'daily', 'schedule_recipients' => 'ops@example.com', 'csrf_token' => 'csrftok12']);
 $ok((int) $one("SELECT COUNT(*) FROM report_schedules WHERE schedule_report = 'credential_rotation'") === 0, 'cannot schedule a report whose module the role cannot read');
 http('POST', '/agent/reports/schedules.php', 'user12', ['add_schedule' => 1, 'schedule_source' => 'v:' . $id, 'schedule_delivery' => 'summary', 'schedule_frequency' => 'daily', 'schedule_recipients' => 'ops@example.com', 'csrf_token' => 'csrftok12']);
@@ -151,15 +135,15 @@ $render = function (int $user, string $report, string $fmt = 'csv', array $param
     $out = stream_get_contents($pipes[1]); $err = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]);
     return ['code' => proc_close($p), 'out' => $out, 'err' => $err];
 };
-$h = $render(12, 'recurring_by_client');
+$h = $render(12, 'ticket_by_client', 'csv', ['year' => $year]);
 $ok($h['code'] === 0 && strpos($h['out'], 'Dept A') !== false && strpos($h['out'], 'Dept B') === false, 'headless render as the restricted owner: CSV has only their department');
-$h = $render(11, 'recurring_by_client');
+$h = $render(11, 'ticket_by_client', 'csv', ['year' => $year]);
 $ok($h['code'] === 0 && strpos($h['out'], 'Dept A') !== false && strpos($h['out'], 'Dept B') !== false, 'headless render as the administrator: both departments');
 $h = $render(12, 'ticket_summary', 'csv', ['year' => $year]);
 $ok($h['code'] === 0 && strpos($h['out'], 'Tickets raised') !== false && strpos($h['out'], '<') === false, 'headless render of a report with its own CSV export');
 $h = $render(12, 'ticket_by_client', 'html', ['year' => $year]);
 $ok($h['code'] === 0 && strpos($h['out'], '<table') !== false && strpos($h['out'], 'Dept A') !== false && strpos($h['out'], 'Dept B') === false && strpos($h['out'], '<script') === false, 'headless html format: tables only, department-restricted, no script');
-$h = $render(13, 'recurring_by_client');
+$h = $render(13, 'ticket_by_client', 'csv', ['year' => $year]);
 $ok($h['code'] === 2 && trim($h['out']) === '', 'headless render as a user without the module is refused (nothing emitted)');
 $h = $render(999, 'csat');
 $ok($h['code'] === 2 && trim($h['out']) === '', 'headless render as a missing user fails');

@@ -82,13 +82,6 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     Contact <?php if ($sort == 'contact_name') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <?php if ($config_module_enable_accounting && lookupUserPermission("module_sales") >= 2) { ?>
-                            <th class="text-center">
-                                <a class="text-secondary" href="?<?= $url_query_strings_sort ?>&sort=ticket_billable&order=<?= $disp ?>">
-                                    Billable <?php if ($sort == 'ticket_billable') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                            <?php } ?>
                             <th>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_priority&order=<?php echo sortLinkOrder('ticket_priority'); ?>">
                                     Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
@@ -150,7 +143,6 @@ foreach ($_cat_subs as $_pid => $_subs) {
                             $ticket_status_id = intval($row['ticket_status_id']);
                             $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
                             $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
-                            $ticket_billable = intval($row['ticket_billable']);
                             $ticket_scheduled_for = nullable_htmlentities($row['ticket_schedule']);
                             $ticket_created_at = nullable_htmlentities($row['ticket_created_at']);
                             $ticket_created_at_time_ago = timeAgo($row['ticket_created_at']);
@@ -193,8 +185,6 @@ foreach ($_cat_subs as $_pid => $_subs) {
 
                             $contact_display = empty($contact_name) ? "-" : "<div><a href='contact_details.php?client_id=$client_id&contact_id=$contact_id'>$contact_name</a></div>";
 
-                            $ticket_invoice_id = intval($row['ticket_invoice_id']);
-                            $ticket_quote_id = intval($row['ticket_quote_id']);
                             $ticket_category_id = intval($row['ticket_category'] ?? 0);
                             $ticket_category_name = nullable_htmlentities($row['category_name'] ?? '');
                             $ticket_board_name = $_cat_board_name[$ticket_category_id] ?? '';
@@ -371,28 +361,6 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <div><?php echo $contact_display; ?></div>
                                 </td>
 
-                                <!-- Ticket Billable (if accounting enabled -->
-                                <?php if ($config_module_enable_accounting && lookupUserPermission("module_sales") >= 2) { ?>
-                                    <td class="text-center">
-                                        <?php if ($ticket_invoice_id) { ?>
-                                        <a href="invoice.php?client_id=<?php echo $client_id; ?>&invoice_id=<?php echo $ticket_invoice_id; ?>"><span class='badge rounded-pill text-bg-success p-2'>Invoiced</span></a>
-                                        <?php } else if ($ticket_quote_id) { ?>
-                                            <a href="quote.php?client_id=<?php echo $client_id; ?>&quote_id=<?php echo $ticket_quote_id; ?>"><span class='badge rounded-pill text-bg-primary p-2'>Quoted</span></a>
-                                        <?php } else { ?>
-                                        <a href="#"
-                                            class="ajax-modal"
-                                            data-modal-url="modals/ticket/ticket_billable.php?id=<?= $ticket_id ?>">
-                                            <?php
-                                            if ($ticket_billable == 1) {
-                                                echo "<span class='badge rounded-pill text-bg-success p-2'><i class='fas fa-fw fa-check'></i></span>";
-                                            } else {
-                                                echo "<span class='badge rounded-pill text-bg-secondary p-2'><i class='fas fa-fw fa-minus'></i></span>";
-                                            }
-                                            ?>
-                                        </a>
-                                        <?php } ?>
-                                    </td>
-                                <?php } ?>
 
 
                                 <!-- Priority -->

@@ -45,9 +45,6 @@ switch ($sub) {
     case 'rmm-health':
         require __DIR__ . '/reports/rmm_health.php';
         break;
-    case 'unbilled-tickets':
-        require __DIR__ . '/reports/unbilled_tickets.php';
-        break;
     case 'expiring':
         require __DIR__ . '/reports/expiring.php';
         break;

@@ -53,15 +53,6 @@ require_once "includes/inc_all_admin.php";
                     <button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
 
-                <?php if ($config_module_enable_accounting) { ?>
-                <div class="form-group">
-                    <div class="form-check form-check form-switch">
-                        <input type="checkbox" class="form-check-input" name="config_ticket_default_billable" <?php if ($config_ticket_default_billable == 1) { echo "checked"; } ?> value="1" id="ticketBillableSwitch">
-                        <label class="form-check-label" for="ticketBillableSwitch">Default to Billable <small class="text-secondary">(This will check the billable box on all new tickets)</small></label>
-                    </div>
-                </div>
-                <?php } ?>
-
                 <div class="form-group">
                     <div class="form-check form-check form-switch">
                         <input type="checkbox" class="form-check-input" name="config_ticket_timer_autostart" <?php if ($config_ticket_timer_autostart == 1) { echo "checked"; } ?> value="1" id="ticketTimerSwitch">

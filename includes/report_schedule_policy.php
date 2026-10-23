@@ -11,12 +11,14 @@
 
 /**
  * The module whose access the on-screen version of this report requires, beyond module_reporting.
- * Financial totals (income, expenses, AR aging, MRR) need module_financial; the rest only need Reporting.
+ * No catalogued report currently needs anything past Reporting (the financial reports that once
+ * needed module_financial were removed with billing/invoicing); kept as a policy hook for a future
+ * report that does.
  */
 function report_schedule_required_module($report_key): ?string
 {
-    static $financial = ['income_summary', 'expense_summary', 'clients_with_balance', 'mrr'];
-    return in_array((string) $report_key, $financial, true) ? 'module_financial' : null;
+    static $extra_module_reports = [];
+    return in_array((string) $report_key, $extra_module_reports, true) ? 'module_financial' : null;
 }
 
 /**

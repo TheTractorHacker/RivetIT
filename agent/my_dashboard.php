@@ -41,15 +41,7 @@ $ctx = new WidgetContext(
     !empty($config_avg_resolution_exclude_projects),
     intval($config_ticket_csat_low_rating_threshold ?? 2),
     $dash_year,
-    // Financial widgets used to have their own extra on/off switch and admin/accountant-role restriction on top
-    // of the module permission check every other widget already goes through; both are gone now that seeing
-    // one at all means explicitly adding it in Customise - config_module_enable_accounting (an admin-controlled
-    // module switch) plus module_sales/module_financial (the widget's own 'modules' gate) is the same bar every
-    // other financial surface in the app (Quick Links, the nav's Finance dropdown) already applies.
-    !empty($config_module_enable_accounting),
-    !empty($config_dashboard_avg_resolution_enable),
-    isset($currency_format) && $currency_format instanceof NumberFormatter ? $currency_format : null,
-    $session_company_currency ?? 'USD'
+    !empty($config_dashboard_avg_resolution_enable)
 );
 $allowed = WidgetRegistry::available($ctx);
 
@@ -110,9 +102,7 @@ $post_button = static function (string $action, string $widget, string $label, s
         // Only worth showing when a "for a year" widget is actually on the dashboard - most users have none of
         // these and the control would otherwise be dead weight with nothing on the page for it to affect.
         $dash_has_year_widget = (bool) array_intersect($in_layout, ['departments_added_year', 'contacts_added_year', 'assets_added_year', 'tickets_flow_year',
-            'tickets_created_year', 'tickets_resolved_year', 'avg_resolution_year', 'tickets_resolved_by_technician_year', 'finance_income', 'finance_expenses',
-            'finance_profit', 'finance_recurring_income', 'finance_recurring_expense', 'finance_unbilled_or_recurring_added', 'finance_vendors_added',
-            'finance_miles_traveled', 'finance_cash_flow', 'finance_income_by_category', 'finance_expense_by_category', 'finance_expense_by_vendor', 'finance_trip_flow']);
+            'tickets_created_year', 'tickets_resolved_year', 'avg_resolution_year', 'tickets_resolved_by_technician_year']);
         if ($dash_has_year_widget) { ?>
             <form method="get" class="d-flex align-items-center gap-1">
                 <?php if ($customise) { ?><input type="hidden" name="customise" value="1"><?php } ?>

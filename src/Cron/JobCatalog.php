@@ -17,14 +17,12 @@ final class JobCatalog
     public static function all(): array
     {
         return [
-            'cron.php' => ['label' => 'Main cron', 'description' => 'Recurring tickets and invoices, overdue notices, reminders and housekeeping.', 'run_now' => false, 'note' => 'Has its own Run Now button above and can send real email.'],
+            'cron.php' => ['label' => 'Main cron', 'description' => 'Recurring tickets, overdue notices, reminders and housekeeping.', 'run_now' => false, 'note' => 'Has its own Run Now button above and can send real email.'],
             'mail_queue.php' => ['label' => 'Outgoing mail queue', 'description' => 'Sends queued email.', 'run_now' => false, 'note' => 'Sends real email.'],
             'ticket_email_parser.php' => ['label' => 'Ticket email parser', 'description' => 'Reads the support mailbox and turns messages into tickets and replies.', 'run_now' => false, 'note' => 'Reads the live mailbox.'],
             'outlook_schedule_sync.php' => ['label' => 'Outlook calendar sync', 'description' => 'Keeps scheduled tickets and Outlook calendars in step.', 'run_now' => false, 'note' => 'Writes to Outlook calendars.'],
             'crm_reminders.php' => ['label' => 'CRM reminders', 'description' => 'Sends follow-up reminders.', 'run_now' => false, 'note' => 'Sends real email.'],
             'report_scheduler.php' => ['label' => 'Scheduled reports', 'description' => 'Emails reports on their schedules.', 'run_now' => false, 'note' => 'Sends real email.'],
-            'accounting_sync.php' => ['label' => 'Accounting sync', 'description' => 'Syncs invoices and payments with the accounting system.', 'run_now' => false, 'note' => 'Writes to the accounting system.'],
-            'accounting_sync_standalone.php' => ['label' => 'Accounting sync (standalone)', 'description' => 'Standalone version of the accounting sync.', 'run_now' => false, 'note' => 'Writes to the accounting system.'],
             'domain_refresher.php' => ['label' => 'Domain refresh', 'description' => 'Looks up domain expiry and DNS details and updates the records.', 'run_now' => true, 'note' => ''],
             'certificate_refresher.php' => ['label' => 'Certificate refresh', 'description' => 'Checks SSL certificates and updates their expiry dates.', 'run_now' => true, 'note' => ''],
             'backup_cron.php' => ['label' => 'Scheduled backup', 'description' => 'Builds an encrypted backup when one is due under your backup settings, and removes old ones.', 'run_now' => true, 'note' => 'Follows your backup schedule; it may report that nothing is due.'],

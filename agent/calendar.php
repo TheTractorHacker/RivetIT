@@ -17,7 +17,6 @@ if (isset($_GET['client_id'])) {
 // work. Each built-in feed below also checks the module that owns it.
 enforceUserPermission('module_support');
 $cal_feed_support = lookupUserPermission('module_support') >= 1;
-$cal_feed_sales   = lookupUserPermission('module_sales') >= 1;
 $cal_feed_clients = lookupUserPermission('module_client') >= 1;
 
 if (isset($_GET['calendar_id'])) {
@@ -84,7 +83,7 @@ if (isset($_GET['calendar_id'])) {
             </div>
             <div class="card-body cal-legend" role="group" aria-label="Show or hide built-in calendars">
                 <?php
-                $cal_builtin = [['invoices', 'blue', 'Invoices'], ['quotes', 'purple', 'Quotes'], ['tickets', 'red', 'Tickets (Created)'], ['recurring', 'grey', 'Recurring Tickets'], ['scheduled', 'grey', 'Tickets (Scheduled)'], ['vendors', 'brown', 'Vendors']];
+                $cal_builtin = [['tickets', 'red', 'Tickets (Created)'], ['recurring', 'grey', 'Recurring Tickets'], ['scheduled', 'grey', 'Tickets (Scheduled)'], ['vendors', 'brown', 'Vendors']];
                 if (!isset($_GET['client_id'])) { $cal_builtin[] = ['departments', 'brown', 'Departments']; }
                 foreach ($cal_builtin as [$cal_src, $cal_col, $cal_lbl]) { ?>
                 <label class="cal-legend__item"><input type="checkbox" class="cal-legend__check" data-src="<?= $cal_src ?>" checked><span class="cal-legend__dot" style="--c:<?= $cal_col ?>;" aria-hidden="true"></span><span class="cal-legend__label"><?= $cal_lbl ?></span></label>
@@ -247,31 +246,6 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $calendar_color = json_encode($row['calendar_color']);
 
                 echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: $calendar_color, extendedProps: { src: 'cal-$calendar_id' } },";
-            }
-
-            // Invoices Created
-            $sql = $cal_feed_sales ? mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN invoices ON client_id = invoice_client_id $client_query $access_permission_query") : false;
-            while ($sql && $row = mysqli_fetch_assoc($sql)) {
-                $event_id = intval($row['invoice_id']);
-                $scope = strval($row['invoice_scope']);
-                if (empty($scope)) {
-                    $scope = "Not Set";
-                }
-                $event_title = json_encode($row['invoice_prefix'] . $row['invoice_number'] . " created -scope: " . $scope);
-                $event_start = json_encode($row['invoice_date']);
-
-
-                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'blue', extendedProps: { src: 'invoices', baseDisplay: 'list-item' }, url: 'invoice.php?invoice_id=$event_id$client_url' },";
-            }
-
-            // Quotes Created
-            $sql = $cal_feed_sales ? mysqli_query($mysqli, "SELECT * FROM clients LEFT JOIN quotes ON client_id = quote_client_id $client_query $access_permission_query") : false;
-            while ($sql && $row = mysqli_fetch_assoc($sql)) {
-                $event_id = intval($row['quote_id']);
-                $event_title = json_encode($row['quote_prefix'] . $row['quote_number'] . " " . $row['quote_scope']);
-                $event_start = json_encode($row['quote_date']);
-
-                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'purple', extendedProps: { src: 'quotes', baseDisplay: 'list-item' }, url: 'quote.php?quote_id=$event_id$client_url' },";
             }
 
             // Tickets Created

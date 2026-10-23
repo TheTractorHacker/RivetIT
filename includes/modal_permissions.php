@@ -122,14 +122,12 @@ function itflow_modal_permission_map(): array {
 
             // Write-only forms whose buttons are already hidden from view-only roles.
             'client/client_add.php'             => ['module_client' => 2],
+            'price_quote/price_quote_add.php'       => ['module_client' => 2],
+            'price_quote/price_quote_edit.php'      => ['module_client' => 2],
+            'price_quote/price_quote_item_edit.php' => ['module_client' => 2],
             'client/client_import.php'          => ['module_client' => 2],
             'project/project_add.php'           => ['module_support' => 2],
             'service/service_add.php'           => ['module_support' => 2],
-            'quote/quote_add.php'               => ['module_sales' => 2],
-            'quote/quote_copy.php'              => ['module_sales' => 2],
-            'invoice/invoice_add.php'           => ['module_sales' => 2],
-            'recurring_invoice/recurring_invoice_add.php' => ['module_sales' => 2],
-            'product/product_add.php'           => ['module_sales' => 2],
             'recurring_ticket/recurring_ticket_bulk_agent_edit.php'    => ['module_support' => 2],
             'recurring_ticket/recurring_ticket_bulk_billable_edit.php' => ['module_support' => 2],
             'recurring_ticket/recurring_ticket_bulk_category_edit.php' => ['module_support' => 2],
@@ -145,7 +143,6 @@ function itflow_modal_permission_map(): array {
             'ticket/ticket_bulk_reply.php'      => ['module_support' => 2],
             'ticket/ticket_bulk_resolve.php'    => ['module_support' => 2],
             'ticket/ticket_change_client.php'   => ['module_support' => 2],
-            'ticket/ticket_charge_add.php'      => ['module_support' => 2],
             'ticket/ticket_contact.php'         => ['module_support' => 2],
             'ticket/ticket_delivery_method.php' => ['module_support' => 2],
             'ticket/ticket_edit_schedule.php'   => ['module_support' => 2],
@@ -159,9 +156,6 @@ function itflow_modal_permission_map(): array {
             'ticket/ticket_status.php'          => ['module_support' => 2],
             'ticket/ticket_tags.php'            => ['module_support' => 2],
             'ticket/ticket_worksheet_add.php'   => ['module_support' => 2],
-            // Turn a ticket into a quote / invoice: ticket.php shows these only with edit on both.
-            'ticket/ticket_quote_add.php'       => ['module_support' => 2, 'module_sales' => 2],
-            'ticket/ticket_invoice_add.php'     => ['module_support' => 2, 'module_sales' => 2],
         ],
 
         // /modals/*.php (outside agent/)

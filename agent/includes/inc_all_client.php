@@ -135,39 +135,6 @@ if (isset($_GET['client_id'])) {
         }
         $client_tags_display = implode('', $client_tag_name_display_array);
 
-        //Add up all the payments for the invoice and get the total amount paid to the invoice
-        $sql_invoice_amounts = mysqli_query($mysqli, "SELECT SUM(invoice_amount) AS invoice_amounts FROM invoices WHERE invoice_client_id = $client_id AND invoice_status != 'Draft' AND invoice_status != 'Cancelled' AND invoice_status != 'Non-Billable'");
-        $row = mysqli_fetch_assoc($sql_invoice_amounts);
-
-        $invoice_amounts = floatval($row['invoice_amounts']);
-
-        $sql_amount_paid = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments, invoices WHERE payment_invoice_id = invoice_id AND invoice_client_id = $client_id");
-        $row = mysqli_fetch_assoc($sql_amount_paid);
-
-        $amount_paid = floatval($row['amount_paid']);
-
-        $balance = $invoice_amounts - $amount_paid;
-
-        //Get Monthly Recurring Total
-        $sql_recurring_monthly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_monthly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'month' AND recurring_invoice_client_id = $client_id");
-        $row = mysqli_fetch_assoc($sql_recurring_monthly_total);
-
-        $recurring_monthly_total = floatval($row['recurring_monthly_total']);
-
-        //Get Yearly Recurring Total
-        $sql_recurring_yearly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_yearly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'year' AND recurring_invoice_client_id = $client_id");
-        $row = mysqli_fetch_assoc($sql_recurring_yearly_total);
-
-        $recurring_yearly_total = floatval($row['recurring_yearly_total']) / 12;
-
-        $recurring_monthly = $recurring_monthly_total + $recurring_yearly_total;
-
-        // Get Credit Balance
-        $sql_credit_balance = mysqli_query($mysqli, "SELECT SUM(credit_amount) AS credit_balance FROM credits WHERE credit_client_id = $client_id");
-        $row = mysqli_fetch_assoc($sql_credit_balance);
-
-        $credit_balance = floatval($row['credit_balance']);
-
         // Badge Counts
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('contact_id') AS num FROM contacts WHERE contact_archived_at IS NULL AND contact_client_id = $client_id"));
         $num_contacts = $row['num'];
@@ -221,36 +188,6 @@ if (isset($_GET['client_id'])) {
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('software_id') AS num FROM software WHERE software_archived_at IS NULL AND software_client_id = $client_id"));
         $num_software = $row['num'];
 
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE (invoice_status = 'Sent' OR invoice_status = 'Viewed' OR invoice_status = 'Partial') AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_open = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_status = 'Draft' AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_draft = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_status = 'Sent' AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_sent = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_status = 'Viewed' AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_viewed = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_status = 'Partial' AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_partial = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_status = 'Paid' AND invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices_paid = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('invoice_id') AS num FROM invoices WHERE invoice_archived_at IS NULL AND invoice_client_id = $client_id"));
-        $num_invoices = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('quote_id') AS num FROM quotes WHERE quote_archived_at IS NULL AND quote_client_id = $client_id"));
-        $num_quotes = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('recurring_invoice_id') AS num FROM recurring_invoices WHERE recurring_invoice_archived_at IS NULL AND recurring_invoice_client_id = $client_id"));
-        $num_recurring_invoices = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('payment_id') AS num FROM payments, invoices WHERE payment_invoice_id = invoice_id AND invoice_client_id = $client_id"));
-        $num_payments = $row['num'];
-
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('file_id') AS num FROM files WHERE file_archived_at IS NULL AND file_client_id = $client_id"));
         $num_files = $row['num'];
 
@@ -259,9 +196,6 @@ if (isset($_GET['client_id'])) {
 
         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('event_id') AS num FROM calendar_events WHERE event_client_id = $client_id"));
         $num_calendar_events = $row['num'];
-
-        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('trip_id') AS num FROM trips WHERE trip_archived_at IS NULL AND trip_client_id = $client_id"));
-        $num_trips = $row['num'];
 
         // Expiring Items
 

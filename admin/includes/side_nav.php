@@ -80,30 +80,6 @@ $admin_current_page = basename($_SERVER['PHP_SELF']);
                     </a>
                 </li>
 
-                <?php if ($config_module_enable_accounting) { ?>
-                <!-- BILLING Section -->
-                <?php $nav_open_billing = in_array(basename($_SERVER['PHP_SELF']), ['tax.php', 'payment_method.php', 'payment_provider.php', 'saved_payment_method.php']); ?>
-                <li class="nav-item dropdown mt-2<?php echo ($nav_open_billing ? ' active' : ''); ?>">
-                    <a href="#nav-group-billing" class="nav-link dropdown-toggle<?php echo ($nav_open_billing ? ' show' : ''); ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-billing" aria-expanded="<?php echo ($nav_open_billing ? 'true' : 'false'); ?>">
-                        <span class="nav-link-icon"><i class="fas fa-hand-holding-usd"></i></span>
-                        <span class="nav-link-title">Billing</span>
-                    </a>
-                    <div class="dropdown-menu<?php echo ($nav_open_billing ? ' show' : ''); ?>" id="nav-group-billing">
-                        <a href="/admin/tax.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'tax.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-balance-scale"></i></span>
-                            <span class="text-truncate">Taxes</span>
-                        </a>
-                        <a href="/admin/payment_method.php" class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'payment_method.php' ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-money-check-alt"></i></span>
-                            <span class="text-truncate">Payment Methods</span>
-                        </a>
-                        <a href="/admin/payment_provider.php" class="dropdown-item <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['payment_provider.php', 'saved_payment_method.php']) ? 'active' : ''); ?>">
-                            <span class="dropdown-item-icon"><i class="far fa-credit-card"></i></span>
-                            <span class="text-truncate">Payment Providers</span>
-                        </a>
-                    </div>
-                </li>
-                <?php } ?>
 
                 <?php if ($config_module_enable_payroll) { ?>
                 <!-- PAYROLL Section -->
@@ -167,7 +143,7 @@ $admin_current_page = basename($_SERVER['PHP_SELF']);
                 </li>
 
                 <!-- Keep the global menu short; the settings directory groups all destinations. -->
-                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings.php', 'settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_compliance.php', 'compliance_status.php', 'automation_test.php', 'automation.php', 'event_rules.php', 'job_queue.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_mail_templates.php', 'settings_default.php', 'settings_invoice.php', 'settings_quote.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'settings_custom_fields.php', 'identity_provider.php', 'settings_mcp.php', 'settings_redis.php', 'server_tasks.php', 'settings_telemetry.php', 'settings_module.php', 'portal_preview.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'webhook_new.php', 'webhook_edit.php', 'settings_webhook_guides.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_endpoint_agent.php', 'settings_mesh_wizard.php', 'settings_unifi.php', 'settings_manageengine_mdm.php', 'settings_kb.php', 'settings_portal.php', 'settings_training.php'], true); ?>
+                <?php $nav_open_settings = in_array(basename($_SERVER['PHP_SELF']), ['settings.php', 'settings_company.php', 'settings_localization.php', 'settings_theme.php', 'settings_appearance.php', 'settings_compliance.php', 'compliance_status.php', 'automation_test.php', 'automation.php', 'event_rules.php', 'job_queue.php', 'settings_security.php', 'settings_mail.php', 'settings_notification.php', 'settings_mail_templates.php', 'settings_default.php', 'settings_project.php', 'settings_ticket.php', 'settings_ai.php', 'settings_custom_fields.php', 'identity_provider.php', 'settings_mcp.php', 'settings_redis.php', 'server_tasks.php', 'settings_telemetry.php', 'settings_module.php', 'portal_preview.php', 'settings_calendar_sync.php', 'settings_webhooks.php', 'webhook_new.php', 'webhook_edit.php', 'settings_webhook_guides.php', 'settings_integrations.php', 'settings_comet.php', 'comet_status.php', 'settings_rmm.php', 'settings_endpoint_agent.php', 'settings_mesh_wizard.php', 'settings_unifi.php', 'settings_manageengine_mdm.php', 'settings_kb.php', 'settings_portal.php', 'settings_training.php'], true); ?>
                 <li class="nav-item<?php echo ($nav_open_settings ? ' active' : ''); ?>">
                     <a href="/admin/settings.php" class="nav-link<?php echo ($nav_open_settings ? ' active' : ''); ?>"<?php echo (basename($_SERVER['PHP_SELF']) === 'settings.php' ? ' aria-current="page"' : ''); ?>>
                         <span class="nav-link-icon"><i class="fas fa-cog"></i></span>

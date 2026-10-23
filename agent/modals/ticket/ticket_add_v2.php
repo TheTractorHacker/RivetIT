@@ -51,7 +51,6 @@ ob_start();
     <?php if ($project_id) { ?>
         <input type="hidden" name="project_id" value="<?php echo $project_id; ?>">
     <?php } ?>
-    <input type="hidden" name="billable" value="0">
     <?php if ($catalog_item_id) { ?>
         <input type="hidden" name="catalog_item_id" value="<?php echo $catalog_item_id; ?>">
     <?php } ?>
@@ -210,14 +209,6 @@ ob_start();
                     </div>
                 </div>
 
-                <?php if ($config_module_enable_accounting) { ?>
-                    <div class="form-group">
-                        <div class="form-check form-check form-switch">
-                            <input type="checkbox" class="form-check-input" name="billable" <?php if ($config_ticket_default_billable == 1) { echo "checked"; } ?> value="1" id="billable">
-                            <label class="form-check-label" for="billable">Mark Billable</label>
-                        </div>
-                    </div>
-                <?php } ?>
 
             </div>
 

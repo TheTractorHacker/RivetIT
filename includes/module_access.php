@@ -583,8 +583,6 @@ function itflow_notification_types_for_profile(array $profile): ?array {
     $lvl = fn(string $m) => itflow_profile_level($profile, $m);
     $category_allowed = [
         'tickets'     => $lvl('module_support') >= 1,
-        'invoices'    => $lvl('module_sales') >= 1 || $lvl('module_financial') >= 1,
-        'quotes'      => $lvl('module_sales') >= 1,
         'expirations' => $lvl('module_support') >= 1,
         'backups'     => $lvl('module_rmm') >= 1,
         'training'    => $lvl('module_training') >= 1,   // Training reminders and alerts (LMS Phase 5)
@@ -612,8 +610,6 @@ function itflow_notification_types_for_profile(array $profile): ?array {
  * Notification types a NON-limited, non-admin profile must not receive: the categories whose module the role
  * lacks (security review 2026-09-26: a role with Assets but no Tickets/assets/docs got every ticket subject).
  *   tickets, expirations - Tickets/assets/docs (an Assets role keeps "Asset Warranty Expiring")
- *   invoices             - Sales or Finance
- *   quotes               - Sales
  *   system               - Departments or Tickets/assets/docs
  *   training             - Training (Training Digest / Escalation / Video; also 'Training Odoo', and 'Training'
  *                          unless the role has the Training kiosk permission)
@@ -629,8 +625,6 @@ function itflow_notification_denied_types_for_profile(array $profile): array {
     $category_denied = [
         'tickets'     => $lvl('module_support') < 1,
         'expirations' => $lvl('module_support') < 1,
-        'invoices'    => $lvl('module_sales') < 1 && $lvl('module_financial') < 1,
-        'quotes'      => $lvl('module_sales') < 1,
         'system'      => $lvl('module_client') < 1 && $lvl('module_support') < 1,
         'training'    => $lvl('module_training') < 1,
     ];

@@ -16,11 +16,8 @@ $page_title = ucwords($page_title);
 // (and its URL) still says client, and acronyms. The file names and URLs themselves never change.
 $page_title_display_names = [
     'clients'                   => 'Departments',
-    'clients_with_balance'      => 'Departments with a Balance',
     'ticket_by_client'          => 'Tickets by Department',
     'client_ticket_time_detail' => 'Department Time Detail Audit',
-    'income_by_client'          => 'Income By Department',
-    'recurring_by_client'       => 'Recurring Income By Department',
 ];
 $page_title_file = basename($_SERVER['PHP_SELF'], '.php');
 if (isset($page_title_display_names[$page_title_file])) {

@@ -13,16 +13,6 @@ function push_notification_categories(): array {
             'icon'  => 'fas fa-ticket-alt',
             'types' => ['Ticket', 'Recurring Ticket', 'Pending Tickets', 'Feedback', 'Automation'],
         ],
-        'invoices' => [
-            'label' => 'Invoices & Expenses',
-            'icon'  => 'fas fa-file-invoice-dollar',
-            'types' => ['Invoice', 'Invoice Paid', 'Invoice Overdue', 'Invoice Late Charge', 'Invoice Viewed', 'Recurring Sent', 'Expense', 'Expense Created'],
-        ],
-        'quotes' => [
-            'label' => 'Quotes',
-            'icon'  => 'fas fa-file-signature',
-            'types' => ['Quote Accepted', 'Quote Declined', 'Quote File', 'Quote Viewed'],
-        ],
         'expirations' => [
             'label' => 'Expirations',
             'icon'  => 'fas fa-hourglass-end',

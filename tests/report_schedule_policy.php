@@ -4,10 +4,9 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require __DIR__ . '/../includes/report_schedule_policy.php';
 $fails = 0; $ok = function (bool $c, string $l) use (&$fails) { echo ($c ? 'PASS' : 'FAIL') . "  $l\n"; if (!$c) $fails++; };
 
-foreach (['income_summary', 'expense_summary', 'clients_with_balance', 'mrr'] as $k) {
-    $ok(report_schedule_required_module($k) === 'module_financial', "$k requires module_financial");
-}
-foreach (['service_desk', 'ticket_summary', 'csat', 'technician_performance', 'bogus'] as $k) {
+// No catalogued report currently needs anything beyond module_reporting (the financial reports that
+// once needed module_financial were removed with billing/invoicing).
+foreach (['service_desk', 'ticket_summary', 'csat', 'technician_performance', 'ticket_by_client', 'bogus'] as $k) {
     $ok(report_schedule_required_module($k) === null, "$k needs no extra module");
 }
 

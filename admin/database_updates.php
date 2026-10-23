@@ -11773,3 +11773,54 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.192'");
     }
+
+    if ($rivetit_db_version() == '2.6.192') {
+        // DB 2.6.193: Price Quotes - a light, standalone "give management a price" tool (agent/price_quotes.php,
+        // agent/price_quote.php), replacing the invoice-conversion quotes.php/quote.php removed with billing. No
+        // product catalog, no tax calculation, no conversion to an invoice - just a client, a title, free-text
+        // line items and a Draft/Sent/Accepted/Declined status.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `price_quotes` (
+            `price_quote_id` INT(11) NOT NULL AUTO_INCREMENT,
+            `price_quote_title` VARCHAR(255) NOT NULL,
+            `price_quote_description` TEXT DEFAULT NULL,
+            `price_quote_status` VARCHAR(20) NOT NULL DEFAULT 'Draft',
+            `price_quote_client_id` INT(11) NOT NULL,
+            `price_quote_created_by` INT(11) NOT NULL DEFAULT 0,
+            `price_quote_updated_by` INT(11) NOT NULL DEFAULT 0,
+            `price_quote_created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `price_quote_updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            `price_quote_archived_at` DATETIME DEFAULT NULL,
+            PRIMARY KEY (`price_quote_id`),
+            KEY `idx_price_quotes_client` (`price_quote_client_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `price_quote_items` (
+            `price_quote_item_id` INT(11) NOT NULL AUTO_INCREMENT,
+            `price_quote_item_price_quote_id` INT(11) NOT NULL,
+            `price_quote_item_description` VARCHAR(255) NOT NULL,
+            `price_quote_item_quantity` DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+            `price_quote_item_unit_price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            `price_quote_item_order` INT(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`price_quote_item_id`),
+            KEY `idx_price_quote_items_quote` (`price_quote_item_price_quote_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.193'");
+    }
+
+    if ($rivetit_db_version() == '2.6.193') {
+        // DB 2.6.194: the invoicing/billing tables this edition no longer has any code for are gone now that
+        // Price Quotes (above) replaces the old invoice-conversion quoting tool. vendors, categories (shared
+        // with non-billing category types) and tickets.ticket_billable/ticket_quote_id/ticket_invoice_id are
+        // deliberately left alone - none of them are billing-specific on their own.
+        $billing_tables_removed = ['invoice_items', 'invoices', 'payments', 'expenses', 'recurring_invoice_items', 'recurring_invoices',
+            'recurring_payments', 'recurring_expenses', 'accounts', 'product_stock', 'products', 'quote_files', 'quote_items', 'quotes',
+            'revenues', 'transfers', 'trips', 'taxes', 'ticket_charges', 'history', 'accounting_entity_map', 'accounting_sync_log',
+            'accounting_sync_queue', 'accounting_integrations', 'client_payment_provider', 'client_saved_payment_methods',
+            'payment_methods', 'payment_providers', 'payment_webhook_events'];
+        foreach ($billing_tables_removed as $gone_table) {
+            mysqli_query($mysqli, "DROP TABLE IF EXISTS `$gone_table`");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_module_enable_accounting` = 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.194'");
+    }

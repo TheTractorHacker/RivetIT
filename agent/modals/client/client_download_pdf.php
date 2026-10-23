@@ -118,50 +118,6 @@
                                     </div>
                                 </li>
 
-                                <li class="list-group-item">
-                                    <div class="form-check form-check">
-                                        <input class="form-check-input" type="checkbox" id="invoices" name="export_invoices" value="1" checked>
-                                        <label for="invoices" class="form-check-label">
-                                            <i class='fas fa-fw fa-file-invoice me-2'></i>Invoices
-                                        </label>
-                                    </div>
-                                </li>
-
-                                <li class="list-group-item">
-                                    <div class="form-check form-check">
-                                        <input class="form-check-input" type="checkbox" id="recurring_invoices" name="export_recurring_invoices" value="1" checked>
-                                        <label for="recurring_invoices" class="form-check-label">
-                                            <i class='fas fa-fw fa-sync me-2'></i>Recurring Invoices
-                                        </label>
-                                    </div>
-                                </li>
-
-                                <li class="list-group-item">
-                                    <div class="form-check form-check">
-                                        <input class="form-check-input" type="checkbox" id="quotes" name="export_quotes" value="1" checked>
-                                        <label for="quotes" class="form-check-label">
-                                            <i class='fas fa-fw fa-file me-2'></i>Quotes
-                                        </label>
-                                    </div>
-                                </li>
-
-                                <li class="list-group-item">
-                                    <div class="form-check form-check">
-                                        <input class="form-check-input" type="checkbox" id="payments" name="export_payments" value="1" checked>
-                                        <label for="payments" class="form-check-label">
-                                            <i class='fas fa-fw fa-credit-card me-2'></i>Payments
-                                        </label>
-                                    </div>
-                                </li>
-
-                                <li class="list-group-item">
-                                    <div class="form-check form-check">
-                                        <input class="form-check-input" type="checkbox" id="trips" name="export_trips" value="1" checked>
-                                        <label for="trips" class="form-check-label">
-                                            <i class='fas fa-fw fa-route me-2'></i>Trips
-                                        </label>
-                                    </div>
-                                </li>
 
                                 <li class="list-group-item">
                                     <div class="form-check form-check">

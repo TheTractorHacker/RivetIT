@@ -21,8 +21,8 @@ ob_end_clean();
 /*
  * Live global-search dropdown (top nav). Read-only GET, no CSRF needed (mirrors
  * certificate_fetch_parse_json_details below). Auth already enforced by check_login.php above.
- * Mirrors global_search.php's own queries/scoping for clients, contacts, tickets, quotes,
- * invoices, assets, vendors, domains, products, documents, recurring tickets, credentials,
+ * Mirrors global_search.php's own queries/scoping for clients, contacts, tickets,
+ * assets, vendors, domains, documents, recurring tickets, credentials,
  * KB articles, and (new, not DB-backed) settings pages - a fast LIMIT-5-per-type subset for
  * per-keystroke use. Credentials match only on the plaintext name/description columns, same
  * as global_search.php - nothing is decrypted for the match itself, only kept out of the
@@ -81,7 +81,6 @@ if (isset($_GET['global_search_live'])) {
     $gs_clients = lookupUserPermission('module_client') >= 1;
     $gs_support = lookupUserPermission('module_support') >= 1;
     $gs_assets  = itflow_can_assets(1);
-    $gs_sales   = lookupUserPermission('module_sales') >= 1;
 
     // Clients
     $sql = !$gs_clients ? false : mysqli_query($mysqli, "SELECT clients.client_id, client_name, client_abbreviation
@@ -157,52 +156,6 @@ if (isset($_GET['global_search_live'])) {
     }
     if ($rows) { $groups['tickets'] = $rows; }
 
-    // Quotes
-    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT quotes.quote_id, quote_prefix, quote_number, quote_status, clients.client_id, client_name
-        FROM quotes
-        LEFT JOIN clients ON quote_client_id = client_id
-        WHERE quote_archived_at IS NULL
-            AND (CONCAT(quote_prefix,quote_number) LIKE '%$query%' OR quote_number LIKE '%$query%' OR quote_scope LIKE '%$query%')
-            $access_permission_query
-        ORDER BY quote_number DESC LIMIT 5"
-    );
-    $rows = [];
-    while ($sql && $row = mysqli_fetch_assoc($sql)) {
-        $subtitle = (string) $row['client_name'];
-        if (!empty($row['quote_status'])) {
-            $subtitle .= ' · ' . $row['quote_status'];
-        }
-        $rows[] = [
-            'title' => $row['quote_prefix'] . $row['quote_number'],
-            'subtitle' => $subtitle,
-            'url' => '/agent/quote.php?client_id=' . intval($row['client_id']) . '&quote_id=' . intval($row['quote_id']),
-        ];
-    }
-    if ($rows) { $groups['quotes'] = $rows; }
-
-    // Invoices
-    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT invoices.invoice_id, invoice_prefix, invoice_number, invoice_status, clients.client_id, client_name
-        FROM invoices
-        LEFT JOIN clients ON invoice_client_id = client_id
-        WHERE invoice_archived_at IS NULL
-            AND (CONCAT(invoice_prefix,invoice_number) LIKE '%$query%' OR invoice_number LIKE '%$query%' OR invoice_scope LIKE '%$query%')
-            $access_permission_query
-        ORDER BY invoice_number DESC LIMIT 5"
-    );
-    $rows = [];
-    while ($sql && $row = mysqli_fetch_assoc($sql)) {
-        $subtitle = (string) $row['client_name'];
-        if (!empty($row['invoice_status'])) {
-            $subtitle .= ' · ' . $row['invoice_status'];
-        }
-        $rows[] = [
-            'title' => $row['invoice_prefix'] . $row['invoice_number'],
-            'subtitle' => $subtitle,
-            'url' => '/agent/invoice.php?client_id=' . intval($row['client_id']) . '&invoice_id=' . intval($row['invoice_id']),
-        ];
-    }
-    if ($rows) { $groups['invoices'] = $rows; }
-
     // Assets
     $sql = !$gs_assets ? false : mysqli_query($mysqli, "SELECT assets.asset_id, asset_name, asset_type, clients.client_id, client_name
         FROM assets
@@ -268,22 +221,6 @@ if (isset($_GET['global_search_live'])) {
         ];
     }
     if ($rows) { $groups['domains'] = $rows; }
-
-    // Products (shared catalog, not client-scoped - matches global_search.php)
-    $sql = !$gs_sales ? false : mysqli_query($mysqli, "SELECT product_id, product_name, product_description FROM products
-        WHERE product_archived_at IS NULL
-            AND product_name LIKE '%$query%'
-        ORDER BY product_id DESC LIMIT 5"
-    );
-    $rows = [];
-    while ($sql && $row = mysqli_fetch_assoc($sql)) {
-        $rows[] = [
-            'title' => $row['product_name'],
-            'subtitle' => mb_substr((string) $row['product_description'], 0, 80),
-            'url' => '/agent/products.php?q=' . rawurlencode($row['product_name']),
-        ];
-    }
-    if ($rows) { $groups['products'] = $rows; }
 
     // Documents (fulltext, same index/mode as global_search.php)
     $sql = !$gs_support ? false : mysqli_query($mysqli, "SELECT documents.document_id, document_name, clients.client_id, client_name
@@ -1480,71 +1417,6 @@ if (isset($_POST['update_project_template_ticket_order'])) {
     exit;
 }
 
-if (isset($_POST['update_quote_items_order'])) {
-    // Update multiple quote items order
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_sales', 2);
-
-    $positions = $_POST['positions'];
-    $quote_id = intval($_POST['quote_id']);
-
-    foreach ($positions as $position) {
-        $id = intval($position['id']);
-        $order = intval($position['order']);
-
-        mysqli_query($mysqli, "UPDATE quote_items SET item_order = $order WHERE item_quote_id = $quote_id AND item_id = $id");
-    }
-
-    // return a response
-    echo json_encode(['status' => 'success']);
-    exit;
-}
-
-if (isset($_POST['update_invoice_items_order'])) {
-    // Update multiple invoice items order
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_sales', 2);
-
-    $positions = $_POST['positions'];
-    $invoice_id = intval($_POST['invoice_id']);
-
-    foreach ($positions as $position) {
-        $id = intval($position['id']);
-        $order = intval($position['order']);
-
-        mysqli_query($mysqli, "UPDATE invoice_items SET item_order = $order WHERE item_invoice_id = $invoice_id AND item_id = $id");
-    }
-
-    // return a response
-    echo json_encode(['status' => 'success']);
-    exit;
-}
-
-if (isset($_POST['update_recurring_invoice_items_order'])) {
-    // Update multiple recurring invoice items order
-
-    validateCSRFToken($_POST['csrf_token']);
-
-    enforceUserPermission('module_sales', 2);
-
-    $positions = $_POST['positions'];
-    $recurring_invoice_id = intval($_POST['recurring_invoice_id']);
-
-    foreach ($positions as $position) {
-        $id = intval($position['id']);
-        $order = intval($position['order']);
-
-        mysqli_query($mysqli, "UPDATE recurring_invoice_items SET item_order = $order WHERE item_recurring_invoice_id = $recurring_invoice_id AND item_id = $id");
-    }
-
-    // return a response
-    echo json_encode(['status' => 'success']);
-    exit;
-}
 
 if (isset($_GET['client_duplicate_check'])) {
     enforceUserPermission('module_client', 2);

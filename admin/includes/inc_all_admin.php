@@ -34,8 +34,6 @@ $admin_settings_labels = [
     'settings_module.php' => 'Modules',
     'settings_ticket.php' => 'Ticketing',
     'settings_project.php' => 'Projects',
-    'settings_invoice.php' => 'Invoices',
-    'settings_quote.php' => 'Quotes',
     'payroll_settings.php' => 'Payroll',
     'settings_training.php' => 'Training',
     'settings_kb.php' => 'Knowledge Base',
@@ -126,10 +124,6 @@ foreach (itflowAdminNavAreas() as $admin_area_key => $admin_area) {
 // Admin pages that sit in no settings list and no admin area (payroll, payments, tax, archives...) had no way back at all.
 // Same back-crumb as everywhere else: [parent label, parent url, current page label].
 $admin_loose_crumbs = [
-    'payment_method.php'       => ['All settings', '/admin/settings.php', 'Payment methods'],
-    'payment_provider.php'     => ['All settings', '/admin/settings.php', 'Payment providers'],
-    'saved_payment_method.php' => ['Payment providers', '/admin/payment_provider.php', 'Saved payment methods'],
-    'tax.php'                  => ['All settings', '/admin/settings.php', 'Taxes'],
     'payroll_employees.php'    => ['Payroll', '/admin/payroll_settings.php', 'Employees'],
     'payroll_employee.php'     => ['Payroll', '/admin/payroll_settings.php', 'Employee'],
     'payroll_periods.php'      => ['Payroll', '/admin/payroll_settings.php', 'Pay periods'],

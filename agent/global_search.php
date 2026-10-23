@@ -22,12 +22,11 @@ if (isset($_GET['query'])) {
 
     // Roles audit P1a: each section only for the module that owns it. Departments and contacts need
     // Departments; tickets, replies, recurring tickets, documents, files, domains and vendors need
-    // Tickets/assets/docs; assets need Assets or Tickets/assets/docs; quotes, invoices and products need
-    // Sales; credentials need Credentials (below). A section the role lacks is never queried.
+    // Tickets/assets/docs; assets need Assets or Tickets/assets/docs;
+    // credentials need Credentials (below). A section the role lacks is never queried.
     $gs_clients = lookupUserPermission('module_client') >= 1;
     $gs_support = lookupUserPermission('module_support') >= 1;
     $gs_assets  = itflow_can_assets(1);
-    $gs_sales   = lookupUserPermission('module_sales') >= 1;
 
     $sql_clients = !($gs_clients) ? null : mysqli_query($mysqli, "SELECT * FROM clients
         LEFT JOIN (
@@ -77,12 +76,6 @@ if (isset($_GET['query'])) {
         ORDER BY domain_id DESC LIMIT 5"
     );
 
-    $sql_products = !($gs_sales) ? null : mysqli_query($mysqli, "SELECT * FROM products
-        WHERE product_archived_at IS NULL
-            AND product_name LIKE '%$query%'
-        ORDER BY product_id DESC LIMIT 5"
-    );
-
     $sql_documents = !($gs_support) ? null : mysqli_query($mysqli, "SELECT * FROM documents
         LEFT JOIN clients on document_client_id = clients.client_id
         WHERE document_archived_at IS NULL
@@ -128,24 +121,6 @@ if (isset($_GET['query'])) {
             AND (credential_name LIKE '%$query%' OR credential_description LIKE '%$query%')
             $access_permission_query
         ORDER BY credential_id DESC LIMIT 5"
-    );
-
-    $sql_quotes = !($gs_sales) ? null : mysqli_query($mysqli, "SELECT * FROM quotes
-        LEFT JOIN clients ON quote_client_id = client_id
-        LEFT JOIN categories ON quote_category_id = category_id
-        WHERE quote_archived_at IS NULL
-            AND (CONCAT(quote_prefix,quote_number) LIKE '%$query%' OR quote_number LIKE '%$query%' OR quote_scope LIKE '%$query%')
-            $access_permission_query
-        ORDER BY quote_number DESC LIMIT 5"
-    );
-
-    $sql_invoices = !($gs_sales) ? null : mysqli_query($mysqli, "SELECT * FROM invoices
-        LEFT JOIN clients ON invoice_client_id = client_id
-        LEFT JOIN categories ON invoice_category_id = category_id
-        WHERE invoice_archived_at IS NULL
-            AND (CONCAT(invoice_prefix,invoice_number) LIKE '%$query%' OR invoice_number LIKE '%$query%' OR invoice_scope LIKE '%$query%')
-            $access_permission_query
-        ORDER BY invoice_number DESC LIMIT 5"
     );
 
     $sql_assets = !($gs_assets) ? null : mysqli_query($mysqli,"SELECT * FROM assets
@@ -405,45 +380,6 @@ if (isset($_GET['query'])) {
 
         <?php } ?>
 
-        <?php if ($sql_products && mysqli_num_rows($sql_products) > 0) { ?>
-
-            <!-- Products -->
-            <div class="col-sm-6">
-                <div class="card card-dark mb-3">
-                    <div class="card-header">
-                        <h6 class="card-title"><i class="fas fa-fw fa-box me-2"></i>Products</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-striped table-borderless">
-                            <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Description</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php
-
-                            while ($row = mysqli_fetch_assoc($sql_products)) {
-                                $product_name = nullable_htmlentities($row['product_name']);
-                                $product_description = nullable_htmlentities($row['product_description']);
-                                ?>
-                                <tr>
-                                    <td><a href="products.php?q=<?php echo $q ?>"><?php echo $product_name; ?></a></td>
-                                    <td><?php echo $product_description; ?></td>
-                                </tr>
-
-                            <?php } ?>
-
-
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        <?php } ?>
-
         <?php if ($sql_documents && mysqli_num_rows($sql_documents) > 0) { ?>
 
             <!-- Documents -->
@@ -676,108 +612,6 @@ if (isset($_GET['query'])) {
                                     <td><a tabindex="0" class="btn btn-sm" data-bs-toggle="popover" data-trigger="focus" data-placement="left" data-content="<?php echo $credential_password; ?>"><i class="far fa-eye text-secondary"></i></a><button class="btn btn-sm clipboardjs" data-clipboard-text="<?php echo $credential_password; ?>"><i class="far fa-copy text-secondary"></i></button>
                                     </td>
                                     <td><a href="credentials.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
-                                </tr>
-
-                            <?php } ?>
-
-
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        <?php } ?>
-
-        <?php if ($sql_quotes && mysqli_num_rows($sql_quotes) > 0) { ?>
-
-            <!-- Contacts-->
-
-            <div class="col-sm-6">
-                <div class="card card-dark mb-3">
-                    <div class="card-header">
-                        <h6 class="card-title"><i class="fas fa-fw fa-file-invoice me-2"></i>Quotes</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-striped table-borderless">
-                            <thead>
-                            <tr>
-                                <th>Number</th>
-                                <th>Status</th>
-                                <th>Amount</th>
-                                <th>Department</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php
-
-                            while ($row = mysqli_fetch_assoc($sql_quotes)) {
-                                $quote_id = intval($row['quote_id']);
-                                $quote_prefix = nullable_htmlentities($row['quote_prefix']);
-                                $quote_number = intval($row['quote_number']);
-                                $quote_amount = floatval($row['quote_amount']);
-                                $quote_currency_code = nullable_htmlentities($row['quote_currency_code']);
-                                $quote_status = nullable_htmlentities($row['quote_status']);
-                                $client_id = intval($row['client_id']);
-                                $client_name = nullable_htmlentities($row['client_name']);
-
-                                ?>
-                                <tr>
-                                    <td><a href="quote.php?client_id=<?= $client_id ?>&quote_id=<?php echo $quote_id; ?>"><?php echo "$quote_prefix$quote_number"; ?></a></td>
-                                    <td><?php echo $quote_status; ?></td>
-                                    <td><?php echo numfmt_format_currency($currency_format, $quote_amount, $quote_currency_code); ?></td>
-                                    <td><a href="client_overview.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
-                                </tr>
-
-                            <?php } ?>
-
-
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        <?php } ?>
-
-        <?php if ($sql_invoices && mysqli_num_rows($sql_invoices) > 0) { ?>
-
-            <!-- Contacts-->
-
-            <div class="col-sm-6">
-                <div class="card card-dark mb-3">
-                    <div class="card-header">
-                        <h6 class="card-title"><i class="fas fa-fw fa-file-invoice me-2"></i>Invoices</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-striped table-borderless">
-                            <thead>
-                            <tr>
-                                <th>Number</th>
-                                <th>Status</th>
-                                <th>Amount</th>
-                                <th>Department</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php
-
-                            while ($row = mysqli_fetch_assoc($sql_invoices)) {
-                                $invoice_id = intval($row['invoice_id']);
-                                $invoice_prefix = nullable_htmlentities($row['invoice_prefix']);
-                                $invoice_number = intval($row['invoice_number']);
-                                $invoice_amount = floatval($row['invoice_amount']);
-                                $invoice_currency_code = nullable_htmlentities($row['invoice_currency_code']);
-                                $invoice_status = nullable_htmlentities($row['invoice_status']);
-                                $client_id = intval($row['client_id']);
-                                $client_name = nullable_htmlentities($row['client_name']);
-
-                                ?>
-                                <tr>
-                                    <td><a href="invoice.php?client_id=<?= $client_id ?>&invoice_id=<?php echo $invoice_id; ?>"><?php echo "$invoice_prefix$invoice_number"; ?></a></td>
-                                    <td><?php echo $invoice_status; ?></td>
-                                    <td><?php echo numfmt_format_currency($currency_format, $invoice_amount, $invoice_currency_code); ?></td>
-                                    <td><a href="client_overview.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
                                 </tr>
 
                             <?php } ?>

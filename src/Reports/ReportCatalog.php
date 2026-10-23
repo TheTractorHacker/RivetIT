@@ -22,22 +22,10 @@ final class ReportCatalog
     {
         $dates   = ['canned_date' => ['type' => 'enum', 'values' => self::CANNED], 'dtf' => ['type' => 'date'], 'dtt' => ['type' => 'date']];
         $year    = ['year' => ['type' => 'year']];
-        $yearAll = ['year' => ['type' => 'year', 'allow_all' => true]];
         $month   = ['month' => ['type' => 'int', 'min' => 1, 'max' => 12]];
         $days    = ['days' => ['type' => 'int', 'min' => 1, 'max' => 3650]];
 
         return [
-            'income_summary'         => ['label' => 'Income',                       'module' => 'module_financial', 'params' => $year,  'company_wide' => true],
-            'income_by_client'       => ['label' => 'Income By Department',         'module' => 'module_financial', 'params' => $yearAll],
-            'recurring_by_client'    => ['label' => 'Recurring Income By Department', 'module' => 'module_financial', 'params' => []],
-            'mrr'                    => ['label' => 'MRR & Forecast',               'module' => 'module_financial', 'params' => []],
-            'clients_with_balance'   => ['label' => 'Departments with a Balance',   'module' => 'module_financial', 'params' => []],
-            'expense_summary'        => ['label' => 'Expense',                      'module' => 'module_financial', 'params' => $year,  'company_wide' => true],
-            'expense_by_vendor'      => ['label' => 'Expense By Vendor',            'module' => 'module_financial', 'params' => $year,  'company_wide' => true],
-            'tax_summary'            => ['label' => 'Tax Summary',                  'module' => 'module_financial', 'params' => $year + ['view' => ['type' => 'enum', 'values' => ['monthly', 'quarterly']]], 'company_wide' => true],
-            'profit_loss'            => ['label' => 'Profit & Loss',                'module' => 'module_financial', 'params' => $year,  'company_wide' => true],
-            'budget'                 => ['label' => 'Annual Budget',                'module' => 'module_financial', 'params' => $year,  'company_wide' => true],
-            'tickets_unbilled'       => ['label' => 'Unbilled Tickets',             'module' => 'module_sales',     'params' => $year],
             'client_ticket_time_detail' => ['label' => 'Department Time Detail Audit', 'module' => 'module_sales',  'params' => [
                 'from' => ['type' => 'date'], 'to' => ['type' => 'date'],
                 'billable_only' => ['type' => 'enum', 'values' => ['0', '1']],
@@ -47,7 +35,6 @@ final class ReportCatalog
             'service_desk'           => ['label' => 'Service Desk & SLA',           'module' => 'module_support',   'params' => $dates],
             'ticket_summary'         => ['label' => 'Tickets',                      'module' => 'module_support',   'params' => $year],
             'ticket_day_breakdown'   => ['label' => 'Tickets: Day by Day',          'module' => 'module_support',   'params' => $dates],
-            'ticket_charges'         => ['label' => 'Ticket Charges',               'module' => 'module_support',   'params' => $year + ['uninvoiced' => ['type' => 'flag']]],
             'ticket_by_client'       => ['label' => 'Tickets by Department',        'module' => 'module_support',   'params' => $year + $month],
             'time_by_tech'           => ['label' => 'Time by Technician',           'module' => 'module_support',   'params' => $year + $month],
             'technician_performance' => ['label' => 'Technician Performance',       'module' => 'module_support',   'params' => $dates],

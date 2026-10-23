@@ -301,9 +301,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </a>
                     </th>
                     <th class="text-center">Records</th>
-                    <?php if ((lookupUserPermission("module_financial") >= 1) && $config_module_enable_accounting == 1) { ?>
-                    <th>Billing</th>
-                    <?php } ?>
                     <?php if (lookupUserPermission("module_client") >= 2) { ?>
                     <th class="text-center">Action</th>
                     <?php } ?>
@@ -430,45 +427,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     }
                     $client_tags_display = implode('', $client_tag_name_display_array);
 
-                    //Add up all the payments for the invoice and get the total amount paid to the invoice
-                    $sql_invoice_amounts = mysqli_query($mysqli, "SELECT SUM(invoice_amount) AS invoice_amounts FROM invoices WHERE invoice_client_id = $client_id AND invoice_status != 'Draft' AND invoice_status != 'Cancelled' AND invoice_status != 'Non-Billable' ");
-                    $row = mysqli_fetch_assoc($sql_invoice_amounts);
-
-                    $invoice_amounts = floatval($row['invoice_amounts']);
-
-                    $sql_amount_paid = mysqli_query($mysqli, "SELECT SUM(payment_amount) AS amount_paid FROM payments, invoices WHERE payment_invoice_id = invoice_id AND invoice_client_id = $client_id");
-                    $row = mysqli_fetch_assoc($sql_amount_paid);
-
-                    $amount_paid = floatval($row['amount_paid']);
-
-                    $balance = $invoice_amounts - $amount_paid;
-                    //set Text color on balance
-                    if ($balance > 0) {
-                        $balance_text_color = "text-danger fw-bold";
-                    } else {
-                        $balance_text_color = "";
-                    }
-
-                    // Get Credit Balance
-                    $sql_credit_balance = mysqli_query($mysqli, "SELECT SUM(credit_amount) AS credit_balance FROM credits WHERE credit_client_id = $client_id");
-                    $row = mysqli_fetch_assoc($sql_credit_balance);
-
-                    $credit_balance = floatval($row['credit_balance']);
-
-                    //Get Monthly Recurring Total
-                    $sql_recurring_monthly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_monthly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'month' AND recurring_invoice_client_id = $client_id");
-                    $row = mysqli_fetch_assoc($sql_recurring_monthly_total);
-
-                    $recurring_monthly_total = floatval($row['recurring_monthly_total']);
-
-                    //Get Yearly Recurring Total
-                    $sql_recurring_yearly_total = mysqli_query($mysqli, "SELECT SUM(recurring_invoice_amount) AS recurring_yearly_total FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'year' AND recurring_invoice_client_id = $client_id");
-                    $row = mysqli_fetch_assoc($sql_recurring_yearly_total);
-
-                    $recurring_yearly_total = floatval($row['recurring_yearly_total']) / 12;
-
-                    $recurring_monthly = $recurring_monthly_total + $recurring_yearly_total;
-
                     ?>
                     <tr>
                         <td class="checkbox-column bg-light">
@@ -566,34 +524,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <i class="fas fa-fw fa-lg fa-info-circle"></i>
                             </a>
                         </td>
-                        <!-- Show Billing if perms & if accounting module is enabled -->
-                        <?php if ((lookupUserPermission("module_financial") >= 1) && $config_module_enable_accounting == 1) { ?>
-                            <td class="text-end">
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-secondary">Balance</span>
-                                    <span class="<?php echo $balance_text_color; ?>"><?php echo numfmt_format_currency($currency_format, $balance, $session_company_currency); ?></span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-secondary">Paid</span>
-                                    <span><?php echo numfmt_format_currency($currency_format, $amount_paid, $session_company_currency); ?></span>
-                                </div>
-                                <?php if ($credit_balance > 0) { ?>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-secondary">Credit</span>
-                                    <span class="text-success"><?php echo numfmt_format_currency($currency_format, $credit_balance, $session_company_currency); ?></span>
-                                </div>
-                                <?php } ?>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-secondary">Monthly</span>
-                                    <span><?php echo numfmt_format_currency($currency_format, $recurring_monthly, $session_company_currency); ?></span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-secondary">Hourly Rate</span>
-                                    <span><?php echo numfmt_format_currency($currency_format, $client_rate, $session_company_currency); ?></span>
-                                </div>
-                            </td>
-                        <?php } ?>
-
                         <!-- Actions -->
                         <?php if (lookupUserPermission("module_client") >= 2) { ?>
                             <td>

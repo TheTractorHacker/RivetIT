@@ -18,9 +18,7 @@ $section_pages = [
     'work'          => ['projects.php', 'project_details.php', 'calendar.php'],
     'knowledge'     => ['kb_articles.php', 'kb_article.php', 'kb_article_versions.php', 'credentials.php', 'printers.php', 'network_drives.php'],
     'training'      => ['training.php', 'training_courses.php', 'training_course.php', 'training_quiz.php', 'training_banks.php', 'training_paths.php', 'training_achievements.php', 'training_cover_library.php', 'training_preview.php', 'training_dashboard.php', 'training_reports.php', 'training_transcript.php', 'training_assignments.php', 'training_rule.php', 'training_records.php', 'training_record.php', 'training_session.php', 'training_people.php', 'training_item_analysis.php', 'training_revision_compare.php'],
-    'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php'],
-    'billing'       => ['quotes.php', 'quote.php', 'invoices.php', 'invoice.php', 'recurring_invoices.php', 'recurring_invoice.php', 'revenues.php', 'products.php'],
-    'finance'       => ['payments.php', 'expenses.php', 'recurring_expenses.php', 'accounts.php', 'transfers.php', 'trips.php'],
+    'infrastructure'=> ['assets.php', 'asset_details.php', 'locations.php', 'vendors.php', 'software.php', 'domains.php', 'certificates.php', 'price_quotes.php', 'price_quote.php'],
     'endpoint'      => ['intune_devices.php', 'mdm_devices.php', 'rmm_dashboard.php', 'rmm_fleet.php', 'rmm_add_device.php', 'rmm_assets.php', 'rmm_asset.php', 'rmm_alerts.php', 'rmm_scripts.php', 'rmm_checks.php', 'network.php', 'firewalls.php',
         // RMM Phase 2 and 3 pages (shown only while the module and the sub-switch are on)
         'rmm_policies.php', 'rmm_script_library.php', 'rmm_schedules.php', 'rmm_approvals.php', 'rmm_fields.php', 'rmm_agent_alerts.php', 'rmm_maintenance.php', 'rmm_escalations.php',
@@ -423,100 +421,22 @@ foreach ($section_pages as $key => $pages) {
                                 <span class="ms-auto badge text-light"><?php echo $num_certificates_all; ?></span>
                             <?php } ?>
                         </a>
-                    </div>
-                </li>
-                <?php } ?>
-
-                <?php if (!$nav_limited && $config_module_enable_accounting == 1 && lookupUserPermission("module_sales") >= 1) { ?>
-                <li class="nav-item dropdown mt-2<?php echo $section_open['billing'] ? ' active' : ''; ?>">
-                    <a href="#nav-group-billing" class="nav-link dropdown-toggle<?php echo $section_open['billing'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-billing" aria-expanded="<?php echo $section_open['billing'] ? 'true' : 'false'; ?>">
-                        <span class="nav-link-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                        <span class="nav-link-title">Billing</span>
-                    </a>
-                    <div class="dropdown-menu<?php echo $section_open['billing'] ? ' show' : ''; ?>" id="nav-group-billing">
-                        <a href="/agent/quotes.php" class="dropdown-item<?php if ($current_page == "quotes.php" || $current_page == "quote.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-comment-dollar"></i></span>
-                            <span class="text-truncate">Quotes</span>
-                            <?php if ($num_open_quotes) { ?>
-                                <span class="ms-auto badge text-light" data-bs-toggle="tooltip" title="Active Quotes"><?php echo $num_open_quotes; ?></span>
-                            <?php } ?>
-                        </a>
-                        <a href="/agent/invoices.php" class="dropdown-item<?php if ($current_page == "invoices.php" || $current_page == "invoice.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-file-invoice"></i></span>
-                            <span class="text-truncate">Invoices</span>
-                            <?php if ($num_open_invoices) { ?>
-                                <span class="ms-auto badge text-light" data-bs-toggle="tooltip" title="Open Invoices"><?php echo $num_open_invoices; ?></span>
-                            <?php } ?>
-                        </a>
-                        <a href="/agent/recurring_invoices.php" class="dropdown-item<?php if ($current_page == "recurring_invoices.php" || $current_page == "recurring_invoice.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-redo-alt"></i></span>
-                            <span class="text-truncate">Recurring Invoices</span>
-                            <?php if ($num_recurring_invoices) { ?>
-                                <span class="ms-auto badge text-light" data-bs-toggle="tooltip" title="Active Recurring Invoices"><?php echo $num_recurring_invoices; ?></span>
-                            <?php } ?>
-                        </a>
-                        <a href="/agent/revenues.php" class="dropdown-item<?php if ($current_page == "revenues.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-hand-holding-usd"></i></span>
-                            <span class="text-truncate">Revenues</span>
-                        </a>
-                        <a href="/agent/products.php" class="dropdown-item<?php if ($current_page == "products.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-box-open"></i></span>
-                            <span class="text-truncate">Products</span>
-                        </a>
-                    </div>
-                </li>
-                <?php } elseif (!$nav_limited && $config_module_enable_ticket_charges == 1 && lookupUserPermission("module_sales") >= 1) { ?>
-                <li class="nav-item<?php if ($current_page == "products.php") { echo " active"; } ?>">
-                    <a href="/agent/products.php" class="nav-link<?php if ($current_page == "products.php") { echo " active"; } ?>">
-                        <span class="nav-link-icon"><i class="fas fa-box-open"></i></span>
-                        <span class="nav-link-title">Products</span>
-                    </a>
-                </li>
-                <?php } ?>
-
-                <?php if (!$nav_limited && $config_module_enable_accounting == 1 && lookupUserPermission("module_financial") >= 1) { ?>
-                <li class="nav-item dropdown mt-2<?php echo $section_open['finance'] ? ' active' : ''; ?>">
-                    <a href="#nav-group-finance" class="nav-link dropdown-toggle<?php echo $section_open['finance'] ? ' show' : ''; ?>" data-if-toggle="submenu" role="button" aria-controls="nav-group-finance" aria-expanded="<?php echo $section_open['finance'] ? 'true' : 'false'; ?>">
-                        <span class="nav-link-icon"><i class="fas fa-piggy-bank"></i></span>
-                        <span class="nav-link-title">Finance</span>
-                    </a>
-                    <div class="dropdown-menu<?php echo $section_open['finance'] ? ' show' : ''; ?>" id="nav-group-finance">
-                        <?php if (lookupUserPermission("module_financial") >= 1) { ?>
-                        <a href="/agent/payments.php" class="dropdown-item<?php if ($current_page == "payments.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-credit-card"></i></span>
-                            <span class="text-truncate">Payments</span>
-                        </a>
-                        <a href="/agent/expenses.php" class="dropdown-item<?php if ($current_page == "expenses.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-shopping-cart"></i></span>
-                            <span class="text-truncate">Expenses</span>
-                        </a>
-                        <a href="/agent/recurring_expenses.php" class="dropdown-item<?php if ($current_page == "recurring_expenses.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-redo-alt"></i></span>
-                            <span class="text-truncate">Recurring Expenses</span>
-                            <?php if ($num_recurring_expenses) { ?>
-                                <span class="ms-auto badge text-light" data-bs-toggle="tooltip" title="Recurring Expenses"><?php echo $num_recurring_expenses; ?></span>
-                            <?php } ?>
-                        </a>
-                        <a href="/agent/accounts.php" class="dropdown-item<?php if ($current_page == "accounts.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-piggy-bank"></i></span>
-                            <span class="text-truncate">Accounts</span>
-                        </a>
-                        <a href="/agent/transfers.php" class="dropdown-item<?php if ($current_page == "transfers.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-exchange-alt"></i></span>
-                            <span class="text-truncate">Transfers</span>
-                        </a>
-                        <?php if ($config_module_enable_payroll && $session_is_admin) { ?>
-                        <a href="/admin/payroll_periods.php" class="dropdown-item">
-                            <span class="dropdown-item-icon"><i class="fas fa-money-check"></i></span>
-                            <span class="text-truncate">Payroll</span>
+                        <?php if (lookupUserPermission("module_client") >= 1) { ?>
+                        <a href="/agent/price_quotes.php" class="dropdown-item<?php if ($current_page == "price_quotes.php" || $current_page == "price_quote.php") { echo " active"; } ?>">
+                            <span class="dropdown-item-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                            <span class="text-truncate">Price Quotes</span>
                         </a>
                         <?php } ?>
-                        <a href="/agent/trips.php" class="dropdown-item<?php if ($current_page == "trips.php") { echo " active"; } ?>">
-                            <span class="dropdown-item-icon"><i class="fas fa-route"></i></span>
-                            <span class="text-truncate">Trips</span>
-                        </a>
-                        <?php } // Trips (agent/trips.php needs Finance) moved inside the Finance check - roles audit P1i ?>
                     </div>
+                </li>
+                <?php } ?>
+
+                <?php if ($config_module_enable_payroll && $session_is_admin) { ?>
+                <li class="nav-item<?php if ($current_page == "payroll_periods.php" || $current_page == "payroll_period.php") { echo " active"; } ?>">
+                    <a href="/admin/payroll_periods.php" class="nav-link">
+                        <span class="nav-link-icon"><i class="fas fa-money-check"></i></span>
+                        <span class="nav-link-title">Payroll</span>
+                    </a>
                 </li>
                 <?php } ?>
 

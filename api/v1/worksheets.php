@@ -1,5 +1,4 @@
 <?php
-// GET    /api/v1/tickets/{id}/charges       - list charges for ticket
 // GET    /api/v1/tickets/{id}/worksheets     - list worksheets for ticket
 // GET    /api/v1/worksheets/{id}             - worksheet detail with fields
 // POST   /api/v1/worksheets/{id}/sign        - sign a worksheet
@@ -23,7 +22,7 @@ function _api_worksheets_ticket_scope_ok($mysqli, int $uid, int $ticket_id): boo
     ));
 }
 
-// tickets/{id}/charges and tickets/{id}/worksheets: $id is the ticket_id directly.
+// tickets/{id}/worksheets: $id is the ticket_id directly.
 if ($resource === 'tickets' && $id !== null) {
     if (!_api_worksheets_ticket_scope_ok($mysqli, $uid, $id)) api_error(403, 'Access denied');
 }
@@ -36,34 +35,6 @@ if ($resource === 'worksheets' && $id !== null) {
     if (!_api_worksheets_ticket_scope_ok($mysqli, $uid, intval($ws_ticket['worksheet_ticket_id']))) {
         api_error(403, 'Access denied');
     }
-}
-
-// Charges for a ticket
-if ($resource === 'tickets' && $id !== null && $sub === 'charges' && $method === 'GET') {
-    $charges = [];
-    $sql = mysqli_query($mysqli,
-        "SELECT c.*, u.user_name AS created_by_name
-         FROM ticket_charges c
-         LEFT JOIN users u ON c.charge_created_by = u.user_id
-         WHERE c.charge_ticket_id = $id AND c.charge_archived_at IS NULL
-         ORDER BY c.charge_created_at ASC"
-    );
-    $total = 0;
-    while ($row = mysqli_fetch_assoc($sql)) {
-        $charges[] = [
-            'id'          => intval($row['charge_id']),
-            'name'        => $row['charge_name'],
-            'description' => $row['charge_description'],
-            'quantity'    => floatval($row['charge_quantity']),
-            'unit_price'  => floatval($row['charge_unit_price']),
-            'total'       => floatval($row['charge_total']),
-            'invoiced'    => !empty($row['charge_invoiced_at']),
-            'created_by'  => $row['created_by_name'],
-            'created_at'  => $row['charge_created_at'],
-        ];
-        $total += floatval($row['charge_total']);
-    }
-    api_response(200, ['charges' => $charges, 'total' => $total]);
 }
 
 // Worksheets list for a ticket (regular worksheets only — outtake forms are in ticket_outtake_forms)
@@ -212,24 +183,6 @@ if ($resource === 'worksheet-templates' && $method === 'GET') {
     api_response(200, $templates);
 }
 
-// Create ticket charge
-if ($resource === 'tickets' && $id !== null && $sub === 'charges' && $method === 'POST') {
-    $body      = json_decode(file_get_contents('php://input'), true) ?? [];
-    $name      = mysqli_real_escape_string($mysqli, trim($body['name'] ?? ''));
-    $desc      = mysqli_real_escape_string($mysqli, trim($body['description'] ?? ''));
-    $qty       = floatval($body['quantity'] ?? 1);
-    $unit_price= floatval($body['unit_price'] ?? 0);
-    $total     = round($qty * $unit_price, 2);
-
-    if (!$name) api_error(400, 'name required');
-
-    mysqli_query($mysqli,
-        "INSERT INTO ticket_charges (charge_ticket_id, charge_name, charge_description,
-         charge_quantity, charge_unit_price, charge_total, charge_created_by)
-         VALUES ($id, '$name', '$desc', $qty, $unit_price, $total, $uid)"
-    );
-    api_response(201, ['id' => mysqli_insert_id($mysqli), 'total' => $total]);
-}
 
 // Create worksheet from template
 if ($resource === 'tickets' && $id !== null && $sub === 'worksheets' && $method === 'POST') {

@@ -76,7 +76,8 @@ if (is_string($sub)) {
 // REST paths and removed legacy PHP paths before authentication.
 if (in_array($resource, ['quotes', 'invoices', 'invoice_items', 'expenses', 'products'], true)
     || ($resource === 'reports' && in_array(str_replace('_', '-', (string) $sub),
-        ['mrr', 'clients-with-balance', 'income-summary', 'expense-summary', 'profit-loss'], true))) {
+        ['mrr', 'clients-with-balance', 'income-summary', 'income-by-client', 'recurring-by-client',
+         'expense-summary', 'expense-by-vendor', 'tax-summary', 'profit-loss', 'budget', 'unbilled-tickets'], true))) {
     api_error(404, 'Not found');
 }
 
