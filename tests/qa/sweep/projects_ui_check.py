@@ -40,7 +40,9 @@ for who, theme in (('admin', 'light'), ('admin_d', 'dark')):
                 if q is None: continue
                 check(f'search bar {path.split("?")[0]}: outer corner rounded, joins flat, equal heights', q['outer'] >= 4 and all(float(i[:-2]) == 0 for i in q['inner']) and float(q["inputRight"][:-2]) == 0 and max(q['heights']) - min(q['heights']) <= 1, q)
         b.close()
-# drag and drop a QA-UI- task between lanes
+# drag and drop a QA-UI- task between lanes (fixture created here so the script is self-contained)
+mysql("delete from tasks where task_name='QA-UI-200371'")
+mysql("insert into tasks (task_name, task_status, task_project_id, task_order) values ('QA-UI-200371', 'To Do', 4, 0)")
 b, ctx, pg = login(p, 'admin'); pg.set_viewport_size({'width': 1920, 'height': 1080})
 pg.goto(BASE + '/agent/project_kanban.php?client_id=16&project_id=4', wait_until='domcontentloaded'); time.sleep(1.5)
 card = pg.locator('.kanban-column[data-status="To Do"] .task', has_text='QA-UI-200371').first

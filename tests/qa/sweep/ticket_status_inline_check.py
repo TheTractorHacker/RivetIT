@@ -64,4 +64,5 @@ csrf = pg.evaluate("() => (document.querySelector('[data-csrf]')||document.query
 r = pg.evaluate("async (c) => { const f = new URLSearchParams({quick_status_ticket:1,ticket_id:%d,ticket_status_id:3,csrf_token:c}); const x = await fetch('/agent/post.php',{method:'POST',body:f,headers:{'Content-Type':'application/x-www-form-urlencoded'}}); return x.status + ' ' + (await x.text()).slice(0,80) }" % TID, csrf)
 check('read-only user cannot change status through the endpoint', status(TID)[0] == '2', r)
 b.close()
+mysql(f"update tickets set ticket_status=2, ticket_closed_at=NULL, ticket_resolved_at=NULL, ticket_closed_by=0 where ticket_id={TID}")   # leave the fixture ticket open for the other scripts
 print('\nFAILS:', fails or 'none'); sys.exit(1 if fails else 0)
