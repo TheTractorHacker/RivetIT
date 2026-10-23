@@ -149,6 +149,44 @@
         if (b) { window.setTimeout(function () { b.disabled = true; }, 0); }
     });
 
+    // ---- parameter names: pattern + unique, with the message shown under the field (not only a browser bubble)
+    function checkParamNames(form) {
+        var seen = {};
+        form.querySelectorAll('input[data-rmm-param-name]').forEach(function (i) {
+            var v = i.value.trim(), msg = '';
+            if (v === '') { i.setCustomValidity(''); i.classList.remove('is-invalid'); return; }
+            if (!/^[a-z][a-z0-9_]{0,31}$/.test(v)) { msg = 'Invalid name'; }
+            else if (seen[v]) { msg = 'Duplicate name'; }
+            seen[v] = true;
+            i.setCustomValidity(msg);
+            i.classList.toggle('is-invalid', msg !== '');
+            var fb = i.parentNode.querySelector('.invalid-feedback');
+            if (fb && msg === 'Duplicate name') { fb.textContent = 'This name is already used by another parameter.'; }
+        });
+    }
+    document.addEventListener('input', function (e) { var f = e.target.closest && e.target.closest('form[data-rmm-guard]'); if (f && e.target.matches('[data-rmm-param-name]')) { checkParamNames(f); } });
+    document.addEventListener('submit', function (e) {
+        var f = e.target;
+        if (f && f.matches && f.matches('form[data-rmm-guard]')) {
+            checkParamNames(f);
+            if (!f.checkValidity()) { e.preventDefault(); e.stopImmediatePropagation(); f.classList.add('was-validated'); var bad = f.querySelector(':invalid'); if (bad) { bad.focus(); } }
+        }
+    }, true);
+
+    // ---- unsaved-changes guard on forms that ask for it
+    (function () {
+        var forms = document.querySelectorAll('form[data-rmm-guard]');
+        if (!forms.length) { return; }
+        var dirty = false, saving = false;
+        forms.forEach(function (f) {
+            var msg = f.querySelector('[data-rmm-dirty-msg]');
+            f.addEventListener('input', function () { dirty = true; if (msg) { msg.hidden = false; } });
+            f.addEventListener('change', function () { dirty = true; if (msg) { msg.hidden = false; } });
+            f.addEventListener('submit', function () { saving = true; });
+        });
+        window.addEventListener('beforeunload', function (e) { if (dirty && !saving) { e.preventDefault(); e.returnValue = ''; } });
+    })();
+
     // ---- text copy buttons (script hash)
     document.addEventListener('click', function (e) {
         var b = e.target.closest('[data-rmm-copy]');

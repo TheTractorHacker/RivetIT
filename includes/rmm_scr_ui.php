@@ -433,7 +433,7 @@ function rivetRmmScrParamDefRow($i, array $d = []): string
     $def = array_key_exists('default', $d) ? (is_bool($d['default']) ? ($d['default'] ? 'true' : 'false') : (string) $d['default']) : '';
 
     return '<div class="rmm-row" data-rmm-index="' . rmmH((string) $i) . '"><div class="row g-2">'
-        . '<div class="col-md-3"><label class="form-label" for="' . $id . '_name">Name</label><input class="form-control" type="text" id="' . $id . '_name" name="' . $k . '[name]" maxlength="32" value="' . rmmH((string) ($d['name'] ?? '')) . '" autocomplete="off"></div>'
+        . '<div class="col-md-3"><label class="form-label" for="' . $id . '_name">Name</label><input class="form-control" type="text" id="' . $id . '_name" name="' . $k . '[name]" maxlength="32" pattern="[a-z][a-z0-9_]{0,31}" data-rmm-param-name="1" value="' . rmmH((string) ($d['name'] ?? '')) . '" autocomplete="off" aria-describedby="' . $id . '_name_fb"><div class="invalid-feedback" id="' . $id . '_name_fb">Lower case letters, digits and _, starting with a letter, at most 32 characters. Names must be unique.</div></div>'
         . '<div class="col-md-3"><label class="form-label" for="' . $id . '_type">Type</label><select class="form-select" id="' . $id . '_type" name="' . $k . '[type]">' . $opts . '</select></div>'
         . '<div class="col-md-4"><label class="form-label" for="' . $id . '_label">Label</label><input class="form-control" type="text" id="' . $id . '_label" name="' . $k . '[label]" maxlength="80" value="' . rmmH((string) ($d['label'] ?? '')) . '"></div>'
         . '<div class="col-md-2 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="' . $id . '_req" name="' . $k . '[required]" value="1"' . (!empty($d['required']) ? ' checked' : '') . '><label class="form-check-label" for="' . $id . '_req">Required</label></div></div>'
@@ -443,7 +443,7 @@ function rivetRmmScrParamDefRow($i, array $d = []): string
         . '<div class="col-md-3" data-rmm-when="#' . $id . '_type=int"><label class="form-label" for="' . $id . '_min">Smallest</label><input class="form-control" type="number" step="1" id="' . $id . '_min" name="' . $k . '[min]" value="' . rmmH((string) ($d['min'] ?? '')) . '"></div>'
         . '<div class="col-md-3" data-rmm-when="#' . $id . '_type=int"><label class="form-label" for="' . $id . '_maxv">Largest</label><input class="form-control" type="number" step="1" id="' . $id . '_maxv" name="' . $k . '[max]" value="' . rmmH((string) ($d['max'] ?? '')) . '"></div>'
         . '<div class="col-12" data-rmm-when="#' . $id . '_type=choice"><label class="form-label" for="' . $id . '_choices">Choices, one per line</label><textarea class="form-control" rows="3" id="' . $id . '_choices" name="' . $k . '[choices]">' . rmmH($choices) . '</textarea></div>'
-        . '<div class="col-12 text-end"><button type="button" class="btn btn-sm btn-outline-secondary rmm-row-remove" data-rmm-remove="1"><i class="fas fa-trash me-1" aria-hidden="true"></i>Remove this parameter</button></div>'
+        . '<div class="col-12 text-end"><button type="button" class="btn btn-outline-secondary rmm-row-remove" data-rmm-remove="1" aria-label="Remove this parameter"><i class="fas fa-trash me-1" aria-hidden="true"></i>Remove</button></div>'
         . '</div></div>';
 }
 
@@ -710,7 +710,7 @@ function rivetRmmScrEditor(?array $script, string $csrf, array $ctx, ?array $dra
     $self = '/agent/rmm_script_library.php';
     $return = $new ? $self : $self . '?script_id=' . (int) $script['script_id'];
     $lang = (string) ($script['language'] ?? 'bash');
-    $o = '<form method="post" action="/agent/post/' . RIVET_RMM_SCR_HANDLER . '.php" data-rmm-once="1" id="scr-editor">' . rivetRmmAutoHidden($csrf, $return)
+    $o = '<form method="post" action="/agent/post/' . RIVET_RMM_SCR_HANDLER . '.php" data-rmm-once="1" data-rmm-guard="1" id="scr-editor" class="rmmx-pad-bottom" novalidate>' . rivetRmmAutoHidden($csrf, $return)
         . '<input type="hidden" name="action" value="save_script"><input type="hidden" name="script_id" value="' . (int) ($script['script_id'] ?? 0) . '"><div class="row g-3">'
         . '<div class="col-md-6"><label class="form-label" for="scr_name">Name</label><input class="form-control" type="text" id="scr_name" name="name" maxlength="100" required value="' . rmmH((string) ($script['name'] ?? '')) . '"></div>';
     if ($new) {
@@ -738,12 +738,16 @@ function rivetRmmScrEditor(?array $script, string $csrf, array $ctx, ?array $dra
     foreach (array_values((array) ($cur['params'] ?? [])) as $i => $p) {
         $rows .= rivetRmmScrParamDefRow($i, $p);
     }
-    $o .= '<h6 class="mt-4">Parameters</h6><p class="small text-muted">A parameter reaches the script as an environment variable named <code>RIVETIT_PARAM_&lt;name&gt;</code> and as a generated variable, never spliced into the code, so a value cannot change what the script does. '
-        . 'A secret parameter is never stored in the job record or shown in the output. Names are lower case letters, digits and _, start with a letter, at most 32 characters; names that would shadow something the shell needs (for example path, home, user, error, if) are refused.</p>'
+    $o .= '<section class="rmmx-section" aria-labelledby="scr-params-h"><h6 id="scr-params-h" class="rmmx-section-title">Parameters</h6>'
+        . '<p class="rmmx-section-help">A parameter reaches the script as an environment variable named <code>RIVETIT_PARAM_&lt;name&gt;</code> and as a generated variable. It is never spliced into the code, so a value cannot change what the script does. A secret parameter is never stored in the job record or shown in the output.</p>'
+        . '<ul class="rmmx-rules"><li>Names use lower case letters, digits and <code>_</code>, start with a letter, and are at most 32 characters.</li><li>Names that would shadow something the shell needs (for example <code>path</code>, <code>home</code>, <code>user</code>, <code>error</code>, <code>if</code>) are refused.</li><li>Up to 20 parameters.</li></ul>'
         . '<div data-rmm-repeat="1" data-rmm-max="20" id="scr-params"><div data-rmm-rows="1">' . $rows . '</div>'
+        . '<div class="rmmx-param-empty">No parameters yet. Add one to pass values into the script.</div>'
         . '<template data-rmm-row="1">' . rivetRmmScrParamDefRow('__i__') . '</template>'
-        . '<button type="button" class="btn btn-sm btn-outline-primary mt-1" data-rmm-add="#scr-params"><i class="fas fa-plus me-1" aria-hidden="true"></i>Add a parameter</button></div>'
-        . '<div class="mt-3"><button type="submit" class="btn btn-primary"><i class="fas fa-save me-1" aria-hidden="true"></i>' . ($new ? 'Publish script' : 'Save') . '</button> <a class="btn btn-outline-secondary" href="' . $self . '">Cancel</a></div></form>';
+        . '<button type="button" class="btn btn-outline-secondary rmmx-add-row" data-rmm-add="#scr-params"><i class="fas fa-plus" aria-hidden="true"></i>Add a parameter</button></div></section>'
+        . '<div class="rmmx-bar rmmx-form-bar" role="region" aria-label="Save"><span class="rmmx-bar-count" data-rmm-dirty-msg hidden>You have unsaved changes</span>'
+        . '<a class="btn btn-outline-secondary" href="' . $self . '">Cancel</a>'
+        . '<button type="submit" class="btn btn-primary rmmx-primary-cta"><i class="fas fa-save me-1" aria-hidden="true"></i>' . ($new ? 'Publish script' : 'Save') . '</button></div></form>';
 
     return $o;
 }
