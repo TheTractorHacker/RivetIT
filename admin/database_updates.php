@@ -11743,7 +11743,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     if ($rivetit_db_version() == '2.6.189') {
         // DB 2.6.190: Odoo write-back gets a fourth target, Badge (gamification.badge.user) - achievements only,
         // no validity period, no revoke on void (Odoo badges are a one-time award, not a certification).
-        mysqli_query($mysqli, "ALTER TABLE `training_automation` ADD COLUMN `tauto_odoo_send_badge` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_note`");
+        // db.sql already carries this column on a fresh install, so only add it when it is missing.
+        $has_badge = mysqli_query($mysqli, "SHOW COLUMNS FROM `training_automation` LIKE 'tauto_odoo_send_badge'");
+        if ($has_badge && mysqli_num_rows($has_badge) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `training_automation` ADD COLUMN `tauto_odoo_send_badge` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_note`");
+        }
         mysqli_query($mysqli, "ALTER TABLE `training_odoo_outbox` MODIFY COLUMN `todoo_mode` enum('resume','skill','note','badge') NOT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.190'");
     }
