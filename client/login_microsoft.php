@@ -91,9 +91,11 @@ if (isset($_POST['code']) && $_POST['state'] == session_id()) {
         $msgraph_response = json_decode(curl_exec($ch), 1);
 
         if (isset($msgraph_response['error'])) {
-            // Something went wrong verifying the token/using the Graph API - quit
-            echo "Error with MS Graph API. Details:";
-            var_dump($msgraph_response['error']);
+            // Something went wrong verifying the token/using the Graph API - quit. The error details (which can
+            // include internal Graph API trace/correlation ids) go to the server log, never to this unauthenticated
+            // response - echoing them here would hand that detail to anyone who can reach this login flow.
+            error_log('MS Graph API login error: ' . json_encode($msgraph_response['error']));
+            header('Location: index.php?error=microsoft');
             exit();
 
         } elseif (isset($msgraph_response['id'])) {
