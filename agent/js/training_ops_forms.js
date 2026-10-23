@@ -3,7 +3,7 @@
  *
  *   TrainingOps.init(pageData)            call first from each page (today, level, courses, …)
  *   TrainingOps.open(kind, opts) -> Promise(result|null)
- *       kind: assign | extend | waive | reset | retake | unwaive | void | hire_date | roster | history | external | evaluation
+ *       kind: assign | extend | waive | reset | retake | unwaive | void | hire_date | roster | archive | history | external | evaluation
  *       (history opts.onChanged(res) fires after a Reset / Un-waive started from its footer)
  *   TrainingOps.sheet(opts)               the single page-level Bootstrap offcanvas (.offcanvas-end)
  *   TrainingOps.PeoplePicker(opts)        people_search combobox with chips
@@ -321,8 +321,22 @@
                 : el('button', { type: 'button', class: 'dropdown-item' + (it.danger ? ' text-danger' : ''), on: { click: it.onClick } }, [icon(it.icon + ' fa-fw me-2'), it.label]);
             return el('li', {}, [node]);
         }));
+        // The table wrapper scrolls sideways, which makes it Popper's clipping parent: a menu on the last rows could not flip upward and
+        // ran off the card/viewport. Measure against the viewport instead (created before Bootstrap's own click handler runs).
+        function prime(e) {
+            var b = e.currentTarget;
+            if (window.bootstrap && window.bootstrap.Dropdown && !window.bootstrap.Dropdown.getInstance(b)) {
+                window.bootstrap.Dropdown.getOrCreateInstance(b, { popperConfig: function (def) {
+                    var root = document.documentElement;
+                    return Object.assign({}, def, { strategy: 'fixed', modifiers: (def.modifiers || []).concat([
+                        { name: 'flip', options: { boundary: root, fallbackPlacements: ['top-end', 'bottom-end', 'top-start', 'bottom-start'] } },
+                        { name: 'preventOverflow', options: { boundary: root, padding: 8 } }
+                    ]) });
+                } });
+            }
+        }
         return el('div', { class: 'dropdown' }, [
-            el('button', { type: 'button', class: 'btn btn-sm btn-ghost-secondary btn-icon', 'aria-label': label, 'aria-expanded': 'false', dataset: { bsToggle: 'dropdown', bsPopperConfig: '{"strategy":"fixed"}' } }, [icon('fas fa-ellipsis-v')]),
+            el('button', { type: 'button', class: 'btn btn-sm btn-ghost-secondary btn-icon', 'aria-label': label, 'aria-expanded': 'false', 'aria-haspopup': 'menu', dataset: { bsToggle: 'dropdown' }, on: { pointerdown: prime, keydown: prime, focus: prime } }, [icon('fas fa-ellipsis-v')]),
             menu
         ]);
     }
@@ -1322,6 +1336,40 @@
         });
     }
 
+    /** Archive or restore a person from People. opts: {person, archived} (archived = the state to set). */
+    function openArchive(opts) {
+        return new Promise(function (resolve) {
+            var p = opts.person || {};
+            var archive = opts.archived !== false;
+            var result = null;
+            var body = el('form', { novalidate: true });
+            body.appendChild(el('div', { class: 'tro-consequence mb-3' + (archive ? ' tro-consequence--warn' : '') }, [icon('fas fa-info-circle'), el('div', { text: archive
+                ? p.name + ' leaves the training roster, their open assignments are cancelled and their portal sign-in is switched off. If Odoo lists them, the nightly sync keeps them archived. Nothing is deleted, and you can restore them here at any time.'
+                : p.name + ' returns to the training roster and their portal sign-in is switched back on. Rules assign any missing training the next time they run.' })]));
+            var reason = reasonInput(0, 255, archive ? 'Optional. For example: "Left the company, not yet ended in Odoo"' : 'Optional');
+            var rf = field({ label: 'Reason', control: reason.input, name: 'reason', required: false });
+            rf.insertBefore(reason.counter, rf.querySelector('.invalid-feedback'));
+            body.appendChild(rf);
+            var label = archive ? 'Archive ' + (p.name || 'person') : 'Restore ' + (p.name || 'person');
+            var submit = el('button', { type: 'button', class: 'btn ' + (archive ? 'btn-danger' : 'btn-primary'), text: archive ? 'Archive' : 'Restore' });
+            var h = sheet({ title: archive ? 'Archive person' : 'Restore person', subtitle: p.name || '', body: body, foot: [cancelBtn(), submit], onHidden: function () { resolve(result); } });
+            submit.setAttribute('aria-label', label);
+            submit.addEventListener('click', function () {
+                if (submit.disabled) { return; }
+                busy(submit, true, 'Saving…');
+                alertBox(body, null);
+                post('roster_archive', { contact_id: p.contact_id, archived: archive, reason: reason.input.value.trim() || null }).then(function (d) {
+                    result = d || {};
+                    UI.toast(archive ? p.name + ' archived.' : p.name + ' restored.');
+                    h.close();
+                }, function (err) {
+                    busy(submit, false);
+                    if (!showFieldErrors(body, err)) { alertBox(body, errorText(err)); }
+                });
+            });
+        });
+    }
+
     var EVENT_LABELS = {
         'assignment.created': 'Assigned', 'assignment.reopened': 'Reopened', 'assignment.completed': 'Completed',
         'assignment.cancelled': 'Cancelled', 'assignment.waived': 'Waived', 'assignment.due_changed': 'Due date changed',
@@ -1733,7 +1781,7 @@
 
     var FORMS = {
         assign: openAssign, extend: openExtend, waive: openWaive, 'void': openVoid, hire_date: openHireDate,
-        roster: openRoster, history: openHistory, external: openExternal, evaluation: openEvaluation,
+        roster: openRoster, archive: openArchive, history: openHistory, external: openExternal, evaluation: openEvaluation,
         reset: openResetForm, retake: openResetForm, unwaive: openResetForm
     };
     function Ops() { return window.TrainingOps; }

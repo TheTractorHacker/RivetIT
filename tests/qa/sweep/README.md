@@ -1,6 +1,6 @@
 # tests/qa/sweep - RivetIT read-only sweep, design review, input/keyboard tests
 
-All scripts talk to a **scratch demo on 127.0.0.1:8191 only** (never the shared demos, mwa or production). Output goes to `out*/`
+All scripts talk to a **scratch demo on 127.0.0.1:8191 only** (override with `QA_BASE`, `QA_DB`, `QA_APP`, `QA_PORT`, `QA_SRC` to run a second one, e.g. `QA_PORT=8193 QA_BASE=http://127.0.0.1:8193 QA_DB=qa_sweep_b_demo QA_APP=/home/sysadmin/qa-sweep-app-b`) (never the shared demos, mwa or production). Output goes to `out*/`
 (git-ignored); screenshots/contact sheets go to a scratch dir outside the repo. Small result summaries are kept in `results/`.
 
 ## Set up and tear down
@@ -37,3 +37,13 @@ Extra scratch accounts used by parallel runs (the app allows one session per use
 | `whitespace_required_check.py` | types whitespace into 11 required fields and reads the DB: nothing blank stored, nothing blanked (judges what the matrix toast heuristic cannot) |
 
 Run the matrix in shards with one account each: `QA_WHO=admin_d QA_FAST=1 python3 input_matrix.py 1/4 both` (and admin3, admin4, admin5 for 2/4..4/4), then `python3 input_matrix_report.py`.
+
+| script | what it asserts (fourth pass) |
+|---|---|
+| `ticket_status_inline_check.py` | header status pill is a dropdown, no modal, saves, history row, persists, Resolved needs a second click and closes, read-only user cannot change status |
+| `assets_list_check.py`, `assets_scope_check.py` | sort on every column/direction, filters match database counts, chips, hostile values inert, status badge contrast/size, sticky header, inline edit, 768/600/1366; department scoping of chip names, ids and option lists |
+| `training_people_archive_check.py` (+ `odoo_hold_check.php`) | archive/restore via the UI, audit log, double click, Odoo sync keeps a held archive (canned records), eligibility/assignments, primary contact refused, permissions incl. a department-restricted Training L3, menu inside the viewport, tab strip scrollbar |
+| `training_overview_check.py` | KPI tiles at 10 widths, zero-count semantics, trend chart legibility for 0/2/6/12 points, text alternative, filters vs database, dark |
+| `training_paths_check.py` | toolbar, New tile, editor layout at 3 sizes, validation, save, dirty guard, archive, read-only user |
+| `calendar_check.py` | chip contrast in light/dark, no red numbers, toolbar uniformity, legend toggles (mouse + keyboard + remembered), views, popover, sync URLs, 5 viewport sizes |
+| `list_sort_headers_check.py` | sort icon + aria-sort + correct arrow on 23 list pages |

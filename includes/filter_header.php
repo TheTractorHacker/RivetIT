@@ -42,10 +42,10 @@ if (isset($_GET['order']) && $_GET['order'] == 'DESC') {
 // (functions.php) instead. $disp is kept for any older caller.
 if(isset($order) && $order == "ASC") {
     $disp = "DESC";
-    $order_icon = "<i class='fas fa-sort-down'></i>";
+    $order_icon = "<i class='fas fa-sort-up'></i>";   // ascending = arrow up (it used to be inverted)
 } else {
     $disp = "ASC";
-    $order_icon = "<i class='fas fa-sort-up'></i>";
+    $order_icon = "<i class='fas fa-sort-down'></i>";
 }
 
 // Search

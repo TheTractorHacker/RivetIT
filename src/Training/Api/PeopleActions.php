@@ -3,7 +3,9 @@
 namespace ITFlow\Training\Api;
 
 use ITFlow\Training\Core\Ctx;
+use ITFlow\Training\Assign\AssignmentService;
 use ITFlow\Training\Core\Db;
+use ITFlow\Training\Core\Ledger;
 use ITFlow\Training\People\DepartmentGroups;
 use ITFlow\Training\People\Directory;
 use ITFlow\Training\People\HireDateService;
@@ -37,7 +39,7 @@ final class PeopleActions
         $r = (new Roster($c))->list([
             'q' => $a->str('q', 100, false, true),
             'client_id' => $a->int('client_id', false, 0),
-            'state' => $a->enum('state', ['auto', 'include', 'exclude', 'eligible', 'ineligible', 'all'], false) ?? 'all',
+            'state' => $a->enum('state', ['auto', 'include', 'exclude', 'eligible', 'ineligible', 'archived', 'all'], false) ?? 'all',
             'page' => $a->int('page', false, 1, 100000) ?? 1,
         ], $s);
         return $r + ['scope' => self::scopeName($s)];
@@ -53,6 +55,68 @@ final class PeopleActions
             CourseActions::log('Edit', 'Set training roster state of contact #' . $contactId . ' to ' . ($r['person']['roster_state'] ?? '?'), $contactId);
         }
         return ['person' => $r['person'], 'reconcile' => $r['reconcile']];
+    }
+
+    /**
+     * POST {contact_id, archived (bool), reason?} (Training L3 + Departments L2, and the department itself) -> {person, reconcile}.
+     * Archives (or restores) the contact exactly as Contacts does (contact_archived_at, and the linked portal login), keeps the
+     * Odoo directory sync from un-archiving them (contact_odoo_links.odoo_archive_hold) and reconciles their assignments.
+     * Nothing is deleted; a department's primary contact cannot be archived (same rule as Contacts).
+     */
+    public static function rosterArchive(Ctx $c, ApiContext $a): array
+    {
+        if (!function_exists('lookupUserPermission') || (int) lookupUserPermission('module_client') < 2) {
+            throw ApiException::forbidden('Archiving a person needs write access to Departments.');
+        }
+        $contactId = (int) $a->int('contact_id', true, 1);
+        $archive = (bool) $a->bool('archived', true);
+        $reason = $a->str('reason', 255, false);
+        $ref = Scope::forCtx($c)->assertContact($c->db, $contactId);
+        // The training scope can be wider than the user's department grants (Training L3 sees every department): honour both.
+        $allowed = array_filter(array_map('intval', explode(',', (string) ($GLOBALS['client_access_string'] ?? ''))));
+        if (empty($GLOBALS['session_is_admin']) && $allowed && !in_array($ref['contact_client_id'], $allowed, true)) {
+            throw ApiException::notFound('That person was not found.');
+        }
+        $db = $c->db;
+        $row = Db::one($db, 'SELECT contact_primary, contact_archived_at FROM contacts WHERE contact_id = ?', 'i', [$contactId]);
+        if ($archive && (int) ($row['contact_primary'] ?? 0) === 1) {
+            throw ApiException::validation(['contact_id' => 'Primary contact.'], 'This is the primary contact of their department. Make someone else primary first, then archive them.');
+        }
+        $isArchived = ($row['contact_archived_at'] ?? null) !== null;
+        $changed = $isArchived !== $archive;
+        if ($changed) {
+            Db::tx($db, function () use ($db, $c, $contactId, $archive, $ref, $reason): void {
+                if ($archive) {
+                    Db::exec($db, 'UPDATE contacts SET contact_important = 0, contact_billing = 0, contact_technical = 0, contact_archived_at = NOW() WHERE contact_id = ?', 'i', [$contactId]);
+                } else {
+                    Db::exec($db, 'UPDATE contacts SET contact_archived_at = NULL WHERE contact_id = ?', 'i', [$contactId]);
+                }
+                if ($ref['contact_user_id'] > 0) {
+                    Db::exec($db, 'UPDATE users SET user_archived_at = ' . ($archive ? 'NOW()' : 'NULL') . ' WHERE user_id = ?', 'i', [$ref['contact_user_id']]);
+                }
+                $hasHold = Db::one($db, "SELECT 1 AS ok FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'contact_odoo_links' AND column_name = 'odoo_archive_hold'", '', []);
+                if ($hasHold !== null) {
+                    Db::exec($db, 'UPDATE contact_odoo_links SET odoo_archive_hold = ? WHERE contact_id = ?', 'ii', [$archive ? 1 : 0, $contactId]);
+                }
+                Ledger::append($db, [
+                    'type' => 'roster.changed',
+                    'actor_type' => 'user',
+                    'actor_user_id' => $c->userId,
+                    'subject_contact_id' => $contactId,
+                    'entity_type' => 'roster',
+                    'entity_id' => $contactId,
+                    'payload' => ['from' => $archive ? 'active' : 'archived', 'to' => $archive ? 'archived' : 'active', 'reason' => $reason],
+                    'user_agent' => $c->userAgent,
+                ]);
+            });
+            if (function_exists('logAction')) {
+                $who = (string) ($GLOBALS['session_name'] ?? 'A user');
+                logAction('Contact', $archive ? 'Archive' : 'Restore', $who . ($archive ? ' archived ' : ' restored ') . $ref['contact_name'] . ' from Training > People' . ($reason ? ': ' . $reason : ''), $ref['contact_client_id'], $contactId);
+            }
+        }
+        $reconcile = $changed ? AssignmentService::safeReconcile($c, [$contactId], 'roster') : null;
+        $person = Directory::load($db, Scope::all(), [$contactId], true)[$contactId] ?? null;
+        return ['person' => $person === null ? null : Roster::row($person), 'changed' => $changed, 'reconcile' => $reconcile];
     }
 
     /** GET -> {jobs:[{id,name,count}], locations:[{id,name,count}]} over eligible in-scope people. */

@@ -83,7 +83,7 @@ final class Roster
 
     /**
      * The People › Roster list: every non-archived contact in scope (eligible or not).
-     * f: q, client_id, state ('auto'|'include'|'exclude'|'eligible'|'ineligible'|'all'), page (1-based).
+     * f: q, client_id, state ('auto'|'include'|'exclude'|'eligible'|'ineligible'|'archived'|'all'), page (1-based). 'archived' lists only archived contacts; every other state excludes them.
      *
      * @return array{people:list<array>, total:int, page:int, per_page:int}
      */
@@ -94,7 +94,8 @@ final class Roster
             return ['people' => [], 'total' => 0, 'page' => 1, 'per_page' => self::PAGE];
         }
         [$scopeSql, $types, $params] = $s->sqlIn('c.contact_client_id');
-        $where = 'WHERE c.contact_archived_at IS NULL' . $scopeSql;
+        $stateIn = (string) ($f['state'] ?? 'all');
+        $where = ($stateIn === 'archived' ? 'WHERE c.contact_archived_at IS NOT NULL' : 'WHERE c.contact_archived_at IS NULL') . $scopeSql;
         if (isset($f['client_id']) && $f['client_id'] !== null) {
             $where .= ' AND c.contact_client_id = ?';
             $types .= 'i';

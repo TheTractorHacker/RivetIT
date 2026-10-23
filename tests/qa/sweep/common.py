@@ -57,7 +57,7 @@ def mysql(sql):
 def login(p, who):
     """Log in once per account and reuse the session (the app throttles to 10 logins per account per 5 minutes and keeps one session per user)."""
     b = p.chromium.launch()
-    sf = f'/tmp/claude-1000/qa_state_{who}.json'
+    sf = f'/tmp/claude-1000/qa_state_{BASE.rsplit(":",1)[-1]}_{who}.json'
     e, pw = USERS[who]
     if os.path.exists(sf) and time.time() - os.path.getmtime(sf) < 1500 and not os.environ.get('QA_FRESH_LOGIN'):
         ctx = b.new_context(viewport={'width': 1920, 'height': 1080}, ignore_https_errors=True, storage_state=sf)

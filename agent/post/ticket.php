@@ -1141,6 +1141,7 @@ if (isset($_POST['quick_status_ticket'])) {
     customAction('ticket_update', $ticket_id);
 
     publishTicketEvent($ticket_id, 'status', ['status_id' => $new_status_id, 'status_name' => $new_status_name, 'status_color' => $new_status_color, 'by' => $session_name]);
+    queueWebhookEvent('ticket.status_changed', getWebhookTicketPayload($ticket_id));
 
     echo json_encode(['ok' => true, 'name' => $new_status_name, 'color' => $new_status_color]);
     exit;

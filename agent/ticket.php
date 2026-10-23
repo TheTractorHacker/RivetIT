@@ -629,11 +629,29 @@ if (isset($_GET['ticket_id'])) {
                         <span>Ticket# <?= "$ticket_prefix$ticket_number" ?></span>
 
                         <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
-                        <a class="ajax-modal" href="#" data-modal-url="modals/ticket/ticket_status.php?id=<?= $ticket_id ?>" title="Change Status">
-                            <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?>" style="background-color:<?= $ticket_status_color ?>;">
-                                <?= $ticket_status_name ?> <i class="fas fa-pen ms-1" style="font-size:.6rem;opacity:.75;"></i>
-                            </span>
-                        </a>
+                        <div class="dropdown d-inline-block" id="ticketStatusMenu" data-ticket-id="<?= $ticket_id ?>">
+                            <button type="button" id="ticketStatusPill" class="badge rounded-pill tkt-pill-badge border-0 dropdown-toggle <?= tagTextClass($ticket_status_color) ?>"
+                                    style="background-color:<?= $ticket_status_color ?>;cursor:pointer;" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-boundary="window" aria-haspopup="true" aria-expanded="false"
+                                    aria-label="Ticket status: <?= $ticket_status_name ?>. Change status">
+                                <span class="ticket-status-label"><?= $ticket_status_name ?></span>
+                            </button>
+                            <div class="dropdown-menu shadow-sm" style="min-width:200px;max-height:300px;overflow-y:auto;">
+                                <h6 class="dropdown-header">Set status</h6>
+                                <?php
+                                $sql_status_inline = mysqli_query($mysqli, "SELECT ticket_status_id, ticket_status_name, ticket_status_color FROM ticket_statuses WHERE ticket_status_active = 1 ORDER BY ticket_status_order");
+                                while ($row_si = mysqli_fetch_assoc($sql_status_inline)) {
+                                    $si_id = intval($row_si['ticket_status_id']);
+                                    $si_name = nullable_htmlentities($row_si['ticket_status_name']);
+                                    $si_color = nullable_htmlentities($row_si['ticket_status_color']);
+                                    $si_closes = ($si_id === 4 || $si_id === 5) ? '1' : '0';
+                                    $si_active = ($si_id === $ticket_status_id) ? ' active' : '';
+                                    echo "<button type=\"button\" class=\"dropdown-item ticket-status-set$si_active\" data-status-id=\"$si_id\" data-status-name=\"$si_name\" data-status-color=\"$si_color\" data-closes=\"$si_closes\">"
+                                       . "<span class=\"d-inline-block rounded-circle me-2\" style=\"width:10px;height:10px;background:$si_color;vertical-align:middle;\"></span>$si_name"
+                                       . ($si_closes === '1' ? " <small class=\"text-muted ms-1\">closes ticket</small>" : '') . "</button>";
+                                }
+                                ?>
+                            </div>
+                        </div>
                         <?php } else { ?>
                         <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?>" style="background-color:<?= $ticket_status_color ?>;">
                             <?= $ticket_status_name ?>
@@ -2802,6 +2820,66 @@ $(document).on('click', '.reply-status-submit', function(e) {
     $('#reply_submit_label').text('Submit & ' + sname);
     $('#ticketReplyForm').find('[name="add_ticket_reply"]').click();
 });
+
+// Inline status change from the header pill (no modal): same quick_status_ticket handler as the ticket list.
+(function () {
+    var busy = false;
+    function readableOn(hex) {
+        var h = String(hex || '').replace('#', '');
+        if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+        if (!/^[0-9a-fA-F]{6}$/.test(h)) { return '#fff'; }
+        var lin = function (v) { v = v / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        var L = 0.2126 * lin(parseInt(h.substr(0, 2), 16)) + 0.7152 * lin(parseInt(h.substr(2, 2), 16)) + 0.0722 * lin(parseInt(h.substr(4, 2), 16));
+        return L > 0.4 ? '#212529' : '#fff';
+    }
+    function setPill(name, color) {
+        var pill = document.getElementById('ticketStatusPill');
+        if (!pill) { return; }
+        pill.style.backgroundColor = color;
+        pill.style.color = readableOn(color);
+        pill.querySelector('.ticket-status-label').textContent = name;
+        pill.setAttribute('aria-label', 'Ticket status: ' + name + '. Change status');
+    }
+    function closeMenu() {
+        var pill = document.getElementById('ticketStatusPill');
+        if (pill && window.bootstrap) { bootstrap.Dropdown.getOrCreateInstance(pill).hide(); }
+    }
+    $(document).on('click', '.ticket-status-set', function (e) {
+        e.preventDefault();
+        var $it = $(this);
+        if (busy || $it.hasClass('active')) { return; }
+        if (String($it.data('closes')) === '1' && !$it.data('armed')) {
+            $('.ticket-status-set').each(function () { $(this).data('armed', 0).find('small').removeClass('text-danger').text('closes ticket'); });
+            $it.data('armed', 1).find('small').addClass('text-danger').text('click again to confirm');
+            return;
+        }
+        var $menu = $('#ticketStatusMenu'), $pill = $('#ticketStatusPill'), oldName = $pill.find('.ticket-status-label').text();
+        var csrf = $('[data-ticket-id][data-csrf]').first().data('csrf') || $('input[name="csrf_token"]').first().val();
+        busy = true;
+        $pill.prop('disabled', true).attr('aria-busy', 'true').css('opacity', '.6');
+        $.post('post.php', { quick_status_ticket: 1, ticket_id: $menu.data('ticket-id'), ticket_status_id: $it.data('status-id'), csrf_token: csrf }, function (res) {
+            if (res && res.ok) {
+                setPill(res.name, res.color);
+                $('.ticket-status-set').removeClass('active'); $it.addClass('active');
+                $('#reply_status_val').val($it.data('status-id'));
+                $('.reply-status-submit').removeClass('active').filter('[data-status-id="' + $it.data('status-id') + '"]').addClass('active');
+                if (window.toastr) { toastr.success('Status changed from ' + $('<div>').text(oldName).html() + ' to ' + $('<div>').text(res.name).html()); }
+                closeMenu();
+                if (String($it.data('closes')) === '1') { setTimeout(function () { location.reload(); }, 700); }
+            } else {
+                if (window.toastr) { toastr.error('Could not change the status. Reload the page and try again.'); }
+            }
+        }, 'json').fail(function () {
+            if (window.toastr) { toastr.error('Could not change the status (network or permission error). Nothing was changed.'); }
+        }).always(function () {
+            busy = false;
+            $pill.prop('disabled', false).removeAttr('aria-busy').css('opacity', '');
+        });
+    });
+    $(document).on('hide.bs.dropdown', '#ticketStatusMenu', function () {
+        $('.ticket-status-set').each(function () { $(this).data('armed', 0).find('small.text-danger').removeClass('text-danger').text('closes ticket'); });
+    });
+})();
 
 // Inline quick-status on ticket detail
 $(document).on('change', '#quickStatusSelect', function() {

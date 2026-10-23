@@ -111,13 +111,13 @@
                     var chipNode, sub;
                     if (p.archived) {
                         chipNode = u.chip('Archived', 'outline');
-                        sub = 'Archived contacts are not on the roster';
+                        sub = 'Hidden from the roster, assignments and reports';
                     } else if (st === 'exclude') {
                         chipNode = u.chip('Excluded', 'err', 'fas fa-user-slash');
                         sub = p.roster_reason || 'Excluded by hand';
                     } else if (p.eligible) {
                         chipNode = u.chip('On the roster', 'ok', 'fas fa-check');
-                        sub = st === 'include' ? 'Included by hand' + (p.roster_reason ? ': ' + p.roster_reason : '') : 'Automatic';
+                        sub = st === 'include' ? 'Included by hand' + (p.roster_reason ? ': ' + p.roster_reason : '') : '';   // automatic is the default: no second line
                     } else if (!p.department) {
                         chipNode = u.chip('No department', 'warn', 'fas fa-exclamation-triangle');
                         sub = 'Rules do not reach them until they get a department or are included';
@@ -147,6 +147,14 @@
                         if (!p.department && st !== 'include') { items.push({ label: 'Include on the roster…', icon: 'fas fa-user-check', onClick: function () { roster(p, 'include'); } }); }
                         if (st !== 'auto') { items.push({ label: 'Back to automatic…', icon: 'fas fa-undo', onClick: function () { roster(p, 'auto'); } }); }
                     }
+                    var canArchive = level >= 3 && routes.roster_archive === true;
+                    if (canArchive && !p.archived) {
+                        items.push('-');
+                        items.push({ label: 'Archive…', icon: 'fas fa-archive', danger: true, onClick: function () { archivePerson(p, true); } });
+                    }
+                    if (canArchive && p.archived) {
+                        items.push({ label: 'Restore…', icon: 'fas fa-undo', onClick: function () { archivePerson(p, false); } });
+                    }
                     if (level >= 3 && routes.hire_date_set !== false && !p.archived) {
                         items.push({ label: p.hire_date ? 'Change hire date / Rehired…' : 'Set hire date…', icon: 'far fa-calendar-alt', onClick: function () { hireDate(p); } });
                     }
@@ -157,10 +165,10 @@
                     items.push({ label: 'Open transcript', icon: 'fas fa-id-badge', href: u.transcriptUrl(p.contact_id) });
                     items.push({ label: 'Assignments', icon: 'fas fa-tasks', href: '/agent/training_assignments.php?contact_id=' + encodeURIComponent(p.contact_id) + '&status=all' });
                     var jobLoc = el('td', {}, [
-                        el('span', { class: p.job ? null : 'text-muted', text: p.job ? p.job.name : 'No job position' }),
+                        p.job ? el('span', { text: p.job.name }) : el('span', { class: 'text-muted', title: 'No job position from Odoo', 'aria-label': 'No job position', text: '\u2014' }),
                         p.location ? el('span', { class: 'tro-sub', text: p.location.name }) : null
                     ]);
-                    return el('tr', { dataset: { id: p.contact_id } }, [
+                    return el('tr', { dataset: { id: p.contact_id }, class: p.archived ? 'tro-row-archived' : null }, [
                         el('td', {}, [u.personCell(p, { sub: [p.title, p.employee_no ? '#' + p.employee_no : null].filter(Boolean).join(' · ') })]),
                         el('td', { class: p.department ? null : 'text-muted', text: p.department ? p.department.name : 'No department' }),
                         jobLoc,
@@ -169,6 +177,9 @@
                         el('td', {}, [linkChip(p)]),
                         el('td', { class: 'tro-actions' }, [u.kebab('Actions for ' + who, items)])
                     ]);
+                }
+                function archivePerson(p, archived) {
+                    Ops.open('archive', { person: p, archived: archived }).then(function (res) { if (res) { flashId = p.contact_id; refetch(); } });
                 }
                 function roster(p, st) {
                     Ops.open('roster', { person: p, state: st }).then(function (res) { if (res) { flashId = p.contact_id; refetch(); } });

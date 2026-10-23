@@ -364,14 +364,10 @@ function render(row, a) {
         statusCell.dataset.label = a.status;
         var badge = statusCell.querySelector('.asset-inline-badge');
         if (badge) {
-            if (a.status === '') {
-                badge.className = 'asset-inline-badge badge rounded-pill text-bg-light p-2';
-                badge.style.backgroundColor = '';
-                badge.textContent = 'Set status';
+            if (window.RivetListUi) {
+                window.RivetListUi.applyStatusBadge(badge, a.status, a.status_color);
             } else {
-                badge.className = 'asset-inline-badge badge rounded-pill p-2 ' + (a.status_color ? a.status_text_class : 'text-bg-secondary');
-                badge.style.backgroundColor = a.status_color || '';
-                badge.textContent = a.status;
+                badge.textContent = a.status === '' ? 'Set status' : a.status;
             }
         }
     }

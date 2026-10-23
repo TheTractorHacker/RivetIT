@@ -139,6 +139,30 @@ if (isset($_GET['type']) && ($_GET['type']) == 'workstation') {
     $type_filter = '';
 }
 
+require_once "../includes/list_ui.php";
+
+// Sort whitelist: the header links only ever send these keys; anything else falls back to Name instead of reaching ORDER BY.
+$_blank_last = function ($col) use (&$order) { return "(NULLIF($col, '') IS NULL), $col $order"; };
+$sort_map = [
+    'asset_name'          => fn() => "asset_name $order",
+    'asset_type'          => fn() => $_blank_last('asset_type'),
+    'asset_make'          => fn() => $_blank_last('asset_make') . ", asset_model $order",
+    'interface_ip'        => fn() => "(NULLIF(interface_ip, '') IS NULL), INET_ATON(interface_ip) $order, interface_ip $order",
+    'interface_mac'       => fn() => $_blank_last('interface_mac'),
+    'asset_purchase_date' => fn() => "(asset_purchase_date IS NULL), asset_purchase_date $order",
+    'asset_install_date'  => fn() => "(asset_install_date IS NULL), asset_install_date $order",
+    'asset_warranty_expire' => fn() => "(asset_warranty_expire IS NULL), asset_warranty_expire $order",
+    'contact_name'        => fn() => $_blank_last('contact_name'),
+    'location_name'       => fn() => $_blank_last('location_name'),
+    'asset_status'        => fn() => $_blank_last('asset_status'),
+    'client_name'         => fn() => $_blank_last('client_name'),
+];
+if (!isset($sort_map[$sort])) {
+    $sort = 'asset_name';
+}
+$order = ($order === 'DESC') ? 'DESC' : 'ASC';
+$order_by = $sort_map[$sort]() . ", asset_name ASC, asset_id ASC";
+
 if (!$client_url) {
     // Client Filter
     if (isset($_GET['client']) & !empty($_GET['client'])) {
@@ -152,13 +176,78 @@ if (!$client_url) {
 }
 
 // Location Filter
-if ($client_url && isset($_GET['location']) && !empty($_GET['location'])) {
+if (isset($_GET['location']) && !empty($_GET['location'])) {
     $location_query = 'AND (asset_location_id = ' . intval($_GET['location']) . ')';
     $location_filter = intval($_GET['location']);
 } else {
     // Default - any
     $location_query = '';
     $location_filter = 0;
+}
+
+// Extra filters (multi-select arrays are whitelisted by value against the data itself in the query, never trusted as columns).
+$_get_list = function ($key) {
+    $v = $_GET[$key] ?? [];
+    if (!is_array($v)) { $v = [$v]; }
+    $out = [];
+    foreach ($v as $item) {
+        if (is_scalar($item) && trim((string) $item) !== '' && mb_strlen((string) $item) <= 120) { $out[] = trim((string) $item); }
+    }
+    return array_slice(array_values(array_unique($out)), 0, 50);
+};
+$_in_list = function (array $vals) { return "'" . implode("','", array_map('sanitizeInput', $vals)) . "'"; };
+
+$f_status   = $_get_list('status');
+$f_type     = $_get_list('atype');
+$f_make     = $_get_list('make');
+$f_os       = $_get_list('os');
+$f_assigned = isset($_GET['assigned']) && is_scalar($_GET['assigned']) ? (string) $_GET['assigned'] : '';
+$f_warranty = isset($_GET['warranty']) && in_array($_GET['warranty'], ['expired', '90', 'none'], true) ? $_GET['warranty'] : '';
+$f_managed  = isset($_GET['managed']) && in_array($_GET['managed'], ['mdm', 'rmm', 'none'], true) ? $_GET['managed'] : '';
+
+// Ids that arrive in the URL are checked against the user's departments BEFORE they are used: a restricted user who types another
+// department's id gets neither the name (chip) nor the filter. $access_permission_query is empty for admins.
+$_chip_names = ['client' => '', 'location' => '', 'assigned' => ''];
+if (!$client_url && $client) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = " . intval($client) . " $access_permission_query LIMIT 1"));
+    if ($r) { $_chip_names['client'] = $r['client_name']; } else { $client = ''; $client_query = ''; }
+}
+if ($location_filter) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name FROM locations LEFT JOIN clients ON client_id = location_client_id WHERE location_id = " . intval($location_filter) . " AND (location_client_id = 0 OR 1=1 $access_permission_query) LIMIT 1"));
+    if ($r) { $_chip_names['location'] = $r['location_name']; } else { $location_filter = 0; $location_query = ''; }
+}
+if ($f_assigned === 'none') {
+    $_chip_names['assigned'] = 'Unassigned';
+} elseif (ctype_digit($f_assigned) && intval($f_assigned) > 0) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_name FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_id = " . intval($f_assigned) . " AND (contact_client_id = 0 OR 1=1 $access_permission_query) LIMIT 1"));
+    if ($r) { $_chip_names['assigned'] = $r['contact_name']; } else { $f_assigned = ''; }
+} else {
+    $f_assigned = '';
+}
+
+$filter_query = '';
+if ($f_status) {
+    $parts = [];
+    $named = array_values(array_diff($f_status, ['__none']));
+    if ($named) { $parts[] = 'asset_status IN (' . $_in_list($named) . ')'; }
+    if (in_array('__none', $f_status, true)) { $parts[] = "(asset_status = '' OR asset_status IS NULL)"; }
+    $filter_query .= ' AND (' . implode(' OR ', $parts) . ')';
+}
+if ($f_type)  { $filter_query .= ' AND asset_type IN (' . $_in_list($f_type) . ')'; }
+if ($f_make)  { $filter_query .= ' AND asset_make IN (' . $_in_list($f_make) . ')'; }
+if ($f_os)    { $filter_query .= ' AND asset_os IN (' . $_in_list($f_os) . ')'; }
+if ($f_assigned === 'none') { $filter_query .= ' AND (asset_contact_id = 0 OR asset_contact_id IS NULL)'; }
+elseif ($f_assigned !== '') { $filter_query .= ' AND asset_contact_id = ' . intval($f_assigned); }
+if ($f_warranty === 'expired') { $filter_query .= ' AND asset_warranty_expire IS NOT NULL AND asset_warranty_expire < CURDATE()'; }
+elseif ($f_warranty === '90')  { $filter_query .= ' AND asset_warranty_expire BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)'; }
+elseif ($f_warranty === 'none') { $filter_query .= ' AND asset_warranty_expire IS NULL'; }
+if ($f_managed) {
+    $has_tbl = function ($t) use ($mysqli) { $r = mysqli_query($mysqli, "SHOW TABLES LIKE '" . mysqli_real_escape_string($mysqli, $t) . "'"); return $r && mysqli_num_rows($r) > 0; };
+    $mdm_exists = $has_tbl('asset_mdm_links') ? 'EXISTS (SELECT 1 FROM asset_mdm_links WHERE asset_mdm_links.asset_id = assets.asset_id)' : '0';
+    $rmm_exists = $has_tbl('asset_rmm_links') ? 'EXISTS (SELECT 1 FROM asset_rmm_links WHERE asset_rmm_links.asset_id = assets.asset_id)' : '0';
+    if ($f_managed === 'mdm') { $filter_query .= " AND $mdm_exists"; }
+    elseif ($f_managed === 'rmm') { $filter_query .= " AND $rmm_exists"; }
+    else { $filter_query .= " AND NOT $mdm_exists AND NOT $rmm_exists"; }
 }
 
 // Tags Filter
@@ -238,8 +327,9 @@ $sql = mysqli_query(
     $access_permission_query
     $location_query
     $client_query
+    $filter_query
     GROUP BY asset_id
-    ORDER BY $sort $order LIMIT $record_from, $record_to"
+    ORDER BY $order_by LIMIT $record_from, $record_to"
 );
 
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
@@ -587,97 +677,130 @@ if (lookupUserPermission('module_client') >= 1) {
                 </div>
 
             </div>
+
+            <?php
+            $_active_filter_count = count($f_status) + count($f_type) + count($f_make) + count($f_os) + ($f_assigned !== '' ? 1 : 0) + ($f_warranty !== '' ? 1 : 0) + ($f_managed !== '' ? 1 : 0) + (!$client_url && $location_filter ? 1 : 0);
+            $_render_opts = function (array $values, array $selected) {
+                foreach (array_values(array_unique(array_merge($values, $selected))) as $val) {
+                    $v = nullable_htmlentities($val);
+                    echo "<option value=\"$v\"" . (in_array($val, $selected, true) ? ' selected' : '') . ">$v</option>";
+                }
+            };
+            $opt_base = "FROM assets LEFT JOIN clients ON client_id = asset_client_id WHERE $archive_query $access_permission_query $client_query";
+            ?>
+            <div class="d-md-none mt-3">
+                <button type="button" class="btn btn-default w-100" data-bs-toggle="collapse" data-bs-target="#assetMoreFilters" aria-expanded="<?= $_active_filter_count ? 'true' : 'false' ?>" aria-controls="assetMoreFilters">
+                    <i class="fas fa-fw fa-sliders-h me-2"></i>More filters<?= $_active_filter_count ? " ($_active_filter_count)" : '' ?>
+                </button>
+            </div>
+            <div class="collapse<?= $_active_filter_count ? ' show' : '' ?> mt-md-3" id="assetMoreFilters">
+                <div class="row g-2 asset-filter-row">
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="atype[]" data-placeholder="Type" aria-label="Filter by type" multiple>
+                            <?php $r = mysqli_query($mysqli, "SELECT DISTINCT asset_type $opt_base AND asset_type != '' AND asset_type != 'Firewall/Router' ORDER BY asset_type LIMIT 100"); $vals = []; while ($r && ($o = mysqli_fetch_assoc($r))) { $vals[] = $o['asset_type']; } $_render_opts($vals, $f_type); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="status[]" data-placeholder="Status" aria-label="Filter by status" multiple>
+                            <option value="__none"<?= in_array('__none', $f_status, true) ? ' selected' : '' ?>>(No status)</option>
+                            <?php $r = mysqli_query($mysqli, "SELECT category_name FROM categories WHERE category_type = 'asset_status' AND category_archived_at IS NULL ORDER BY category_order ASC, category_name ASC"); $vals = []; while ($r && ($o = mysqli_fetch_assoc($r))) { $vals[] = $o['category_name']; } $r = mysqli_query($mysqli, "SELECT DISTINCT asset_status $opt_base AND asset_status != '' ORDER BY asset_status LIMIT 100"); while ($r && ($o = mysqli_fetch_assoc($r))) { $vals[] = $o['asset_status']; } $_render_opts($vals, array_diff($f_status, ['__none'])); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="assigned" aria-label="Filter by assigned person">
+                            <option value="">Anyone assigned</option>
+                            <option value="none"<?= $f_assigned === 'none' ? ' selected' : '' ?>>Unassigned</option>
+                            <?php $r = mysqli_query($mysqli, "SELECT DISTINCT contact_id, contact_name FROM assets JOIN contacts ON asset_contact_id = contact_id LEFT JOIN clients ON client_id = asset_client_id WHERE $archive_query $access_permission_query $client_query ORDER BY contact_name LIMIT 500");
+                            while ($r && ($o = mysqli_fetch_assoc($r))) { $v = intval($o['contact_id']); echo "<option value=\"$v\"" . ($f_assigned === (string) $v ? ' selected' : '') . ">" . nullable_htmlentities($o['contact_name']) . "</option>"; } ?>
+                        </select>
+                    </div>
+                    <?php if (!$client_url) { ?>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="location" aria-label="Filter by location">
+                            <option value="">All locations</option>
+                            <?php $r = mysqli_query($mysqli, "SELECT DISTINCT location_id, location_name, client_name FROM assets JOIN locations ON asset_location_id = location_id LEFT JOIN clients ON client_id = asset_client_id WHERE $archive_query $access_permission_query $client_query ORDER BY location_name LIMIT 500");
+                            while ($r && ($o = mysqli_fetch_assoc($r))) { $v = intval($o['location_id']); echo "<option value=\"$v\"" . ($location_filter === $v ? ' selected' : '') . ">" . nullable_htmlentities($o['location_name'] . ($o['client_name'] ? ' - ' . $o['client_name'] : '')) . "</option>"; } ?>
+                        </select>
+                    </div>
+                    <?php } ?>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="make[]" data-placeholder="Manufacturer" aria-label="Filter by manufacturer" multiple>
+                            <?php $r = mysqli_query($mysqli, "SELECT DISTINCT asset_make $opt_base AND asset_make != '' ORDER BY asset_make LIMIT 200"); $vals = []; while ($r && ($o = mysqli_fetch_assoc($r))) { $vals[] = $o['asset_make']; } $_render_opts($vals, $f_make); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="os[]" data-placeholder="Operating system" aria-label="Filter by operating system" multiple>
+                            <?php $r = mysqli_query($mysqli, "SELECT DISTINCT asset_os $opt_base AND asset_os != '' ORDER BY asset_os LIMIT 200"); $vals = []; while ($r && ($o = mysqli_fetch_assoc($r))) { $vals[] = $o['asset_os']; } $_render_opts($vals, $f_os); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="warranty" aria-label="Filter by warranty">
+                            <option value="">Any warranty</option>
+                            <option value="expired"<?= $f_warranty === 'expired' ? ' selected' : '' ?>>Warranty expired</option>
+                            <option value="90"<?= $f_warranty === '90' ? ' selected' : '' ?>>Expires in 90 days</option>
+                            <option value="none"<?= $f_warranty === 'none' ? ' selected' : '' ?>>No warranty date</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3 col-xxl">
+                        <select class="form-control select2 auto-submit-select" name="managed" aria-label="Filter by management">
+                            <option value="">Managed or not</option>
+                            <option value="mdm"<?= $f_managed === 'mdm' ? ' selected' : '' ?>>In MDM</option>
+                            <option value="rmm"<?= $f_managed === 'rmm' ? ' selected' : '' ?>>In RMM</option>
+                            <option value="none"<?= $f_managed === 'none' ? ' selected' : '' ?>>Not managed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
         </form>
-        <hr>
+
+        <?php
+        // Active filters as removable chips, a result count and Clear all.
+        $_chips = [];
+        if ($q !== '') { $_chips[] = rivet_filter_chip('Search: <strong>' . stripslashes(nullable_htmlentities($q)) . '</strong>', rivet_url_without('q')); }
+        if (!$client_url && $client) { $_chips[] = rivet_filter_chip('Department: <strong>' . nullable_htmlentities($_chip_names['client']) . '</strong>', rivet_url_without('client')); }
+        if ($location_filter) { $_chips[] = rivet_filter_chip('Location: <strong>' . nullable_htmlentities($_chip_names['location']) . '</strong>', rivet_url_without('location')); }
+        if ($tag_filter) { $r = mysqli_query($mysqli, "SELECT tag_id, tag_name FROM tags WHERE tag_type = 5 AND tag_id IN ($tag_filter)"); while ($r && ($o = mysqli_fetch_assoc($r))) { $_chips[] = rivet_filter_chip('Tag: <strong>' . nullable_htmlentities($o['tag_name']) . '</strong>', rivet_url_without('tags', $o['tag_id'])); } }
+        foreach ($f_type as $v) { $_chips[] = rivet_filter_chip('Type: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('atype', $v)); }
+        foreach ($f_status as $v) { $_chips[] = rivet_filter_chip('Status: <strong>' . ($v === '__none' ? '(none)' : nullable_htmlentities($v)) . '</strong>', rivet_url_without('status', $v)); }
+        if ($f_assigned !== '') { $_chips[] = rivet_filter_chip('Assigned: <strong>' . nullable_htmlentities($_chip_names['assigned']) . '</strong>', rivet_url_without('assigned')); }
+        foreach ($f_make as $v) { $_chips[] = rivet_filter_chip('Manufacturer: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('make', $v)); }
+        foreach ($f_os as $v) { $_chips[] = rivet_filter_chip('OS: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('os', $v)); }
+        if ($f_warranty !== '') { $_chips[] = rivet_filter_chip('Warranty: <strong>' . ['expired' => 'expired', '90' => 'expires in 90 days', 'none' => 'no date'][$f_warranty] . '</strong>', rivet_url_without('warranty')); }
+        if ($f_managed !== '') { $_chips[] = rivet_filter_chip('Managed: <strong>' . ['mdm' => 'in MDM', 'rmm' => 'in RMM', 'none' => 'not managed'][$f_managed] . '</strong>', rivet_url_without('managed')); }
+        $_clear_q = array_filter(['client_id' => $client_url ? $client_id : null, 'scope' => $scope_url ? 'company' : null, 'type' => $_GET['type'] ?: null, 'archived' => $archived ?: null]);
+        $_clear_href = '?' . http_build_query($_clear_q);
+        ?>
+        <div class="filter-summary d-flex flex-wrap align-items-center gap-2 mt-3 mb-2" aria-live="polite">
+            <span class="text-secondary small"><strong><?= intval($num_rows[0]) ?></strong> <?= $num_rows[0] == 1 ? 'asset' : 'assets' ?><?= $_chips ? ' match' : '' ?></span>
+            <?= implode('', $_chips) ?>
+            <?php if (count($_chips) > 0) { ?><a class="small ms-1" href="<?= htmlspecialchars($_clear_href) ?>">Clear all</a><?php } ?>
+        </div>
         <form id="bulkActions" action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-            <div class="table-responsive">
-                <table class="table border table-hover">
+            <div class="table-responsive table-sticky-head">
+                <table class="table border table-hover assets-table">
                     <thead class="thead-light <?php if (!$num_rows[0]) { echo "d-none"; } ?> text-nowrap">
                     <tr>
                         <td class="bg-light checkbox-column">
                             <div class="form-check">
-                                <input class="form-check-input" id="selectAllCheckbox" type="checkbox">
+                                <input class="form-check-input" id="selectAllCheckbox" type="checkbox" aria-label="Select all assets on this page">
                             </div>
                         </td>
-                        <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_name&order=<?php echo sortLinkOrder('asset_name'); ?>">
-                                Name <?php if ($sort == 'asset_name') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_type&order=<?php echo sortLinkOrder('asset_type'); ?>">
-                                    Type <?php if ($sort == 'asset_type') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php if ($_GET['type'] !== 'virtual') { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_make&order=<?php echo sortLinkOrder('asset_make'); ?>">
-                                    Model <?php if ($sort == 'asset_make') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_ip&order=<?php echo sortLinkOrder('interface_ip'); ?>">
-                                    IP <?php if ($sort == 'interface_ip') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Mac_Address', $_GET['show_column'])) { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=interface_mac&order=<?php echo sortLinkOrder('interface_mac'); ?>">
-                                    MAC Address <?php if ($sort == 'interface_mac') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Purchase_Date', $_GET['show_column'])) { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_purchase_date&order=<?php echo sortLinkOrder('asset_purchase_date'); ?>">
-                                    Purchase Date <?php if ($sort == 'asset_purchase_date') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Install_Date', $_GET['show_column'])) { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_install_date&order=<?php echo sortLinkOrder('asset_install_date'); ?>">
-                                    Install Date <?php if ($sort == 'asset_install_date') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Warranty_Expire', $_GET['show_column'])) { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_warranty_expire&order=<?php echo sortLinkOrder('asset_warranty_expire'); ?>">
-                                    Warranty Expire <?php if ($sort == 'asset_warranty_expire') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                        <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'server' && $_GET['type'] !== 'other') { ?>
-                            <th>
-                                <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=contact_name&order=<?php echo sortLinkOrder('contact_name'); ?>">
-                                    Assigned To <?php if ($sort == 'contact_name') { echo $order_icon; } ?>
-                                </a>
-                            </th>
-                        <?php } ?>
-                        <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=location_name&order=<?php echo sortLinkOrder('location_name'); ?>">
-                                Location <?php if ($sort == 'location_name') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=asset_status&order=<?php echo sortLinkOrder('asset_status'); ?>">
-                                Status <?php if ($sort == 'asset_status') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <?php if (!$client_url) { ?>
-                        <th>
-                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
-                                Department <?php if ($sort == 'client_name') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <?php } ?>
+                        <?= rivet_sortable_th('Name', 'asset_name') ?>
+                        <?= rivet_sortable_th('Type', 'asset_type') ?>
+                        <?php if ($_GET['type'] !== 'virtual') { echo rivet_sortable_th('Model', 'asset_make'); } ?>
+                        <?= rivet_sortable_th('IP', 'interface_ip') ?>
+                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Mac_Address', $_GET['show_column'])) { echo rivet_sortable_th('MAC Address', 'interface_mac'); } ?>
+                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Purchase_Date', $_GET['show_column'])) { echo rivet_sortable_th('Purchase Date', 'asset_purchase_date'); } ?>
+                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Install_Date', $_GET['show_column'])) { echo rivet_sortable_th('Install Date', 'asset_install_date'); } ?>
+                        <?php if (isset($_GET['show_column']) && is_array($_GET['show_column']) && in_array('Warranty_Expire', $_GET['show_column'])) { echo rivet_sortable_th('Warranty Expire', 'asset_warranty_expire'); } ?>
+                        <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'server' && $_GET['type'] !== 'other') { echo rivet_sortable_th('Assigned To', 'contact_name'); } ?>
+                        <?= rivet_sortable_th('Location', 'location_name') ?>
+                        <?= rivet_sortable_th('Status', 'asset_status') ?>
+                        <?php if (!$client_url) { echo rivet_sortable_th('Department', 'client_name'); } ?>
                         <th class="text-center">Action</th>
                     </tr>
-
                     </thead>
                     <tbody>
                     <?php
@@ -808,7 +931,7 @@ if (lookupUserPermission('module_client') >= 1) {
                         <tr data-asset-id="<?= $asset_id ?>" data-client-id="<?= $client_id ?>">
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
-                                    <input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= $asset_id ?>">
+                                    <input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= $asset_id ?>" aria-label="Select <?= $asset_name ?>">
                                 </div>
                             </td>
                             <td>
@@ -876,7 +999,7 @@ if (lookupUserPermission('module_client') >= 1) {
                                     <?php } ?>
                                 </td>
                             <?php } ?>
-                                <td>
+                                <td class="text-nowrap">
                                     <?php echo $asset_ip; ?>
                                     <div class="text-secondary"><small><?php echo $asset_ipv6; ?></small></div>
                                 </td>
@@ -896,38 +1019,32 @@ if (lookupUserPermission('module_client') >= 1) {
                                 <?php /* Click-to-change cells - markup mirrored by agent/js/asset_inline_edit.js's render(), keep the two in step. */ ?>
                                 <?php if ($_GET['type'] !== 'network' && $_GET['type'] !== 'other' && $_GET['type'] !== 'server') { ?>
                                 <td class="asset-inline-cell" data-field="contact" data-value="<?= $asset_contact_id ?>" data-label="<?= $contact_name ?>">
-                                    <button type="button" class="asset-inline-trigger" title="Change who this is assigned to">
-                                        <span class="asset-inline-text<?= $contact_name ? '' : ' text-secondary' ?>"><?= $contact_name ?: '-' ?></span><?php if ($contact_name && $contact_archived_at) { ?><span class="asset-inline-note text-danger ms-1">(Archived)</span><?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    <button type="button" class="asset-inline-trigger" title="Change who this is assigned to" aria-label="Change assigned person for <?= $asset_name ?>">
+                                        <span class="asset-inline-text<?= $contact_name ? '' : ' text-secondary' ?>"><?= $contact_name ?: '-' ?></span><?php if ($contact_name && $contact_archived_at) { ?><span class="asset-inline-note text-danger ms-1">(Archived)</span><?php } ?><i class="fas fa-chevron-down asset-inline-caret" aria-hidden="true"></i>
                                     </button>
                                     <?php /* The name itself is now the dropdown - this keeps the contact card one click away. */ ?>
                                     <?php if ($assets_can_open_contacts) { ?>
-                                    <a href="#" class="asset-inline-link ajax-modal<?= $contact_name ? '' : ' d-none' ?>" data-modal-url="modals/contact/contact_details.php?id=<?= $asset_contact_id ?>" data-modal-size="lg" title="Open contact card"><i class="far fa-id-card"></i></a>
+                                    <a href="#" class="asset-inline-link ajax-modal<?= $contact_name ? '' : ' d-none' ?>" data-modal-url="modals/contact/contact_details.php?id=<?= $asset_contact_id ?>" data-modal-size="lg" title="Open contact card" aria-label="Open contact card for <?= $contact_name ?>"><i class="far fa-id-card" aria-hidden="true"></i></a>
                                     <?php } ?>
                                 </td>
                                 <?php } ?>
                                 <td class="asset-inline-cell" data-field="location" data-value="<?= $asset_location_id ?>" data-label="<?= $location_name === '-' ? '' : $location_name ?>" data-archived="<?= $location_archived_at ? 1 : 0 ?>">
-                                    <button type="button" class="asset-inline-trigger" title="Change location">
-                                        <span class="asset-inline-text<?= $location_name === '-' ? ' text-secondary' : ($location_archived_at ? ' text-danger text-decoration-line-through' : '') ?>"><?= $location_name ?></span><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    <button type="button" class="asset-inline-trigger" title="Change location" aria-label="Change location of <?= $asset_name ?>">
+                                        <span class="asset-inline-text<?= $location_name === '-' ? ' text-secondary' : ($location_archived_at ? ' text-danger text-decoration-line-through' : '') ?>"><?= $location_name ?></span><i class="fas fa-chevron-down asset-inline-caret" aria-hidden="true"></i>
                                     </button>
                                     <div><small><?php echo $asset_physical_location_display; ?></small></div>
                                 </td>
                                 <td class="asset-inline-cell" data-field="status" data-value="<?= $asset_status ?>" data-label="<?= $asset_status ?>">
-                                    <button type="button" class="asset-inline-trigger" title="Change status">
-                                        <?php if ($asset_status === '') { ?>
-                                            <span class="asset-inline-badge badge rounded-pill text-bg-light p-2">Set status</span>
-                                        <?php } elseif ($asset_status_color) { ?>
-                                            <span class="asset-inline-badge badge rounded-pill <?php echo tagTextClass($asset_status_color); ?> p-2" style="background-color: <?php echo $asset_status_color; ?>;"><?php echo $asset_status; ?></span>
-                                        <?php } else { ?>
-                                            <span class="asset-inline-badge badge rounded-pill text-bg-secondary p-2"><?php echo $asset_status; ?></span>
-                                        <?php } ?><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    <button type="button" class="asset-inline-trigger" title="Change status" aria-label="Change status of <?= $asset_name ?> (now: <?= $asset_status !== '' ? $asset_status : 'none' ?>)">
+                                        <?= rivet_status_badge($asset_status, $asset_status_color, 'asset-inline-badge') ?><i class="fas fa-chevron-down asset-inline-caret" aria-hidden="true"></i>
                                     </button>
                                 </td>
                                 <?php if (!$client_url) { ?>
                                 <td class="asset-inline-cell" data-field="client" data-value="<?= $client_id ?>" data-label="<?= $client_id ? $client_name : '' ?>">
-                                    <button type="button" class="asset-inline-trigger" title="Change department">
-                                        <span class="asset-inline-text<?= $client_id ? '' : ' text-secondary' ?>"><?= $client_id ? $client_name : '-' ?></span><i class="fas fa-caret-down asset-inline-caret"></i>
+                                    <button type="button" class="asset-inline-trigger" title="Change department" aria-label="Change department of <?= $asset_name ?>">
+                                        <span class="asset-inline-text<?= $client_id ? '' : ' text-secondary' ?>"><?= $client_id ? $client_name : '-' ?></span><i class="fas fa-chevron-down asset-inline-caret" aria-hidden="true"></i>
                                     </button>
-                                    <a href="assets.php?client_id=<?= $client_id ?>" class="asset-inline-link<?= $client_id ? '' : ' d-none' ?>" title="Show this department's assets"><i class="fas fa-arrow-right"></i></a>
+                                    <a href="assets.php?client_id=<?= $client_id ?>" class="asset-inline-link<?= $client_id ? '' : ' d-none' ?>" title="Show this department's assets" aria-label="Show assets of <?= $client_name ?>"><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
                                 </td>
                                 <?php } ?>
                             <?php } else { ?>
@@ -938,13 +1055,7 @@ if (lookupUserPermission('module_client') >= 1) {
                                 <div><?php echo $location_name_display; ?></div>
                                 <div><small><?php echo $asset_physical_location_display; ?></small></div>
                             </td>
-                            <td>
-                                <?php if ($asset_status_color) { ?>
-                                    <span class="badge rounded-pill <?php echo tagTextClass($asset_status_color); ?> p-2" style="background-color: <?php echo $asset_status_color; ?>;"><?php echo $asset_status; ?></span>
-                                <?php } else { ?>
-                                    <span class="badge rounded-pill text-bg-secondary p-2"><?php echo $asset_status; ?></span>
-                                <?php } ?>
-                            </td>
+                            <td><?= $asset_status !== '' ? rivet_status_badge($asset_status, $asset_status_color) : '<span class="text-secondary">-</span>' ?></td>
                             <?php if (!$client_url) { ?>
                             <td><?php if ($client_id) { ?><a href="assets.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a><?php } else { ?><span class="text-secondary">-</span><?php } ?></td>
                             <?php } ?>
@@ -966,7 +1077,7 @@ if (lookupUserPermission('module_client') >= 1) {
                                         <?php } ?>
                                     <?php } ?>
                                     <div class="dropdown dropleft text-center">
-                                        <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-ellipsis-h"></i></button>
+                                        <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $asset_name ?>"><i class="fas fa-ellipsis-h" aria-hidden="true"></i></button>
                                         <div class="dropdown-menu">
                                             <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>">
                                                 <i class="fas fa-fw fa-edit me-2"></i>Edit
@@ -1003,6 +1114,19 @@ if (lookupUserPermission('module_client') >= 1) {
 
                     </tbody>
                 </table>
+                <?php if (!$num_rows[0]) { ?>
+                <div class="text-center text-secondary py-5">
+                    <i class="fas fa-2x fa-desktop mb-3 d-block" aria-hidden="true"></i>
+                    <?php if ($_chips) { ?>
+                        <p class="mb-1"><strong>No assets match these filters.</strong></p>
+                        <p class="mb-3 small">Remove a filter above, or clear them all.</p>
+                        <a class="btn btn-default" href="<?= htmlspecialchars($_clear_href) ?>">Clear all filters</a>
+                    <?php } else { ?>
+                        <p class="mb-1"><strong>No assets here yet.</strong></p>
+                        <p class="mb-0 small">Use New Asset or Import to add the first one.</p>
+                    <?php } ?>
+                </div>
+                <?php } ?>
             </div>
         </form>
         <?php require_once "../includes/filter_footer.php"; ?>

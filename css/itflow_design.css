@@ -1062,7 +1062,7 @@ tr.asset-inline-moved-out > td {
 :root[data-bs-theme="dark"] .text-danger { color: #ff8585 !important; }
 :root[data-bs-theme="dark"] .nav-tabs .nav-link:not(.active), :root[data-bs-theme="dark"] .nav-pills .nav-link:not(.active) { color: #a9b6bb; }
 :root[data-bs-theme="dark"] .tr-chip[aria-pressed="true"], :root[data-bs-theme="dark"] .trb-node__name { color: #9dbcff; }
-:root[data-bs-theme="dark"] .fc .fc-daygrid-day-number, :root[data-bs-theme="dark"] .fc .fc-col-header-cell-cushion { color: #b3c8ff; }
+/* (calendar day numbers and headers take their colour from the .cal-surface block in itflow_custom.css) */
 
 /* Filled buttons: white label needs >= 4.5:1 (Tabler's success/info/danger/warning fills do not give it) */
 .btn-danger  { background-color: #c52f2f; border-color: #c52f2f; color: #fff; }
