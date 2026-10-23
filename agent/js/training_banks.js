@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function group(title, list, needle, isShared) {
-        var head = el('div', { class: 'trb-group__head' }, [el('span', { text: title }), el('span', { text: String(list.length) })]);
+        var head = el('div', { class: 'trb-group__head', 'aria-hidden': 'true' }, [el('span', { text: title }), el('span', { text: String(list.length) })]);
         if (isShared) {
             // Drop here to make a shared bank top level.
             head.addEventListener('dragover', function (e) {
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (dragId) { e.preventDefault(); moveBank(byId[dragId], null); }
             });
         }
-        var ul = el('ul', { class: 'trb-nodes', role: 'group' });
+        var ul = el('ul', { class: 'trb-nodes', role: 'list', 'aria-label': String(title) });
         list.filter(function (b) { return matches(b, needle); }).forEach(function (b) { ul.appendChild(node(b, 0, needle)); });
         if (!ul.firstChild) { ul.appendChild(el('li', { class: 'text-muted small px-2 py-1', text: needle ? 'No match.' : (isShared ? 'No shared banks yet.' : 'None.') })); }
         return el('div', { class: 'trb-group' }, [head, ul]);
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(function () { nameEl.focus(); nameEl.select(); }, 0);
         } else {
             nameEl = el('button', {
-                type: 'button', class: 'trb-node__open', role: 'treeitem', 'aria-selected': b.id === selectedId ? 'true' : 'false', 'aria-level': String(depth + 1),
+                type: 'button', class: 'trb-node__open', 'aria-current': b.id === selectedId ? 'true' : 'false',
                 'aria-expanded': kids.length ? (isOpen ? 'true' : 'false') : null, on: { click: function () { select(b.id); } }
             }, [
                 icon(b.kind === 'quiz' ? 'fa-pen' : (b.kind === 'course' && b.parent_id === null ? 'fa-book' : 'fa-layer-group'), 'trb-node__icon'),
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         var li = el('li', { class: 'trb-node' }, row);
         if (kids.length && isOpen) {
-            var ul = el('ul', { class: 'trb-nodes', role: 'group' });
+            var ul = el('ul', { class: 'trb-nodes', role: 'list' });
             kids.forEach(function (c) { ul.appendChild(node(c, depth + 1, needle)); });
             li.appendChild(ul);
         }

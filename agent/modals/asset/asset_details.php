@@ -93,7 +93,7 @@ while ($row = mysqli_fetch_assoc($sql_asset_tags)) {
     }
 
     $asset_tag_id_array[] = $asset_tag_id;
-    $asset_tag_name_display_array[] = "<a href='client_assets.php?client_id=$client_id&q=$asset_tag_name'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-2'></i>$asset_tag_name</span></a>";
+    $asset_tag_name_display_array[] = "<a href='assets.php?client_id=$client_id&tags[]=$asset_tag_id'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-2'></i>$asset_tag_name</span></a>";
 }
 $asset_tags_display = implode('', $asset_tag_name_display_array);
 

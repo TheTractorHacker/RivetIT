@@ -28,9 +28,9 @@ ob_start();
 
 ?>
 
-<div class="modal-header">
+<div class="modal-header bg-dark">
     <h5 class="modal-title"><i class="fas fa-fw fa-tag me-2"></i>New <strong><?= $type_display ?></strong> Tag</h5>
-    <button type="button" class="close" data-bs-dismiss="modal">
+    <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
 </div>

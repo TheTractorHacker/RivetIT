@@ -55,7 +55,7 @@ $page_title = $row['project_name'];
 $lanes = ['To Do', 'In Progress', 'Blocked', 'Done'];
 $lane_meta = [
     'To Do'       => ['icon' => 'fa-clipboard-list', 'badge' => 'text-bg-secondary'],
-    'In Progress' => ['icon' => 'fa-spinner',        'badge' => 'text-bg-info'],
+    'In Progress' => ['icon' => 'fa-hourglass-half',        'badge' => 'text-bg-info'],
     'Blocked'     => ['icon' => 'fa-ban',            'badge' => 'text-bg-danger'],
     'Done'        => ['icon' => 'fa-check',          'badge' => 'text-bg-success'],
 ];
@@ -114,6 +114,22 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
         box-shadow: var(--if-shadow);
         color: var(--if-ink);
     }
+    /* Board layout: equal-width lanes that scroll sideways as a group instead of clipping the last one, a header that stays put, and no giant empty band. */
+    #kanban-board { height: auto; gap: 12px; padding: 0 0 .75rem; align-items: flex-start; scroll-snap-type: x proximity; }
+    #kanban-board .kanban-column { flex: 1 0 280px; min-width: 280px; margin: 0; padding: 0; min-height: 0; max-height: calc(100vh - 250px); overflow: hidden; scroll-snap-align: start; }
+    #kanban-board .panel-title { display: flex; align-items: center; gap: .5rem; margin: 0; padding: .7rem .85rem; font-size: .9rem; font-weight: 600; border-bottom: 1px solid var(--if-border); background: var(--if-surface); position: sticky; top: 0; z-index: 1; }
+    #kanban-board .panel-title .badge { float: none !important; margin-left: auto; }
+    #kanban-board .kanban-status { padding: .6rem; min-height: 96px; }
+    #kanban-board .task { position: relative; margin: 0 0 .55rem; padding: .7rem .8rem; display: flex; flex-direction: column; gap: .35rem; }
+    #kanban-board .task:last-child { margin-bottom: 0; }
+    #kanban-board .task > .d-flex strong { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+    #kanban-board .task > .d-flex > .text-nowrap { display: flex; gap: .1rem; }
+    #kanban-board .task > .d-flex > .text-nowrap a { padding: .1rem .2rem; border-radius: 4px; }
+    #kanban-board .task > .mt-1 { margin-top: 0 !important; display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+    /* touch drag handle sits inside the card, bottom-right, instead of floating outside it */
+    #kanban-board .task .drag-handle-class { position: absolute; right: .5rem; bottom: .45rem; float: none; padding: .1rem .45rem; font-size: .75rem; }
+    .sortable-ghost { opacity: .55; outline: 2px dashed var(--bs-primary, #206bc4); outline-offset: -2px; background: rgba(var(--bs-primary-rgb, 32, 107, 196), .08) !important; }
+    .project-new-task { min-height: 2.5rem; padding-inline: 1.1rem; font-weight: 600; }
 </style>
 
 <!-- Breadcrumbs-->
@@ -137,7 +153,7 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
         </li>
     </ul>
     <?php if (empty($project_completed_at)) { ?>
-        <a class="btn btn-sm btn-primary ajax-modal" href="#" data-modal-url="modals/project/task_add.php?project_id=<?= $project_id ?>">
+        <a class="btn btn-primary ajax-modal project-new-task" href="#" data-modal-url="modals/project/task_add.php?project_id=<?= $project_id ?>">
             <i class="fas fa-fw fa-plus me-2"></i>New Task
         </a>
     <?php } ?>

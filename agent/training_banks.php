@@ -55,7 +55,7 @@ render_page_header(
                 <label class="form-check-label small" for="trb-quizbanks">Show quiz banks</label>
             </div>
         </div>
-        <div class="trb-tree" id="trb-tree" role="tree" aria-label="Question banks" aria-busy="true">
+        <div class="trb-tree" id="trb-tree" role="navigation" aria-label="Question banks" aria-busy="true">
             <div class="tr-skeleton tr-skeleton__line"></div>
             <div class="tr-skeleton tr-skeleton__line"></div>
             <div class="tr-skeleton tr-skeleton__line"></div>

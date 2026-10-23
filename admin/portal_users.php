@@ -160,7 +160,7 @@ require "includes/users_toggle.php";
                 </tbody>
             </table>
         </div>
-        <?php require_once "../includes/filter_footer.php"; ?>
+        <?php $suppress_filter_empty = true; require_once "../includes/filter_footer.php"; ?>
     </div>
 </div>
 

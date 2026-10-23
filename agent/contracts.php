@@ -121,19 +121,22 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
                             elseif ($crenewal <= $warn_date) echo " <span class='badge text-bg-warning text-dark'>Due Soon</span>";
                         } else { echo '-'; } ?>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center text-nowrap">
                         <a href="#" class="btn btn-sm btn-outline-primary ajax-modal"
                             data-modal-url="modals/contract/contract_documents.php?contract_id=<?= $cid ?>"
                             title="Documents">
                             <i class="fas fa-file-pdf"></i>
                         </a>
-                        <a href="#" class="btn btn-sm btn-secondary ajax-modal ms-1"
-                            data-modal-url="modals/contract/contract_edit.php?contract_id=<?= $cid ?>">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <a href="post.php?delete_contract=<?= $cid ?>&client_id=<?= $cclient_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i>
-                        </a>
+                        <div class="dropdown dropstart d-inline-block ms-1">
+                            <button class="btn btn-light btn-sm text-secondary" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Contract actions">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/contract/contract_edit.php?contract_id=<?= $cid ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item text-danger confirm-link" href="post.php?delete_contract=<?= $cid ?>&client_id=<?= $cclient_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash-alt me-2"></i>Delete</a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 <?php } ?>

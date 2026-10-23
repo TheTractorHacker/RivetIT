@@ -1015,40 +1015,40 @@ function rivetRmmSwReportPage(array $vm): string
 {
     $f = $vm['filters'];
     $csvQ = rivetRmmSwReportQuery($f, false);
-    $o = rivetRmmAutoHeader('Software report', 'clipboard-check', '<a class="btn btn-sm btn-outline-primary" href="/agent/rmm_software_report_csv.php?' . rmmH(http_build_query($csvQ)) . '"><i class="fas fa-file-csv me-1" aria-hidden="true"></i>Download CSV</a> '
-        . rivetRmmSwNavLinks('rmm_software_report.php'), 'Deployed against expected, by package, department, ring or device. Only what an assignment expects is counted. A cell that starts with = + - @ in the CSV is prefixed with an apostrophe so a spreadsheet never runs it.');
+    $o = rivetRmmAutoHeader('Software report', 'clipboard-check', '<a class="btn btn-outline-primary" href="/agent/rmm_software_report_csv.php?' . rmmH(http_build_query($csvQ)) . '" title="Export the rows below as CSV. A cell that starts with = + - or @ is prefixed with an apostrophe so a spreadsheet never runs it."><i class="fas fa-file-csv me-1" aria-hidden="true"></i>Export CSV</a> '
+        . rivetRmmSwNavLinks('rmm_software_report.php'), 'What is deployed against what an assignment expects, by package, department, ring or device. Only expected package and device pairs are counted.');
     if ($vm['error'] !== '') {
         return $o . '<div class="alert alert-danger" role="alert">' . rmmH($vm['error']) . '</div>';
     }
     $d = $vm['data'];
-    $o .= '<form method="get" action="/agent/rmm_software_report.php" class="card card-dark mb-3"><div class="card-body"><div class="row g-2 align-items-end">'
-        . '<div class="col-md-2"><label class="form-label" for="sr_by">Group by</label><select class="form-select" id="sr_by" name="group_by">';
+    $o .= '<form method="get" action="/agent/rmm_software_report.php" class="rmmx-toolbar" role="search" aria-label="Filter the report">'
+        . '<div class="rmmx-field"><label for="sr_by">Group by</label><select class="form-select" id="sr_by" name="group_by" data-searchable="0">';
     foreach (RIVET_RMM_SW_GROUPS as $k => $w) {
         $o .= '<option value="' . $k . '"' . ($f['group_by'] === $k ? ' selected' : '') . '>' . $w . '</option>';
     }
-    $o .= '</select></div><div class="col-md-3"><label class="form-label" for="sr_client">Department</label><select class="form-select" id="sr_client" name="client_id"><option value="">All I can see</option>';
+    $o .= '</select></div><div class="rmmx-field"><label for="sr_client">Department</label><select class="form-select" id="sr_client" name="client_id"><option value="">All I can see</option>';
     foreach ($vm['clients'] as $id => $name) {
         $o .= '<option value="' . (int) $id . '"' . ($f['client_id'] === (int) $id ? ' selected' : '') . '>' . rmmH($name) . '</option>';
     }
-    $o .= '</select></div><div class="col-md-3"><label class="form-label" for="sr_pkg">Package</label><select class="form-select" id="sr_pkg" name="package_id"><option value="">Any package</option>';
+    $o .= '</select></div><div class="rmmx-field"><label for="sr_pkg">Package</label><select class="form-select" id="sr_pkg" name="package_id"><option value="">Any package</option>';
     foreach ($vm['packages'] as $p) {
         $o .= '<option value="' . (int) $p['package_id'] . '"' . ($f['package_id'] === (int) $p['package_id'] ? ' selected' : '') . '>' . rmmH($p['name']) . '</option>';
     }
-    $o .= '</select></div><div class="col-md-2"><label class="form-label" for="sr_ring">Ring</label>';
+    $o .= '</select></div><div class="rmmx-field"><label for="sr_ring">Ring</label>';
     if ($vm['rings'] !== []) {
-        $o .= '<select class="form-select" id="sr_ring" name="ring"><option value="">Any ring</option>';
+        $o .= '<select class="form-select" id="sr_ring" name="ring" data-searchable="0"><option value="">Any ring</option>';
         foreach ($vm['rings'] as $g) {
             $o .= '<option value="' . rmmH($g) . '"' . ($f['ring'] === $g ? ' selected' : '') . '>' . rmmH($g) . '</option>';
         }
         $o .= '</select>';
     } else {
-        $o .= '<input class="form-control" id="sr_ring" name="ring" maxlength="39" pattern="[a-z][a-z0-9_\-]{0,38}" value="' . rmmH($f['ring']) . '">';
+        $o .= '<input class="form-control" id="sr_ring" name="ring" maxlength="39" pattern="[a-z][a-z0-9_\-]{0,38}" value="' . rmmH($f['ring']) . '" placeholder="Any ring">';
     }
-    $o .= '</div><div class="col-md-2" data-rmm-when="#sr_by=device"><label class="form-label" for="sr_state">State</label><select class="form-select" id="sr_state" name="state"><option value="">Any state</option>';
+    $o .= '</div><div class="rmmx-field" data-rmm-when="#sr_by=device"><label for="sr_state">State</label><select class="form-select" id="sr_state" name="state" data-searchable="0"><option value="">Any state</option>';
     foreach (RIVET_RMM_SW_STATES as $k => $w) {
         $o .= '<option value="' . $k . '"' . ($f['state'] === $k ? ' selected' : '') . '>' . rmmH($w) . '</option>';
     }
-    $o .= '</select></div><div class="col-auto"><button class="btn btn-outline-primary" type="submit">Apply</button></div></div></div></form>';
+    $o .= '</select></div><div class="rmmx-actions"><button class="btn btn-primary" type="submit"><i class="fas fa-filter" aria-hidden="true"></i>Apply</button><a class="btn btn-outline-secondary" href="/agent/rmm_software_report.php">Reset</a></div></form>';
     if (!$vm['enabled']) {
         $o .= '<div class="alert alert-warning">Software deployment was switched off while this page was open. The figures below are the last ones kept.</div>';
     }
@@ -1057,17 +1057,21 @@ function rivetRmmSwReportPage(array $vm): string
     $tot = $d['totals'] ?? null;
     if (is_array($tot)) {
         $pct = $tot['percent_compliant'];
-        $o .= '<div class="row g-2 mb-3">' . rivetRmmSwKpi('Expected', number_format((int) $tot['expected']), '', 'package and device pairs')
-            . rivetRmmSwKpi('Compliant', $pct === null ? 'no data' : rmmH((string) $pct) . ' %', $pct === null ? '' : ($pct >= 95 ? 'success' : ($pct >= 80 ? 'warning' : 'danger')), number_format((int) $tot['compliant']) . ' pairs')
-            . rivetRmmSwKpi('Failed', number_format((int) $tot['failed']), (int) $tot['failed'] > 0 ? 'danger' : '')
-            . rivetRmmSwKpi('Missing or still present', number_format((int) $tot['missing'] + (int) $tot['present']), (int) $tot['missing'] + (int) $tot['present'] > 0 ? 'warning' : '')
-            . rivetRmmSwKpi('Pending', number_format((int) $tot['pending']), '', 'a job is waiting or running')
-            . rivetRmmSwKpi('Scheduled', number_format((int) $tot['scheduled']), '', 'not due yet (ring delay)')
-            . rivetRmmSwKpi('Not detected yet', number_format((int) $tot['unknown']), (int) $tot['unknown'] > 0 ? 'warning' : '')
-            . '</div>';
+        $dev = static fn (string $state): string => '/agent/rmm_software_report.php?' . http_build_query(array_filter(['group_by' => 'device', 'client_id' => $f['client_id'], 'package_id' => $f['package_id'], 'ring' => $f['ring'], 'state' => $state], static fn ($v): bool => $v !== '' && $v !== 0));
+        $miss = (int) $tot['missing'] + (int) $tot['present'];
+        $o .= rmmxKpiGrid([
+            ['icon' => 'fa-bullseye', 'label' => 'Expected', 'value' => number_format((int) $tot['expected']), 'sub' => 'package and device pairs', 'tone' => 'neutral', 'title' => 'Every package and device pair an assignment expects'],
+            ['icon' => 'fa-check-circle', 'label' => 'Compliant', 'value' => $pct === null ? '—' : rmmH((string) $pct) . ' %', 'sub' => $pct === null ? 'no data yet' : number_format((int) $tot['compliant']) . ' pairs', 'tone' => $pct === null ? 'neutral' : ($pct >= 95 ? 'ok' : ($pct >= 80 ? 'warn' : 'danger')), 'title' => 'Share of expected pairs that are in the expected state', 'href' => $dev('compliant')],
+            ['icon' => 'fa-times-circle', 'label' => 'Failed', 'value' => number_format((int) $tot['failed']), 'sub' => 'the last attempt failed', 'tone' => 'danger', 'title' => 'Pairs whose last install or removal failed', 'href' => $dev('failed')],
+            ['icon' => 'fa-exclamation-triangle', 'label' => 'Missing or still present', 'value' => number_format($miss), 'sub' => 'not in the expected state', 'tone' => 'warn', 'title' => 'Not installed when it should be, or still installed when it should be gone', 'href' => $dev('missing')],
+            ['icon' => 'fa-hourglass-half', 'label' => 'Pending', 'value' => number_format((int) $tot['pending']), 'sub' => 'a job is waiting or running', 'tone' => 'info', 'title' => 'A job is queued or running', 'href' => $dev('pending')],
+            ['icon' => 'fa-clock', 'label' => 'Scheduled', 'value' => number_format((int) $tot['scheduled']), 'sub' => 'not due yet (ring delay)', 'tone' => 'neutral', 'title' => 'Waiting for the ring delay to pass', 'href' => $dev('scheduled')],
+            ['icon' => 'fa-question-circle', 'label' => 'Not detected yet', 'value' => number_format((int) $tot['unknown']), 'sub' => 'the scheduler has not looked', 'tone' => 'warn', 'title' => 'The device has not reported its software yet', 'href' => $dev('unknown')],
+        ]);
     }
     if ($rows === []) {
-        return $o . rivetRmmUiCard('Deployed against expected', 'clipboard-check', rivetRmmUiEmpty('fas fa-clipboard-check', 'Nothing is expected', 'A device appears here once an assignment reaches it and the scheduler has looked at it.'), '', '', true);
+        return $o . '<div class="rmmx-card"><div class="rmmx-card-head"><i class="fas fa-clipboard-check" aria-hidden="true"></i>Deployed against expected</div>'
+            . rmmxEmpty('fa-clipboard-check', 'Nothing is expected yet', 'Assign a package to a ring or a scope and a device appears here once the scheduler has looked at it.', '<a class="btn btn-primary" href="/agent/rmm_software_assignments.php"><i class="fas fa-plus me-1" aria-hidden="true"></i>Assign a package</a> <a class="btn btn-outline-secondary" href="/agent/rmm_software.php">Open the catalog</a>') . '</div>';
     }
     $body = '';
     if ($by === 'device') {
@@ -1078,7 +1082,7 @@ function rivetRmmSwReportPage(array $vm): string
                 . ($r['expected_version'] !== null ? ' <span class="small text-muted">' . rmmH((string) $r['expected_version']) . '</span>' : '') . '</td><td>' . rivetRmmSwStatePill((string) $r['state']) . '</td><td>' . ($r['installed_version'] !== '' ? rmmH((string) $r['installed_version']) : '<span class="text-muted">-</span>')
                 . '</td><td>' . ($r['ring'] !== '' ? rmmH((string) $r['ring']) : '<span class="text-muted">-</span>') . '</td><td>' . rivetRmmSwResultPill((string) $r['last_result']) . '</td></tr>';
         }
-        $tbl = '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Deployed against expected, one row per device and package</caption>'
+        $tbl = '<div class="rmmx-scroll"><table class="rmmx-table"><caption class="visually-hidden">Deployed against expected, one row per device and package</caption>'
             . rivetRmmUiThead(['Device', 'Package', 'Expected', 'State', 'Installed', 'Ring', 'Last result']) . '<tbody>' . $body . '</tbody></table></div>';
         $url = static fn (int $p): string => '/agent/rmm_software_report.php?' . http_build_query(array_filter(['group_by' => 'device', 'client_id' => $f['client_id'], 'package_id' => $f['package_id'], 'ring' => $f['ring'], 'state' => $f['state'], 'page' => $p > 1 ? $p : ''], static fn ($v): bool => $v !== '' && $v !== 0));
         $pager = '';
@@ -1096,7 +1100,7 @@ function rivetRmmSwReportPage(array $vm): string
             . '</td><td>' . (int) $r['compliant'] . '</td><td>' . ((int) $r['failed'] > 0 ? rivetRmmUiPill('crit', (string) (int) $r['failed']) : '0') . '</td><td>' . (int) $r['missing'] . '</td><td>' . (int) $r['present'] . '</td><td>' . (int) $r['pending']
             . '</td><td>' . (int) $r['scheduled'] . '</td><td>' . (int) $r['unknown'] . '</td></tr>';
     }
-    $tbl = '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Deployed against expected by ' . rmmH(strtolower(RIVET_RMM_SW_GROUPS[$by])) . '</caption>'
+    $tbl = '<div class="rmmx-scroll"><table class="rmmx-table"><caption class="visually-hidden">Deployed against expected by ' . rmmH(strtolower(RIVET_RMM_SW_GROUPS[$by])) . '</caption>'
         . rivetRmmUiThead([RIVET_RMM_SW_GROUPS[$by], 'Expected', 'Compliant %', 'Compliant', 'Failed', 'Missing', 'Still present', 'Pending', 'Scheduled', 'Not detected']) . '<tbody>' . $body . '</tbody></table></div>';
 
     return $o . rivetRmmUiCard('Deployed against expected, by ' . strtolower(RIVET_RMM_SW_GROUPS[$by]), 'clipboard-check', $tbl, '', '', true);

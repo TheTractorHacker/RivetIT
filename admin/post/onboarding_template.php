@@ -55,6 +55,8 @@ if (isset($_POST['add_checklist_task'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
+    requireFilledPost(['task_name' => 'Task name']);
+
     $ticket_template_id = intval($_POST['ticket_template_id']);
     $task_name = sanitizeInput($_POST['task_name']);
 

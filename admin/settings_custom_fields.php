@@ -28,7 +28,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
     <div class="card">
         <div class="card-header py-2">
-            <h3 class="card-title mt-2"><i class="fa fa-fw fa-th-list me-2"></i><?php echo nullable_htmlentities($table); ?> Fields</h3>
+            <h3 class="card-title mt-2"><i class="fa fa-fw fa-th-list me-2"></i><?= $table === 'client_assets' ? 'Asset' : 'Department' ?> fields</h3>
             <div class="card-tools">
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCustomFieldModal"><i class="fas fa-plus me-2"></i>Create</button>
             </div>

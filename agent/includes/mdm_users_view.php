@@ -55,46 +55,55 @@ while ($res && ($d = mysqli_fetch_assoc($res))) {
 }
 ?>
 
-<div class="card card-dark mb-2"><div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+<div class="card card-dark mb-2"><div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center mdm-toolbar">
     <form method="get" class="d-flex flex-wrap gap-2 align-items-center me-auto">
         <input type="hidden" name="view" value="users">
-        <input type="search" name="uq" value="<?= nullable_htmlentities($u_q) ?>" class="form-control form-control-sm w-auto" placeholder="Search user name or e-mail">
-        <select name="ustatus" class="form-select form-select-sm w-auto">
+        <input type="search" name="uq" value="<?= nullable_htmlentities($u_q) ?>" class="form-control mdm-search" placeholder="Search user name or e-mail" aria-label="Search user name or e-mail">
+        <select name="ustatus" class="form-select w-auto mdm-status" aria-label="Show">
             <option value="needs" <?= $u_filter === 'needs' ? 'selected' : '' ?>>Needs mapping (<?= $u_counts['needs'] ?>)</option>
             <option value="mapped" <?= $u_filter === 'mapped' ? 'selected' : '' ?>>Mapped (<?= $u_counts['mapped'] ?>)</option>
             <option value="ignored" <?= $u_filter === 'ignored' ? 'selected' : '' ?>>Ignored (<?= $u_counts['ignored'] ?>)</option>
             <option value="all" <?= $u_filter === 'all' ? 'selected' : '' ?>>All</option>
         </select>
-        <button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filter</button>
+        <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search me-1"></i>Filter</button>
     </form>
     <?php if ($can_edit) { ?>
-    <form action="post.php" method="post" class="d-flex gap-1">
+    <form action="post.php" method="post" class="d-flex flex-wrap gap-2">
         <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-        <button type="submit" name="refresh_mdm_users" class="btn btn-sm btn-outline-secondary" title="Re-read the device users and map exact e-mail matches"><i class="fas fa-sync me-1"></i>Rescan users</button>
+        <button type="submit" name="refresh_mdm_users" class="btn btn-outline-secondary" title="Re-read the device users and map exact e-mail matches"><i class="fas fa-sync me-1"></i>Rescan users</button>
         <?php if ($u_settings['assign_contact']) { ?>
-            <button type="submit" name="assign_mdm_contacts" value="apply" class="btn btn-sm btn-outline-info"><i class="fas fa-user-check me-1"></i>Assign contacts now</button>
-            <button type="submit" name="assign_mdm_contacts" value="preview" class="btn btn-sm btn-outline-secondary"><i class="fas fa-eye me-1"></i>Preview</button>
+            <button type="submit" name="assign_mdm_contacts" value="preview" class="btn btn-outline-secondary"><i class="fas fa-eye me-1"></i>Preview</button>
+            <button type="submit" name="assign_mdm_contacts" value="apply" class="btn btn-primary"><i class="fas fa-user-check me-1"></i>Assign contacts now</button>
         <?php } ?>
     </form>
     <?php } ?>
 </div></div>
 
-<div class="alert alert-secondary small py-2">
-    ManageEngine reports each device's user as a name and an e-mail address. A user is matched to a contact when exactly one live contact has that e-mail (exact, ignoring case).
-    <?php if ($u_settings['assign_contact']) { ?>
-        <strong>Assign contact from MDM user is ON</strong>: a sync fills an empty Assigned To<?= $u_settings['assign_contact_overwrite'] ? ' and, because overwrite is on, replaces a different contact' : ' (a contact that is already set is kept)' ?>, only with a contact from the asset's department.
-    <?php } else { ?>
-        <strong>Assign contact from MDM user is OFF</strong> (<?= $session_is_admin ? '<a href="/admin/settings_integrations.php?tab=devicesync">Mapping options</a>' : 'an administrator can switch it on under Mapping options' ?>): these mappings are only recorded; no asset is changed.
-    <?php } ?>
+<div class="alert alert-info d-flex gap-3 align-items-start mdm-explainer" role="note">
+    <i class="fas fa-info-circle mt-1" aria-hidden="true"></i>
+    <div>
+        <div class="fw-bold mb-1">How users are matched to contacts
+            <?php if ($u_settings['assign_contact']) { ?><span class="badge text-bg-success ms-2">Automatic assignment ON</span><?php } else { ?><span class="badge text-bg-secondary ms-2">Automatic assignment OFF</span><?php } ?>
+        </div>
+        <p class="mb-1">ManageEngine reports each device's user as a name and an e-mail address. A user is matched to a contact when exactly one live contact has that e-mail (exact, ignoring case).</p>
+        <p class="mb-0">
+        <?php if ($u_settings['assign_contact']) { ?>
+            A sync fills an empty Assigned To<?= $u_settings['assign_contact_overwrite'] ? ' and, because overwrite is on, replaces a different contact' : ' (a contact that is already set is kept)' ?>, only with a contact from the asset's department.
+        <?php } else { ?>
+            Mappings are only recorded; no asset is changed.
+        <?php } ?>
+        <?= $session_is_admin ? '<a href="/admin/settings_integrations.php?tab=devicesync">Mapping options</a>' : 'An administrator can change this under Mapping options.' ?>
+        </p>
+    </div>
 </div>
 
 <div class="card card-dark"><div class="card-body p-0">
 <?php if (!$u_rows) { ?>
     <div class="text-center text-muted py-5"><i class="fas fa-user-check fa-3x mb-3"></i><p><?= $u_filter === 'needs' ? 'Every MDM user is mapped or ignored.' : 'Nothing here.' ?> Run a sync (or Rescan users) if you expect more.</p></div>
 <?php } else { ?>
-    <table class="table table-sm mb-0 align-middle">
+    <div class="table-responsive mdm-scroll"><table class="table table-sm mb-0 align-middle">
         <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
-            <tr><th class="ps-3">MDM user</th><th>Devices</th><th>Contact</th><th style="min-width:380px">Action</th></tr>
+            <tr><th class="ps-3">MDM user</th><th>Devices</th><th>Contact</th><th class="mdm-action-col">Action</th></tr>
         </thead>
         <tbody>
         <?php foreach ($u_rows as $m) {
@@ -115,24 +124,24 @@ while ($res && ($d = mysqli_fetch_assoc($res))) {
                 <td>
                 <?php if (!$can_edit) { ?><span class="text-muted small">Needs edit access</span>
                 <?php } elseif ($m['contact_id'] === null && (int) $m['ignored'] === 0 || $m['contact_name'] === null && (int) $m['ignored'] === 0) { ?>
-                    <form action="post.php" method="post" class="d-flex gap-1">
+                    <form action="post.php" method="post" class="d-flex gap-2 mdm-map-form">
                         <input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="entry_id" value="<?= $id ?>">
-                        <input type="text" class="form-control form-control-sm mdm-typeahead" data-kind="contact" data-target="contact_for_<?= $id ?>" <?= $dept ? 'data-client-id="' . $dept . '"' : '' ?> placeholder="Search contacts<?= $dept ? ' (this department)' : '' ?>..." autocomplete="off">
+                        <input type="text" class="form-control mdm-typeahead" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="Search for a contact to map" data-kind="contact" data-target="contact_for_<?= $id ?>" <?= $dept ? 'data-client-id="' . $dept . '"' : '' ?> placeholder="Search contacts<?= $dept ? ' (this department)' : '' ?>..." autocomplete="off">
                         <input type="hidden" id="contact_for_<?= $id ?>" name="contact_id" value="">
-                        <button type="submit" name="map_mdm_user" value="1" class="btn btn-sm btn-primary text-nowrap"><i class="fas fa-link me-1"></i>Map</button>
-                        <button type="submit" name="ignore_mdm_user" value="1" class="btn btn-sm btn-outline-secondary">Ignore</button>
+                        <button type="submit" name="map_mdm_user" value="1" class="btn btn-primary text-nowrap mdm-map" disabled title="Choose a contact first"><i class="fas fa-link me-1"></i>Map</button>
+                        <button type="submit" name="ignore_mdm_user" value="1" class="btn btn-outline-secondary">Ignore</button>
                     </form>
                 <?php } else { ?>
                     <form action="post.php" method="post">
                         <input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="entry_id" value="<?= $id ?>">
-                        <button type="submit" name="unmap_mdm_user" value="1" class="btn btn-sm btn-outline-secondary"><?= (int) $m['ignored'] === 1 ? 'Stop ignoring' : 'Clear mapping' ?></button>
+                        <button type="submit" name="unmap_mdm_user" value="1" class="btn btn-outline-secondary"><?= (int) $m['ignored'] === 1 ? 'Stop ignoring' : 'Clear mapping' ?></button>
                     </form>
                 <?php } ?>
                 </td>
             </tr>
         <?php } ?>
         </tbody>
-    </table>
+    </table></div>
 <?php } ?>
 </div></div>
 <script src="/agent/js/mdm_mapping.js?v=<?= filemtime(__DIR__ . '/../js/mdm_mapping.js') ?>"></script>

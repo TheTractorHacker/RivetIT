@@ -43,15 +43,21 @@ $sql = mysqli_query($mysqli, "SELECT * FROM labor_types WHERE labor_type_archive
                     <td><?= $lt_rate > 0 ? '$' . number_format($lt_rate, 2) . '/hr' : '<span class="text-muted">—</span>' ?></td>
                     <td><span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:<?= $lt_color ?>;border:1px solid #ccc;"></span> <?= $lt_color ?></td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/labor_type/labor_type_edit.php?id=<?= $lt_id ?>">
-                            <i class="fas fa-edit"></i> Edit
-                        </a>
-                        <a href="post.php?delete_labor_type=<?= $lt_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Delete
-                        </a>
+                        <div class="dropdown dropstart d-inline-block">
+                            <button class="btn btn-light btn-sm text-secondary" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $lt_name ?>">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/labor_type/labor_type_edit.php?id=<?= $lt_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item text-danger confirm-link" href="post.php?delete_labor_type=<?= $lt_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash-alt me-2"></i>Delete</a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
+                <?php } ?>
+                <?php if (mysqli_num_rows($sql) === 0) { ?>
+                <tr><td colspan="4" class="text-center text-muted py-4">Nothing here yet. Use the New button above to add the first labor type.</td></tr>
                 <?php } ?>
                 </tbody>
             </table>

@@ -462,7 +462,7 @@ function rivetRmmAlrAlertsPage(array $vm): string
         return rivetRmmAlrDetailPage($vm);
     }
     $returnTo = rivetRmmAlrAlertsUrl($f);
-    $o = rivetRmmAutoHeader('Agent alerts', 'bell', '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_alerts.php"><i class="fas fa-list me-1" aria-hidden="true"></i>Alerts of all RMM integrations</a>',
+    $o = rivetRmmAutoHeader('Agent alerts', 'bell', '<a class="btn btn-sm btn-outline-secondary" href="/agent/alerts.php"><i class="fas fa-list me-1" aria-hidden="true"></i>Alerts of all RMM integrations</a>',
         'Alerts raised by the RivetIT endpoint agent. A critical alert can open a ticket. Acknowledging stops the escalation; resolving closes the alert by hand.');
     $o .= '<div id="alr-msg" class="alert d-none" role="status" aria-live="polite"></div>';
     if ($vm['error'] !== '') {
@@ -517,7 +517,7 @@ function rivetRmmAlrAlertsPage(array $vm): string
 /** @param array<string,mixed> $vm */
 function rivetRmmAlrDetailPage(array $vm): string
 {
-    $o = rivetRmmAutoHeader('Agent alert', 'bell', '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_agent_alerts.php"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>All agent alerts</a>');
+    $o = rivetRmmAutoHeader('Agent alert', 'bell', '<a class="btn btn-sm btn-outline-secondary" href="/agent/alerts.php?source=agent&amp;status=active"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>All agent alerts</a>');
     $o .= '<div id="alr-msg" class="alert d-none" role="status" aria-live="polite"></div>';
     $a = $vm['alert'] ?? null;
     if ($a === null) {

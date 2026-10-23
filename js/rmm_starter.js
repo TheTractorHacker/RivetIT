@@ -16,13 +16,15 @@
 
     function refresh() {
         var list = picks(), n = list.filter(function (c) { return c.checked; }).length;
-        if (counter) { counter.textContent = n === 0 ? 'Nothing selected.' : n + ' selected.'; }
+        if (counter) { counter.textContent = n === 0 ? 'Nothing selected' : n + ' selected'; }
+        var lbl = document.getElementById('starter-install-label');
+        if (lbl) { lbl.textContent = n === 0 ? 'Install selected' : 'Install selected (' + n + ')'; }
         buttons.forEach(function (b) {
             var off = n === 0 || installForbidden[b.id];
             if (installForbidden[b.id]) { return; }
             b.classList.toggle('disabled', off);
             b.setAttribute('aria-disabled', off ? 'true' : 'false');
-            if (off) { b.setAttribute('title', 'Tick at least one item first'); } else { b.removeAttribute('title'); }
+            if (off) { b.setAttribute('data-title', b.getAttribute('title') || ''); b.setAttribute('title', 'Tick at least one item first'); } else if (b.hasAttribute('data-title')) { b.setAttribute('title', b.getAttribute('data-title')); }
         });
         if (all) {
             var scripts = list.filter(function (c) { return c.getAttribute('data-risk') !== 'policy'; });

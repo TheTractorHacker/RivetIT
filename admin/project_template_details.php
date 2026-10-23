@@ -54,7 +54,7 @@ if (isset($_GET['project_template_id'])) {
 <!-- Breadcrumbs-->
 <ol class="breadcrumb d-print-none">
     <li class="breadcrumb-item">
-        <a href="admin_user.php">Admin</a>
+        <a href="users.php">Admin</a>
     </li>
     <li class="breadcrumb-item">
         <a href="project_template.php">Project Templates</a>
@@ -105,7 +105,7 @@ if (isset($_GET['project_template_id'])) {
             </div>
         </div>
 
-        <div class="col-sm-2">
+        <div class="col-12 col-xl-2 mt-2 mt-xl-0">
             <div class="btn-group float-end">
                 <button type="button" class="btn btn-primary btn-sm ajax-modal" href="#" data-modal-url="modals/project_template/project_template_ticket_template_add.php?project_template_id=<?= $project_template_id ?>">
                     <i class="fas fa-fw fa-plus me-2"></i>Add Ticket Template
@@ -263,4 +263,4 @@ require_once "../includes/footer.php";
 
 ?>
 
-<script src="js/pretty_content.js"></script>
+<script src="../js/pretty_content.js"></script>

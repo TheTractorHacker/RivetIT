@@ -107,6 +107,9 @@ if ($row) {
      * default-src at all. */
     $kb_article_content = $purifier->purify($row['kb_article_content']);
     $kb_article_content = \ITFlow\KB\MediaUrlRewriter::toPortal($kb_article_content);
+    // The CSP above blocks inline style=""; turn common formatting into classes and drop the rest (no 'unsafe-inline').
+    require_once __DIR__ . '/../includes/kb_portal_styles.php';
+    $kb_article_content = kbPortalStripInlineStyles($kb_article_content);
     // Credentials are agent-only; the portal has no reveal modal, so drop [[credential:ID]] tokens rather than show raw text.
     $kb_article_content = preg_replace('/\[\[credential:\d+\]\]/i', '', $kb_article_content);
     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
@@ -261,7 +264,7 @@ $sql_attachments = mysqli_query(
          data-ikb-progress="<?php echo htmlspecialchars($ikb_progress_json, ENT_QUOTES); ?>"
          data-ikb-hashes="<?php echo htmlspecialchars($ikb_hashes_json, ENT_QUOTES); ?>">
         <h3><?php echo $kb_article_title; ?></h3>
-        <p class="text-muted"><small>Last updated: <?php echo date('M j, Y', strtotime($kb_article_updated_at)); ?></small></p>
+        <p class="text-muted"><small>Last updated: <?php echo date('Y-m-d', strtotime($kb_article_updated_at)); ?></small></p>
         <hr>
         <?php echo $kb_article_content; ?>
     </div>

@@ -43,6 +43,7 @@ if (isset($_GET['asset_id'])) {
     ");
 
     if (mysqli_num_rows($sql) == 0) {
+        $client_id = intval($client_id ?? 0); // the modals included below interpolate it; unset used to be a SQL syntax error (HTTP 500)
         echo "<center><h1 class='text-secondary mt-5'>Nothing to see here</h1><a class='btn btn-lg btn-secondary mt-3' href='javascript:history.back()'><i class='fa fa-fw fa-arrow-left'></i> Go Back</a></center>";
 
     } else {
@@ -173,7 +174,7 @@ if (isset($_GET['asset_id'])) {
             }
 
             $asset_tag_id_array[] = $asset_tag_id;
-            $asset_tag_name_display_array[] = "<a href='client_assets.php?client_id=$client_id&q=$asset_tag_name'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-2'></i>$asset_tag_name</span></a>";
+            $asset_tag_name_display_array[] = "<a href='assets.php?client_id=$client_id&tags[]=$asset_tag_id'><span class='badge " . tagTextClass($asset_tag_color) . " p-1 me-1' style='background-color: $asset_tag_color;'><i class='fa fa-fw fa-$asset_tag_icon me-2'></i>$asset_tag_name</span></a>";
         }
         $asset_tags_display = implode('', $asset_tag_name_display_array);
 
@@ -350,6 +351,25 @@ if (isset($_GET['asset_id'])) {
         }
 
         ?>
+
+        <ol class="breadcrumb">
+            <?php if (lookupUserPermission('module_client') >= 1) { ?>
+            <li class="breadcrumb-item">
+                <a href="clients.php">Departments</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="client_overview.php?client_id=<?= $client_id; ?>"><?= $client_name; ?></a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="assets.php?client_id=<?= $client_id; ?>">Assets</a>
+            </li>
+            <?php } else { // no Departments: the company-wide Assets list (roles audit P4) ?>
+            <li class="breadcrumb-item">
+                <a href="assets.php?scope=company">Assets</a>
+            </li>
+            <?php } ?>
+            <li class="breadcrumb-item active"><?= $asset_name; ?></li>
+        </ol>
 
         <?php if ($rmm_agent_ui !== null) { echo rivetRmmUiStrip($rmm_agent_ui); } ?>
 
@@ -552,7 +572,7 @@ if (isset($_GET['asset_id'])) {
                             data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>">
                             <i class="fas fa-fw fa-edit"></i>
                         </button>
-                        <h4 class="text-bold"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= $asset_name; ?>
+                        <h4 class="text-bold asset-name"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= str_replace('-', "\u{2011}", $asset_name); ?>
                             <?php if ($asset_favorite) { ?><i class="fas fa-fw text-warning fa-star" title="Favorite"></i><?php } ?>
                         </h4>
                         <?php if ($asset_tag) { ?>
@@ -695,25 +715,6 @@ if (isset($_GET['asset_id'])) {
             </div>
 
             <div class="col-md-9">
-
-                <ol class="breadcrumb">
-                    <?php if (lookupUserPermission('module_client') >= 1) { ?>
-                    <li class="breadcrumb-item">
-                        <a href="clients.php">Departments</a>
-                    </li>
-                    <li class="breadcrumb-item">
-                        <a href="client_overview.php?client_id=<?= $client_id; ?>"><?= $client_name; ?></a>
-                    </li>
-                    <li class="breadcrumb-item">
-                        <a href="assets.php?client_id=<?= $client_id; ?>">Assets</a>
-                    </li>
-                    <?php } else { // no Departments: the company-wide Assets list (roles audit P4) ?>
-                    <li class="breadcrumb-item">
-                        <a href="assets.php?scope=company">Assets</a>
-                    </li>
-                    <?php } ?>
-                    <li class="breadcrumb-item active"><?= $asset_name; ?></li>
-                </ol>
 
                 <?php if (lookupUserPermission('module_support') >= 1) { // New ticket/credential/document/file and Link: Tickets/assets/docs (P4) ?>
                 <div class="btn-group mb-3">

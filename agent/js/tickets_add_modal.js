@@ -14,6 +14,28 @@ if (clientSelectDropdown && clientSelectDropdown.disabled) {
     populateLists(client_id);
 }
 
+// Asset / Location / Vendor depend on the Department. Until one is chosen they are shown disabled with a hint, not as blank
+// controls that open nothing (they used to render with zero options and no explanation).
+function setAwaitingDepartment(selectEl) {
+    if (!selectEl) return;
+    const hint = 'Select a department first';
+    if (selectEl.tomselect) {
+        const ts = selectEl.tomselect;
+        ts.clearOptions();
+        ts.addOption({ value: '0', text: hint });
+        ts.setValue('0', true);
+        ts.disable();
+        return;
+    }
+    while (selectEl.options.length) { selectEl.remove(0); }
+    selectEl.add(new Option(hint, '0'));
+    selectEl.disabled = true;
+}
+function awaitDepartment() {
+    ['assetSelect', 'locationSelect', 'vendorSelect'].forEach(function (id) { setAwaitingDepartment(document.getElementById(id)); });
+}
+if (clientSelectDropdown && !clientSelectDropdown.disabled && !clientSelectDropdown.value) { awaitDepartment(); }
+
 // Listener for client selection. Populate select lists when a client is selected
 // Native 'change' - the .select2 class is now backed by TomSelect (see
 // js/app.js's initSelect2Widgets()), which syncs the underlying <select> and
@@ -29,6 +51,8 @@ $(clientSelectDropdown).on('change', function (e) {
 // Populates dropdowns with dynamic content based on the client ID
 //  Called the client select dropdown is used or if the client select is disabled
 function populateLists(client_id) {
+
+    if (!client_id) { awaitDepartment(); return; }
 
     populateContactsDropdown(client_id);
 
@@ -48,8 +72,13 @@ function populateLists(client_id) {
 function refreshDynamicDropdown(selectEl, placeholderText, items) {
     if (!selectEl) return;
 
+    selectEl.disabled = false;
+    // The "nothing chosen" row is a real, meaningful choice here (value 0 = none), so it keeps a plain label instead of repeating the field name.
+    placeholderText = '- None -';
+
     if (selectEl.tomselect) {
         const ts = selectEl.tomselect;
+        ts.enable();
         ts.clearOptions();
         ts.addOption({ value: '0', text: placeholderText });
         items.forEach(item => ts.addOption(item));

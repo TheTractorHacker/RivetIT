@@ -11,9 +11,7 @@ $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
-if (isset($_GET['document_template_id'])) {
-    $document_template_id = intval($_GET['document_template_id']);
-}
+$document_template_id = intval($_GET['document_template_id'] ?? 0); // a missing id used to leave this undefined and fatal in the query below
 
 $sql_document = mysqli_query($mysqli, "SELECT * FROM document_templates WHERE document_template_id = $document_template_id LIMIT 1");
 

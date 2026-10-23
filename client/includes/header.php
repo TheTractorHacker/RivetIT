@@ -622,7 +622,7 @@ $portal_resource_pages = ['contacts.php', 'contact_add.php', 'contact_edit.php',
 ?>
 <div class="page-wrapper">
     <div class="page-body">
-        <div class="container">
+        <main id="main-content" class="container" tabindex="-1">
 
     <?php
     /* Full hero on Home, slim identity strip everywhere else. */

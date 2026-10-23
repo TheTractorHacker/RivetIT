@@ -141,8 +141,8 @@ ob_start();
             ?>
 
         <li class="nav-item" title="<?php echo $custom_link_name; ?>">
-            <a href="<?php echo $custom_link_uri; ?>" <?php echo $target; ?> class="nav-link">
-                <i class="fas <?php echo $custom_link_icon_class; ?> nav-icon"></i>
+            <a href="<?php echo $custom_link_uri; ?>" <?php echo $target; ?> class="nav-link" aria-label="<?php echo $custom_link_name; ?>" title="<?php echo $custom_link_name; ?>">
+                <i class="fas <?php echo $custom_link_icon_class; ?> nav-icon" aria-hidden="true"></i>
             </a>
         </li>
 

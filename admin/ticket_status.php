@@ -82,13 +82,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     ?>
                     <tr>
                         <td>
-                            <a href="#"
-                                <?php if ( $ticket_status_id > 5 ) { ?>
-                                class="ajax-modal" data-modal-url="modals/ticket_status/ticket_status_edit.php?id=<?= $ticket_status_id ?>"
-                                <?php } ?>
-                                >
+                            <?php if ( $ticket_status_id > 5 ) { ?>
+                            <a href="#" class="ajax-modal" data-modal-url="modals/ticket_status/ticket_status_edit.php?id=<?= $ticket_status_id ?>">
                                 <?php echo $ticket_status_name; ?>
                             </a>
+                            <?php } else { // built-in statuses can't be renamed: plain text, not a link that does nothing ?>
+                            <?php echo $ticket_status_name; ?>
+                            <?php } ?>
                         </td>
                         <td>
                             <span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span>

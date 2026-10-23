@@ -19,7 +19,7 @@ ob_start();
     <input type="hidden" name="client_id" value="<?= $client_id ?>">
 
     <div class="modal-body">
-
+        <p class="mb-0 text-secondary">Download everything you can see here as a CSV file that opens in Excel or any spreadsheet.</p>
     </div>
     <div class="modal-footer">
         <button type="submit" name="export_credentials_csv" class="btn btn-primary text-bold"><i class="fas fa-fw fa-download me-2"></i>Download CSV</button>

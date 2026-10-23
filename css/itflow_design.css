@@ -198,14 +198,14 @@ code, kbd, samp, pre, .text-monospace, .font-monospace, .if-mono { font-family: 
 
 /* Contextual rows (awaiting reply, overdue, etc.): a muted tint + left accent
    reads as "this needs attention" without Bootstrap's default saturated fill. */
-.table-warning { --bs-table-bg: rgba(217,119,6,.09); box-shadow: inset 3px 0 0 #d97706; }
-.table-danger  { --bs-table-bg: rgba(220,38,38,.08); box-shadow: inset 3px 0 0 #dc2626; }
-.table-success { --bs-table-bg: rgba(5,150,105,.08); box-shadow: inset 3px 0 0 #059669; }
-.table-info    { --bs-table-bg: rgba(13,148,136,.08); box-shadow: inset 3px 0 0 #0d9488; }
-:root[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(217,119,6,.14); }
-:root[data-bs-theme="dark"] .table-danger  { --bs-table-bg: rgba(220,38,38,.14); }
-:root[data-bs-theme="dark"] .table-success { --bs-table-bg: rgba(5,150,105,.14); }
-:root[data-bs-theme="dark"] .table-info    { --bs-table-bg: rgba(13,148,136,.14); }
+.table-warning { --bs-table-bg: rgba(217,119,6,.09); --tblr-table-bg: rgba(217,119,6,.09); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #d97706; }
+.table-danger  { --bs-table-bg: rgba(220,38,38,.08); --tblr-table-bg: rgba(220,38,38,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #dc2626; }
+.table-success { --bs-table-bg: rgba(5,150,105,.08); --tblr-table-bg: rgba(5,150,105,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #059669; }
+.table-info    { --bs-table-bg: rgba(13,148,136,.08); --tblr-table-bg: rgba(13,148,136,.08); --bs-table-color: var(--if-ink); --tblr-table-color: var(--if-ink); box-shadow: inset 3px 0 0 #0d9488; }
+:root[data-bs-theme="dark"] .table-warning { --bs-table-bg: rgba(217,119,6,.14); --tblr-table-bg: rgba(217,119,6,.14); }
+:root[data-bs-theme="dark"] .table-danger  { --bs-table-bg: rgba(220,38,38,.14); --tblr-table-bg: rgba(220,38,38,.14); }
+:root[data-bs-theme="dark"] .table-success { --bs-table-bg: rgba(5,150,105,.14); --tblr-table-bg: rgba(5,150,105,.14); }
+:root[data-bs-theme="dark"] .table-info    { --bs-table-bg: rgba(13,148,136,.14); --tblr-table-bg: rgba(13,148,136,.14); }
 
 /* ---- Forms: tidy inputs ---- */
 /* One control height for the whole app. Native inputs and .btn resolved to 40px
@@ -1008,3 +1008,92 @@ tr.asset-inline-moved-out > td {
     white-space: nowrap;
     color: var(--if-muted, #5d6f76);
 }
+
+/* Skip link + programmatic focus target for <main id="main-content"> */
+.skip-link { position: absolute; left: .5rem; top: -4rem; z-index: 2000; padding: .5rem 1rem; background: var(--if-surface); color: var(--if-ink); border: 2px solid var(--if-primary); border-radius: var(--if-radius-sm); }
+.skip-link:focus { top: .5rem; }
+#main-content:focus { outline: none; }
+
+/* Wide data tables scroll inside their card below 1200px instead of widening the whole page. Bootstrap's
+   .table-responsive-sm only scrolls under 576px, and many lists use bare tables in .card-body. (Desktop is left alone so
+   row-action dropdowns near the bottom of a table are not clipped by an overflow container.) */
+@media (max-width: 1199.98px) {
+    .table-responsive-sm, .table-responsive-md, .table-responsive-lg,
+    .card-body:has(> table), .card-body:has(> .table), .card:has(> table), .card:has(> .table), [class*="col-"]:has(> table), [class*="col-"]:has(> .table) { overflow-x: auto; }
+}
+
+/* A flex child will not shrink below its content: without this a wide .table-responsive pushes the whole page wider
+   than the viewport instead of scrolling inside its own box. */
+.page-wrapper, .page-body, .page-body > main { min-width: 0; }
+
+/* Light-theme helper text: Tabler's success green and muted grey fall under 4.5:1 on white and on the amber/red row tints. */
+:root:not([data-bs-theme="dark"]) .text-success { color: #157a30 !important; }
+:root:not([data-bs-theme="dark"]) .text-secondary, :root:not([data-bs-theme="dark"]) .text-muted { color: #566570 !important; }
+:root:not([data-bs-theme="dark"]) .cred-desc { color: #566570; }
+
+/* Dark theme: helper text, tom-select placeholder and outline-danger buttons were under 4.5:1 on the dark surfaces. */
+:root[data-bs-theme="dark"] .text-secondary, :root[data-bs-theme="dark"] .text-muted { color: #a9b6bb !important; }
+:root[data-bs-theme="dark"] .ts-control input, :root[data-bs-theme="dark"] .ts-control > input::placeholder { color: #a9b6bb; }
+:root[data-bs-theme="dark"] .btn-outline-danger { color: #ff9a9a; border-color: #ff9a9a; }
+:root[data-bs-theme="dark"] .btn-outline-danger:hover { color: #fff; }
+
+
+/* ---- Contrast pass (run 3) -------------------------------------------------------------------------------------
+   Contextual rows: Tabler also colours STRIPED / HOVER / ACTIVE cells from its own --tblr-table-*-color (black) and
+   --tblr-table-striped-bg (cream), so odd rows kept black text on a dark tint. Cover every variant and state. */
+.table-primary, .table-secondary, .table-light, .table-dark { --tblr-table-color: var(--if-ink); --bs-table-color: var(--if-ink); }
+.table-primary   { --tblr-table-bg: rgba(var(--if-primary-rgb), .09); }
+.table-secondary { --tblr-table-bg: rgba(93, 111, 118, .10); }
+.table-light     { --tblr-table-bg: rgba(93, 111, 118, .05); }
+.table-dark      { --tblr-table-bg: rgba(15, 23, 28, .90); --tblr-table-color: #e7eeef; }
+:root[data-bs-theme="dark"] .table-secondary { --tblr-table-bg: rgba(169, 182, 187, .12); }
+:root[data-bs-theme="dark"] .table-light { --tblr-table-bg: rgba(169, 182, 187, .08); }
+.table-warning, .table-danger, .table-success, .table-info, .table-primary, .table-secondary, .table-light {
+    --tblr-table-striped-color: var(--if-ink); --tblr-table-active-color: var(--if-ink); --tblr-table-hover-color: var(--if-ink);
+    --tblr-table-striped-bg: var(--tblr-table-bg); --tblr-table-active-bg: var(--tblr-table-bg); --tblr-table-hover-bg: var(--tblr-table-bg);
+    --tblr-table-color-state: var(--if-ink); --tblr-table-color-type: var(--if-ink);
+}
+.table-warning > *, .table-danger > *, .table-success > *, .table-info > *, .table-primary > *, .table-secondary > *, .table-light > * { color: var(--if-ink); }
+
+/* Dark surfaces that stayed light because a utility hard-codes white */
+:root[data-bs-theme="dark"] .bg-white, :root[data-bs-theme="dark"] .card-footer.bg-white { background-color: var(--if-surface) !important; }
+:root[data-bs-theme="dark"] .bg-light { background-color: color-mix(in srgb, var(--if-surface) 90%, #fff) !important; }
+:root[data-bs-theme="dark"] .text-dark:not(.badge):not([class*="bg-"]) { color: var(--if-ink) !important; }
+:root[data-bs-theme="dark"] .text-danger { color: #ff8585 !important; }
+:root[data-bs-theme="dark"] .nav-tabs .nav-link:not(.active), :root[data-bs-theme="dark"] .nav-pills .nav-link:not(.active) { color: #a9b6bb; }
+:root[data-bs-theme="dark"] .tr-chip[aria-pressed="true"], :root[data-bs-theme="dark"] .trb-node__name { color: #9dbcff; }
+:root[data-bs-theme="dark"] .fc .fc-daygrid-day-number, :root[data-bs-theme="dark"] .fc .fc-col-header-cell-cushion { color: #b3c8ff; }
+
+/* Filled buttons: white label needs >= 4.5:1 (Tabler's success/info/danger/warning fills do not give it) */
+.btn-danger  { background-color: #c52f2f; border-color: #c52f2f; color: #fff; }
+.btn-success { background-color: #1d7f33; border-color: #1d7f33; color: #fff; }
+.btn-info    { background-color: #2a6cb0; border-color: #2a6cb0; color: #fff; }
+.btn-warning { background-color: #f5a30a; border-color: #f5a30a; color: #1b1b1b; }
+.btn-danger:hover  { background-color: #a82424; border-color: #a82424; }
+.btn-success:hover { background-color: #166628; border-color: #166628; }
+.btn-info:hover    { background-color: #21588f; border-color: #21588f; }
+
+/* Links that sit inside running text must not rely on colour alone */
+main p a:not(.btn), main small a:not(.btn), main .small a:not(.btn), main li > a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) { text-decoration: underline; }
+:root[data-bs-theme="dark"] .fc .fc-event .fc-event-time, :root[data-bs-theme="dark"] .fc .fc-event .fc-event-title, :root[data-bs-theme="dark"] .fc .fc-daygrid-dot-event .fc-event-time { color: #e7eeef !important; }
+:root[data-bs-theme="dark"] .trb-node .trb-node__name, :root[data-bs-theme="dark"] .trb-node__open .trb-node__name { color: #9dbcff !important; }
+
+/* Calendar: keyboard focus must be visible on FullCalendar's own links and buttons */
+.fc a:focus-visible, .fc .fc-button:focus-visible, .fc .fc-event:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 2px; }
+
+/* Contrast: accent-filled buttons, the theme toggle's active segment, alerts, settings nav in dark, links inside help text */
+.btn-primary { background-color: color-mix(in srgb, var(--color-accent, #206bc4) 84%, #000); border-color: color-mix(in srgb, var(--color-accent, #206bc4) 84%, #000); }
+.btn-outline-secondary.active, .btn-check:checked + .btn-outline-secondary { background-color: #4a5a63; border-color: #4a5a63; color: #fff; }
+:root:not([data-bs-theme="dark"]) .alert-danger { color: #8f1d1d; }
+:root[data-bs-theme="dark"] a[aria-current="true"]:not(.btn) { color: #9dbcff; }
+main .form-text a, main .text-secondary a, main .text-muted a, main .alert a { text-decoration: underline; }
+.admin-breadcrumb a { text-decoration: underline; }
+
+/* Contrast (RMM pages): help text, tab links, tinted alerts and outline-primary buttons */
+:root:not([data-bs-theme="dark"]) .form-text, :root:not([data-bs-theme="dark"]) .form-hint { color: #566570; }
+:root:not([data-bs-theme="dark"]) .nav-tabs .nav-link:not(.active), :root:not([data-bs-theme="dark"]) .nav-pills .nav-link:not(.active) { color: #4d5b66; }
+:root:not([data-bs-theme="dark"]) .alert-warning { color: #6b4200; }
+:root:not([data-bs-theme="dark"]) .alert-info { color: #1b5a8f; }
+:root:not([data-bs-theme="dark"]) .alert-success { color: #166628; }
+:root:not([data-bs-theme="dark"]) .btn-outline-primary { color: #1c4fcf; }
+:root:not([data-bs-theme="dark"]) .btn-check:checked + .btn-outline-primary, :root:not([data-bs-theme="dark"]) .btn-outline-primary.active, :root:not([data-bs-theme="dark"]) .btn-outline-primary:hover { color: #fff; }

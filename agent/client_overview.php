@@ -157,7 +157,7 @@ $client_issues_usage = getClientIncludedIssuesUsage($mysqli, $client_id);
                     <span class="badge text-bg-secondary"><?= intval($rmm_client_stats['offline_cnt']) ?> Offline</span>
                 </span>
                 <?php if (intval($rmm_client_stats['total_alerts']) > 0): ?>
-                <a href="rmm_alerts.php?client_id=<?= $client_id ?>&status=new" class="text-decoration-none">
+                <a href="/agent/alerts.php?client_id=<?= $client_id ?>&status=new" class="text-decoration-none">
                     <span class="badge text-bg-danger"><i class="fas fa-bell me-1"></i><?= intval($rmm_client_stats['total_alerts']) ?> Alert<?= $rmm_client_stats['total_alerts'] != 1 ? 's' : '' ?></span>
                     <?php if ($rmm_client_stats['crit_alerts'] > 0): ?>
                         <span class="badge text-bg-danger ms-1"><?= intval($rmm_client_stats['crit_alerts']) ?> Critical</span>

@@ -11,6 +11,7 @@ require_once __DIR__ . '/../modals/crm/crm_helpers.php';
 if (isset($_POST['add_campaign'])) {
 
     validateCSRFToken($_POST['csrf_token']);
+    requireFilledPost(['subject' => 'Subject']);
     enforceUserPermission('module_sales', 2);
 
     $campaign_name = sanitizeInput($_POST['name'] ?? '');
@@ -42,6 +43,7 @@ if (isset($_POST['add_campaign'])) {
 if (isset($_POST['edit_campaign'])) {
 
     validateCSRFToken($_POST['csrf_token']);
+    requireFilledPost(['subject' => 'Subject']);
     enforceUserPermission('module_sales', 2);
 
     $campaign_id = intval($_POST['campaign_id']);

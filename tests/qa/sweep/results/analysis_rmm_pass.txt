@@ -1,0 +1,116 @@
+{'admin': {'pages': 258, 'variants': 269, 'skipped': 30}, 'portal2': {'pages': 40, 'variants': 40, 'skipped': 6}, 'tech': {'pages': 159, 'variants': 169, 'skipped': 8}, 'l2': {'pages': 36, 'variants': 46, 'skipped': 0}, 'l3': {'pages': 36, 'variants': 46, 'skipped': 0}, 'portal': {'pages': 35, 'variants': 35, 'skipped': 6}}
+[admin] /admin/compliance_report.php :: NO-BOOTSTRAP-JS
+[admin] /agent/calendar_feed.php :: HTTP 401
+[admin] /agent/kb_article_attachment.php :: HTTP 404
+[admin] /agent/kb_article_upload.php :: HTTP 400
+[admin] /agent/kb_embed.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/kb_embed.php
+[admin] /agent/kb_media.php :: HTTP 404
+[admin] /agent/kb_progress.php :: HTTP 400 ;; CONSOLE Failed to load resource: the server responded with a status of 400 (Bad Request) ;; REQ 400 GET /agent/kb_progress.php
+[admin] /agent/rmm_agent_device.php?device_id=33 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_agent_device.php?device_id=33
+[admin] /agent/rmm_job_output.php?device_id=33 :: HTTP 404
+[admin] /agent/sse_ticket_stream.php?ticket_id=248 :: EXC APIRequestContext.get: Timeout 3500ms exceeded.
+Call log:
+  - → GET http://127.0.0.1:8191/agent/sse_
+[admin] /agent/ticket_kanban.php :: NO-BOOTSTRAP-JS ;; BLANK(33)
+[admin] /agent/training_ajax.php :: HTTP 404
+[admin] /agent/training_certificate.php :: HTTP 404
+[admin] /agent/training_evidence.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_evidence.php
+[admin] /agent/training_evidence_upload.php :: HTTP 405
+[admin] /agent/training_media.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_media.php
+[admin] /agent/training_pdf.php :: HTTP 404
+[admin] /agent/training_quiz.php?lesson_id=1 :: CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_ajax.php?action=quiz_get&lesson_id=1
+[admin] /agent/training_upload.php :: HTTP 405
+[admin] /agent/training_video_frame.php :: HTTP 400
+[admin] /agent/kb_embed.php?id=1 :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/kb_embed.php?id=1
+[portal2] /client/kb_embed.php?id=1 :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /client/kb_embed.php?id=1
+[tech] /agent/kb_article.php?id=1 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/kb_article.php?id=1
+[tech] /agent/kb_article_attachment.php?id=1 :: HTTP 403
+[tech] /agent/kb_embed.php?id=1 :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/kb_embed.php?id=1
+[l2] /agent/training_ajax.php :: HTTP 404
+[l2] /agent/training_awards.php?contact_id=1&achievement_id=1 :: CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_ajax.php?action=award_list&achievement_id=1&contact_id=1
+[l2] /agent/training_certificate.php :: HTTP 404
+[l2] /agent/training_evidence.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_evidence.php
+[l2] /agent/training_evidence_upload.php :: HTTP 405
+[l2] /agent/training_media.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_media.php
+[l2] /agent/training_pdf.php :: HTTP 404
+[l2] /agent/training_quiz.php?lesson_id=1 :: CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_ajax.php?action=quiz_get&lesson_id=1
+[l2] /agent/training_upload.php :: HTTP 405
+[l2] /agent/training_video_frame.php :: HTTP 400
+[l3] /agent/training_ajax.php :: HTTP 404
+[l3] /agent/training_certificate.php :: HTTP 404
+[l3] /agent/training_evidence.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_evidence.php
+[l3] /agent/training_evidence_upload.php :: HTTP 405
+[l3] /agent/training_media.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_media.php
+[l3] /agent/training_pdf.php :: HTTP 404
+[l3] /agent/training_quiz.php?lesson_id=1 :: CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_ajax.php?action=quiz_get&lesson_id=1
+[l3] /agent/training_upload.php :: HTTP 405
+[l3] /agent/training_video_frame.php :: HTTP 400
+[portal2] /client/kb_embed.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /client/kb_embed.php
+[portal2] /client/kb_media.php :: HTTP 404
+[portal2] /client/kb_progress.php :: HTTP 400 ;; CONSOLE Failed to load resource: the server responded with a status of 400 (Bad Request) ;; REQ 400 GET /client/kb_progress.php
+[portal2] /client/sse_ticket_stream.php?ticket_id=248 :: HTTP 404
+[portal] /client/kb_embed.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /client/kb_embed.php
+[portal] /client/kb_media.php :: HTTP 404
+[portal] /client/kb_progress.php :: HTTP 400 ;; CONSOLE Failed to load resource: the server responded with a status of 400 (Bad Request) ;; REQ 400 GET /client/kb_progress.php
+[portal] /client/sse_ticket_stream.php?ticket_id=248 :: HTTP 404
+[tech] /agent/accounts.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/accounts.php
+[tech] /agent/alerts.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/alerts.php
+[tech] /agent/backups.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/backups.php?client_id=16
+[tech] /agent/calendar_feed.php :: HTTP 401
+[tech] /agent/expenses.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/expenses.php
+[tech] /agent/firewalls.php -> /agent/network.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/network.php
+[tech] /agent/kb_article.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/kb_article.php?client_id=16
+[tech] /agent/kb_article_attachment.php :: HTTP 403
+[tech] /agent/kb_article_upload.php :: HTTP 403
+[tech] /agent/kb_article_versions.php?client_id=16&kb_article_id=1 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/kb_article_versions.php?client_id=16&kb_article_id=1
+[tech] /agent/kb_articles.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/kb_articles.php?client_id=16
+[tech] /agent/kb_embed.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/kb_embed.php
+[tech] /agent/kb_media.php :: HTTP 404
+[tech] /agent/kb_progress.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/kb_progress.php
+[tech] /agent/network.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/network.php?client_id=16
+[tech] /agent/payments.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/payments.php?client_id=16
+[tech] /agent/recurring_expenses.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/recurring_expenses.php
+[tech] /agent/revenues.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/revenues.php
+[tech] /agent/rmm_agent_alerts.php?client_id=16 -> /agent/alerts.php?source=agent&status=active&client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/alerts.php?source=agent&status=active&client_id=16
+[tech] /agent/rmm_agent_device.php?device_id=33 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_agent_device.php?device_id=33
+[tech] /agent/rmm_alerts.php -> /agent/alerts.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/alerts.php
+[tech] /agent/rmm_approvals.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_approvals.php
+[tech] /agent/rmm_asset.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_asset.php
+[tech] /agent/rmm_assets.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_assets.php?client_id=16
+[tech] /agent/rmm_checks.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_checks.php
+[tech] /agent/rmm_dashboard.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_dashboard.php
+[tech] /agent/rmm_escalations.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_escalations.php
+[tech] /agent/rmm_fields.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_fields.php
+[tech] /agent/rmm_fleet.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_fleet.php?client_id=16
+[tech] /agent/rmm_hypervisors.php?vm_id=64 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_hypervisors.php?vm_id=64
+[tech] /agent/rmm_job_output.php?device_id=33 :: HTTP 404
+[tech] /agent/rmm_log_rules.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_log_rules.php
+[tech] /agent/rmm_logs.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_logs.php
+[tech] /agent/rmm_maintenance.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_maintenance.php
+[tech] /agent/rmm_patch_policies.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_patch_policies.php
+[tech] /agent/rmm_patch_updates.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_patch_updates.php
+[tech] /agent/rmm_patches.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_patches.php
+[tech] /agent/rmm_policies.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_policies.php
+[tech] /agent/rmm_schedules.php?schedule_id=1 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_schedules.php?schedule_id=1
+[tech] /agent/rmm_script_library.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_script_library.php
+[tech] /agent/rmm_scripts.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_scripts.php
+[tech] /agent/rmm_software.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_software.php
+[tech] /agent/rmm_software_assignments.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_software_assignments.php
+[tech] /agent/rmm_software_report.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_software_report.php
+[tech] /agent/rmm_software_report_csv.php :: HTTP 403
+[tech] /agent/rmm_starter_pack.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/rmm_starter_pack.php
+[tech] /agent/sse_ticket_stream.php?ticket_id=248 :: EXC APIRequestContext.get: Timeout 3500ms exceeded.
+Call log:
+  - → GET http://127.0.0.1:8191/agent/sse_
+[tech] /agent/ticket_kanban.php :: NO-BOOTSTRAP-JS ;; BLANK(33)
+[tech] /agent/training_ajax.php :: HTTP 403
+[tech] /agent/training_certificate.php :: HTTP 404
+[tech] /agent/training_evidence.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_evidence.php
+[tech] /agent/training_evidence_upload.php :: HTTP 405
+[tech] /agent/training_media.php :: HTTP 404 ;; CONSOLE Failed to load resource: the server responded with a status of 404 (Not Found) ;; REQ 404 GET /agent/training_media.php
+[tech] /agent/training_pdf.php :: HTTP 404
+[tech] /agent/training_upload.php :: HTTP 405
+[tech] /agent/training_video_frame.php :: HTTP 403
+[tech] /agent/transfers.php :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/transfers.php
+[tech] /agent/trips.php?client_id=16 :: HTTP 403 ;; CONSOLE Failed to load resource: the server responded with a status of 403 (Forbidden) ;; REQ 403 GET /agent/trips.php?client_id=16
+110 flagged variants

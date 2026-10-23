@@ -330,7 +330,7 @@ if (isset($_GET['project_id'])) {
 </ul>
 
 <!-- Project Header -->
-<div class="card">
+<div class="card project-header-card">
     <div class="card-header">
         <h5 class="card-title">
             <i class="fas fa-project-diagram text-secondary me-2"></i>
@@ -413,7 +413,7 @@ if (isset($_GET['project_id'])) {
     </div>
 </div>
 
-<div class="card-group mb-3">
+<div class="card-group mb-3 project-summary-group">
     <div class="card card-body">
         <h5 class="mb-0"><?= $project_name ?></h5>
         <div><small class="text-secondary"><?php echo $project_description; ?></small></div>

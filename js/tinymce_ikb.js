@@ -1537,6 +1537,7 @@
         return !!(form && form.querySelector('[name="add_kb_article"], [name="edit_kb_article"]'));
     }
 
+    if (typeof tinymce === "undefined") { return; }   // the page was replaced while the plugin script was loading
     tinymce.PluginManager.add('ikb', function (editor) {
 
         /* ── THE STRUCTURAL GUARD ──────────────────────────────────────────────

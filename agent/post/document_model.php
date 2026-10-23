@@ -9,7 +9,7 @@ if (isset($_POST['review_at'])) {
     $review_at_ok = preg_match('/^\d{4}-\d{2}-\d{2}$/', $review_at_raw) === 1 && strtotime($review_at_raw) !== false;
     $review_at_sql = $review_at_ok ? "'" . $review_at_raw . "'" : 'NULL';
 }
-$folder = intval($_POST['folder']);
+$folder = intval($_POST['folder'] ?? 0);
 $description = sanitizeInput($_POST['description']);
 $content = mysqli_real_escape_string($mysqli,$_POST['content']);
 $content_raw = sanitizeInput($_POST['name'] . " " . str_replace("<", " <", $_POST['content']));

@@ -94,7 +94,7 @@ $sql_creds = mysqli_query($mysqli,
                 </h4>
                 <div class="text-muted small">
                     <?php if ($link['client_name']): ?>
-                        <a href="/agent/client_details.php?client_id=<?= $client_id ?>">
+                        <a href="/agent/client_overview.php?client_id=<?= $client_id ?>">
                             <i class="fas fa-users me-1"></i><?= nullable_htmlentities($link['client_name']) ?>
                         </a>
                     <?php endif; ?>
@@ -207,7 +207,7 @@ $sql_creds = mysqli_query($mysqli,
                 <hr class="my-2">
                 <div class="text-muted mb-1">Credentials</div>
                 <?php while ($cr = mysqli_fetch_assoc($sql_creds)): ?>
-                    <a href="/agent/credential_details.php?credential_id=<?= $cr['credential_id'] ?>">
+                    <a href="/agent/credentials.php?client_id=<?= intval($client_id) ?>&q=<?= urlencode($cr['credential_name']) ?>">
                         <?= nullable_htmlentities($cr['credential_name']) ?>
                     </a><br>
                 <?php endwhile; ?>
@@ -224,7 +224,7 @@ $sql_creds = mysqli_query($mysqli,
         <div class="card card-dark mb-3">
             <div class="card-header py-2 d-flex align-items-center">
                 <h6 class="mb-0 mr-auto"><i class="fas fa-bell me-2"></i>Active Alerts</h6>
-                <a href="/agent/rmm_alerts.php?asset_id=<?= $asset_id ?>" class="btn btn-xs btn-secondary">All</a>
+                <a href="/agent/alerts.php?asset_id=<?= $asset_id ?>" class="btn btn-xs btn-secondary">All</a>
             </div>
             <div class="card-body p-0">
             <?php

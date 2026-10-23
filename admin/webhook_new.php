@@ -24,7 +24,7 @@ $card = static function (\RivetCore\Webhooks\Destination $dd, string $extra = ''
     <a class="wz-pcard<?= $extra ?>" href="webhook_new.php?dest=<?= $h(rawurlencode($dd->id)) ?>&amp;step=connect" data-wz-dest="<?= $h($dd->id) ?>" data-wz-cat="<?= $h($dd->category) ?>"
        data-wz-search="<?= $h(strtolower($dd->name . ' ' . $dd->id . ' ' . $dd->description . ' ' . $dd->format . ' ' . $dd->category)) ?>" title="<?= $h($dd->description) ?>">
         <span class="wz-pcard-icon"><i class="<?= $h($fs . ' ' . $fi) ?>" aria-hidden="true"></i></span>
-        <span class="wz-pcard-text"><span class="wz-pcard-name"><?= $h($dd->name) ?></span><span class="wz-pcard-desc"><?= $h($dd->description) ?></span></span>
+        <span class="wz-pcard-text"><span class="wz-pcard-name"><?= $h($dd->name) ?></span><span class="wz-pcard-desc" title="<?= $h($dd->description) ?>"><?= $h($dd->description) ?></span></span>
     </a>
     <?php
 };

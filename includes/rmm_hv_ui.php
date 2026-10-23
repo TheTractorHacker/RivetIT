@@ -71,45 +71,82 @@ function rivetRmmHvHostsView(array $ctx, array $get): array
 function rivetRmmHvHostsPage(array $vm, array $ctx): string
 {
     $h = 'rivetRmmHvH';
-    $o = rivetRmmAutoHeader('Hypervisors', 'server', '', 'Proxmox VE and Hyper-V hosts an endpoint agent reports on. Off by default; nothing is stored until an administrator switches it on.');
+    $o = rivetRmmAutoHeader('Hypervisors', 'server', '', 'Proxmox VE and Hyper-V hosts that an endpoint agent reports on: their VMs and storage.');
     if ($vm['error'] !== '') {
         return $o . '<div class="alert alert-danger" role="alert">' . $h($vm['error']) . '</div>';
     }
     if (!$vm['enabled']) {
-        return $o . rivetRmmUiEmpty('fas fa-server', 'Hypervisor visibility is off', $vm['admin'] ? 'Switch it on under Administration &gt; Endpoint agent &gt; Hypervisors, roll out an agent that announces "hypervisor", then try one host first.' : 'Ask an administrator to switch it on under Administration &gt; Endpoint agent &gt; Hypervisors.');
+        return $o . '<div class="rmmx-info" role="note"><i class="fas fa-info-circle" aria-hidden="true"></i><div><strong>Hypervisor visibility is off.</strong> It is off by default and nothing is stored until '
+            . ($vm['admin'] ? 'you switch it on under <a href="/admin/settings_endpoint_agent.php">Administration &gt; Endpoint agent &gt; Hypervisors</a>' : 'an administrator switches it on')
+            . ', roll out an agent that announces "hypervisor", then try one host first.</div></div>'
+            . '<div class="rmmx-card">' . rmmxEmpty('fa-server', 'No hypervisor data yet', 'Hosts appear here after their first report.') . '</div>';
+    }
+    $hosts = $vm['hosts'];
+    $problem = static fn (array $x): bool => !empty($x['stale']) || ($x['error'] ?? '') !== '' || (int) ($x['storages_unhealthy'] ?? 0) > 0 || (($x['cluster']['quorate'] ?? null) === false);
+    $withProblems = 0;
+    $clusters = [];
+    $stopped = 0;
+    foreach ($hosts as $x) {
+        $withProblems += $problem($x) && empty($x['ignored']) ? 1 : 0;
+        if (!empty($x['cluster']['name'])) { $clusters[$x['cluster']['name']] = true; }
+        $stopped += max(0, (int) $x['vm_count'] - (int) $x['vms_running'] - (int) ($x['vms_missing'] ?? 0));
     }
     $s = $vm['summary'];
-    $o .= '<div class="row g-2 mb-3">'
-        . '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="h4 mb-0">' . (int) $s['hosts'] . '</div><div class="small text-muted">Hosts</div></div></div>'
-        . '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="h4 mb-0">' . (int) $s['vms'] . '</div><div class="small text-muted">VMs</div></div></div>'
-        . '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="h4 mb-0 text-success">' . (int) $s['running'] . '</div><div class="small text-muted">Running</div></div></div>'
-        . '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center"><div class="h4 mb-0 text-muted">' . (int) $s['ignored'] . '</div><div class="small text-muted">Ignored</div></div></div>'
-        . '</div>';
-    $o .= '<form method="get" class="row g-2 align-items-end mb-3"><div class="col-auto"><label class="form-label small mb-1" for="hv-q">Search</label><input class="form-control form-control-sm" id="hv-q" name="q" value="' . $h($_GET['q'] ?? '') . '" placeholder="Host name"></div>'
-        . '<div class="col-auto"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" id="hv-problems" name="problems" value="1"' . (($_GET['problems'] ?? '') === '1' ? ' checked' : '') . '><label class="form-check-label small" for="hv-problems">Only problems</label></div></div>'
-        . '<div class="col-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button></div></form>';
-    if ($vm['hosts'] === []) {
-        return $o . rivetRmmUiEmpty('fas fa-server', 'No hypervisor host has reported yet', 'A Proxmox VE or Hyper-V host with an agent that announces "hypervisor" appears here after its first report.');
+    $qs = static fn (array $q): string => '?' . http_build_query($q);
+    $o .= rmmxKpiGrid([
+        ['icon' => 'fa-server', 'label' => 'Hosts', 'value' => (int) $s['hosts'], 'sub' => count($clusters) . ' cluster' . (count($clusters) === 1 ? '' : 's') . ', ' . ((int) $s['hosts'] - array_sum(array_map(static fn ($x) => !empty($x['cluster']['name']) ? 1 : 0, $hosts))) . ' standalone', 'tone' => 'info', 'href' => $qs([]), 'title' => 'Show every host'],
+        ['icon' => 'fa-cubes', 'label' => 'Virtual machines', 'value' => (int) $s['vms'], 'sub' => (int) $s['running'] . ' running, ' . $stopped . ' stopped', 'tone' => 'neutral', 'title' => 'All VMs on the hosts below'],
+        ['icon' => 'fa-play-circle', 'label' => 'Running', 'value' => (int) $s['running'], 'sub' => (int) $s['vms'] > 0 ? round(100 * (int) $s['running'] / max(1, (int) $s['vms'])) . '% of VMs' : '', 'tone' => 'ok', 'title' => 'VMs currently running'],
+        ['icon' => 'fa-exclamation-triangle', 'label' => 'Hosts with problems', 'value' => $withProblems, 'sub' => 'Stale report, error or unhealthy storage', 'tone' => 'warn', 'href' => $qs(['problems' => 1]), 'active' => ($_GET['problems'] ?? '') === '1', 'title' => 'Show only hosts with a problem'],
+        ['icon' => 'fa-eye-slash', 'label' => 'Ignored', 'value' => (int) $s['ignored'], 'sub' => 'Hidden from alerts', 'tone' => 'neutral', 'title' => 'Hosts an administrator chose to ignore'],
+    ]);
+    $platform = is_string($_GET['platform'] ?? null) ? $_GET['platform'] : '';
+    $q = is_string($_GET['q'] ?? null) ? $_GET['q'] : '';
+    $o .= '<form method="get" class="rmmx-toolbar" role="search" aria-label="Filter hosts"><div class="rmmx-field rmmx-grow"><label for="hv-q">Search</label><input class="form-control" type="search" id="hv-q" name="q" value="' . $h($q) . '" placeholder="Host name"></div>'
+        . '<div class="rmmx-field"><label for="hv-platform">Platform</label><select class="form-select" id="hv-platform" name="platform" data-searchable="0"><option value="">Any platform</option><option value="proxmox"' . ($platform === 'proxmox' ? ' selected' : '') . '>Proxmox VE</option><option value="hyperv"' . ($platform === 'hyperv' ? ' selected' : '') . '>Hyper-V</option></select></div>'
+        . '<div class="rmmx-field"><label for="hv-problems">Status</label><select class="form-select" id="hv-problems" name="problems" data-searchable="0"><option value="">All hosts</option><option value="1"' . (($_GET['problems'] ?? '') === '1' ? ' selected' : '') . '>Problems only</option></select></div>'
+        . '<div class="rmmx-actions"><button class="btn btn-primary" type="submit"><i class="fas fa-filter" aria-hidden="true"></i>Apply</button><a class="btn btn-outline-secondary" href="?">Reset</a></div></form>';
+    $chips = [];
+    if ($q !== '') { $chips['Search: ' . $q] = $qs(array_filter(['platform' => $platform, 'problems' => $_GET['problems'] ?? ''])); }
+    if ($platform !== '') { $chips['Platform: ' . ($platform === 'proxmox' ? 'Proxmox VE' : 'Hyper-V')] = $qs(array_filter(['q' => $q, 'problems' => $_GET['problems'] ?? ''])); }
+    if (($_GET['problems'] ?? '') === '1') { $chips['Problems only'] = $qs(array_filter(['q' => $q, 'platform' => $platform])); }
+    $o .= rmmxChips($chips, '?', count($hosts) . ' host' . (count($hosts) === 1 ? '' : 's') . ($chips ? ' match' : ''));
+    if ($hosts === []) {
+        return $o . '<div class="rmmx-card">' . rmmxEmpty('fa-server', $chips ? 'No host matches these filters' : 'No hypervisor host has reported yet', $chips ? 'Try clearing a filter.' : 'A Proxmox VE or Hyper-V host with an agent that announces "hypervisor" appears here after its first report.', $chips ? '<a class="btn btn-outline-secondary" href="?">Clear filters</a>' : '') . '</div>';
     }
     $rows = '';
-    foreach ($vm['hosts'] as $hst) {
+    foreach ($hosts as $hst) {
+        $isProb = $problem($hst) && empty($hst['ignored']);
         $icon = $hst['platform'] === 'proxmox' ? 'fa-server' : 'fa-windows';
-        $cluster = $hst['cluster'] !== null ? ($hst['cluster']['quorate'] === false ? rivetRmmUiPill('crit', 'No quorum') : rivetRmmUiPill('ok', $h($hst['cluster']['name']))) : '<span class="text-muted small">standalone</span>';
-        $rows .= '<tr' . ($hst['stale'] || $hst['error'] !== '' ? ' class="table-warning"' : '') . '>'
-            . '<td class="ps-3"><a href="?host_id=' . (int) $hst['device_id'] . '"><i class="fas ' . $icon . ' me-1" aria-hidden="true"></i>' . $h($hst['hostname']) . '</a>'
-            . ($hst['asset_id'] !== null ? ' <a class="small text-muted ms-1" href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '" title="Open the asset"><i class="fas fa-external-link-alt" aria-hidden="true"></i></a>' : '')
-            . ($hst['ignored'] ? ' ' . rivetRmmUiPill('off', 'Ignored') : '') . ($hst['error'] !== '' ? '<div class="small text-danger">' . $h($hst['error']) . '</div>' : '') . '</td>'
-            . '<td>' . $h($hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . ' <span class="text-muted small">' . $h($hst['version']) . '</span></td>'
-            . '<td>' . $cluster . '</td>'
-            . '<td>' . (int) $hst['vms_running'] . ' / ' . (int) $hst['vm_count'] . ($hst['vms_missing'] > 0 ? ' <span class="text-muted small">(' . (int) $hst['vms_missing'] . ' missing)</span>' : '') . '</td>'
-            . '<td>' . ($hst['storages_unhealthy'] > 0 ? rivetRmmUiPill('warn', (int) $hst['storages_unhealthy'] . ' of ' . (int) $hst['storages'] . ' unhealthy') : rivetRmmUiPill('ok', (int) $hst['storages'] . ' ok')) . '</td>'
-            . '<td class="small text-muted">' . ($hst['stale'] ? rivetRmmUiPill('warn', 'Stale') : rivetRmmUiTime($hst['last_collected_at'])) . '</td>'
-            . '</tr>';
+        $iconCls = $hst['platform'] === 'proxmox' ? 'fas' : 'fab';
+        $cluster = $hst['cluster'] !== null
+            ? ($hst['cluster']['quorate'] === false ? rivetRmmUiPill('crit', 'No quorum') . ' <span class="rmmx-tag">' . $h($hst['cluster']['name']) . '</span>' : '<span class="rmmx-tag" title="Cluster">' . $h($hst['cluster']['name']) . '</span>')
+            : '<span class="text-muted small">standalone</span>';
+        $run = (int) $hst['vms_running']; $cnt = (int) $hst['vm_count'];
+        $pct = $cnt > 0 ? (int) round(100 * $run / $cnt) : 0;
+        $vms = '<div class="rmmx-ratio" title="' . $run . ' of ' . $cnt . ' VMs running"><span class="rmmx-num">' . $run . ' / ' . $cnt . '</span><span class="rmmx-meter" aria-hidden="true"><span style="width:' . $pct . '%"></span></span></div>'
+            . ($hst['vms_missing'] > 0 ? '<div class="small text-muted">' . (int) $hst['vms_missing'] . ' missing</div>' : '');
+        $storage = $hst['storages_unhealthy'] > 0 ? rivetRmmUiPill('warn', (int) $hst['storages_unhealthy'] . ' of ' . (int) $hst['storages'] . ' unhealthy') : rivetRmmUiPill('ok', (int) $hst['storages'] . ' storage ok');
+        $stat = '';
+        if (!empty($hst['ignored'])) { $stat = rivetRmmUiPill('off', 'Ignored'); }
+        elseif ($hst['error'] !== '') { $stat = '<span class="rmmx-pill rmmx-pill-crit" title="' . $h($hst['error']) . '"><i class="fas fa-times-circle" aria-hidden="true"></i>Collector error</span>'; }
+        elseif ($hst['stale']) { $stat = rivetRmmUiPill('warn', 'Report is stale'); }
+        else { $stat = rivetRmmUiPill('ok', 'Healthy'); }
+        $err = $hst['error'] !== '' ? '<div class="rmmx-errline" title="' . $h($hst['error']) . '">' . $h(mb_strimwidth($hst['error'], 0, 90, '…')) . '</div>' : '';
+        $ts = $hst['last_collected_at'];
+        $rows .= '<tr class="' . ($isProb ? 'rmmx-sev-warning' : '') . (!empty($hst['ignored']) ? ' is-ignored' : '') . '" data-name="' . $h(mb_strtolower($hst['hostname'])) . '" data-platform="' . $h($hst['platform']) . '" data-vms="' . $cnt . '" data-run="' . $run . '" data-report="' . (int) strtotime((string) $ts) . '" data-ignored="' . (!empty($hst['ignored']) ? 1 : 0) . '">'
+            . '<td class="rmmx-title"><a class="fw-semibold" href="?host_id=' . (int) $hst['device_id'] . '"><i class="' . $iconCls . ' ' . $icon . ' me-2 text-secondary" aria-hidden="true"></i>' . $h($hst['hostname']) . '</a>'
+            . ($hst['asset_id'] !== null ? ' <a class="small text-muted ms-1" href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '" title="Open device" aria-label="Open the device ' . $h($hst['hostname']) . '"><i class="fas fa-external-link-alt" aria-hidden="true"></i></a>' : '') . $err . '</td>'
+            . '<td>' . $stat . '</td>'
+            . '<td><span class="rmmx-os"><i class="' . $iconCls . ' ' . $icon . '" aria-hidden="true"></i><span>' . $h($hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . '</span></span><div class="small text-muted">' . $h($hst['version']) . '</div></td>'
+            . '<td>' . $cluster . '</td><td>' . $vms . '</td><td>' . $storage . '</td>'
+            . '<td class="rmmx-when">' . rivetRmmUiTime($ts) . '</td></tr>';
     }
+    $th = static fn (string $key, string $label): string => '<th scope="col" aria-sort="none"><button type="button" class="rmmx-sort" data-sort="' . $key . '">' . $label . '<i class="fas fa-sort" aria-hidden="true"></i></button></th>';
 
-    return $o . '<div class="table-responsive"><table class="table table-sm table-hover mb-0">'
-        . rivetRmmUiThead(['Host', 'Platform', 'Cluster', 'VMs running', 'Storage', 'Last report'])
-        . '<tbody>' . $rows . '</tbody></table></div>';
+    return $o . '<div class="rmmx-card"><div class="rmmx-scroll"><table class="rmmx-table" id="hv-hosts"><caption class="visually-hidden">Hypervisor hosts</caption><thead><tr>'
+        . $th('name', 'Host') . '<th scope="col">Status</th>' . $th('platform', 'Platform') . '<th scope="col">Cluster</th>' . $th('run', 'VMs running') . '<th scope="col">Storage</th>' . $th('report', 'Last report') . '</tr></thead><tbody>' . $rows . '</tbody></table></div></div>'
+        . '<script src="/js/rmm_table_sort.js?v=' . (int) @filemtime(dirname(__DIR__) . '/js/rmm_table_sort.js') . '"></script>';
 }
 
 // ------------------------------------------------------------------ one host

@@ -22,14 +22,9 @@ $approvals = $catalog_service->pendingApprovals(null, $session_contact_id, $sess
 
 ?>
 
-    <ol class="breadcrumb d-print-none">
-        <li class="breadcrumb-item"><a href="index.php">Home</a></li>
-        <li class="breadcrumb-item active">My approvals</li>
-    </ol>
-
     <div class="portal-pagehead">
         <div>
-            <h2 class="portal-pagehead-title">My approvals</h2>
+            <h2 class="portal-pagehead-title"><i class="fas fa-check-double me-2" aria-hidden="true"></i>My approvals</h2>
             <p class="text-secondary mb-0">Requests from your team that are waiting for your decision.</p>
         </div>
     </div>

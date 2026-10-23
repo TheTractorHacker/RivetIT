@@ -46,7 +46,7 @@ render_page_header(
     <div class="alert alert-info" role="note">
         Other ways to set up devices still work: <a href="/agent/training_device_setup.php">Set up this device</a> (sign in on the tablet),
         a per-device start URL, or <a href="/agent/training_device_bulk.php">printed setup codes</a>. A fleet link is for rolling out many tablets from an MDM
-        with one shared URL. See <strong>docs/training-kiosk-setup.md</strong> for the Apple and Android steps.
+        with one shared URL. See <code>docs/training-kiosk-setup.md</code> for the Apple and Android steps.
     </div>
 
     <div class="card mb-3" id="trf-pending-card" hidden>

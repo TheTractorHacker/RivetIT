@@ -22,6 +22,12 @@ if (isset($_POST['add_user'])) {
         redirect();
     }
 
+    // Two logins on one address make password reset and sign-in ambiguous (archived users still own their address).
+    if (mysqli_num_rows(mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$email' LIMIT 1")) > 0) {
+        flash_alert("A user with the email <strong>$email</strong> already exists. Nothing was created.", 'error');
+        redirect();
+    }
+
     $password = secPasswordHash(trim($_POST['password']));
     $user_specific_encryption_ciphertext = encryptUserSpecificKey(trim($_POST['password']));
 
@@ -232,6 +238,11 @@ if (isset($_POST['edit_user'])) {
             $extended_alert_description = '. File successfully uploaded.';
 
         }
+    }
+
+    if (mysqli_num_rows(mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$email' AND user_id <> $user_id LIMIT 1")) > 0) {
+        flash_alert("Another user already uses the email <strong>$email</strong>. Nothing was changed.", 'error');
+        redirect();
     }
 
     mysqli_query($mysqli, "UPDATE users SET user_name = '$name', user_email = '$email', user_role_id = $role WHERE user_id = $user_id");

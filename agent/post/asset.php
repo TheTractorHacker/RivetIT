@@ -1397,7 +1397,7 @@ if (isset($_POST['add_asset_interface'])) {
     enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     // 2) Gather posted values
-    $interface_id = intval($_POST['interface_id']);
+    $interface_id = intval($_POST['interface_id'] ?? 0);
     $asset_id     = intval($_POST['asset_id']);
 
     // Defines $name, $mac, $ip, $ipv6, $port, $notes, $network, $connected_to, etc.

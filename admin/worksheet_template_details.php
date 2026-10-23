@@ -2,7 +2,7 @@
 
 require_once "includes/inc_all_admin.php";
 
-$template_id = intval($_GET['id']);
+$template_id = intval($_GET['id'] ?? 0);
 
 $sql = mysqli_query($mysqli, "SELECT * FROM worksheet_templates WHERE worksheet_template_id = $template_id LIMIT 1");
 if (mysqli_num_rows($sql) == 0) {

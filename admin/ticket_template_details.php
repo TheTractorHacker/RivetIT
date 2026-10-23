@@ -11,9 +11,7 @@ $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
-if (isset($_GET['ticket_template_id'])) {
-    $ticket_template_id = intval($_GET['ticket_template_id']);
-}
+$ticket_template_id = intval($_GET['ticket_template_id'] ?? 0); // a missing id used to leave this undefined and fatal in the query below
 
 $sql_ticket_template = mysqli_query($mysqli, "SELECT * FROM ticket_templates WHERE ticket_template_id = $ticket_template_id LIMIT 1");
 
@@ -51,7 +49,7 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
 </ol>
 
 <div class="row">
-    <div class="col-md-9">
+    <div class="col-xl-8">
 
         <div class="card card-dark">
             <div class="card-header">
@@ -69,7 +67,7 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
 
     </div>
 
-    <div class="col-md-3">
+    <div class="col-xl-4 mt-3 mt-xl-0">
 
         <div class="card card-dark">
             <div class="card-header">

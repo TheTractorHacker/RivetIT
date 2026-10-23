@@ -568,6 +568,10 @@ if (isset($_GET['quote_id'])) {
     require_once "modals/quote/quote_note.php";
 }
 
+if (!isset($_GET['quote_id'])) {
+    echo "<div class='text-center text-muted py-5'><i class='far fa-folder-open fa-2x d-block mb-3 opacity-50'></i><p class='mb-0'>No quote selected. Open one from the list.</p></div>";
+}
+
 require_once "../includes/footer.php";
 
 ?>

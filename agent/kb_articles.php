@@ -198,11 +198,8 @@ if (isset($kb_groups['Uncategorized'])) {
                     $kb_article_updated_at = $row['kb_article_updated_at'] ?? $row['kb_article_created_at'];
                     $kb_article_needs_review = !empty($row['kb_article_review_due_at']) && strtotime($row['kb_article_review_due_at']) < strtotime('today');
 
-                    $kb_article_preview = strip_tags($row['kb_article_content_raw'] ?? '');
-                    $kb_article_preview = trim(preg_replace('/\s+/', ' ', $kb_article_preview));
-                    if (mb_strlen($kb_article_preview) > 150) {
-                        $kb_article_preview = mb_substr($kb_article_preview, 0, 150) . '...';
-                    }
+                    require_once __DIR__ . '/../includes/kb_excerpt.php';
+                    $kb_article_preview = kbExcerpt($row['kb_article_content_raw'] ?? '', $row['kb_article_title'] ?? '');
 
                     $kb_article_url = "kb_article.php?id=$kb_article_id";
                     if (isset($client_id)) {

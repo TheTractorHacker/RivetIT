@@ -10,7 +10,7 @@ if (isset($_GET['client_id'])) {
 
 enforceUserPermission('module_support');
 
-$worksheet_id = intval($_GET['worksheet_id']);
+$worksheet_id = intval($_GET['worksheet_id'] ?? 0);
 $ticket_id = intval($_GET['ticket_id'] ?? 0);
 
 $sql = mysqli_query($mysqli, "SELECT tw.*, wt.worksheet_template_name, wt.worksheet_template_description, t.ticket_prefix, t.ticket_number, t.ticket_subject, t.ticket_client_id

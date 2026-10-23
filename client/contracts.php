@@ -8,7 +8,9 @@ require_once "includes/inc_all.php";
 
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
-    header("Location: post.php?logout");
+    // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
+    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    header("Location: index.php");
     exit();
 }
 
@@ -32,7 +34,7 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
     $docs_by_contract[] = array_merge($cr, ['docs' => $docs]);
 }
 ?>
-<div class="container-fluid mt-3">
+<div class="container-fluid px-0">
 <div class="card">
     <div class="card-header">
         <h4 class="mb-0"><i class="fas fa-file-contract me-2"></i>Contracts &amp; Documents</h4>
@@ -47,8 +49,8 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
             $cname    = nullable_htmlentities($cr['contract_name']);
             $ctype    = nullable_htmlentities($cr['contract_type']);
             $cstatus  = nullable_htmlentities($cr['contract_status']);
-            $cstart   = $cr['contract_start_date'] ? date('M j, Y', strtotime($cr['contract_start_date'])) : '—';
-            $cend     = $cr['contract_end_date']   ? date('M j, Y', strtotime($cr['contract_end_date']))   : '—';
+            $cstart   = $cr['contract_start_date'] ? date('Y-m-d', strtotime($cr['contract_start_date'])) : '—';
+            $cend     = $cr['contract_end_date']   ? date('Y-m-d', strtotime($cr['contract_end_date']))   : '—';
             $badge    = match($cstatus) { 'Active'=>'success','Pending'=>'warning','Expired'=>'secondary',default=>'danger' };
             $doc_count = count($cr['docs']);
         ?>
@@ -81,7 +83,7 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
                                 $size   = $doc['doc_size'] >= 1048576
                                     ? round($doc['doc_size']/1048576,1).' MB'
                                     : round($doc['doc_size']/1024,0).' KB';
-                                $date   = date('M j, Y', strtotime($doc['doc_uploaded_at']));
+                                $date   = date('Y-m-d', strtotime($doc['doc_uploaded_at']));
                                 $icon   = str_contains($mime,'pdf') ? 'file-pdf text-danger'
                                     : (str_contains($mime,'word') ? 'file-word text-primary'
                                     : (str_contains($mime,'image') ? 'file-image text-success'
