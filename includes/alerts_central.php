@@ -73,9 +73,28 @@ function alertsCentralAgentSeveritySql(): string
  */
 function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
 {
-    $esc = static fn (string $v): string => mysqli_real_escape_string($mysqli, $v);
     $scope = static fn (string $col): string => $clientIds === null ? '' : ($clientIds === [] ? ' AND 1=0' : " AND $col IN (" . implode(',', array_map('intval', $clientIds)) . ')');
-    $like = $f['q'] === '' ? null : '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $esc($f['q'])) . '%';
+    // The search text is only ever BOUND (prepared statement), never concatenated: the SQL carries the marker '__LIKE__' where the pattern goes. The pattern is the raw
+    // text with its own \\ % _ made literal first, so a search for "%" or "_" finds those characters and a quote is just a quote.
+    $likeRaw = $f['q'] === '' ? null : '%' . addcslashes($f['q'], '\\%_') . '%';
+    $like = $likeRaw === null ? null : '__LIKE__';
+    $run = static function (string $sql) use ($mysqli, $likeRaw) {
+        $n = substr_count($sql, "'__LIKE__'");
+        if ($n === 0) {
+            return mysqli_query($mysqli, $sql);
+        }
+        $st = mysqli_prepare($mysqli, str_replace("'__LIKE__'", '?', $sql));
+        if (!$st) {
+            return false;
+        }
+        $p = array_fill(0, $n, (string) $likeRaw);
+        mysqli_stmt_bind_param($st, str_repeat('s', $n), ...$p);
+        mysqli_stmt_execute($st);
+        $res = mysqli_stmt_get_result($st);
+        mysqli_stmt_close($st);
+
+        return $res;
+    };
     $alerts = [];
     $cap = 1000;   // per source; the page paginates what comes back
 
@@ -101,7 +120,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (a.message LIKE '$like' OR ast.asset_name LIKE '$like' OR c.client_name LIKE '$like')"; }
-        $res = mysqli_query($mysqli, "$rmmSelect $rmmFrom WHERE $w ORDER BY FIELD(a.severity,'critical','error','warning','info'), a.created_at DESC LIMIT $cap");
+        $res = $run("$rmmSelect $rmmFrom WHERE $w ORDER BY FIELD(a.severity,'critical','error','warning','info'), a.created_at DESC LIMIT $cap");
         while ($res && ($r = mysqli_fetch_assoc($res))) { $alerts[] = $map($r, 'rmm'); }
     }
 
@@ -112,7 +131,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (a.message LIKE '$like' OR ast.asset_name LIKE '$like' OR c.client_name LIKE '$like')"; }
-        $res = mysqli_query($mysqli, "$rmmSelect $rmmFrom WHERE $w ORDER BY FIELD(a.severity,'critical','error','warning','info'), a.created_at DESC LIMIT $cap");
+        $res = $run("$rmmSelect $rmmFrom WHERE $w ORDER BY FIELD(a.severity,'critical','error','warning','info'), a.created_at DESC LIMIT $cap");
         while ($res && ($r = mysqli_fetch_assoc($res))) { $alerts[] = $map($r, 'network'); }
     }
 
@@ -127,7 +146,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         if ($f['client'] > 0) { $w .= ' AND a.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND a.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (COALESCE(m.message, a.message) LIKE '$like' OR ast.asset_name LIKE '$like' OR d.hostname LIKE '$like' OR c.client_name LIKE '$like' OR m.check_key LIKE '$like')"; }
-        $res = mysqli_query($mysqli, "$rmmSelect, $stSql AS eff_status, $svSql AS eff_severity, m.check_key AS m_check, m.opened_at AS m_opened, d.hostname AS m_host, d.asset_id AS m_asset $rmmFrom $metaJoin
+        $res = $run("$rmmSelect, $stSql AS eff_status, $svSql AS eff_severity, m.check_key AS m_check, m.opened_at AS m_opened, d.hostname AS m_host, d.asset_id AS m_asset $rmmFrom $metaJoin
             WHERE $w ORDER BY FIELD($svSql,'critical','error','warning','info'), COALESCE(m.opened_at, a.created_at) DESC LIMIT $cap");
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $row = $map($r, 'agent');
@@ -148,7 +167,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         if ($f['client'] > 0) { $w .= ' AND m.client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND d.asset_id = ' . (int) $f['asset']; }
         if ($like !== null) { $w .= " AND (m.message LIKE '$like' OR d.hostname LIKE '$like' OR c.client_name LIKE '$like' OR m.check_key LIKE '$like')"; }
-        $res = mysqli_query($mysqli, "SELECT m.*, $stM AS eff_status, $svM AS eff_severity, d.hostname, d.asset_id, c.client_name FROM rmm_alert_meta m LEFT JOIN endpoint_agent_devices d ON d.device_id = m.device_id
+        $res = $run("SELECT m.*, $stM AS eff_status, $svM AS eff_severity, d.hostname, d.asset_id, c.client_name FROM rmm_alert_meta m LEFT JOIN endpoint_agent_devices d ON d.device_id = m.device_id
             LEFT JOIN clients c ON c.client_id = m.client_id WHERE $w ORDER BY m.opened_at DESC LIMIT $cap");
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $alerts[] = ['source' => 'agent', 'id' => (int) $r['alert_id'], 'severity' => (string) $r['eff_severity'], 'message' => (string) $r['message'], 'subject' => $r['hostname'] ?: null,
@@ -166,7 +185,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         if ($f['client'] > 0) { $w .= ' AND a.alert_client_id = ' . (int) $f['client']; }
         if ($f['asset'] > 0) { $w .= ' AND 1=0'; }   // backup alerts are not tied to an asset
         if ($like !== null) { $w .= " AND (a.alert_message LIKE '$like' OR a.alert_device_name LIKE '$like' OR c.client_name LIKE '$like')"; }
-        $res = mysqli_query($mysqli, "SELECT a.*, c.client_name, u.user_name, t.ticket_prefix, t.ticket_number FROM comet_backup_alerts a LEFT JOIN clients c ON c.client_id = a.alert_client_id
+        $res = $run("SELECT a.*, c.client_name, u.user_name, t.ticket_prefix, t.ticket_number FROM comet_backup_alerts a LEFT JOIN clients c ON c.client_id = a.alert_client_id
             LEFT JOIN users u ON u.user_id = a.alert_acknowledged_by LEFT JOIN tickets t ON t.ticket_id = a.alert_ticket_id WHERE $w ORDER BY a.alert_created_at DESC LIMIT $cap");
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $alerts[] = ['source' => 'backup', 'id' => (int) $r['alert_id'], 'severity' => $r['alert_severity'] ?: 'critical',
