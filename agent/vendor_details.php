@@ -68,22 +68,20 @@ if (isset($_GET['vendor_id'])) {
                         <i class="fas fa-fw fa-edit"></i>
                     </button>
                     <h3 class="text-bold"><?php echo $vendor_name; ?></h3>
-                    <?php if ($contact_title) { ?>
+                    <?php if ($vendor_description) { ?>
                         <div class="text-secondary"><?php echo $vendor_description; ?></div>
                     <?php } ?>
                     <hr>
                     <?php
-                    if ($contact_email) { ?>
-                        <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $contact_email; ?>'><?php echo $contact_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
+                    // These blocks read $contact_* variables that no longer exist (left over from the dropped vendor_contacts layout): PHP warnings on every load and the vendor's own email/phone never shown.
+                    if ($vendor_email) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $vendor_email; ?>'><?php echo $vendor_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $vendor_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                     <?php }
-                    if ($contact_phone) { ?>
-                        <div class="mt-2"><i class="fa fa-fw fa-phone text-secondary me-2"></i><a href="tel:<?php echo "$contact_phone"?>"><?php echo $contact_phone; ?></a></div>
+                    if ($vendor_phone) { ?>
+                        <div class="mt-2"><i class="fa fa-fw fa-phone text-secondary me-2"></i><a href="tel:<?php echo $vendor_phone; ?>"><?php echo $vendor_phone; ?></a></div>
                     <?php }
-                    if ($contact_extension) { ?>
-                        <div class="ms-4">x<?php echo $contact_extension; ?></div>
-                    <?php }
-                    if ($contact_mobile) { ?>
-                        <div class="mt-l"><i class="fa fa-fw fa-mobile-alt text-secondary me-2"></i><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a></div>
+                    if ($vendor_extension) { ?>
+                        <div class="ms-4">x<?php echo $vendor_extension; ?></div>
                     <?php } ?>
                     <div class="mt-2"><i class="fa fa-fw fa-clock text-secondary me-2"></i><?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
 
@@ -110,7 +108,7 @@ if (isset($_GET['vendor_id'])) {
                     <a href="client_overview.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a>
                 </li>
                 <li class="breadcrumb-item">
-                    <a href="client_vendors.php?client_id=<?php echo $client_id; ?>">Vendors</a>
+                    <a href="vendors.php?client_id=<?php echo $client_id; ?>">Vendors</a>
                 </li>
                 <?php } else { ?>
                 <li class="breadcrumb-item">
@@ -166,6 +164,15 @@ if (isset($_GET['vendor_id'])) {
                 </div>
             </div>
 
+            <?php if ($vendor_contact_count == 0) { ?>
+            <div class="card card-dark">
+                <div class="card-body text-center text-muted py-5">
+                    <i class="fa fa-fw fa-users fa-2x mb-2 d-block"></i>
+                    <p class="mb-1">No contacts for this vendor yet.</p>
+                    <small>Use <strong>New</strong> above to add a vendor contact or a note.</small>
+                </div>
+            </div>
+            <?php } ?>
             <div class="card card-dark <?php if ($vendor_contact_count == 0) { echo "d-none"; } ?>">
                 <div class="card-header">
                     <h3 class="card-title"><i class="fa fa-fw fa-users me-2"></i>Contacts</h3>

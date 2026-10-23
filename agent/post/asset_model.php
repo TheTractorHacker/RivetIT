@@ -32,7 +32,7 @@ foreach ([['IP address', $ip, 'ip'], ['IPv6 address', $ipv6, 'ip'], ['NAT IP add
 }
 $uri = sanitizeInput($_POST['uri']);
 $uri_2 = sanitizeInput($_POST['uri_2']);
-$uri_client = sanitizeInput($_POST['uri_client']);
+$uri_client = sanitizeInput($_POST['uri_client'] ?? '');
 $anydesk_id = sanitizeInput($_POST['anydesk_id'] ?? '');
 $status = sanitizeInput($_POST['status']);
 $location = intval($_POST['location'] ?? 0);

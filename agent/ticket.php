@@ -1016,7 +1016,7 @@ if (isset($_GET['ticket_id'])) {
                                             <button type="submit" id="ticket_add_reply" name="add_ticket_reply" class="btn btn-success">
                                                 <i class="fas fa-check me-1"></i><span id="reply_submit_label">Submit</span>
                                             </button>
-                                            <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Choose a status and submit">
                                                 <span class="sr-only">Set status &amp; submit</span>
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-right">
@@ -1385,9 +1385,9 @@ if (isset($_GET['ticket_id'])) {
                             <span class="mx-1 fw-bold">:</span>
                             <input type="text" inputmode="numeric" maxlength="2" id="seconds" name="seconds" placeholder="00" form="ticketReplyForm" class="form-control form-control-sm text-center" style="max-width:3.5rem;">
                         </div>
-                        <div class="btn-group btn-block mb-3">
-                            <button type="button" class="btn btn-outline-purple" id="startStopTimer"><i class="fas fa-play me-1"></i>Start</button>
-                            <button type="button" class="btn btn-outline-purple" id="resetTimer"><i class="fas fa-redo-alt me-1"></i>Reset</button>
+                        <div class="time-entry-actions mb-3">
+                            <button type="button" class="btn btn-primary" id="startStopTimer"><i class="fas fa-play me-1"></i>Start</button>
+                            <button type="button" class="btn btn-outline-secondary" id="resetTimer"><i class="fas fa-redo-alt me-1"></i>Reset</button>
                         </div>
                         <?php if ($lt_reply_rows) { ?>
                         <select class="form-control" name="reply_labor_type_id" id="reply_labor_type_id" form="ticketReplyForm">
@@ -1571,7 +1571,7 @@ if (isset($_GET['ticket_id'])) {
                         <div class="d-flex align-items-center justify-content-between mb-2 small">
                             <div>
                                 <span class="avatar-badge me-2" style="width:24px;height:24px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--color-accent);color:#fff;"><?= initials($ticket_assigned_user_name) ?></span>
-                                <?= htmlspecialchars($ticket_assigned_user_name) ?>
+                                <?= $ticket_assigned_user_name ?>
                             </div>
                             <span class="badge text-bg-light border">Primary</span>
                         </div>

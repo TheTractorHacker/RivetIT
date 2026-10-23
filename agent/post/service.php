@@ -11,6 +11,7 @@ if (isset($_POST['add_service'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     enforceUserPermission('module_support', 2);
+    requireFilledPost(['name' => 'The service name', 'description' => 'The description']);
 
     $client_id = intval($_POST['client_id']);
     $service_name = sanitizeInput($_POST['name']);
@@ -91,6 +92,8 @@ if (isset($_POST['edit_service'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     enforceUserPermission('module_support', 2);
+
+    requireFilledPost(['name' => 'The service name', 'description' => 'The description']);
 
     $service_id = intval($_POST['service_id']);
     $service_name = sanitizeInput($_POST['name']);

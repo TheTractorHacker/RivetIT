@@ -396,7 +396,7 @@ $has_active_filter = $filter_severity || $filter_client || $filter_search || $fi
                 </td>
                 <td class="small">
                     <?php if ($alert['client_id']) { ?>
-                    <a href="/agent/client_details.php?client_id=<?= $alert['client_id'] ?>"><?= nullable_htmlentities($alert['client_name']) ?></a>
+                    <a href="/agent/client_overview.php?client_id=<?= $alert['client_id'] ?>"><?= nullable_htmlentities($alert['client_name']) ?></a>
                     <?php } else { ?>—<?php } ?>
                 </td>
                 <td>

@@ -137,6 +137,7 @@ $sql_segments = mysqli_query($mysqli, "SELECT * FROM crm_segments ORDER BY segme
                         <?php } ?>
                         </tbody>
                     </table>
+                <?php if (mysqli_num_rows($sql_segments) == 0) { echo '<div class="text-center text-muted py-4"><i class="far fa-folder-open fa-2x d-block mb-2 opacity-50"></i><p class="mb-0">No segments yet. Build one on the left and it appears here.</p></div>'; } ?>
                 </div>
             </div>
         </div>

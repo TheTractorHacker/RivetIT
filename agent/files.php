@@ -874,7 +874,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                         }
                                         ?>
                                         <tr>
-                                            <td class="bg-light pe-0">
+                                            <td class="bg-light checkbox-column">
                                                 <div class="form-check">
                                                     <input class="form-check-input bulk-select" type="checkbox" name="document_ids[]" value="<?php echo $document_id ?>">
                                                 </div>

@@ -15,6 +15,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM contacts
 ");
 
 $row = mysqli_fetch_assoc($sql);
+if (!$row) { echo '<div class="p-3 text-danger">Contact not found.</div>'; require_once '../../../includes/modal_footer.php'; exit; }
 
 $client_id = intval($row['client_id']);
 $client_name = nullable_htmlentities($row['client_name']);

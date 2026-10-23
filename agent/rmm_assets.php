@@ -178,7 +178,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
         <table class="table table-hover table-sm mb-0" id="rmm-assets-table">
             <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                 <tr>
-                    <th class="ps-3"><div class="form-check"><input class="form-check-input" id="selectAllCheckbox" type="checkbox"></div></th>
+                    <th class="ps-3 checkbox-column"><div class="form-check"><input class="form-check-input" id="selectAllCheckbox" type="checkbox"></div></th>
                     <th>Status</th>
                     <th>Hostname</th>
                     <th>Department</th>
@@ -196,7 +196,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 $icon      = $status === 'online' ? 'fa-circle text-success' : ($status === 'offline' ? 'fa-circle text-danger' : 'fa-question-circle text-muted');
             ?>
             <tr>
-                <td class="ps-3">
+                <td class="ps-3 checkbox-column">
                     <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>"></div>
                 </td>
                 <td>

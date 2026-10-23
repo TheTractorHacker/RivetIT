@@ -4,7 +4,7 @@ require_once '../../../includes/modal_header.php';
 
 $client_id = intval($_GET['client_id'] ?? 0);
 $contact_id = intval($_GET['contact_id'] ?? 0);
-$type = nullable_htmlentities(ucwords($_GET['type']) ?? '');
+$type = nullable_htmlentities(ucwords($_GET['type'] ?? ''));
 
 if ($client_id) {
     $sql_network_select = mysqli_query($mysqli, "SELECT * FROM networks WHERE network_archived_at IS NULL AND network_client_id = $client_id ORDER BY network_name ASC");

@@ -91,7 +91,7 @@ if (isset($_POST['edit_domain'])) {
         }
     }
 
-    $client_id = intval($_POST['client_id']);
+    $client_id = intval($_POST['client_id'] ?? 0);
 
     // Update NS, MX, A and WHOIS records/data
     $records = getDomainRecords($name);
