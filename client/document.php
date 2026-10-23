@@ -30,7 +30,7 @@ $purifier_config->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
 // Check for a document ID
-if (!isset($_GET['id']) && !intval($_GET['id'])) {
+if (!isset($_GET['id']) || !intval($_GET['id'])) {
     ob_end_clean();
     header("Location: documents.php");
     exit();

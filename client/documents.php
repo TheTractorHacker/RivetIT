@@ -81,7 +81,7 @@ $documents_sql = mysqli_query($mysqli, "SELECT document_id, document_name, docum
                             ?>
                         </a>
                     </td>
-                    <td><?php echo date('M j, Y', strtotime($document_created_at)); ?></td>
+                    <td><?php echo date('Y-m-d', strtotime($document_created_at)); ?></td>
                     <td class="text-center">
                         <a href="document.php?id=<?php echo $document_id?>" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>

@@ -38,7 +38,7 @@ $state = ['current' => ['Current', 'success'], 'due_soon' => ['Due soon', 'warni
 <div class="card mb-4">
     <div class="card-body">
         <h3 class="mb-1">Security and compliance</h3>
-        <p class="text-muted mb-2">Published <?= nullable_htmlentities(date('M j, Y', strtotime($shared['published_at']))) ?>, based on an assessment taken <?= nullable_htmlentities(date('M j, Y', strtotime($shared['taken_at']))) ?>.</p>
+        <p class="text-muted mb-2">Published <?= nullable_htmlentities(date('Y-m-d', strtotime($shared['published_at']))) ?>, based on an assessment taken <?= nullable_htmlentities(date('Y-m-d', strtotime($shared['taken_at']))) ?>.</p>
         <?php if ($shared['note']) { ?><p class="mb-2"><?= nl2br(nullable_htmlentities($shared['note'])) ?></p><?php } ?>
         <p class="small text-muted mb-0">This is a self-assessment against common security controls. It is not a certification or an audit opinion.</p>
     </div>

@@ -102,7 +102,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
                         <td><?php echo $assigned_to; ?></td>
                         <td><?php echo $asset_purchase_date; ?></td>
                         <td><?php echo $asset_warranty_expire; ?></td>
-                        <td><?php if ($asset_status_color) { ?><span class="badge <?php echo tagTextClass($asset_status_color); ?>" style="background-color: <?php echo $asset_status_color; ?>;"><?php echo $asset_status; ?></span><?php } else { ?><span class="badge badge-secondary"><?php echo $asset_status; ?></span><?php } ?></td>
+                        <td><span class="badge badge-secondary"><?php echo $asset_status; ?></span></td>
                         <td>
                             <?php if ($asset_uri_client) { ?>
                             <i class="fa fa-fw fa-link text-secondary me-1"></i><a href="<?php echo $asset_uri_client; ?>" target="_blank" title="<?php echo $asset_uri_client; ?>"><?php echo truncate($asset_uri_client, 40); ?></a>

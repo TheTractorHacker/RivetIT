@@ -22,7 +22,7 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
 }
 
 // Check for a contact ID
-if (!isset($_GET['id']) && !intval($_GET['id'])) {
+if (!isset($_GET['id']) || !intval($_GET['id'])) {
     ob_end_clean();
     header("Location: contacts.php");
     exit();

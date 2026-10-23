@@ -442,7 +442,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
 
         <?php
     } else {
-        echo "Ticket ID not found!";
+        echo "<div class='alert alert-warning'>That ticket was not found. <a href='tickets.php'>Back to my tickets</a></div>";
     }
 
 } else {
