@@ -265,8 +265,15 @@ final class EndpointPanelGateway implements PanelTicketGatewayInterface
         foreach ($attachments as $a) {
             $filename = (string) ($a['filename'] ?? '');
             $bytes = (string) ($a['bytes'] ?? '');
+            // Core (PanelAttachments) has already checked this filename's extension against its own allow-list,
+            // the magic bytes and executable/archive content before this method is ever called (the interface's
+            // own docblock: "$attachments already validated by Core") - but this adapter is the last line before
+            // bytes land on disk under a name a technician later opens, so it re-checks against the SAME safe
+            // extensions self::CONTENT_TYPES already names, rather than trusting any extension the caller passed
+            // through. An extension outside that list (whatever Core's own check missed or a future caller skips)
+            // is stored as .bin, same as no extension at all.
             $ext = 'bin';
-            if (preg_match('/\.([A-Za-z0-9]{1,10})$/', $filename, $m) === 1) {
+            if (preg_match('/\.([A-Za-z0-9]{1,10})$/', $filename, $m) === 1 && isset(self::CONTENT_TYPES[strtolower($m[1])])) {
                 $ext = strtolower($m[1]);
             }
             $ref = bin2hex(random_bytes(16)) . '.' . $ext;

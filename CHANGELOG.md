@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.70] RivetIT — RivetCore 1.0.0-rc.35: the RivetPanel device-token ticket/chat API, shared design assets, Mesh node approval
+
+**Deploy notes:** database 2.6.195 re-runs the Core migration runner (idempotent) - adds `kind`/`contact_id` to `endpoint_agent_enrollment_tokens` and `endpoint_agent_devices` (existing rows become `kind='agent'`) and creates `panel_client_settings`/`panel_ticket_owner`. Mirrored in db.sql. Nothing is reachable until an administrator mints a RivetPanel enrollment token.
+
+- **RivetPanel device-token API.** The desktop helper that lets someone at a managed PC open a ticket and chat with a technician, authenticated with a per-device token instead of the legacy shared API key. `src/Core/Adapter/Endpoint/EndpointPanelGateway.php` implements RivetCore's `PanelTicketGatewayInterface` over this app's own tickets/replies/categories/contacts (verified against RivetCore's conformance kit, 6 tests/43 assertions green); five thin `api/v1/panel_*.php` routes (enroll, me, categories, tickets, ticket chat), routed the same way the existing agent device endpoints are, outside the legacy API-key/session auth entirely. A new per-client "RivetPanel" page (Deploy a token with an optional contact, device list with revoke, the "allow tickets from client-level devices" switch, default off).
+- **Mesh node mapping now waits for approval** (RivetCore 1.0.0-rc.31 behavior, adopted now): a device's reported Mesh node id no longer maps itself - the device page shows "This device reported a Mesh node that has not been approved yet" with an admin-only Approve button that maps it in one click.
+- **Shared design assets.** `css/itflow_custom.css` and `css/itflow_design.css` now come from RivetCore (23 of 26 shared files were already byte-identical - RivetIT was the source material); the edition-specific rules that don't belong in a shared file live in two new override sheets, `css/itflow_custom.edition.css` and `css/itflow_design.edition.css`. Visible effect: muted text is slightly darker (the WCAG AA value), nothing else.
+
 ## [26.10.69] RivetIT — invoicing/billing removed from this edition; a new standalone Price Quotes tool
 
 **Deploy notes:** database 2.6.194 drops every billing-only table (invoices, payments, expenses, recurring invoices/expenses, accounts, products, quotes, trips, transfers, revenues, taxes, ticket charges, the QuickBooks Online accounting-sync tables, Stripe payment-provider tables) and creates `price_quotes`/`price_quote_items`. `vendors`, `categories` (shared with non-billing category types) and `tickets.ticket_billable`/`ticket_quote_id`/`ticket_invoice_id` (left as unused dead columns) are untouched. Run Admin > Update Database after this deploy. Take a fresh backup first if you haven't already - this step is destructive and not reversible via the app.
