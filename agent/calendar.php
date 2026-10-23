@@ -35,15 +35,15 @@ if (isset($_GET['calendar_id'])) {
 
 <div class="row">
 
-    <div class="col-md-3">
+    <div class="col-lg-3 cal-side">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Calendars</h3>
                 <div class="card-tools">
-                    <button type="button" class="btn btn-tool ajax-modal" data-modal-url="modals/calendar/calendar_add.php"><i class="fas fa-plus" title="New Calendar"></i></button>
+                    <button type="button" class="btn btn-tool ajax-modal" data-modal-url="modals/calendar/calendar_add.php" aria-label="New calendar" title="New calendar"><i class="fas fa-plus" aria-hidden="true"></i></button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body cal-legend" role="group" aria-label="Show or hide calendars">
                 <?php
                 $sql = mysqli_query($mysqli, "SELECT * FROM calendars");
                 while ($row = mysqli_fetch_assoc($sql)) {
@@ -51,12 +51,12 @@ if (isset($_GET['calendar_id'])) {
                     $calendar_name = nullable_htmlentities($row['calendar_name']);
                     $calendar_color = nullable_htmlentities($row['calendar_color']);
                 ?>
-                <div class="form-group d-flex align-items-center">
-                    <i class="fas fa-fw fa-circle me-2" style="color:<?= $calendar_color ?>;"></i><?= $calendar_name ?>
+                <div class="cal-legend__row">
+                    <label class="cal-legend__item"><input type="checkbox" class="cal-legend__check" data-src="cal-<?= $calendar_id ?>" checked><span class="cal-legend__dot" style="--c:<?= $calendar_color ?>;" aria-hidden="true"></span><span class="cal-legend__label"><?= $calendar_name ?></span></label>
 
                     <div class="dropdown dropright ml-auto">
-                        <button class="btn btn-tool" type="button" data-bs-toggle="dropdown" data-boundary="window">
-                            <i class="fas fa-ellipsis-v"></i>
+                        <button class="btn btn-tool" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Options for calendar <?= $calendar_name ?>">
+                            <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
                         </button>
                         <div class="dropdown-menu">
                             <a class="dropdown-item ajax-modal" href="#"
@@ -82,39 +82,13 @@ if (isset($_GET['calendar_id'])) {
             <div class="card-header">
                 <h3 class="card-title">Built-in</h3>
             </div>
-            <div class="card-body">
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:blue;"></i>Invoices
-                </div>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:purple;"></i>Quotes
-                </div>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:red;"></i>Tickets (Created)
-                </div>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:grey;"></i>Recurring Tickets
-                </div>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:grey;"></i>Tickets (Scheduled)
-                </div>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:brown;"></i>Vendors
-                </div>
-
-                <?php if (!isset($_GET['client_id'])) { ?>
-
-                <div class="form-group">
-                    <i class="fas fa-fw fa-circle me-2" style="color:brown;"></i>Departments
-                </div>
-
+            <div class="card-body cal-legend" role="group" aria-label="Show or hide built-in calendars">
+                <?php
+                $cal_builtin = [['invoices', 'blue', 'Invoices'], ['quotes', 'purple', 'Quotes'], ['tickets', 'red', 'Tickets (Created)'], ['recurring', 'grey', 'Recurring Tickets'], ['scheduled', 'grey', 'Tickets (Scheduled)'], ['vendors', 'brown', 'Vendors']];
+                if (!isset($_GET['client_id'])) { $cal_builtin[] = ['departments', 'brown', 'Departments']; }
+                foreach ($cal_builtin as [$cal_src, $cal_col, $cal_lbl]) { ?>
+                <label class="cal-legend__item"><input type="checkbox" class="cal-legend__check" data-src="<?= $cal_src ?>" checked><span class="cal-legend__dot" style="--c:<?= $cal_col ?>;" aria-hidden="true"></span><span class="cal-legend__label"><?= $cal_lbl ?></span></label>
                 <?php } ?>
-
             </div>
         </div>
 
@@ -135,7 +109,7 @@ if (isset($_GET['calendar_id'])) {
                 <!-- Outlook Classic -->
                 <p class="mb-1"><strong><i class="fas fa-envelope me-1"></i>Outlook (Classic)</strong></p>
                 <div class="input-group input-group-sm mb-1">
-                    <input type="text" class="form-control" id="cal_webcal_url" value="<?= htmlspecialchars($webcal_url, ENT_QUOTES) ?>" readonly>
+                    <input type="text" class="form-control cal-sync-url" id="cal_webcal_url" value="<?= htmlspecialchars($webcal_url, ENT_QUOTES) ?>" title="<?= htmlspecialchars($webcal_url, ENT_QUOTES) ?>" aria-label="Outlook calendar subscription address" readonly>
                     <div class="input-group-append">
                         <button class="btn btn-outline-secondary copy-btn" type="button" data-target="cal_webcal_url">Copy</button>
                     </div>
@@ -151,7 +125,7 @@ if (isset($_GET['calendar_id'])) {
                 <!-- Google Calendar -->
                 <p class="mb-1"><strong><i class="fab fa-google me-1"></i>Google Calendar</strong></p>
                 <div class="input-group input-group-sm mb-1">
-                    <input type="text" class="form-control" id="cal_https_url" value="<?= htmlspecialchars($feed_url, ENT_QUOTES) ?>" readonly>
+                    <input type="text" class="form-control cal-sync-url" id="cal_https_url" value="<?= htmlspecialchars($feed_url, ENT_QUOTES) ?>" title="<?= htmlspecialchars($feed_url, ENT_QUOTES) ?>" aria-label="Google calendar subscription address" readonly>
                     <div class="input-group-append">
                         <button class="btn btn-outline-secondary copy-btn" type="button" data-target="cal_https_url">Copy</button>
                     </div>
@@ -161,9 +135,9 @@ if (isset($_GET['calendar_id'])) {
         </div>
     </div>
 
-    <div class="col-md-9">
+    <div class="col-lg-9 cal-main">
         <div class="card">
-            <div id='calendar'></div>
+            <div id='calendar' class="cal-surface"></div>
         </div>
     </div>
 
@@ -220,10 +194,11 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 }
             },
             headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
+                left: 'prev,next today title',
+                center: '',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth newEvent'
             },
+            buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day', list: 'List' },
             <?php if (!$session_mobile) {
             ?>aspectRatio: 2.5,
         <?php } else { ?>
@@ -235,8 +210,11 @@ while ($row = mysqli_fetch_assoc($sql)) {
 
         selectMirror: true,
         eventDidMount: function(info) {
-            // Always show full title when hovering
+            // Always show full title when hovering; the chip takes its colour from the calendar it belongs to
             info.el.setAttribute('title', info.event.title);
+            var c = info.event.backgroundColor || info.event.borderColor || '';
+            if (c) { info.el.style.setProperty('--ev-color', c); }
+            if (info.event.extendedProps && info.event.extendedProps.src) { info.el.dataset.src = info.event.extendedProps.src; }
         },
         eventClick: function(editEvent) {
             var eventId = editEvent.event.id;
@@ -268,7 +246,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $calendar_name = json_encode($row['calendar_name']);
                 $calendar_color = json_encode($row['calendar_color']);
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: $calendar_color },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: $calendar_color, extendedProps: { src: 'cal-$calendar_id' } },";
             }
 
             // Invoices Created
@@ -283,7 +261,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_start = json_encode($row['invoice_date']);
 
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'blue', url: 'invoice.php?invoice_id=$event_id$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'blue', extendedProps: { src: 'invoices', baseDisplay: 'list-item' }, url: 'invoice.php?invoice_id=$event_id$client_url' },";
             }
 
             // Quotes Created
@@ -293,7 +271,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_title = json_encode($row['quote_prefix'] . $row['quote_number'] . " " . $row['quote_scope']);
                 $event_start = json_encode($row['quote_date']);
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'purple', url: 'quote.php?quote_id=$event_id$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, display: 'list-item', color: 'purple', extendedProps: { src: 'quotes', baseDisplay: 'list-item' }, url: 'quote.php?quote_id=$event_id$client_url' },";
             }
 
             // Tickets Created
@@ -328,7 +306,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                     $event_color = "black";
                 }
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, color: '$event_color', url: 'ticket.php?ticket_id=$event_id$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, color: '$event_color', extendedProps: { src: 'tickets' }, url: 'ticket.php?ticket_id=$event_id$client_url' },";
             }
 
             // Recurring Tickets
@@ -352,7 +330,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_title = json_encode("R Ticket ($frequency) - " . $row['recurring_ticket_subject'] . " " . $username);
                 $event_start = json_encode($row['recurring_ticket_next_run']);
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, color: '$event_color', url: 'recurring_tickets.php?client_id=$client_id$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, color: '$event_color', extendedProps: { src: 'recurring' }, url: 'recurring_tickets.php?client_id=$client_id$client_url' },";
             }
 
             // Tickets Scheduled
@@ -385,7 +363,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_start = json_encode($row['ticket_schedule']);
                 $event_end   = $row['ticket_schedule_end'] ? json_encode($row['ticket_schedule_end']) : 'null';
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: '$event_color', url: 'ticket.php?ticket_id=$event_id$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: '$event_color', extendedProps: { src: 'scheduled' }, url: 'ticket.php?ticket_id=$event_id$client_url' },";
             }
 
             // ticket_schedules table entries (new-style multi-schedule per ticket)
@@ -413,7 +391,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_start = json_encode($row['schedule_start']);
                 $event_end   = $row['schedule_end'] ? json_encode($row['schedule_end']) : 'null';
                 $ticket_id_link = intval($row['ticket_id']);
-                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: '$event_color', url: 'ticket.php?ticket_id=$ticket_id_link$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, end: $event_end, color: '$event_color', extendedProps: { src: 'scheduled' }, url: 'ticket.php?ticket_id=$ticket_id_link$client_url' },";
             }
 
             // Vendors Added Created
@@ -424,7 +402,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                 $event_title = json_encode("Vendor : '" . $row['vendor_name'] . "' created");
                 $event_start = json_encode($row['vendor_created_at']);
 
-                echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', url: 'vendors.php?$client_url' },";
+                echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', extendedProps: { src: 'vendors' }, url: 'vendors.php?$client_url' },";
             }
 
             if (!isset($_GET['client_id']) && $cal_feed_clients) {
@@ -435,7 +413,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                     $event_title = json_encode("Department: '" . $row['client_name'] . "' created");
                     $event_start = json_encode($row['client_created_at']);
 
-                    echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', url: 'client_overview.php?client_id=$event_id' },";
+                    echo "{ id: $event_id, title: $event_title, start: $event_start, color: 'brown', extendedProps: { src: 'departments' }, url: 'client_overview.php?client_id=$event_id' },";
                 }
             }
             ?>
@@ -452,6 +430,31 @@ while ($row = mysqli_fetch_assoc($sql)) {
         });
 
         calendar.render();
+
+        // Legend check boxes show/hide a calendar's events; the choice is remembered in this browser only.
+        var hiddenKey = 'rivetit_calendar_hidden_' + <?= json_encode((string) $session_user_id) ?>;
+        var hidden = [];
+        try { hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]') || []; } catch (e) { hidden = []; }
+        function applyHidden() {
+            calendar.getEvents().forEach(function (ev) {
+                var src = ev.extendedProps && ev.extendedProps.src;
+                if (!src) { return; }
+                var off = hidden.indexOf(src) !== -1;
+                var base = (ev.extendedProps && ev.extendedProps.baseDisplay) || 'auto';
+                if ((ev.display === 'none') !== off) { ev.setProp('display', off ? 'none' : base); }
+            });
+        }
+        document.querySelectorAll('.cal-legend__check').forEach(function (box) {
+            box.checked = hidden.indexOf(box.dataset.src) === -1;
+            box.addEventListener('change', function () {
+                var i = hidden.indexOf(box.dataset.src);
+                if (box.checked && i !== -1) { hidden.splice(i, 1); }
+                if (!box.checked && i === -1) { hidden.push(box.dataset.src); }
+                try { localStorage.setItem(hiddenKey, JSON.stringify(hidden)); } catch (e) { /* remembering is a convenience */ }
+                applyHidden();
+            });
+        });
+        applyHidden();
     });
 </script>
 
@@ -486,12 +489,15 @@ while ($row = mysqli_fetch_assoc($sql)) {
     document.querySelectorAll('.copy-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var el = document.getElementById(this.getAttribute('data-target'));
-            el.select();
-            document.execCommand('copy');
-            var orig = this.innerHTML;
-            this.innerHTML = '<i class="fas fa-check"></i> Copied!';
             var b = this;
-            setTimeout(function() { b.innerHTML = orig; }, 2000);
+            var orig = b.textContent;
+            var done = function (ok) { b.textContent = ok ? 'Copied' : 'Press Ctrl+C'; setTimeout(function() { b.textContent = orig; }, 2000); };
+            el.select();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(el.value).then(function () { done(true); }, function () { try { done(document.execCommand('copy')); } catch (e) { done(false); } });
+            } else {
+                try { done(document.execCommand('copy')); } catch (e) { done(false); }
+            }
         });
     });
 </script>
