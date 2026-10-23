@@ -104,6 +104,7 @@ window.RIVETIT_UPLOAD_LIMITS = <?php echo json_encode(['file' => ini_get('upload
 <script src="/plugins/moment/moment.min.js" defer></script>
 <script src="/plugins/chart.js/chart.umd.min.js" defer></script>
 <script src="/plugins/tinymce/tinymce.min.js" referrerpolicy="origin" defer></script>
+<script src="/js/tinymce_theme.js" defer></script>
 <script src="/plugins/marked/marked.min.js" defer></script>
 <script src="/plugins/turndown/turndown.js" defer></script>
 <script src="/plugins/turndown/turndown-plugin-gfm.js" defer></script>

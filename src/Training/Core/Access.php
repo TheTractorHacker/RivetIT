@@ -211,6 +211,10 @@ final class Access
 
     private static function renderGuard(string $icon, string $title, string $subtitle, string $actionsHtml): void
     {
+        if ($actionsHtml === '') {
+            // the standard 403 page always offers a way out; a dead-end guard card does not
+            $actionsHtml = '<a class="btn btn-primary" href="/agent/dashboard.php"><i class="fas fa-home me-2"></i>Back to dashboard</a>';
+        }
         echo '<div class="card"><div class="card-body">';
         if (function_exists('render_empty_state')) {
             render_empty_state($icon, $title, $subtitle, $actionsHtml);

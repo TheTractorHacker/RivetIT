@@ -59,6 +59,12 @@
             }
             if (name) { el.setAttribute('aria-label', name); }
         });
+        // Icon-only buttons also get a hover/long-press tooltip, so sighted users see the same name screen readers get.
+        root.querySelectorAll('a.btn[aria-label], button.btn[aria-label]').forEach(function (el) {
+            if (el.getAttribute('title') || el.getAttribute('data-bs-original-title') || el.hasAttribute('data-bs-toggle') && el.getAttribute('data-bs-toggle') === 'tooltip') { return; }
+            if (el.textContent.replace(/\s+/g, '') !== '') { return; }
+            el.setAttribute('title', el.getAttribute('aria-label'));
+        });
     }
 
     function placeholderOf(el) {

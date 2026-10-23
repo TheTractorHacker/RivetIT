@@ -283,13 +283,39 @@ function initSelect2Widgets() {
         };
         var ph = el.getAttribute('data-placeholder');
         if (ph) { opts.placeholder = ph; }
+        if (!el.multiple && el.tagName === 'SELECT') {
+            // A single select must behave like a dropdown, not like a text box:
+            //  - an empty-valued "- Choose a Template -" row is a placeholder, not a choice, so it is not listed again in the open list
+            //    (a filter's "All ..." row is a real choice and stays);
+            //  - short lists have no caret and no typing at all (click anywhere opens the list, arrows/Enter work);
+            //  - long lists keep search, but the caret lives in the search box inside the open list, never in the closed control.
+            var emptyOpt = el.querySelector('option[value=""]');
+            var placeholderRow = emptyOpt && (el.required || /^\s*[-\u2013\u2014].*[-\u2013\u2014]\s*$/.test(emptyOpt.textContent) || /^(Department|Contact|Select|Choose)\b/i.test(emptyOpt.textContent.trim()));
+            if (placeholderRow) {
+                if (!opts.placeholder) { opts.placeholder = emptyOpt.textContent.trim(); }
+                opts.allowEmptyOption = false;
+                if (!el.required && !el.disabled) { opts.plugins = opts.plugins.concat(['clear_button']); }
+            }
+            // "- Choose a Template -" with value 0 is a placeholder too (value 0 must still submit, so it stays in the data), just not drawn in the open list.
+            var firstOpt = el.options[0];
+            if (firstOpt && firstOpt.value === '0' && /^\s*-\s*(Choose|Select|Pick)\b.*-\s*$/i.test(firstOpt.textContent)) {
+                opts.render = { option: function (data, escape) {
+                    return '<div class="option' + (data.value === '0' ? ' ts-placeholder-row' : '') + '">' + escape(data.text) + '</div>';
+                } };
+            }
+            var realOptions = el.querySelectorAll('option:not([value=""])').length;
+            var searchable = el.getAttribute('data-searchable');
+            if (searchable === '0' || (searchable !== '1' && realOptions <= 12)) {
+                opts.controlInput = null;
+            } else {
+                opts.plugins = opts.plugins.concat(['dropdown_input']);
+            }
+        }
         // data-searchable="0" - a plain click-to-pick dropdown, no typeahead
         // text box. For short, fixed option lists (ticket filter pills, etc.)
         // the search input is friction, not help - clicking should show the
         // full list immediately, not ask the user to type first.
-        if (el.getAttribute('data-searchable') === '0') {
-            opts.controlInput = null;
-        }
+        if (el.multiple && el.getAttribute('data-searchable') === '0') { opts.controlInput = null; }
         try { new TomSelect(el, opts); } catch (err) { /* noop */ }
     });
 }
@@ -564,7 +590,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 200,
+        min_height: 130,
         max_height: 600,
         promotion: false,
         branding: false,
@@ -700,7 +726,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 200,
+        min_height: 130,
         max_height: 600,
         promotion: false,
         branding: false,

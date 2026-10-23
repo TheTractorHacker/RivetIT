@@ -21,8 +21,9 @@ if ($total_found_rows > 5) {
         <div class="col-sm">
             <form action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                <div class="form-group">
-                    <select class="form-control select2 col-12 col-sm-3 auto-submit-select" name="change_records_per_page">
+                <div class="form-group d-flex align-items-center gap-2">
+                    <label class="form-label small text-muted mb-0 text-nowrap" for="records_per_page_select">Rows per page</label>
+                    <select class="form-control select2 auto-submit-select" id="records_per_page_select" name="change_records_per_page" style="max-width: 6.5rem;">
                         <option <?php if ($user_config_records_per_page == 5) { echo "selected"; } ?> >5</option>
                         <option <?php if ($user_config_records_per_page == 10) { echo "selected"; } ?> >10</option>
                         <option <?php if ($user_config_records_per_page == 20) { echo "selected"; } ?> >20</option>
@@ -121,7 +122,7 @@ if ($total_found_rows > 5) {
 
 }
 
-if ($total_found_rows == 0) {
+if ($total_found_rows == 0 && empty($suppress_filter_empty)) {
     /* This is the shared empty state for every filtered list in the app (tickets,
        assets, domains, contacts...). It used to render a 6x rolling-eyes face:
        measured 105x84px, which made it the largest graphic on the page, above an
@@ -129,9 +130,15 @@ if ($total_found_rows == 0) {
        empty list shouted, and shouted with a cartoon eye-roll, which reads as
        editorial commentary in an IT asset register. Same information, stated
        calmly, and no longer competing with the page's real heading. */
+    // "No results match your filters" is only honest when a filter or search is actually applied.
+    $empty_filter_applied = false;
+    foreach ($_GET as $empty_k => $empty_v) {
+        if (in_array($empty_k, ['page', 'sort', 'order', 'client_id', 'tab', 'type', 'canned_date', 'dtf', 'dtt'], true)) { continue; }
+        if (is_array($empty_v) ? !empty(array_filter($empty_v, 'strlen')) : trim((string) $empty_v) !== '') { $empty_filter_applied = true; break; }
+    }
     echo "<div class='text-center text-muted py-5'>"
        . "<i class='far fa-folder-open fa-2x d-block mb-3 opacity-50'></i>"
-       . "<p class='mb-0'>No results match your filters.</p>"
+       . "<p class='mb-0'>" . ($empty_filter_applied ? "No results match your filters." : "Nothing here yet.") . "</p>"
        . "</div>";
 }
 

@@ -25,8 +25,28 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
     }
 
     set_exception_handler(function (Throwable $e) use ($back) {
+        // The RivetCore database adapter wraps driver errors in its own exception class; look through the chain by message too.
+        for ($x = $e; $x !== null; $x = $x->getPrevious()) {
+            if (!($x instanceof mysqli_sql_exception) && preg_match('/Data too long for column|Out of range value for column|Incorrect (integer|decimal) value/i', $x->getMessage())) {
+                $msg = stripos($x->getMessage(), 'Data too long') !== false
+                    ? 'One of the values you entered is too long for its field. Nothing was saved - shorten it and try again.'
+                    : 'One of the numbers you entered is too large, too small or not valid for its field. Nothing was saved - check the value and try again.';
+                flash_alert($msg, 'error');
+                if (!headers_sent()) { header('Location: ' . $back); }
+                exit;
+            }
+        }
         if ($e instanceof mysqli_sql_exception && (int) $e->getCode() === 1406) {
             flash_alert('One of the values you entered is too long for its field. Nothing was saved - shorten it and try again.', 'error');
+            if (!headers_sent()) {
+                header('Location: ' . $back);
+            }
+            exit;
+        }
+        // 1264 out of range / 1265 truncated / 1366 incorrect integer / 1292 incorrect value: a number typed outside the column's range
+        // (e.g. 99999999999999999999 in an "Order" box) used to be the same blank HTTP 500.
+        if ($e instanceof mysqli_sql_exception && in_array((int) $e->getCode(), [1264, 1265, 1366, 1292], true)) {
+            flash_alert('One of the numbers you entered is too large, too small or not valid for its field. Nothing was saved - check the value and try again.', 'error');
             if (!headers_sent()) {
                 header('Location: ' . $back);
             }
@@ -35,3 +55,14 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
         throw $e;
     });
 })();
+
+/** Reject a POST where a required text field is empty or only spaces (the browser's required attribute accepts "   "). */
+function requireFilledPost(array $labelsByKey): void
+{
+    foreach ($labelsByKey as $key => $label) {
+        if (trim((string) ($_POST[$key] ?? '')) === '') {
+            flash_alert("$label cannot be blank or only spaces. Nothing was saved.", 'error');
+            redirect();
+        }
+    }
+}

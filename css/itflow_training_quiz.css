@@ -431,3 +431,6 @@
 :where(.tr-drop__hint) { font-size: .8125rem; color: var(--if-muted, #5d6f76); }
 :where(.tr-lang) { display: inline-flex; align-items: center; }
 :where(.tr-empty) { color: var(--if-ink, #16232a); }
+
+/* Side cards that are still (or again) empty - e.g. a lesson with no quiz yet - are not drawn as blank white bars. */
+.trq-card:empty { display: none; }

@@ -109,7 +109,35 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
         bootstrap.Popover.getOrCreateInstance(el, { container: 'body' });
       });
 
+      // A bulk modal opened with nothing selected ("Set Status for 0 Assets") used to offer an enabled submit that does nothing useful.
+      const bulkCount = modalEl.querySelector('.modal-title strong');
+      if (bulkCount && bulkCount.textContent.trim() === '0' && modalEl.querySelector('form')) {
+        modalEl.querySelectorAll('form [type="submit"]').forEach(function (b) { b.disabled = true; });
+        const body = modalEl.querySelector('form .modal-body');
+        if (body) {
+          const note = document.createElement('div');
+          note.className = 'alert alert-warning';
+          note.setAttribute('role', 'alert');
+          note.textContent = 'Nothing is selected. Close this dialog, tick one or more rows, then try again.';
+          body.insertBefore(note, body.firstChild);
+        }
+      }
+
       const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      // A dialog taller than the screen gets its own scrollable body (header and footer stay put) instead of running off the page;
+      // the form-wrapped layout is handled by .modal-dialog-scrollable rules in css/itflow_custom.css. Only applied when it overflows.
+      modalEl.addEventListener('shown.bs.modal', function () {
+        // Put the cursor in the first plain field so every form modal can be typed into straight away (some did, most did not).
+        if (!modalEl.contains(document.activeElement) || document.activeElement === modalEl) {
+          const first = modalEl.querySelector('.modal-body input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([readonly]):not([disabled]):not(.d-none), .modal-body textarea:not([readonly]):not([disabled]):not(.tinymce)');
+          if (first && first.offsetParent !== null && !first.closest('.ts-wrapper, .select2-container, .tox')) { first.focus({ preventScroll: true }); }
+        }
+        const dlg = modalEl.querySelector('.modal-dialog');
+        if (dlg && !dlg.classList.contains('modal-fullscreen') && dlg.offsetHeight > window.innerHeight - 16 &&
+            modalEl.querySelector('.modal-content > .modal-body, .modal-content > form > .modal-body')) {
+          dlg.classList.add('modal-dialog-scrollable');
+        }
+      });
       modal.show();
 
       // Optionally jump straight to a specific pill/tab inside the modal
@@ -172,4 +200,15 @@ document.addEventListener('click', function (e) {
   }
 
   window.openAjaxModal(modalUrl, modalSize, { modalTab: modalTab });
+});
+
+// Esc closed an ajax modal only while focus was inside it. After Tabbing out (focus on <body>) Esc did nothing.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' || e.defaultPrevented) { return; }
+  const open = document.querySelectorAll('.modal.show');
+  if (!open.length) { return; }
+  const top = open[open.length - 1];
+  if (top.contains(document.activeElement) || document.querySelector('.tox-tinymce-aux .tox-menu, .tox-tinymce-aux .tox-dialog, .ts-dropdown[style*="display: block"]')) { return; }
+  const inst = window.bootstrap && bootstrap.Modal.getInstance(top);
+  if (inst) { inst.hide(); }
 });

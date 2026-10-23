@@ -123,8 +123,8 @@
 /* Records log: room for the course name, everything else as narrow as its content, so the table fits its card. */
 #tro-rec-table td:nth-child(3) { min-width: 12rem; }
 #tro-rec-table td:nth-child(7) { width: 1%; white-space: nowrap; }
-#tro-rec-table .tro-person { min-width: 0; }
-#tro-rec-table .tro-person__text { overflow-wrap: anywhere; }
+#tro-rec-table .tro-person { min-width: 9rem; }
+#tro-rec-table .tro-person__text { overflow-wrap: break-word; }
 #tro-rec-table .tro-strength { white-space: normal; }
 #tro-rec-table td.tro-nowrap .tro-rec-by { white-space: normal; }
 .tro-mono { font-family: var(--if-mono, ui-monospace, monospace); font-size: 12.5px; letter-spacing: 0; }

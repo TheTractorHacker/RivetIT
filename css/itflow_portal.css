@@ -332,3 +332,6 @@
 :root[data-bs-theme="dark"] .portal-ui td > .badge.bg-warning, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-warning { color: #fbbf24 !important; }
 :root[data-bs-theme="dark"] .portal-ui td > .badge.bg-info, :root[data-bs-theme="dark"] .portal-ui td > .badge.text-bg-info { color: #22d3ee !important; }
 .portal-status-dot { opacity: .8; filter: saturate(.8); }
+
+/* Allowance page label column (was an inline style="", which the portal CSP drops). */
+.portal-allowance-label { min-width: 110px; }
