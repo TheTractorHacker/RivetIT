@@ -1,5 +1,11 @@
 name: Welcome New Contributor
 
+# pull_request_target (not pull_request) is deliberate here: a fork PR's default GITHUB_TOKEN under plain
+# pull_request is read-only, which would silently fail to post this welcome comment for first-time fork
+# contributors - the usual reason to reach for pull_request_target. The usual danger with that trigger is a
+# job that then checks out and runs the PR's own (untrusted) code with the base repo's elevated token/secrets;
+# this job never does - no checkout step, no PR code ever executes, and the token's permissions below are
+# capped at posting issue/PR comments, nothing that can push code or read repo secrets.
 on:
   issues:
     types: [opened]
@@ -14,7 +20,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/first-interaction@v3.1.0
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           issue-message: |

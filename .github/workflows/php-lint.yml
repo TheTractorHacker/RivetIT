@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       with:
         persist-credentials: false
 
     - name: Check PHP syntax errors
-      uses: overtrue/phplint@9.7.2
+      uses: overtrue/phplint@74b5b8cd13b5974dbe89d26fc998a55abb40874e # 9.7.2
