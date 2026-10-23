@@ -39,9 +39,12 @@ final class WidgetRenderer
                 $h = '';
                 foreach ($d['items'] as $i) {
                     $w = (int) round($i['value'] / $max * 100);
+                    // 'display' is an already-formatted string (e.g. currency) shown in place of the raw value;
+                    // the raw numeric 'value' still drives the bar's width.
+                    $shown = $i['display'] ?? (string) (int) $i['value'];
                     $h .= '<div class="d-flex align-items-center mb-1"><div class="text-truncate" style="width:38%" title="' . self::esc($i['label']) . '">' . self::esc($i['label']) . '</div>'
                         . '<div class="flex-fill px-2"><div class="progress" style="height:.6rem"><div class="progress-bar" role="progressbar" style="width:' . $w . '%"></div></div></div>'
-                        . '<div class="text-end fw-bold" style="min-width:2.5rem">' . (int) $i['value'] . '</div></div>';
+                        . '<div class="text-end fw-bold" style="min-width:2.5rem">' . self::esc($shown) . '</div></div>';
                 }
                 return $h;
             case 'table':
@@ -56,10 +59,16 @@ final class WidgetRenderer
                 foreach ($d['rows'] as $r) {
                     $h .= '<tr>';
                     foreach ($r['cells'] as $n => $cell) {
-                        $txt = self::esc($cell);
-                        // Only same-site relative links are ever emitted.
-                        if ($n === 0 && !empty($r['href']) && strpos($r['href'], '/agent/') === 0) {
-                            $txt = '<a href="' . self::esc($r['href']) . '">' . $txt . '</a>';
+                        // A cell is normally a plain scalar; ['text'=>..., 'badge'=>'success'|'danger'|...] renders
+                        // as a small Bootstrap badge instead (e.g. a priority or status label).
+                        if (is_array($cell) && isset($cell['text'])) {
+                            $txt = '<span class="badge text-bg-' . self::esc($cell['badge'] ?? 'secondary') . '">' . self::esc($cell['text']) . '</span>';
+                        } else {
+                            $txt = self::esc($cell);
+                            // Only same-site relative links are ever emitted.
+                            if ($n === 0 && !empty($r['href']) && strpos($r['href'], '/agent/') === 0) {
+                                $txt = '<a href="' . self::esc($r['href']) . '">' . $txt . '</a>';
+                            }
                         }
                         $h .= '<td>' . $txt . '</td>';
                     }
@@ -87,6 +96,14 @@ final class WidgetRenderer
                 $svg .= '<line x1="0" y1="' . $hgt . '" x2="' . $w . '" y2="' . $hgt . '" stroke="#adb5bd" stroke-width="1"/>';
                 $svg .= '</svg>';
                 return $svg . '<div class="d-flex justify-content-between small text-muted"><span>' . self::esc($d['labels'][0] ?? '') . '</span><span>' . self::esc($d['labels'][$n - 1] ?? '') . '</span></div><div class="small text-muted"><span style="color:#0d6efd">&#9632;</span> ' . self::esc($d['a_label']) . ' (' . array_sum($d['a']) . ') &nbsp; <span style="color:#198754">&#9632;</span> ' . self::esc($d['b_label']) . ' (' . array_sum($d['b']) . ')</div>';
+            case 'multiseries':
+                // Three or more datasets over the same labels (e.g. Cash Flow's Income/LY Income/Projected/Expense) -
+                // always a Chart.js canvas; a hand-rolled fallback for an arbitrary number of series isn't worth it.
+                if (empty(array_filter($d['series'], fn ($s) => array_sum($s['data']) != 0))) {
+                    return '<div class="text-muted">' . self::esc($d['empty'] ?? 'Nothing to show.') . '</div>';
+                }
+                return self::chartCanvas(['type' => $chart === 'line' ? 'line' : 'bar', 'labels' => $d['labels'],
+                    'datasets' => array_map(static fn ($s) => ['label' => $s['label'], 'data' => $s['data']], $d['series'])]);
         }
         return '';
     }

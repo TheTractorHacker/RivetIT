@@ -203,7 +203,7 @@ function itflow_limited_access_decision(?string $script = null): string {
     $s = $script ?? itflow_request_script();
 
     // Landing pages: a limited login is sent to its own home (and ?home=1 no longer shows the dashboard).
-    if (in_array($s, ['/agent/index.php', '/agent/dashboard.php', '/agent/it_dashboard.php', '/agent/'], true)) {
+    if (in_array($s, ['/agent/index.php', '/agent/dashboard.php', '/agent/my_dashboard.php', '/agent/it_dashboard.php', '/agent/'], true)) {
         return 'home';
     }
 

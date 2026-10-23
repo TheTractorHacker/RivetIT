@@ -40,7 +40,7 @@ $section_pages['training'] = array_merge($section_pages['training'], ['training_
 // the modules its role holds: no Dashboard, no Work group, no custom links, and the logo goes to its own
 // home. Everyone else keeps the sidebar exactly as it was.
 $nav_limited = itflow_is_limited_user();
-$nav_home_url = $nav_limited ? itflow_home_url() : '/agent/dashboard.php';
+$nav_home_url = $nav_limited ? itflow_home_url() : '/agent/my_dashboard.php';
 $section_open = [];
 foreach ($section_pages as $key => $pages) {
     $section_open[$key] = in_array($current_page, $pages, true);
@@ -83,16 +83,13 @@ foreach ($section_pages as $key => $pages) {
             <ul class="navbar-nav pt-lg-2">
 
                 <?php if (!$nav_limited) { ?>
-                <li class="nav-item<?php if ($current_page == "dashboard.php") { echo " active"; } ?>">
-                    <a href="/agent/dashboard.php" class="nav-link<?php if ($current_page == "dashboard.php") { echo " active"; } ?>">
+                <?php // Dashboard and My dashboard merged into one page (agent/my_dashboard.php) - agent/dashboard.php
+                      // is now just a redirect stub, same pattern as agent/it_dashboard.php, so old links/the
+                      // Start Page setting still work. The nav highlights active on either page name. ?>
+                <li class="nav-item<?php if (in_array($current_page, ['dashboard.php', 'my_dashboard.php'], true)) { echo " active"; } ?>">
+                    <a href="/agent/my_dashboard.php" class="nav-link<?php if (in_array($current_page, ['dashboard.php', 'my_dashboard.php'], true)) { echo " active"; } ?>">
                         <span class="nav-link-icon"><i class="fas fa-tachometer-alt"></i></span>
                         <span class="nav-link-title">Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item<?php if ($current_page == "my_dashboard.php") { echo " active"; } ?>">
-                    <a href="/agent/my_dashboard.php" class="nav-link<?php if ($current_page == "my_dashboard.php") { echo " active"; } ?>">
-                        <span class="nav-link-icon"><i class="fas fa-th-large"></i></span>
-                        <span class="nav-link-title">My dashboard</span>
                     </a>
                 </li>
                 <?php } ?>

@@ -353,12 +353,14 @@ $ok($c === 200 && !str_contains($body, 'id="rmm-strip"') && !str_contains($body,
 $ok($c === 403 && str_contains($body, 'RMM module off') && !str_contains($body, 'WIN1'), 'OFF: the fleet page is the module-off notice and shows no device');
 [$c, $body] = web($wb, 'GET', "/agent/rmm_job_output.php?device_id={$D['WIN1']}&job_id=$jid", $SS['admin']);
 $ok($c === 404, 'OFF: the job output endpoint answers 404');
-[$c, $body] = web($wb, 'GET', '/agent/dashboard.php', $SS['admin']);
+// agent/dashboard.php is now just a redirect to agent/my_dashboard.php (the one dashboard - "why have two
+// dashboards?") - it carries no nav chrome of its own any more, so the nav checks below hit the real page.
+[$c, $body] = web($wb, 'GET', '/agent/my_dashboard.php', $SS['admin']);
 $ok(!str_contains($body, 'Agent Fleet') && !str_contains($body, 'rmm_fleet.php'), 'OFF: the navigation has no Agent Fleet entry');
 $rmm->admin()->enable($admin);
-[$c, $body] = web($wb, 'GET', '/agent/dashboard.php', $SS['admin']);
+[$c, $body] = web($wb, 'GET', '/agent/my_dashboard.php', $SS['admin']);
 $ok(str_contains($body, 'href="/agent/rmm_fleet.php"'), 'ON: the navigation has the Agent Fleet entry');
-[$c, $body] = web($wb, 'GET', '/agent/dashboard.php', $SS['normo']);
+[$c, $body] = web($wb, 'GET', '/agent/my_dashboard.php', $SS['normo']);
 $ok(!str_contains($body, 'rmm_fleet.php'), 'a user with no RMM grant never sees the entry');
 
 // vendor-linked assets are unchanged

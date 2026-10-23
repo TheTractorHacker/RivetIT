@@ -20,8 +20,19 @@ final class WidgetRegistry
 
     // Widgets whose data() shape is 'bars' or 'series' can also render as a Chart.js chart (WidgetRenderer) -
     // everything else (stat/table) has nothing to switch between, so chartOptions() returns [].
-    private const BARS_WIDGETS = ['tickets_by_status', 'tickets_by_priority', 'assets_by_type', 'rmm_alerts_open', 'rmm_patches_pending', 'training_achievements_month'];
-    private const SERIES_WIDGETS = ['created_vs_closed'];
+    private const BARS_WIDGETS = ['tickets_by_status', 'tickets_by_priority', 'assets_by_type', 'rmm_alerts_open', 'rmm_patches_pending', 'training_achievements_month',
+        'assets_by_status', 'tickets_by_category', 'tickets_by_technician_open', 'finance_income_by_category', 'finance_expense_by_category', 'finance_expense_by_vendor'];
+    private const SERIES_WIDGETS = ['created_vs_closed', 'tickets_flow_year'];
+    // 'multiseries' widgets (3+ datasets) have no plain-HTML fallback, so unlike the lists above they always
+    // render as a Chart.js canvas - bar/line is a style choice, not "chart vs no chart".
+    private const MULTISERIES_WIDGETS = ['finance_cash_flow', 'finance_trip_flow'];
+
+    // Financial widgets additionally require WidgetContext::$financeEnabled (config_module_enable_accounting
+    // AND the user's own "Financial" on/off switch) on top of the module_sales/module_financial permission check
+    // every other widget goes through - see isAvailable().
+    private const FINANCE_WIDGETS = ['finance_income', 'finance_expenses', 'finance_profit', 'finance_recurring_income', 'finance_recurring_expense',
+        'finance_unbilled_or_recurring_added', 'finance_vendors_added', 'finance_miles_traveled', 'finance_cash_flow', 'finance_income_by_category',
+        'finance_expense_by_category', 'finance_expense_by_vendor', 'finance_account_balances', 'finance_latest_income', 'finance_latest_expenses', 'finance_trip_flow'];
 
     /** @return array<string,string> value => label, in default-first order; [] if this widget has no alternate chart type. */
     public static function chartOptions(string $id): array
@@ -31,6 +42,9 @@ final class WidgetRegistry
         }
         if (in_array($id, self::SERIES_WIDGETS, true)) {
             return ['bar' => 'Bar', 'line' => 'Line'];
+        }
+        if (in_array($id, self::MULTISERIES_WIDGETS, true)) {
+            return ['line' => 'Line', 'bar' => 'Bar'];
         }
         return [];
     }
@@ -63,6 +77,48 @@ final class WidgetRegistry
             'projects_open'       => ['title' => 'Open projects',                 'icon' => 'fa-project-diagram',    'modules' => ['module_support'], 'size' => 'sm'],
             'project_tasks_due'   => ['title' => 'Project tasks due (7 days)',     'icon' => 'fa-tasks',              'modules' => ['module_support'], 'size' => 'md'],
             'project_tasks_overdue' => ['title' => 'Overdue project tasks',       'icon' => 'fa-exclamation-triangle', 'modules' => ['module_support'], 'size' => 'md'],
+
+            // Merged in from the classic dashboard (agent/dashboard.php, now a redirect to this page) - see
+            // CHANGELOG. 'Needs attention' is a composite: it draws on whichever of these modules the user has,
+            // same as the strip it replaces, which simply omitted an item the user couldn't see.
+            'needs_attention'     => ['title' => 'Needs attention',               'icon' => 'fa-bolt',               'modules' => ['module_support', 'module_client', 'module_sales', 'module_training'], 'size' => 'lg'],
+            'departments_active'  => ['title' => 'Active departments',            'icon' => 'fa-building',           'modules' => ['module_client'], 'size' => 'sm'],
+            'departments_added_year' => ['title' => 'Departments added this year', 'icon' => 'fa-users',             'modules' => ['module_client'], 'size' => 'sm'],
+            'contacts_added_year' => ['title' => 'New contacts this year',        'icon' => 'fa-user',               'modules' => ['module_client'], 'size' => 'sm'],
+            'invoices_unpaid'     => ['title' => 'Unpaid invoices',               'icon' => 'fa-file-invoice-dollar', 'modules' => ['module_sales'], 'size' => 'sm'],
+            'workflow_runs_in_progress' => ['title' => 'Onboarding / offboarding in progress', 'icon' => 'fa-tasks', 'modules' => ['module_client'], 'size' => 'lg'],
+            'assets_by_status'    => ['title' => 'Assets by status',              'icon' => 'fa-desktop',            'modules' => ['module_assets', 'module_support'], 'size' => 'md'],
+            'assets_added_year'   => ['title' => 'New assets this year',          'icon' => 'fa-desktop',            'modules' => ['module_assets', 'module_support'], 'size' => 'sm'],
+
+            'tickets_opened_today'   => ['title' => 'Tickets opened today',       'icon' => 'fa-plus-circle',        'modules' => ['module_support'], 'size' => 'sm'],
+            'tickets_resolved_week'  => ['title' => 'Tickets resolved this week', 'icon' => 'fa-check-circle',       'modules' => ['module_support'], 'size' => 'sm'],
+            'tickets_waiting_on_customer' => ['title' => 'Waiting on employee',   'icon' => 'fa-clock',              'modules' => ['module_support'], 'size' => 'sm'],
+            'tickets_flow_year'   => ['title' => 'Tickets opened vs resolved (this year)', 'icon' => 'fa-chart-line', 'modules' => ['module_support'], 'size' => 'lg'],
+            'tickets_by_category' => ['title' => 'Open tickets by category',      'icon' => 'fa-chart-pie',          'modules' => ['module_support'], 'size' => 'md'],
+            'tickets_by_technician_open' => ['title' => 'Open tickets by technician', 'icon' => 'fa-users',          'modules' => ['module_support'], 'size' => 'md'],
+            'tickets_created_year' => ['title' => 'Tickets created this year',    'icon' => 'fa-ticket-alt',         'modules' => ['module_support'], 'size' => 'sm'],
+            'tickets_resolved_year' => ['title' => 'Tickets resolved this year',  'icon' => 'fa-check-double',       'modules' => ['module_support'], 'size' => 'sm'],
+            'avg_resolution_year' => ['title' => 'Average resolution time (this year)', 'icon' => 'fa-stopwatch',    'modules' => ['module_support'], 'size' => 'sm'],
+            'tickets_resolved_by_technician_year' => ['title' => 'Resolved by technician (this year)', 'icon' => 'fa-user-check', 'modules' => ['module_support'], 'size' => 'md'],
+            'tickets_recently_resolved' => ['title' => 'Recently resolved tickets', 'icon' => 'fa-history',          'modules' => ['module_support'], 'size' => 'lg'],
+            'tickets_automation_recent' => ['title' => 'My recent automation activity', 'icon' => 'fa-history',      'modules' => ['module_support'], 'size' => 'lg'],
+
+            'finance_income'      => ['title' => 'Income (this year)',            'icon' => 'fa-hand-holding-usd',   'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_expenses'    => ['title' => 'Expenses (this year)',          'icon' => 'fa-shopping-cart',      'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_profit'      => ['title' => 'Profit (this year)',            'icon' => 'fa-balance-scale',      'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_recurring_income' => ['title' => 'Monthly recurring income', 'icon' => 'fa-sync-alt',           'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_recurring_expense' => ['title' => 'Monthly recurring expense', 'icon' => 'fa-clock',            'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_unbilled_or_recurring_added' => ['title' => 'Unbilled tickets / recurring invoices added', 'icon' => 'fa-file-invoice', 'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_vendors_added' => ['title' => 'New vendors this year',       'icon' => 'fa-building',           'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_miles_traveled' => ['title' => 'Miles traveled this year',   'icon' => 'fa-route',              'modules' => ['module_sales', 'module_financial'], 'size' => 'sm'],
+            'finance_cash_flow'   => ['title' => 'Cash flow (this year)',         'icon' => 'fa-chart-area',         'modules' => ['module_sales', 'module_financial'], 'size' => 'lg'],
+            'finance_income_by_category' => ['title' => 'Income by category (top 5)', 'icon' => 'fa-chart-pie',     'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_expense_by_category' => ['title' => 'Expenses by category (top 5)', 'icon' => 'fa-chart-pie',  'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_expense_by_vendor' => ['title' => 'Expenses by vendor (top 5)', 'icon' => 'fa-building',       'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_account_balances' => ['title' => 'Account balances',         'icon' => 'fa-piggy-bank',        'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_latest_income' => ['title' => 'Latest income',               'icon' => 'fa-credit-card',       'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_latest_expenses' => ['title' => 'Latest expenses',           'icon' => 'fa-shopping-cart',     'modules' => ['module_sales', 'module_financial'], 'size' => 'md'],
+            'finance_trip_flow'   => ['title' => 'Trip miles (this year)',        'icon' => 'fa-route',              'modules' => ['module_sales', 'module_financial'], 'size' => 'lg'],
         ];
     }
 
@@ -75,6 +131,9 @@ final class WidgetRegistry
     {
         $def = self::definitions()[$id] ?? null;
         if (!$def) {
+            return false;
+        }
+        if (in_array($id, self::FINANCE_WIDGETS, true) && !$ctx->financeEnabled) {
             return false;
         }
         foreach ($def['modules'] as $m) {
@@ -99,6 +158,9 @@ final class WidgetRegistry
         if (in_array($id, ['csat'], true) && !$ctx->csatEnabled) {
             return ['type' => 'stat', 'value' => '-', 'caption' => 'Customer satisfaction surveys are turned off.'];
         }
+        if ($id === 'avg_resolution_year' && !$ctx->avgResolutionEnabled) {
+            return ['type' => 'stat', 'value' => '-', 'caption' => 'Average resolution time is turned off.'];
+        }
         return match ($id) {
             'tickets_by_status'   => self::ticketsByStatus($db, $ctx),
             'tickets_by_priority' => self::ticketsByPriority($db, $ctx),
@@ -119,6 +181,45 @@ final class WidgetRegistry
             'projects_open'       => self::projectsOpen($db, $ctx),
             'project_tasks_due'   => self::projectTasksDue($db, $ctx),
             'project_tasks_overdue' => self::projectTasksOverdue($db, $ctx),
+
+            'needs_attention'     => self::needsAttention($db, $ctx),
+            'departments_active'  => self::departmentsActive($db, $ctx),
+            'departments_added_year' => self::departmentsAddedYear($db, $ctx),
+            'contacts_added_year' => self::contactsAddedYear($db, $ctx),
+            'invoices_unpaid'     => self::invoicesUnpaid($db, $ctx),
+            'workflow_runs_in_progress' => self::workflowRunsInProgress($db, $ctx),
+            'assets_by_status'    => self::assetsByStatus($db, $ctx),
+            'assets_added_year'   => self::assetsAddedYear($db, $ctx),
+
+            'tickets_opened_today'   => self::ticketsOpenedToday($db, $ctx),
+            'tickets_resolved_week'  => self::ticketsResolvedWeek($db, $ctx),
+            'tickets_waiting_on_customer' => self::ticketsWaitingOnCustomer($db, $ctx),
+            'tickets_flow_year'   => self::ticketsFlowYear($db, $ctx),
+            'tickets_by_category' => self::ticketsByCategory($db, $ctx),
+            'tickets_by_technician_open' => self::ticketsByTechnicianOpen($db, $ctx),
+            'tickets_created_year' => self::ticketsCreatedYear($db, $ctx),
+            'tickets_resolved_year' => self::ticketsResolvedYear($db, $ctx),
+            'avg_resolution_year' => self::avgResolutionYear($db, $ctx),
+            'tickets_resolved_by_technician_year' => self::ticketsResolvedByTechnicianYear($db, $ctx),
+            'tickets_recently_resolved' => self::ticketsRecentlyResolved($db, $ctx),
+            'tickets_automation_recent' => self::ticketsAutomationRecent($db, $ctx),
+
+            'finance_income'      => self::financeIncome($db, $ctx),
+            'finance_expenses'    => self::financeExpenses($db, $ctx),
+            'finance_profit'      => self::financeProfit($db, $ctx),
+            'finance_recurring_income' => self::financeRecurringIncome($db, $ctx),
+            'finance_recurring_expense' => self::financeRecurringExpense($db, $ctx),
+            'finance_unbilled_or_recurring_added' => self::financeUnbilledOrRecurringAdded($db, $ctx),
+            'finance_vendors_added' => self::financeVendorsAdded($db, $ctx),
+            'finance_miles_traveled' => self::financeMilesTraveled($db, $ctx),
+            'finance_cash_flow'   => self::financeCashFlow($db, $ctx),
+            'finance_income_by_category' => self::financeIncomeByCategory($db, $ctx),
+            'finance_expense_by_category' => self::financeExpenseByCategory($db, $ctx),
+            'finance_expense_by_vendor' => self::financeExpenseByVendor($db, $ctx),
+            'finance_account_balances' => self::financeAccountBalances($db, $ctx),
+            'finance_latest_income' => self::financeLatestIncome($db, $ctx),
+            'finance_latest_expenses' => self::financeLatestExpenses($db, $ctx),
+            'finance_trip_flow'   => self::financeTripFlow($db, $ctx),
             default               => null,
         };
     }
@@ -361,5 +462,451 @@ final class WidgetRegistry
             $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], $r['ticket_due_at']], 'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];
         }
         return ['type' => 'table', 'columns' => ['Task', 'Subject', 'Was due'], 'rows' => $rows, 'empty' => 'No overdue project tasks.'];
+    }
+
+    // ------------------------------------------------------------------------------------------------ Merged in from the classic dashboard (agent/dashboard.php)
+    //
+    // Tightened vs. the page these replace: "Active departments", "Departments/contacts/assets added this
+    // year" and "Unpaid invoices" used to run unscoped (every department's numbers, even for a department-
+    // restricted user) - every other widget in this registry is department-scoped, so that was the odd one
+    // out rather than a deliberate exception, and it's fixed here rather than carried forward. Financial
+    // widgets (tagged in FINANCE_WIDGETS) stay unscoped, matching the page they replace: financial totals are
+    // a whole-company view for whoever can see financial data at all, the same way Admin > Reports' financial
+    // reports work.
+
+    private static function needsAttention(\mysqli $db, WidgetContext $ctx): array
+    {
+        $items = [];
+        if ($ctx->can('module_support')) {
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE " . self::OPEN . " AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . $ctx->scope('ticket_client_id')));
+            $items[] = ['label' => 'Unassigned tickets', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/tickets.php?assigned=0'];
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM domains WHERE domain_expire IS NOT NULL AND domain_expire > CURDATE() AND domain_expire < CURDATE() + INTERVAL 30 DAY AND domain_archived_at IS NULL" . $ctx->scope('domain_client_id')));
+            $items[] = ['label' => 'Domains expiring (30d)', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/domains.php?sort=domain_expire&order=ASC'];
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM certificates WHERE certificate_expire IS NOT NULL AND certificate_expire > CURDATE() AND certificate_expire < CURDATE() + INTERVAL 30 DAY AND certificate_archived_at IS NULL" . $ctx->scope('certificate_client_id')));
+            $items[] = ['label' => 'Certificates expiring (30d)', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/certificates.php?sort=certificate_expire&order=ASC'];
+        }
+        if ($ctx->can('module_sales')) {
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM invoices WHERE invoice_status IN ('Sent', 'Viewed', 'Partial')" . $ctx->scope('invoice_client_id')));
+            $items[] = ['label' => 'Unpaid invoices', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/invoices.php'];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'Nothing needs attention right now.'];
+    }
+
+    private static function departmentsActive(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM clients WHERE client_archived_at IS NULL" . $ctx->scope('client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'active department' : 'active departments'];
+    }
+
+    private static function departmentsAddedYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM clients WHERE YEAR(client_created_at) = {$ctx->year} AND client_archived_at IS NULL" . $ctx->scope('client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "added in {$ctx->year}"];
+    }
+
+    private static function contactsAddedYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM contacts WHERE YEAR(contact_created_at) = {$ctx->year}" . $ctx->scope('contact_client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "added in {$ctx->year}"];
+    }
+
+    private static function invoicesUnpaid(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM invoices WHERE invoice_status IN ('Sent', 'Viewed', 'Partial')" . $ctx->scope('invoice_client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'unpaid invoice' : 'unpaid invoices'];
+    }
+
+    private static function workflowRunsInProgress(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT wr.run_id, wr.type, wr.started_at, c.contact_name, cl.client_name FROM workflow_runs wr
+            INNER JOIN contacts c ON c.contact_id = wr.contact_id LEFT JOIN clients cl ON cl.client_id = c.contact_client_id
+            WHERE wr.status = 'in_progress'" . $ctx->scope('c.contact_client_id') . " ORDER BY wr.started_at ASC LIMIT 15");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['contact_name'], ['text' => ucfirst($r['type']), 'badge' => $r['type'] === 'onboarding' ? 'success' : 'danger'], $r['client_name'], $r['started_at']],
+                'href' => '/agent/workflow_run.php?run_id=' . (int) $r['run_id']];
+        }
+        return ['type' => 'table', 'columns' => ['Person', 'Type', 'Department', 'Started'], 'rows' => $rows, 'empty' => 'No onboarding or offboarding runs in progress.'];
+    }
+
+    private static function assetsByStatus(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT COALESCE(asset_status, 'Unknown') AS n, COUNT(*) AS c FROM assets WHERE asset_archived_at IS NULL"
+            . $ctx->scope('asset_client_id') . " GROUP BY n ORDER BY c DESC");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No assets found.'];
+    }
+
+    private static function assetsAddedYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM assets WHERE YEAR(asset_created_at) = {$ctx->year}" . $ctx->scope('asset_client_id')));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "added in {$ctx->year}"];
+    }
+
+    // ------------------------------------------------------------------------------------------------ Tickets (classic dashboard's "Technical" section)
+
+    private static function ticketsOpenedToday(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND DATE(ticket_created_at) = CURDATE()"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'opened today'];
+    }
+
+    private static function ticketsResolvedWeek(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NOT NULL AND ticket_closed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'resolved in the last 7 days'];
+    }
+
+    private static function ticketsWaitingOnCustomer(\mysqli $db, WidgetContext $ctx): array
+    {
+        // "Waiting on Employee" is this install's name for upstream's "Waiting on Customer" status; matched by
+        // name (either counts) since setup does not seed this status at all.
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
+            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NULL AND ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer')"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'open tickets waiting on the employee'];
+    }
+
+    private static function ticketsFlowYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $scope = $ctx->scope('ticket_client_id');
+        $opened = $resolved = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $r = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS c FROM tickets WHERE 1 = 1$scope AND YEAR(ticket_created_at) = {$ctx->year} AND MONTH(ticket_created_at) = $m"));
+            $opened[] = (int) $r['c'];
+            $r = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS c FROM tickets WHERE 1 = 1$scope AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = {$ctx->year} AND MONTH(ticket_closed_at) = $m"));
+            $resolved[] = (int) $r['c'];
+        }
+        return ['type' => 'series', 'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 'a' => $opened, 'b' => $resolved, 'a_label' => 'Opened', 'b_label' => 'Resolved'];
+    }
+
+    private static function ticketsByCategory(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT COALESCE(category_name, 'Uncategorized') AS n, COUNT(*) AS c FROM tickets LEFT JOIN categories ON ticket_category = category_id
+            WHERE " . self::OPEN . $ctx->scope('ticket_client_id') . " GROUP BY n ORDER BY c DESC LIMIT 8");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No open tickets.'];
+    }
+
+    private static function ticketsByTechnicianOpen(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT user_name AS n, COUNT(*) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id
+            WHERE " . self::OPEN . $ctx->scope('ticket_client_id') . " AND ticket_assigned_to > 0 GROUP BY n ORDER BY c DESC LIMIT 8");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => 'No open tickets are assigned to a technician.'];
+    }
+
+    private static function ticketsCreatedYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND YEAR(ticket_created_at) = {$ctx->year}"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "created in {$ctx->year}"];
+    }
+
+    private static function ticketsResolvedYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = {$ctx->year}"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "resolved in {$ctx->year}"];
+    }
+
+    private static function avgResolutionYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $hours = getAvgResolutionTimeHours($db, $ctx->year);
+        return ['type' => 'stat', 'value' => $hours > 0 ? $hours . ' h' : '-', 'caption' => $hours > 0 ? "across {$ctx->year}" : "No tickets resolved in {$ctx->year}."];
+    }
+
+    private static function ticketsResolvedByTechnicianYear(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT user_name AS n, COUNT(*) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id
+            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = {$ctx->year} AND ticket_assigned_to > 0
+            GROUP BY n ORDER BY c DESC LIMIT 8");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
+        }
+        return ['type' => 'bars', 'items' => $items, 'empty' => "No tickets resolved in {$ctx->year} yet."];
+    }
+
+    private static function ticketsRecentlyResolved(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT tickets.ticket_id, ticket_subject, ticket_prefix, ticket_number, ticket_closed_at, ticket_priority, client_name
+            FROM tickets LEFT JOIN clients ON ticket_client_id = client_id
+            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NOT NULL ORDER BY ticket_closed_at DESC LIMIT 10");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $color = $r['ticket_priority'] === 'High' ? 'danger' : ($r['ticket_priority'] === 'Medium' ? 'warning' : 'info');
+            $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], $r['client_name'], ['text' => $r['ticket_priority'], 'badge' => $color]],
+                'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];
+        }
+        return ['type' => 'table', 'columns' => ['#', 'Subject', 'Department', 'Priority'], 'rows' => $rows, 'empty' => 'No tickets resolved yet.'];
+    }
+
+    private static function ticketsAutomationRecent(\mysqli $db, WidgetContext $ctx): array
+    {
+        $labels = ['schedule' => 'Scheduled check', 'rmm_alert' => 'New RMM alert', 'asset_offline' => 'Asset offline', 'asset_online' => 'Asset online'];
+        $res = mysqli_query($db, "SELECT r.id, r.rule_name, r.trigger_type, r.summary, r.created_at, r.ticket_id, t.ticket_subject, t.ticket_prefix, t.ticket_number
+            FROM ticket_automation_runs r INNER JOIN tickets t ON t.ticket_id = r.ticket_id
+            WHERE t.ticket_assigned_to = {$ctx->userId}" . $ctx->scope('t.ticket_client_id') . " ORDER BY r.id DESC LIMIT 10");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $ticketLabel = $r['ticket_id'] ? $r['ticket_prefix'] . $r['ticket_number'] . ' ' . $r['ticket_subject'] : '-';
+            $rows[] = ['cells' => [$r['rule_name'], ['text' => $labels[$r['trigger_type']] ?? $r['trigger_type'], 'badge' => 'info'], $ticketLabel, $r['summary']],
+                'href' => $r['ticket_id'] ? '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id'] : null];
+        }
+        return ['type' => 'table', 'columns' => ['Rule', 'Trigger', 'Ticket', 'Result'], 'rows' => $rows, 'empty' => 'No automation activity on your tickets yet.'];
+    }
+
+    // ------------------------------------------------------------------------------------------------ Financial (classic dashboard's "Financial" section)
+    // Deliberately unscoped by department, same as the page it replaces - see the note above FINANCE_WIDGETS.
+
+    private static function financeIncome(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments WHERE YEAR(payment_date) = {$ctx->year}"));
+        $payments = (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE YEAR(revenue_date) = {$ctx->year} AND revenue_category_id > 0"));
+        $income = $payments + (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments"));
+        $paidAllYears = (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(invoice_amount) AS v FROM invoices WHERE invoice_status NOT IN ('Draft', 'Cancelled', 'Non-Billable')"));
+        $invoicedAllYears = (float) ($row['v'] ?? 0);
+        $receivables = $invoicedAllYears - $paidAllYears;
+        return ['type' => 'stat', 'value' => $ctx->money($income), 'caption' => 'Receivables: ' . $ctx->money($receivables)];
+    }
+
+    private static function financeExpenses(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expense_amount) AS v FROM expenses WHERE expense_vendor_id > 0 AND YEAR(expense_date) = {$ctx->year}"));
+        return ['type' => 'stat', 'value' => $ctx->money((float) ($row['v'] ?? 0)), 'caption' => "{$ctx->year} expenses"];
+    }
+
+    private static function financeIncomeTotal(WidgetContext $ctx, \mysqli $db): float
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments WHERE YEAR(payment_date) = {$ctx->year}"));
+        $payments = (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE YEAR(revenue_date) = {$ctx->year} AND revenue_category_id > 0"));
+        return $payments + (float) ($row['v'] ?? 0);
+    }
+
+    private static function financeExpenseTotal(WidgetContext $ctx, \mysqli $db): float
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expense_amount) AS v FROM expenses WHERE expense_vendor_id > 0 AND YEAR(expense_date) = {$ctx->year}"));
+        return (float) ($row['v'] ?? 0);
+    }
+
+    private static function financeProfit(\mysqli $db, WidgetContext $ctx): array
+    {
+        $profit = self::financeIncomeTotal($ctx, $db) - self::financeExpenseTotal($ctx, $db);
+        return ['type' => 'stat', 'value' => $ctx->money($profit), 'caption' => "{$ctx->year} profit"];
+    }
+
+    private static function financeRecurringIncome(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(recurring_invoice_amount) AS v FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'year' AND YEAR(recurring_invoice_created_at) <= {$ctx->year}"));
+        $yearly = (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(recurring_invoice_amount) AS v FROM recurring_invoices WHERE recurring_invoice_status = 1 AND recurring_invoice_frequency = 'month' AND YEAR(recurring_invoice_created_at) <= {$ctx->year}"));
+        $monthly = (float) ($row['v'] ?? 0) + ($yearly / 12);
+        return ['type' => 'stat', 'value' => $ctx->money($monthly), 'caption' => 'per month'];
+    }
+
+    private static function financeRecurringExpense(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(recurring_expense_amount) AS v FROM recurring_expenses WHERE recurring_expense_status = 1 AND recurring_expense_frequency = 2 AND YEAR(recurring_expense_created_at) <= {$ctx->year}"));
+        $yearly = (float) ($row['v'] ?? 0);
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(recurring_expense_amount) AS v FROM recurring_expenses WHERE recurring_expense_status = 1 AND recurring_expense_frequency = 1 AND YEAR(recurring_expense_created_at) <= {$ctx->year}"));
+        $monthly = (float) ($row['v'] ?? 0) + ($yearly / 12);
+        return ['type' => 'stat', 'value' => $ctx->money($monthly), 'caption' => 'per month'];
+    }
+
+    private static function financeUnbilledOrRecurringAdded(\mysqli $db, WidgetContext $ctx): array
+    {
+        global $config_module_enable_ticketing, $config_module_enable_accounting;
+        if (!empty($config_module_enable_ticketing) && !empty($config_module_enable_accounting)) {
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE ticket_closed_at IS NOT NULL AND ticket_billable = 1 AND ticket_invoice_id = 0 AND YEAR(ticket_created_at) = {$ctx->year}" . $ctx->scope('ticket_client_id')));
+            $n = (int) ($row['n'] ?? 0);
+            return ['type' => 'stat', 'value' => (string) $n, 'caption' => $n === 1 ? 'unbilled ticket' : 'unbilled tickets'];
+        }
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM recurring_invoices WHERE YEAR(recurring_invoice_created_at) = {$ctx->year}"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'recurring invoices added'];
+    }
+
+    private static function financeVendorsAdded(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM vendors WHERE YEAR(vendor_created_at) = {$ctx->year} AND vendor_client_id = 0 AND vendor_archived_at IS NULL"));
+        $n = (int) ($row['n'] ?? 0);
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => "added in {$ctx->year}"];
+    }
+
+    private static function financeMilesTraveled(\mysqli $db, WidgetContext $ctx): array
+    {
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(trip_miles) AS v FROM trips WHERE YEAR(trip_date) = {$ctx->year}"));
+        return ['type' => 'stat', 'value' => number_format((float) ($row['v'] ?? 0), 2), 'caption' => "{$ctx->year}"];
+    }
+
+    private static function financeCashFlow(\mysqli $db, WidgetContext $ctx): array
+    {
+        $year = $ctx->year;
+        $income = $lyIncome = $projected = $expense = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments, invoices WHERE payment_invoice_id = invoice_id AND YEAR(payment_date) = $year AND MONTH(payment_date) = $m"));
+            $pay = (float) ($row['v'] ?? 0);
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE revenue_category_id > 0 AND YEAR(revenue_date) = $year AND MONTH(revenue_date) = $m"));
+            $income[] = $pay + (float) ($row['v'] ?? 0);
+
+            $lyYear = $year - 1;
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments, invoices WHERE payment_invoice_id = invoice_id AND YEAR(payment_date) = $lyYear AND MONTH(payment_date) = $m"));
+            $lyPay = (float) ($row['v'] ?? 0);
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE revenue_category_id > 0 AND YEAR(revenue_date) = $lyYear AND MONTH(revenue_date) = $m"));
+            $lyIncome[] = $lyPay + (float) ($row['v'] ?? 0);
+
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(invoice_amount) AS v FROM invoices WHERE YEAR(invoice_due) = $year AND MONTH(invoice_due) = $m AND invoice_status NOT IN ('Cancelled', 'Draft', 'Non-Billable')"));
+            $projected[] = (float) ($row['v'] ?? 0);
+
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expense_amount) AS v FROM expenses WHERE YEAR(expense_date) = $year AND MONTH(expense_date) = $m AND expense_vendor_id > 0"));
+            $expense[] = (float) ($row['v'] ?? 0);
+        }
+        return ['type' => 'multiseries', 'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'series' => [['label' => 'Income', 'data' => $income], ['label' => 'LY Income', 'data' => $lyIncome], ['label' => 'Projected', 'data' => $projected], ['label' => 'Expense', 'data' => $expense]],
+            'empty' => "No income or expense activity in $year yet."];
+    }
+
+    private static function financeTripFlow(\mysqli $db, WidgetContext $ctx): array
+    {
+        $year = $ctx->year;
+        $miles = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(trip_miles) AS v FROM trips WHERE YEAR(trip_date) = $year AND MONTH(trip_date) = $m"));
+            $miles[] = (float) ($row['v'] ?? 0);
+        }
+        return ['type' => 'multiseries', 'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'series' => [['label' => 'Miles', 'data' => $miles]], 'empty' => "No trips logged in $year yet."];
+    }
+
+    private static function financeIncomeByCategory(\mysqli $db, WidgetContext $ctx): array
+    {
+        $year = $ctx->year;
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopIncomeCategories");
+        mysqli_query($db, "CREATE TEMPORARY TABLE TopIncomeCategories SELECT category_name, category_id, SUM(invoice_amount) AS total_income
+            FROM categories, invoices WHERE invoice_category_id = category_id AND invoice_status = 'Paid' AND YEAR(invoice_date) = $year
+            GROUP BY category_name, category_id ORDER BY total_income DESC LIMIT 5");
+        $res = mysqli_query($db, "SELECT category_name AS n, total_income AS v FROM TopIncomeCategories");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $v = (float) $r['v'];
+            $items[] = ['label' => $r['n'], 'value' => (int) round($v), 'display' => $ctx->money($v)];
+        }
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(invoices.invoice_amount) AS v FROM categories LEFT JOIN TopIncomeCategories ON categories.category_id = TopIncomeCategories.category_id
+            INNER JOIN invoices ON categories.category_id = invoices.invoice_category_id WHERE TopIncomeCategories.category_id IS NULL AND invoice_status = 'Paid' AND YEAR(invoice_date) = $year"));
+        $other = (float) ($row['v'] ?? 0);
+        if ($other > 0) {
+            $items[] = ['label' => 'Others', 'value' => (int) round($other), 'display' => $ctx->money($other)];
+        }
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopIncomeCategories");
+        return ['type' => 'bars', 'items' => $items, 'empty' => "No paid invoices in $year yet."];
+    }
+
+    private static function financeExpenseByCategory(\mysqli $db, WidgetContext $ctx): array
+    {
+        $year = $ctx->year;
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopExpenseCategories");
+        mysqli_query($db, "CREATE TEMPORARY TABLE TopExpenseCategories SELECT category_name, category_id, SUM(expense_amount) AS total_expense
+            FROM categories, expenses WHERE expense_category_id = category_id AND expense_vendor_id > 0 AND YEAR(expense_date) = $year
+            GROUP BY category_name, category_id ORDER BY total_expense DESC LIMIT 5");
+        $res = mysqli_query($db, "SELECT category_name AS n, total_expense AS v FROM TopExpenseCategories");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $v = (float) $r['v'];
+            $items[] = ['label' => $r['n'], 'value' => (int) round($v), 'display' => $ctx->money($v)];
+        }
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expenses.expense_amount) AS v FROM categories LEFT JOIN TopExpenseCategories ON categories.category_id = TopExpenseCategories.category_id
+            INNER JOIN expenses ON categories.category_id = expenses.expense_category_id WHERE TopExpenseCategories.category_id IS NULL AND expense_vendor_id > 0 AND YEAR(expense_date) = $year"));
+        $other = (float) ($row['v'] ?? 0);
+        if ($other > 0) {
+            $items[] = ['label' => 'Others', 'value' => (int) round($other), 'display' => $ctx->money($other)];
+        }
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopExpenseCategories");
+        return ['type' => 'bars', 'items' => $items, 'empty' => "No expenses in $year yet."];
+    }
+
+    private static function financeExpenseByVendor(\mysqli $db, WidgetContext $ctx): array
+    {
+        $year = $ctx->year;
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopExpenseVendors");
+        mysqli_query($db, "CREATE TEMPORARY TABLE TopExpenseVendors SELECT vendor_name, vendor_id, SUM(expense_amount) AS total_expense
+            FROM vendors, expenses WHERE expense_vendor_id = vendor_id AND YEAR(expense_date) = $year
+            GROUP BY vendor_name, vendor_id ORDER BY total_expense DESC LIMIT 5");
+        $res = mysqli_query($db, "SELECT vendor_name AS n, total_expense AS v FROM TopExpenseVendors");
+        $items = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $v = (float) $r['v'];
+            $items[] = ['label' => $r['n'], 'value' => (int) round($v), 'display' => $ctx->money($v)];
+        }
+        $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expenses.expense_amount) AS v FROM vendors LEFT JOIN TopExpenseVendors ON vendors.vendor_id = TopExpenseVendors.vendor_id
+            INNER JOIN expenses ON vendors.vendor_id = expenses.expense_vendor_id WHERE TopExpenseVendors.vendor_id IS NULL AND YEAR(expense_date) = $year"));
+        $other = (float) ($row['v'] ?? 0);
+        if ($other > 0) {
+            $items[] = ['label' => 'Others', 'value' => (int) round($other), 'display' => $ctx->money($other)];
+        }
+        mysqli_query($db, "DROP TEMPORARY TABLE IF EXISTS TopExpenseVendors");
+        return ['type' => 'bars', 'items' => $items, 'empty' => "No expenses in $year yet."];
+    }
+
+    private static function financeAccountBalances(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT account_id, account_name, opening_balance FROM accounts WHERE account_archived_at IS NULL ORDER BY account_name ASC");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $accountId = (int) $r['account_id'];
+            $row2 = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(payment_amount) AS v FROM payments WHERE payment_account_id = $accountId"));
+            $payments = (float) ($row2['v'] ?? 0);
+            $row2 = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(revenue_amount) AS v FROM revenues WHERE revenue_account_id = $accountId"));
+            $revenues = (float) ($row2['v'] ?? 0);
+            $row2 = mysqli_fetch_assoc(mysqli_query($db, "SELECT SUM(expense_amount) AS v FROM expenses WHERE expense_account_id = $accountId"));
+            $expenses = (float) ($row2['v'] ?? 0);
+            $balance = (float) $r['opening_balance'] + $payments + $revenues - $expenses;
+            $rows[] = ['cells' => [$r['account_name'], $ctx->money($balance)]];
+        }
+        return ['type' => 'table', 'columns' => ['Account', 'Balance'], 'rows' => $rows, 'empty' => 'No accounts set up yet.'];
+    }
+
+    private static function financeLatestIncome(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT payment_date, payment_amount, invoice_prefix, invoice_number, client_name FROM payments
+            JOIN invoices ON payment_invoice_id = invoice_id JOIN clients ON invoice_client_id = client_id
+            ORDER BY payment_id DESC LIMIT 5");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['payment_date'], $r['client_name'], $r['invoice_prefix'] . $r['invoice_number'], $ctx->money((float) $r['payment_amount'])]];
+        }
+        return ['type' => 'table', 'columns' => ['Date', 'Customer', 'Invoice', 'Amount'], 'rows' => $rows, 'empty' => 'No payments recorded yet.'];
+    }
+
+    private static function financeLatestExpenses(\mysqli $db, WidgetContext $ctx): array
+    {
+        $res = mysqli_query($db, "SELECT expense_date, expense_amount, vendor_name, category_name FROM expenses
+            JOIN vendors ON expense_vendor_id = vendor_id JOIN categories ON expense_category_id = category_id
+            ORDER BY expense_id DESC LIMIT 5");
+        $rows = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $rows[] = ['cells' => [$r['expense_date'], $r['vendor_name'], $r['category_name'], $ctx->money((float) $r['expense_amount'])]];
+        }
+        return ['type' => 'table', 'columns' => ['Date', 'Vendor', 'Category', 'Amount'], 'rows' => $rows, 'empty' => 'No expenses recorded yet.'];
     }
 }

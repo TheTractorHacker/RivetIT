@@ -1,12 +1,14 @@
 <?php
 
 /*
- * My dashboard (agent/my_dashboard.php): a per-user widget dashboard. Each user adds, removes, hides, resizes and
- * reorders widgets from src/Reports/Widgets/WidgetRegistry.php; the layout is stored in dashboard_layouts.
- * Widgets a user's role cannot read are not offered or computed, and every widget query is limited to the
- * user's departments. Customising is plain server-rendered POST forms (CSRF-protected); no script is required.
- * The classic agent/dashboard.php is unchanged. An administrator can make this page the start page
- * (Admin > Settings > Defaults).
+ * My dashboard (agent/my_dashboard.php): THE dashboard - a per-user widget dashboard. Each user adds, removes,
+ * hides, resizes and reorders widgets from src/Reports/Widgets/WidgetRegistry.php; the layout is stored in
+ * dashboard_layouts. Widgets a user's role cannot read are not offered or computed, and every widget query is
+ * limited to the user's departments (financial widgets are the one deliberate exception - see the note above
+ * WidgetRegistry::FINANCE_WIDGETS). Customising is plain server-rendered POST forms (CSRF-protected); no script
+ * is required. agent/dashboard.php (the old fixed-layout page) now just redirects here - its content lives on
+ * as widgets a user can add if they want them, same as everything else. An administrator can make this the
+ * start page (Admin > Settings > Defaults).
  */
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
@@ -24,13 +26,30 @@ if (itflow_is_limited_user()) {   // belt and braces; check_login.php already de
     exit;
 }
 
+// A handful of widgets ported from the classic dashboard (Historical Tickets, Financial) are "for a year", same
+// as that page's own (now-removed-everywhere-else) year picker. Not saved - a plain GET param, same as before.
+$dash_year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
+if ($dash_year < 2000 || $dash_year > 2100) {
+    $dash_year = intval(date('Y'));
+}
+
 $ctx = new WidgetContext(
     intval($session_user_id),
     ReportScope::sessionIds(),
     static fn (string $module, int $level = 1): bool => lookupUserPermission($module) >= $level,
     !empty($config_ticket_csat_enable),
     !empty($config_avg_resolution_exclude_projects),
-    intval($config_ticket_csat_low_rating_threshold ?? 2)
+    intval($config_ticket_csat_low_rating_threshold ?? 2),
+    $dash_year,
+    // Financial widgets used to have their own extra on/off switch and admin/accountant-role restriction on top
+    // of the module permission check every other widget already goes through; both are gone now that seeing
+    // one at all means explicitly adding it in Customise - config_module_enable_accounting (an admin-controlled
+    // module switch) plus module_sales/module_financial (the widget's own 'modules' gate) is the same bar every
+    // other financial surface in the app (Quick Links, the nav's Finance dropdown) already applies.
+    !empty($config_module_enable_accounting),
+    !empty($config_dashboard_avg_resolution_enable),
+    isset($currency_format) && $currency_format instanceof NumberFormatter ? $currency_format : null,
+    $session_company_currency ?? 'USD'
 );
 $allowed = WidgetRegistry::available($ctx);
 
@@ -83,7 +102,25 @@ $post_button = static function (string $action, string $widget, string $label, s
         <h4 class="mb-0 fw-bold">My dashboard</h4>
         <small class="text-muted"><?php echo date('l, F j, Y'); ?></small>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <?php
+        // Only worth showing when a "for a year" widget is actually on the dashboard - most users have none of
+        // these and the control would otherwise be dead weight with nothing on the page for it to affect.
+        $dash_has_year_widget = (bool) array_intersect($in_layout, ['departments_added_year', 'contacts_added_year', 'assets_added_year', 'tickets_flow_year',
+            'tickets_created_year', 'tickets_resolved_year', 'avg_resolution_year', 'tickets_resolved_by_technician_year', 'finance_income', 'finance_expenses',
+            'finance_profit', 'finance_recurring_income', 'finance_recurring_expense', 'finance_unbilled_or_recurring_added', 'finance_vendors_added',
+            'finance_miles_traveled', 'finance_cash_flow', 'finance_income_by_category', 'finance_expense_by_category', 'finance_expense_by_vendor', 'finance_trip_flow']);
+        if ($dash_has_year_widget) { ?>
+            <form method="get" class="d-flex align-items-center gap-1">
+                <?php if ($customise) { ?><input type="hidden" name="customise" value="1"><?php } ?>
+                <label for="dash-year" class="mb-0 small text-muted">Year</label>
+                <select id="dash-year" name="year" class="form-select form-select-sm" style="width:auto;min-width:6rem;" onchange="this.form.submit()">
+                    <?php for ($y = intval(date('Y')); $y >= intval(date('Y')) - 5; $y--) { ?>
+                        <option value="<?php echo $y; ?>" <?php echo $y === $dash_year ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                    <?php } ?>
+                </select>
+            </form>
+        <?php } ?>
         <?php if ($customise) { ?>
             <form method="post" class="d-inline">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
@@ -94,7 +131,6 @@ $post_button = static function (string $action, string $widget, string $label, s
             <a class="btn btn-sm btn-primary" href="my_dashboard.php"><i class="fas fa-fw fa-check me-1"></i>Done</a>
         <?php } else { ?>
             <a class="btn btn-sm btn-outline-secondary" href="my_dashboard.php?customise=1"><i class="fas fa-fw fa-sliders-h me-1"></i>Customise</a>
-            <a class="btn btn-sm btn-outline-secondary" href="dashboard.php"><i class="fas fa-fw fa-tachometer-alt me-1"></i>Classic dashboard</a>
         <?php } ?>
     </div>
 </div>

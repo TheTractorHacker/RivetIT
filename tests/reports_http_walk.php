@@ -201,8 +201,12 @@ $ok($layout(13) === null || !in_array('workflow_tasks_due', array_column($layout
 $ok($layout(11) === null, 'other users\' layouts are untouched (layouts are per user)');
 $post('user12', ['layout_action' => 'reset']);
 $ok(count($layout(12)) >= 8, 'reset restores the default layout');
+// agent/dashboard.php is now just a redirect to my_dashboard.php (the one dashboard) - old bookmarks/links/the
+// Start Page setting still work, they just take one extra hop.
 $r = http('GET', '/agent/dashboard.php', 'user11');
-$ok($r['code'] === 200 && strpos($r['body'], 'My dashboard') !== false, 'classic dashboard still loads and the nav links to My dashboard');
+$ok($r['code'] === 302 && $loc($r) === 'my_dashboard.php', 'the old dashboard.php URL redirects to my_dashboard.php');
+$r = http('GET', '/agent/dashboard.php?year=2024', 'user11');
+$ok($r['code'] === 302 && $loc($r) === 'my_dashboard.php?year=2024', 'a ?year= on the old URL is forwarded to the new one');
 
 echo $fails ? "\n$fails FAILED\n" : "\nALL PASSED\n";
 exit($fails ? 1 : 0);
