@@ -163,52 +163,6 @@ if (!isset($sort_map[$sort])) {
 $order = ($order === 'DESC') ? 'DESC' : 'ASC';
 $order_by = $sort_map[$sort]() . ", asset_name ASC, asset_id ASC";
 
-// Extra filters (multi-select arrays are whitelisted by value against the data itself in the query, never trusted as columns).
-$_get_list = function ($key) {
-    $v = $_GET[$key] ?? [];
-    if (!is_array($v)) { $v = [$v]; }
-    $out = [];
-    foreach ($v as $item) {
-        if (is_scalar($item) && trim((string) $item) !== '' && mb_strlen((string) $item) <= 120) { $out[] = trim((string) $item); }
-    }
-    return array_slice(array_values(array_unique($out)), 0, 50);
-};
-$_in_list = function (array $vals) { return "'" . implode("','", array_map('sanitizeInput', $vals)) . "'"; };
-
-$f_status   = $_get_list('status');
-$f_type     = $_get_list('atype');
-$f_make     = $_get_list('make');
-$f_os       = $_get_list('os');
-$f_assigned = isset($_GET['assigned']) && is_scalar($_GET['assigned']) ? (string) $_GET['assigned'] : '';
-$f_warranty = isset($_GET['warranty']) && in_array($_GET['warranty'], ['expired', '90', 'none'], true) ? $_GET['warranty'] : '';
-$f_managed  = isset($_GET['managed']) && in_array($_GET['managed'], ['mdm', 'rmm', 'none'], true) ? $_GET['managed'] : '';
-
-$filter_query = '';
-if ($f_status) {
-    $parts = [];
-    $named = array_values(array_diff($f_status, ['__none']));
-    if ($named) { $parts[] = 'asset_status IN (' . $_in_list($named) . ')'; }
-    if (in_array('__none', $f_status, true)) { $parts[] = "(asset_status = '' OR asset_status IS NULL)"; }
-    $filter_query .= ' AND (' . implode(' OR ', $parts) . ')';
-}
-if ($f_type)  { $filter_query .= ' AND asset_type IN (' . $_in_list($f_type) . ')'; }
-if ($f_make)  { $filter_query .= ' AND asset_make IN (' . $_in_list($f_make) . ')'; }
-if ($f_os)    { $filter_query .= ' AND asset_os IN (' . $_in_list($f_os) . ')'; }
-if ($f_assigned === 'none') { $filter_query .= ' AND (asset_contact_id = 0 OR asset_contact_id IS NULL)'; }
-elseif (ctype_digit($f_assigned) && intval($f_assigned) > 0) { $filter_query .= ' AND asset_contact_id = ' . intval($f_assigned); }
-else { $f_assigned = ''; }
-if ($f_warranty === 'expired') { $filter_query .= ' AND asset_warranty_expire IS NOT NULL AND asset_warranty_expire < CURDATE()'; }
-elseif ($f_warranty === '90')  { $filter_query .= ' AND asset_warranty_expire BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)'; }
-elseif ($f_warranty === 'none') { $filter_query .= ' AND asset_warranty_expire IS NULL'; }
-if ($f_managed) {
-    $has_tbl = function ($t) use ($mysqli) { $r = mysqli_query($mysqli, "SHOW TABLES LIKE '" . mysqli_real_escape_string($mysqli, $t) . "'"); return $r && mysqli_num_rows($r) > 0; };
-    $mdm_exists = $has_tbl('asset_mdm_links') ? 'EXISTS (SELECT 1 FROM asset_mdm_links WHERE asset_mdm_links.asset_id = assets.asset_id)' : '0';
-    $rmm_exists = $has_tbl('asset_rmm_links') ? 'EXISTS (SELECT 1 FROM asset_rmm_links WHERE asset_rmm_links.asset_id = assets.asset_id)' : '0';
-    if ($f_managed === 'mdm') { $filter_query .= " AND $mdm_exists"; }
-    elseif ($f_managed === 'rmm') { $filter_query .= " AND $rmm_exists"; }
-    else { $filter_query .= " AND NOT $mdm_exists AND NOT $rmm_exists"; }
-}
-
 if (!$client_url) {
     // Client Filter
     if (isset($_GET['client']) & !empty($_GET['client'])) {
@@ -229,6 +183,71 @@ if (isset($_GET['location']) && !empty($_GET['location'])) {
     // Default - any
     $location_query = '';
     $location_filter = 0;
+}
+
+// Extra filters (multi-select arrays are whitelisted by value against the data itself in the query, never trusted as columns).
+$_get_list = function ($key) {
+    $v = $_GET[$key] ?? [];
+    if (!is_array($v)) { $v = [$v]; }
+    $out = [];
+    foreach ($v as $item) {
+        if (is_scalar($item) && trim((string) $item) !== '' && mb_strlen((string) $item) <= 120) { $out[] = trim((string) $item); }
+    }
+    return array_slice(array_values(array_unique($out)), 0, 50);
+};
+$_in_list = function (array $vals) { return "'" . implode("','", array_map('sanitizeInput', $vals)) . "'"; };
+
+$f_status   = $_get_list('status');
+$f_type     = $_get_list('atype');
+$f_make     = $_get_list('make');
+$f_os       = $_get_list('os');
+$f_assigned = isset($_GET['assigned']) && is_scalar($_GET['assigned']) ? (string) $_GET['assigned'] : '';
+$f_warranty = isset($_GET['warranty']) && in_array($_GET['warranty'], ['expired', '90', 'none'], true) ? $_GET['warranty'] : '';
+$f_managed  = isset($_GET['managed']) && in_array($_GET['managed'], ['mdm', 'rmm', 'none'], true) ? $_GET['managed'] : '';
+
+// Ids that arrive in the URL are checked against the user's departments BEFORE they are used: a restricted user who types another
+// department's id gets neither the name (chip) nor the filter. $access_permission_query is empty for admins.
+$_chip_names = ['client' => '', 'location' => '', 'assigned' => ''];
+if (!$client_url && $client) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = " . intval($client) . " $access_permission_query LIMIT 1"));
+    if ($r) { $_chip_names['client'] = $r['client_name']; } else { $client = ''; $client_query = ''; }
+}
+if ($location_filter) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name FROM locations LEFT JOIN clients ON client_id = location_client_id WHERE location_id = " . intval($location_filter) . " AND (location_client_id = 0 OR 1=1 $access_permission_query) LIMIT 1"));
+    if ($r) { $_chip_names['location'] = $r['location_name']; } else { $location_filter = 0; $location_query = ''; }
+}
+if ($f_assigned === 'none') {
+    $_chip_names['assigned'] = 'Unassigned';
+} elseif (ctype_digit($f_assigned) && intval($f_assigned) > 0) {
+    $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_name FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_id = " . intval($f_assigned) . " AND (contact_client_id = 0 OR 1=1 $access_permission_query) LIMIT 1"));
+    if ($r) { $_chip_names['assigned'] = $r['contact_name']; } else { $f_assigned = ''; }
+} else {
+    $f_assigned = '';
+}
+
+$filter_query = '';
+if ($f_status) {
+    $parts = [];
+    $named = array_values(array_diff($f_status, ['__none']));
+    if ($named) { $parts[] = 'asset_status IN (' . $_in_list($named) . ')'; }
+    if (in_array('__none', $f_status, true)) { $parts[] = "(asset_status = '' OR asset_status IS NULL)"; }
+    $filter_query .= ' AND (' . implode(' OR ', $parts) . ')';
+}
+if ($f_type)  { $filter_query .= ' AND asset_type IN (' . $_in_list($f_type) . ')'; }
+if ($f_make)  { $filter_query .= ' AND asset_make IN (' . $_in_list($f_make) . ')'; }
+if ($f_os)    { $filter_query .= ' AND asset_os IN (' . $_in_list($f_os) . ')'; }
+if ($f_assigned === 'none') { $filter_query .= ' AND (asset_contact_id = 0 OR asset_contact_id IS NULL)'; }
+elseif ($f_assigned !== '') { $filter_query .= ' AND asset_contact_id = ' . intval($f_assigned); }
+if ($f_warranty === 'expired') { $filter_query .= ' AND asset_warranty_expire IS NOT NULL AND asset_warranty_expire < CURDATE()'; }
+elseif ($f_warranty === '90')  { $filter_query .= ' AND asset_warranty_expire BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)'; }
+elseif ($f_warranty === 'none') { $filter_query .= ' AND asset_warranty_expire IS NULL'; }
+if ($f_managed) {
+    $has_tbl = function ($t) use ($mysqli) { $r = mysqli_query($mysqli, "SHOW TABLES LIKE '" . mysqli_real_escape_string($mysqli, $t) . "'"); return $r && mysqli_num_rows($r) > 0; };
+    $mdm_exists = $has_tbl('asset_mdm_links') ? 'EXISTS (SELECT 1 FROM asset_mdm_links WHERE asset_mdm_links.asset_id = assets.asset_id)' : '0';
+    $rmm_exists = $has_tbl('asset_rmm_links') ? 'EXISTS (SELECT 1 FROM asset_rmm_links WHERE asset_rmm_links.asset_id = assets.asset_id)' : '0';
+    if ($f_managed === 'mdm') { $filter_query .= " AND $mdm_exists"; }
+    elseif ($f_managed === 'rmm') { $filter_query .= " AND $rmm_exists"; }
+    else { $filter_query .= " AND NOT $mdm_exists AND NOT $rmm_exists"; }
 }
 
 // Tags Filter
@@ -738,12 +757,12 @@ if (lookupUserPermission('module_client') >= 1) {
         // Active filters as removable chips, a result count and Clear all.
         $_chips = [];
         if ($q !== '') { $_chips[] = rivet_filter_chip('Search: <strong>' . stripslashes(nullable_htmlentities($q)) . '</strong>', rivet_url_without('q')); }
-        if (!$client_url && $client) { $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = " . intval($client))); $_chips[] = rivet_filter_chip('Department: <strong>' . nullable_htmlentities($r['client_name'] ?? '') . '</strong>', rivet_url_without('client')); }
-        if ($location_filter) { $r = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name FROM locations WHERE location_id = " . intval($location_filter))); $_chips[] = rivet_filter_chip('Location: <strong>' . nullable_htmlentities($r['location_name'] ?? '') . '</strong>', rivet_url_without('location')); }
-        if ($tag_filter) { $r = mysqli_query($mysqli, "SELECT tag_id, tag_name FROM tags WHERE tag_id IN ($tag_filter)"); while ($r && ($o = mysqli_fetch_assoc($r))) { $_chips[] = rivet_filter_chip('Tag: <strong>' . nullable_htmlentities($o['tag_name']) . '</strong>', rivet_url_without('tags', $o['tag_id'])); } }
+        if (!$client_url && $client) { $_chips[] = rivet_filter_chip('Department: <strong>' . nullable_htmlentities($_chip_names['client']) . '</strong>', rivet_url_without('client')); }
+        if ($location_filter) { $_chips[] = rivet_filter_chip('Location: <strong>' . nullable_htmlentities($_chip_names['location']) . '</strong>', rivet_url_without('location')); }
+        if ($tag_filter) { $r = mysqli_query($mysqli, "SELECT tag_id, tag_name FROM tags WHERE tag_type = 5 AND tag_id IN ($tag_filter)"); while ($r && ($o = mysqli_fetch_assoc($r))) { $_chips[] = rivet_filter_chip('Tag: <strong>' . nullable_htmlentities($o['tag_name']) . '</strong>', rivet_url_without('tags', $o['tag_id'])); } }
         foreach ($f_type as $v) { $_chips[] = rivet_filter_chip('Type: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('atype', $v)); }
         foreach ($f_status as $v) { $_chips[] = rivet_filter_chip('Status: <strong>' . ($v === '__none' ? '(none)' : nullable_htmlentities($v)) . '</strong>', rivet_url_without('status', $v)); }
-        if ($f_assigned !== '') { $r = $f_assigned === 'none' ? ['contact_name' => 'Unassigned'] : mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_name FROM contacts WHERE contact_id = " . intval($f_assigned))); $_chips[] = rivet_filter_chip('Assigned: <strong>' . nullable_htmlentities($r['contact_name'] ?? '') . '</strong>', rivet_url_without('assigned')); }
+        if ($f_assigned !== '') { $_chips[] = rivet_filter_chip('Assigned: <strong>' . nullable_htmlentities($_chip_names['assigned']) . '</strong>', rivet_url_without('assigned')); }
         foreach ($f_make as $v) { $_chips[] = rivet_filter_chip('Manufacturer: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('make', $v)); }
         foreach ($f_os as $v) { $_chips[] = rivet_filter_chip('OS: <strong>' . nullable_htmlentities($v) . '</strong>', rivet_url_without('os', $v)); }
         if ($f_warranty !== '') { $_chips[] = rivet_filter_chip('Warranty: <strong>' . ['expired' => 'expired', '90' => 'expires in 90 days', 'none' => 'no date'][$f_warranty] . '</strong>', rivet_url_without('warranty')); }
