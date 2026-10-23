@@ -4,6 +4,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 if (isset($_POST['add_worksheet_template'])) {
     validateCSRFToken($_POST['csrf_token']);
+    requireFilledPost(['worksheet_template_name' => 'Template name']);
     enforceUserPermission('admin', 2);
 
     $name = sanitizeInput($_POST['worksheet_template_name']);
@@ -20,6 +21,7 @@ if (isset($_POST['add_worksheet_template'])) {
 
 if (isset($_POST['edit_worksheet_template'])) {
     validateCSRFToken($_POST['csrf_token']);
+    requireFilledPost(['worksheet_template_name' => 'Template name']);
     enforceUserPermission('admin', 2);
 
     $template_id = intval($_POST['worksheet_template_id']);

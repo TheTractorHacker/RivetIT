@@ -18,9 +18,9 @@ $sql_scripts = mysqli_query($mysqli,
 );
 ob_start();
 ?>
-<div class="modal-header">
+<div class="modal-header bg-dark">
     <h5 class="modal-title"><i class="fas fa-fw fa-robot me-2"></i>New Automation Rule</h5>
-    <button type="button" class="close" data-bs-dismiss="modal"><span>&times;</span></button>
+    <button type="button" class="close text-white" data-bs-dismiss="modal"><span>&times;</span></button>
 </div>
 <form action="/admin/post.php" method="POST" autocomplete="off">
     <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">

@@ -42,7 +42,7 @@ if (isset($_GET['project_template_id'])) {
 <!-- Breadcrumbs-->
 <ol class="breadcrumb d-print-none">
     <li class="breadcrumb-item">
-        <a href="admin_user.php">Admin</a>
+        <a href="users.php">Admin</a>
     </li>
     <li class="breadcrumb-item">
         <a href="onboarding_templates.php">Onboarding Templates</a>
@@ -191,4 +191,4 @@ require_once "../includes/footer.php";
 
 ?>
 
-<script src="js/pretty_content.js"></script>
+<script src="../js/pretty_content.js"></script>

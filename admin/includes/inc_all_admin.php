@@ -119,5 +119,35 @@ foreach (itflowAdminNavAreas() as $admin_area_key => $admin_area) {
         <span aria-current="page"><?php echo isset($admin_settings_labels[$admin_settings_page]) ? nullable_htmlentities($admin_settings_labels[$admin_settings_page]) : $page_title; ?></span>
     </nav>
     <?php
+    $admin_area_crumb_done = true;
     break;
 }
+
+// Admin pages that sit in no settings list and no admin area (payroll, payments, tax, archives...) had no way back at all.
+// Same back-crumb as everywhere else: [parent label, parent url, current page label].
+$admin_loose_crumbs = [
+    'payment_method.php'       => ['All settings', '/admin/settings.php', 'Payment methods'],
+    'payment_provider.php'     => ['All settings', '/admin/settings.php', 'Payment providers'],
+    'saved_payment_method.php' => ['Payment providers', '/admin/payment_provider.php', 'Saved payment methods'],
+    'tax.php'                  => ['All settings', '/admin/settings.php', 'Taxes'],
+    'payroll_employees.php'    => ['Payroll', '/admin/payroll_settings.php', 'Employees'],
+    'payroll_employee.php'     => ['Payroll', '/admin/payroll_settings.php', 'Employee'],
+    'payroll_periods.php'      => ['Payroll', '/admin/payroll_settings.php', 'Pay periods'],
+    'payroll_period.php'       => ['Payroll', '/admin/payroll_settings.php', 'Pay period'],
+    'payroll_runs.php'         => ['Payroll', '/admin/payroll_settings.php', 'Payroll runs'],
+    'payroll_run.php'          => ['Payroll', '/admin/payroll_settings.php', 'Payroll run'],
+    'payroll_deductions.php'   => ['Payroll', '/admin/payroll_settings.php', 'Deduction categories'],
+    'kb_articles_archive.php'  => ['Knowledge Base', '/admin/settings_kb.php', 'Archived articles'],
+    'ticket_automation_log.php' => ['Ticket automation', '/admin/ticket_automation.php', 'Run log'],
+    'settings_mail_templates.php' => ['Ticketing', '/admin/settings_ticket.php', 'Email templates'],
+    'people_import.php'        => ['Tags & categories', '/admin/catalog_setup.php', 'People import'],
+    'portal_users.php'         => ['All settings', '/admin/settings.php', 'Department logins'],
+];
+if (empty($admin_area_crumb_done) && !isset($admin_settings_labels[$admin_settings_page]) && isset($admin_loose_crumbs[$admin_settings_page])) {
+    [$loose_parent, $loose_url, $loose_label] = $admin_loose_crumbs[$admin_settings_page]; ?>
+    <nav aria-label="Breadcrumb" class="mb-3 admin-breadcrumb">
+        <a href="<?php echo nullable_htmlentities($loose_url); ?>"><i class="fas fa-fw fa-arrow-left me-1" aria-hidden="true"></i><?php echo nullable_htmlentities($loose_parent); ?></a>
+        <span class="text-muted mx-2" aria-hidden="true">/</span>
+        <span aria-current="page"><?php echo nullable_htmlentities($loose_label); ?></span>
+    </nav>
+<?php }

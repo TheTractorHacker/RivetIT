@@ -256,7 +256,7 @@ require_once "includes/inc_all_admin.php";
                                 class="form-control form-control-sm mb-2"
                                 style="font-family:monospace;font-size:.75rem;resize:vertical;"
                                 placeholder='{ "type": "service_account", "project_id": "…", … }'></textarea>
-                            <button type="submit" name="save_firebase_config" class="btn btn-sm btn-primary">
+                            <button type="submit" name="save_firebase_config" class="btn btn-primary">
                                 <i class="fas fa-save me-1"></i>Update Configuration
                             </button>
                         </form>
@@ -398,7 +398,7 @@ require_once "includes/inc_all_admin.php";
                             </div>
                             <?php } ?>
                         </div>
-                        <button type="submit" name="save_push_categories" class="btn btn-sm btn-primary mt-3">
+                        <button type="submit" name="save_push_categories" class="btn btn-primary mt-3">
                             <i class="fas fa-save me-1"></i>Save Categories
                         </button>
                     </form>
@@ -481,7 +481,7 @@ require_once "includes/inc_all_admin.php";
                             class="form-control form-control-sm mb-2"
                             style="font-family:monospace;font-size:.75rem;resize:vertical;"
                             placeholder='{ "type": "service_account", "project_id": "…", … }'></textarea>
-                        <button type="submit" name="save_firebase_config" class="btn btn-sm btn-primary">
+                        <button type="submit" name="save_firebase_config" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>Save Configuration
                         </button>
                     </form>
@@ -536,7 +536,7 @@ require_once "includes/inc_all_admin.php";
                 </div>
                 <?php } ?>
             </div>
-            <button type="submit" name="save_notify_categories" class="btn btn-sm btn-primary mt-3">
+            <button type="submit" name="save_notify_categories" class="btn btn-primary mt-3">
                 <i class="fas fa-save me-1"></i>Save Categories
             </button>
         </form>

@@ -8,7 +8,7 @@ require_once "includes/inc_all_admin.php";
         </div>
         <div class="card-body">
 
-            <p class="text-center">Installation ID: <strong><?php echo $installation_id; ?></strong></p>
+            <p class="mb-3">Installation ID: <strong><?php echo $installation_id; ?></strong></p>
 
             <div class="alert alert-secondary mb-0">
                 <i class="fas fa-fw fa-check-circle me-2"></i><?= htmlspecialchars(APP_NAME) ?> does not collect or send telemetry. Nothing about this installation is ever sent anywhere.

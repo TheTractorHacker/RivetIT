@@ -3,7 +3,7 @@ require_once "includes/inc_all_admin.php";
 
 enforceUserPermission('module_client', 2);
 
-$workflow_template_id = intval($_GET['id']);
+$workflow_template_id = intval($_GET['id'] ?? 0);
 
 $template = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM workflow_templates WHERE workflow_template_id = $workflow_template_id"));
 if (!$template) {

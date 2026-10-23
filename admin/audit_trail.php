@@ -171,18 +171,18 @@ if ($chain_cols) {
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-3"><label class="form-label small mb-1">Search</label><input class="form-control form-control-sm" name="q" value="<?= $h($q) ?>" placeholder="summary, id, IP address"></div>
+            <div class="col-md-3"><label class="form-label small mb-1">Search</label><input class="form-control form-control" name="q" value="<?= $h($q) ?>" placeholder="summary, id, IP address"></div>
             <div class="col-md-2"><label class="form-label small mb-1">Event</label>
-                <select class="form-select form-select-sm" name="type"><option value="">All events</option>
+                <select class="form-select form-select" name="type"><option value="">All events</option>
                     <?php foreach ($groups as $g => $n) { ?><option value="<?= $h($g) ?>" <?= $type === $g ? 'selected' : '' ?>><?= $h($g) ?> (<?= $n ?>)</option><?php } ?>
                 </select></div>
             <div class="col-md-2"><label class="form-label small mb-1">Who</label>
-                <select class="form-select form-select-sm" name="actor"><option value="">Anyone</option>
+                <select class="form-select form-select" name="actor"><option value="">Anyone</option>
                     <?php foreach ($actors as $a) { ?><option value="<?= (int) $a['user_id'] ?>" <?= $actor === (int) $a['user_id'] ? 'selected' : '' ?>><?= $h($a['user_name']) ?></option><?php } ?>
                 </select></div>
-            <div class="col-md-2"><label class="form-label small mb-1">From</label><input type="date" class="form-control form-control-sm" name="from" value="<?= $h($from) ?>"></div>
-            <div class="col-md-2"><label class="form-label small mb-1">To</label><input type="date" class="form-control form-control-sm" name="to" value="<?= $h($to) ?>"></div>
-            <div class="col-md-1 d-flex gap-1"><button class="btn btn-primary btn-sm">Filter</button><a class="btn btn-outline-secondary btn-sm" href="audit_trail.php">Reset</a></div>
+            <div class="col-md-2"><label class="form-label small mb-1">From</label><input type="date" class="form-control form-control" name="from" value="<?= $h($from) ?>"></div>
+            <div class="col-md-2"><label class="form-label small mb-1">To</label><input type="date" class="form-control form-control" name="to" value="<?= $h($to) ?>"></div>
+            <div class="col-md-1 d-flex gap-1"><button class="btn btn-primary">Filter</button><a class="btn btn-outline-secondary" href="audit_trail.php">Reset</a></div>
         </form>
     </div>
 </div>

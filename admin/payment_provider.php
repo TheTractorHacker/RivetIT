@@ -126,7 +126,7 @@ $num_rows = mysqli_num_rows($sql);
                 }
 
                 if ($num_rows == 0) {
-                    echo "<h3 class='text-secondary mt-3' style='text-align: center'>No Records Here</h3>";
+                    render_empty_state('fas fa-credit-card', 'Nothing here yet.', 'Use the New button above to add the first one.');
                 }
 
                 ?>

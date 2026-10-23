@@ -11,9 +11,9 @@ $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients
 ob_start();
 ?>
 
-<div class="modal-header">
+<div class="modal-header bg-dark">
     <h5 class="modal-title"><i class="fa fa-fw fa-copy me-2"></i>Apply Template: <?= $name ?></h5>
-    <button type="button" class="close" data-bs-dismiss="modal"><span>&times;</span></button>
+    <button type="button" class="close text-white" data-bs-dismiss="modal"><span>&times;</span></button>
 </div>
 
 <form action="post.php" method="post" autocomplete="off">

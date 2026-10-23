@@ -30,7 +30,7 @@ if (isset($session_is_admin) && $session_is_admin) {
     //  To add a new admin POST request handler, add a file named after the admin page
     //    e.g. changes made on the page http://itflow/admin_ticket_statues.php will load the page admin/post/admin_ticket_statues.php to handle the changes
 
-    include_once "post/$module.php";
+    if (is_file(__DIR__ . "/post/$module.php")) { include_once "post/$module.php"; }
     
 }
 

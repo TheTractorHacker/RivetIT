@@ -10,6 +10,8 @@ if (isset($_POST['add_custom_link'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
+    requireFilledPost(['name' => 'Name', 'uri' => 'URL']);
+
     $name = sanitizeInput($_POST['name']);
     $uri = sanitizeInput($_POST['uri']);
     $new_tab = intval($_POST['new_tab'] ?? 0);
@@ -33,6 +35,8 @@ $icon = preg_replace('/^fa-/', '', \RivetCore\Ui\IconCatalog::normalize($_POST['
 if (isset($_POST['edit_custom_link'])) {
 
     validateCSRFToken($_POST['csrf_token']);
+
+    requireFilledPost(['name' => 'Name', 'uri' => 'URL']);
 
     $custom_link_id = intval($_POST['custom_link_id']);
     $name = sanitizeInput($_POST['name']);

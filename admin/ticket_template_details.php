@@ -49,7 +49,7 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
 </ol>
 
 <div class="row">
-    <div class="col-md-9">
+    <div class="col-xl-8">
 
         <div class="card card-dark">
             <div class="card-header">
@@ -67,7 +67,7 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
 
     </div>
 
-    <div class="col-md-3">
+    <div class="col-xl-4 mt-3 mt-xl-0">
 
         <div class="card card-dark">
             <div class="card-header">

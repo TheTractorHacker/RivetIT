@@ -64,16 +64,31 @@ require_once "includes/inc_all_admin.php";
             </div>
             <div class="form-group">
                 <label for="oidc_issuer">Issuer URL</label>
-                <input class="form-control" type="url" id="oidc_issuer" name="oidc_issuer" value="<?= nullable_htmlentities($config_oidc_issuer) ?>" placeholder="https://login.example.org/application/o/rivetit" maxlength="255">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
+                    </div>
+                    <input class="form-control" type="url" id="oidc_issuer" name="oidc_issuer" value="<?= nullable_htmlentities($config_oidc_issuer) ?>" placeholder="https://login.example.org/application/o/rivetit" maxlength="255">
+                </div>
                 <small class="form-text text-muted">Use the exact issuer from the provider's OpenID discovery document. HTTPS is required.</small>
             </div>
             <div class="form-group">
                 <label for="oidc_client_id">Client ID</label>
-                <input class="form-control" id="oidc_client_id" name="oidc_client_id" value="<?= nullable_htmlentities($config_oidc_client_id) ?>" maxlength="255">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
+                    </div>
+                    <input class="form-control" id="oidc_client_id" name="oidc_client_id" value="<?= nullable_htmlentities($config_oidc_client_id) ?>" maxlength="255">
+                </div>
             </div>
             <div class="form-group">
                 <label for="oidc_client_secret">Client secret</label>
-                <input class="form-control" type="password" id="oidc_client_secret" name="oidc_client_secret" autocomplete="new-password" placeholder="<?= $config_oidc_secret_saved ? 'Saved — leave blank to keep' : 'Client secret' ?>">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                    </div>
+                    <input class="form-control" type="password" id="oidc_client_secret" name="oidc_client_secret" autocomplete="new-password" placeholder="<?= $config_oidc_secret_saved ? 'Saved — leave blank to keep' : 'Client secret' ?>">
+                </div>
             </div>
             <button type="submit" name="edit_oidc_provider" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save OpenID Connect</button>
         </form>
