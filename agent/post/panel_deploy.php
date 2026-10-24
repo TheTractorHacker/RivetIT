@@ -1,8 +1,9 @@
 <?php
 if (defined('FROM_POST_HANDLER')) return;
 /*
- * RivetPanel deploy actions: mint/revoke an enrollment token, revoke a panel device, toggle "allow tickets from client-level
- * devices". Standalone endpoint (agent/panel_deploy.php's forms post straight here), same shape as agent/post/rmm_unlink.php.
+ * RivetPanel deploy actions: switch the service on/off (installation-wide), mint/revoke an enrollment token (single-use or a
+ * capped multi-use "fleet" token, rc.38), revoke a panel device, toggle "allow tickets from client-level devices". Standalone
+ * endpoint (agent/panel_deploy.php's forms post straight here), same shape as agent/post/rmm_unlink.php.
  *
  * Every action re-derives client_id from the TOKEN/DEVICE ROW (looked up by its own id, scoped to kind = panel) before calling
  * enforceClientAccess() - a posted/URL client_id is used only to know where to redirect back to, never for the access decision.
@@ -34,14 +35,28 @@ if (isset($_POST['create_token'])) {
     $contact_id = isset($_POST['contact_id']) && $_POST['contact_id'] !== '' ? intval($_POST['contact_id']) : null;
     $label = (string) ($_POST['label'] ?? '');
     $ttl_hours = max(1, min(72, intval($_POST['ttl_hours'] ?? 24)));
+    $max_uses = max(1, min(500, intval($_POST['max_uses'] ?? 1)));
 
     try {
-        $result = $panel->enrollment()->createToken($client_id, $contact_id, $ttl_hours, $label, (int) $session_user_id);
+        $result = $panel->enrollment()->createToken($client_id, $contact_id, $ttl_hours, $label, (int) $session_user_id, $max_uses);
         $_SESSION['panel_new_token'] = $result['token'];
+        $_SESSION['panel_new_token_max_uses'] = $max_uses;
         flash_alert('Enrollment token created. Copy it now - it will not be shown again.', 'success');
     } catch (\InvalidArgumentException $e) {
         flash_alert($e->getMessage(), 'error');
     }
+    panel_deploy_back($client_id);
+}
+
+if (isset($_POST['set_panel_enabled'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    $client_id = intval($_POST['client_id'] ?? 0);
+    enforceUserPermission('module_support', 2);
+    enforceClientAccess($client_id);
+
+    $enabled = !empty($_POST['panel_enabled']);
+    rivetPanelSetEnabled($mysqli, $enabled);
+    flash_alert('RivetPanel is now switched ' . ($enabled ? 'ON' : 'OFF') . ' for this installation.', 'success');
     panel_deploy_back($client_id);
 }
 

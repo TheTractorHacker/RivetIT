@@ -32,8 +32,12 @@ use RivetCore\Panel\Contracts\PanelTicketGatewayInterface;
  *     is returned to the panel itself, so the device only ever sees the body it sent.
  *   - `tickets`/`ticket_replies` timestamps are written with MySQL's local `NOW()` (this server's system time zone, confirmed non-UTC), but the
  *     interface requires UTC; every timestamp this class returns is shifted by an offset measured once per instance
- *     (`TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())`). This can be off by an hour for a row written on the opposite side of a DST transition
- *     from "now" - an accepted, minor limitation given RivetIT stores no explicit UTC ticket timestamps to read instead.
+ *     (`TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())`). The stored string is parsed as a NAIVE value (DateTime with an explicit UTC
+ *     DateTimeZone, never `strtotime()`) before that offset is applied - `strtotime()` follows PHP's own `date.timezone` ini setting, which
+ *     on this install equals MySQL's local zone, so it would already return the correct absolute instant and the offset would double-shift
+ *     it (found as a 5-hour-off conformance-test failure once PHP's `date.timezone` matched the server's zone). The offset can still be off by
+ *     an hour for a row written on the opposite side of a DST transition from "now" - an accepted, minor limitation given RivetIT stores no
+ *     explicit UTC ticket timestamps to read instead.
  */
 final class EndpointPanelGateway implements PanelTicketGatewayInterface
 {
@@ -337,12 +341,13 @@ final class EndpointPanelGateway implements PanelTicketGatewayInterface
         if ($local === null || $local === '' || $local === '0000-00-00 00:00:00') {
             return null;
         }
-        $ts = strtotime($local);
-        if ($ts === false) {
+        // Parsed as a naive value (explicit UTC DateTimeZone, not PHP's own date.timezone) so the offset below is applied exactly once.
+        $dt = \DateTime::createFromFormat('Y-m-d H:i:s', $local, new \DateTimeZone('UTC'));
+        if ($dt === false) {
             return null;
         }
 
-        return gmdate('Y-m-d H:i:s', $ts - $this->utcOffsetSeconds());
+        return gmdate('Y-m-d H:i:s', $dt->getTimestamp() - $this->utcOffsetSeconds());
     }
 
     // ------------------------------------------------------------------ tiny mysqli helpers (no DatabaseInterface dependency: this class is handed a raw connection)

@@ -10022,6 +10022,17 @@ CREATE TABLE IF NOT EXISTS `panel_ticket_owner` (
   KEY `idx_device_created` (`device_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `rmm_daily_budget` (
+  `scope` varchar(24) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `day` date NOT NULL,
+  `used_count` int(11) NOT NULL DEFAULT 0,
+  `used_bytes` bigint(20) NOT NULL DEFAULT 0,
+  `flagged` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`scope`,`subject_id`,`day`),
+  KEY `idx_day` (`day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `endpoint_agent_checkins` (
   `device_id` int(11) NOT NULL,
   `seq` bigint(20) NOT NULL,

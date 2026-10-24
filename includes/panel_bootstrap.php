@@ -8,9 +8,10 @@
  * it works whether or not RMM is switched on (UPGRADING.md "Adopting the RivetPanel API", step 3). The only new adapter is the ticket gateway
  * (src/Core/Adapter/Endpoint/EndpointPanelGateway.php); EndpointTenancy and EndpointAudit are reused unchanged from includes/rmm_bootstrap.php.
  *
- * There is no master on/off switch for the panel service itself: PanelModule::api() defaults to enabled (PanelApi's own default). Nobody can reach
- * it until an administrator mints an enrollment token, which only the Deploy page UI exposes, so there is nothing to switch on behaviourally.
- * The per-client "allow tickets from client-level devices" switch is PanelModule::settings(), default off.
+ * Master switch (rc.38, Prompt 1 step 4): PlatformSettings 'panel_enabled', OFF by default. PanelModule's 'enabled' option gates PanelApi - with it off,
+ * every panel_* route answers 503 module_disabled before touching tenancy/gateway, even if a token were somehow minted or an old device credential still
+ * exists. rivetPanelEnabled()/rivetPanelSetEnabled() read and flip it; the Deploy page (Admin > RivetPanel) is the only UI that calls the setter.
+ * The per-client "allow tickets from client-level devices" switch is separate: PanelModule::settings(), also default off.
  */
 
 require_once __DIR__ . '/event_bus.php';   // rivetCoreDb()
@@ -18,8 +19,25 @@ require_once __DIR__ . '/event_bus.php';   // rivetCoreDb()
 use ITFlow\Core\Adapter\Endpoint\EndpointAudit;
 use ITFlow\Core\Adapter\Endpoint\EndpointPanelGateway;
 use ITFlow\Core\Adapter\Endpoint\EndpointTenancy;
+use ITFlow\Platform\PlatformSettings;
 use RivetCore\Panel\PanelModule;
 use RivetCore\Support\SystemClock;
+
+/** Is the RivetPanel service switched on? Off by default until an administrator turns it on. */
+function rivetPanelEnabled($mysqli = null): bool
+{
+    $mysqli ??= $GLOBALS['mysqli'] ?? null;
+    if (!$mysqli instanceof \mysqli) {
+        return false;
+    }
+
+    return PlatformSettings::bool($mysqli, 'panel_enabled');
+}
+
+function rivetPanelSetEnabled(\mysqli $mysqli, bool $enabled): void
+{
+    PlatformSettings::set($mysqli, 'panel_enabled', $enabled ? '1' : '0');
+}
 
 /**
  * The module for this request's database connection (built once per connection, same pattern as rivetRmmModule()).
@@ -43,7 +61,11 @@ function rivetPanelModule($mysqli = null): PanelModule
         new EndpointTenancy(rivetCoreDb($mysqli)),
         new EndpointAudit(),
         new EndpointPanelGateway($mysqli),
-        [],
+        [
+            'enabled' => static fn (): bool => rivetPanelEnabled($mysqli),
+            // Same escape hatch as rivetRmmModule(): loopback test servers only, never set in production.
+            'allow_insecure_http' => defined('EA_ALLOW_INSECURE_HTTP') && EA_ALLOW_INSECURE_HTTP === true,
+        ],
     );
     $built[$key] = [$mysqli, $module];
 

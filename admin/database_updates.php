@@ -11842,3 +11842,20 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.195'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.195') {
+        // DB 2.6.196: RivetCore 1.0.0-rc.38. Re-runs CoreMigrations::all() again (idempotent) to pick up 0041_daily_budget:
+        // one new table, rmm_daily_budget (RivetCore\Rmm\Migration\BudgetSchema) - a per-device, per-UTC-day usage ledger
+        // shared by RivetPanel chat (500 posts / 50 MiB per day, PanelLimits::$chatPostsPerDayMax/$chatBytesPerDayMax) and
+        // Mesh event audit throttling. Purely additive: no row inserted, nothing existing altered. The Panel ticket-gateway
+        // interface and the RivetIT adapter are unchanged between rc.35 and rc.38; the enabled-switch and fleet-token UI
+        // work for rc.38 live in application code (includes/panel_bootstrap.php, agent/panel_deploy.php), not here.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.196'");
+        }
+    }

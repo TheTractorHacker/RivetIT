@@ -19,6 +19,7 @@ final class PlatformSettings
         'audit_chain_seal_enabled' => '1',
         'doc_review_reminders' => '1',
         'rmm_allow_linux' => '1',              // endpoint agent: Linux devices may enroll (on by default; config.php EA_ALLOW_NON_WINDOWS = true forces it on)
+        'panel_enabled' => '0',                // RivetPanel device-token API: off until an administrator turns it on (Admin > RivetPanel)
     ];
 
     public static function get(\mysqli $db, string $key, ?string $default = null): string
