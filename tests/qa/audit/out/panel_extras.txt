@@ -1,0 +1,35 @@
+PASS | revoke | revoke device from Deploy page: next API call is 401 revoked immediately | before=200 after=401 code=revoked dt=0.22s
+PASS | revoke | revoked device cannot re-enroll with its install_id (403, admin must allow it) | status=403 code=forbidden msg=This device was revoked. An administrator must allow re-enrollment first.
+PASS | revoke | revoke with bad CSRF token is refused (no state change, no 500) | status=302 loc=index.php
+PASS | perm | technician (module_support level?) minting a token | tech page status=200, token minted by technician=True (level 2 on module_support required; technician role has it in the demo, so minting is expected)
+PASS | perm | Deploy page requires login (redirect) | status=302
+PASS | perm | Deploy handler requires login | status=302
+PASS | perm | client-portal login cannot open the agent Deploy page | status=302
+PASS | headers | API sends nosniff/cache-control (info) | {"content-type": "application/json", "x-content-type-options": null, "cache-control": "no-store", "access-control-allow-origin": "*", "strict-transport-security": null, "content-security-policy": null, "x-frame-options": null, "referrer-policy": null}
+FAIL | headers | CORS preflight from an arbitrary origin is not allowed | status=204 acao=*
+FAIL | headers | no ACAO echo on a real authenticated call | acao=*
+FAIL | lifecycle | ARCHIVED ticket still listed to the device (finding) | listed=True
+FAIL | lifecycle | ARCHIVED ticket still accepts new chat messages (finding) | chat status=201
+PASS | lifecycle | archiving the contact blocks its panel (403 contact_invalid) | status=403 code=contact_invalid
+FAIL | lifecycle | ARCHIVED client: panel can still create tickets (finding if 201) | status=201
+PASS | lifecycle | ARCHIVED client: panel_me still answers (info) | status=200
+PASS | lifecycle | expired device token -> 401 expired | status=401 code=expired
+PASS | audit | audit rows exist for enroll / ticket create / chat / token created / token revoked | logs(Endpoint Agent) events=['Panel Chat Posted', 'Panel Device Revoked', 'Panel Enrolled', 'Panel Enrollment Failed', 'Panel Enrollment Token Created', 'Panel Enrollment Token Revoked', 'Panel Setting Changed', 'Panel Ticket Created']
+PASS | audit | audit row exists for panel DEVICE revoke | revoke-related events=['Panel Device Revoked', 'Panel Enrollment Token Revoked']
+PASS | audit | audit rows contain no tokens | rows with token text=['0']
+AUDIT SAMPLE:
+   Panel Ticket Created	Ticket 472 created by panel device 110 for contact 1
+   Panel Chat Posted	Message 2035 posted on ticket 471 by panel device 110
+   Panel Ticket Created	Ticket 471 created by panel device 110 for contact 1
+   Panel Enrollment Token Created	Panel enrollment token 128 for client 16 (client-level) created by user 10
+   Panel Enrollment Failed	Panel enrollment attempt rejected (forbidden) from 127.0.0.1 using token 6cb6a9b5977b
+   Panel Enrollment Token Created	Panel enrollment token 127 for client 16 and contact 1 created by user 9
+   Panel Enrolled	Panel device 110 (QA-UI-EX1) enrolled with token b74a020dc0ed, contact 1
+   Panel Enrollment Token Created	Panel enrollment token 126 for client 16 and contact 1 created by user 9
+
+19 checks, 5 FAIL
+FAIL: headers | CORS preflight from an arbitrary origin is not allowed | status=204 acao=*
+FAIL: headers | no ACAO echo on a real authenticated call | acao=*
+FAIL: lifecycle | ARCHIVED ticket still listed to the device (finding) | listed=True
+FAIL: lifecycle | ARCHIVED ticket still accepts new chat messages (finding) | chat status=201
+FAIL: lifecycle | ARCHIVED client: panel can still create tickets (finding if 201) | status=201
