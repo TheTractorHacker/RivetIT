@@ -51,8 +51,14 @@ if (isset($_POST['create_token'])) {
 if (isset($_POST['set_panel_enabled'])) {
     validateCSRFToken($_POST['csrf_token']);
     $client_id = intval($_POST['client_id'] ?? 0);
-    enforceUserPermission('module_support', 2);
-    enforceClientAccess($client_id);
+    // This switch is installation-wide (rivetPanelSetEnabled() has no client scope at all - see its own definition),
+    // not a per-department action, so it must be admin-only: enforceClientAccess($client_id) was WRONG here (it
+    // would let any technician who merely has access to one client flip the switch for every client, and
+    // enforceClientAccess(0) - the default when no client_id is posted - returns true for any logged-in non-admin
+    // outright). enforceUserPermission('module_support', 2) is still a feature permission, not an admin check,
+    // same gap. $client_id below is kept ONLY to redirect back to the department-scoped deploy page, never as
+    // part of the access decision.
+    enforceAdminPermission();
 
     $enabled = !empty($_POST['panel_enabled']);
     rivetPanelSetEnabled($mysqli, $enabled);

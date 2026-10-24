@@ -56,6 +56,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
         <strong>RivetPanel service: <?= $pd_enabled ? 'ON' : 'OFF' ?></strong> for this whole installation (every client).
         <?php if (!$pd_enabled) { ?> Off by default - tokens and devices below do nothing until this is switched on.<?php } ?>
     </div>
+    <?php if (!empty($session_is_admin)) { ?>
     <form method="post" action="post/panel_deploy.php" class="mb-0">
         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
         <input type="hidden" name="client_id" value="<?= (int) $client_id ?>">
@@ -64,6 +65,9 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
             <?= $pd_enabled ? 'Turn off' : 'Turn on' ?>
         </button>
     </form>
+    <?php } else { ?>
+    <span class="text-muted small">Administrators only.</span>
+    <?php } ?>
 </div>
 
 <?php if ($pd_new_token !== null) { ?>
