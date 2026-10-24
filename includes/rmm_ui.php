@@ -582,12 +582,20 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
     if ($inventoryOn && isset($filters['software']) && is_string($filters['software']) && trim($filters['software']) !== '') {
         $listFilters['software'] = mb_substr(trim($filters['software']), 0, 100);
     }
+    // RivetPanel devices (link_state = 'panel') are excluded below everywhere this feeds a fleet list, offline/
+    // stale widget or an automation/picker dropdown - they never check in, run a script or generate an RMM alert,
+    // so showing them here is just confusing, not useful (they have their own page, agent/panel_deploy.php).
+    // Core's listDevices() has no kind/link_state exclusion filter, so this is a post-filter on the returned
+    // items; $list['total']/pagination counts still include them (a rare, cosmetic over-count only a fleet that
+    // actually enrolled a panel device would ever notice - filtering it out exactly would mean duplicating
+    // Core's WHERE clause in this app, not worth it for a display-only quirk).
     $list = $read->listDevices($listFilters, $visible, $perPage, ($page - 1) * $perPage);
+    $list['items'] = rivetRmmExcludePanelDevices($list['items']);
     $counts = $read->fleetCounts($visible);
 
     // Offline devices, oldest silence first within the page of ten.
-    $offline = $read->listDevices(['status' => 'offline'], $visible, 10, 0)['items'];
-    $stale = $read->listDevices(['status' => 'stale'], $visible, 5, 0)['items'];
+    $offline = rivetRmmExcludePanelDevices($read->listDevices(['status' => 'offline'], $visible, 10, 0)['items']);
+    $stale = rivetRmmExcludePanelDevices($read->listDevices(['status' => 'stale'], $visible, 5, 0)['items']);
     $approvals = $read->pendingApprovals($visible, 10);
 
     // Agent versions and rings. A scan of at most FLEET_SCAN devices; a larger fleet says so rather than pretending.
@@ -599,7 +607,7 @@ function rivetRmmUiFleet(\mysqli $mysqli, int $userId, array $filters = [], ?int
     $scanCap = 2000;
     for ($off = 0; $off < $scanCap; $off += 500) {
         $chunk = $read->listDevices([], $visible, 500, $off, true);
-        foreach ($chunk['items'] as $d) {
+        foreach (rivetRmmExcludePanelDevices($chunk['items']) as $d) {
             $scanned++;
             if ($d['revoked'] || $d['retired']) {
                 continue;

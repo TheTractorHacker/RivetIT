@@ -266,7 +266,7 @@ function rivetRmmLogDevices(\mysqli $mysqli, int $userId): array
         }
     }
     $out = [];
-    foreach ($rmm->readModel()->listDevices([], $visible, 500, 0, false)['items'] as $d) {
+    foreach (rivetRmmExcludePanelDevices($rmm->readModel()->listDevices([], $visible, 500, 0, false)['items']) as $d) {
         $out[(int) $d['device_id']] = (string) $d['hostname'];
     }
 

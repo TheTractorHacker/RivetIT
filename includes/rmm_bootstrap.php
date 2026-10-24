@@ -383,3 +383,21 @@ function rivetRmmRequest(string $endpoint, array $pathSegments = []): RmmRequest
         fopen('php://input', 'rb') ?: null,
     );
 }
+
+/**
+ * Drops RivetPanel devices (link_state = 'panel', RivetCore\Panel\PanelProtocol::LINK_STATE) from an
+ * RmmReadModel::listDevices()/summary() items array. Core's listDevices() has no kind/link_state exclusion
+ * filter (added in 1.0.0-rc.35 for Panel, not retrofitted into the device-list query), so every RMM-facing
+ * fleet list, device picker and automation dropdown in this app would otherwise also offer panel devices -
+ * entries that can never run a script, never generate an RMM alert and have no checks/jobs/logs, since they
+ * only ever exist for RivetPanel's own ticket/chat API. Not a security issue (automations already require
+ * link_state = 'linked', which a panel device never has) - purely "don't show something that can't do
+ * anything here". Panel devices have their own page, agent/panel_deploy.php.
+ *
+ * @param list<array<string,mixed>> $items
+ * @return list<array<string,mixed>>
+ */
+function rivetRmmExcludePanelDevices(array $items): array
+{
+    return array_values(array_filter($items, static fn (array $d): bool => ($d['link_state'] ?? null) !== 'panel'));
+}

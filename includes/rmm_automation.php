@@ -222,7 +222,7 @@ function rivetRmmAutoScopeData(\mysqli $mysqli, int $userId): array
     foreach ($read->tags($visible) as $t) {
         $out['tags'][(int) $t['tag_id']] = (string) $t['name'];
     }
-    foreach ($read->listDevices([], $visible, 500, 0)['items'] as $d) {
+    foreach (rivetRmmExcludePanelDevices($read->listDevices([], $visible, 500, 0)['items']) as $d) {
         $out['devices'][(int) $d['device_id']] = (string) $d['hostname'];
     }
     foreach ($read->automation()?->policyStore()->all() ?? [] as $p) {

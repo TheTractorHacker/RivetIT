@@ -1039,7 +1039,7 @@ function rivetRmmAlrPanelView(array $vm, \mysqli $mysqli): ?array
     $parent = (array) ($a['data']['parent'] ?? []) ?: null;
     $candidates = [];
     if ($canAlert) {
-        foreach ($rmm->readModel()->listDevices(['client_id' => $client], $authz->visibleClientIds($uid), 500, 0, false)['items'] as $d) {
+        foreach (rivetRmmExcludePanelDevices($rmm->readModel()->listDevices(['client_id' => $client], $authz->visibleClientIds($uid), 500, 0, false)['items']) as $d) {
             if ((int) $d['device_id'] !== $dev) {
                 $candidates[(int) $d['device_id']] = (string) $d['hostname'];
             }

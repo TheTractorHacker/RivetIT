@@ -47,7 +47,9 @@ $res = mysqli_query($mysqli, 'SELECT client_id, client_name FROM clients WHERE c
 while ($res && ($c = mysqli_fetch_assoc($res))) { $clients[] = $c; }
 $clientName = [];
 foreach ($clients as $c) { $clientName[(int) $c['client_id']] = $c['client_name']; }
-$devices = $read->listDevices(['retired' => 'all'], null, 500, 0)['items'];
+// RivetPanel devices (link_state = 'panel') excluded - this page is RMM agent configuration/review, and a panel
+// device has no agent version/ring/checks to manage here (it has its own page, agent/panel_deploy.php).
+$devices = rivetRmmExcludePanelDevices($read->listDevices(['retired' => 'all'], null, 500, 0)['items']);
 $pending = $read->pendingApprovals(null, 200);
 $tokens = $read->tokens(50);
 $attempts = $read->recentFailedAttempts(15);
