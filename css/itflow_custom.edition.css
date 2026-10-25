@@ -13,7 +13,7 @@
    1. Tabler declares `.navbar-brand { margin-inline: auto }`, overriding
       Bootstrap's --bs-navbar-brand-margin-end. In this flex row the auto margins
       resolve to nothing, so the company name butted straight up against the
-      first nav link - "Midwest Automation & Custom FabricationHome", measured
+      first nav link - "Acme Automation & Custom FabricationHome", measured
       gap 0px. Restoring an explicit end margin is the whole fix.
    2. Tabler's reset carries `img { max-width:100%; height:auto }`, and a CSS
       declaration beats the height="28" presentation attribute on the logo. The

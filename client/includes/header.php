@@ -196,10 +196,10 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
          DEPARTMENT FIRST, company last. A browser tab truncates from the RIGHT,
          so whatever distinguishes one tab from another has to be leftmost: with
          the company name in front, all 15 departments rendered the identical
-         string "[PREVIEW] Midwest Automation & Custom Fabrication | Department
+         string "[PREVIEW] Acme Automation & Custom Fabrication | Department
          Portal" and a previewing admin with several tabs open could not tell
          which was which. Reversed, the widest live case measured 90 chars
-         ("[PREVIEW] Shipping & Receiving Department Portal | Midwest Automation
+         ("[PREVIEW] Shipping & Receiving Department Portal | Acme Automation
          & Custom Fabrication") and the narrowest 72 (IT's) - and both are
          distinguishable inside the ~25 characters a tab actually shows, which
          is the only length that matters here.
@@ -417,7 +417,7 @@ $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 
            logo, because the company is genuinely the operator of the install.
 
            THIS ALSO FIXES A LIVE HORIZONTAL-SCROLL BUG, measured before the
-           change on mw-itflow.foleyit.com at a 390px viewport: the page's
+           change on a live install at a 390px viewport: the page's
            scrollWidth was 461px against a 390px client width - 71px of sideways
            scroll on every portal page on a phone. The sole offending element was
            this brand, 419px wide inside a 380px navbar, because Bootstrap's
