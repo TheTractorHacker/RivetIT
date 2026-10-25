@@ -6,6 +6,30 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.71] RivetIT — branding pull: one source for the product name, logo and accent fixes, a WCAG warning for the company accent
+
+**Deploy notes:** no database change and no new setting. CSS and the portal header changed (cache-busted by file time); a browser refresh is enough.
+**Visible change:** the department portal's menu now collapses to the menu button below 1200 px (it was 992 px), because the nav items and a wide company logo
+squeezed the department name into an ellipsis between 992 and 1399 px.
+
+- **Every visible product name comes from `APP_NAME`.** About 100 strings added after the rename were still the literal "RivetIT" (admin help text, mail alerts,
+  Slack and chat messages, the OAuth consent page, the MCP tool descriptions, report e-mails). They now follow `APP_NAME` (and `RIVETIT_APP_NAME`); output is
+  identical with the default name. Left literal on purpose: User-Agent tokens, the Odoo write-back wording, the standalone unit-tested alert-source label, migrations.
+- **Upstream links.** The debug page no longer links to the upstream docs.itflow.org log guide (the GPL attribution to ITFlow stays on that page, the README and NOTICE).
+- **Login.** The company logo sat in a box inside a box (the edition CSS added a white chip on top of the login page's own backing), so "no backing" never took effect;
+  there is now only the page's own backing. A very long company name is clamped to three lines (full name as a tooltip) instead of pushing the sign-in card off a phone.
+- **Department portal navbar.** A very long company name dropped the menu button onto a second row (navbar 56 px -> 88 px at 360 and 768 px). It now stays on the row,
+  and from 1200 px the brand no longer shrinks (capped at 22 rem). The company-name text in the portal footer is now WCAG AA contrast (it measured 4.29:1 light, 3.85:1 dark).
+- **Company logo.** The worksheet signing page showed a broken image (it printed the bare file name as the image address). The MFA enforcement page forced a 380 px
+  width, so a square logo rendered 380 px tall and pushed the form off screen; the guest share page forced 80x40. Both are now size caps. The public certificate
+  verification page now uses the uploaded favicon like every other page.
+- **Appearance.** A company accent that is hard to read (white button text or links below WCAG AA, for example pure yellow or the amber and lime presets) now shows a
+  notice on Admin > Appearance. Warning only; nothing is blocked or rewritten.
+- **Tests.** `tests/no_upstream_branding.php`, `tests/no_hardcoded_product_name.php`, `tests/company_logo_paths.php`, `tests/theme_accent_contrast.php`.
+- **Docs.** `docs/BRANDING-HANDOVER.md`: the branding inventory with file:line, which rules are shared (Core) or edition, and the hand-over list for RivetMSP.
+- **Known, not changed.** `guest/outtake_sign.php`, `guest/worksheet_sign.php` and `agent/modals/ticket/outtake_sign.php` contain legal wording and a fixed
+  `https://foleyit.com/ticket-terms` link written for one company. They need a setting for the terms text and URL; see `docs/BRANDING-HANDOVER.md`.
+
 ## [26.10.70] RivetIT — RivetCore 1.0.0-rc.35: the RivetPanel device-token ticket/chat API, shared design assets, Mesh node approval
 
 **Deploy notes:** database 2.6.195 re-runs the Core migration runner (idempotent) - adds `kind`/`contact_id` to `endpoint_agent_enrollment_tokens` and `endpoint_agent_devices` (existing rows become `kind='agent'`) and creates `panel_client_settings`/`panel_ticket_owner`. Mirrored in db.sql. Nothing is reachable until an administrator mints a RivetPanel enrollment token.
