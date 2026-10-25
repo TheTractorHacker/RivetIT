@@ -81,6 +81,22 @@ if (in_array($resource, ['quotes', 'invoices', 'invoice_items', 'expenses', 'pro
     api_error(404, 'Not found');
 }
 
+// Public company identity: the same name/logo already displayed on the login page. Same
+// contract as the RivetMSP edition so one mobile app can brand itself from either server.
+if ($resource === 'branding') {
+    if ($method !== 'GET') api_error(405, 'Method not allowed');
+    if (!api_rate_limit('branding_ip:' . getIP(), 60, 60)) {
+        header('Retry-After: 60');
+        api_error(429, 'Rate limit exceeded');
+    }
+    $logo = !empty($session_company_logo) ? basename($session_company_logo) : null;
+    header('Cache-Control: public, max-age=300');
+    api_response(200, [
+        'name' => $session_company_name ?: APP_NAME,
+        'logo_path' => $logo ? '/uploads/settings/' . rawurlencode($logo) : null,
+    ]);
+}
+
 // Public endpoint: auth
 if ($resource === 'auth') {
     // Tight per-IP limit on the unauthenticated login path. FAILS CLOSED if Redis is down (logout stays available)
