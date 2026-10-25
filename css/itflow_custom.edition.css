@@ -243,3 +243,15 @@
 .kb-ta-left { text-align: left; } .kb-ta-center { text-align: center; } .kb-ta-right { text-align: right; } .kb-ta-justify { text-align: justify; }
 .kb-bold { font-weight: 700; } .kb-italic { font-style: italic; } .kb-underline { text-decoration: underline; } .kb-strike { text-decoration: line-through; }
 .kb-indent { margin-left: 2rem; }
+
+/* Portal footer (the company name). Tabler's muted grey measured 4.29:1 on the light portal and 3.85:1 on the dark one, under the
+   4.5:1 WCAG AA asks of small text, whatever the accent. These two greys measure ~7:1 and ~8:1. */
+.portal-ui footer.footer,
+.portal-ui footer.footer p {
+    color: #4b5563;
+}
+
+html[data-bs-theme="dark"] .portal-ui footer.footer,
+html[data-bs-theme="dark"] .portal-ui footer.footer p {
+    color: #aeb7c4;
+}
