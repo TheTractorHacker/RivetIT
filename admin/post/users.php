@@ -246,7 +246,7 @@ if (isset($_POST['edit_user'])) {
             move_uploaded_file($file_tmp_path, $dest_path);
 
             // Delete old file
-            unlink("../uploads/users/$user_id/$existing_file_name");
+            if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/users/$user_id/$existing_file_name"); }
 
             // Set Avatar
             mysqli_query($mysqli, "UPDATE users SET user_avatar = '$new_file_name' WHERE user_id = $user_id");

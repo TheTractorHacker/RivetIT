@@ -41,7 +41,7 @@ if (isset($_POST['edit_company'])) {
             // unlinks the uploads/settings/ directory itself (no filename to
             // append) and throws a warning on every first-ever logo upload.
             if ($existing_file_name) {
-                unlink("../uploads/settings/$existing_file_name");
+                if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/settings/$existing_file_name"); }
             }
 
             // Set Logo
