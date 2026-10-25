@@ -23,12 +23,11 @@
    already carries its own white background. Black on #fff measures 21:1.
 
    box-sizing is content-box on purpose: both sites size the logo by height
-   (28px in the navbar, max-height 52px on login) and Tabler's global
+   (28px in the navbar) and Tabler's global
    border-box would spend that budget on the padding instead, shrinking the mark
    to make room for its own chip. Measured: navbar logo stays 28px tall inside a
    34px chip, in a 59px navbar. */
-.client-portal-nav .navbar-brand img,
-.login-box-branding .brand-logo img {
+.client-portal-nav .navbar-brand img {
     box-sizing: content-box;
     background-color: #fff;
     padding: 3px 5px;
