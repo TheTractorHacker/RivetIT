@@ -96,6 +96,28 @@
     min-width: 0;
 }
 
+/* Below the xl breakpoint the brand shares its row with the menu toggler. Without a cap a long company name made the
+   brand as wide as the whole row, so the toggler dropped to a second line and the navbar grew from ~56px to 88px
+   (measured at 360 and 768px with a 112-character name). The cap leaves room for the toggler; the company line
+   ellipsizes, the department line is untouched. */
+@media (max-width: 1199.98px) {
+    .client-portal-nav .navbar-brand {
+        max-width: calc(100% - 4rem);
+    }
+}
+
+/* From xl up the nav is expanded but the container is only 1140px (1200-1399px). The brand was a shrinkable flex item, so
+   the seven nav items and the user menu took its room: a 279px brand got ~255px, or ~170px between 992 and 1199px before
+   the nav collapsed there, and the DEPARTMENT name - the line this brand exists to show - ended in an ellipsis whenever a
+   wide company logo was set. The nav items fit in what is left (they measured ~793px against ~845px free), so the brand no
+   longer shrinks; it is capped at 22rem instead, so a very long company name ellipsizes rather than evicting the menu. */
+@media (min-width: 1200px) {
+    .client-portal-nav .navbar-brand {
+        flex: 0 0 auto;
+        max-width: 22rem;
+    }
+}
+
 .client-portal-nav .portal-brand-text {
     display: flex;
     flex-direction: column;
@@ -216,11 +238,6 @@
         transition-duration: 1ms;
     }
 }
-
-/* 13. KB article formatting on the portal (CSP blocks inline style=""; includes/kb_portal_styles.php maps it to these) */
-.kb-ta-left { text-align: left; } .kb-ta-center { text-align: center; } .kb-ta-right { text-align: right; } .kb-ta-justify { text-align: justify; }
-.kb-bold { font-weight: 700; } .kb-italic { font-style: italic; } .kb-underline { text-decoration: underline; } .kb-strike { text-decoration: line-through; }
-.kb-indent { margin-left: 2rem; }
 
 /* 13. KB article formatting on the portal (CSP blocks inline style=""; includes/kb_portal_styles.php maps it to these) */
 .kb-ta-left { text-align: left; } .kb-ta-center { text-align: center; } .kb-ta-right { text-align: right; } .kb-ta-justify { text-align: justify; }

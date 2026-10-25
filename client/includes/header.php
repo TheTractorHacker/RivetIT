@@ -403,7 +403,7 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
 $portal_nav_page = basename($_SERVER['PHP_SELF']);
 $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 'assets.php', 'contracts.php', 'allowance.php', 'documents.php', 'domains.php', 'certificates.php', 'ticket_view_all.php'];
 ?>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark" aria-label="Department portal navigation">
+<nav class="navbar navbar-expand-xl navbar-dark bg-dark client-portal-nav<?php if ($portal_preview_banner === null) { echo ' portal-nav-sticky'; } ?>" data-bs-theme="dark" aria-label="Department portal navigation">
     <div class="container">
         <?php
         /* NAVBAR BRAND - two stacked lines, department over company.
