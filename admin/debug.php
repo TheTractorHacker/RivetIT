@@ -528,7 +528,7 @@ $mysqli->close();
         <h2>Debugging</h2>
         <ul>
             <li>If you are experiencing a problem with <?= htmlspecialchars(APP_NAME) ?>, this page should help you identify any configuration issues.</li>
-            <li>Note: You might also need to gather <a href="https://docs.itflow.org/gathering_logs#error_logs" target="_blank" rel="noopener">error logs</a> (upstream <?= htmlspecialchars(APP_UPSTREAM_NAME) ?> guide)</li>
+            <li>Note: You might also need to gather the web server and PHP error logs from this server when asking for help.</li>
         </ul>
         <hr>
 
