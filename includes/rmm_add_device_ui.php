@@ -49,12 +49,12 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
     $mesh = '';
     if (!empty($ctx['mesh']['show'])) {
         $mesh = '<div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="ad-mesh" name="install_mesh_agent" value="1" aria-describedby="ad-mesh-help"><label class="form-check-label" for="ad-mesh">Also install the MeshCentral agent (after the device is approved)</label></div>'
-            . '<div class="form-text" id="ad-mesh-help">' . ($ctx['mesh']['ready'] ? 'The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server. If that fails, the RivetIT agent is still installed.' : $h('Not ready yet: ' . $ctx['mesh']['hint'])) . '</div></div>';
+            . '<div class="form-text" id="ad-mesh-help">' . ($ctx['mesh']['ready'] ? ('The Mesh agent installs after you approve the device: once it is linked, ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' pushes it from your own Mesh server. If that fails, the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent is still installed.') : $h('Not ready yet: ' . $ctx['mesh']['hint'])) . '</div></div>';
     }
 
     // RivetCore 1.0.0-rc.26: tick-boxes for the catalog apps to install with the agent. js/rmm_add_device.js refills this (action=selectable_apps) on every department/location/platform change.
     $apps = '<div class="col-12" id="ad-apps-col"><span class="form-label d-block">Install with the agent</span><div id="ad-apps-list">' . rivetRmmAutoInstSelectableHtml($ctx['apps'], 'ad') . '</div>'
-        . '<div class="form-text">These apps install right after the RivetIT agent, on the devices this installer enrolls. The same ticks apply to every button below (.exe, .msi, the commands and the Linux command).</div></div>';
+        . ('<div class="form-text">These apps install right after the ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent, on the devices this installer enrolls. The same ticks apply to every button below (.exe, .msi, the commands and the Linux command).</div></div>');
 
     $o = '<div class="card" id="ad-root" data-post-url="/agent/post/rmm_installer.php" data-csrf="' . $h($ctx['csrf']) . '" data-ttl-max="' . (int) $ctx['ttl_max'] . '" data-fixed="' . ($ctx['fixed'] ? '1' : '0') . '"'
         . ' data-have-exe-amd64="' . ($b['amd64'] !== null ? '1' : '0') . '" data-have-exe-arm64="' . ($b['arm64'] !== null ? '1' : '0') . '" data-have-msi-amd64="' . (($msi['amd64'] ?? null) !== null ? '1' : '0') . '" data-have-msi-arm64="' . (($msi['arm64'] ?? null) !== null ? '1' : '0') . '"'

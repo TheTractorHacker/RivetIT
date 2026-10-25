@@ -42,7 +42,7 @@ class EntraCreateAccountAction extends AbstractEntraAction
         $groups = $this->groupsFrom($config, false);
 
         return "Would send to Microsoft Graph: create user $upn (display name \"$name\", " . (!empty($config['enabled']) ? 'enabled' : 'disabled') . ', random temporary password, must change it at first sign-in)'
-            . ($groups ? ' and add it to ' . count($groups) . ' group(s)' : '') . '. Skipped if that UPN already exists. The password is shown once to the assigned technician only. Needs "Allow RivetIT to change Entra accounts".';
+            . ($groups ? ' and add it to ' . count($groups) . ' group(s)' : '') . ('. Skipped if that UPN already exists. The password is shown once to the assigned technician only. Needs "Allow ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' to change Entra accounts".');
     }
 
     public function execute(array $config, array $ctx, ActionGateway $gateway): string

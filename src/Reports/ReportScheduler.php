@@ -147,7 +147,7 @@ final class ReportScheduler
             return $result['error'] ?? 'render failed';
         }
 
-        $brand = $deps['brand'] ?? 'RivetIT';
+        $brand = $deps['brand'] ?? (defined('APP_NAME') ? APP_NAME : 'RivetIT');
         $subject = "$brand report: $label (" . substr($deps['now'] ?? date('Y-m-d'), 0, 10) . ')';
         if ($format === 'csv') {
             $filename = ReportExport::filename($key . '_' . substr($deps['now'] ?? date('Y-m-d'), 0, 10));

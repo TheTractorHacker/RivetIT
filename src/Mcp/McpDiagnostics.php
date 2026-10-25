@@ -20,7 +20,7 @@ final class McpDiagnostics
     public function __construct(\mysqli $db, ClientInterface $http)
     {
         $this->core = new \RivetCore\Mcp\McpDiagnostics(
-            new UsersAgentDirectory(new MysqliDatabaseAdapter($db)), $http, 'RIVETIT_MCP_ENABLED', 'RivetIT'
+            new UsersAgentDirectory(new MysqliDatabaseAdapter($db)), $http, 'RIVETIT_MCP_ENABLED', (defined('APP_NAME') ? APP_NAME : 'RivetIT')
         );
     }
 

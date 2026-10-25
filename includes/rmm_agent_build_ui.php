@@ -102,7 +102,7 @@ function rivetAgentBuildBox($mysqli, array $releases, string $repo, bool $pilot,
     }
     $o .= '<div class="small mt-2"><div class="fw-semibold mb-1">How to create the token (about two minutes)</div><ol class="ps-3 mb-2">'
         . '<li>Sign in to GitHub with an account that may run workflows in <code>' . $h($repo) . '</code>, then open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Settings &rarr; Developer settings &rarr; Fine-grained tokens &rarr; Generate new token</a>.</li>'
-        . '<li>Name it <em>RivetIT agent build</em>, pick an expiry (90 days is fine; set a reminder), and under <em>Resource owner</em> choose the owner of <code>' . $h($repo) . '</code>.</li>'
+        . ('<li>Name it <em>' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent build</em>, pick an expiry (90 days is fine; set a reminder), and under <em>Resource owner</em> choose the owner of <code>') . $h($repo) . '</code>.</li>'
         . '<li>Under <em>Repository access</em> choose <em>Only select repositories</em> and pick <code>' . $h($repo) . '</code> and nothing else.</li>'
         . '<li>Under <em>Permissions &rarr; Repository permissions</em> set <strong>Actions</strong> to <strong>Read and write</strong>. Leave everything else on &ldquo;No access&rdquo;.</li>'
         . '<li>Press <em>Generate token</em>, copy it (it starts with <code>github_pat_</code>), paste it below, press <strong>' . ($has ? 'Replace token' : 'Save token') . '</strong>, then <strong>Test token</strong>. If the repository belongs to an organization that approves tokens, an owner has to approve it first.</li></ol>'

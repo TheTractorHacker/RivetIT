@@ -250,7 +250,7 @@ class WorkflowService
         }
         foreach ($rows as $r) {
             if (str_starts_with((string) ($r['action_type'] ?? ''), 'entra_') && !\ITFlow\Integrations\Microsoft\GraphClientFactory::writesAllowed($this->mysqli)) {
-                $warnings[] = "This template has Entra account actions but 'Allow RivetIT to change Entra accounts' is off: those tasks will become manual tasks.";
+                $warnings[] = ("This template has Entra account actions but 'Allow " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " to change Entra accounts' is off: those tasks will become manual tasks.");
                 break;
             }
         }

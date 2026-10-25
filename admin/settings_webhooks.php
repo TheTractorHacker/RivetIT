@@ -231,7 +231,7 @@ $slack_endpoint = ($slack_base !== '' ? (preg_match('#^https?://#i', $slack_base
                 <label class="form-check-label" for="slackLinkByEmail">Match Slack users to agents by their confirmed Slack email address</label>
             </div>
             <small class="text-muted d-block mb-3">
-                <strong>Off by default.</strong> While off, a click answers "your Slack account isn't linked" and changes nothing. When on, RivetIT asks Slack
+                <strong>Off by default.</strong> While off, a click answers "your Slack account isn't linked" and changes nothing. When on, <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> asks Slack
                 (<code>users.info</code>, bot token below) for the clicker's email and only acts when Slack marks it <em>confirmed</em>, the person is not a bot or guest,
                 and exactly one active agent has that email, with the same role and department rights as in the web app. Anyone who can change their Slack email
                 to an agent's address in a workspace that does NOT confirm emails could pose as that agent, so only turn this on for a workspace you control.

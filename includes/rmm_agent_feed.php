@@ -1186,7 +1186,7 @@ function rivetAgentFeedLinuxCommand(string $coreSnippet, array $assets, string $
     // Both files are fetched here with the system's trust store (a private CA given to the script with --ca is for YOUR server, not for GitHub), checked against the SHA-256 recorded
     // on this server, and only then handed to the script (--binary: a plain agent, enrolled with --server and the token file).
     $get = static fn (string $url, string $sha, string $var, string $what): string => 'curl --fail --silent --show-error --location --proto \'=https\' --proto-redir \'=https\' -o "$' . $var . '" ' . $q($url) . "\n"
-        . 'printf \'%s  %s\\n\' ' . $q($sha) . ' "$' . $var . '" | sha256sum -c - >/dev/null || { echo "' . $what . ' does not match the SHA-256 recorded on the RivetIT server" >&2; exit 65; }' . "\n";
+        . 'printf \'%s  %s\\n\' ' . $q($sha) . ' "$' . $var . '" | sha256sum -c - >/dev/null || { echo "' . $what . (' does not match the SHA-256 recorded on the ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' server" >&2; exit 65; }') . "\n";
     $cmd = str_replace($needle, $get($script['url'], $script['sha256'], 'S', 'install-linux.sh') . $get($bin['url'], $bin['sha256'], 'B', 'The agent download') . 'bash "$S" --binary "$B" ', $cmd);
     // the comment line that said "run from the unpacked tarball" is no longer true
     $ver = (string) preg_replace('/[^0-9A-Za-z._-]/', '', (string) $bin['version']);

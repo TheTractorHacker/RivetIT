@@ -43,7 +43,7 @@ final class RestoreDrill
     public static function setupSteps(string $user = 'rivet_drill', string $pass = '<a long random password>'): string
     {
         return "-- Run once as a MariaDB/MySQL administrator (root). The account can create, fill and drop ONLY databases named drill_*;\n"
-            . "-- it has no rights on the RivetIT database, so a mistake in the drill cannot touch live data.\n"
+            . ("-- it has no rights on the " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " database, so a mistake in the drill cannot touch live data.\n")
             . "CREATE USER '$user'@'localhost' IDENTIFIED BY '$pass';\n"
             . "GRANT ALL PRIVILEGES ON `drill\\_%`.* TO '$user'@'localhost';\n"
             . "FLUSH PRIVILEGES;\n"

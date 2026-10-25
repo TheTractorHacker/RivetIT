@@ -23,7 +23,7 @@ renderAdminDirectory('Tags & categories', 'Manage shared labels, links, and setu
         'title' => 'People & workflows', 'icon' => 'fa-users',
         'description' => 'Import people and standardize employee tasks.',
         'items' => [
-            ['People import', 'Bring people into RivetIT.', 'people_import.php', 'fa-file-import'],
+            ['People import', ('Bring people into ' . htmlspecialchars(APP_NAME) . '.'), 'people_import.php', 'fa-file-import'],
             ['Employee workflow templates', 'Reuse onboarding and employee tasks.', 'employee_workflow_templates.php', 'fa-tasks'],
         ],
     ],

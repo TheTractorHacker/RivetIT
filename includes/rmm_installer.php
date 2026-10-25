@@ -337,7 +337,7 @@ function rivetRmmInstallerModal(array $ctx): string
     $meshField = '';
     if (!empty($ctx['mesh']['show'])) {
         $meshHint = $ctx['mesh']['ready']
-            ? $h('The Mesh agent installs after you approve the device: once it is linked, RivetIT pushes it from your own Mesh server and device group, so Remote works without pasting a node id. A Mesh failure never affects the RivetIT agent.')
+            ? $h(('The Mesh agent installs after you approve the device: once it is linked, ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' pushes it from your own Mesh server and device group, so Remote works without pasting a node id. A Mesh failure never affects the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent.'))
             : $h('Not ready yet: ' . $ctx['mesh']['hint']) . ($ctx['admin'] ? ' <a href="/admin/settings_endpoint_agent.php#mesh">Open the MeshCentral settings</a>.' : ' Ask an administrator.');
         $meshField = '<div class="col-12" id="rmm-inst-mesh-col"><div class="form-check"><input class="form-check-input" type="checkbox" id="rmm-inst-mesh" name="install_mesh_agent" value="1" aria-describedby="rmm-inst-mesh-help">'
             . '<label class="form-check-label" for="rmm-inst-mesh">Also install the MeshCentral agent (after the device is approved)</label></div>'
@@ -348,7 +348,7 @@ function rivetRmmInstallerModal(array $ctx): string
     // (js/rmm_installer.js, action=selectable_apps) whenever the department, location or OS changes; the checked ids ride in the form as app_ids[] like any other field.
     $appsField = '<div class="col-12' . ($ctx['apps']['apps'] === [] && $ctx['apps']['enabled'] === false ? ' d-none' : '') . '" id="rmm-inst-apps-col"><span class="form-label d-block">Install with the agent</span>'
         . '<div id="rmm-inst-apps-list">' . rivetRmmAutoInstSelectableHtml($ctx['apps'], 'rmm-inst') . '</div>'
-        . '<div class="form-text" id="rmm-inst-apps-note">These apps install right after the RivetIT agent, on the devices this installer enrolls.</div></div>';
+        . ('<div class="form-text" id="rmm-inst-apps-note">These apps install right after the ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent, on the devices this installer enrolls.</div></div>');
 
     $msiWarn = '<div class="alert alert-info mb-3 d-none" id="rmm-inst-msi-warn" role="note"><i class="fas fa-info-circle me-1" aria-hidden="true"></i>'
         . 'The MSI is unsigned: SmartScreen or an application-control policy may warn. Upgrade, repair and uninstall are not yet tested.</div>';

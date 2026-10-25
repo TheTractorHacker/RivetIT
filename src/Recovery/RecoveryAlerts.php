@@ -70,7 +70,7 @@ final class RecoveryAlerts
                 error_log('RecoveryAlerts: appNotify failed: ' . $e->getMessage());
             }
         }
-        self::email($db, $subject, $body, 'Sent by the RivetIT recovery monitor. This notice is sent once.');
+        self::email($db, $subject, $body, ('Sent by the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' recovery monitor. This notice is sent once.'));
         if (function_exists('logApp')) {
             logApp('Recovery', 'info', $subject);
         }
@@ -126,7 +126,7 @@ final class RecoveryAlerts
                 error_log('RecoveryAlerts: appNotify failed: ' . $e->getMessage());
             }
         }
-        self::email($db, $subject, $body, 'Sent by the RivetIT recovery monitor. The same alert is not repeated for ' . ($repeatHours ?? self::repeatHours($db)) . ' hours.');
+        self::email($db, $subject, $body, ('Sent by the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' recovery monitor. The same alert is not repeated for ') . ($repeatHours ?? self::repeatHours($db)) . ' hours.');
         if (!function_exists('rivetEmitEvent') && is_file(dirname(__DIR__, 2) . '/includes/event_bus.php')) {
             require_once dirname(__DIR__, 2) . '/includes/event_bus.php';   // the same lazy load queueWebhookEvent() does
         }
@@ -159,12 +159,12 @@ final class RecoveryAlerts
         if ($from === '') {
             return;   // no sender configured: the in-app notification still went out
         }
-        $fromName = (string) ($row['config_mail_from_name'] ?? '') ?: 'RivetIT';
+        $fromName = (string) ($row['config_mail_from_name'] ?? '') ?: (defined('APP_NAME') ? APP_NAME : 'RivetIT');
         $html = '<p>' . nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8')) . '</p><p style="color:#888">' . htmlspecialchars($footer, ENT_QUOTES, 'UTF-8') . '</p>';
         $queue = [];
         foreach ($to as $addr) {
             $queue[] = ['from' => $from, 'from_name' => $fromName, 'recipient' => $addr, 'recipient_name' => $addr,
-                'subject' => '[RivetIT] ' . $subject, 'body' => $html];
+                'subject' => ('[' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . '] ') . $subject, 'body' => $html];
         }
         try {
             addToMailQueue($queue);

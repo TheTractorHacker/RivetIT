@@ -314,7 +314,7 @@ class GraphClient
     private function writeRequest(string $method, string $path, string $permission, ?string $json = null): array
     {
         if (!$this->allowWrites) {
-            throw new GraphException("RivetIT is not allowed to change Entra accounts: turn on 'Allow RivetIT to change Entra accounts' (Administration > Integrations > Directory Sync) first. Nothing was sent.", GraphException::WRITES_DISABLED);
+            throw new GraphException(((defined('APP_NAME') ? APP_NAME : 'RivetIT') . " is not allowed to change Entra accounts: turn on 'Allow " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " to change Entra accounts' (Administration > Integrations > Directory Sync) first. Nothing was sent."), GraphException::WRITES_DISABLED);
         }
 
         return $this->request($method, $path, $permission, false, $json);

@@ -64,7 +64,7 @@ $csrf = $_SESSION['csrf_token'];
         <span class="badge bg-<?= $mcp_state[1] ?> fs-6"><?= $mcp_state[0] ?></span>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-3">Lets AI tools such as Claude read RivetIT (tickets, assets, contacts, knowledge base) as one of your agents, with that agent's own permissions. It is read-only. People sign in either with RivetIT itself (built-in sign-in, no other service needed) or through your own identity provider, for example Authentik.</p>
+        <p class="text-muted mb-3">Lets AI tools such as Claude read <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> (tickets, assets, contacts, knowledge base) as one of your agents, with that agent's own permissions. It is read-only. People sign in either with <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> itself (built-in sign-in, no other service needed) or through your own identity provider, for example Authentik.</p>
 
         <?php if (!$mcp['schema_ready'] || !$tables_ready || !$oauth['schema_ready']) { ?>
             <div class="alert alert-warning mb-0">Run the database update first (Administration &rarr; Updates), then reload this page.</div>
@@ -128,7 +128,7 @@ $csrf = $_SESSION['csrf_token'];
         <span class="badge bg-<?= $oauth['builtin'] ? 'success' : 'secondary' ?>"><?= $oauth['builtin'] ? 'On' : 'Off' ?></span>
     </div>
     <div class="card-body">
-        <p class="text-muted">RivetIT acts as its own OAuth server for MCP. Add the address above to Claude (Settings &rarr; Connectors) or ToolHive; the person signs in to RivetIT as usual (password, 2FA) and approves a read-only connection. No API key and no other identity provider. While this is on, tokens from an external identity provider are not accepted.</p>
+        <p class="text-muted"><?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> acts as its own OAuth server for MCP. Add the address above to Claude (Settings &rarr; Connectors) or ToolHive; the person signs in to <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> as usual (password, 2FA) and approves a read-only connection. No API key and no other identity provider. While this is on, tokens from an external identity provider are not accepted.</p>
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <div class="form-check form-switch mb-2">
@@ -191,7 +191,7 @@ $csrf = $_SESSION['csrf_token'];
         <span class="badge bg-<?= $cimd['mode'] === 'off' ? 'secondary' : ($cimd['mode'] === 'any' ? 'warning text-dark' : 'success') ?>"><?= $cimd['mode'] === 'off' ? 'Off' : ($cimd['mode'] === 'any' ? 'Any website' : 'Listed hosts') ?></span>
     </div>
     <div class="card-body">
-        <p class="text-muted">Lets an application identify itself with the address of a metadata document it publishes, instead of registering itself first. Claude does this: its published identity is <code>https://claude.ai/oauth/mcp-oauth-client-metadata</code>, so people see that the request really comes from claude.ai. RivetIT fetches the document itself (https only, public addresses only, no redirects, 64 KB, 5 seconds) and shows the document's host, not its self-chosen name, on the approval screen. See docs/REMOTE_MCP.md.</p>
+        <p class="text-muted">Lets an application identify itself with the address of a metadata document it publishes, instead of registering itself first. Claude does this: its published identity is <code>https://claude.ai/oauth/mcp-oauth-client-metadata</code>, so people see that the request really comes from claude.ai. <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> fetches the document itself (https only, public addresses only, no redirects, 64 KB, 5 seconds) and shows the document's host, not its self-chosen name, on the approval screen. See docs/REMOTE_MCP.md.</p>
         <form action="post.php" method="post" class="mb-3">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <button type="submit" name="trust_claude_cimd" class="btn btn-outline-success"><i class="fa fa-check me-2"></i>Trust Claude (claude.ai)</button>

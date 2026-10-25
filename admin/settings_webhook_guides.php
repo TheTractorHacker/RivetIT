@@ -33,7 +33,7 @@ $wg_verify = $wg_snip ? $wg_snip->verifySnippets : [];
         <header class="wg-hero">
             <div class="wg-hero-text">
                 <h2 class="wg-hero-title">Webhook guides</h2>
-                <p class="wg-hero-pitch">Connect RivetIT events to n8n, Home Assistant, ntfy, Discord and more. One guide per platform, generated from the same catalog the Add Webhook form uses: setup steps, things to know, a sample request and how to check our signature. Platform details change; every guide links the vendor's own documentation.</p>
+                <p class="wg-hero-pitch">Connect <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> events to n8n, Home Assistant, ntfy, Discord and more. One guide per platform, generated from the same catalog the Add Webhook form uses: setup steps, things to know, a sample request and how to check our signature. Platform details change; every guide links the vendor's own documentation.</p>
                 <div class="wg-hero-links d-print-none">
                     <a class="btn btn-sm btn-primary" href="settings_webhooks.php"><i class="fas fa-plus me-1" aria-hidden="true"></i>Add a webhook</a>
                     <a class="btn btn-sm btn-outline-primary" href="#signing"><i class="fas fa-signature me-1" aria-hidden="true"></i>How signing works</a>
@@ -41,7 +41,7 @@ $wg_verify = $wg_snip ? $wg_snip->verifySnippets : [];
                 </div>
             </div>
             <ol class="wg-flow" aria-label="How it works">
-                <li><i class="fas fa-bolt" aria-hidden="true"></i><strong>Event</strong><span>Something happens in RivetIT</span></li>
+                <li><i class="fas fa-bolt" aria-hidden="true"></i><strong>Event</strong><span>Something happens in <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?></span></li>
                 <li><i class="fas fa-file-code" aria-hidden="true"></i><strong>Format</strong><span>Body shaped for the platform</span></li>
                 <li><i class="fas fa-signature" aria-hidden="true"></i><strong>Sign</strong><span>HMAC with timestamp</span></li>
                 <li><i class="fas fa-paper-plane" aria-hidden="true"></i><strong>Deliver</strong><span>HTTPS POST, any 2xx is success</span></li>

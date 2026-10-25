@@ -31,7 +31,7 @@ class EntraDisableAccountAction extends AbstractEntraAction
     {
         $who = ($ctx['vars']['employee_email'] ?? '') !== '' ? $ctx['vars']['employee_email'] : ($ctx['vars']['employee_name'] ?? 'the employee');
 
-        return 'Would send to Microsoft Graph: PATCH accountEnabled=false for ' . $who . (!empty($config['revoke_sessions']) || !array_key_exists('revoke_sessions', $config) ? ' and POST revokeSignInSessions' : '') . '. The account is never deleted. Needs "Allow RivetIT to change Entra accounts".';
+        return 'Would send to Microsoft Graph: PATCH accountEnabled=false for ' . $who . (!empty($config['revoke_sessions']) || !array_key_exists('revoke_sessions', $config) ? ' and POST revokeSignInSessions' : '') . ('. The account is never deleted. Needs "Allow ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' to change Entra accounts".');
     }
 
     public function execute(array $config, array $ctx, ActionGateway $gateway): string

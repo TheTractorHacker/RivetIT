@@ -90,7 +90,7 @@ class LiveActionGateway implements ActionGateway, DirectoryActionGateway
     private function entraService(int $runTaskId): \ITFlow\Integrations\Microsoft\EntraAccountService
     {
         if (!$this->entraWritesAllowed()) {
-            throw new \RuntimeException("'Allow RivetIT to change Entra accounts' is off; nothing was sent");
+            throw new \RuntimeException(("'Allow " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " to change Entra accounts' is off; nothing was sent"));
         }
         $row = mysqli_fetch_assoc(mysqli_query($this->mysqli, 'SELECT * FROM microsoft_integrations WHERE enabled = 1 ORDER BY microsoft_integration_id DESC LIMIT 1'));
         if (!$row || (string) $row['tenant_id'] === '' || (string) $row['client_id'] === '') {

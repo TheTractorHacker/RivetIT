@@ -88,7 +88,7 @@ function rivetRmmMeshPushControls(?array $s): string
     if ($s['available'] && !$s['supports']) {
         $o .= '<p class="small text-muted mt-2 mb-0" data-mesh-push-hint="unsupported">This device\'s agent is too old to install the MeshCentral agent by push (it did not announce it). Update the agent first.</p>';
     } elseif ($s['available']) {
-        $o .= '<p class="small text-muted mt-2 mb-0" data-mesh-push-hint="info">Sends a signed job: the device downloads the MeshCentral agent from your own Mesh server and installs it. The RivetIT agent is not touched.'
+        $o .= ('<p class="small text-muted mt-2 mb-0" data-mesh-push-hint="info">Sends a signed job: the device downloads the MeshCentral agent from your own Mesh server and installs it. The ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent is not touched.')
             . ($s['installed'] ? ' The device already reports the Mesh agent as installed, so nothing is queued unless you force it.' : '')
             . ($s['offline'] ? ' The device is offline now: the job waits until it checks in, until the job expires.' : '') . '</p>';
     }
@@ -273,7 +273,7 @@ function rivetRmmMeshBulkDialog(?array $ctx): string
         . '<div class="modal-header"><h5 class="modal-title" id="rmmMeshBulkTitle"><i class="fas fa-download me-2" aria-hidden="true"></i>Install the MeshCentral agent on many devices</h5>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
         . '<div class="modal-body">'
-        . '<p class="small text-muted">Queues one signed job per Windows or Linux device of the target that does not have the Mesh agent yet. The devices download it from your own Mesh server; the RivetIT agent is not touched. '
+        . ('<p class="small text-muted">Queues one signed job per Windows or Linux device of the target that does not have the Mesh agent yet. The devices download it from your own Mesh server; the ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agent is not touched. ')
         . 'Devices whose agent is too old, that already have it, or that already have an install queued are skipped and counted. Status, ring and search filters cannot narrow this: pick a department, tag or group.</p>'
         . ($ctx['narrowed'] ? '<div class="alert alert-info py-2 small" role="note" data-mesh-bulk-narrowed>The status, ring or search filter on this page does not apply here: the target below decides which devices are reached.</div>' : '')
         . '<div class="mb-2"><label class="form-label" for="rmm-mb-target">Target</label><select class="form-select" id="rmm-mb-target">' . $opts . '</select></div>'

@@ -14,7 +14,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RivetIT API Reference</title>
+<title><?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> API Reference</title>
 <style>
   body { margin: 0; color: #202935; background: #fff; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   .reference-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem 1.25rem; border-bottom: 1px solid #e5e9ee; }
@@ -34,7 +34,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$c
 </head>
 <body>
 <header class="reference-top">
-  <strong>RivetIT API Reference</strong>
+  <strong><?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> API Reference</strong>
   <a href="/api/v1/openapi" download="rivetit-openapi.yaml">Download OpenAPI spec</a>
 </header>
 <div class="reference-help">
@@ -72,7 +72,7 @@ int main() {
       withDefaultFonts: false,
       telemetry: false,
       agent: { disabled: true },
-      mcp: { name: 'RivetIT', url: '/api/v1', disabled: true },
+      mcp: { name: '<?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?>', url: '/api/v1', disabled: true },
       hideTestRequestButton: true,
       hideClientButton: true,
       showDeveloperTools: 'never',

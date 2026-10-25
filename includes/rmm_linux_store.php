@@ -475,14 +475,14 @@ function rivetLxCommand($mysqli, string $coreSnippet, string $arch): ?array
         . "  printf 'header = \"X-Install-Key: %s\"\\n' \"\$5\" > \"\$H\"; printf 'header = X-Install-Key: %s\\n' \"\$5\" > \"\$W\"\n"
         . "  if command -v curl >/dev/null 2>&1; then curl --fail --silent --show-error --max-time 600 --proto '=http,https' -K \"\$H\"$caC -o \"\$2\" \"\$4\"\n"
         . "  elif command -v wget >/dev/null 2>&1; then WGETRC=\"\$W\" wget -q --max-redirect=0$caW -O \"\$2\" \"\$4\"\n"
-        . "  else echo 'curl or wget is required' >&2; exit 69; fi || { echo \"Could not download \$1 from the RivetIT server\" >&2; exit 65; }\n"
+        . ("  else echo 'curl or wget is required' >&2; exit 69; fi || { echo \"Could not download \$1 from the " . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . " server\" >&2; exit 65; }\n")
         . "  printf '%s  %s\\n' \"\$3\" \"\$2\" | sha256sum -c - >/dev/null || { echo \"\$1 does not match the SHA-256 printed in this command\" >&2; exit 65; }\n"
         . "}\n";
     $calls = 'fetch install-linux.sh "$S" ' . $q((string) $files['script']['sha256']) . ' ' . $q($url($files['script'])) . ' ' . $q($creds['script']) . "\n"
         . 'fetch rivetit-agent-linux-' . $arch . ' "$B" ' . $q((string) $files['binary']['sha256']) . ' ' . $q($url($files['binary'])) . ' ' . $q($creds['binary']) . "\n";
     $cmd = str_replace($needle, $fn . $calls . 'bash "$S" --binary "$B" ', $cmd);
     $ver = (string) preg_replace('/[^0-9A-Za-z._-]/', '', (string) $files['version']);
-    $cmd = (string) preg_replace('/^# Run as root from the unpacked [^\n]*\n/m', '# Run as root. It downloads install-linux.sh and the agent (rivetit-agent-linux-' . $arch . ' ' . $ver . ') from this RivetIT server and checks both against the SHA-256 values below. The token is a secret: do not paste it into tickets or chat.' . "\n", $cmd, 1);
+    $cmd = (string) preg_replace('/^# Run as root from the unpacked [^\n]*\n/m', '# Run as root. It downloads install-linux.sh and the agent (rivetit-agent-linux-' . $arch . ' ' . $ver . (') from this ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' server and checks both against the SHA-256 values below. The token is a secret: do not paste it into tickets or chat.') . "\n", $cmd, 1);
 
     return ['command' => $cmd, 'version' => $ver];
 }

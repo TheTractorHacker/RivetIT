@@ -161,7 +161,7 @@ function rivetRmmAlrStepsWords(array $steps, array $dir): string
             } elseif ($type === 'email') {
                 $who[] = $ref;
             } else {
-                $who[] = $type . ' ' . $ref . ' (not delivered by RivetIT)';
+                $who[] = $type . ' ' . $ref . (' (not delivered by ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ')');
             }
         }
         $parts[] = ($i === 0 ? 'After ' : 'after ') . (int) ($s['after_min'] ?? 0) . ' min: ' . implode(', ', $who);
@@ -463,7 +463,7 @@ function rivetRmmAlrAlertsPage(array $vm): string
     }
     $returnTo = rivetRmmAlrAlertsUrl($f);
     $o = rivetRmmAutoHeader('Agent alerts', 'bell', '<a class="btn btn-sm btn-outline-secondary" href="/agent/alerts.php"><i class="fas fa-list me-1" aria-hidden="true"></i>Alerts of all RMM integrations</a>',
-        'Alerts raised by the RivetIT endpoint agent. A critical alert can open a ticket. Acknowledging stops the escalation; resolving closes the alert by hand.');
+        ('Alerts raised by the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' endpoint agent. A critical alert can open a ticket. Acknowledging stops the escalation; resolving closes the alert by hand.'));
     $o .= '<div id="alr-msg" class="alert d-none" role="status" aria-live="polite"></div>';
     if ($vm['error'] !== '') {
         $o .= '<div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-circle me-2" aria-hidden="true"></i>' . rmmH($vm['error']) . '</div>';
@@ -924,7 +924,7 @@ function rivetRmmAlrPolicyForm(array $vm): string
     $min = $p['min_severity'] ?? 'warn';
 
     return rivetRmmUiCard($p === null ? 'New escalation policy' : 'Edit ' . rmmH($p['name']), 'level-up-alt',
-        '<p class="small text-muted">RivetIT tells people in the app and by email. A critical alert also opens a ticket. To reach a chat room or another system, use an event subscription on <code>rmm.alert.escalated</code>.</p>'
+        ('<p class="small text-muted">' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' tells people in the app and by email. A critical alert also opens a ticket. To reach a chat room or another system, use an event subscription on <code>rmm.alert.escalated</code>.</p>')
         . '<form method="post" action="/agent/post/' . RIVET_RMM_ALR_HANDLER . '.php" data-rmm-once="1">' . rivetRmmAutoHidden($vm['csrf'], '/agent/rmm_escalations.php')
         . '<input type="hidden" name="action" value="save_escalation"><input type="hidden" name="policy_id" value="' . (int) ($p['policy_id'] ?? 0) . '">'
         . '<div class="row g-3"><div class="col-md-6"><label class="form-label" for="p-name">Name</label><input class="form-control" id="p-name" name="name" maxlength="100" required value="' . rmmH($p['name'] ?? '') . '"></div>'

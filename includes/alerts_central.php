@@ -172,7 +172,7 @@ function alertsCentralFetch(\mysqli $mysqli, array $f, ?array $clientIds): array
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $alerts[] = ['source' => 'agent', 'id' => (int) $r['alert_id'], 'severity' => (string) $r['eff_severity'], 'message' => (string) $r['message'], 'subject' => $r['hostname'] ?: null,
                 'subject_url' => $r['asset_id'] ? '/agent/asset_details.php?asset_id=' . (int) $r['asset_id'] : null, 'client_id' => $r['client_id'] ? (int) $r['client_id'] : null,
-                'client_name' => $r['client_name'], 'integration_name' => 'RivetIT endpoint agent', 'integration_type' => 'rivetit_agent', 'status' => (string) $r['eff_status'], 'ack_by' => null,
+                'client_name' => $r['client_name'], 'integration_name' => ((defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' endpoint agent'), 'integration_type' => 'rivetit_agent', 'status' => (string) $r['eff_status'], 'ack_by' => null,
                 'created_at' => $r['opened_at'], 'ticket_id' => null, 'ticket_label' => null, 'can_create_ticket' => false, 'check_key' => $r['check_key']];
         }
     }

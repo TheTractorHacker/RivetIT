@@ -31,7 +31,7 @@ class EntraAddToGroupsAction extends AbstractEntraAction
     {
         $groups = $this->groupsFrom($config, false);
 
-        return 'Would send to Microsoft Graph: add ' . Placeholders::render((string) ($config['upn'] ?? '{{employee_email}}'), $ctx['vars'] ?? []) . ' to ' . count($groups) . ' group(s) (' . implode(', ', $groups) . '). Needs "Allow RivetIT to change Entra accounts".';
+        return 'Would send to Microsoft Graph: add ' . Placeholders::render((string) ($config['upn'] ?? '{{employee_email}}'), $ctx['vars'] ?? []) . ' to ' . count($groups) . ' group(s) (' . implode(', ', $groups) . ('). Needs "Allow ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' to change Entra accounts".');
     }
 
     public function execute(array $config, array $ctx, ActionGateway $gateway): string

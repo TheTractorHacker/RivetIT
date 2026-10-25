@@ -29,7 +29,7 @@ abstract class AbstractEntraAction extends AbstractAction
             throw new \RuntimeException('Entra account actions are not available here');
         }
         if (!$gateway->entraWritesAllowed()) {
-            throw new \RuntimeException("'Allow RivetIT to change Entra accounts' is off (Administration > Integrations > Directory Sync); nothing was sent. Do this step by hand, or turn the setting on and run it again.");
+            throw new \RuntimeException(("'Allow " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " to change Entra accounts' is off (Administration > Integrations > Directory Sync); nothing was sent. Do this step by hand, or turn the setting on and run it again."));
         }
 
         return $gateway;
