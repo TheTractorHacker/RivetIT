@@ -196,7 +196,7 @@ $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_ty
             <li><strong>Payment for Parts and Services:</strong> The undersigned agrees to pay for all parts and services rendered. Payment terms are as agreed upon in your service agreement or our standard payment policy.</li>
             <li><strong>Acknowledgement of Work:</strong> The undersigned acknowledges that the work performed, as described in this form, has been completed.</li>
         </ul>
-        <p class="mt-2 mb-0" style="font-size:13px;">For full terms and conditions, please visit <a href="https://foleyit.com/ticket-terms" target="_blank" rel="noopener">foleyit.com/ticket-terms</a>.</p>
+        <?php if ($config_terms_url !== '') { ?><p class="mt-2 mb-0" style="font-size:13px;">For full terms and conditions, please visit <a href="<?= nullable_htmlentities($config_terms_url) ?>" target="_blank" rel="noopener"><?= nullable_htmlentities(mb_strimwidth(preg_replace('~^https?://~i', '', $config_terms_url), 0, 60, '…')) ?></a>.</p><?php } ?>
     </div>
 
     <!-- Signature Form -->
@@ -221,7 +221,7 @@ $sql_replies = mysqli_query($mysqli, "SELECT tr.ticket_reply, tr.ticket_reply_ty
             <div class="form-check mt-3 mb-3">
                 <input class="form-check-input" type="checkbox" id="terms_agree" required>
                 <label class="form-check-label" for="terms_agree">
-                    I have read and agree to the <a href="https://foleyit.com/ticket-terms" target="_blank" rel="noopener">Terms &amp; Conditions</a>
+                    I have read and agree to the <?php if ($config_terms_url !== '') { ?><a href="<?= nullable_htmlentities($config_terms_url) ?>" target="_blank" rel="noopener">Terms &amp; Conditions</a><?php } else { ?>terms above<?php } ?>
                 </label>
             </div>
             <div class="mt-2">

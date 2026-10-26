@@ -114,6 +114,9 @@ $config_ticket_csat_enable = intval($row['config_ticket_csat_enable'] ?? 1);
 $config_ticket_csat_reminder_days = intval($row['config_ticket_csat_reminder_days'] ?? 3);
 $config_ticket_csat_low_rating_threshold = intval($row['config_ticket_csat_low_rating_threshold'] ?? 2);
 $config_ticket_csat_google_review_url = $row['config_ticket_csat_google_review_url'] ?? '';
+// Terms link for the outtake / worksheet signing pages; '' until an administrator sets it (includes/company_terms.php).
+require_once __DIR__ . '/company_terms.php';
+$config_terms_url = itflow_company_terms_url($row['config_terms_url'] ?? '');
 $config_ticket_new_ticket_notification_email = $row['config_ticket_new_ticket_notification_email'];
 $config_ticket_default_billable = intval($row['config_ticket_default_billable']);
 $config_ticket_default_view = intval($row['config_ticket_default_view']);

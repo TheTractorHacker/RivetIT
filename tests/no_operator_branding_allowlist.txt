@@ -1,0 +1,8 @@
+# Justified exceptions for tests/no_operator_branding.php. One per line: <path relative to the repo root>|<exact text that must appear in the offending string>
+# Keep this file short. Every entry needs a reason on the line above it.
+# The page CSP lists https://*.foleyit.com in img-src on every install. Left in place because changing a live Content-Security-Policy could silently break images that rely on it;
+# it should become a configurable list (see CHANGELOG 26.10.72, 'Known').
+includes/header.php|img-src 'self' data: blob: https://*.foleyit.com
+login.php|img-src 'self' data: blob: https://*.foleyit.com
+guest/includes/inc_all_guest.php|img-src 'self' data: blob: https://*.foleyit.com
+guest/guest_download_file.php|img-src 'self' data: blob: https://*.foleyit.com
