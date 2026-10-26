@@ -1,6 +1,6 @@
 # Branding hand-over: RivetIT → RivetMSP
 
-Written 2026-10-25 from the branch `branding-pull-20261025` (cut from `beta` at 6084e6290). RivetIT pins `rivet/rivet-core ^1.0.0-rc.38`;
+Written 2026-10-25, updated for release 26.10.72 (branch `branding-fixes-20261025`, cut from 26.10.71). RivetIT pins `rivet/rivet-core ^1.0.0-rc.38`;
 RivetMSP `beta` (af8f4c395) pins `1.0.0-rc.37`. Nothing here moves a rule into Core: section 3 only says where each rule belongs.
 Read `REBRANDING.md` first for what must **not** be renamed (the `ITFlow\` namespace, `itflow_*` functions and files, DB and config names,
 API routes, backup names).
@@ -19,6 +19,10 @@ API routes, backup names).
 | `Portal footer: raise the company-name text to WCAG AA contrast` | `css/itflow_custom.edition.css:249-258` | Apply (portal footer). |
 | `Certificate verification page: use the company's uploaded favicon` | `verify/index.php` | **Do not copy** (Training module). |
 | `Comments: stop quoting a real install's company name` | comments only | Check MSP comments for real names. |
+| *26.10.72* `Signing pages: the terms link is a setting` | `config_terms_url` (DB 2.6.197, `text`), `includes/company_terms.php`, field in `admin/settings_ticket.php`, `admin/post/settings_ticket.php`; `guest/outtake_sign.php`, `guest/worksheet_sign.php`, `agent/modals/ticket/outtake_sign.php` no longer carry a fixed address | Check MSP's copies of the three signing pages for a hard-coded company link and adopt the same setting; `tests/company_terms_url.php`, `tests/no_operator_branding.php`. |
+| *26.10.72* `Accent color: links, primary buttons and focus outlines are always WCAG AA` | `itflow_accent_aa()`, `itflow_accent_aa_css()`, `itflow_accent_contrast_notes()` in `includes/theme_accent.php`; emitted from `includes/header.php` and `itflow_theme_accent_css()` | Copy `includes/theme_accent.php` changes and the header call; `tests/theme_accent_contrast.php`. Shared. |
+| *26.10.72* `Shared UI assets: Core rc.38 webhook_wizard.js` | `js/webhook_wizard.js` and `css/.rivet-ui-assets.json` via `install-ui-assets.php` (the guide fragment is now rebuilt from an allow-list) | Run the installer after adopting rc.38; `check-ui-assets.php` must pass. |
+| *26.10.72* `Fix six failures the test suite already had on beta` | cron catalog entry, three inline handlers, Font Awesome 6 names, a dead native `confirm()`, two stale tests | Check MSP for the same inline handlers and FA6 names (`tests/csp_inline_handlers.php`, `tests/fa_icons.php`). |
 
 ## 2. Branding inventory (file:line, RivetIT)
 
@@ -86,13 +90,13 @@ Kiosk (Training, RivetIT-only): `kiosk/icons/{icon-192,icon-512,icon-512-maskabl
 | KB utility classes (`:243-245`) | **Shared** | Pure CSP-safe formatting. Also duplicated before this pull (fixed). |
 | Portal footer contrast (`:249-258`) | **Shared** | |
 | Login brand CSS (inline in `login.php:1112-1160`) | **Shared** once extracted to a file | Today it is inline, so it cannot be an edition/Core file. |
-| `includes/theme_accent.php` incl. contrast helpers | **Shared** | Used by login, portal, kiosk and the agent shell. |
+| `includes/theme_accent.php` incl. the AA derivation | **Shared** | Used by login, portal, kiosk and the agent shell. The agent shell's own inline accent block (`includes/header.php:265-321`) duplicates the derivation of `itflow_theme_accent_css()`; unifying them is a Core candidate. |
 | `includes/branding.php` | **Edition** (per product) | Values differ; the `rivetit_brand_define()` mechanism is worth sharing. |
 | Training certificate/verify/kiosk branding | **Edition** (RivetIT only) | |
 
 ## 4. Where RivetIT overrides or extends Core for branding
-- **Core CSS/JS:** none overridden. Verified byte-for-byte: 20 of 20 shared CSS files and 5 of 6 JS files equal `vendor/rivet/rivet-core/assets/ui`.
-  `js/webhook_wizard.js` differs because it predates rc.38 (not branding; re-run `install-ui-assets.php`).
+- **Core CSS/JS:** none overridden. Verified byte-for-byte: all shared CSS and JS files equal `vendor/rivet/rivet-core/assets/ui`.
+  After 26.10.72 all 26 shared files match Core rc.38 (`scripts/check-ui-assets.php` passes); `js/webhook_wizard.js` was the one stale copy.
 - **Extension points used:** the two optional `*.edition.css` files (`MANIFEST.json` `load_order`, owner `edition`), linked in the five loaders in section 2.
 - **RivetIT-only files Core does not ship:** `css/itflow_portal.css` (edited: media query at line 217), `client/portal_theme.css.php`, `includes/branding.php`, `includes/theme_accent.php`.
 - **Edited in RivetIT, shared by design:** `includes/footer.php`, `includes/header.php` (title, favicon, inline accent block, which comes after every stylesheet link, checked on the login page and agent shell).
@@ -102,7 +106,7 @@ Kiosk (Training, RivetIT-only): `kiosk/icons/{icon-192,icon-512,icon-512-maskabl
 - Wording: "Department", "Departments", "Department Portal", "Employee Handbook", "Waiting on Employee", `includes/page_title.php:15-20`, "internal IT" in `APP_DESCRIPTION`/`APP_TAGLINE`.
 - RivetIT's repository and update settings: `APP_REPO_URL`, `APP_DOCS_URL`, `APP_UPDATE_REMOTE`.
 - The mailbox folders named `ITFlow` and `ITFlow-Quarantine` (`cron/ticket_email_parser.php:750,760`) are kept on purpose for existing mailboxes; MSP should decide separately.
-- `guest/outtake_sign.php`, `guest/worksheet_sign.php`, `agent/modals/ticket/outtake_sign.php`: they carry Foley IT's legal wording and a hard-coded `https://foleyit.com/ticket-terms` link (see the report; fix before anyone copies them).
+- The generic disclaimer bullets on `guest/outtake_sign.php`, `guest/worksheet_sign.php` and `agent/modals/ticket/outtake_sign.php` are RivetIT's standard text; MSP should write its own. The terms **link** is now the `config_terms_url` setting (nothing is linked until it is set), so those pages no longer name any company.
 
 ## 6. Strings that differ between editions
 
@@ -122,6 +126,12 @@ Kiosk (Training, RivetIT-only): `kiosk/icons/{icon-192,icon-512,icon-512-maskabl
 | Company-logo URL helper | none: each page prints `/uploads/settings/<file>` | `appCompanyLogoUrl()` (uses `basename()` + `rawurlencode()`; safer, copy it back to RivetIT) |
 | Login line | "Welcome to {APP_NAME}" | check |
 | Core pin | `^1.0.0-rc.38` | `1.0.0-rc.37` |
+
+## 6b. Known, not changed in 26.10.72
+- **CSP `img-src https://*.foleyit.com`** is in four page headers (`includes/header.php:22`, `login.php:6` and `:1016`, `guest/includes/inc_all_guest.php:5`, `guest/guest_download_file.php:5`) on every install. It is allow-listed in `tests/no_operator_branding_allowlist.txt`
+  because changing a live Content-Security-Policy could silently break images that rely on it. It should become a configurable list; MSP should not copy it.
+- **Agent sidebar** shows a building icon (not the product mark) when no company logo is set, and a wide logo can leave only ~72 px for the company name at 1280 px (full name in the tooltip).
+- **Mailbox folders** named `ITFlow` and `ITFlow-Quarantine` (kept for existing mailboxes, see section 5).
 
 ## 7. Checklist for RivetMSP, in order
 1. Replace `includes/branding.php` with the RivetIT structure (`rivetit_brand_define`, env overrides, repo link switch) holding MSP's own values; keep `appCompanyLogoUrl()`.
