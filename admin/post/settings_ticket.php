@@ -6,6 +6,9 @@ if (isset($_POST['edit_ticket_settings'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
+    // flash_alert() keeps one message (the last call wins), so field warnings are collected and shown in the final message.
+    $settings_warnings = [];
+
     $config_ticket_prefix = sanitizeInput($_POST['config_ticket_prefix']);
     $config_ticket_next_number = intval($_POST['config_ticket_next_number']);
     $config_ticket_email_parse = intval($_POST['config_ticket_email_parse'] ?? 0);
@@ -43,7 +46,7 @@ if (isset($_POST['edit_ticket_settings'])) {
         } else {
             $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_ticket_csat_google_review_url FROM settings WHERE company_id = 1"));
             $config_ticket_csat_google_review_url = sanitizeInput($existing['config_ticket_csat_google_review_url'] ?? '');
-            flash_alert('Google review link must be a valid HTTPS URL - left unchanged.', 'warning');
+            $settings_warnings[] = 'The Google review link must be a valid HTTPS URL - left unchanged.';
         }
     }
     $config_ticket_csat_google_review_url_esc = mysqli_real_escape_string($mysqli, $config_ticket_csat_google_review_url);
@@ -58,7 +61,7 @@ if (isset($_POST['edit_ticket_settings'])) {
         } else {
             $existing_terms = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_terms_url FROM settings WHERE company_id = 1"));
             $config_terms_url_save = itflow_company_terms_url($existing_terms['config_terms_url'] ?? '');
-            flash_alert('The Terms & Conditions link must be a valid http(s) address - left unchanged.', 'warning');
+            $settings_warnings[] = 'The Terms & Conditions link must be a valid http(s) address - left unchanged.';
         }
     }
     $config_terms_url_esc = mysqli_real_escape_string($mysqli, $config_terms_url_save);
@@ -67,7 +70,11 @@ if (isset($_POST['edit_ticket_settings'])) {
 
     logAction("Settings", "Edit", "$session_name edited ticket settings");
 
-    flash_alert("Ticket Settings updated");
+    if ($settings_warnings) {
+        flash_alert('Ticket Settings updated, with a warning: ' . implode(' ', $settings_warnings), 'warning');
+    } else {
+        flash_alert("Ticket Settings updated");
+    }
 
     redirect();
 
