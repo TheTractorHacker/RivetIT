@@ -319,7 +319,11 @@ function rivetRmmLogStatsView(array $ctx, ?int $deviceId): array
     $m = $ctx['mysqli'];
     $rmm = rivetRmmModule($m);
     $who = rivetRmmPrincipal($ctx['uid'], $ctx['name']);
-    $r = $rmm->logActions()->stats($who, $deviceId);
+    try {
+        $r = $rmm->logActions()->stats($who, $deviceId);
+    } catch (\RivetCore\Rmm\Store\HotStoreUnavailableException $e) {
+        return ['ok' => false, 'error' => 'The log history store is unreachable right now: ' . $e->getMessage()];
+    }
     if (!$r->ok) {
         return ['ok' => false, 'error' => $r->message];
     }
@@ -329,9 +333,11 @@ function rivetRmmLogStatsView(array $ctx, ?int $deviceId): array
         'fleet_max_rows' => (int) $s['fleet_max_rows'], 'device_worst_bytes' => (int) $s['device_max_rows'] * RIVET_RMM_LOG_BYTES_PER_ENTRY, 'fleet_worst_bytes' => (int) $s['fleet_max_rows'] * RIVET_RMM_LOG_BYTES_PER_ENTRY,
         'fleet_rows' => $unrestricted ? (int) $s['fleet_rows'] : null, 'oldest' => null, 'device' => $s['device'] ?? null];
     if ($unrestricted || $deviceId !== null) {
+        // RivetCore 1.0.0-rc.41 (issue #89 phase 4): through the store interface (LogStore::oldestEventAt()), not raw SQL on the hot table directly -
+        // works on MariaDB or PostgreSQL, whichever is the active data store. HotStoreUnavailableException (store down) is reported like any other
+        // failure here: the header simply has no "oldest" figure, the same as the old catch-all did.
         try {
-            $res = mysqli_query($m, 'SELECT MIN(occurred_at) FROM endpoint_agent_log_events' . ($deviceId !== null ? ' WHERE device_id = ' . (int) $deviceId : ''));
-            $v = $res ? mysqli_fetch_row($res)[0] ?? null : null;
+            $v = $rmm->dataStores()->logs()->oldestEventAt($deviceId);
             $out['oldest'] = $v === null ? null : gmdate('Y-m-d\TH:i:s\Z', (int) strtotime($v . ' UTC'));
         } catch (\Throwable) {
             $out['oldest'] = null;
@@ -357,7 +363,15 @@ function rivetRmmLogSearch(array $ctx, array $f, ?int $deviceId = null): array
     $limit = (int) $f['size'];
     $offset = ($f['page'] - 1) * $limit;
     $core = rivetRmmLogCoreFilters($f);
-    $r = $deviceId !== null ? $actions->deviceLogs($who, $deviceId, $core, $limit, $offset) : $actions->fleetLogs($who, $core, $limit, $offset);
+    // RivetCore 1.0.0-rc.41 (issue #89 phase 4): LogActions does not catch HotStoreUnavailableException itself (it is a store-level failure, not an
+    // ActionResult-shaped refusal) - while the hot store is unreachable (PostgreSQL only; MariaDB never throws this) the search answers a clear,
+    // page-shaped error instead of a 500.
+    try {
+        $r = $deviceId !== null ? $actions->deviceLogs($who, $deviceId, $core, $limit, $offset) : $actions->fleetLogs($who, $core, $limit, $offset);
+    } catch (\RivetCore\Rmm\Store\HotStoreUnavailableException $e) {
+        return ['ok' => false, 'status' => 503, 'error' => 'The log history store is unreachable right now: ' . $e->getMessage() . ' Try again shortly.',
+            'items' => [], 'total' => 0, 'capped' => false, 'clamped' => '', 'assets' => []];
+    }
     if (!$r->ok) {
         return ['ok' => false, 'status' => $r->http, 'error' => $r->http === 404 ? ($deviceId !== null || (int) $f['device_id'] > 0 ? 'That device does not exist, or it belongs to a department you cannot see.' : 'That department does not exist, or you cannot see it.') : $r->message,
             'items' => [], 'total' => 0, 'capped' => false, 'clamped' => '', 'assets' => []];

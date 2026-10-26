@@ -509,7 +509,7 @@ $swLive = $swNum('software_live_install', 0) === 1;
 // Each part is off by default and is guarded so this page still loads on a database that has not been updated yet.
 $rmm_scale_scripts = true;
 $scaleCtx = ['csrf' => $csrf, 'module_on' => $moduleOn, 'features' => (array) $cfg['features'], 'msg' => [], 'old' => []];
-foreach (['remote-tools', 'file-transfer', 'log-collection', 'scale', 'partitioning', 'ext-store'] as $__card) {
+foreach (['remote-tools', 'file-transfer', 'log-collection', 'scale', 'partitioning', 'ext-store', 'datastore'] as $__card) {
     [$scaleCtx['msg'][$__card], $scaleCtx['old'][$__card]] = rivetRmmScaleTake($__card);
 }
 $scaleCtx['rs'] = $rmm->remoteSettings()->summary();
@@ -529,18 +529,36 @@ $scaleCtx['transfer'] = rivetRmmTransferDirStatus((int) $scaleCtx['rs']['limits'
 $__lim = $rmm->settings()->limits();
 $scaleCtx['scale'] = ['limits' => $__lim, 'ingest_mode' => (string) ($rmm->settings()->get()['ingest_mode'] ?? 'sync'), 'cache_shared' => $rmm->cache()->shared(),
     'bucket_suggestion' => rivetRmmScaleBucketSuggestion($mysqli, (int) ($rmm->settings()->get()['check_in_interval_s'] ?? 300))];
+// RivetCore 1.0.0-rc.41 (issue #89 phase 4): RmmModule::partitions() is the MariaDB partition tool and is only meaningful while the RMM data store IS
+// MariaDB (docs/design/rmm-data-store.md section 7/13). Reading $__dataStoreKind here gates every partitions()->probe()/convert()/partitions() call in
+// this page and in admin/post/settings_endpoint_agent.php; on PostgreSQL the "Metric storage and partitioning" card shows dataStores()->maintenance()->
+// tiers() instead (its partitions are managed automatically by the store's own housekeeping, so there is no probe/convert step to offer).
+$__dataStoreKind = $rmm->settings()->dataStore();
+$scaleCtx['data_store_kind'] = $__dataStoreKind;
+
 // Partitioning: the last probe (kept by Core), the partitions that exist now, and the size of RivetIT's own metric tables (information_schema estimates).
 $__probe = null;
 $__probeAt = null;
-try {
-    $__ps = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT detail, updated_at FROM rmm_storage_state WHERE name = 'partition_probe'"));
-    $__d = $__ps && is_string($__ps['detail']) ? json_decode($__ps['detail'], true) : null;
-    if (is_array($__d)) {
-        $__probe = $__d;
-        $__probeAt = str_replace('T', ' ', rtrim((string) ($__d['at'] ?? $__ps['updated_at']), 'Z'));
+$__pgTiers = null;
+if ($__dataStoreKind === \RivetCore\Rmm\Store\RmmDataStoreKind::MARIADB) {
+    try {
+        $__ps = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT detail, updated_at FROM rmm_storage_state WHERE name = 'partition_probe'"));
+        $__d = $__ps && is_string($__ps['detail']) ? json_decode($__ps['detail'], true) : null;
+        if (is_array($__d)) {
+            $__probe = $__d;
+            $__probeAt = str_replace('T', ' ', rtrim((string) ($__d['at'] ?? $__ps['updated_at']), 'Z'));
+        }
+    } catch (\Throwable) {
+        $__probe = null;
     }
-} catch (\Throwable) {
-    $__probe = null;
+} else {
+    try {
+        $__pgTiers = $rmm->dataStores()->maintenance()->tiers($rmm->settings()->limits(), $rmm->settings()->explicitLimits());
+    } catch (\RivetCore\Rmm\Store\HotStoreUnavailableException $e) {
+        $__pgTiers = ['unavailable' => $e->getMessage()];
+    } catch (\Throwable) {
+        $__pgTiers = null;
+    }
 }
 $__own = ['device_metric_samples' => 0, 'device_metric_rollups' => 0];
 try {
@@ -550,10 +568,12 @@ try {
     }
 } catch (\Throwable) {
 }
-$scaleCtx['partition'] = ['words' => $__probe === null ? null : rivetRmmScaleProbeWords($__probe), 'probe_at' => $__probeAt, 'own_rows' => $__own, 'history_partitions' => []];
-try {
-    $scaleCtx['partition']['history_partitions'] = $rmm->partitions()->partitions('endpoint_agent_check_history');
-} catch (\Throwable) {
+$scaleCtx['partition'] = ['words' => $__probe === null ? null : rivetRmmScaleProbeWords($__probe), 'probe_at' => $__probeAt, 'own_rows' => $__own, 'history_partitions' => [], 'pg_tiers' => $__pgTiers];
+if ($__dataStoreKind === \RivetCore\Rmm\Store\RmmDataStoreKind::MARIADB) {
+    try {
+        $scaleCtx['partition']['history_partitions'] = $rmm->partitions()->partitions('endpoint_agent_check_history');
+    } catch (\Throwable) {
+    }
 }
 $__flags = rivetRmmExtStoreFlags($mysqli);
 $__buf = ['batches' => 0, 'points' => 0, 'oldest' => null, 'max_attempts' => 0, 'last_error' => null];
@@ -570,6 +590,31 @@ foreach (preg_split('/(?=<div class="card mb-3 rmm-scale-card" id=")/', rivetRmm
     $eaTab(preg_match('/id="(remote-tools|file-transfer)"/', $__chunk) ? 'remote' : 'inventory');
     echo $__chunk;
 }
+
+// RivetCore 1.0.0-rc.41 (issue #89 phase 4): the "RMM data store" card (connection, test, switch, migrate). BETA ONLY per the edition prompt; the
+// data store stays MariaDB for every install until an administrator saves a tested PostgreSQL connection and switches explicitly.
+require_once dirname(__DIR__) . '/includes/rmm_data_store_cards.php';
+require_once dirname(__DIR__) . '/includes/rmm_data_store_cli.php';
+[$__dsMsg, $__dsOld] = [$scaleCtx['msg']['datastore'] ?? null, $scaleCtx['old']['datastore'] ?? []];
+try {
+    $__dsStatus = $rmm->dataStoreSwitch()->status();
+} catch (\Throwable) {
+    $__dsStatus = ['data_store' => 'mariadb', 'connection' => null, 'migration' => null, 'history' => [], 'left_behind' => null, 'notice' => '', 'phase' => null];
+}
+try {
+    $__dsConn = $rmm->dataStoreSwitch()->connectionSettings();
+} catch (\Throwable) {
+    $__dsConn = null;
+}
+$eaTab('inventory');
+echo rivetRmmDataStoreCard([
+    'status' => $__dsStatus, 'conn' => $__dsConn, 'msg' => $__dsMsg, 'old' => $__dsOld,
+    'run' => $__dsStatus['migration'] ?? [], 'run_log' => rivetRmmDataStoreTailLog(rivetRmmDataStoreCurrentLog()),
+    'module_on' => $moduleOn, 'csrf' => $csrf,
+]);
+?>
+<script src="/js/rmm_data_store.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_data_store.js') ?>" defer></script>
+<?php
 
 // RivetIT 26.10.52: the Agent updates card (GitHub releases -> Publish). Everything it does goes through the same publish code as the cards below.
 require_once dirname(__DIR__) . '/includes/rmm_agent_feed_ui.php';

@@ -11,6 +11,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__, 2) . '/includes/rmm_check_schedule.php';
 require_once dirname(__DIR__, 2) . '/includes/rmm_mesh_cards.php';   // RIVET_RMM_MESH_PLATFORMS (26.10.53)
+require_once dirname(__DIR__, 2) . '/includes/rmm_data_store_cli.php';   // RivetCore 1.0.0-rc.41 (issue #89 phase 4): the migration/verify CLI launcher
 
 use RivetCore\Rmm\Technician\ActionResult;
 
@@ -1397,10 +1398,24 @@ if (isset($_POST['save_scale_settings'])) {
 }
 
 // ---------------------------------------------------------------- Partitioning
+// RivetCore 1.0.0-rc.41 (issue #89 phase 4): RmmModule::partitions() is the MariaDB partition tool and always queries the CONTROL database's
+// Sql object, regardless of the data store setting (docs/design/rmm-data-store.md section 7/13: "RmmModule::partitions() is MariaDB-only").
+// With the data store switched to PostgreSQL, calling it would probe/convert tables that no longer hold the active history (the "left behind"
+// MariaDB copy). The card hides these buttons on PostgreSQL already; this guard refuses a crafted POST too.
+
+/** True while the RMM data store is MariaDB (the only store the partition tool below understands). */
+function ea_scale_require_mariadb_store($rmm, string $anchor): void
+{
+    if ($rmm->settings()->dataStore() !== \RivetCore\Rmm\Store\RmmDataStoreKind::MARIADB) {
+        rivetRmmScaleMsg($anchor, 'error', 'The RMM data store is PostgreSQL; its partitions are managed automatically and this tool does not apply. Nothing was changed.');
+        ea_scale_back($anchor);
+    }
+}
 
 if (isset($_POST['partition_probe'])) {
     validateCSRFToken($_POST['csrf_token']);
     ea_scale_require_admin($rmm, (int) $session_user_id, 'partitioning');
+    ea_scale_require_mariadb_store($rmm, 'partitioning');
     $probe = $rmm->partitions()->probe();   // really creates, partitions and drops a one-column scratch table; nothing else is touched
     $w = rivetRmmScaleProbeWords($probe);
     rivetRmmScaleMsg('partitioning', $w['can'] || !empty($w['history']['partitioned']) ? 'success' : 'warning', $w['summary']);
@@ -1410,6 +1425,7 @@ if (isset($_POST['partition_probe'])) {
 if (isset($_POST['partition_enable'])) {
     validateCSRFToken($_POST['csrf_token']);
     ea_scale_require_admin($rmm, (int) $session_user_id, 'partitioning');
+    ea_scale_require_mariadb_store($rmm, 'partitioning');
     if (empty($_POST['confirm_partition'])) {
         rivetRmmScaleMsg('partitioning', 'error', 'Tick the box to confirm that you understand the table is copied once and writers wait while it is. Nothing was changed.');
         ea_scale_back('partitioning');
@@ -1540,4 +1556,200 @@ if (isset($_POST['test_extstore'])) {
     }
     rivetRmmScaleMsg('ext-store', $res['ok'] ? 'success' : 'error', $res['message']);
     ea_scale_back('ext-store');
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------
+// RivetCore 1.0.0-rc.41 (issue #89 phase 4, BETA ONLY): the "RMM data store" card (connection, test, switch, migrate). Every write goes through
+// RivetCore\Rmm\Store\DataStoreSwitch / RmmModule::storeMigrator() (rivet/rivet-core); this file only builds the arguments, authorizes and audits.
+// The migration itself never runs inside this request - it is launched detached (includes/rmm_data_store_cli.php) and polled from the card.
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+/** host/port/database/user/sslmode/schema/sslrootcert from $_POST, trimmed; password is '' when the field was left blank (keep the stored one). */
+function ea_datastore_conn_from_post(): array
+{
+    return [
+        'host' => trim((string) ($_POST['ds_host'] ?? '')),
+        'port' => (int) ($_POST['ds_port'] ?? 5432),
+        'database' => trim((string) ($_POST['ds_db'] ?? '')),
+        'user' => trim((string) ($_POST['ds_user'] ?? '')),
+        'password' => (string) ($_POST['ds_pass'] ?? ''),
+        'sslmode' => trim((string) ($_POST['ds_sslmode'] ?? 'prefer')),
+        'schema' => trim((string) ($_POST['ds_schema'] ?? 'public')),
+        'sslrootcert' => trim((string) ($_POST['ds_rootcert'] ?? '')) !== '' ? trim((string) $_POST['ds_rootcert']) : null,
+    ];
+}
+
+if (isset($_POST['save_datastore_connection'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $in = ea_datastore_conn_from_post();
+    $errors = $rmm->dataStoreSwitch()->saveConnection($in);
+    if ($errors !== []) {
+        rivetRmmScaleMsg('datastore', 'error', implode(' ', $errors), $in + ['password' => '']);
+    } else {
+        logAction('RMM', 'Settings Changed', "$session_name saved the RMM PostgreSQL connection settings (password not logged).");
+        rivetRmmScaleMsg('datastore', 'success', 'Connection saved. Run "Test connection" before switching.');
+    }
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['test_datastore'])) {
+    $json = stripos((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') !== false;
+    $okToken = is_string($_POST['csrf_token'] ?? null) && hash_equals($_POST['csrf_token'], (string) $_SESSION['csrf_token']);
+    $denied = $okToken ? $rmm->authorizer()->check((int) $session_user_id, RmmAbility::ADMIN, 0, false) : 'The page security token is no longer valid. Reload the page and try again.';
+    if ($denied !== null) {
+        if ($json) {
+            http_response_code($okToken ? 403 : 400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'checks' => [], 'message' => $denied]);
+            exit;
+        }
+        $okToken ? ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore') : validateCSRFToken('');
+    }
+    $in = ea_datastore_conn_from_post();
+    // Blank host/db/user means "test the stored connection" (the form was submitted with nothing changed); otherwise test exactly what is typed, unsaved.
+    $tryUnsaved = $in['host'] !== '' || $in['database'] !== '' || $in['user'] !== '';
+    $res = $rmm->dataStoreSwitch()->testConnection($tryUnsaved ? $in : null);
+    if ($res['ok']) {
+        $message = 'Connected. Server ' . ($res['server_version'] ?? '?') . ', ' . ($res['storage_mode'] ?? 'no schema yet') . '.';
+    } else {
+        $failed = implode(' ', array_filter(array_map(static fn (array $c) => $c['ok'] ? '' : $c['message'], $res['checks'])));
+        $message = $failed !== '' ? $failed : 'The connection test failed.';
+    }
+    if ($res['warnings'] !== []) {
+        $message .= ' ' . implode(' ', $res['warnings']);
+    }
+    logAction('RMM', 'Settings Changed', "$session_name tested the RMM PostgreSQL connection: " . ($res['ok'] ? 'ok' : 'failed'));
+    if ($json) {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        echo json_encode(['ok' => $res['ok'], 'message' => $message, 'detail' => $res]);
+        exit;
+    }
+    rivetRmmScaleMsg('datastore', $res['ok'] ? 'success' : 'error', $message);
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['switch_datastore_postgres'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    if (empty($_POST['ds_ack_no_data_move'])) {
+        rivetRmmScaleMsg('datastore', 'error', \RivetCore\Rmm\Store\DataStoreSwitch::NO_DATA_MOVE_NOTICE . ' Confirm the checkbox to switch.');
+        ea_scale_back('datastore');
+    }
+    $res = $rmm->dataStoreSwitch()->switchTo('postgres', ['acknowledge_no_data_move' => true, 'actor' => (string) $session_name]);
+    if (!$res['ok']) {
+        rivetRmmScaleMsg('datastore', 'error', implode(' ', $res['errors']));
+    } else {
+        logAction('RMM', 'Settings Changed', "$session_name switched the RMM data store to PostgreSQL.");
+        rivetRmmScaleMsg('datastore', 'success', 'Switched to PostgreSQL. ' . ($res['notice'] ?? ''));
+    }
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['switch_datastore_mariadb'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $res = $rmm->dataStoreSwitch()->switchTo('mariadb', ['actor' => (string) $session_name]);
+    logAction('RMM', 'Settings Changed', "$session_name switched the RMM data store back to MariaDB.");
+    rivetRmmScaleMsg('datastore', $res['ok'] ? 'success' : 'error', $res['ok'] ? ($res['notice'] ?? 'Switched back to MariaDB.') : implode(' ', $res['errors']));
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_dry_run']) || isset($_POST['migrate_datastore_start'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $from = (string) ($_POST['ds_from'] ?? '');
+    $to = (string) ($_POST['ds_to'] ?? '');
+    if (!in_array($from, ['mariadb', 'postgres'], true) || !in_array($to, ['mariadb', 'postgres'], true) || $from === $to) {
+        rivetRmmScaleMsg('datastore', 'error', 'Choose a valid "from" and "to" data store.');
+        ea_scale_back('datastore');
+    }
+    $args = ['--from=' . $from, '--to=' . $to, '--actor=' . (string) $session_name];
+    $dryRun = isset($_POST['migrate_datastore_dry_run']);
+    if ($dryRun) {
+        $args[] = '--dry-run';
+    }
+    $launch = rivetRmmDataStoreLaunchMigrate($args);
+    if (!$launch['ok']) {
+        rivetRmmScaleMsg('datastore', 'error', $launch['error'] ?? 'The migration could not be started.');
+    } else {
+        rivetRmmDataStoreRememberLog($launch['log']);
+        logAction('RMM', 'Settings Changed', "$session_name started" . ($dryRun ? ' a dry run of' : '') . " the RMM data store migration $from -> $to (pid {$launch['pid']}).");
+        rivetRmmScaleMsg('datastore', 'success', ($dryRun ? 'Dry run' : 'Migration') . ' started in the background. Refresh the progress box below to follow it.');
+    }
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_resume'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $run = $rmm->dataStoreSwitch()->status()['migration'] ?? null;
+    if ($run === null) {
+        rivetRmmScaleMsg('datastore', 'error', 'No migration run to resume.');
+        ea_scale_back('datastore');
+    }
+    $launch = rivetRmmDataStoreLaunchMigrate(['--from=' . $run['from_store'], '--to=' . $run['to_store'], '--resume', '--actor=' . (string) $session_name]);
+    if (!$launch['ok']) {
+        rivetRmmScaleMsg('datastore', 'error', $launch['error'] ?? 'The migration could not be resumed.');
+    } else {
+        rivetRmmDataStoreRememberLog($launch['log']);
+        logAction('RMM', 'Settings Changed', "$session_name resumed the RMM data store migration run #{$run['run_id']}.");
+        rivetRmmScaleMsg('datastore', 'success', 'Resumed in the background. Refresh the progress box below to follow it.');
+    }
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_abort'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $launch = rivetRmmDataStoreLaunchMigrate(['--abort', '--actor=' . (string) $session_name]);
+    logAction('RMM', 'Settings Changed', "$session_name aborted the RMM data store migration.");
+    rivetRmmScaleMsg('datastore', $launch['ok'] ? 'success' : 'error', $launch['ok'] ? 'Abort requested.' : ($launch['error'] ?? 'Could not abort.'));
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_rollback'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $launch = rivetRmmDataStoreLaunchMigrate(['--rollback', '--actor=' . (string) $session_name]);
+    if ($launch['ok']) {
+        rivetRmmDataStoreRememberLog($launch['log']);
+    }
+    logAction('RMM', 'Settings Changed', "$session_name started a rollback of the RMM data store migration.");
+    rivetRmmScaleMsg('datastore', $launch['ok'] ? 'success' : 'error', $launch['ok'] ? 'Rollback started in the background.' : ($launch['error'] ?? 'Could not roll back.'));
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_purge'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    if ((string) ($_POST['ds_purge_confirm'] ?? '') !== 'PURGE') {
+        rivetRmmScaleMsg('datastore', 'error', 'Type PURGE exactly to confirm. Nothing was deleted.');
+        ea_scale_back('datastore');
+    }
+    $run = $rmm->dataStoreSwitch()->status()['migration'] ?? null;
+    $inRollbackPeriod = is_array($run) && !empty($run['rollback_until']) && strtotime((string) $run['rollback_until'] . ' UTC') > time();
+    $args = ['--purge-old', '--yes', '--actor=' . (string) $session_name];
+    if ($inRollbackPeriod) {
+        $args[] = '--force';
+    }
+    $launch = rivetRmmDataStoreLaunchMigrate($args);
+    logAction('RMM', 'Settings Changed', "$session_name purged the inactive RMM data store" . ($inRollbackPeriod ? ' (forced, still inside the rollback period)' : '') . '.');
+    rivetRmmScaleMsg('datastore', $launch['ok'] ? 'success' : 'error', $launch['ok'] ? 'Purge started in the background.' : ($launch['error'] ?? 'Could not purge.'));
+    ea_scale_back('datastore');
+}
+
+if (isset($_POST['migrate_datastore_status'])) {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    $okToken = is_string($_POST['csrf_token'] ?? null) && hash_equals($_POST['csrf_token'], (string) $_SESSION['csrf_token']);
+    $denied = $okToken ? $rmm->authorizer()->check((int) $session_user_id, RmmAbility::ADMIN, 0, false) : 'Not allowed.';
+    if ($denied !== null) {
+        http_response_code($okToken ? 403 : 400);
+        echo json_encode(['ok' => false, 'message' => $denied]);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'status' => $rmm->dataStoreSwitch()->status(), 'log' => rivetRmmDataStoreTailLog(rivetRmmDataStoreCurrentLog())]);
+    exit;
 }

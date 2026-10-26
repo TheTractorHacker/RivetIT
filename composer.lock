@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0fb117479f1533e0778f5e69815a5b70",
+    "content-hash": "c20f4f1564466f67a1516658a351dadb",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -281,16 +281,16 @@
         },
         {
             "name": "guzzlehttp/guzzle",
-            "version": "8.3.0",
+            "version": "8.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "b920e5fcaf81d761b8fabe600ca90999beaefdb7"
+                "reference": "7d9b1f430bb65ac664e120af227bf9a795ad6333"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/b920e5fcaf81d761b8fabe600ca90999beaefdb7",
-                "reference": "b920e5fcaf81d761b8fabe600ca90999beaefdb7",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/7d9b1f430bb65ac664e120af227bf9a795ad6333",
+                "reference": "7d9b1f430bb65ac664e120af227bf9a795ad6333",
                 "shasum": ""
             },
             "require": {
@@ -387,7 +387,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/guzzle/issues",
-                "source": "https://github.com/guzzle/guzzle/tree/8.3.0"
+                "source": "https://github.com/guzzle/guzzle/tree/8.3.1"
             },
             "funding": [
                 {
@@ -403,7 +403,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-18T13:38:43+00:00"
+            "time": "2026-10-25T21:35:34+00:00"
         },
         {
             "name": "guzzlehttp/promises",
@@ -1924,16 +1924,16 @@
         },
         {
             "name": "rivet/rivet-core",
-            "version": "v1.0.0-rc.38",
+            "version": "v1.0.0-rc.41",
             "source": {
                 "type": "git",
                 "url": "https://github.com/TheTractorHacker/rivet-core",
-                "reference": "561e6e3ea6215312cfff7e1b43231b3c965261b8"
+                "reference": "4df36636757f468ec0af27ba625bf6f9b383c312"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/561e6e3ea6215312cfff7e1b43231b3c965261b8",
-                "reference": "561e6e3ea6215312cfff7e1b43231b3c965261b8",
+                "url": "https://api.github.com/repos/TheTractorHacker/rivet-core/zipball/4df36636757f468ec0af27ba625bf6f9b383c312",
+                "reference": "4df36636757f468ec0af27ba625bf6f9b383c312",
                 "shasum": ""
             },
             "require": {
@@ -1948,6 +1948,9 @@
             "require-dev": {
                 "phpstan/phpstan": "^2",
                 "phpunit/phpunit": "^11.5"
+            },
+            "suggest": {
+                "ext-pdo_pgsql": "Only for the optional PostgreSQL RMM data store (docs/rmm/POSTGRES.md); MariaDB and MySQL installs never need it."
             },
             "type": "library",
             "autoload": {
@@ -1980,7 +1983,7 @@
                 "issues": "https://github.com/TheTractorHacker/rivet-core/issues",
                 "source": "https://github.com/TheTractorHacker/rivet-core"
             },
-            "time": "2026-10-24T21:26:25+00:00"
+            "time": "2026-10-25T18:24:28+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",

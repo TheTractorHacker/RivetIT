@@ -303,8 +303,30 @@ EOF
     local -a snapshot_member=()
     if backup_make_snapshot "${snapshot_file}"; then snapshot_member=("$(basename "${snapshot_file}")"); fi
 
+    # RivetCore 1.0.0-rc.41 (issue #89 phase 4): the RMM hot tables, ONLY when the data store setting says 'postgres' (docs/rmm/POSTGRES.md
+    # section 8). Travels inside this SAME encrypted archive (as rmm-postgres.dump) rather than a second file, so the existing retention,
+    # checksum and off-site copy already cover it with no change to them.
+    local pg_file="${DEST}/rmm-postgres-${timestamp}.dump"
+    register_tmpfile "${pg_file}"
+    local -a pg_member=()
+    local pg_rc=0
+    backup_postgres_dump "${pg_file}" || pg_rc=$?
+    if [[ ${pg_rc} -eq 0 ]]; then
+        pg_member=("$(basename "${pg_file}")")
+        # BackupHook's guidance: record the descriptor (never the password) in the manifest so a restore knows a second database
+        # travelled with this archive.
+        php -r '
+            $m = json_decode(file_get_contents($argv[1]), true) ?: [];
+            $m["rmm_data_store"] = "postgres";
+            $m["rmm_postgres_member"] = $argv[2];
+            file_put_contents($argv[1], json_encode($m, JSON_PRETTY_PRINT));
+        ' -- "${manifest_file}" "$(basename "${pg_file}")"
+    elif [[ ${pg_rc} -ne 1 ]]; then
+        die "The RMM PostgreSQL dump failed (see above); aborting rather than writing an incomplete backup."
+    fi
+
     info "Bundling the database dump with ${APP_DIR}/uploads into ${combined}..."
-    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")" "$(basename "${manifest_file}")" "${snapshot_member[@]}")
+    local -a tar_members=(-C "$(dirname "${sql_file}")" "$(basename "${sql_file}")" "$(basename "${manifest_file}")" "${snapshot_member[@]}" "${pg_member[@]}")
     if [[ -d "${APP_DIR}/uploads" ]]; then
         tar_members+=(-C "${APP_DIR}" uploads)
     else

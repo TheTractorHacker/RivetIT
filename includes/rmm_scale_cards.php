@@ -237,11 +237,39 @@ function rivetRmmUiScaleCards(array $c): string
     $out .= rivetRmmScaleCard('scale', 'tachometer-alt', 'Scale settings', true, $body, 'Defaults are fine for small installs');
 
     // ------------------------------------------------------------------------------------------------------------------ 5. Storage and partitioning
+    // RivetCore 1.0.0-rc.41 (issue #89 phase 4): the probe/enable/convert flow below is MariaDB-only (RmmModule::partitions() always queries the
+    // control database regardless of the data store setting). With the data store switched to PostgreSQL, pg_tiers (dataStores()->maintenance()->
+    // tiers(), gathered by admin/settings_endpoint_agent.php) is shown read-only instead - PostgreSQL manages its own partitions automatically.
     $oPt = $o('partitioning');
     $p = $c['partition'];
+    $own = $p['own_rows'];
+    if (($p['pg_tiers'] ?? null) !== null) {
+        $pg = $p['pg_tiers'];
+        $body = $m('partitioning') . '<h6>Metric history rollups</h6>'
+            . '<p class="small mb-2"><span class="badge bg-secondary me-1">Not used</span> RivetIT keeps its own hourly metric rollups (<code>device_metric_samples</code>, about ' . rmmH(number_format((int) $own['device_metric_samples'])) . ' rows, and <code>device_metric_rollups</code>, about ' . rmmH(number_format((int) $own['device_metric_rollups'])) . ' rows), '
+            . 'so RivetCore\'s own daily metric rollup does not run here and there is nothing to show for it.</p>'
+            . '<h6 class="mt-4">Time partitioning of the check history (PostgreSQL)</h6>';
+        if (isset($pg['unavailable'])) {
+            $body .= '<p class="small text-danger mb-0"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>The PostgreSQL store could not be reached: ' . rmmH($pg['unavailable']) . '</p>';
+        } else {
+            $body .= '<p class="small text-muted mb-2">PostgreSQL manages its own partitions (or TimescaleDB chunks) automatically; there is no probe/convert step here. Figures from <code>dataStores()-&gt;maintenance()-&gt;tiers()</code>.</p>'
+                . '<div class="rmm-scale-dl mb-2">' . rivetRmmUiDl([
+                    ['Partitioning', !empty($pg['partitioning_enabled']) ? rivetRmmUiPill('ok', 'On') : rivetRmmUiPill('off', 'Off')],
+                    ['Rollup watermark', $pg['rollup_watermark'] === null ? '<span class="text-muted">none yet</span>' : rmmH($pg['rollup_watermark']) . ' UTC' . ($pg['rollup_behind_days'] !== null && $pg['rollup_behind_days'] > 0 ? ' (' . (int) $pg['rollup_behind_days'] . ' day(s) behind)' : '')],
+                ]) . '</div>';
+            $tierRows = '';
+            foreach ((array) ($pg['tables'] ?? []) as $tname => $t) {
+                $tierRows .= '<tr><td class="ps-3 ifm-mono">' . rmmH($tname) . '</td><td>' . (!empty($t['partitioned']) ? rivetRmmUiPill('ok', (int) $t['partitions'] . ' partitions') : rivetRmmUiPill('off', 'Not partitioned')) . '</td><td class="text-end pe-3">' . rmmH($t['retention_days']) . ' days</td></tr>';
+            }
+            if ($tierRows !== '') {
+                $body .= '<div class="table-responsive rmm-scale-scroll mb-0"><table class="table table-sm mb-0"><caption class="visually-hidden">PostgreSQL hot table tiers</caption>'
+                    . rivetRmmUiThead(['Table', 'Partitions', 'Retention']) . '<tbody>' . $tierRows . '</tbody></table></div>';
+            }
+        }
+        $out .= rivetRmmScaleCard('partitioning', 'database', 'Metric storage and partitioning', !empty($pg['partitioning_enabled']), $body, 'PostgreSQL');
+    } else {
     $words = $p['words'];
     $hist = $p['history_partitions'];
-    $own = $p['own_rows'];
     $probeAt = $p['probe_at'];
     $partRows = '';
     foreach ($hist as $pt) {
@@ -284,6 +312,7 @@ function rivetRmmUiScaleCards(array $c): string
         $body .= '<p class="small text-muted mb-0">No table is partitioned. Expired check history is removed by deleting old rows in batches, which is fine for most installs.</p>';
     }
     $out .= rivetRmmScaleCard('partitioning', 'database', 'Metric storage and partitioning', $partitioned, $body, $partitioned ? 'Partitioned' : 'Off');
+    }
 
     // ------------------------------------------------------------------------------------------------------------------ 6. External metric store
     $oEx = $o('ext-store');

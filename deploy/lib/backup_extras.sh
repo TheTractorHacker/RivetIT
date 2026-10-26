@@ -21,6 +21,38 @@ backup_make_snapshot() {
     [[ -s "${out}" ]]
 }
 
+# backup_postgres_dump <dest-file>: RivetCore 1.0.0-rc.41 (issue #89 phase 4), docs/rmm/POSTGRES.md section 8. Only when the RMM data store
+# is 'postgres' (read from the control database, never assumed): pg_dump of the whole RMM store to <dest-file>, via
+# rmm-postgres-backup.sh, using the SAME encrypted archive and retention as the control database dump instead of a second file/pipeline -
+# this edition's own backup.sh already encrypts one combined tar.gz with openssl, so the PostgreSQL dump travels inside it (as
+# rmm-postgres.dump) rather than through POSTGRES.md's generic age/gpg example, which is for an edition with no existing pipeline.
+# Connection details come ONLY from the stored data store setting (pg_dump_env.php), never from a command-line argument; the password
+# reaches pg_dump only via PGPASSFILE (0600, shredded in the same subshell it is used in). Returns 1 (skip, not a failure) on MariaDB.
+backup_postgres_dump() {
+    local out="$1" env_lines pgpassfile=""
+    if ! env_lines="$(php "${SCRIPT_DIR}/lib/pg_dump_env.php" "${APP_DIR}")"; then
+        error "Could not read the RMM PostgreSQL connection (pg_dump_env.php failed); see its stderr above. No PostgreSQL dump was produced this run."
+        return 2
+    fi
+    [[ -n "${env_lines}" ]] || return 1   # data store is 'mariadb': nothing to dump here
+    : > "${out}"; chmod 600 "${out}"
+    # register_tmpfile() appends to an array in THIS shell; a subshell's copy of that array is discarded when it exits, so the
+    # PGPASSFILE is shredded explicitly inside the subshell instead, before it exits either way.
+    (
+        eval "${env_lines}"
+        trap 'shred -u "${PGPASSFILE}" 2>/dev/null || rm -f "${PGPASSFILE}"' EXIT
+        info "Dumping the RMM PostgreSQL store (${RIVETCORE_PG_DATABASE})..."
+        "${APP_DIR}/vendor/rivet/rivet-core/scripts/rmm-postgres-backup.sh" > "${out}"
+    )
+    local rc=$?
+    if [[ ${rc} -ne 0 || ! -s "${out}" ]]; then
+        error "rmm-postgres-backup.sh failed (exit ${rc}). No usable backup was produced this run; nothing sensitive was left on disk."
+        die "PostgreSQL dump failed; aborting (the control database dump alone would not be a complete backup while the data store is postgres)."
+    fi
+    success "RMM PostgreSQL dump complete ($(du -h "${out}" | awk '{print $1}'))."
+    return 0
+}
+
 # backup_write_checksum <encrypted-file>: writes <file>.sha256 ("<hash>  <name>", readable by sha256sum -c) and prints the hash.
 backup_write_checksum() {
     local enc="$1" hash
