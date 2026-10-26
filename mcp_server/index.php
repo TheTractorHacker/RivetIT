@@ -74,7 +74,7 @@ $metadata = new Mcp\Server\Transport\Http\OAuth\ProtectedResourceMetadata(
     authorizationServers: [$issuer],
     scopesSupported: ['mcp:read'],
     resource: 'https://' . $config_base_url . '/mcp',
-    resourceName: 'RivetIT',
+    resourceName: (defined('APP_NAME') ? APP_NAME : 'RivetIT'),
 );
 if ($builtin) {
     $validator = new ITFlow\Mcp\OAuth\BuiltinTokenValidator($mysqli, $issuer, $audience);
@@ -131,7 +131,7 @@ if ($session_stat === false || ($session_stat['mode'] & 0170000) !== 0040000
     http_response_code(503);
     exit;
 }
-$server = $tools->register(Mcp\Server::builder()->setServerInfo('RivetIT', APP_VERSION)
+$server = $tools->register(Mcp\Server::builder()->setServerInfo((defined('APP_NAME') ? APP_NAME : 'RivetIT'), APP_VERSION)
     ->setSession(new Mcp\Server\Session\FileSessionStore($session_dir, 3600)))->build();
 $response = $server->run($transport);
 http_response_code($response->getStatusCode());

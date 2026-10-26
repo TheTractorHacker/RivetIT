@@ -85,7 +85,7 @@ final class WebRoutesConverter
         if (!$any) {
             $res['status'] = 'manual';
             $res['includes_routes'] = false;
-            $res['reasons'][] = 'No RivetIT location rules or include were found in this file, so there is nothing to convert.';
+            $res['reasons'][] = ('No ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' location rules or include were found in this file, so there is nothing to convert.');
             return $res;
         }
         if ($res['reasons']) {
@@ -196,7 +196,7 @@ final class WebRoutesConverter
             foreach (NginxConf::locations($snip) as $l) {
                 $k = (string) NginxConf::locationKey($l);
                 if (!isset($this->owned[$k])) {
-                    $reasons[] = "The shared snippet '$spec' has a location ($k) that the RivetIT routes file does not provide, so including the routes file instead would drop it.";
+                    $reasons[] = "The shared snippet '$spec' has a location ($k) that the " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " routes file does not provide, so including the routes file instead would drop it.";
                     continue;
                 }
                 array_push($reasons, ...$this->compare($l, "in the shared snippet '$spec'"));
@@ -235,7 +235,7 @@ final class WebRoutesConverter
             foreach ($unknownLocs as $u) {
                 $m = NginxConf::locationParts($u)[0] ?? '';
                 if (($m === '~' || $m === '~*') && $u['start'] > $first && $lastRegex !== null && $u['start'] < $lastRegex) {
-                    $reasons[] = 'Your own regex location "' . NginxConf::locationKey($u) . '" sits between locations that would move into the shared file. nginx tries regex locations in file order, so moving the others past it could change which one answers. Move it above or below the whole RivetIT group first.';
+                    $reasons[] = 'Your own regex location "' . NginxConf::locationKey($u) . ('" sits between locations that would move into the shared file. nginx tries regex locations in file order, so moving the others past it could change which one answers. Move it above or below the whole ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' group first.');
                 }
             }
         }
@@ -289,7 +289,7 @@ final class WebRoutesConverter
             if (($newCounts[$l] ?? 0) > 0) { $newCounts[$l]--; continue; }
             $name = strtok(ltrim($l), " \t");
             if (in_array($name, self::RESTRICTIVE, true) && !($name === 'return' && $superseded)) {
-                $reasons[] = "The location \"$k\" $where has the line \"" . trim($l) . '" which the RivetIT routes file does not have; replacing it could open something up or drop a redirect you rely on.';
+                $reasons[] = "The location \"$k\" $where has the line \"" . trim($l) . ('" which the ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' routes file does not have; replacing it could open something up or drop a redirect you rely on.');
             }
         }
         return $reasons;

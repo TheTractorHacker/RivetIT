@@ -38,7 +38,7 @@ $badge = $profile === RetentionPolicy::NONE ? ['No preset', 'secondary'] : [Rete
         <span class="badge bg-<?= $badge[1] ?> fs-6"><?= nullable_htmlentities($badge[0]) ?></span>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-2">Choose how long RivetIT keeps its audit records. A preset sets a <strong>minimum</strong>: nothing is deleted sooner than it says,
+        <p class="text-muted mb-2">Choose how long <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> keeps its audit records. A preset sets a <strong>minimum</strong>: nothing is deleted sooner than it says,
         even if a number below is set lower, and the nightly cleanup respects it. Keeping records forever (0) is always allowed.</p>
         <p class="text-muted small mb-0">A preset helps you meet a retention requirement. It does not make an organization compliant on its own, and the figures are common starting points
         for your own policy, not legal advice.</p>

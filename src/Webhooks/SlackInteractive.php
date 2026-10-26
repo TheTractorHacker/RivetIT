@@ -139,7 +139,7 @@ final class SlackInteractive
             return ['text' => 'This channel is not set up for that ticket.', 'acted' => false];
         }
 
-        $notLinked = "Your Slack account isn't linked to a RivetIT agent, so nothing was changed. Use the Open ticket button and sign in.";
+        $notLinked = ("Your Slack account isn't linked to a " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " agent, so nothing was changed. Use the Open ticket button and sign in.");
         if ((int) ($cfg['config_slack_link_by_email'] ?? 0) !== 1) {
             return ['text' => $notLinked, 'acted' => false];
         }
@@ -148,7 +148,7 @@ final class SlackInteractive
             return ['text' => $notLinked, 'acted' => false];
         }
         if (!$this->agentMayWork($agentId, (int) $ticket['ticket_client_id'])) {
-            return ['text' => 'Your RivetIT role does not allow you to work on that ticket.', 'acted' => false];
+            return ['text' => ('Your ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' role does not allow you to work on that ticket.'), 'acted' => false];
         }
         if ($ticket['ticket_closed_at'] !== null) {
             return ['text' => 'That ticket is closed.', 'acted' => false];

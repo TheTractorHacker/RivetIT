@@ -277,10 +277,10 @@ function rivetRmmUiScaleCards(array $c): string
     }
     $partitioned = $hist !== [];
     $body = $m('partitioning') . '<h6>Metric history rollups</h6>'
-        . '<p class="small mb-2"><span class="badge bg-secondary me-1">Not used</span> RivetIT keeps its own hourly metric rollups (<code>device_metric_samples</code>, about ' . rmmH(number_format((int) $own['device_metric_samples'])) . ' rows, and <code>device_metric_rollups</code>, about ' . rmmH(number_format((int) $own['device_metric_rollups'])) . ' rows), '
+        . ('<p class="small mb-2"><span class="badge bg-secondary me-1">Not used</span> ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' keeps its own hourly metric rollups (<code>device_metric_samples</code>, about ') . rmmH(number_format((int) $own['device_metric_samples'])) . ' rows, and <code>device_metric_rollups</code>, about ' . rmmH(number_format((int) $own['device_metric_rollups'])) . ' rows), '
         . 'so RivetCore\'s own daily metric rollup does not run here and there is nothing to show for it. How long samples are kept is the "retention" setting under Service and defaults.</p>'
         . '<h6 class="mt-4" id="partitioning-h">Time partitioning of the check history</h6>'
-        . '<p class="small text-muted">The check history (the trend dots on the device page) is pruned by deleting old rows in small batches. On a very large install it is faster to split the table by day and remove an expired day by dropping its partition. It is optional, off by default, and only worth it for tens of thousands of devices. In RivetIT the table that matters is <code>endpoint_agent_check_history</code>.</p>'
+        . ('<p class="small text-muted">The check history (the trend dots on the device page) is pruned by deleting old rows in small batches. On a very large install it is faster to split the table by day and remove an expired day by dropping its partition. It is optional, off by default, and only worth it for tens of thousands of devices. In ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' the table that matters is <code>endpoint_agent_check_history</code>.</p>')
         . '<div class="mb-3">' . ($words === null
             ? '<p class="small mb-2"><i class="fas fa-question-circle me-1" aria-hidden="true"></i>This server has not been checked yet.</p>'
             : '<p class="mb-1">' . ($words['can'] || !empty($words['history']['partitioned']) ? rivetRmmUiPill('ok', 'Possible') : rivetRmmUiPill('warn', 'Not possible')) . ' <strong>Can this server do it?</strong></p><p class="small mb-1">' . rmmH($words['summary']) . '</p>'
@@ -295,7 +295,7 @@ function rivetRmmUiScaleCards(array $c): string
     if ($words !== null && $words['can'] && !$partitioned) {
         $body .= '<form action="post.php" method="post" autocomplete="off" class="border rounded p-3 mb-3">' . $csrf
             . '<p class="small mb-2"><strong>Before you enable it:</strong> the table is copied once into its partitioned form. While it is copied, check-ins that write to it wait, and on a table with millions of rows that can take minutes. Do it off hours. After that, a day is removed by dropping a partition and a new day is added automatically by the nightly housekeeping. '
-            . 'Two further RivetCore metric tables that RivetIT does not use (<code>rmm_metric_hourly</code>, <code>rmm_metric_daily</code>) are empty and are converted with it at the next housekeeping run; that is instant.</p>'
+            . ('Two further RivetCore metric tables that ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' does not use (<code>rmm_metric_hourly</code>, <code>rmm_metric_daily</code>) are empty and are converted with it at the next housekeeping run; that is instant.</p>')
             . '<div class="form-check mb-2"><input type="checkbox" class="form-check-input" id="pt_ok" name="confirm_partition" value="1" data-rmm-scale-needs><label class="form-check-label" for="pt_ok">I understand the table is copied once and writers wait while it is, and I am doing this off hours</label></div>'
             . '<button type="submit" name="partition_enable" class="btn btn-primary btn-sm" id="pt_go"><i class="fas fa-database me-1" aria-hidden="true"></i>Enable partitioning</button></form>';
     }

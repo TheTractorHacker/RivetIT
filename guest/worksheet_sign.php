@@ -98,7 +98,7 @@ $fields = mysqli_query($mysqli, "SELECT f.*, COALESCE(r.response_value,'') AS re
     <!-- Header -->
     <div class="outtake-header">
         <div>
-            <?php if ($co_logo) { ?><img src="<?= $co_logo ?>" style="max-height:50px;margin-bottom:8px;"><br><?php } ?>
+            <?php if ($co_logo) { ?><img src="/uploads/settings/<?= $co_logo ?>" alt="<?= $co_name ?> logo" style="max-height:50px;max-width:220px;margin-bottom:8px;"><br><?php } ?>
             <h4><?= $co_name ?></h4>
             <div class="co-info">
                 <?= $co_address ? $co_address . '<br>' : '' ?>

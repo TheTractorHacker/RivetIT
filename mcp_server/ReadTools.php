@@ -80,7 +80,7 @@ final class RivetITMcpReadTools
             $uid, $tool, $args,
             static fn(int $u): bool => $allow(itflow_user_access_profile($u)),
             $body,
-            'RivetIT role'
+            ((defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' role')
         );
     }
 
@@ -131,7 +131,7 @@ final class RivetITMcpReadTools
 
     /* ---------------------------------------------------------------- profile */
 
-    #[McpTool(name: 'rivetit_my_profile', description: 'Read the signed-in RivetIT agent profile.')]
+    #[McpTool(name: 'rivetit_my_profile', description: 'Read the signed-in ' . APP_NAME . ' agent profile.')]
     public function myProfile(RequestContext $context): array
     {
         return $this->run($context, 'rivetit_my_profile', [], fn() => true, function (int $uid) {

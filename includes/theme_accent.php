@@ -64,3 +64,48 @@ function itflow_theme_accent_css(string $hex, string $radius = ''): string
     }
     return $css;
 }
+
+/** WCAG 2.x relative luminance of '#RRGGBB' (0 = black .. 1 = white). */
+function itflow_rel_luminance(string $hex): float
+{
+    $c = [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
+    foreach ($c as $i => $v) {
+        $v /= 255;
+        $c[$i] = $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4;
+    }
+    return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+}
+
+/** WCAG 2.x contrast ratio of two '#RRGGBB' colours, 1.0 .. 21.0. */
+function itflow_contrast_ratio(string $a, string $b): float
+{
+    $la = itflow_rel_luminance($a);
+    $lb = itflow_rel_luminance($b);
+    return (max($la, $lb) + 0.05) / (min($la, $lb) + 0.05);
+}
+
+/**
+ * Plain-language warnings for a company accent that will be hard to read, [] when it is fine. Mirrors what the CSS does with
+ * it (itflow_theme_accent_css): primary buttons in the agent shell use the accent at ~84% brightness with white text (measured: #2563EB -> rgb(31,83,197); the portal's value differs by a few points), and links and focus
+ * rings use the accent itself on the light page background (~#F0F2F5). The dark theme adapts the accent and is not checked here.
+ * WCAG AA asks 4.5:1 for text and 3:1 for focus indicators.
+ *
+ * @return list<string>
+ */
+function itflow_accent_contrast_notes(string $hex): array
+{
+    if (preg_match('/^#[0-9A-Fa-f]{6}$/D', $hex) !== 1) {
+        return [];
+    }
+    $notes = [];
+    $btn = sprintf('#%02X%02X%02X', (int) round(hexdec(substr($hex, 1, 2)) * 0.84), (int) round(hexdec(substr($hex, 3, 2)) * 0.84), (int) round(hexdec(substr($hex, 5, 2)) * 0.84));
+    $btnRatio = itflow_contrast_ratio($btn, '#FFFFFF');
+    if ($btnRatio < 4.5) {
+        $notes[] = sprintf('White text on primary buttons has %.1f:1 contrast (WCAG AA asks 4.5:1), so button labels will be hard to read.', $btnRatio);
+    }
+    $linkRatio = itflow_contrast_ratio($hex, '#F0F2F5');
+    if ($linkRatio < 4.5) {
+        $notes[] = sprintf('Links in this colour have about %.1f:1 contrast on light pages (WCAG AA asks 4.5:1 for text%s).', $linkRatio, $linkRatio < 3 ? ' and 3:1 for focus outlines' : '');
+    }
+    return $notes;
+}

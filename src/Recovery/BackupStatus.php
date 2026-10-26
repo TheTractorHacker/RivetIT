@@ -76,7 +76,7 @@ final class BackupStatus
         }
         $msg = 'Backup failed' . ($r['error'] ?? '' ? ': ' . $r['error'] : '.');
         RecoveryAlerts::raise($db, 'backup.failed', substr($msg, 0, 200),
-            "A RivetIT backup run did not complete.\n\n" . $msg . "\n\nOpen Admin > Backup to check the history, free disk space and permissions on the backups folder, then run a manual backup to confirm.",
+            ("A " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " backup run did not complete.\n\n") . $msg . "\n\nOpen Admin > Backup to check the history, free disk space and permissions on the backups folder, then run a manual backup to confirm.",
             'backup.failed', ['error' => (string) ($r['error'] ?? ''), 'file' => (string) ($r['file'] ?? '')]);
     }
 

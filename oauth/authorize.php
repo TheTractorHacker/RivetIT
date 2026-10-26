@@ -46,7 +46,7 @@ $render_error = static function (string $message, int $status = 400) use ($h, $a
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<title>' . $h($app_name) . ' - cannot connect</title>' . ($GLOBALS['oauth_css'] ?? '') . '</head><body><main class="card">'
         . '<h1>This connection request cannot be completed</h1><p>' . $h($message) . '</p>'
-        . '<p class="muted">Nothing was shared. Go back to the application and start the connection again, or ask your RivetIT administrator.</p></main></body></html>';
+        . ('<p class="muted">Nothing was shared. Go back to the application and start the connection again, or ask your ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' administrator.</p></main></body></html>');
     exit;
 };
 
@@ -99,7 +99,7 @@ if (!$request['ok']) {
 require_once __DIR__ . '/../includes/check_login.php';
 
 if (($session_user_type ?? 0) !== 1) {
-    $render_error('Only RivetIT agents can connect an AI tool. Sign in with an agent account.', 403);
+    $render_error(('Only ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' agents can connect an AI tool. Sign in with an agent account.'), 403);
 }
 $user_id = (int) $session_user_id;
 

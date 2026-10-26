@@ -293,7 +293,7 @@ final class EndpointEscalation implements RmmEscalationInterface
             $body .= '<tr><td>Ticket</td><td>' . ($base !== '' ? '<a href="' . $e($base . '/agent/ticket.php?ticket_id=' . $ticket['ticket_id']) . '">#' . $ticket['ticket_id'] . '</a>' : '#' . $ticket['ticket_id']) . '</td></tr>';
         }
 
-        return $body . '</table>' . ($base !== '' ? '<p><a href="' . $e($link) . '">Open the alert</a> to acknowledge or resolve it, which stops the escalation.</p>' : '<p>Acknowledge or resolve the alert in RivetIT to stop the escalation.</p>');
+        return $body . '</table>' . ($base !== '' ? '<p><a href="' . $e($link) . '">Open the alert</a> to acknowledge or resolve it, which stops the escalation.</p>' : ('<p>Acknowledge or resolve the alert in ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' to stop the escalation.</p>'));
     }
 
     /**

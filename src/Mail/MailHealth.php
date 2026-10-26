@@ -68,16 +68,16 @@ final class MailHealth
         $emails = [];
         $row = $db->query('SELECT config_mail_from_email, config_mail_from_name, config_ticket_from_email, config_ticket_from_name FROM settings WHERE company_id = 1')->fetch_assoc() ?: [];
         $from = $row['config_mail_from_email'] ?: ($row['config_ticket_from_email'] ?? '');
-        $fromName = $row['config_mail_from_name'] ?? ($row['config_ticket_from_name'] ?? '') ?: 'RivetIT';
+        $fromName = $row['config_mail_from_name'] ?? ($row['config_ticket_from_name'] ?? '') ?: (defined('APP_NAME') ? APP_NAME : 'RivetIT');
         $base = (string) ($GLOBALS['config_base_url'] ?? '');
         foreach (self::alertRecipients($db) as $to) {
             if ($from === '' || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
                 break;
             }
-            $link = $base !== '' ? '<br><br><a href="https://' . htmlspecialchars($base, ENT_QUOTES) . htmlspecialchars($action, ENT_QUOTES) . '">Open in RivetIT</a>' : '';
+            $link = $base !== '' ? '<br><br><a href="https://' . htmlspecialchars($base, ENT_QUOTES) . htmlspecialchars($action, ENT_QUOTES) . ('">Open in ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . '</a>') : '';
             $emails[] = [
                 'from' => $from, 'from_name' => (string) $fromName, 'recipient' => $to, 'recipient_name' => $to,
-                'subject' => 'RivetIT mail alert - ' . $title,
+                'subject' => ((defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' mail alert - ') . $title,
                 'body' => '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p><p>You receive this at most once every ' . $hours . ' hours per problem. See docs/MAIL_INTAKE.md for what each alert means.</p>' . $link,
             ];
         }

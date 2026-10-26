@@ -29,7 +29,7 @@ function getRmmClient(int $integration_id): object {
             return new Action1RmmClient($id);
         case 'rivetit_agent':
             // The built-in endpoint agent pushes its own data; there is no vendor API to call.
-            throw new RuntimeException('RivetIT endpoint agent devices are managed from the device page, not through an RMM client.');
+            throw new RuntimeException(((defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' endpoint agent devices are managed from the device page, not through an RMM client.'));
         case 'sophos_central':
             require_once __DIR__ . '/class_sophos_central_rmm.php';
             return new SophosCentralRmmClient($id);

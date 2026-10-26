@@ -82,7 +82,7 @@ final class ChatFormatter
     public static function describe(string $event, array $data, array $opts = []): array
     {
         $test = !empty($opts['test']);
-        $app = self::clip((string) ($opts['app_name'] ?? 'RivetIT'), 40);
+        $app = self::clip((string) ($opts['app_name'] ?? (defined('APP_NAME') ? APP_NAME : 'RivetIT')), 40);
         $facts = [];
         $priority = '';
         $url = null;

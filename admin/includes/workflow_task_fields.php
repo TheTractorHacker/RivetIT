@@ -169,7 +169,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
                 <?php } ?>
             </select>
         </div>
-        <div class="col-md-12 small text-muted"><strong>Entra actions</strong> (need Administration &gt; Integrations &gt; Directory Sync &gt; "Allow RivetIT to change Entra accounts"; otherwise they become manual tasks). Create: the account is made with a random temporary password shown once to the assigned technician. Disable never deletes.</div>
+        <div class="col-md-12 small text-muted"><strong>Entra actions</strong> (need Administration &gt; Integrations &gt; Directory Sync &gt; "Allow <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> to change Entra accounts"; otherwise they become manual tasks). Create: the account is made with a random temporary password shown once to the assigned technician. Disable never deletes.</div>
         <div class="col-md-4 form-group">
             <label>Entra user principal name</label>
             <input type="text" class="form-control" name="cfg_upn" maxlength="200" placeholder="{{employee_email}}" value="<?= $h($cfg['upn'] ?? '') ?>">

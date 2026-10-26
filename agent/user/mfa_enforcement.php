@@ -116,7 +116,7 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
             ?>
             <div class="text-center fs-2 fw-light mb-3">
                 <?php if (!empty($company_logo)) { ?>
-                    <img alt="<?= nullable_htmlentities($company_name ?? $session_company_name) ?> logo" height="110" width="380" class="img-fluid" src="<?php echo "../../uploads/settings/$company_logo"; ?>">
+                    <img alt="<?= nullable_htmlentities($company_name ?? $session_company_name) ?> logo" style="max-height:110px;max-width:min(100%,380px);width:auto;height:auto" class="img-fluid" src="<?php echo "../../uploads/settings/$company_logo"; ?>">
                 <?php } else { ?>
                     <img src="<?= nullable_htmlentities(APP_LOGO_MARK_URL) ?>" alt="" width="40" height="40" class="me-2 align-middle"><span class="fw-bold align-middle"><?= nullable_htmlentities(APP_NAME) ?></span>
                 <?php } ?>

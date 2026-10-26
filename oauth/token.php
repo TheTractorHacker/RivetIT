@@ -45,7 +45,7 @@ try {
     $service = new OAuthService($mysqli, OAuthConfig::issuer($config_base_url), OAuthConfig::resource($config_base_url), null,
         OAuthHttp::limitedFetcher(OAuthConfig::cimd($mysqli)['mode'] === 'any'));
     [$status, $body] = $service->token($params['values']);
-    OAuthHttp::json($status, $body, $status === 401 ? ['WWW-Authenticate' => 'Basic realm="RivetIT MCP"'] : []);
+    OAuthHttp::json($status, $body, $status === 401 ? ['WWW-Authenticate' => ('Basic realm="' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' MCP"')] : []);
 } catch (\Throwable $e) {
     OAuthHttp::serverError($e);
 }

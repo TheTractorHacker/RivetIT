@@ -83,7 +83,7 @@ final class MdmClientFactory
         }
         $path = (string) ($parts['path'] ?? '');
         if ($path !== '' && $path !== '/') {
-            return $fail('Enter only the server address (https://host:port). RivetIT adds /api/v1/mdm itself.');
+            return $fail(('Enter only the server address (https://host:port). ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' adds /api/v1/mdm itself.'));
         }
         if (!function_exists('rivetWebhookUrlPolicy') && is_file(dirname(__DIR__, 3) . '/includes/event_bus.php')) {
             require_once dirname(__DIR__, 3) . '/includes/event_bus.php';

@@ -174,7 +174,7 @@ final class OAuthService
      */
     public function resolveClient(string $clientId): array
     {
-        $unknown = static fn (string $m = 'This application is not registered with RivetIT, or has been disabled.'): array => ['ok' => false, 'kind' => 'unknown', 'message' => $m];
+        $unknown = static fn (?string $m = null): array => ['ok' => false, 'kind' => 'unknown', 'message' => $m ?? ('This application is not registered with ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ', or has been disabled.')];
         if ($clientId === '' || self::clientIdTooLong($clientId)) {
             return $unknown();
         }
@@ -227,7 +227,7 @@ final class OAuthService
         if (!$client && $this->store->countMetadataClients() >= ClientMetadata::MAX_CLIENTS) {
             $this->store->purgeUnusedMetadataClients(3600);
             if ($this->store->countMetadataClients() >= ClientMetadata::MAX_CLIENTS) {
-                return ['ok' => false, 'kind' => 'unavailable', 'message' => 'Too many applications are known. Ask your RivetIT administrator.'];
+                return ['ok' => false, 'kind' => 'unavailable', 'message' => ('Too many applications are known. Ask your ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' administrator.')];
             }
         }
         $name = $verdict['name'] ?? $shape['host'];
@@ -445,7 +445,7 @@ final class OAuthService
         }
         $scopes = self::grantedScopes($v['scope'] ?? null);
         if ($scopes === null) {
-            return $fail('invalid_scope', 'The only scope RivetIT offers is ' . OAuthConfig::SCOPE . '.');
+            return $fail('invalid_scope', ('The only scope ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' offers is ') . OAuthConfig::SCOPE . '.');
         }
 
         return ['ok' => true, 'client' => $client, 'redirect_uri' => $redirect, 'scope' => implode(' ', $scopes),

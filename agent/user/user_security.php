@@ -199,7 +199,7 @@ function tps_local(?string $utc): ?string
         <h3 class="card-title mr-auto"><i class="fas fa-fw fa-plug me-2"></i>Connected AI tools</h3>
     </div>
     <div class="card-body p-0">
-        <p class="text-muted small px-3 pt-3 mb-2">Apps you allowed to read RivetIT as you (read-only, limited to what your role can see). Remove one to cut it off immediately.</p>
+        <p class="text-muted small px-3 pt-3 mb-2">Apps you allowed to read <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> as you (read-only, limited to what your role can see). Remove one to cut it off immediately.</p>
         <table class="table table-sm table-borderless table-hover mb-0">
             <thead class="text-muted small"><tr class="border-bottom"><th class="ps-3">App</th><th>Approved</th><th>Last used</th><th>Ends</th><th></th></tr></thead>
             <tbody>

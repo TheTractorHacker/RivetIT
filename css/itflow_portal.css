@@ -214,7 +214,9 @@
 .portal-qr img { display: block; }
 
 /* ---- Small screens --------------------------------------------------------- */
-@media (max-width: 991.98px) {
+/* Up to 1199.98px (the navbar is navbar-expand-xl): between 992 and 1199px the container is only 960px, which squeezed the
+   brand (department + company, optionally a wide logo) down to ~170px and clipped the department name. */
+@media (max-width: 1199.98px) {
     .client-portal-nav .navbar-collapse { padding: .5rem 0 .75rem; }
     .client-portal-nav .navbar-nav { gap: .1rem; }
     .client-portal-nav .nav-link { min-height: 44px; display: flex; align-items: center; }

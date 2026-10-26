@@ -267,7 +267,7 @@ final class SyncWatch
                 if ($row['was_healthy'] && $sinceTs !== null && $row['last_ts'] !== null && ($row['now'] - $sinceTs) <= ($dormantDays + self::DORMANT_NOTICE_WINDOW_DAYS) * 86400) {
                     $subject = "$label sync ($name) is no longer running: " . $row['detail'];
                     $sent = RecoveryAlerts::raise($db, $alertKey . 'dormant', substr($subject, 0, 220),
-                        $subject . ".\n\nIt was healthy before. If it was retired on purpose, open Admin > Backup > Integration sync watch and choose Mute or Forget history. If a script now syncs it outside RivetIT, declare how often it runs there.",
+                        $subject . (".\n\nIt was healthy before. If it was retired on purpose, open Admin > Backup > Integration sync watch and choose Mute or Forget history. If a script now syncs it outside " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ", declare how often it runs there."),
                         'integration.sync_stale', ['source' => $key, 'integration_id' => $id, 'name' => $name, 'detail' => $row['detail'], 'state' => 'dormant'],
                         '/admin/backup.php#sync-watch', self::DORMANT_NOTICE_REPEAT_HOURS);
                     if ($sent) {

@@ -1140,6 +1140,12 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
             margin: 0;
             max-width: 320px;
             overflow-wrap: break-word;
+            /* A very long company name takes at most three lines instead of pushing the sign-in card off a phone screen. */
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            overflow: hidden;
         }
         .login-box-branding .brand-sub {
             font-size: .8rem;
@@ -1215,7 +1221,7 @@ $show_login_form = (!$show_role_choice && !$show_mfa_form && !$show_portal_mfa_f
             <?php } else { ?>
                 <div class="brand-mark"><img src="<?= htmlspecialchars(APP_LOGO_MARK_URL) ?>" alt="<?= htmlspecialchars(APP_NAME) ?>" width="52" height="52"></div>
             <?php } ?>
-            <div class="brand-name"><?= nullable_htmlentities($company_name) ?></div>
+            <div class="brand-name" title="<?= nullable_htmlentities($company_name) ?>"><?= nullable_htmlentities($company_name) ?></div>
             <div class="brand-sub">Welcome to <?= htmlspecialchars(APP_NAME) ?></div>
         </div>
     </div>

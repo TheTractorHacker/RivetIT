@@ -76,6 +76,7 @@ $tv_render = static function (string $state, int $status, array $r = []) use (&$
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <title><?= $tv_h($title) ?></title>
+<?php if (is_file(__DIR__ . '/../uploads/favicon.ico')) { /* the company's uploaded favicon, as on every other page; with none the browser asks for /favicon.ico (the product icon) */ ?><link rel="icon" type="image/x-icon" href="/uploads/favicon.ico"><?php } ?>
 <link rel="stylesheet" href="<?= $tv_h($css . ($mtime ? '?v=' . $mtime : '')) ?>">
 </head>
 <body class="tv-body">

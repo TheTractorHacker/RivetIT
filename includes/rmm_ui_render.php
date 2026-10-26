@@ -1396,7 +1396,7 @@ function rivetRmmUiCapacity(array $cap): string
             $storRows[] = ['Check history', rmmH($hist['retention_days']) . ' days kept &middot; ' . (!empty($hist['partitioned']) ? rivetRmmUiPill('ok', 'Partitioned') . ' ' . (int) $hist['partitions'] . ' partitions' : 'plain table, expired rows deleted in batches')];
         }
         $storRows[] = ['Partitioning setting', !empty($st['partitioning_enabled']) ? rivetRmmUiPill('ok', 'On') : rivetRmmUiPill('off', 'Off')];
-        $storRows[] = ['RivetCore daily rollup', '<span class="text-muted">not used: RivetIT keeps its own hourly metric rollups</span>'];
+        $storRows[] = ['RivetCore daily rollup', ('<span class="text-muted">not used: ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' keeps its own hourly metric rollups</span>')];
     }
     $ext = $cap['external_store'] ?? null;
     if (is_array($ext)) {

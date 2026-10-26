@@ -33,8 +33,8 @@ if (isset($_POST['save_entra_write_setting'])) {
     }
     $allow = isset($_POST['config_entra_allow_writes']) ? 1 : 0;
     mysqli_query($mysqli, "UPDATE settings SET config_entra_allow_writes = $allow WHERE company_id = 1");
-    logAction('Settings', 'Edit', "$session_name " . ($allow ? 'ALLOWED' : 'disallowed') . " RivetIT to change Entra accounts");
-    flash_alert($allow ? 'RivetIT may now change Entra accounts through lifecycle workflow tasks' : 'Entra account changes are switched off', $allow ? 'warning' : 'success');
+    logAction('Settings', 'Edit', "$session_name " . ($allow ? 'ALLOWED' : 'disallowed') . (" " . APP_NAME . " to change Entra accounts"));
+    flash_alert($allow ? (APP_NAME . ' may now change Entra accounts through lifecycle workflow tasks') : 'Entra account changes are switched off', $allow ? 'warning' : 'success');
     redirect();
 }
 
