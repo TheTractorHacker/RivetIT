@@ -58,6 +58,7 @@ function itflow_theme_accent_css(string $hex, string $radius = ''): string
               . "body.dark-mode{--color-accent:$hex;--color-accent-rgb:$rgb;--color-accent-hover:$hd;--color-accent-soft:rgba($rgb,.22)}\n"
               . ":root[data-bs-theme=\"dark\"]{--bs-primary:$hex;--bs-primary-rgb:$rgb;--bs-link-color:$hex;--bs-link-color-rgb:$rgb;--bs-link-hover-color:$hd}\n";
     }
+    $css .= itflow_accent_aa_css($hex);
     $radius = itflow_theme_radius($radius);
     if ($radius !== '') {
         $css .= ":root{--card-radius:$radius}\n";
@@ -84,11 +85,134 @@ function itflow_contrast_ratio(string $a, string $b): float
     return (max($la, $lb) + 0.05) / (min($la, $lb) + 0.05);
 }
 
+/** '#RRGGBB' -> [r, g, b]. */
+function itflow_hex_rgb(string $hex): array
+{
+    return [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
+}
+
+/** CSS color-mix(in srgb, $a (1-$t), $b $t) for two '#RRGGBB' colours. */
+function itflow_mix_hex(string $a, string $b, float $t): string
+{
+    $x = itflow_hex_rgb($a);
+    $y = itflow_hex_rgb($b);
+    return sprintf('#%02X%02X%02X', (int) round($x[0] * (1 - $t) + $y[0] * $t), (int) round($x[1] * (1 - $t) + $y[1] * $t), (int) round($x[2] * (1 - $t) + $y[2] * $t));
+}
+
+/** Moves $hex toward $toward in 6% steps until it has $min contrast against $bg (or it can go no further). */
+function itflow_hex_until_contrast(string $hex, string $toward, string $bg, float $min): string
+{
+    for ($i = 0; $i < 18 && itflow_contrast_ratio($hex, $bg) < $min; $i++) {
+        $hex = itflow_mix_hex($hex, $toward, 0.06);
+    }
+    return $hex;
+}
+
 /**
- * Plain-language warnings for a company accent that will be hard to read, [] when it is fine. Mirrors what the CSS does with
- * it (itflow_theme_accent_css): primary buttons in the agent shell use the accent at ~84% brightness with white text (measured: #2563EB -> rgb(31,83,197); the portal's value differs by a few points), and links and focus
- * rings use the accent itself on the light page background (~#F0F2F5). The dark theme adapts the accent and is not checked here.
- * WCAG AA asks 4.5:1 for text and 3:1 for focus indicators.
+ * The readable (WCAG AA) versions of a company accent, for the jobs where the accent is used as ink or as a button fill. The
+ * accent itself is untouched everywhere it is only decoration. Surfaces are the ones measured on a running install: light page
+ * #EEF2F2, dark page #0D1417 with the lightest surface text normally sits on at #1F2937 (portal cards). Mirrors the shared CSS: .btn-primary is the accent mixed 84% with black,
+ * and --color-link is the accent in light mode and the accent mixed 72% with white in dark mode.
+ *
+ * @return array{btn:string,btn_text:string,btn_hover:string,link:string,link_hover:string,link_dark:string,link_dark_hover:string,
+ *   focus:string,focus_dark:string,btn_changed:bool,link_changed:bool,link_dark_changed:bool,focus_changed:bool,focus_dark_changed:bool,
+ *   btn_white:float,link_ratio:float,link_dark_ratio:float}
+ */
+function itflow_accent_aa(string $hex): array
+{
+    $hex = strtoupper($hex);
+    $lightBg = '#EEF2F2';
+    $darkBg = '#1F2937';
+    $ink = '#111827';
+
+    $base = itflow_mix_hex($hex, '#000000', 0.16);
+    $white = itflow_contrast_ratio($base, '#FFFFFF');
+    $btn = $base;
+    $text = '#FFFFFF';
+    if ($white < 4.5) {
+        if (itflow_contrast_ratio($base, $ink) >= 4.5) {
+            $text = $ink;                                   // a light accent: dark label text
+        } else {
+            $btn = itflow_hex_until_contrast($base, '#000000', '#FFFFFF', 4.5);   // a mid accent: deepen the fill
+        }
+    }
+    $btnHover = $text === '#FFFFFF' ? itflow_mix_hex($btn, '#000000', 0.10) : itflow_mix_hex($btn, '#FFFFFF', 0.12);
+    if (itflow_contrast_ratio($btnHover, $text) < 4.5) {
+        $btnHover = $btn;
+    }
+
+    $link = itflow_hex_until_contrast($hex, '#000000', $lightBg, 4.5);
+    $linkHover = itflow_mix_hex($link, '#000000', 0.18);
+    $coreDark = itflow_mix_hex($hex, '#FFFFFF', 0.28);
+    $linkDark = itflow_hex_until_contrast($coreDark, '#FFFFFF', $darkBg, 4.5);
+    $linkDarkHover = itflow_mix_hex($linkDark, '#FFFFFF', 0.20);
+    $focus = itflow_hex_until_contrast($hex, '#000000', $lightBg, 3.0);
+    // the shared CSS draws the focus border in the raw accent in both themes (--if-primary), so that is the baseline, not the lightened link colour
+    $focusDark = itflow_hex_until_contrast($hex, '#FFFFFF', $darkBg, 3.0);
+
+    return [
+        'btn' => $btn, 'btn_text' => $text, 'btn_hover' => $btnHover,
+        'link' => $link, 'link_hover' => $linkHover, 'link_dark' => $linkDark, 'link_dark_hover' => $linkDarkHover,
+        'focus' => $focus, 'focus_dark' => $focusDark,
+        'btn_changed' => $btn !== $base || $text !== '#FFFFFF',
+        'link_changed' => $link !== $hex,
+        'link_dark_changed' => $linkDark !== $coreDark,
+        'focus_changed' => $focus !== $hex,
+        'focus_dark_changed' => $focusDark !== $hex,
+        'btn_white' => $white,
+        'link_ratio' => itflow_contrast_ratio($hex, $lightBg),
+        'link_dark_ratio' => itflow_contrast_ratio($coreDark, $darkBg),
+    ];
+}
+
+/**
+ * CSS that makes a company accent readable where it is used as ink or as a button fill (see itflow_accent_aa). Empty for an accent that
+ * is already fine, so a compliant accent changes nothing. Meant to be emitted after the accent variables, last in the cascade.
+ */
+function itflow_accent_aa_css(string $hex): string
+{
+    if (preg_match('/^#[0-9A-Fa-f]{6}$/D', $hex) !== 1) {
+        return '';
+    }
+    $a = itflow_accent_aa($hex);
+    $rgb = static fn (string $h): string => implode(', ', itflow_hex_rgb($h));
+    $css = '';
+    $light = '';
+    if ($a['link_changed']) {
+        $light .= "--color-link:{$a['link']};--color-link-hover:{$a['link_hover']};--bs-link-color:{$a['link']};--bs-link-color-rgb:" . $rgb($a['link']) . ";--bs-link-hover-color:{$a['link_hover']};";
+    }
+    if ($a['focus_changed'] || $a['focus_dark_changed']) {
+        $light .= '--color-accent-focus:' . ($a['focus_changed'] ? $a['focus'] : strtoupper($hex)) . ';';
+    }
+    if ($light !== '') {
+        $css .= ":root{{$light}}\n";
+    }
+    $dark = '';
+    if ($a['link_dark_changed']) {
+        $dark .= "--color-link:{$a['link_dark']};--color-link-hover:{$a['link_dark_hover']};--bs-link-color:{$a['link_dark']};--bs-link-color-rgb:" . $rgb($a['link_dark']) . ";--bs-link-hover-color:{$a['link_dark_hover']};";
+    }
+    if ($a['focus_changed'] || $a['focus_dark_changed']) {
+        $dark .= '--color-accent-focus:' . ($a['focus_dark_changed'] ? $a['focus_dark'] : strtoupper($hex)) . ';';
+    }
+    if ($dark !== '') {
+        $css .= "body.dark-mode,:root[data-bs-theme=\"dark\"]{{$dark}}\n";
+    }
+    if ($a['focus_changed'] || $a['focus_dark_changed']) {
+        $css .= ".form-control:focus,.form-select:focus,.ts-control.focus,.ts-wrapper.focus .ts-control{border-color:var(--color-accent-focus,var(--if-primary));box-shadow:0 0 0 1px var(--color-accent-focus,var(--if-primary))}\n";
+    }
+    if ($a['btn_changed']) {
+        // html body.portal-ui: the portal sets its own .portal-ui .btn-primary colours in a sheet that loads after this one, so match it with more weight.
+        $css .= ".btn-primary,html body.portal-ui .btn-primary{background-color:{$a['btn']};border-color:{$a['btn']};color:{$a['btn_text']}}\n"
+              . ".btn-primary:hover,.btn-primary:focus,.btn-primary:active,.btn-primary:not(:disabled):not(.disabled):active,"
+              . "html body.portal-ui .btn-primary:hover,html body.portal-ui .btn-primary:focus,html body.portal-ui .btn-primary:not(:disabled):not(.disabled):active"
+              . "{background-color:{$a['btn_hover']};border-color:{$a['btn_hover']};color:{$a['btn_text']}}\n";
+    }
+    return $css;
+}
+
+/**
+ * Plain-language notes for Admin > Appearance about an accent that cannot be used as-is for text and buttons, [] when it is fine. The
+ * app already adjusts those uses (itflow_accent_aa_css), so these say what is being done, not that something is broken.
  *
  * @return list<string>
  */
@@ -97,15 +221,17 @@ function itflow_accent_contrast_notes(string $hex): array
     if (preg_match('/^#[0-9A-Fa-f]{6}$/D', $hex) !== 1) {
         return [];
     }
+    $a = itflow_accent_aa($hex);
     $notes = [];
-    $btn = sprintf('#%02X%02X%02X', (int) round(hexdec(substr($hex, 1, 2)) * 0.84), (int) round(hexdec(substr($hex, 3, 2)) * 0.84), (int) round(hexdec(substr($hex, 5, 2)) * 0.84));
-    $btnRatio = itflow_contrast_ratio($btn, '#FFFFFF');
-    if ($btnRatio < 4.5) {
-        $notes[] = sprintf('White text on primary buttons has %.1f:1 contrast (WCAG AA asks 4.5:1), so button labels will be hard to read.', $btnRatio);
+    if ($a['btn_changed']) {
+        $notes[] = sprintf('Buttons use %s so their label stays readable (the exact color with white text would be only %.1f:1; WCAG AA asks 4.5:1).',
+            $a['btn_text'] === '#FFFFFF' ? 'a deeper shade of this color' : 'dark label text', $a['btn_white']);
     }
-    $linkRatio = itflow_contrast_ratio($hex, '#F0F2F5');
-    if ($linkRatio < 4.5) {
-        $notes[] = sprintf('Links in this colour have about %.1f:1 contrast on light pages (WCAG AA asks 4.5:1 for text%s).', $linkRatio, $linkRatio < 3 ? ' and 3:1 for focus outlines' : '');
+    if ($a['link_changed']) {
+        $notes[] = sprintf('On light pages, links and focus outlines use a darker shade (the exact color is only %.1f:1 against the page; WCAG AA asks 4.5:1 for text).', $a['link_ratio']);
+    }
+    if ($a['link_dark_changed']) {
+        $notes[] = sprintf('On the dark theme, links use a lighter shade (the exact color is only %.1f:1 against the page).', $a['link_dark_ratio']);
     }
     return $notes;
 }
