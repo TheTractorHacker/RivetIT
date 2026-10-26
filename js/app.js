@@ -1376,6 +1376,24 @@ function initPasswordToggles() {
         }
     });
 
+    // <button type="submit" data-form-set="field=value" data-form-unrequire="other">: before submitting, set the named field of this
+    // form to a value and drop `required` from another field (was an inline onclick, which the CSP blocks).
+    document.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest ? e.target.closest('[data-form-set]') : null;
+        if (!b || !b.form) { return; }
+        var pair = b.getAttribute('data-form-set');
+        var eq = pair.indexOf('=');
+        if (eq > 0) {
+            var target = b.form.querySelector('[name="' + pair.slice(0, eq).replace(/"/g, '') + '"]');
+            if (target) { target.value = pair.slice(eq + 1); }
+        }
+        var un = b.getAttribute('data-form-unrequire');
+        if (un) {
+            var req = b.form.querySelector('[name="' + un.replace(/"/g, '') + '"]');
+            if (req) { req.removeAttribute('required'); }
+        }
+    });
+
     // <form data-confirm-submit="message">: ask before submitting (was onsubmit="return confirm(...)").
     document.addEventListener('submit', function (e) {
         var form = e.target;

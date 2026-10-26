@@ -21,6 +21,16 @@ require_once "includes/inc_all_admin.php";
                 </div>
 
                 <div class="form-group">
+                    <label class="fw-bold mb-1"><i class="fas fa-fw fa-file-contract me-1"></i>Terms &amp; Conditions link <small class="fw-normal text-secondary">(optional &mdash; linked from the outtake and worksheet signing pages; nothing is linked until you set it)</small></label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-fw fa-file-contract"></i></span>
+                        </div>
+                        <input type="url" class="form-control" name="config_terms_url" maxlength="500" placeholder="https://example.com/terms" value="<?php echo nullable_htmlentities($config_terms_url); ?>">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Ticket Prefix</label>
                     <div class="input-group">
                         <div class="input-group-prepend">

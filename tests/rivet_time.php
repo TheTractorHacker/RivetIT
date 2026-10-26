@@ -1,6 +1,8 @@
 <?php
 /* Unit tests of includes/rivet_time.php (no database). php tests/rivet_time.php */
 require __DIR__ . '/../includes/rivet_time.php';
+// An unknown zone falls back to PHP's default zone (rivetCompanyTimezone), so pin that default: the result must not depend on the machine's php.ini.
+date_default_timezone_set('UTC');
 $pass = 0; $fail = 0;
 $eq = function ($got, $want, string $name) use (&$pass, &$fail) { if ($got === $want) { $pass++; } else { $fail++; echo "FAIL $name: got " . var_export($got, true) . " want " . var_export($want, true) . "\n"; } };
 

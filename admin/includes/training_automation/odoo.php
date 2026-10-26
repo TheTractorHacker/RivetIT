@@ -590,7 +590,7 @@ $tao_skill_cell = static function (string $entity, array $e) use ($tao_cfg, $tao
             <button type="submit" name="ta_odoo_skill_map" class="btn btn-outline-primary btn-sm">Save</button>
         </form>
         <?php if ($m['state'] === 'ok') { ?>
-            <span class="tao-chip is-on"><i class="fas fa-fw fa-circle-check me-1" aria-hidden="true"></i>Certified</span>
+            <span class="tao-chip is-on"><i class="fas fa-fw fa-check-circle me-1" aria-hidden="true"></i>Certified</span>
         <?php } else { ?>
         <details class="tao-create">
             <summary class="tao-create-btn btn btn-outline-secondary btn-sm" title="Create a skill in Odoo named after this <?php echo nullable_htmlentities($entity); ?>"><i class="fas fa-plus" aria-hidden="true"></i></summary>
@@ -615,7 +615,7 @@ $tao_push_toggle = static function (string $entity, int $id, bool $on) use ($tao
         <input type="hidden" name="entity_id" value="<?php echo intval($id); ?>">
         <input type="hidden" name="push" value="<?php echo $on ? '0' : '1'; ?>">
         <button type="submit" name="ta_odoo_map" class="btn btn-sm tao-toggle <?php echo $on ? 'btn-success' : 'btn-outline-secondary'; ?>">
-            <i class="fas fa-fw <?php echo $on ? 'fa-check' : 'fa-xmark'; ?>" aria-hidden="true"></i><?php echo $on ? 'Sending' : 'Not sending'; ?>
+            <i class="fas fa-fw <?php echo $on ? 'fa-check' : 'fa-times'; ?>" aria-hidden="true"></i><?php echo $on ? 'Sending' : 'Not sending'; ?>
         </button>
     </form>
 <?php };

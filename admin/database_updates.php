@@ -11884,3 +11884,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.197'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.197') {
+        // DB 2.6.198: the company's terms-and-conditions link for the outtake and worksheet signing pages (Admin > Settings > Tickets).
+        // Those pages used to link a fixed address that belonged to one company. The new column starts empty, so nothing is linked until
+        // an administrator sets it (an install that wants its old link back enters it once). text, not varchar: `settings` is close to
+        // MariaDB's row-size limit.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_terms_url` text DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.198'");
+    }

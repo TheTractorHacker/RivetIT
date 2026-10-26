@@ -227,7 +227,7 @@ function rivetRmmAutoInstParamsPanel(array $vm): string
             . '<div class="col-md-4"><label class="form-label small" for="pm_value">Value</label><input class="form-control form-control-sm rmm-mono" type="password" autocomplete="off" id="pm_value" name="value" maxlength="128" placeholder="never shown again once saved">'
             . '<div class="form-text">1-128 characters, no spaces, quotes or shell characters. Sealed; never shown back, not even to an administrator.</div></div></div>'
             . '<div class="mt-2"><button class="btn btn-sm btn-primary" type="submit">Save value</button> '
-            . '<button class="btn btn-sm btn-outline-danger" type="submit" formnovalidate name="clear_action" value="1" onclick="this.form.querySelector(\'[name=action]\').value=\'clear_param\';this.form.querySelector(\'[name=value]\').removeAttribute(\'required\');">Clear it instead</button></div></form>';
+            . '<button class="btn btn-sm btn-outline-danger" type="submit" formnovalidate name="clear_action" value="1" data-form-set="action=clear_param" data-form-unrequire="value">Clear it instead</button></div></form>';
     } else {
         $form = '<p class="small text-muted p-3 mb-0 border-top">Your role can see which names are declared and where each is set, but not set or clear a value.</p>';
     }

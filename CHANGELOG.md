@@ -28,6 +28,27 @@ extension is required, no PostgreSQL connection is ever opened, until an adminis
   against a real PostgreSQL 16 server. Installing `php-pgsql` and PostgreSQL is a deliberate administrator choice (see `docs/rmm/POSTGRES.md` in
   `vendor/rivet/rivet-core`); neither is installed by this release.
 
+## [26.10.72] RivetIT — the signing-page terms link is a setting, accent colors are always readable, a key-rotation gap closed, the leftover test failures fixed
+
+**Deploy notes:** database **2.6.198** (it follows the RivetCore rc.41 step 2.6.197 already on beta) adds `settings.config_terms_url` (text, empty): run the database update (Administration > Update, or `php scripts/update_cli.php --update_db`). **The outtake and worksheet signing pages no longer link a fixed address.**
+They show a terms link only once you set Administration > Settings > Tickets > "Terms & Conditions link"; an install that wants its previous link back enters it once. Until then the sentence "For full terms and conditions, please visit ..." is left out
+and the checkbox reads "I have read and agree to the terms above". If you rotate encryption keys, run the rewrap again after updating (see "Key rotation" below).
+
+- **Terms link.** The three signing pages (guest outtake, guest worksheet, in-app outtake) linked one company's terms address for every install. It is now an optional setting; only plain http(s) addresses are accepted, and an invalid value keeps the saved one and says so.
+  (Saving ticket settings used to lose every field warning, because `flash_alert()` keeps one message; the warnings are now shown, which also fixes the Google review link one.)
+- **Accent color.** The company accent was used raw as link color, as the primary-button fill (with white text) and as the focus border, so light accents (pure yellow, the amber and lime presets) and dark ones in the dark theme failed WCAG AA, and even the default
+  blue's dark-theme focus outline was 2.6:1. Readable versions are now derived for those jobs only (`itflow_accent_aa()`), emitted from the agent shell and from the helper the portal and login use; the exact accent is still used for everything decorative,
+  and an accent that is already fine produces no override. Measured in a browser on the agent shell and the portal, light and dark, for six accents: links 4.5:1, buttons 4.5:1, focus 3:1 on all 24 rows. Admin > Appearance now says what is adjusted.
+- **Key rotation.** RivetCore's auto-install parameter values (`rmm_package_params.value_enc`) were not in the rewrap registry, so a rotation left them on the old key and retiring that key would have made them unreadable. The table is keyed by four columns,
+  which the registry could not express; it can now (`ColumnSpec::$keyCols`, a multi-column path in `MysqliRewrapSource`). Existing single-key and two-integer paths are untouched. `tests/crypto_registry_scan.php` failed on exactly this column.
+- **Shared UI assets.** `js/webhook_wizard.js` is Core 1.0.0-rc.38's (the guide fragment is rebuilt from an allow-list, security review L8); installed with Core's `install-ui-assets.php`, `check-ui-assets.php` passes for all 26 files.
+- **Six failures the suite already had:** `agent_build_check.php` was missing from the cron catalog; three inline event handlers the CSP blocks (price quote status, dashboard year, "Clear it instead" on Auto install parameters) use the delegated
+  `auto-submit-select` class and a new `data-form-set` hook; Font Awesome 6 names that rendered as empty boxes (`fa-circle-check`, `fa-xmark`, and the accessibility label table) now use the bundled FA 5 names; a dead native `confirm()` fallback is gone;
+  two tests (`shared_item_fixes`, `rivet_time`) no longer depend on one exact SQL string or on the machine's php.ini.
+- **Tests.** `tests/company_terms_url.php`, `tests/no_operator_branding.php`, `tests/crypto_multikey_source.php`; `tests/theme_accent_contrast.php` now asserts the AA guarantees for twelve accents.
+- **Known, not changed.** The page Content-Security-Policy lists one company's domain in `img-src` on every install (four files; allow-listed in `tests/no_operator_branding_allowlist.txt`) - it should become a configurable list. Five `tests/crypto_rewrap.php`
+  assertions (CLI subprocesses) and several DB-creating tests fail in a scratch environment without the right privileges; they fail identically before this release.
+
 ## [26.10.71] RivetIT — branding pull: one source for the product name, logo and accent fixes, a WCAG warning for the company accent
 
 **Deploy notes:** no database change and no new setting. CSS and the portal header changed (cache-busted by file time); a browser refresh is enough.

@@ -9,12 +9,12 @@
     'use strict';
 
     var ICON_NAMES = [
-        ['fa-search', 'Search'], ['fa-magnifying-glass', 'Search'], ['fa-plus', 'Add'], ['fa-trash', 'Delete'],
-        ['fa-pencil', 'Edit'], ['fa-edit', 'Edit'], ['fa-pen', 'Edit'], ['fa-copy', 'Copy'], ['fa-clone', 'Copy'],
-        ['fa-ellipsis', 'More actions'], ['fa-eye', 'View'], ['fa-times', 'Close'], ['fa-xmark', 'Close'],
-        ['fa-arrow-right', 'Open'], ['fa-external-link', 'Open in new tab'], ['fa-download', 'Download'],
+        ['fa-search', 'Search'], ['fa-plus', 'Add'], ['fa-trash', 'Delete'],
+        ['fa-pencil-alt', 'Edit'], ['fa-edit', 'Edit'], ['fa-pen', 'Edit'], ['fa-copy', 'Copy'], ['fa-clone', 'Copy'],
+        ['fa-ellipsis-h', 'More actions'], ['fa-ellipsis-v', 'More actions'], ['fa-eye', 'View'], ['fa-times', 'Close'],
+        ['fa-arrow-right', 'Open'], ['fa-external-link-alt', 'Open in new tab'], ['fa-download', 'Download'],
         ['fa-upload', 'Upload'], ['fa-sync', 'Refresh'], ['fa-redo', 'Refresh'], ['fa-print', 'Print'],
-        ['fa-filter', 'Filter'], ['fa-cog', 'Settings'], ['fa-gear', 'Settings'], ['fa-star', 'Favourite'],
+        ['fa-filter', 'Filter'], ['fa-cog', 'Settings'], ['fa-star', 'Favourite'],
         ['fa-archive', 'Archive'], ['fa-key', 'Credentials'], ['fa-play', 'Start'], ['fa-check', 'Confirm']
     ];
 

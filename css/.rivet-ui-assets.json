@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "core_version": "1.0.0-rc.34",
+    "core_version": "1.0.0-rc.38",
     "files": {
         "css/file_upload.css": "0643d5ce607c9634d8f74bc908136a037b03e5b96ef922f284eaa65e156ff9a7",
         "css/itflow.bind-tabler.css": "1cd17cfec03663fb6d597b7de3db1576c589dee92aa0561a8100dd43c4b45485",
@@ -27,6 +27,6 @@
         "js/event_picker.js": "4b5da886f94f68343265942092b8dec4dacf440c3f4c7fb21bcd7245b2a04855",
         "js/icon_picker.js": "3dde00674bb3970314aac1c5ffea56461a888ef0f0dba492d3fbba25668e7d0b",
         "js/webhook_guides.js": "7744477f9ea686efe58122dd4bf8021eec898f00e0ecf5a8213a78815e745cd5",
-        "js/webhook_wizard.js": "28f6c1efe21e638f8926c485205de65e7839556ae537c27e14554e46ad264771"
+        "js/webhook_wizard.js": "64a1b7e820d048ff3d04c143b34283fe7cf6452f8c75b380ad0e649067bc973e"
     }
 }

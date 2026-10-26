@@ -304,6 +304,11 @@ function itflow_nav_icon_class($icon, $fallback = 'fa-link')
         --bs-link-color-rgb: <?php echo "$ar, $ag, $ab"; ?>;
         --bs-link-hover-color: <?php echo $hover_dark; ?>;
     }
+    <?php
+    // Where the accent is used as ink or as a button fill, use a WCAG AA version of it (nothing is emitted for an accent that is already fine).
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/theme_accent.php';
+    echo itflow_accent_aa_css($theme_accent_hex);
+    ?>
     <?php endif; ?>
     <?php
     if (!empty($config_theme_card_radius)):

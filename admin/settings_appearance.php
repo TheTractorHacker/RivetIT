@@ -100,12 +100,12 @@ $logo_bg_value = preg_match('/^#[0-9A-Fa-f]{6}$/', $logo_bg_raw) ? strtoupper($l
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/theme_accent.php';
                 $accent_notes = itflow_accent_contrast_notes(itflow_theme_accent_hex($config_theme, $config_theme_accent_custom));
                 if ($accent_notes) { ?>
-                    <div class="alert alert-warning mt-3 mb-0" role="status">
-                        <strong>The saved accent color is hard to read in places.</strong>
+                    <div class="alert alert-info mt-3 mb-0" role="status">
+                        <strong>This accent color is adjusted where it is used for text and buttons.</strong>
                         <ul class="mb-0">
                             <?php foreach ($accent_notes as $note) { ?><li><?= htmlspecialchars($note) ?></li><?php } ?>
                         </ul>
-                        Pick a darker shade to meet WCAG AA.
+                        The exact color is still used for everything decorative. Pick a darker (or, for the dark theme, lighter) shade if you want the text and buttons to match it exactly.
                     </div>
                 <?php } ?>
             </div>
