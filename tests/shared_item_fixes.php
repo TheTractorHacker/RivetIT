@@ -6,7 +6,8 @@ $r = function ($f) { return file_get_contents(__DIR__ . '/../' . $f); };
 
 // (a) the share query selects the OTP secret; the seed is never sent to the server
 $ajax = $r('agent/ajax.php');
-$ok(strpos($ajax, 'SELECT credential_name, credential_username, credential_password, credential_otp_secret FROM credentials') !== false, 'share link query selects credential_otp_secret');
+// (the column list may gain fields such as credential_id; what matters is that the OTP secret is selected alongside the login)
+$ok(preg_match('/SELECT [^"]*credential_username, credential_password, credential_otp_secret FROM credentials/', $ajax) === 1, 'share link query selects credential_otp_secret');
 $view = $r('guest/guest_view_item.php');
 $ok(strpos($view, 'get_totp_token') === false && strpos($view, 'totp_secret') === false, 'shared page no longer sends the TOTP seed to /agent/ajax.php');
 $ok(strpos($view, 'crypto.subtle.sign') !== false, 'shared page computes the TOTP code in the browser');

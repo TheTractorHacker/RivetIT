@@ -143,7 +143,7 @@ if ($price_quote_print) {
             <form action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="price_quote_id" value="<?= $price_quote_id ?>">
-                <select class="form-control select2" name="status" onchange="this.form.submit()">
+                <select class="form-control select2 auto-submit-select" name="status">
                     <?php foreach ($price_quote_statuses as $status_option) { ?>
                         <option value="<?= $status_option ?>" <?= $price_quote_status === $status_option ? 'selected' : '' ?>><?= $status_option ?></option>
                     <?php } ?>

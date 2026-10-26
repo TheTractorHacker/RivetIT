@@ -107,7 +107,7 @@ $post_button = static function (string $action, string $widget, string $label, s
             <form method="get" class="d-flex align-items-center gap-1">
                 <?php if ($customise) { ?><input type="hidden" name="customise" value="1"><?php } ?>
                 <label for="dash-year" class="mb-0 small text-muted">Year</label>
-                <select id="dash-year" name="year" class="form-select form-select-sm" style="width:auto;min-width:6rem;" onchange="this.form.submit()">
+                <select id="dash-year" name="year" class="form-select form-select-sm auto-submit-select" style="width:auto;min-width:6rem;">
                     <?php for ($y = intval(date('Y')); $y >= intval(date('Y')) - 5; $y--) { ?>
                         <option value="<?php echo $y; ?>" <?php echo $y === $dash_year ? 'selected' : ''; ?>><?php echo $y; ?></option>
                     <?php } ?>

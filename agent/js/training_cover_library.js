@@ -156,12 +156,9 @@
                 ui.toast((err && err.message) || 'Could not remove that cover.', { type: 'error' });
             });
         };
-        if (window.RivetDialog && window.RivetDialog.confirm) {
-            window.RivetDialog.confirm('Remove "' + cover.label + '" from the shared gallery? Courses already using it as their cover keep it - this only takes it off the picker\'s gallery list.',
-                { title: 'Remove cover', okText: 'Remove', variant: 'danger' }).then(function (ok) { if (ok) { go(); } });
-        } else if (window.confirm('Remove "' + cover.label + '" from the shared gallery?')) {
-            go();
-        }
+        // RivetDialog is loaded by every layout (tests/no_native_dialogs.php checks that), so there is no native fallback.
+        window.RivetDialog.confirm('Remove "' + cover.label + '" from the shared gallery? Courses already using it as their cover keep it - this only takes it off the picker\'s gallery list.',
+            { title: 'Remove cover', okText: 'Remove', variant: 'danger' }).then(function (ok) { if (ok) { go(); } });
     }
 
     function renderGrid() {
