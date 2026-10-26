@@ -1,4 +1,0 @@
-# Justified exceptions for tests/no_hardcoded_product_name.php. One per line: <path relative to the repo root>|<exact text that must appear in the offending string>
-# Keep this file short. Every entry needs a reason on the line above it.
-# Label of the endpoint-agent component in a constant that tests/rmm_alert_routes_unit.php loads standalone (no branding.php, so APP_NAME is undefined there).
-includes/rmm_alert_routes.php|RivetIT endpoint agent

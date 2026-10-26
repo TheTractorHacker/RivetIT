@@ -70,3 +70,4 @@ api/v1/custom/*
 __pycache__/
 *.pyc
 tests/core/.phpunit.result.cache
+/tests/
