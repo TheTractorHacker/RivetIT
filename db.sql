@@ -1487,6 +1487,7 @@ CREATE TABLE `endpoint_agent_change_records` (
   `process` varchar(200) NOT NULL DEFAULT '',
   `flags` tinyint(4) NOT NULL DEFAULT 0,
   `dedupe` binary(16) NOT NULL,
+  `client_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`change_id`),
   UNIQUE KEY `uq_device_dedupe` (`device_id`,`dedupe`),
   KEY `idx_device_time` (`device_id`,`occurred_at`),
@@ -1559,6 +1560,7 @@ CREATE TABLE `endpoint_agent_change_state` (
   `config_version` char(16) NOT NULL DEFAULT '',
   `monitor_json` text DEFAULT NULL,
   `monitor_at` datetime DEFAULT NULL,
+  `client_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1596,6 +1598,7 @@ CREATE TABLE `endpoint_agent_log_events` (
   `code` int(11) DEFAULT NULL,
   `message` varchar(1024) NOT NULL DEFAULT '',
   `dedupe` binary(16) NOT NULL,
+  `client_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`event_id`),
   UNIQUE KEY `uq_device_dedupe` (`device_id`,`dedupe`),
   KEY `idx_device_time` (`device_id`,`occurred_at`),
@@ -4197,6 +4200,112 @@ CREATE TABLE `rmm_storage_state` (
   `detail` text DEFAULT NULL,
   `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_metric_rollup_state` (RivetCore #89 phase 2/3, migration 0043/0044)
+--
+
+DROP TABLE IF EXISTS `rmm_metric_rollup_state`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_metric_rollup_state` (
+  `name` varchar(64) NOT NULL,
+  `watermark` datetime DEFAULT NULL,
+  `detail` text DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_pending_client_moves`
+--
+
+DROP TABLE IF EXISTS `rmm_pending_client_moves`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_pending_client_moves` (
+  `device_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_hot_store_faults`
+--
+
+DROP TABLE IF EXISTS `rmm_hot_store_faults`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_hot_store_faults` (
+  `store` varchar(32) NOT NULL,
+  `dropped` bigint(20) NOT NULL DEFAULT 0,
+  `errors` bigint(20) NOT NULL DEFAULT 0,
+  `first_at` datetime NOT NULL,
+  `last_at` datetime NOT NULL,
+  `last_error` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`store`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_data_store_connection` (migration 0044)
+--
+
+DROP TABLE IF EXISTS `rmm_data_store_connection`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_data_store_connection` (
+  `id` tinyint(4) NOT NULL,
+  `host` varchar(255) NOT NULL DEFAULT '127.0.0.1',
+  `port` int(11) NOT NULL DEFAULT 5432,
+  `db_name` varchar(63) NOT NULL DEFAULT '',
+  `db_user` varchar(63) NOT NULL DEFAULT '',
+  `password_sealed` text DEFAULT NULL,
+  `sslmode` varchar(16) NOT NULL DEFAULT 'prefer',
+  `sslrootcert` varchar(255) DEFAULT NULL,
+  `schema_name` varchar(63) NOT NULL DEFAULT 'public',
+  `storage_mode` varchar(16) DEFAULT NULL,
+  `server_version` varchar(64) DEFAULT NULL,
+  `tested_at` datetime DEFAULT NULL,
+  `test_ok` tinyint(1) NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rmm_store_migration`
+--
+
+DROP TABLE IF EXISTS `rmm_store_migration`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rmm_store_migration` (
+  `run_id` int(11) NOT NULL AUTO_INCREMENT,
+  `from_store` varchar(16) NOT NULL,
+  `to_store` varchar(16) NOT NULL,
+  `mode` varchar(8) NOT NULL DEFAULT 'full',
+  `state` varchar(24) NOT NULL,
+  `dual_write` tinyint(1) NOT NULL DEFAULT 0,
+  `dual_faults` int(11) NOT NULL DEFAULT 0,
+  `started_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `cutover_at` datetime DEFAULT NULL,
+  `rollback_until` datetime DEFAULT NULL,
+  `finished_at` datetime DEFAULT NULL,
+  `purged_at` datetime DEFAULT NULL,
+  `actor` varchar(100) NOT NULL DEFAULT '',
+  `params` text DEFAULT NULL,
+  `checkpoints` mediumtext DEFAULT NULL,
+  `summary` mediumtext DEFAULT NULL,
+  `last_error` varchar(500) NOT NULL DEFAULT '',
+  PRIMARY KEY (`run_id`),
+  KEY `idx_state` (`state`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -9902,6 +10011,8 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_settings` (
   `shed_level` tinyint(1) NOT NULL DEFAULT 0,
   `ingest_mode` varchar(10) NOT NULL DEFAULT 'sync',
   `max_devices` int(11) NOT NULL DEFAULT 0,
+  `data_store` varchar(16) NOT NULL DEFAULT 'mariadb',
+  `data_store_phase` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

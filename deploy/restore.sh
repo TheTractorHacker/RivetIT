@@ -324,6 +324,44 @@ restore_uploads() {
     success "uploads/ restored."
 }
 
+# restore_postgres(): RivetCore 1.0.0-rc.41 (issue #89 phase 4), docs/rmm/POSTGRES.md section 8.3. Only when THIS archive's manifest
+# recorded a PostgreSQL member (backup.sh writes rmm_data_store/rmm_postgres_member only when the data store was 'postgres' at backup
+# time) - most restores have neither key and this is a no-op. Must run AFTER import_database() (the restored control database holds the
+# connection + sealed password) and AFTER apply_settings_enc_key() (the SecretBox key must already be in place to unseal it).
+restore_postgres() {
+    local member
+    member="$(php -r '
+        $m = @json_decode(file_get_contents($argv[1]), true);
+        echo is_array($m) ? (string) ($m["rmm_postgres_member"] ?? "") : "";
+    ' -- "${EXTRACT_DIR}/backup-manifest.json" 2>/dev/null)"
+    [[ -n "${member}" ]] || return 0   # this backup's data store was 'mariadb' (or has no manifest): nothing to do
+    local dump_file="${EXTRACT_DIR}/${member}"
+    [[ -f "${dump_file}" ]] || die "The manifest names a PostgreSQL dump member (${member}) but it is not inside the archive. The restore stopped before touching PostgreSQL; the control database has already been imported."
+
+    announce "This backup includes an RMM PostgreSQL dump (${member}). Restoring it into the RMM PostgreSQL store."
+    local env_lines
+    if ! env_lines="$(php "${SCRIPT_DIR}/lib/pg_dump_env.php" "${APP_DIR}")"; then
+        die "Could not read the RMM PostgreSQL connection from the restored control database (pg_dump_env.php failed); see its stderr above. The control database was restored; PostgreSQL was not."
+    fi
+    if [[ -z "${env_lines}" ]]; then
+        die "The manifest says this backup includes a PostgreSQL dump, but the restored control database's data store setting is not 'postgres'. Investigate before trusting this restore (the setting may have changed between the backup and this archive, or the restore target is wrong)."
+    fi
+    (
+        eval "${env_lines}"
+        trap 'shred -u "${PGPASSFILE}" 2>/dev/null || rm -f "${PGPASSFILE}"' EXIT
+        info "Restoring into ${RIVETCORE_PG_DATABASE} (RMM_PG_RESTORE_CLEAN=1: the target schema is dropped first, same as the control database import replacing its tables)..."
+        RMM_PG_RESTORE_CLEAN=1 "${APP_DIR}/vendor/rivet/rivet-core/scripts/rmm-postgres-restore.sh" < "${dump_file}"
+    )
+    local rc=$?
+    [[ ${rc} -eq 0 ]] || die "rmm-postgres-restore.sh failed (exit ${rc}, see above). The control database has already been imported; PostgreSQL may now be partially restored. Fix the cause and re-run restore.sh, or restore PostgreSQL by hand from ${dump_file}."
+    success "RMM PostgreSQL store restored."
+
+    info "Reconciling the control database against the restored PostgreSQL store (read-only)..."
+    if ! php "${APP_DIR}/vendor/rivet/rivet-core/scripts/rmm-store-verify.php" --bootstrap="${APP_DIR}/includes/rmm_store_cli_bootstrap.php"; then
+        warn "rmm-store-verify.php reported findings (see above) or could not run - review them before trusting the RMM history (orphan rows, ledger drift and a hot store older/newer than the control database are all explained in docs/rmm/POSTGRES.md section 8.6). This does NOT fail the restore: both databases are already restored."
+    fi
+}
+
 main() {
     parse_args "$@"
     require_root "$@"
@@ -349,6 +387,7 @@ main() {
     else
         warn "No --key-file given: if this install used the Core key file (/etc/rivetit/keys.json), put the offline copy back, or v3 secrets stay unreadable."
     fi
+    restore_postgres
 
     success "=== Restore complete: ${APP_DIR} now reflects ${BACKUP_FILE} ==="
     log "RESTORE OK app_dir=${APP_DIR} backup=${BACKUP_FILE} database=${DB_NAME}"

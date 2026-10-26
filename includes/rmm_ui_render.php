@@ -1402,8 +1402,23 @@ function rivetRmmUiCapacity(array $cap): string
     if (is_array($ext)) {
         $storRows[] = ['External metric store', rivetRmmUiPill($ext['pending_batches'] > 0 ? 'warn' : 'ok', 'On') . ' ' . (int) $ext['pending_batches'] . ' batch' . ((int) $ext['pending_batches'] === 1 ? '' : 'es') . ' waiting &middot; ' . (int) $ext['dropped_points'] . ' points dropped (this request)'];
     }
-    $detail = '<div class="row"><div class="col-lg-6 mb-2"><h6 class="small text-uppercase text-muted">Load and cache</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($cacheRows) . '</div></div>'
-        . ($storRows !== [] ? '<div class="col-lg-6 mb-2"><h6 class="small text-uppercase text-muted">Storage</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($storRows) . '</div></div>' : '') . '</div>';
+
+    // RivetCore 1.0.0-rc.41 (issue #89 phase 4): where the 12 HOT RMM tables live (store_sizes, the active store) and the "consider PostgreSQL"
+    // advice (data_store_recommendation), additive keys of CapacityReport::build(). Never acted on automatically; see Administration > Endpoint
+    // agent > RMM data store to switch.
+    $dsRows = [];
+    $sizes = $cap['store_sizes'] ?? null;
+    if (is_array($sizes)) {
+        $dsRows[] = ['Active store', rivetRmmUiPill($sizes['kind'] === 'postgres' ? 'ok' : 'off', ucfirst((string) $sizes['kind']))];
+        $dsRows[] = ['Hot table rows/size', $sizes['available'] ? rmmH(number_format((int) $sizes['total_rows'])) . ' rows &middot; ' . rmmH(round($sizes['total_bytes'] / 1048576, 1)) . ' MB' : '<span class="text-muted">' . rmmH($sizes['error'] ?? 'not available') . '</span>'];
+    }
+    $rec = $cap['data_store_recommendation'] ?? null;
+    if (is_array($rec) && $rec['message'] !== null) {
+        $dsRows[] = ['Recommendation', rivetRmmUiPill('warn', 'Consider PostgreSQL') . ' ' . rmmH($rec['message']) . ($rec['growth_mb_per_day'] !== null ? ' About ' . rmmH($rec['growth_mb_per_day']) . ' MB/day growth.' : '')];
+    }
+    $detail = '<div class="row"><div class="col-lg-4 mb-2"><h6 class="small text-uppercase text-muted">Load and cache</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($cacheRows) . '</div></div>'
+        . ($storRows !== [] ? '<div class="col-lg-4 mb-2"><h6 class="small text-uppercase text-muted">Storage</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($storRows) . '</div></div>' : '')
+        . ($dsRows !== [] ? '<div class="col-lg-4 mb-2"><h6 class="small text-uppercase text-muted">Data store</h6><div class="rmm-scale-dl">' . rivetRmmUiDl($dsRows) . '</div></div>' : '') . '</div>';
 
     $guidance = '<p class="small text-muted mb-2" id="rmm-workers-help"><i class="fas fa-info-circle me-1" aria-hidden="true"></i><strong>Running several queue workers.</strong> Several workers are safe: on MariaDB 10.6 or later and MySQL 8.0.1 or later each job is claimed by exactly one worker (SKIP LOCKED), and on older servers a lease does the same, '
         . 'so you can raise or lower the number at any time. To run N workers, start N copies of the queue worker (for example N systemd service instances or N cron lines for <code>cron/integration_worker.php</code>); the hint above says what N should be. '
@@ -1416,7 +1431,7 @@ function rivetRmmUiCapacity(array $cap): string
         . $detail
         . ($tables !== '' ? '<div class="table-responsive"><table class="table table-sm mb-2"><caption class="visually-hidden">Largest endpoint agent tables</caption>' . rivetRmmUiThead(['Table', 'Rows (estimate)', 'Size']) . '<tbody>' . $tables . '</tbody></table></div>' : '')
         . $guidance
-        . '<p class="small mb-2"><a href="/admin/settings_endpoint_agent.php#scale"><i class="fas fa-cog me-1" aria-hidden="true"></i>Scale settings</a></p>'
+        . '<p class="small mb-2"><a href="/admin/settings_endpoint_agent.php#scale"><i class="fas fa-cog me-1" aria-hidden="true"></i>Scale settings</a> &middot; <a href="/admin/settings_endpoint_agent.php#datastore"><i class="fas fa-database me-1" aria-hidden="true"></i>RMM data store</a></p>'
         . '</div></section>';
 }
 

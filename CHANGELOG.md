@@ -8,7 +8,7 @@ continues unchanged.
 
 ## [26.10.72] RivetIT — the signing-page terms link is a setting, accent colors are always readable, a key-rotation gap closed, the leftover test failures fixed
 
-**Deploy notes:** database **2.6.197** adds `settings.config_terms_url` (text, empty): run the database update (Administration > Update, or `php scripts/update_cli.php --update_db`). **The outtake and worksheet signing pages no longer link a fixed address.**
+**Deploy notes:** database **2.6.198** (it follows the RivetCore rc.41 step 2.6.197 already on beta) adds `settings.config_terms_url` (text, empty): run the database update (Administration > Update, or `php scripts/update_cli.php --update_db`). **The outtake and worksheet signing pages no longer link a fixed address.**
 They show a terms link only once you set Administration > Settings > Tickets > "Terms & Conditions link"; an install that wants its previous link back enters it once. Until then the sentence "For full terms and conditions, please visit ..." is left out
 and the checkbox reads "I have read and agree to the terms above". If you rotate encryption keys, run the rewrap again after updating (see "Key rotation" below).
 

@@ -11861,10 +11861,35 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.196') {
-        // DB 2.6.197: the company's terms-and-conditions link for the outtake and worksheet signing pages (Admin > Settings > Tickets).
+        // DB 2.6.197: RivetCore 1.0.0-rc.41 (issue #89, "optional PostgreSQL data store for the hot RMM tables", phase 4
+        // for RivetIT; see UPGRADING.md "Adopting the data store setting and migration"). Runs CoreMigrations::all()
+        // once more (idempotent) to pick up migrations 0042/0043/0044 in one step, as the phase-4 prompt asks:
+        //   - 0042_rmm_data_store: endpoint_agent_settings.data_store varchar(16) NOT NULL DEFAULT 'mariadb' (phase 1,
+        //     rc.39) - already a no-op here since this install is already past rc.38, included for completeness/any
+        //     install that skipped straight here;
+        //   - 0043_rmm_store_denormalisation: nullable client_id on endpoint_agent_log_events, endpoint_agent_change_records
+        //     and endpoint_agent_change_state (backfilled from endpoint_agent_devices device by device), plus
+        //     rmm_metric_rollup_state, rmm_pending_client_moves, rmm_hot_store_faults;
+        //   - 0044_rmm_store_switch: endpoint_agent_settings.data_store_phase (nullable), plus rmm_data_store_connection
+        //     (one row, the PostgreSQL connection, password sealed) and rmm_store_migration (one row per migration run).
+        // All additive and idempotent; nothing existing is altered beyond the backfill. The data store stays 'mariadb'
+        // for every existing and new install until an administrator explicitly switches it from Administration > RMM >
+        // Data store - this migration alone changes no behaviour and opens no PostgreSQL connection.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.197'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.197') {
+        // DB 2.6.198: the company's terms-and-conditions link for the outtake and worksheet signing pages (Admin > Settings > Tickets).
         // Those pages used to link a fixed address that belonged to one company. The new column starts empty, so nothing is linked until
         // an administrator sets it (an install that wants its old link back enters it once). text, not varchar: `settings` is close to
         // MariaDB's row-size limit.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_terms_url` text DEFAULT NULL");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.197'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.198'");
     }
