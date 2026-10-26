@@ -44,7 +44,16 @@ function rivetRmmDataStoreLaunchVerify(array $args): array
     return rivetRmmDataStoreLaunchScript('rmm-store-verify.php', $args);
 }
 
-/** @return array{ok:bool,log:?string,pid:?int,error:?string} */
+/**
+ * @return array{ok:bool,log:?string,pid:?int,error:?string}
+ *
+ * Why exec() with a shell string, not proc_open() with an array command: this must be fire-and-forget (a migration can run for hours, and
+ * the web request must not wait for it). proc_open()'s process handle blocks on close - explicitly, or implicitly when PHP destroys the
+ * resource at request shutdown - until the CHILD exits, even though the child itself is detached by setsid; there is no array-form
+ * equivalent of a shell "&" that avoids this. A shell string is the only way to background it and let this request return immediately.
+ * Every dynamic element ($php, $scriptPath, every entry of $argv, $log) is wrapped in escapeshellarg() individually before concatenation,
+ * so each becomes exactly one shell word no matter what it contains; none of them is request text to begin with (see the call sites).
+ */
 function rivetRmmDataStoreLaunchScript(string $script, array $args): array
 {
     $root = dirname(__DIR__);
@@ -58,14 +67,14 @@ function rivetRmmDataStoreLaunchScript(string $script, array $args): array
     $dir = rivetRmmDataStoreRunDir();
     $log = $dir . '/' . preg_replace('/\.php$/', '', $script) . '-' . gmdate('Ymd\THis\Z') . '-' . bin2hex(random_bytes(4)) . '.log';
     $argv = array_merge(['--bootstrap=' . rivetRmmDataStoreBootstrapFile()], $args);
-    // Every token is built by this file from fixed strings and validated integers/enums before it reaches here (see admin/post/settings_endpoint_agent.php) -
-    // nothing here is request text, but escapeshellarg is still used for every token, defensively.
     $cmd = 'setsid ' . escapeshellarg($php) . ' ' . escapeshellarg($scriptPath);
     foreach ($argv as $a) {
         $cmd .= ' ' . escapeshellarg($a);
     }
     $cmd .= ' > ' . escapeshellarg($log) . ' 2>&1 < /dev/null & echo $!';
     $out = [];
+    // nosemgrep: php.lang.security.exec-use.exec-use -- every dynamic token above is individually escapeshellarg()'d (see the docblock); the
+    // only unescaped characters are the fixed shell syntax ('setsid', '>', '2>&1', '< /dev/null', '& echo $!'), not request text.
     exec($cmd, $out);
     $pid = isset($out[0]) && ctype_digit(trim($out[0])) ? (int) trim($out[0]) : null;
     if ($pid === null) {
