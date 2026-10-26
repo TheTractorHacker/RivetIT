@@ -12,7 +12,7 @@ info:
     (`Authorization: Bearer <token>`) OR a legacy instance API key
     (`X-Api-Key: <key>`). The legacy key resolves to the first active admin and
     is intentionally denied on `/credentials` and `/me`. The `/auth`,
-    `/openapi` and `/docs` endpoints are public (no token required).
+    `/branding`, `/openapi` and `/docs` endpoints are public (no token required).
 
 
     Response conventions:
@@ -55,6 +55,28 @@ security:
   - bearerAuth: []
   - ApiKeyAuth: []
 paths:
+  /branding:
+    get:
+      tags: [Auth]
+      summary: Public company identity for mobile sign-in and app branding
+      description: Returns the same company name and uploaded logo shown on the public login page. An uploaded logo replaces product artwork. No credentials or settings are returned.
+      security: []
+      responses:
+        '200':
+          description: Company identity; null logo_path means the server has no uploaded logo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, logo_path]
+                properties:
+                  name:
+                    type: string
+                  logo_path:
+                    type: string
+                    nullable: true
+        '429':
+          description: Rate limit exceeded
   /auth:
     post:
       tags: [Auth]
