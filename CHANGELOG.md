@@ -6,6 +6,28 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.73] RivetIT — RivetCore 1.0.0-rc.41: optional PostgreSQL data store for the RMM hot tables (beta feature)
+
+**Deploy notes:** database 2.6.197 runs Core migrations 0042-0044 (idempotent) - adds `endpoint_agent_settings.data_store`/`data_store_phase`, a nullable `client_id`
+on the log/change tables, and five new tables (`rmm_metric_rollup_state`, `rmm_pending_client_moves`, `rmm_hot_store_faults`, `rmm_data_store_connection`,
+`rmm_store_migration`). Mirrored in db.sql. **MariaDB stays the default and nothing changes for an install that does not touch the new card** - no PostgreSQL
+extension is required, no PostgreSQL connection is ever opened, until an administrator saves a tested connection and switches.
+
+- **Administration > Endpoint agent > RMM data store.** The twelve hot RMM tables (metric history, check/log/change/software/patch/deployment/hypervisor
+  history) can optionally live in PostgreSQL instead of MariaDB, for a large fleet with long retention. A new card: a connection form (password sealed, never
+  echoed; retype required when host/port/role/database change), Test connection, Switch to PostgreSQL (requires an explicit "does not move data"
+  acknowledgement) / Switch back, and a Migrate data / Resume / Abort / Roll back / Purge flow that runs as a detached background process, never inside the
+  web request, with a live progress log.
+- **Capacity panel.** The "Performance and capacity" panel now shows the active store's table sizes and a "consider PostgreSQL" recommendation once a fleet
+  nears MariaDB's comfortable size; advice only, nothing switches by itself.
+- **Backup and restore.** `deploy/backup.sh`/`restore.sh` learn the second database: when the data store is PostgreSQL, its dump travels inside the SAME
+  encrypted archive as the control database (recorded in the manifest), and `rmm-store-verify.php` reconciles the two after a restore.
+- **Known limitation, not yet usable in production:** the RivetCore package currently ships only its PHP classes, not the standalone CLI scripts
+  (`rmm-postgres.php`, the migrate/verify/backup/restore scripts) that the "Migrate data" button and the PostgreSQL backup/restore steps call - a
+  `rivet-core` packaging gap (`.gitattributes` excludes `scripts/*`), not a RivetIT bug. The connection/test/switch mechanism itself was verified end to end
+  against a real PostgreSQL 16 server. Installing `php-pgsql` and PostgreSQL is a deliberate administrator choice (see `docs/rmm/POSTGRES.md` in
+  `vendor/rivet/rivet-core`); neither is installed by this release.
+
 ## [26.10.71] RivetIT — branding pull: one source for the product name, logo and accent fixes, a WCAG warning for the company accent
 
 **Deploy notes:** no database change and no new setting. CSS and the portal header changed (cache-busted by file time); a browser refresh is enough.
