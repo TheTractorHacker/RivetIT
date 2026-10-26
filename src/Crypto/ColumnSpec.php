@@ -26,6 +26,13 @@ final class ColumnSpec
         public readonly ?\Closure $contextFn = null,
         /** Second primary key column of a composite integer key (rmm_custom_field_values: field_id, scope_id); the row id is then "<pk>:<pk2>". */
         public readonly ?string $pk2 = null,
+        /**
+         * Further primary-key columns after `pk`, for a table whose key is wider than one or two integers (rmm_package_params: package_id,
+         * scope_type, scope_id, name). Column name => 'i' (integer) or 's' (string). The row id is then the JSON list of all key values in order.
+         *
+         * @var array<string,string>|null
+         */
+        public readonly ?array $keyCols = null,
     ) {
     }
 

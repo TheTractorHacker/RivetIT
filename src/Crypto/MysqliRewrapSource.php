@@ -63,6 +63,9 @@ final class MysqliRewrapSource implements RewrapSource
             $where .= ' AND ' . $this->rowFilter;
         }
         $limit = max(1, $limit);
+        if ($this->spec->keyCols !== null) {
+            return $this->nextMulti($afterId, $limit, $t, $col, $where);
+        }
         if ($this->spec->pk2 !== null) {
             return $this->nextComposite($afterId, $limit, $t, $pk, $this->ident($this->spec->pk2), $col, $where);
         }
@@ -122,11 +125,101 @@ final class MysqliRewrapSource implements RewrapSource
         return $items;
     }
 
+    /** @return list<array{0:string,1:string}> every key column in order as [name, 'i'|'s']: the first (pk) then the spec's further key columns */
+    private function keyColumns(): array
+    {
+        $cols = [[$this->spec->pk, $this->spec->numericPk ? 'i' : 's']];
+        foreach ($this->spec->keyCols ?? [] as $name => $type) {
+            $cols[] = [(string) $name, $type === 'i' ? 'i' : 's'];
+        }
+
+        return $cols;
+    }
+
+    /**
+     * A table keyed by more than one or two integers: ids are the JSON list of the key values, rows are ordered by the whole key and the
+     * cursor is exclusive (a row-value comparison, so mixed integer and string columns page correctly).
+     *
+     * @return list<RewrapItem>
+     */
+    private function nextMulti(?string $afterId, int $limit, string $t, string $col, string $where): array
+    {
+        $keys = $this->keyColumns();
+        $list = implode(', ', array_map(fn (array $k): string => $this->ident($k[0]), $keys));
+        $types = '';
+        $params = [];
+        if ($afterId !== null) {
+            $after = json_decode($afterId, true);
+            if (!is_array($after) || count($after) !== count($keys)) {
+                throw new \RuntimeException('Rewrap source ' . $this->name() . ' was given a cursor it did not produce.');
+            }
+            $where .= " AND ($list) > (" . implode(', ', array_fill(0, count($keys), '?')) . ')';
+            foreach ($keys as $i => [, $type]) {
+                $types .= $type;
+                $params[] = $type === 'i' ? (int) $after[$i] : (string) $after[$i];
+            }
+        }
+        $stmt = $this->db->prepare("SELECT $list, $col AS val FROM $t WHERE $where ORDER BY $list ASC LIMIT $limit");
+        if (!$stmt) {
+            throw new \RuntimeException('Rewrap source ' . $this->name() . ' could not prepare its read.');
+        }
+        if ($params !== []) {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $items = [];
+        while ($row = $res->fetch_assoc()) {
+            $values = [];
+            foreach ($keys as [$name, $type]) {
+                $values[] = $type === 'i' ? (int) $row[$name] : (string) $row[$name];
+            }
+            $id = json_encode($values, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $items[] = new RewrapItem($id, (string) $row['val'], $this->spec->contextFor($id));
+        }
+        $stmt->close();
+
+        return $items;
+    }
+
+    private function replaceMulti(string $id, string $expected, string $replacement): bool
+    {
+        $keys = $this->keyColumns();
+        $values = json_decode($id, true);
+        if (!is_array($values) || count($values) !== count($keys)) {
+            return false;
+        }
+        $t = $this->ident($this->spec->table);
+        $col = $this->ident($this->spec->column);
+        $where = implode(' AND ', array_map(fn (array $k): string => $this->ident($k[0]) . ' = ?', $keys));
+        $stmt = $this->db->prepare("UPDATE $t SET $col = ? WHERE $where AND BINARY $col = BINARY ?");
+        if (!$stmt) {
+            return false;
+        }
+        $types = 's';
+        $params = [$replacement];
+        foreach ($keys as $i => [, $type]) {
+            $types .= $type;
+            $params[] = $type === 'i' ? (int) $values[$i] : (string) $values[$i];
+        }
+        $types .= 's';
+        $params[] = $expected;
+        $stmt->bind_param($types, ...$params);
+        $ok = $stmt->execute();
+        $changed = $ok ? $stmt->affected_rows : 0;
+        $stmt->close();
+
+        return $changed === 1;
+    }
+
     public function replace(string $id, string $expected, string $replacement): bool
     {
         $cap = $this->capacity();
         if ($cap !== null && strlen($replacement) > $cap) {
             return false;
+        }
+        if ($this->spec->keyCols !== null) {
+            return $this->replaceMulti($id, $expected, $replacement);
         }
         if ($this->spec->pk2 !== null) {
             [$a, $b] = array_map('intval', explode(':', $id, 2) + [1 => '0']);

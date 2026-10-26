@@ -60,6 +60,11 @@ final class ColumnRegistry
         // on the old key (v3: under a retired key, or ENC2:), so retiring the key would have made them unreadable.
         $specs[] = new ColumnSpec('rmm_job_extra', 'job_id', 'secret_params_enc', 'settings', false, false);
         $specs[] = new ColumnSpec('rmm_custom_field_values', 'field_id', 'value_enc', 'settings', false, true, null, 'scope_id');
+        // RivetCore's auto-install parameter VALUES (rmm_package_params, added with the auto-install tables) are sealed with the same settings vault through
+        // PackageParams -> EndpointSecretBox -> encryptSetting() (generic context, so no row binding), but the table is keyed by four columns (package, scope type,
+        // scope id, name), which no earlier spec could express. Left out, a rotation would have kept these values on the old key and retiring it would have made
+        // them unreadable, exactly as for the two RMM columns above.
+        $specs[] = new ColumnSpec('rmm_package_params', 'package_id', 'value_enc', 'settings', false, true, null, null, ['scope_type' => 's', 'scope_id' => 'i', 'name' => 's']);
         // The license keys were cleartext on old installs; every reader goes through decryptSetting().
         $specs[] = new ColumnSpec('software', 'software_id', 'software_key', 'settings', true);
         $specs[] = new ColumnSpec('software_keys', 'software_key_id', 'software_key', 'settings', true);
