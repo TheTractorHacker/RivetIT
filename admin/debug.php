@@ -3,6 +3,15 @@
 require_once "includes/inc_all_admin.php";
 require_once "../includes/database_version.php";
 require_once "../config.php";
+require_once "../includes/rmm_bootstrap.php";   // rivetRmmModule(), for the RMM data store row below
+
+// DataStoreSwitch::status() never connects - only reads rmm_data_store_connection/rmm_store_migration - so it is safe on every
+// load of this page. Never includes the password or its sealed value (connectionSettings() only ever returns password_set, a bool).
+$pg_status = null;
+try {
+    $pg_status = rivetRmmModule()->dataStoreSwitch()->status();
+} catch (\Throwable) {
+}
 
 $checks = [];
 
@@ -541,6 +550,24 @@ $mysqli->close();
                 <tr>
                     <td>Current DB Version</td>
                     <td><?php echo CURRENT_DATABASE_VERSION; ?></td>
+                </tr>
+                <tr>
+                    <td>RMM data store</td>
+                    <td><?php
+                        if ($pg_status === null) {
+                            echo 'unknown';
+                        } elseif ($pg_status['data_store'] !== 'postgres') {
+                            echo 'MariaDB';
+                        } else {
+                            $pg_conn = $pg_status['connection'];
+                            if ($pg_conn === null) {
+                                echo 'PostgreSQL (no connection saved)';
+                            } else {
+                                echo 'PostgreSQL, password ' . ($pg_conn['password_set'] ? 'stored' : 'not stored (peer auth)')
+                                    . ', last test: ' . ($pg_conn['tested_at'] !== null ? htmlspecialchars((string) $pg_conn['tested_at']) . ' UTC, ' . ($pg_conn['test_ok'] ? 'OK' : 'FAILED') : 'never');
+                            }
+                        }
+                    ?></td>
                 </tr>
                 <tr>
                     <td>Current Code Commit</td>

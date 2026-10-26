@@ -37,12 +37,6 @@ if ($cfg === null) {
     exit(1);
 }
 
-$passFile = tempnam(sys_get_temp_dir(), 'rivetit-pgpass-');
-chmod($passFile, 0600);
-// One line, libpq .pgpass format: hostname:port:database:username:password. ':' and '\' in a field are escaped per the libpq rule.
-$esc = static fn (string $v): string => str_replace([':', '\\'], ['\\:', '\\\\'], $v);
-file_put_contents($passFile, $esc($cfg->host) . ':' . $cfg->port . ':' . $esc($cfg->database) . ':' . $esc($cfg->user) . ':' . $esc($cfg->password()) . "\n");
-
 $lines = [
     'RIVETCORE_PG_DATABASE' => $cfg->database,
     'RIVETCORE_PG_USER' => $cfg->user,
@@ -50,8 +44,18 @@ $lines = [
     'RIVETCORE_PG_PORT' => (string) $cfg->port,
     'RIVETCORE_PG_SSLMODE' => $cfg->sslMode,
     'RIVETCORE_PG_SCHEMA' => $cfg->schema,
-    'PGPASSFILE' => $passFile,
 ];
+
+// Peer authentication (same-server, no stored password - see includes/rmm_data_store_cards.php's recommended setup): no password
+// file at all, not even an empty one. pg_dump then authenticates exactly like the PHP side does, by Unix user name over the socket.
+if ($cfg->password() !== '') {
+    $passFile = tempnam(sys_get_temp_dir(), 'rivetit-pgpass-');
+    chmod($passFile, 0600);
+    // One line, libpq .pgpass format: hostname:port:database:username:password. ':' and '\' in a field are escaped per the libpq rule.
+    $esc = static fn (string $v): string => str_replace([':', '\\'], ['\\:', '\\\\'], $v);
+    file_put_contents($passFile, $esc($cfg->host) . ':' . $cfg->port . ':' . $esc($cfg->database) . ':' . $esc($cfg->user) . ':' . $esc($cfg->password()) . "\n");
+    $lines['PGPASSFILE'] = $passFile;
+}
 foreach ($lines as $k => $v) {
     echo 'export ' . $k . '=' . escapeshellarg($v) . "\n";
 }

@@ -4310,6 +4310,22 @@ CREATE TABLE `rmm_store_migration` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rivetit_rmm_pg_credential_meta` (edition-owned: when the RMM PostgreSQL password was last changed; see
+-- includes/rmm_data_store_cards.php "Change password" - rmm_data_store_connection itself is a RivetCore table, migration 0044)
+--
+
+DROP TABLE IF EXISTS `rivetit_rmm_pg_credential_meta`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rivetit_rmm_pg_credential_meta` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `changed_at` datetime DEFAULT NULL,
+  `changed_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `rmm_storm_summaries`
 --
 

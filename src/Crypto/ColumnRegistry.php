@@ -65,6 +65,11 @@ final class ColumnRegistry
         // scope id, name), which no earlier spec could express. Left out, a rotation would have kept these values on the old key and retiring it would have made
         // them unreadable, exactly as for the two RMM columns above.
         $specs[] = new ColumnSpec('rmm_package_params', 'package_id', 'value_enc', 'settings', false, true, null, null, ['scope_type' => 's', 'scope_id' => 'i', 'name' => 's']);
+        // The RMM data store setting's PostgreSQL password (RivetCore 1.0.0-rc.41, migration 0044): a single row, id = 1, sealed the same way
+        // (DataStoreSwitch calls SecretBoxInterface::encrypt() with no context, so the generic AAD). Missing from this list, a rotation would
+        // leave it on the old key exactly as the two RMM columns above did before they were added; wrapPlaintext stays false - the column is
+        // always either NULL or already sealed, never a legacy cleartext value to migrate.
+        $specs[] = new ColumnSpec('rmm_data_store_connection', 'id', 'password_sealed', 'settings', false, true);
         // The license keys were cleartext on old installs; every reader goes through decryptSetting().
         $specs[] = new ColumnSpec('software', 'software_id', 'software_key', 'settings', true);
         $specs[] = new ColumnSpec('software_keys', 'software_key_id', 'software_key', 'settings', true);

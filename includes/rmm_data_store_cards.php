@@ -13,7 +13,7 @@
 require_once __DIR__ . '/rmm_scale_cards.php';   // rivetRmmScaleCard(), rmmH(), rivetRmmUiPill(), rivetRmmUiDl(), rivetRmmScaleMsgHtml()
 
 /**
- * @param array{status:array<string,mixed>,conn:?array<string,mixed>,msg:?array{type:string,text:string},old:array<string,mixed>,run:array<string,mixed>,run_log:list<array<string,mixed>>,module_on:bool,csrf:string} $ctx
+ * @param array{status:array<string,mixed>,conn:?array<string,mixed>,msg:?array{type:string,text:string},old:array<string,mixed>,run:array<string,mixed>,run_log:list<array<string,mixed>>,module_on:bool,csrf:string,cred_meta:?array{changed_at:?string,changed_by:int}} $ctx
  */
 function rivetRmmDataStoreCard(array $ctx): string
 {
@@ -27,21 +27,51 @@ function rivetRmmDataStoreCard(array $ctx): string
 
     $msg = rivetRmmScaleMsgHtml($ctx['msg']);
 
+    // ---- recommended same-server setup: no password stored at all (PostgresConfig and DataStoreSwitch both accept an empty
+    // password - verified against a real server; peer authentication matches the connecting OS user to the role by name, and
+    // PHP-FPM/cron/CLI all run as www-data on this box, so a role named exactly "www-data" needs no secret anywhere).
+    $peerPanel = '<div class="alert alert-info py-2 mb-3"><p class="mb-2"><i class="fas fa-shield-alt me-1" aria-hidden="true"></i><strong>Recommended for a same-server PostgreSQL: no stored password.</strong> '
+        . 'PostgreSQL authenticates the connecting Unix user by name (peer authentication) instead of a password, so nothing is sealed, stored or rotated for this connection at all.</p>'
+        . '<p class="small mb-1">As the <code>postgres</code> OS user, for a <strong>new</strong> installation:</p>'
+        . '<pre class="small bg-dark text-white p-2 rounded mb-2" style="white-space:pre-wrap">sudo -u postgres psql &lt;&lt;\'SQL\'
+CREATE ROLE "www-data" LOGIN;
+CREATE DATABASE rivet_rmm OWNER "www-data" ENCODING \'UTF8\' LC_COLLATE \'C.UTF-8\' LC_CTYPE \'C.UTF-8\' TEMPLATE template0;
+\c rivet_rmm
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO "www-data";
+SQL</pre>'
+        . '<p class="small mb-1">Moving an <strong>existing</strong> password-based install off the password role (run as <code>postgres</code>; replace <code>rivet_rmm</code> with the current role name if different):</p>'
+        . '<pre class="small bg-dark text-white p-2 rounded mb-2" style="white-space:pre-wrap">sudo -u postgres psql &lt;&lt;\'SQL\'
+CREATE ROLE "www-data" LOGIN;
+GRANT ALL ON DATABASE rivet_rmm TO "www-data";
+\c rivet_rmm
+ALTER DATABASE rivet_rmm OWNER TO "www-data";
+REASSIGN OWNED BY rivet_rmm TO "www-data";
+-- only after the card below is saved, tested and switched over to the new role:
+-- DROP ROLE rivet_rmm;
+SQL</pre>'
+        . '<p class="small mb-1">Then, in <code>pg_hba.conf</code>, a <code>local</code> (unix socket) line for the new role instead of a password method, and reload PostgreSQL:</p>'
+        . '<pre class="small bg-dark text-white p-2 rounded mb-0" style="white-space:pre-wrap">local   rivet_rmm   www-data                    peer
+systemctl reload postgresql</pre>'
+        . '<button type="button" class="btn btn-sm btn-outline-info mt-2" data-ds-fill-peer>Fill in the form below for this setup</button>'
+        . '</div>';
+
     // ---- connection form
+    $pwPlaceholder = ($conn['password_set'] ?? false) ? 'leave blank to keep the stored password' : 'leave blank for peer authentication (recommended, same server)';
     $form = '<form method="post" action="post.php" id="ds_conn_form" autocomplete="off">' . $csrf
         . '<div class="row g-2">'
         . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_host">Host</label><input class="form-control form-control-sm" id="ds_host" name="ds_host" value="' . rmmH($val('host', '127.0.0.1')) . '" maxlength="255" placeholder="127.0.0.1 or /var/run/postgresql" required></div>'
         . '<div class="col-sm-3 col-lg-2"><label class="form-label small" for="ds_port">Port</label><input type="number" class="form-control form-control-sm" id="ds_port" name="ds_port" value="' . rmmH($val('port', '5432')) . '" min="1" max="65535" required></div>'
         . '<div class="col-sm-3 col-lg-3"><label class="form-label small" for="ds_db">Database</label><input class="form-control form-control-sm" id="ds_db" name="ds_db" value="' . rmmH($val('database')) . '" maxlength="63" required></div>'
         . '<div class="col-sm-6 col-lg-3"><label class="form-label small" for="ds_user">Role</label><input class="form-control form-control-sm" id="ds_user" name="ds_user" value="' . rmmH($val('user')) . '" maxlength="63" required></div>'
-        . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_pass">Password</label><input type="password" class="form-control form-control-sm" id="ds_pass" name="ds_pass" autocomplete="new-password" placeholder="' . (($conn['password_set'] ?? false) ? 'leave blank to keep the stored password' : 'required the first time') . '"></div>'
+        . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_pass">Password <span class="text-muted">(blank = peer auth, see above)</span></label><input type="password" class="form-control form-control-sm" id="ds_pass" name="ds_pass" autocomplete="new-password" placeholder="' . rmmH($pwPlaceholder) . '"></div>'
         . '<div class="col-sm-4 col-lg-2"><label class="form-label small" for="ds_sslmode">SSL mode</label><select class="form-select form-select-sm" id="ds_sslmode" name="ds_sslmode">'
         . implode('', array_map(static fn (string $m) => '<option value="' . $m . '"' . ($val('sslmode', 'prefer') === $m ? ' selected' : '') . '>' . $m . '</option>', ['disable', 'prefer', 'require', 'verify-ca', 'verify-full']))
         . '</select></div>'
         . '<div class="col-sm-4 col-lg-3"><label class="form-label small" for="ds_schema">Schema</label><input class="form-control form-control-sm" id="ds_schema" name="ds_schema" value="' . rmmH($val('schema', 'public')) . '" maxlength="63"></div>'
         . '<div class="col-sm-4 col-lg-3"><label class="form-label small" for="ds_rootcert">SSL root CA file (optional)</label><input class="form-control form-control-sm" id="ds_rootcert" name="ds_rootcert" value="' . rmmH($val('sslrootcert')) . '" maxlength="255"></div>'
         . '</div>'
-        . '<p class="small text-muted mt-2 mb-2">Changing the host, port, role or database requires retyping the password (the stored one is only ever reused for the exact target it was saved for); a stored password reused for a host other than localhost/127.0.0.1/::1/a unix socket needs SSL mode <code>verify-full</code> or <code>verify-ca</code>.</p>'
+        . '<p class="small text-muted mt-2 mb-2">Changing the host, port, role or database requires retyping the password (the stored one is only ever reused for the exact target it was saved for); a stored password reused for a host other than localhost/127.0.0.1/::1/a unix socket needs SSL mode <code>verify-full</code> or <code>verify-ca</code>. A connection with no password at all (peer authentication) is only usable over a unix socket (host starting with <code>/</code>).</p>'
         . '<button type="submit" name="save_datastore_connection" class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-save me-1" aria-hidden="true"></i>Save connection</button>'
         . '<button type="submit" name="test_datastore" class="btn btn-outline-primary btn-sm" data-ds-test><i class="fas fa-vial me-1" aria-hidden="true"></i>Test connection</button>'
         . '<div class="mt-2" data-ds-test-live aria-live="polite"></div>'
@@ -49,11 +79,20 @@ function rivetRmmDataStoreCard(array $ctx): string
 
     // ---- status readout
     $connRows = [];
+    $credMeta = $ctx['cred_meta'] ?? null;
     if ($conn !== null) {
         $connRows[] = ['Target', rmmH($conn['user'] . '@' . $conn['host'] . ':' . $conn['port'] . '/' . $conn['database']) . ' (schema ' . rmmH($conn['schema']) . ')'];
         $connRows[] = ['Last test', $conn['tested_at'] === null ? rivetRmmUiPill('off', 'Never tested') : ($conn['test_ok'] ? rivetRmmUiPill('ok', 'OK') . ' ' . rmmH($conn['tested_at']) . ' UTC' : rivetRmmUiPill('warn', 'Failed') . ' ' . rmmH($conn['tested_at']) . ' UTC')];
         $connRows[] = ['Storage mode', $conn['storage_mode'] === null ? '<span class="text-muted">not created yet</span>' : rmmH($conn['storage_mode'])];
         $connRows[] = ['Server version', $conn['server_version'] === null ? '<span class="text-muted">unknown</span>' : rmmH($conn['server_version'])];
+        if (!empty($conn['password_set'])) {
+            $changedAt = $credMeta['changed_at'] ?? null;
+            $daysOld = $changedAt !== null ? (int) floor((time() - strtotime($changedAt . ' UTC')) / 86400) : null;
+            $changedText = $changedAt === null ? '<span class="text-muted">unknown (saved before this was tracked)</span>' : rmmH($changedAt) . ' UTC (' . $daysOld . ' day' . ($daysOld === 1 ? '' : 's') . ' ago)';
+            $connRows[] = ['Password', rivetRmmUiPill('warn', 'Stored') . ' credential last changed: ' . $changedText . ($daysOld !== null && $daysOld > 90 ? ' ' . rivetRmmUiPill('warn', 'Over 90 days - consider rotating') : '')];
+        } else {
+            $connRows[] = ['Password', rivetRmmUiPill('ok', 'Not stored (peer authentication)')];
+        }
     } else {
         $connRows[] = ['Connection', '<span class="text-muted">none saved yet</span>'];
     }
@@ -87,10 +126,25 @@ function rivetRmmDataStoreCard(array $ctx): string
             . '</form>';
     }
 
+    // ---- change password (rotation): a separate action from "Save connection" - the new password is TESTED against the unchanged
+    // host/port/user/database before the sealed value is replaced, never the other way round. Only shown once a password-based
+    // connection is already stored; a peer-auth connection has nothing to rotate.
+    $rotateBlock = '';
+    if ($conn !== null && !empty($conn['password_set'])) {
+        $rotateBlock = '<h6 class="mt-3">Change password</h6>'
+            . '<p class="small text-muted">First change it in PostgreSQL (as the <code>postgres</code> user, or the current role itself):</p>'
+            . '<pre class="small bg-dark text-white p-2 rounded mb-2" style="white-space:pre-wrap">ALTER ROLE ' . rmmH($conn['user']) . ' WITH PASSWORD \'&lt;new password&gt;\';</pre>'
+            . '<form method="post" action="post.php" autocomplete="off" class="row g-2 align-items-end">' . $csrf
+            . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_newpass">New password</label><input type="password" class="form-control form-control-sm" id="ds_newpass" name="ds_newpass" autocomplete="new-password" required></div>'
+            . '<div class="col-sm-6 col-lg-4"><button type="submit" name="change_datastore_password" class="btn btn-warning btn-sm"><i class="fas fa-key me-1" aria-hidden="true"></i>Test and change password</button></div>'
+            . '</form>'
+            . '<p class="small text-muted mt-1 mb-0">Tested against the stored host, port, role, database and SSL mode (unchanged) before the stored value is replaced. Nothing is saved if the test fails.</p>';
+    }
+
     // ---- migration controls
     $migrateBlock = rivetRmmDataStoreMigrateBlock($status, $ctx['run'] ?? [], $ctx['run_log'] ?? [], $csrf, $kind);
 
-    $body = $msg . $leftBehind . '<h6>Connection</h6>' . $form . '<hr>' . $switchBlock . '<hr><h6>Switch</h6>' . $switchForms . '<hr>' . $migrateBlock;
+    $body = $msg . $leftBehind . $peerPanel . '<h6>Connection</h6>' . $form . $rotateBlock . '<hr>' . $switchBlock . '<hr><h6>Switch</h6>' . $switchForms . '<hr>' . $migrateBlock;
 
     return rivetRmmScaleCard('datastore', 'database', 'RMM data store', $isPg, $body, $isPg ? 'PostgreSQL' : 'MariaDB (default)');
 }

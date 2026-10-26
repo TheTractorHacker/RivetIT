@@ -40,7 +40,9 @@ backup_postgres_dump() {
     # PGPASSFILE is shredded explicitly inside the subshell instead, before it exits either way.
     (
         eval "${env_lines}"
-        trap 'shred -u "${PGPASSFILE}" 2>/dev/null || rm -f "${PGPASSFILE}"' EXIT
+        # Peer auth (same-server, no stored password): pg_dump_env.php exports no PGPASSFILE at all in that mode, so there is
+        # nothing here to shred.
+        trap '[[ -n "${PGPASSFILE:-}" ]] && { shred -u "${PGPASSFILE}" 2>/dev/null || rm -f "${PGPASSFILE}"; }' EXIT
         info "Dumping the RMM PostgreSQL store (${RIVETCORE_PG_DATABASE})..."
         "${APP_DIR}/vendor/rivet/rivet-core/scripts/rmm-postgres-backup.sh" > "${out}"
     )

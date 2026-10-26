@@ -2,6 +2,7 @@
 require_once "includes/inc_all_admin.php";
 
 require_once "../includes/database_version.php";
+require_once "../includes/rmm_bootstrap.php";   // rivetRmmModule(), for the RMM data store tile below
 
 // After an update the web server may need a new route (see docs/WEB_ROUTES.md). Cheap on purpose: the routes file on disk plus the last
 // cached self-check, no network here. Nothing in this page can change nginx; the fix is one command run as root.
@@ -40,6 +41,15 @@ foreach (explode("\n", (string) $git_log_raw) as $git_log_line) {
     if ($git_log_line !== '') {
         $pending_count++;
     }
+}
+
+// DataStoreSwitch::status() never connects (it only reads rmm_data_store_connection/rmm_store_migration), so this is safe to show
+// on every page load. Core's own DataStoreInfo (richer: live connectivity) is not released yet; this is the no-connect fallback
+// item 8 of the PostgreSQL credential hardening work asked for - swap to DataStoreInfo once Core ships it.
+$pg_status = null;
+try {
+    $pg_status = rivetRmmModule()->dataStoreSwitch()->status();
+} catch (\Throwable) {
 }
 
 $db_pending  = version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>');
@@ -191,6 +201,25 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                     <?php if ($db_pending) { ?><span class="text-warning">&rarr; <?php echo LATEST_DATABASE_VERSION; ?></span><?php } ?>
                 </div>
             </div>
+            <?php if ($pg_status !== null) { ?>
+            <div class="upd-tile">
+                <div class="upd-tile-label">RMM data store</div>
+                <div class="upd-tile-value">
+                    <?php
+                    $pg_conn = $pg_status['connection'];
+                    if ($pg_status['data_store'] !== 'postgres') {
+                        echo 'MariaDB';
+                    } elseif ($pg_conn === null) {
+                        echo '<span class="text-danger">PostgreSQL (no connection saved)</span>';
+                    } elseif (!$pg_conn['test_ok']) {
+                        echo '<span class="text-danger">PostgreSQL (last test failed' . ($pg_conn['tested_at'] !== null ? ', ' . htmlspecialchars((string) $pg_conn['tested_at']) . ' UTC' : ', never tested') . ')</span> <a href="settings_endpoint_agent.php">Fix</a>';
+                    } else {
+                        echo 'PostgreSQL ' . htmlspecialchars((string) ($pg_conn['server_version'] ?? '')) . ' <span class="text-success">OK</span>';
+                    }
+                    ?>
+                </div>
+            </div>
+            <?php } ?>
         </div>
     </div>
 </div>

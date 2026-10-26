@@ -41,6 +41,26 @@
         });
     });
 
+    // "Fill in the form below for this setup" - the recommended same-server/peer-auth preset. Pure convenience: the form already
+    // accepts a blank password, this just saves typing the socket path and role name by hand.
+    document.querySelectorAll('[data-ds-fill-peer]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var host = document.getElementById('ds_host');
+            var port = document.getElementById('ds_port');
+            var db = document.getElementById('ds_db');
+            var user = document.getElementById('ds_user');
+            var pass = document.getElementById('ds_pass');
+            var sslmode = document.getElementById('ds_sslmode');
+            if (host) { host.value = '/var/run/postgresql'; }
+            if (port) { port.value = '5432'; }
+            if (db && !db.value) { db.value = 'rivet_rmm'; }
+            if (user) { user.value = 'www-data'; }
+            if (pass) { pass.value = ''; }
+            if (sslmode) { sslmode.value = 'disable'; }
+            if (host) { host.focus(); }
+        });
+    });
+
     document.querySelectorAll('[data-ds-progress-refresh]').forEach(function (btn) {
         var card = btn.closest('.rmm-scale-card');
         var live = card ? card.querySelector('[data-ds-progress-live]') : null;

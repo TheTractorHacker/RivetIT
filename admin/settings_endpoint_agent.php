@@ -606,11 +606,21 @@ try {
 } catch (\Throwable) {
     $__dsConn = null;
 }
+// Edition-owned (rmm_data_store_connection is RivetCore's table): when the PostgreSQL password was last changed through the
+// "Change password" action, for the 90-day-warning readout. Never holds the password itself.
+$__dsCredMeta = null;
+try {
+    $__cm = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT changed_at, changed_by FROM rivetit_rmm_pg_credential_meta WHERE id = 1'));
+    if ($__cm) {
+        $__dsCredMeta = ['changed_at' => $__cm['changed_at'], 'changed_by' => (int) $__cm['changed_by']];
+    }
+} catch (\Throwable) {
+}
 $eaTab('inventory');
 echo rivetRmmDataStoreCard([
     'status' => $__dsStatus, 'conn' => $__dsConn, 'msg' => $__dsMsg, 'old' => $__dsOld,
     'run' => $__dsStatus['migration'] ?? [], 'run_log' => rivetRmmDataStoreTailLog(rivetRmmDataStoreCurrentLog()),
-    'module_on' => $moduleOn, 'csrf' => $csrf,
+    'module_on' => $moduleOn, 'csrf' => $csrf, 'cred_meta' => $__dsCredMeta,
 ]);
 ?>
 <script src="/js/rmm_data_store.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/js/rmm_data_store.js') ?>" defer></script>

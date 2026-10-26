@@ -11893,3 +11893,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_terms_url` text DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.198'");
     }
+
+    if ($rivetit_db_version() == '2.6.198') {
+        // DB 2.6.199: when the RMM PostgreSQL password (rmm_data_store_connection.password_sealed, a RivetCore table) was last changed through
+        // the Data store card's "Change password" action, for the 90-day-warning readout. rmm_data_store_connection belongs to RivetCore
+        // (migration 0044) and is read whole by RmmModule code, so this edition-owned table carries the timestamp instead of a column added
+        // to it. One row, id = 1; a device credential's revocation reason, nowhere near this table's size limit.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `rivetit_rmm_pg_credential_meta` (
+  `id` tinyint(4) NOT NULL DEFAULT 1,
+  `changed_at` datetime DEFAULT NULL,
+  `changed_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.199'");
+    }

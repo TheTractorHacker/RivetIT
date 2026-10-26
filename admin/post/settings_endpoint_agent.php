@@ -1593,6 +1593,46 @@ if (isset($_POST['save_datastore_connection'])) {
     ea_scale_back('datastore');
 }
 
+if (isset($_POST['change_datastore_password'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $newPassword = (string) ($_POST['ds_newpass'] ?? '');
+    if ($newPassword === '') {
+        rivetRmmScaleMsg('datastore', 'error', 'Type the new password. Nothing was changed.');
+        ea_scale_back('datastore');
+    }
+    $stored = $rmm->dataStoreSwitch()->connectionSettings();
+    if ($stored === null) {
+        rivetRmmScaleMsg('datastore', 'error', 'No connection is saved yet; use "Save connection" first.');
+        ea_scale_back('datastore');
+    }
+    // Same target as already stored (host/port/role/database/schema/sslmode unchanged) - only the password itself changes, and it is
+    // TESTED before the sealed value is replaced; a failed test changes nothing (DataStoreSwitch::saveConnection() is not called).
+    $candidate = ['host' => $stored['host'], 'port' => $stored['port'], 'database' => $stored['database'], 'user' => $stored['user'],
+        'sslmode' => $stored['sslmode'], 'schema' => $stored['schema'], 'password' => $newPassword];
+    if ($stored['sslrootcert'] !== null) {
+        $candidate['sslrootcert'] = $stored['sslrootcert'];
+    }
+    $test = $rmm->dataStoreSwitch()->testConnection($candidate);
+    if (!$test['ok']) {
+        $failed = implode(' ', array_filter(array_map(static fn (array $c) => $c['ok'] ? '' : $c['message'], $test['checks'])));
+        rivetRmmScaleMsg('datastore', 'error', 'The new password was NOT saved: the test failed. ' . ($failed !== '' ? $failed : 'Connection test failed.'));
+        ea_scale_back('datastore');
+    }
+    $errors = $rmm->dataStoreSwitch()->saveConnection($candidate);
+    if ($errors !== []) {
+        rivetRmmScaleMsg('datastore', 'error', 'The test passed but the save failed: ' . implode(' ', $errors));
+        ea_scale_back('datastore');
+    }
+    // Edition-owned table (rmm_data_store_connection is RivetCore's); never holds the password, only when it last changed.
+    $now = gmdate('Y-m-d H:i:s');
+    mysqli_query($mysqli, 'INSERT INTO rivetit_rmm_pg_credential_meta (id, changed_at, changed_by) VALUES (1, \'' . mysqli_real_escape_string($mysqli, $now) . '\', ' . (int) $session_user_id . ')
+        ON DUPLICATE KEY UPDATE changed_at = VALUES(changed_at), changed_by = VALUES(changed_by)');
+    logAction('RMM', 'Settings Changed', "$session_name changed the RMM PostgreSQL password after a successful test (password not logged).");
+    rivetRmmScaleMsg('datastore', 'success', 'Password changed and verified.');
+    ea_scale_back('datastore');
+}
+
 if (isset($_POST['test_datastore'])) {
     $json = stripos((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') !== false;
     $okToken = is_string($_POST['csrf_token'] ?? null) && hash_equals($_POST['csrf_token'], (string) $_SESSION['csrf_token']);
