@@ -1624,6 +1624,10 @@ if (isset($_POST['change_datastore_password'])) {
         rivetRmmScaleMsg('datastore', 'error', 'The test passed but the save failed: ' . implode(' ', $errors));
         ea_scale_back('datastore');
     }
+    // saveConnection() clears the stored connection's tested mark (test_ok = 0, tested_at = NULL) whenever it writes, even for a live
+    // PostgreSQL store, which would leave the Update page and the card reporting a working store as "never tested". The candidate was
+    // just tested, so re-test the now-stored connection to put the mark back (testConnection(null) only ever updates that mark).
+    $rmm->dataStoreSwitch()->testConnection();
     // Edition-owned table (rmm_data_store_connection is RivetCore's); never holds the password, only when it last changed.
     $now = gmdate('Y-m-d H:i:s');
     mysqli_query($mysqli, 'INSERT INTO rivetit_rmm_pg_credential_meta (id, changed_at, changed_by) VALUES (1, \'' . mysqli_real_escape_string($mysqli, $now) . '\', ' . (int) $session_user_id . ')
