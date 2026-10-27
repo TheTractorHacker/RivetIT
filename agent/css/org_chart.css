@@ -149,3 +149,6 @@ body.dark-mode .org-d3-frame {
 
 .org-d3-toggle:hover { border-color: var(--if-primary, #0d9488); color: var(--if-primary, #0d9488); }
 .org-d3-toggle:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 2px; }
+
+/* The organization name wraps to two lines instead of running out of the card. */
+.org-d3-root strong { max-width: 100%; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }

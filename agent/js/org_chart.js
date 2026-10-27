@@ -82,6 +82,7 @@
             data.push(group);
         });
         data = data.concat(people);
+        data.forEach(function (item) { item._expanded = false; });   // everything starts collapsed: the organization card, + opens it
         var kids = {}, byId = {};
         data.forEach(function (item) { byId[item.id] = item; (kids[item.parentId] = kids[item.parentId] || []).push(item); });
         return { data: data, people: people, kids: kids, byId: byId, shown: {}, more: {} };
@@ -98,7 +99,7 @@
     }
 
     // Card sizes by kind. The chart lays out left to right, so each level is one fixed-width column.
-    var SIZES = { organization: { w: 210, h: 56 }, department: { w: 230, h: 44 }, person: { w: 260, h: 56 }, more: { w: 260, h: 40 } };
+    var SIZES = { organization: { w: 300, h: 68 }, department: { w: 230, h: 44 }, person: { w: 260, h: 56 }, more: { w: 260, h: 40 } };
     function sizeOf(node) { return SIZES[node.data.kind] || SIZES.person; }
     var PAGE_SIZE = 15;    // reports shown per person/department before a "Show more" card
     var BUTTON = 24;       // toggle diameter (100% scale)
@@ -379,7 +380,7 @@
                         path.classed('link-hl', !!d.data._upToTheRootHighlighted);
                         if (d.data._upToTheRootHighlighted) { path.raise(); }
                     })
-                    .initialExpandLevel(1)
+                    .initialExpandLevel(0)
                     .duration(0)
                     .scaleExtent([.1, 3])
                     .svgHeight(canvas.clientHeight || 520)
@@ -430,7 +431,7 @@
             if (!chart) { return; }
             model.shown = {};
             model.data.forEach(function (item) {
-                item._expanded = item.kind === 'organization';
+                item._expanded = false;
                 item._highlighted = false;
                 item._upToTheRootHighlighted = false;
                 item._centered = false;
