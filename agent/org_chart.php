@@ -473,9 +473,9 @@ $total_departments = count($department_ids);
     <div class="card-header py-2 org-chart-header">
         <h3 class="card-title mt-2"><i class="fa fa-fw fa-sitemap me-2"></i>Organizational Chart</h3>
         <div class="card-tools">
-            <div class="btn-group" role="group" aria-label="Org chart view">
-                <button type="button" class="btn btn-primary" id="orgChartShowList" aria-pressed="true">List</button>
-                <button type="button" class="btn btn-secondary" id="orgChartShowMap" aria-pressed="false" hidden>Chart</button>
+            <div class="rmmx-seg" role="group" aria-label="Org chart view">
+                <button type="button" class="is-active" id="orgChartShowList" aria-pressed="true"><i class="fas fa-fw fa-list" aria-hidden="true"></i>List</button>
+                <button type="button" id="orgChartShowMap" aria-pressed="false" hidden><i class="fas fa-fw fa-sitemap" aria-hidden="true"></i>Chart</button>
             </div>
             <div class="btn-group ms-2" id="orgChartControls" role="group" aria-label="Chart controls" hidden>
                 <button type="button" class="btn btn-secondary" id="orgChartExpandAll" title="Expand all branches" aria-label="Expand all branches"><i class="fas fa-angle-double-down"></i></button>
@@ -489,8 +489,8 @@ $total_departments = count($department_ids);
     </div>
     <div class="card-body">
         <form autocomplete="off" method="get">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-3">
+            <div class="row g-2 align-items-end org-filter-row">
+                <div class="col-12 col-md-6 col-xl-3">
                     <label class="form-label" for="orgChartDepartment">Department</label>
                     <select class="form-control select2 auto-submit-select" id="orgChartDepartment" name="client_id">
                         <option value="" <?php if (!$department_filter_id) { echo "selected"; } ?>>- All Departments -</option>
@@ -503,7 +503,7 @@ $total_departments = count($department_ids);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-12 col-md-6 col-xl-3">
                     <label class="form-label" for="orgChartLocation">Location</label>
                     <select class="form-control select2 auto-submit-select" id="orgChartLocation" name="location_id">
                         <option value="">All Locations</option>
@@ -512,7 +512,7 @@ $total_departments = count($department_ids);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-12 col-md-6 col-xl-2">
                     <label class="form-label" for="orgChartStatus">Employment status</label>
                     <select class="form-control select2 auto-submit-select" id="orgChartStatus" name="status">
                         <option value="">All Statuses</option>
@@ -521,7 +521,7 @@ $total_departments = count($department_ids);
                         <?php } ?>
                     </select>
                 </div>
-                <div class="col-md-4" id="orgChartMapSearchWrap" hidden>
+                <div class="col-12 col-md-6 col-xl-4" id="orgChartMapSearchWrap" hidden>
                     <label class="form-label" for="orgChartSearch">Search</label>
                     <input type="search" class="form-control" id="orgChartSearch" placeholder="Search name, title, team&hellip;" autocomplete="off">
                     <div id="orgChartSearchCounter" class="small text-secondary mt-1" hidden>
@@ -531,7 +531,7 @@ $total_departments = count($department_ids);
                     </div>
                 </div>
                 <div class="col-12 text-secondary">
-                    <?php echo $matching_contacts; ?> <?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'matching ' : ''; ?>contact<?php echo $matching_contacts === 1 ? '' : 's'; ?><?php if ($context_contacts > 0) { ?>, plus <?php echo $context_contacts; ?> reporting ancestor<?php echo $context_contacts === 1 ? '' : 's'; ?> for context<?php } ?> across <?php echo $total_departments; ?> department<?php echo $total_departments === 1 ? '' : 's'; ?> shown below.
+                    <?php echo $matching_contacts; ?> <?php echo ($location_filter_id > 0 || $status_filter !== '') ? 'matching ' : ''; ?>contact<?php echo $matching_contacts === 1 ? '' : 's'; ?><?php if ($context_contacts > 0) { ?>, plus <?php echo $context_contacts; ?> reporting ancestor<?php echo $context_contacts === 1 ? '' : 's'; ?> for context<?php } ?> across <?php echo $total_departments; ?> department<?php echo $total_departments === 1 ? '' : 's'; ?> shown below. <span class="d-none" id="orgChartHint">Drag to pan, scroll to zoom, and use + to expand a department.</span>
                     <?php if ($location_filter_id > 0 || $status_filter !== '') { ?>Ancestors outside the filters are marked Context. <a href="org_chart.php<?php echo $department_filter_id ? '?client_id=' . $department_filter_id : ''; ?>">Clear location and status filters</a>.<?php } ?>
                     <?php if (!empty($cycle_leftover_ids)) { ?>
                         <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i><?php echo count($cycle_leftover_ids); ?> contact<?php echo count($cycle_leftover_ids) === 1 ? '' : 's'; ?> could not be placed under a real root - see "Reporting Cycle Detected" below.</span>
@@ -590,8 +590,7 @@ $total_departments = count($department_ids);
             echo '<ul class="org-tree">' . $cycle_html . '</ul>';
         }
         echo '</div>';
-        echo '<p class="small text-secondary mb-2">Drag to pan, scroll to zoom, and use + to expand a department.</p>';
-        echo '<div id="orgChartCanvas" class="org-d3-frame" role="region" aria-label="Interactive organizational chart"></div>';
+        echo '<div id="orgChartCanvas" class="org-d3-frame" data-org-name="' . nullable_htmlentities($session_company_name) . '" role="region" aria-label="Interactive organizational chart"></div>';
     } ?>
 
     <?php if (!empty($cycle_leftover_ids)) { ?>

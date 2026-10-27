@@ -11743,7 +11743,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     if ($rivetit_db_version() == '2.6.189') {
         // DB 2.6.190: Odoo write-back gets a fourth target, Badge (gamification.badge.user) - achievements only,
         // no validity period, no revoke on void (Odoo badges are a one-time award, not a certification).
-        mysqli_query($mysqli, "ALTER TABLE `training_automation` ADD COLUMN `tauto_odoo_send_badge` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_note`");
+        // db.sql already carries this column on a fresh install, so only add it when it is missing.
+        $has_badge = mysqli_query($mysqli, "SHOW COLUMNS FROM `training_automation` LIKE 'tauto_odoo_send_badge'");
+        if ($has_badge && mysqli_num_rows($has_badge) === 0) {
+            mysqli_query($mysqli, "ALTER TABLE `training_automation` ADD COLUMN `tauto_odoo_send_badge` tinyint(1) NOT NULL DEFAULT 0 AFTER `tauto_odoo_send_note`");
+        }
         mysqli_query($mysqli, "ALTER TABLE `training_odoo_outbox` MODIFY COLUMN `todoo_mode` enum('resume','skill','note','badge') NOT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.190'");
     }
@@ -11895,7 +11899,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.198') {
-        // DB 2.6.199: when the RMM PostgreSQL password (rmm_data_store_connection.password_sealed, a RivetCore table) was last changed through
+        // DB 2.6.199: RivetCore 1.0.0-rc.49. Re-runs CoreMigrations::all() (idempotent) to pick up 0046 (compliance framework
+        // profiles, rc.44) and 0047 (reporting views, rc.45). All additive: new tables and read-only views; nothing existing is altered and no feature is switched on.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.199'");
+        }
+        // DB 2.6.200: when the RMM PostgreSQL password (rmm_data_store_connection.password_sealed, a RivetCore table) was last changed through
         // the Data store card's "Change password" action, for the 90-day-warning readout. rmm_data_store_connection belongs to RivetCore
         // (migration 0044) and is read whole by RmmModule code, so this edition-owned table carries the timestamp instead of a column added
         // to it. One row, id = 1; a device credential's revocation reason, nowhere near this table's size limit.
@@ -11905,5 +11919,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
   `changed_by` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.199'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.200'");
     }

@@ -73,6 +73,7 @@ $customise = isset($_GET['customise']);
 $layout = DashboardLayout::load($mysqli, $session_user_id, $allowed);
 $in_layout = array_column($layout, 'id');
 $addable = array_values(array_diff($allowed, $in_layout));
+$at_cap = count($layout) >= DashboardLayout::MAX_WIDGETS;   // DashboardLayout::save() drops anything past the cap, so say so instead of letting Add do nothing
 $defs = WidgetRegistry::definitions();
 $csrf = nullable_htmlentities($_SESSION['csrf_token']);
 
@@ -87,7 +88,20 @@ $post_button = static function (string $action, string $widget, string $label, s
     .dash-drag:active { cursor: grabbing; }
     #dash-widgets .sortable-ghost { opacity: .4; }
     #dash-widgets .sortable-chosen .card { box-shadow: 0 0 0 2px var(--tblr-primary, #0054a6); }
-    .dash-add-category { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem; }
+    .dash-add-category { display: flex; align-items: baseline; gap: .5rem; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .5rem; color: var(--if-muted, #4b5d64); }
+    .dash-add-count { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--if-muted, #4b5d64); }
+    /* Widget picker chips: a calm neutral chip with an accent icon, not an outline button in the brand colour. */
+    .dash-chip { display: inline-flex; align-items: center; gap: .45rem; height: 32px; padding: 0 .8rem; font: 500 13px/1 var(--if-sans, inherit); white-space: nowrap; cursor: pointer;
+        color: var(--if-ink, var(--tblr-body-color, #16232a)); background: var(--if-surface, var(--tblr-bg-surface, #fff)); border: 1px solid var(--if-border-strong, #c5d0d4); border-radius: 8px; }
+    .dash-chip i { color: var(--color-accent, var(--tblr-primary, #206bc4)); }
+    .dash-chip:hover { border-color: var(--color-accent, var(--tblr-primary, #206bc4)); background: color-mix(in srgb, var(--color-accent, var(--tblr-primary, #206bc4)) 8%, var(--if-surface, var(--tblr-bg-surface, #fff))); }
+    .dash-chip:focus-visible, .dash-toggle:focus-visible { outline: 2px solid var(--color-accent, var(--tblr-primary, #206bc4)); outline-offset: 2px; }
+    .dash-chip:focus:not(:focus-visible), .dash-toggle:focus:not(:focus-visible) { outline: 0; box-shadow: none; }
+    .dash-chip.is-added, .dash-chip:disabled { cursor: default; opacity: .6; background: transparent; }
+    /* "N available": a plain bordered button; the expanded state is a quiet tint, never a ring. */
+    .dash-toggle { display: inline-flex; align-items: center; height: 30px; padding: 0 .7rem; font: 500 13px/1 var(--if-sans, inherit); cursor: pointer; color: var(--if-ink, var(--tblr-body-color, #16232a));
+        background: var(--if-surface, var(--tblr-bg-surface, #fff)); border: 1px solid var(--if-border-strong, #c5d0d4); border-radius: 8px; box-shadow: none; }
+    .dash-toggle:hover, .dash-toggle[aria-expanded="true"] { background: color-mix(in srgb, var(--color-accent, var(--tblr-primary, #206bc4)) 8%, var(--if-surface, var(--tblr-bg-surface, #fff))); }
     button[data-bs-target="#dash-add-widget"] .fa-chevron-down { transition: transform .15s ease; }
     button[data-bs-target="#dash-add-widget"][aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
 </style>
@@ -115,12 +129,7 @@ $post_button = static function (string $action, string $widget, string $label, s
             </form>
         <?php } ?>
         <?php if ($customise) { ?>
-            <form method="post" class="d-inline">
-                <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
-                <input type="hidden" name="layout_action" value="reset">
-                <input type="hidden" name="customise" value="1">
-                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-fw fa-undo me-1"></i>Reset to default</button>
-            </form>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#dash-reset-modal"><i class="fas fa-fw fa-undo me-1" aria-hidden="true"></i>Reset to default</button>
             <a class="btn btn-sm btn-primary" href="my_dashboard.php"><i class="fas fa-fw fa-check me-1"></i>Done</a>
         <?php } else { ?>
             <a class="btn btn-sm btn-outline-secondary" href="my_dashboard.php?customise=1"><i class="fas fa-fw fa-sliders-h me-1"></i>Customise</a>
@@ -128,23 +137,47 @@ $post_button = static function (string $action, string $widget, string $label, s
     </div>
 </div>
 
+<?php if ($customise) { ?>
+<div class="modal fade" id="dash-reset-modal" tabindex="-1" aria-labelledby="dash-reset-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" class="modal-content">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
+            <input type="hidden" name="layout_action" value="reset">
+            <input type="hidden" name="customise" value="1">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dash-reset-title">Reset your dashboard?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">Your widgets, their order, sizes and chart types go back to the default layout. This only changes your own dashboard.</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Reset to default</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php } ?>
+
 <?php if ($customise && $addable) { ?>
 <div class="card mb-3">
     <div class="card-header py-2 d-flex align-items-center justify-content-between">
         <strong><i class="fas fa-fw fa-plus me-1"></i>Add a widget</strong>
-        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dash-add-widget" aria-expanded="false" aria-controls="dash-add-widget">
-            <?php echo count($addable); ?> available <i class="fas fa-fw fa-chevron-down ms-1"></i>
+        <button class="dash-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#dash-add-widget" aria-expanded="false" aria-controls="dash-add-widget">
+            <?php echo count($addable); ?> available <i class="fas fa-fw fa-chevron-down ms-1" aria-hidden="true"></i>
         </button>
     </div>
     <div class="collapse" id="dash-add-widget">
         <div class="card-body py-2">
+            <?php if ($at_cap) { ?>
+                <div class="alert alert-warning py-2 mb-3" role="status">Your dashboard already has <?php echo DashboardLayout::MAX_WIDGETS; ?> widgets, the most it can hold. Remove one to add another.</div>
+            <?php } ?>
             <?php foreach (WidgetRegistry::categories() as $catLabel => $catIds) {
                 $catAddable = array_values(array_intersect($catIds, $addable));
                 if (!$catAddable) { continue; }
             ?>
             <div class="mb-3">
-                <div class="dash-add-category text-muted">
-                    <?php echo nullable_htmlentities($catLabel); ?>
+                <div class="dash-add-category">
+                    <?php echo nullable_htmlentities($catLabel); ?> <span class="dash-add-count"><?php echo count($catAddable); ?></span>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <?php foreach ($catAddable as $wid) { ?>
@@ -153,8 +186,8 @@ $post_button = static function (string $action, string $widget, string $label, s
                             <input type="hidden" name="layout_action" value="add">
                             <input type="hidden" name="widget" value="<?php echo nullable_htmlentities($wid); ?>">
                             <input type="hidden" name="customise" value="1">
-                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-fw <?php echo nullable_htmlentities($defs[$wid]['icon']); ?> me-1"></i><?php echo nullable_htmlentities($defs[$wid]['title']); ?>
+                            <button type="submit" class="dash-chip" <?php echo $at_cap ? 'disabled title="Your dashboard is full: remove a widget first"' : 'title="Add &ldquo;' . nullable_htmlentities($defs[$wid]['title']) . '&rdquo; to your dashboard"'; ?>>
+                                <i class="fas fa-fw <?php echo nullable_htmlentities($defs[$wid]['icon']); ?>" aria-hidden="true"></i><?php echo nullable_htmlentities($defs[$wid]['title']); ?>
                             </button>
                         </form>
                     <?php } ?>
