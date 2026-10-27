@@ -239,7 +239,7 @@
                 var limit = item.kind === 'organization' ? list.length : (model.shown[item.id] || PAGE_SIZE);
                 list.slice(0, limit).forEach(walk);
                 if (list.length > limit) {
-                    var more = model.more[item.id] || (model.more[item.id] = { id: 'more:' + item.id, parentId: item.id, kind: 'more', name: '', _expanded: true });
+                    var more = model.more[item.id] || (model.more[item.id] = { id: 'more:' + item.id, parentId: item.id, kind: 'more', name: '', _expanded: false });
                     more.remaining = list.length - limit;
                     out.push(more);
                 }
