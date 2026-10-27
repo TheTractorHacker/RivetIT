@@ -17,4 +17,4 @@ jobs:
         persist-credentials: false
 
     - name: Check PHP syntax errors
-      uses: overtrue/phplint@74b5b8cd13b5974dbe89d26fc998a55abb40874e # 9.7.2
+      uses: overtrue/phplint@f9d3fb3c6b6af49fce0fa8d712da1c38da41fe65 # 9.7.2
