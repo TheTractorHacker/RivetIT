@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Org chart**: toggles sit beside the cards (24px, readable +/-), the root card is labelled with the organization, fit never zooms below 85%, text is crisp. **My dashboard**: calmer widget chips, a quiet "N available" toggle, readable group headings, a reset confirmation and a full-dashboard notice. No migration.
+
 - **RivetCore 1.0.0-rc.49** (pin moved from rc.42). Navigation links (admin section jump lists, breadcrumbs, tabs, list groups) are no longer underlined. Also brings the security fixes and hardening of rc.46-rc.48, the security baseline, customizable compliance frameworks and the reporting views.
   **Deploy notes:** database **2.6.199** re-runs the Core migrations (idempotent) for 0046 (compliance framework profiles) and 0047 (reporting views): new tables and read-only views, nothing existing altered, no feature switched on. Run the database update (Administration > Update, or `php scripts/update_cli.php --update_db`). Take a database dump first.
 
