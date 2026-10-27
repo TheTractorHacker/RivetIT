@@ -79,7 +79,6 @@
         var orgName = (document.getElementById('orgChartCanvas') || {}).dataset ? document.getElementById('orgChartCanvas').dataset.orgName : '';
         var data = [{ id: 'organization', parentId: null, name: orgName || 'Organization', kind: 'organization', count: people.length }];
         groups.forEach(function (group) {
-            if (groups.size === 1) { group._expanded = true; }
             data.push(group);
         });
         data = data.concat(people);

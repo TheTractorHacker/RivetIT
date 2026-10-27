@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "core_version": "1.0.0-rc.51",
+    "core_version": "1.0.0-rc.52",
     "files": {
         "css/file_upload.css": "0643d5ce607c9634d8f74bc908136a037b03e5b96ef922f284eaa65e156ff9a7",
         "css/itflow.bind-tabler.css": "1cd17cfec03663fb6d597b7de3db1576c589dee92aa0561a8100dd43c4b45485",
@@ -19,7 +19,7 @@
         "css/itflow_rmm_remote.css": "02f3e15c308a8ed441160ef901633fababcbac773938ca1b9e3a49b647d24654",
         "css/itflow_rmm_scale.css": "99071e0c1d87a4fe1f52c08effa48a9148e7dc97c59df99124991cca7c6d15ef",
         "css/itflow_rmm_software.css": "5d0219e13531330e89a3e5dec37bf480ff2cade4c645635f72545262a84abcb9",
-        "css/itflow_rmm_ui.css": "d8c6ee3c46148e57dd0b24fa4b1ac4237d53115bff9f114cfbc11c1ded117810",
+        "css/itflow_rmm_ui.css": "553c0fa4350f909efb7cb347e9bfd14a5f82c588afb30a7d2f9e79890ab33450",
         "css/webhook_form.css": "54d224d7006cfb1725024478b02ddb9bde4f5522a44d6d19f6d57db1ebe31bc5",
         "css/webhook_guides.css": "3ddd81fc6b81d3465808c467ef07e2d04a9ab8325e3b732622a003689f5d700b",
         "js/chart_theme.js": "070865bb4ceb8e29db408bec92dbc683c8ff350fb77f308b504c30ea0632e7ea",

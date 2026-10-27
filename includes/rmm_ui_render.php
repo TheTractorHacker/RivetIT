@@ -1123,10 +1123,10 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
     $legend = static fn (string $col, string $l, int $n): string => '<li class="d-flex align-items-center gap-2"><span class="ifm-legend-swatch" style="background:' . $col . '"></span>' . rmmH($l) . ' <b class="ms-auto">' . $n . '</b></li>';
     $donut = rivetRmmUiDonut([['n' => $c['online'], 'l' => 'online', 'col' => 'var(--tblr-success)'], ['n' => $c['offline'], 'l' => 'offline', 'col' => 'var(--tblr-danger)'],
         ['n' => $c['stale'], 'l' => 'stale', 'col' => 'var(--if-muted)'], ['n' => $c['never'], 'l' => 'never seen', 'col' => 'var(--tblr-blue)']]);
-    $health = '<div class="card-body d-flex align-items-center flex-wrap gap-4 justify-content-center">' . $donut . '<ul class="list-unstyled mb-0 rmm-legend">'
+    $health = '<div class="card-body d-flex align-items-center flex-wrap gap-4 justify-content-center py-4">' . $donut . '<ul class="list-unstyled mb-0 rmm-legend">'
         . $legend('var(--tblr-success)', 'Online', $c['online']) . $legend('var(--tblr-danger)', 'Offline', $c['offline']) . $legend('var(--if-muted)', 'Stale (quiet 7+ days)', $c['stale'])
         . $legend('var(--tblr-blue)', 'Never checked in', $c['never']) . '</ul></div>';
-    $healthCard = '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-orange)"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-heartbeat me-2 text-warning" aria-hidden="true"></i>Fleet health</h6></div>' . $health . '</section>';
+    $healthCard = '<section class="card card-dark mb-3"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-heartbeat me-2 text-secondary" aria-hidden="true"></i>Fleet health</h6></div>' . $health . '</section>';
 
     // Agent versions and rings
     $ringRows = '';
@@ -1143,12 +1143,12 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
         $outRows .= '<li class="list-group-item d-flex align-items-center gap-2"><div class="me-auto min-w-0">' . rivetRmmUiDeviceLink($d) . '<div class="text-muted small">' . rmmH($cn((int) $d['client_id'])) . '</div></div>'
             . '<span class="ifm-mono small">' . rmmH($d['agent_version']) . '</span><i class="fas fa-arrow-right text-muted" aria-label="should be"></i><span class="ifm-mono small">' . rmmH($d['target_version']) . '</span></li>';
     }
-    $versionsBody = '<div class="card-body pb-2"><div class="row"><div class="col-6"><div class="ifm-toolbar-label mb-1">Rings</div><ul class="list-unstyled small mb-0">' . ($ringRows ?: '<li class="text-muted">none</li>') . '</ul></div>'
-        . '<div class="col-6"><div class="ifm-toolbar-label mb-1">Versions</div><ul class="list-unstyled small mb-0">' . ($verRows ?: '<li class="text-muted">none</li>') . '</ul></div></div>'
+    $versionsBody = '<div class="card-body pb-2"><div class="row g-4"><div class="col-md-6 col-xl-3"><div class="ifm-toolbar-label mb-1">Rings</div><ul class="list-unstyled mb-0 rmmx-kv">' . ($ringRows ?: '<li class="text-muted">none</li>') . '</ul></div>'
+        . '<div class="col-md-6 col-xl-3"><div class="ifm-toolbar-label mb-1">Versions</div><ul class="list-unstyled mb-0 rmmx-kv">' . ($verRows ?: '<li class="text-muted">none</li>') . '</ul></div></div>'
         . '<p class="small text-muted mt-2 mb-0">' . ($cur ? 'Current hosted version: ' . rmmH(implode(' / ', $cur)) . '.' : 'No agent binary is hosted yet, so nothing counts as outdated.')
         . ($f['scan_partial'] ? ' Counts cover the first ' . (int) $f['scanned'] . ' devices.' : '') . '</p></div>'
         . '<ul class="list-group list-group-flush">' . ($outRows ?: '<li class="list-group-item text-muted small"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No outdated agents.</li>') . '</ul>';
-    $versionsCard = '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-azure)"><div class="card-header py-2 d-flex align-items-center" style="gap:4px"><h6 class="mb-0 me-auto"><i class="fas fa-code-branch me-2 text-info" aria-hidden="true"></i>Agent versions and rings</h6>'
+    $versionsCard = '<section class="card card-dark mb-3"><div class="card-header py-2 d-flex align-items-center" style="gap:4px"><h6 class="mb-0 me-auto"><i class="fas fa-code-branch me-2 text-secondary" aria-hidden="true"></i>Agent versions and rings</h6>'
         . ($f['outdated_total'] > 0 ? rivetRmmUiPill('warn', $f['outdated_total'] . ' outdated') : rivetRmmUiPill('ok', 'Up to date')) . '</div>' . $versionsBody . '</section>';
 
     // Offline and stale
@@ -1159,7 +1159,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
     foreach (array_merge($f['offline'], $f['stale']) as $d) {
         $offRows .= $li($d, rivetRmmUiStatusPill($d['status']) . '<span class="text-muted small text-nowrap">' . rivetRmmUiTime($d['last_checkin_at'], $now) . '</span>');
     }
-    $offCard = '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-danger)"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-times-circle me-2 text-danger" aria-hidden="true"></i>Offline and stale</h6></div><ul class="list-group list-group-flush">'
+    $offCard = '<section class="card card-dark mb-0 h-100"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-times-circle me-2 text-secondary" aria-hidden="true"></i>Offline and stale</h6></div><ul class="list-group list-group-flush">'
         . ($offRows ?: '<li class="list-group-item text-muted small"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>Every managed device has checked in recently.</li>') . '</ul></section>';
 
     // Needs approval
@@ -1169,7 +1169,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
             . ' &middot; first seen ' . rivetRmmUiTime($a['first_seen_at'], $now) . '</div></div>' . rivetRmmUiPill('warn', 'Waiting') . '</div><div class="small mt-1">' . rmmH($a['match_reason_text']) . '</div></li>';
     }
     $apHead = $f['perm']['manage'] ? '<a class="small" href="/admin/settings_endpoint_agent.php#devices">Review in administration</a>' : '<span class="small text-muted">An administrator approves devices.</span>';
-    $apCard = '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-warning)" id="rmm-approvals"><div class="card-header py-2 d-flex align-items-center" style="gap:4px"><h6 class="mb-0 me-auto"><i class="fas fa-user-clock me-2 text-warning" aria-hidden="true"></i>Devices needing approval</h6>'
+    $apCard = '<section class="card card-dark mb-3" id="rmm-approvals"><div class="card-header py-2 d-flex align-items-center" style="gap:4px"><h6 class="mb-0 me-auto"><i class="fas fa-user-clock me-2 text-secondary" aria-hidden="true"></i>Devices needing approval</h6>'
         . $apHead . '</div><ul class="list-group list-group-flush">' . ($apRows ?: '<li class="list-group-item text-muted small"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No device is waiting for approval.</li>') . '</ul></section>';
 
     // Recent job failures
@@ -1180,7 +1180,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
             . '<div class="text-muted small">' . rmmH(rivetRmmUiJobLabel($j['type'])) . ($j['exit_code'] !== null ? ' &middot; exit ' . (int) $j['exit_code'] : '') . ($j['reason'] ? ' &middot; ' . rmmH($j['reason']) : '') . '</div></div>'
             . rivetRmmUiPill($j['state'] === 'timed_out' ? 'warn' : 'crit', $j['state'] === 'timed_out' ? 'Timed out' : 'Failed') . '<span class="text-muted small text-nowrap">' . rivetRmmUiTime($j['at'], $now) . '</span></li>';
     }
-    $fCard = '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-red)"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-tasks me-2 text-danger" aria-hidden="true"></i>Recent job failures</h6></div><ul class="list-group list-group-flush">'
+    $fCard = '<section class="card card-dark mb-0 h-100"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-tasks me-2 text-secondary" aria-hidden="true"></i>Recent job failures</h6></div><ul class="list-group list-group-flush">'
         . ($fRows ?: '<li class="list-group-item text-muted small"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No failed jobs.</li>') . '</ul></section>';
 
     // Device table
@@ -1272,8 +1272,8 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
             $installer !== null ? 'Click Add device, download the installer and run it on a PC. It enrolls itself.' : ($f['perm']['admin'] ? 'Create an enrollment token under Administration, Endpoint agent, then install the agent on a device.' : 'An administrator creates an enrollment token and installs the agent.'),
             $installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device') : '') . '</div></section>' : '')
         . '<div class="row mb-3">' . $kpi . '</div>'
-        . '<div class="row"><div class="col-lg-7">' . $healthCard . '</div><div class="col-lg-5">' . $apCard . '</div></div>'
-        . '<div class="row"><div class="col-lg-6">' . $offCard . '</div><div class="col-lg-6">' . $fCard . '</div></div>'
+        . '<div class="row"><div class="col-lg-5">' . $healthCard . '</div><div class="col-lg-7">' . $apCard . '</div></div>'
+        . '<div class="row"><div class="col-lg-6 mb-3">' . $offCard . '</div><div class="col-lg-6 mb-3">' . $fCard . '</div></div>'
         . $versionsCard . $swCard . $capacity . $table
         . ($installer !== null ? rivetRmmInstallerModal($installer) : '')
         . rivetRmmMeshBulkDialog($f['mesh_bulk'] ?? null);
