@@ -1,0 +1,63 @@
+/*
+ * Administration > Update (admin/update.php). Page-local, linked from the page itself (the same pattern as css/webhook_form.css).
+ * Every colour is an existing token (--if-*, --tblr-*), so light, dark and the per-company accent follow the app theme; the
+ * stat-icon tints and the empty state are the app's shared .it-* rules (css/itflow_rmm.css, loaded on every page).
+ */
+
+.upd-wrap { overflow-wrap: anywhere; }
+
+/* Status hero: the coloured top edge repeats the state, which is also a word and an icon (never colour alone). */
+.upd-hero { border-top: 3px solid var(--upd-edge, var(--if-border-strong)); }
+.upd-hero-ok { --upd-edge: var(--tblr-success); }
+.upd-hero-warn { --upd-edge: var(--tblr-warning); }
+.upd-hero-crit { --upd-edge: var(--tblr-danger); }
+.upd-hero-info { --upd-edge: var(--tblr-primary); }
+.upd-hero-off { --upd-edge: var(--if-muted); }
+.upd-hero-icon { width: 2.75rem; height: 2.75rem; min-width: 2.75rem; font-size: 1.2rem; }
+.upd-eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--if-muted); }
+.upd-hero-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+
+/* Version tiles */
+.upd-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .75rem; }
+.upd-tile { border: 1px solid var(--if-border); border-radius: var(--if-radius-sm); background: var(--if-bg); padding: .65rem .8rem; min-width: 0; }
+.upd-tile-label { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--if-muted); }
+.upd-tile-value { font-family: var(--if-mono); font-size: 1.05rem; font-weight: 700; margin-top: .15rem; overflow-wrap: anywhere; }
+.upd-tile-note { font-size: .78rem; margin-top: .3rem; overflow-wrap: anywhere; }
+
+.upd-backup { font-size: .875rem; }
+.upd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.upd-actions .btn { min-height: 2.25rem; }
+
+/* In-progress panel (js/admin_update.js) */
+.upd-progress { border: 1px solid var(--if-border); border-left: 4px solid var(--tblr-primary); border-radius: var(--if-radius-sm); background: var(--if-bg); padding: .75rem .9rem; }
+.upd-progress:focus { outline: none; }
+.upd-progress[hidden], .upd-steps[hidden], .upd-result[hidden] { display: none !important; }
+.upd-steps li + li { margin-top: .15rem; }
+
+.upd-pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--if-mono); font-size: .78rem;
+  padding: .5rem .65rem; background: var(--if-surface); color: var(--if-ink); border: 1px solid var(--if-border); border-radius: var(--if-radius-sm); }
+
+/* Checks */
+.upd-checks { margin: 0; }
+.upd-check { display: flex; align-items: flex-start; gap: .75rem; padding: .55rem 0; border-top: 1px solid var(--if-border); }
+.upd-check-pill { flex: none; min-width: 5.5rem; padding-top: .1rem; }
+.upd-check-body { min-width: 0; }
+.upd-passed > summary { cursor: pointer; color: var(--if-muted); font-size: .875rem; padding: .35rem 0; }
+.upd-passed > summary:hover, .upd-passed > summary:focus-visible { color: var(--if-ink); }
+.upd-passed[open] > summary { margin-bottom: .25rem; }
+
+/* Release channel choices */
+.upd-channel { display: flex; align-items: flex-start; gap: .6rem; width: 100%; padding: .85rem 1rem; border: 1px solid var(--if-border); border-radius: var(--if-radius-sm); cursor: pointer; }
+.upd-channel:hover { border-color: var(--if-border-strong); }
+.upd-channel-current, .upd-channel:has(input:checked) { border-color: var(--tblr-primary); box-shadow: inset 0 0 0 1px var(--tblr-primary); }
+.upd-channel input { flex: none; margin-top: .2rem; }
+
+.upd-thead { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--if-muted); }
+
+@media (max-width: 575.98px) {
+  .upd-tiles { grid-template-columns: 1fr 1fr; }
+  .upd-hero-title { font-size: 1.15rem; }
+  .upd-check { flex-direction: column; gap: .3rem; }
+  .upd-check-pill { min-width: 0; }
+  .upd-actions .btn { flex: 1 1 100%; }
+}
