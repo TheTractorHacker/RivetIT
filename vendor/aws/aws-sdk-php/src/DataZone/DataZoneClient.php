@@ -71,7 +71,8 @@ use Aws\AwsClient;
  *         user?: array{userIdentifier?: string, allUsersGrantFilter?: array, ...},
  *         group?: array{groupIdentifier?: string, ...},
  *         project?: array{
- *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD',
+ *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD'|'USER_CREATED_DESIGNATION',
+ *             userCreatedDesignationId?: string,
  *             projectIdentifier?: string,
  *             projectGrantFilter?: array,
  *             ...,
@@ -109,7 +110,8 @@ use Aws\AwsClient;
  *         user?: array{userIdentifier?: string, allUsersGrantFilter?: array, ...},
  *         group?: array{groupIdentifier?: string, ...},
  *         project?: array{
- *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD',
+ *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD'|'USER_CREATED_DESIGNATION',
+ *             userCreatedDesignationId?: string,
  *             projectIdentifier?: string,
  *             projectGrantFilter?: array,
  *             ...,
@@ -342,7 +344,7 @@ use Aws\AwsClient;
  *         athenaProperties?: array{workgroupName?: string, ...},
  *         glueProperties?: array{glueConnectionInput?: array, ...},
  *         hyperPodProperties?: array{clusterName?: string, ...},
- *         iamProperties?: array{glueLineageSyncEnabled?: bool, ...},
+ *         iamProperties?: array{glueLineageSyncEnabled?: bool, roleArn?: string, ...},
  *         redshiftProperties?: array{
  *             storage?: array,
  *             databaseName?: string,
@@ -409,7 +411,7 @@ use Aws\AwsClient;
  *         athenaProperties?: array{workgroupName?: string, ...},
  *         glueProperties?: array{glueConnectionInput?: array, ...},
  *         hyperPodProperties?: array{clusterName?: string, ...},
- *         iamProperties?: array{glueLineageSyncEnabled?: bool, ...},
+ *         iamProperties?: array{glueLineageSyncEnabled?: bool, roleArn?: string, ...},
  *         redshiftProperties?: array{
  *             storage?: array,
  *             databaseName?: string,
@@ -589,6 +591,24 @@ use Aws\AwsClient;
  *     clientToken?: string,
  *     ...,
  * } $args = [])
+ * @method \Aws\Result createDesignation(array $args = [])
+ * @phpstan-method \Aws\Result createDesignation(array{
+ *     domainIdentifier?: string,
+ *     name?: string,
+ *     description?: string,
+ *     policy?: string,
+ *     deletionProtection?: bool,
+ *     ...,
+ * } $args = [])
+ * @method \GuzzleHttp\Promise\Promise createDesignationAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise createDesignationAsync(array{
+ *     domainIdentifier?: string,
+ *     name?: string,
+ *     description?: string,
+ *     policy?: string,
+ *     deletionProtection?: bool,
+ *     ...,
+ * } $args = [])
  * @method \Aws\Result createDomain(array $args = [])
  * @phpstan-method \Aws\Result createDomain(array{
  *     name?: string,
@@ -701,6 +721,7 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
+ *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createEnvironmentBlueprintAsync(array $args = [])
@@ -719,6 +740,7 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
+ *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \Aws\Result createEnvironmentProfile(array $args = [])
@@ -853,6 +875,7 @@ use Aws\AwsClient;
  *     owningProjectIdentifier?: string,
  *     name?: string,
  *     description?: string,
+ *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     clientToken?: string,
@@ -864,6 +887,7 @@ use Aws\AwsClient;
  *     owningProjectIdentifier?: string,
  *     name?: string,
  *     description?: string,
+ *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     clientToken?: string,
@@ -889,7 +913,8 @@ use Aws\AwsClient;
  *     projectExecutionRole?: string,
  *     membershipAssignments?: list<array{
  *         member?: array,
- *         designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER',
+ *         designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER'|'USER_CREATED_DESIGNATION',
+ *         userCreatedDesignationId?: string,
  *         ...,
  *     }>,
  *     ...,
@@ -914,7 +939,8 @@ use Aws\AwsClient;
  *     projectExecutionRole?: string,
  *     membershipAssignments?: list<array{
  *         member?: array,
- *         designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER',
+ *         designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER'|'USER_CREATED_DESIGNATION',
+ *         userCreatedDesignationId?: string,
  *         ...,
  *     }>,
  *     ...,
@@ -924,7 +950,8 @@ use Aws\AwsClient;
  *     domainIdentifier?: string,
  *     projectIdentifier?: string,
  *     member?: array{userIdentifier?: string, groupIdentifier?: string, ...},
- *     designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER',
+ *     designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER'|'USER_CREATED_DESIGNATION',
+ *     userCreatedDesignationId?: string,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createProjectMembershipAsync(array $args = [])
@@ -932,7 +959,8 @@ use Aws\AwsClient;
  *     domainIdentifier?: string,
  *     projectIdentifier?: string,
  *     member?: array{userIdentifier?: string, groupIdentifier?: string, ...},
- *     designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER',
+ *     designation?: 'PROJECT_CATALOG_CONSUMER'|'PROJECT_CATALOG_STEWARD'|'PROJECT_CATALOG_VIEWER'|'PROJECT_CONTRIBUTOR'|'PROJECT_OWNER'|'USER_CREATED_DESIGNATION',
+ *     userCreatedDesignationId?: string,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createProjectProfile(array $args = [])
@@ -1163,6 +1191,10 @@ use Aws\AwsClient;
  *     retainPermissionsOnRevokeFailure?: bool,
  *     ...,
  * } $args = [])
+ * @method \Aws\Result deleteDesignation(array $args = [])
+ * @phpstan-method \Aws\Result deleteDesignation(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
+ * @method \GuzzleHttp\Promise\Promise deleteDesignationAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise deleteDesignationAsync(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
  * @method \Aws\Result deleteDomain(array $args = [])
  * @phpstan-method \Aws\Result deleteDomain(array{identifier?: string, clientToken?: string, skipDeletionCheck?: bool, cascadeDelete?: bool, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise deleteDomainAsync(array $args = [])
@@ -1327,6 +1359,10 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result getDataSourceRun(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getDataSourceRunAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise getDataSourceRunAsync(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
+ * @method \Aws\Result getDesignation(array $args = [])
+ * @phpstan-method \Aws\Result getDesignation(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
+ * @method \GuzzleHttp\Promise\Promise getDesignationAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getDesignationAsync(array{domainIdentifier?: string, identifier?: string, ...} $args = [])
  * @method \Aws\Result getDomain(array $args = [])
  * @phpstan-method \Aws\Result getDomain(array{identifier?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getDomainAsync(array $args = [])
@@ -1527,7 +1563,7 @@ use Aws\AwsClient;
  *     name?: string,
  *     environmentIdentifier?: string,
  *     projectIdentifier?: string,
- *     type?: 'AMAZON_Q'|'ATHENA'|'BIGQUERY'|'DATABRICKS'|'DOCUMENTDB'|'DYNAMODB'|'GIT'|'HYPERPOD'|'IAM'|'MLFLOW'|'MYSQL'|'OPENSEARCH'|'ORACLE'|'POSTGRESQL'|'REDSHIFT'|'S3'|'SAPHANA'|'SNOWFLAKE'|'SPARK'|'SQLSERVER'|'TERADATA'|'VERTICA'|'VPC'|'WORKFLOWS_MWAA',
+ *     type?: 'AMAZON_Q'|'ATHENA'|'BIGQUERY'|'DATABRICKS'|'DATABRICKSICEBERGRESTCATALOG'|'DOCUMENTDB'|'DYNAMODB'|'GIT'|'HYPERPOD'|'IAM'|'ICEBERGRESTCATALOG'|'MLFLOW'|'MYSQL'|'OPENSEARCH'|'ORACLE'|'POSTGRESQL'|'REDSHIFT'|'S3'|'SAPHANA'|'SNOWFLAKE'|'SNOWFLAKEICEBERGRESTCATALOG'|'SPARK'|'SQLSERVER'|'TERADATA'|'VERTICA'|'VPC'|'WORKFLOWS_MWAA',
  *     scope?: 'DOMAIN'|'PROJECT',
  *     ...,
  * } $args = [])
@@ -1541,7 +1577,7 @@ use Aws\AwsClient;
  *     name?: string,
  *     environmentIdentifier?: string,
  *     projectIdentifier?: string,
- *     type?: 'AMAZON_Q'|'ATHENA'|'BIGQUERY'|'DATABRICKS'|'DOCUMENTDB'|'DYNAMODB'|'GIT'|'HYPERPOD'|'IAM'|'MLFLOW'|'MYSQL'|'OPENSEARCH'|'ORACLE'|'POSTGRESQL'|'REDSHIFT'|'S3'|'SAPHANA'|'SNOWFLAKE'|'SPARK'|'SQLSERVER'|'TERADATA'|'VERTICA'|'VPC'|'WORKFLOWS_MWAA',
+ *     type?: 'AMAZON_Q'|'ATHENA'|'BIGQUERY'|'DATABRICKS'|'DATABRICKSICEBERGRESTCATALOG'|'DOCUMENTDB'|'DYNAMODB'|'GIT'|'HYPERPOD'|'IAM'|'ICEBERGRESTCATALOG'|'MLFLOW'|'MYSQL'|'OPENSEARCH'|'ORACLE'|'POSTGRESQL'|'REDSHIFT'|'S3'|'SAPHANA'|'SNOWFLAKE'|'SNOWFLAKEICEBERGRESTCATALOG'|'SPARK'|'SQLSERVER'|'TERADATA'|'VERTICA'|'VPC'|'WORKFLOWS_MWAA',
  *     scope?: 'DOMAIN'|'PROJECT',
  *     ...,
  * } $args = [])
@@ -1611,6 +1647,10 @@ use Aws\AwsClient;
  *     maxResults?: int,
  *     ...,
  * } $args = [])
+ * @method \Aws\Result listDesignations(array $args = [])
+ * @phpstan-method \Aws\Result listDesignations(array{domainIdentifier?: string, nextToken?: string, maxResults?: int, ...} $args = [])
+ * @method \GuzzleHttp\Promise\Promise listDesignationsAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise listDesignationsAsync(array{domainIdentifier?: string, nextToken?: string, maxResults?: int, ...} $args = [])
  * @method \Aws\Result listDomainUnitsForParent(array $args = [])
  * @phpstan-method \Aws\Result listDomainUnitsForParent(array{
  *     domainIdentifier?: string,
@@ -1843,6 +1883,7 @@ use Aws\AwsClient;
  *     sortOrder?: 'ASCENDING'|'DESCENDING',
  *     sortBy?: 'CREATED_AT'|'UPDATED_AT',
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
+ *     type?: 'DATA'|'SQL',
  *     nextToken?: string,
  *     ...,
  * } $args = [])
@@ -1854,6 +1895,7 @@ use Aws\AwsClient;
  *     sortOrder?: 'ASCENDING'|'DESCENDING',
  *     sortBy?: 'CREATED_AT'|'UPDATED_AT',
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
+ *     type?: 'DATA'|'SQL',
  *     nextToken?: string,
  *     ...,
  * } $args = [])
@@ -2303,7 +2345,8 @@ use Aws\AwsClient;
  *         user?: array{userIdentifier?: string, allUsersGrantFilter?: array, ...},
  *         group?: array{groupIdentifier?: string, ...},
  *         project?: array{
- *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD',
+ *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD'|'USER_CREATED_DESIGNATION',
+ *             userCreatedDesignationId?: string,
  *             projectIdentifier?: string,
  *             projectGrantFilter?: array,
  *             ...,
@@ -2325,7 +2368,8 @@ use Aws\AwsClient;
  *         user?: array{userIdentifier?: string, allUsersGrantFilter?: array, ...},
  *         group?: array{groupIdentifier?: string, ...},
  *         project?: array{
- *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD',
+ *             projectDesignation?: 'CONTRIBUTOR'|'OWNER'|'PROJECT_CATALOG_STEWARD'|'USER_CREATED_DESIGNATION',
+ *             userCreatedDesignationId?: string,
  *             projectIdentifier?: string,
  *             projectGrantFilter?: array,
  *             ...,
@@ -2569,9 +2613,10 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result startNotebookImport(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, ...},
+ *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
  *     name?: string,
  *     description?: string,
+ *     type?: 'DATA'|'SQL',
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -2579,9 +2624,10 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise startNotebookImportAsync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, ...},
+ *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
  *     name?: string,
  *     description?: string,
+ *     type?: 'DATA'|'SQL',
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -2600,6 +2646,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     timeoutConfiguration?: array{runTimeoutInMinutes?: int, ...},
+ *     notificationConfiguration?: array{notifyOn?: list<'FAILED'|'QUEUED'|'RUNNING'|'STARTING'|'STOPPED'|'STOPPING'|'SUCCEEDED'>, ...},
  *     triggerSource?: array{type?: 'MANUAL'|'SCHEDULED'|'WORKFLOW', name?: string, ...},
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
@@ -2621,6 +2668,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     timeoutConfiguration?: array{runTimeoutInMinutes?: int, ...},
+ *     notificationConfiguration?: array{notifyOn?: list<'FAILED'|'QUEUED'|'RUNNING'|'STARTING'|'STOPPED'|'STOPPING'|'SUCCEEDED'>, ...},
  *     triggerSource?: array{type?: 'MANUAL'|'SCHEDULED'|'WORKFLOW', name?: string, ...},
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
@@ -2631,7 +2679,7 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result startNotebookSync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, ...},
+ *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
  *     gitMetadata?: array{
  *         connectionId?: string,
  *         repository?: string,
@@ -2652,7 +2700,7 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise startNotebookSyncAsync(array{
  *     domainIdentifier?: string,
  *     owningProjectIdentifier?: string,
- *     sourceLocation?: array{s3?: string, ...},
+ *     sourceLocation?: array{s3?: string, s3Files?: array{bucket?: string, fileList?: list<array>, ...}, ...},
  *     gitMetadata?: array{
  *         connectionId?: string,
  *         repository?: string,
@@ -2893,6 +2941,26 @@ use Aws\AwsClient;
  *     retainPermissionsOnRevokeFailure?: bool,
  *     ...,
  * } $args = [])
+ * @method \Aws\Result updateDesignation(array $args = [])
+ * @phpstan-method \Aws\Result updateDesignation(array{
+ *     domainIdentifier?: string,
+ *     identifier?: string,
+ *     name?: string,
+ *     description?: string,
+ *     policy?: string,
+ *     deletionProtection?: bool,
+ *     ...,
+ * } $args = [])
+ * @method \GuzzleHttp\Promise\Promise updateDesignationAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise updateDesignationAsync(array{
+ *     domainIdentifier?: string,
+ *     identifier?: string,
+ *     name?: string,
+ *     description?: string,
+ *     policy?: string,
+ *     deletionProtection?: bool,
+ *     ...,
+ * } $args = [])
  * @method \Aws\Result updateDomain(array $args = [])
  * @phpstan-method \Aws\Result updateDomain(array{
  *     identifier?: string,
@@ -2979,6 +3047,7 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
+ *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateEnvironmentBlueprintAsync(array $args = [])
@@ -2997,6 +3066,7 @@ use Aws\AwsClient;
  *         isUpdateSupported?: bool,
  *         ...,
  *     }>,
+ *     blueprintCategory?: 'TOOLING',
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateEnvironmentProfile(array $args = [])
@@ -3077,6 +3147,7 @@ use Aws\AwsClient;
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
  *     name?: string,
  *     cellOrder?: list<array>,
+ *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     environmentConfiguration?: array{
@@ -3095,6 +3166,7 @@ use Aws\AwsClient;
  *     status?: 'ACTIVE'|'ARCHIVED'|'SYNC_FAILED'|'SYNC_IN_PROGRESS',
  *     name?: string,
  *     cellOrder?: list<array>,
+ *     type?: 'DATA'|'SQL',
  *     metadata?: array<string, string>,
  *     parameters?: array<string, string>,
  *     environmentConfiguration?: array{

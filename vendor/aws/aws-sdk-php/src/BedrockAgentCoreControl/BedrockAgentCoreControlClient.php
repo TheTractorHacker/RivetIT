@@ -407,6 +407,7 @@ use Aws\AwsClient;
  *             searchType?: 'SEMANTIC',
  *             sessionConfiguration?: array,
  *             streamingConfiguration?: array,
+ *             disableMcpListToolsPagination?: bool,
  *             ...,
  *         },
  *         ...,
@@ -448,6 +449,7 @@ use Aws\AwsClient;
  *             searchType?: 'SEMANTIC',
  *             sessionConfiguration?: array,
  *             streamingConfiguration?: array,
+ *             disableMcpListToolsPagination?: bool,
  *             ...,
  *         },
  *         ...,
@@ -512,7 +514,7 @@ use Aws\AwsClient;
  *     gatewayIdentifier?: string,
  *     clientToken?: string,
  *     priority?: int,
- *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, ...}>,
+ *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, matchModels?: array, ...}>,
  *     actions?: list<array{configurationBundle?: array, routeToTarget?: array, ...}>,
  *     description?: string,
  *     ...,
@@ -522,7 +524,7 @@ use Aws\AwsClient;
  *     gatewayIdentifier?: string,
  *     clientToken?: string,
  *     priority?: int,
- *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, ...}>,
+ *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, matchModels?: array, ...}>,
  *     actions?: list<array{configurationBundle?: array, routeToTarget?: array, ...}>,
  *     description?: string,
  *     ...,
@@ -571,6 +573,7 @@ use Aws\AwsClient;
  *         },
  *         ...,
  *     },
+ *     certificateConfigurations?: list<array{s3?: array, secretsManager?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createGatewayTargetAsync(array $args = [])
@@ -617,6 +620,7 @@ use Aws\AwsClient;
  *         },
  *         ...,
  *     },
+ *     certificateConfigurations?: list<array{s3?: array, secretsManager?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createHarness(array $args = [])
@@ -663,6 +667,7 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
+ *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,
@@ -718,6 +723,7 @@ use Aws\AwsClient;
  *         config?: array{slidingWindow?: array, summarization?: array, ...},
  *         ...,
  *     },
+ *     hooks?: list<array{beforeInvocation?: array, afterInvocation?: array, beforeToolCall?: array, afterToolCall?: array, ...}>,
  *     maxIterations?: int,
  *     maxTokens?: int,
  *     timeoutSeconds?: int,
@@ -768,6 +774,7 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
+ *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,
@@ -823,6 +830,7 @@ use Aws\AwsClient;
  *         config?: array{slidingWindow?: array, summarization?: array, ...},
  *         ...,
  *     },
+ *     hooks?: list<array{beforeInvocation?: array, afterInvocation?: array, beforeToolCall?: array, afterToolCall?: array, ...}>,
  *     maxIterations?: int,
  *     maxTokens?: int,
  *     timeoutSeconds?: int,
@@ -1863,6 +1871,22 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result putResourcePolicy(array{resourceArn?: string, policy?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise putResourcePolicyAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise putResourcePolicyAsync(array{resourceArn?: string, policy?: string, ...} $args = [])
+ * @method \Aws\Result rotatePaymentConnectorCredentials(array $args = [])
+ * @phpstan-method \Aws\Result rotatePaymentConnectorCredentials(array{
+ *     paymentManagerId?: string,
+ *     paymentConnectorId?: string,
+ *     credentialsToRotate?: array{coinbaseCDP?: array{secrets?: list<'API_KEY'|'WALLET_SECRET'>, ...}, ...},
+ *     clientToken?: string,
+ *     ...,
+ * } $args = [])
+ * @method \GuzzleHttp\Promise\Promise rotatePaymentConnectorCredentialsAsync(array $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise rotatePaymentConnectorCredentialsAsync(array{
+ *     paymentManagerId?: string,
+ *     paymentConnectorId?: string,
+ *     credentialsToRotate?: array{coinbaseCDP?: array{secrets?: list<'API_KEY'|'WALLET_SECRET'>, ...}, ...},
+ *     clientToken?: string,
+ *     ...,
+ * } $args = [])
  * @method \Aws\Result setTokenVaultCMK(array $args = [])
  * @phpstan-method \Aws\Result setTokenVaultCMK(array{
  *     tokenVaultId?: string,
@@ -2157,6 +2181,7 @@ use Aws\AwsClient;
  *             searchType?: 'SEMANTIC',
  *             sessionConfiguration?: array,
  *             streamingConfiguration?: array,
+ *             disableMcpListToolsPagination?: bool,
  *             ...,
  *         },
  *         ...,
@@ -2199,6 +2224,7 @@ use Aws\AwsClient;
  *             searchType?: 'SEMANTIC',
  *             sessionConfiguration?: array,
  *             streamingConfiguration?: array,
+ *             disableMcpListToolsPagination?: bool,
  *             ...,
  *         },
  *         ...,
@@ -2260,7 +2286,7 @@ use Aws\AwsClient;
  *     gatewayIdentifier?: string,
  *     ruleId?: string,
  *     priority?: int,
- *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, ...}>,
+ *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, matchModels?: array, ...}>,
  *     actions?: list<array{configurationBundle?: array, routeToTarget?: array, ...}>,
  *     description?: string,
  *     ...,
@@ -2270,7 +2296,7 @@ use Aws\AwsClient;
  *     gatewayIdentifier?: string,
  *     ruleId?: string,
  *     priority?: int,
- *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, ...}>,
+ *     conditions?: list<array{matchPrincipals?: array, matchPaths?: array, matchModels?: array, ...}>,
  *     actions?: list<array{configurationBundle?: array, routeToTarget?: array, ...}>,
  *     description?: string,
  *     ...,
@@ -2319,6 +2345,7 @@ use Aws\AwsClient;
  *         },
  *         ...,
  *     },
+ *     certificateConfigurations?: list<array{s3?: array, secretsManager?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateGatewayTargetAsync(array $args = [])
@@ -2365,6 +2392,7 @@ use Aws\AwsClient;
  *         },
  *         ...,
  *     },
+ *     certificateConfigurations?: list<array{s3?: array, secretsManager?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updateHarness(array $args = [])
@@ -2397,6 +2425,7 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
+ *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,
@@ -2444,6 +2473,7 @@ use Aws\AwsClient;
  *         config?: array{slidingWindow?: array, summarization?: array, ...},
  *         ...,
  *     },
+ *     hooks?: list<array{beforeInvocation?: array, afterInvocation?: array, beforeToolCall?: array, afterToolCall?: array, ...}>,
  *     maxIterations?: int,
  *     maxTokens?: int,
  *     timeoutSeconds?: int,
@@ -2479,6 +2509,7 @@ use Aws\AwsClient;
  *         openAiModelConfig?: array{
  *             modelId?: string,
  *             apiKeyArn?: string,
+ *             apiBase?: string,
  *             maxTokens?: int,
  *             temperature?: float,
  *             topP?: float,
@@ -2526,6 +2557,7 @@ use Aws\AwsClient;
  *         config?: array{slidingWindow?: array, summarization?: array, ...},
  *         ...,
  *     },
+ *     hooks?: list<array{beforeInvocation?: array, afterInvocation?: array, beforeToolCall?: array, afterToolCall?: array, ...}>,
  *     maxIterations?: int,
  *     maxTokens?: int,
  *     timeoutSeconds?: int,

@@ -212,7 +212,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                     } elseif ($pg_conn === null) {
                         echo '<span class="text-danger">PostgreSQL (no connection saved)</span>';
                     } elseif (!$pg_conn['test_ok']) {
-                        echo '<span class="text-danger">PostgreSQL (last test failed' . ($pg_conn['tested_at'] !== null ? ', ' . htmlspecialchars((string) $pg_conn['tested_at']) . ' UTC' : ', never tested') . ')</span> <a href="settings_endpoint_agent.php">Fix</a>';
+                        echo '<span class="text-danger">PostgreSQL (' . ($pg_conn['tested_at'] !== null ? 'last test failed, ' . htmlspecialchars((string) $pg_conn['tested_at']) . ' UTC' : 'connection never tested') . ')</span> <a href="settings_endpoint_agent.php">Fix</a>';
                     } else {
                         echo 'PostgreSQL ' . htmlspecialchars((string) ($pg_conn['server_version'] ?? '')) . ' <span class="text-success">OK</span>';
                     }
