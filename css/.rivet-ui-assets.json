@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "core_version": "1.0.0-rc.50",
+    "core_version": "1.0.0-rc.51",
     "files": {
         "css/file_upload.css": "0643d5ce607c9634d8f74bc908136a037b03e5b96ef922f284eaa65e156ff9a7",
         "css/itflow.bind-tabler.css": "1cd17cfec03663fb6d597b7de3db1576c589dee92aa0561a8100dd43c4b45485",
@@ -9,7 +9,7 @@
         "css/itflow.shim-bs4.css": "48c0fcb9f10bce08798320e6fc8150a90dc033c29240e0c591044f8ad5352c4b",
         "css/itflow_bs5_bridge.css": "b4d2c95980c1dff99ead8e9ffe07d7e5fa7f6b01f64114f7a060954ed2ebd620",
         "css/itflow_custom.css": "945ec7f6062813fea4418e7f404c934126c85a4770b40d8339441394a616aece",
-        "css/itflow_design.css": "e144ca00d3f67fee982d0055c4df79b5779ba914109377ebcc2d4677aa2395b9",
+        "css/itflow_design.css": "5125932f22b766a5e86f13b0e16d9dbc6e9d02ad5827bc42d3aa2a61abf0ee8a",
         "css/itflow_metrics.css": "6f877a8093e58902c0f16701bbf82448fc6e750e15a3cbcf99ee004ace1dee02",
         "css/itflow_motion.css": "9c9e612c4598e4da452d5344f2411f0235800b47e3f38b4c36981c6c39c8d1b2",
         "css/itflow_rmm.css": "82e38823de12e6cd8396520b1dd16b85555fd286dfd16d6f12f88c1050b357f3",
