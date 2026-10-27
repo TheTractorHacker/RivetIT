@@ -1260,13 +1260,7 @@ function rivetRmmUiFleetPage(array $f, string $csrf, ?array $installer = null, ?
     $capacity = $f['capacity'] !== null ? rivetRmmUiCapacity($f['capacity']) : '';
     $swCard = $f['outdated_sw'] !== null ? rivetRmmUiOutdatedSoftware($f['outdated_sw'], $cn, $f) : '';
 
-    return '<div class="rmmx-head"><h1><i class="fas fa-satellite text-secondary" aria-hidden="true"></i>Agent fleet</h1><div class="rmmx-head-actions align-items-center">'
-        . ($installerGate !== null ? preg_replace('/\bbtn-sm\b\s*/', '', rivetRmmInstallerCreateButton($installerGate)) : '')   // 26.10.54: the primary button, drawn for everyone (muted, with the reason below, without the right)
-        . ($installer !== null ? rivetRmmInstallerTrigger('button', 0, 'Add device', 'btn btn-outline-secondary') : '')
-        . rivetRmmMeshBulkTrigger($f['mesh_bulk'] ?? null)
-        . '<a href="/agent/rmm_assets.php" class="btn btn-outline-secondary"><i class="fas fa-desktop me-1" aria-hidden="true"></i>All RMM assets</a>'
-        . '<a href="/agent/alerts.php" class="btn btn-outline-secondary"><i class="fas fa-bell me-1" aria-hidden="true"></i>Alerts</a>'
-        . ($f['perm']['admin'] ? '<a href="/admin/settings_endpoint_agent.php" class="btn btn-outline-secondary"><i class="fas fa-cog me-1" aria-hidden="true"></i>Administration</a>' : '') . '</div></div>'
+    return '<div class="rmmx-head"><h1><i class="fas fa-satellite text-secondary" aria-hidden="true"></i>Agent fleet</h1></div>'   // no header buttons: Add device, All RMM assets, Alerts and Administration are in the Managed devices menu
         . ($installerGate !== null ? rivetRmmInstallerNotice($installerGate, $installer) : '')
         . ($c['total'] === 0 && $f['filters'] === [] ? '<section class="card card-dark mb-3"><div class="card-body">' . rivetRmmUiEmpty('fas fa-satellite-dish', 'No agent is enrolled yet',
             $installer !== null ? 'Click Add device, download the installer and run it on a PC. It enrolls itself.' : ($f['perm']['admin'] ? 'Create an enrollment token under Administration, Endpoint agent, then install the agent on a device.' : 'An administrator creates an enrollment token and installs the agent.'),
