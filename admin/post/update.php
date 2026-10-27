@@ -87,6 +87,16 @@ if (isset($_GET['update'])) {
 
     validateAdminRole(); // Old function
 
+    // Stop with a plain explanation (not a half-run git command, a wasted backup or a used throttle slot) when the server cannot
+    // update itself; the Checks panel on the Update page shows the same results.
+    require_once __DIR__ . '/../../includes/update_checks.php';
+    foreach (updateChecks(dirname(__DIR__, 2)) as $update_check) {
+        if ($update_check['status'] === 'fail' && in_array($update_check['id'], ['exec', 'git', 'repo', 'gitwrite', 'treewrite'], true)) {
+            flash_alert('The update did not run: ' . htmlspecialchars($update_check['detail'] . ' ' . $update_check['fix'], ENT_QUOTES), 'error');
+            redirect();
+        }
+    }
+
     // Throttle: this exec()s git fetch/pull and composer install, and (via update_pre_backup()) a full
     // DB dump + zip - repeated clicks (or a stolen admin session replaying the request) could tie up the
     // web server / disk I/O with no lock protecting this path (unlike update_db below, which takes a
