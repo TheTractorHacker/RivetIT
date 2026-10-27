@@ -11897,3 +11897,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_terms_url` text DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.198'");
     }
+
+    if ($rivetit_db_version() == '2.6.198') {
+        // DB 2.6.199: RivetCore 1.0.0-rc.49. Re-runs CoreMigrations::all() (idempotent) to pick up 0046 (compliance framework
+        // profiles, rc.44) and 0047 (reporting views, rc.45). All additive: new tables and read-only views; nothing existing is altered and no feature is switched on.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.199'");
+        }
+    }
