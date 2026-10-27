@@ -74,6 +74,12 @@ systemctl reload postgresql</pre>'
         . '<p class="small text-muted mt-2 mb-2">Changing the host, port, role or database requires retyping the password (the stored one is only ever reused for the exact target it was saved for); a stored password reused for a host other than localhost/127.0.0.1/::1/a unix socket needs SSL mode <code>verify-full</code> or <code>verify-ca</code>. A connection with no password at all (peer authentication) is only usable over a unix socket (host starting with <code>/</code>).</p>'
         . '<button type="submit" name="save_datastore_connection" class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-save me-1" aria-hidden="true"></i>Save connection</button>'
         . '<button type="submit" name="test_datastore" class="btn btn-outline-primary btn-sm" data-ds-test><i class="fas fa-vial me-1" aria-hidden="true"></i>Test connection</button>'
+        . ($conn !== null && !empty($conn['password_set'])
+            ? '<div class="border rounded p-2 mt-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="ds_peer_ack" name="ds_peer_ack" value="1">'
+                . '<label class="form-check-label small" for="ds_peer_ack">PostgreSQL is already set up for peer authentication (role and <code>pg_hba.conf</code> line above) and the Host field is its socket directory.</label></div>'
+                . '<button type="submit" name="clear_datastore_password" class="btn btn-outline-danger btn-sm"><i class="fas fa-eraser me-1" aria-hidden="true"></i>Remove stored password and use peer authentication</button>'
+                . '<span class="small text-muted ms-2">Tested without a password first; if the test fails the stored password is kept.</span></div>'
+            : '')
         . '<div class="mt-2" data-ds-test-live aria-live="polite"></div>'
         . '</form>';
 

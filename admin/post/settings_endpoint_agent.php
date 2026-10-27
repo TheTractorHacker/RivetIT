@@ -1593,6 +1593,63 @@ if (isset($_POST['save_datastore_connection'])) {
     ea_scale_back('datastore');
 }
 
+// Remove the stored password and switch the connection to peer authentication. DataStoreSwitch can never do this on its own: a blank password
+// means "keep the stored one" for the same target, and "enter the password again" if the target changed, so a stored password could only
+// ever be replaced by another one. The stored value is therefore lifted out of the row for the length of the test, the connection is tested
+// and saved with NO password, and the original sealed value is put back byte for byte if anything fails. It is never read into a message,
+// log or response.
+if (isset($_POST['clear_datastore_password'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
+    $stored = $rmm->dataStoreSwitch()->connectionSettings();
+    if ($stored === null || empty($stored['password_set'])) {
+        rivetRmmScaleMsg('datastore', 'error', 'No password is stored; nothing to remove.');
+        ea_scale_back('datastore');
+    }
+    if (empty($_POST['ds_peer_ack'])) {
+        rivetRmmScaleMsg('datastore', 'error', 'Tick the box to confirm PostgreSQL is set up for peer authentication first. Nothing was changed.');
+        ea_scale_back('datastore');
+    }
+    $in = ea_datastore_conn_from_post();
+    $in['password'] = '';
+    if (strpos($in['host'], '/') !== 0) {
+        rivetRmmScaleMsg('datastore', 'error', 'Peer authentication only works over a unix socket: set Host to the socket directory (for example /var/run/postgresql). Nothing was changed.', $in);
+        ea_scale_back('datastore');
+    }
+    $restore = static function (?string $sealed) use ($mysqli): void {
+        $stmt = mysqli_prepare($mysqli, 'UPDATE rmm_data_store_connection SET password_sealed = ? WHERE id = 1');
+        mysqli_stmt_bind_param($stmt, 's', $sealed);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    };
+    $res = mysqli_query($mysqli, 'SELECT password_sealed FROM rmm_data_store_connection WHERE id = 1');
+    $row = $res ? mysqli_fetch_row($res) : null;
+    if ($row === null || $row === false) {
+        rivetRmmScaleMsg('datastore', 'error', 'The stored connection could not be read. Nothing was changed.');
+        ea_scale_back('datastore');
+    }
+    $original = $row[0] === null ? null : (string) $row[0];
+    $restore(null);
+    try {
+        $test = $rmm->dataStoreSwitch()->testConnection($in);
+        $errors = $test['ok'] ? $rmm->dataStoreSwitch()->saveConnection($in) : [];
+    } catch (\Throwable $e) {
+        $restore($original);
+        throw $e;
+    }
+    if (!$test['ok'] || $errors !== []) {
+        $restore($original);
+        $failed = $test['ok'] ? implode(' ', $errors) : implode(' ', array_filter(array_map(static fn (array $c) => $c['ok'] ? '' : $c['message'], $test['checks'])));
+        rivetRmmScaleMsg('datastore', 'error', 'The password was NOT removed (the stored one is kept): ' . ($failed !== '' ? $failed : 'the passwordless connection test failed.'), $in);
+        ea_scale_back('datastore');
+    }
+    $rmm->dataStoreSwitch()->testConnection();   // saveConnection() cleared the tested mark; put it back
+    mysqli_query($mysqli, 'DELETE FROM rivetit_rmm_pg_credential_meta WHERE id = 1');   // nothing left to age
+    logAction('RMM', 'Settings Changed', "$session_name removed the stored RMM PostgreSQL password; the connection now uses peer authentication.");
+    rivetRmmScaleMsg('datastore', 'success', 'Stored password removed. The connection now uses peer authentication and was verified without a password.');
+    ea_scale_back('datastore');
+}
+
 if (isset($_POST['change_datastore_password'])) {
     validateCSRFToken($_POST['csrf_token']);
     ea_scale_require_admin($rmm, (int) $session_user_id, 'datastore');
