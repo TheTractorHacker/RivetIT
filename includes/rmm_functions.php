@@ -121,6 +121,9 @@ function createTicketFromRmmAlert($mysqli, array $alert, int $created_by, string
          ticket_created_at=NOW()"
     );
     $ticket_id = intval(mysqli_insert_id($mysqli));
+    // Per-category SLA-exempt / Non-billable (DB 2.6.201) for the category the alert route chose.
+    require_once __DIR__ . '/ticket_category_rules.php';
+    ticketCategoryApplyOnCreate($mysqli, $ticket_id, intval($route['category_id']));
 
     // Link alert to the new ticket and acknowledge it
     mysqli_query($mysqli,

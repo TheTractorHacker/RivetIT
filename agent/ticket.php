@@ -181,6 +181,7 @@ if (isset($_GET['ticket_id'])) {
         $sla_open_now      = slaIsOpenNow($sla_calendar);
         $sla_status_data   = slaStatus([
             'ticket_created_at'         => $row['ticket_created_at'] ?? null,
+            'ticket_sla_started_at'     => $row['ticket_sla_started_at'] ?? null,
             'ticket_sla_paused_at'      => $row['ticket_sla_paused_at'] ?? null,
             'ticket_status'             => $row['ticket_status'] ?? null,
             'ticket_closed_at'          => $row['ticket_closed_at'] ?? null,
@@ -743,7 +744,7 @@ if (isset($_GET['ticket_id'])) {
                         $sla_source_label = $sla_policy_name
                             ? ($sla_policy_name . ($sla_calendar_name ? ' &middot; ' . $sla_calendar_name : ''))
                             : $sla_contract_name;
-                        $sla_created_ts = !empty($row['ticket_created_at']) ? strtotime($row['ticket_created_at']) : time();
+                        $sla_created_ts = !empty($row['ticket_sla_started_at']) ? strtotime($row['ticket_sla_started_at']) : (!empty($row['ticket_created_at']) ? strtotime($row['ticket_created_at']) : time());
                         $sla_meter_items = [
                             'Response'   => ['st' => $sla_status_data['response'],   'due' => $ticket_sla_response_due],
                             'Resolution' => ['st' => $sla_status_data['resolution'], 'due' => $ticket_sla_resolution_due],

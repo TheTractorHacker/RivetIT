@@ -59,7 +59,7 @@ final class SlaEventEmitter
         $sent = 0;
         $res = mysqli_query($mysqli,
             'SELECT * FROM tickets WHERE ticket_archived_at IS NULL AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL
-               AND (ticket_sla_response_due IS NOT NULL OR ticket_sla_resolution_due IS NOT NULL) ORDER BY ticket_id DESC LIMIT ' . max(1, (int) $limit));
+               AND (ticket_sla_response_due IS NOT NULL OR ticket_sla_resolution_due IS NOT NULL)' . slaCountsClause($mysqli) . ' ORDER BY ticket_id DESC LIMIT ' . max(1, (int) $limit));
         while ($res && ($t = mysqli_fetch_assoc($res))) {
             $status = slaStatus($t, []);
             foreach (['response', 'resolution'] as $clock) {

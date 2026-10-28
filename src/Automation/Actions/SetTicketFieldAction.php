@@ -130,6 +130,15 @@ class SetTicketFieldAction extends AbstractAction
             mysqli_stmt_close($stmt);
         }
         $tid = (int) $t['ticket_id'];
+        foreach ($sets as [$col, , $val]) {
+            if ($col === 'ticket_category') {
+                // Per-category SLA-exempt / Non-billable (DB 2.6.201): this action never touches billable itself.
+                require_once dirname(__DIR__, 3) . '/includes/ticket_category_rules.php';
+                $b = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT ticket_billable' . (\ticketBillableOverrideColumnExists($mysqli) ? ', ticket_billable_overridden' : '') . " FROM tickets WHERE ticket_id = $tid LIMIT 1"));
+                $oldBillable = (int) ($b['ticket_billable'] ?? 0);
+                \ticketCategoryApplyOnCategoryChange($mysqli, $tid, (int) $t['ticket_category'], (int) $val, $oldBillable, $oldBillable, (int) ($b['ticket_billable_overridden'] ?? 0));
+            }
+        }
         if ($newStatus !== null) {
             mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $newStatus WHERE ticket_id = $tid");
             if ($newStatus === 5) {

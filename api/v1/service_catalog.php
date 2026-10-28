@@ -172,6 +172,9 @@ if ($method === 'POST') {
         }
     }
 
+    // Per-category SLA-exempt / Non-billable (DB 2.6.201), before the SLA engine runs.
+    require_once $DOCUMENT_ROOT . '/includes/ticket_category_rules.php';
+    ticketCategoryApplyOnCreate($mysqli, $ticket_id, intval($category));
     require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
     recalculateTicketSla($mysqli, $ticket_id);
 

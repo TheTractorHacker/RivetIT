@@ -581,6 +581,8 @@ CREATE TABLE `categories` (
   `category_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `category_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `category_archived_at` datetime DEFAULT NULL,
+  `category_sla_exempt` tinyint(1) NOT NULL DEFAULT 0,
+  `category_non_billable` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -5615,6 +5617,9 @@ CREATE TABLE `tickets` (
   `ticket_catalog_item_id` int(11) DEFAULT NULL,
   `ticket_resolution_started_at` datetime DEFAULT NULL,
   `ticket_mail_message_id` varchar(255) DEFAULT NULL,
+  `ticket_counts_sla` tinyint(1) NOT NULL DEFAULT 1,
+  `ticket_sla_started_at` datetime DEFAULT NULL,
+  `ticket_billable_overridden` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ticket_id`),
   KEY `idx_tickets_client_archived_updated` (`ticket_client_id`,`ticket_archived_at`,`ticket_updated_at`),
   KEY `idx_tickets_problem` (`ticket_problem_id`),

@@ -11924,3 +11924,26 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.200'");
     }
+
+    if ($rivetit_db_version() == '2.6.200') {
+        // DB 2.6.201: per-category "SLA exempt" and "Non-billable" ticket settings (same column names and meaning as RivetMSP).
+        //
+        // categories.category_sla_exempt     1 = tickets in this Ticket category get no SLA at all (no policy, no due dates, never
+        //                                     breached, left out of the SLA reports and dashboard widgets).
+        // categories.category_non_billable   1 = tickets in this Ticket category are billable = 0 (new tickets, and tickets moved in
+        //                                     unless a person explicitly set billable on that ticket).
+        // tickets.ticket_counts_sla          0 = this ticket has no SLA (stamped while it sits in an SLA-exempt category). Default 1.
+        // tickets.ticket_sla_started_at      when set, the SLA clock runs from this time instead of ticket_created_at (set when a ticket
+        //                                     moves OUT of an exempt category, so the clock starts then and is never backdated).
+        // tickets.ticket_billable_overridden 1 = a person explicitly set this ticket's billable value; a category default never overwrites it.
+        //
+        // Everything defaults off / unchanged, nothing is back-filled, and every statement is idempotent (ADD COLUMN IF NOT EXISTS).
+        mysqli_query($mysqli, "ALTER TABLE `categories`
+            ADD COLUMN IF NOT EXISTS `category_sla_exempt` TINYINT(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `category_non_billable` TINYINT(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `tickets`
+            ADD COLUMN IF NOT EXISTS `ticket_counts_sla` TINYINT(1) NOT NULL DEFAULT 1,
+            ADD COLUMN IF NOT EXISTS `ticket_sla_started_at` DATETIME NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `ticket_billable_overridden` TINYINT(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.201'");
+    }

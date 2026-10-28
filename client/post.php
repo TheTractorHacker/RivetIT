@@ -183,6 +183,9 @@ if (isset($_POST['add_ticket'])) {
 
     mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Portal', ticket_category = $category, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_asset_id = $asset, ticket_url_key = '$url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $resolved_assigned_to, ticket_catalog_item_id = $catalog_item_sql");
     $ticket_id = mysqli_insert_id($mysqli);
+    // Per-category SLA-exempt / Non-billable (DB 2.6.201).
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/ticket_category_rules.php';
+    ticketCategoryApplyOnCreate($mysqli, $ticket_id, intval($category));
 
     // Store the request form and, when the item needs approval, hold the ticket and ask the first approvers.
     $catalog_request_status = null;
@@ -713,6 +716,8 @@ if (isset($_POST['request_onboarding'])) {
         $ob_category = resolveTicketCategory(0);
         mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ob_ticket_number, ticket_source = 'Portal', ticket_category = $ob_category, ticket_subject = '$ob_subject', ticket_details = '$ob_details', ticket_priority = 'Medium', ticket_status = $ob_status, ticket_created_by = $session_user_id, ticket_contact_id = $session_contact_id, ticket_url_key = '$ob_url_key', ticket_client_id = $session_client_id, ticket_assigned_to = $ob_assigned");
         $ob_ticket_id = mysqli_insert_id($mysqli);
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/ticket_category_rules.php';
+        ticketCategoryApplyOnCreate($mysqli, $ob_ticket_id, intval($ob_category));
         appNotify("Ticket", "$session_contact_name requested onboarding for $ob_name - ticket $config_ticket_prefix$ob_ticket_number", "/agent/ticket.php?ticket_id=$ob_ticket_id&client_id=$session_client_id", $session_client_id, $ob_ticket_id);
         customAction('ticket_create', $ob_ticket_id);
         logAction("Ticket", "Create", "$session_contact_name raised onboarding ticket $config_ticket_prefix$ob_ticket_number for $ob_name from the department portal", $session_client_id, $ob_ticket_id);
