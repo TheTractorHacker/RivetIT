@@ -16,7 +16,7 @@ if (!in_array($type, ['domains', 'certificates'], true)) {
 // see another client's (or the whole company's) expiring domains/certificates - an
 // unrestricted key keeps the same company-wide behavior as before.
 if ($type === 'domains') {
-    $client_filter = !empty($api_key_client_id) ? " AND domain_client_id = " . intval($api_key_client_id) : '';
+    $client_filter = api_key_client_filter('domain_client_id');
     $sql = mysqli_query($mysqli,
         "SELECT domain_id AS id, domain_name AS name, domain_expire AS expire_date, client_name
          FROM domains
@@ -28,7 +28,7 @@ if ($type === 'domains') {
          ORDER BY domain_expire ASC"
     );
 } else {
-    $client_filter = !empty($api_key_client_id) ? " AND certificate_client_id = " . intval($api_key_client_id) : '';
+    $client_filter = api_key_client_filter('certificate_client_id');
     $sql = mysqli_query($mysqli,
         "SELECT certificate_id AS id, certificate_name AS name, certificate_expire AS expire_date, client_name
          FROM certificates

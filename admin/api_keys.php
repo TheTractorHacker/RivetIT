@@ -5,6 +5,7 @@ $sort = "api_key_name";
 $order = "ASC";
 
 require_once "includes/inc_all_admin.php";
+require_once __DIR__ . '/../includes/api_key_security.php';
 
 $sql = mysqli_query(
     $mysqli,
@@ -120,10 +121,18 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $api_key_expire = $api_key_expire . " (Expired)";
                         }
 
-                        if ($row['api_key_client_id'] == 0) {
+                        // Several departments: api_key_client_id is -1 and the list lives in api_key_clients.
+                        $key_department_ids = rivetitApiKeyClientIds($mysqli, $api_key_id, intval($row['api_key_client_id']));
+                        if ($key_department_ids === null) {
                             $api_key_client = "<i>All Departments</i>";
                         } else {
-                            $api_key_client = nullable_htmlentities($row['client_name']);
+                            $key_department_full = rivetitApiKeyDepartmentLabel($mysqli, $api_key_id, intval($row['api_key_client_id']), 1000);
+                            $key_department_short = rivetitApiKeyDepartmentLabel($mysqli, $api_key_id, intval($row['api_key_client_id']), 2);
+                            $api_key_client = '<span title="' . nullable_htmlentities($key_department_full) . '">' . nullable_htmlentities($key_department_short);
+                            if (count($key_department_ids) > 1) {
+                                $api_key_client .= ' <span class="badge text-bg-secondary">' . count($key_department_ids) . '</span>';
+                            }
+                            $api_key_client .= '</span>';
                         }
 
                         $api_key_permission = $row['api_key_permission'] ?? 'write';

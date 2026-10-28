@@ -228,7 +228,11 @@ if (!empty($_SERVER['HTTP_X_API_KEY'])) {
 // stored but never actually read/enforced anywhere - every legacy key granted
 // full instance-wide access regardless of this setting. api_client_scope_sql()/
 // api_client_scope_ok() in includes/api_permissions.php now fold this in.
+// A key limited to several departments stores -1 here (matches no real department, so a consumer
+// that only looks at this value denies rather than allows) and lists them in api_key_clients;
+// $api_key_client_ids is the resolved list (null = all departments) every scope helper uses.
 $api_key_client_id = null;
+$api_key_client_ids = null;
 if (!$api_user_id && $legacy_key_raw !== null) {
     // Failed-attempt throttle, same policy as validate_api_key.php: 15 failures per IP in 10 minutes -> 429 (pentest F-07)
     $rl_ip = mysqli_real_escape_string($mysqli, (string) getIP());
@@ -266,6 +270,7 @@ if (!$api_user_id && $legacy_key_raw !== null) {
             $session_company_id = 1;
             $legacy_api_key_auth = true;
             $api_key_client_id  = intval($legacy_key_row['api_key_client_id'] ?? 0) ?: null;
+            $api_key_client_ids = rivetitApiKeyClientIds($mysqli, intval($legacy_key_row['api_key_id'] ?? 0), intval($api_key_client_id ?? 0));
         }
     }
 }

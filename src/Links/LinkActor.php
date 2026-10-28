@@ -20,7 +20,7 @@ final class LinkActor
         public readonly bool $admin,
         private array $levels,
         private ?array $clientIds = null,
-        private ?int $apiKeyClient = null,
+        private ?array $apiKeyClients = null,
     ) {
     }
 
@@ -38,7 +38,7 @@ final class LinkActor
     }
 
     /** Any agent user, by id (no session needed). */
-    public static function forUser(\mysqli $db, int $userId, ?int $apiKeyClient = null): self
+    public static function forUser(\mysqli $db, int $userId, int|array|null $apiKeyClient = null): self
     {
         $levels = [];
         $admin = false;
@@ -52,7 +52,7 @@ final class LinkActor
             }
         }
 
-        return new self($userId, $admin, $levels, $row ? self::clientIdsFor($db, $userId) : [], $apiKeyClient);
+        return new self($userId, $admin, $levels, $row ? self::clientIdsFor($db, $userId) : [], self::keyClients($apiKeyClient));
     }
 
     /** @return list<int>|null */
@@ -67,10 +67,37 @@ final class LinkActor
         return $ids === [] ? null : $ids;
     }
 
-    /** The departments this user is limited to, or null when every department is open to them (admins, users with no restriction). */
+    /**
+     * A legacy API key's department limit as a list: null = none (not a legacy key, or the key covers every department),
+     * an int above zero = that one department, an int below zero (the "several departments" sentinel with no resolved list)
+     * = nothing at all, an array = exactly those departments. Never read a negative value as "unrestricted".
+     *
+     * @return list<int>|null
+     */
+    private static function keyClients(int|array|null $key): ?array
+    {
+        if ($key === null || $key === 0) {
+            return null;
+        }
+        if (is_array($key)) {
+            return array_values(array_unique(array_map('intval', $key)));
+        }
+
+        return $key > 0 ? [$key] : [];
+    }
+
+    /**
+     * The departments this actor is limited to, or null when every department is open to them (admins, users with no
+     * restriction). A legacy API key's own department list is applied on top, even for the admin the key resolves to.
+     */
     public function restrictedClientIds(): ?array
     {
-        return $this->admin ? null : $this->clientIds;
+        $own = $this->admin ? null : $this->clientIds;
+        if ($this->apiKeyClients === null) {
+            return $own;
+        }
+
+        return $own === null ? $this->apiKeyClients : array_values(array_intersect($own, $this->apiKeyClients));
     }
 
     public function level(string $module): int
@@ -112,7 +139,7 @@ final class LinkActor
     /** Department 0 is the global bucket: any signed-in agent may see a record kept there (the app's enforceClientAccess() rule). */
     public function canAccessClient(int $clientId): bool
     {
-        if ($this->apiKeyClient !== null && $this->apiKeyClient > 0 && $clientId !== $this->apiKeyClient && $clientId !== 0) {
+        if ($this->apiKeyClients !== null && $clientId !== 0 && !in_array($clientId, $this->apiKeyClients, true)) {
             return false;
         }
         if ($clientId === 0 || $this->admin || $this->clientIds === null) {

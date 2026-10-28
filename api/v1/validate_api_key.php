@@ -134,6 +134,9 @@ if (isset($api_key)) {
         }
         $api_key_name = htmlentities($row['api_key_name']);
         $api_key_decrypt_hash = $row['api_key_decrypt_hash']; // No sanitization
+        // 0 = all departments, N = one department, -1 = several (listed in api_key_clients). The legacy handlers match
+        // `client_id LIKE '$client_id'`, so -1 matches no department: a multi-department key reaches nothing here
+        // (fail-closed) rather than everything. The scoped router (api/v1/index.php) is what supports the list.
         $client_id = intval($row['api_key_client_id']);
 
         // All legacy handlers pass this check even on installations that serve

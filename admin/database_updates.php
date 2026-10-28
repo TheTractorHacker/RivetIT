@@ -11924,3 +11924,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.200'");
     }
+
+    if ($rivetit_db_version() == '2.6.200') {
+        // DB 2.6.203: legacy API keys can be limited to several departments. api_key_clients lists them; a key with several departments
+        // stores api_key_client_id = -1 (matches no real department, so any code that has not learned the list denies instead of allowing).
+        // Existing keys (0 = all departments, N = one department) are untouched and need no rows.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `api_key_clients` (
+  `api_key_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  PRIMARY KEY (`api_key_id`,`client_id`),
+  KEY `client_id` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.203'");
+    }

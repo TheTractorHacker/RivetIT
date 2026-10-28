@@ -18,7 +18,7 @@ $mine_filter = $mine ? "AND r.ticket_reply_by = $uid" : "";
 // A legacy API key deliberately restricted to one client ($api_key_client_id) must never
 // see another client's (or the whole company's) time entries - an unrestricted key keeps
 // the same company-wide behavior as before.
-$client_filter = !empty($api_key_client_id) ? " AND t.ticket_client_id = " . intval($api_key_client_id) : '';
+$client_filter = api_key_client_filter('t.ticket_client_id');
 
 $sql = mysqli_query($mysqli,
     "SELECT c.client_name, c.client_id,

@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **API keys: multi-select department access.** A legacy API key can now be limited to one, several or all departments (new key form: "All departments" is the default, or tick the departments with search). The list page shows "All Departments", the department name or a short list with a count and the full list on hover. Existing keys are unchanged. A key with several departments stores `api_key_client_id = -1` (matches nothing, so any code that has not learned the list denies) plus rows in the new `api_key_clients` table (DB **2.6.203**, apply with **Update Database**). Every API consumer now honours the list: list and by-id endpoints, search, relationships, KB and KB media links, and all report endpoints. Search results and relationship neighbours are now also restricted for single-department keys (previously the key's department was not applied to the platform search or to record links in SQL).
+
 ## [26.10.74] RivetIT — Update page redesign with a hard-failure guard, RMM PostgreSQL credential hardening, the Test connection result is recorded
 
 - **Update page** rebuilt as a status-first screen (version tiles, Checks panel, release channel, update history, progress and result banner). **Update App refuses to run** when the Checks report the server cannot update itself (no exec, git, repo, git-write or tree-write access) and says why.

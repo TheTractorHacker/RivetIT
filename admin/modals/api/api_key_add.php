@@ -62,21 +62,31 @@ ob_start();
 
                 <div class="form-group">
                     <label>Department Access <strong class="text-danger">*</strong></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
-                        </div>
-                        <select class="form-control select2" name="client" required>
-                            <option value="" selected disabled>Select a department</option>
-                            <?php
-                            $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
-                            while ($row = mysqli_fetch_assoc($sql)) {
-                                $client_id = intval($row['client_id']);
-                                $client_name = nullable_htmlentities($row['client_name']); ?>
-                                <option value="<?php echo $client_id; ?>"><?php echo "$client_name  (Department ID: $client_id)"; ?></option>
-                            <?php } ?>
-                        </select>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="apiKeyAllDepartments" name="all_departments" value="1" checked>
+                        <label class="form-check-label" for="apiKeyAllDepartments">All departments</label>
                     </div>
+                    <div id="apiKeyDepartmentPicker" class="d-none">
+                        <input type="search" class="form-control form-control-sm mb-2" id="apiKeyDepartmentSearch" placeholder="Search departments" aria-label="Search departments" autocomplete="off">
+                        <div class="border rounded" style="max-height:min(30vh,240px); overflow-y:auto;">
+                            <ul class="list-group list-group-flush">
+                                <?php
+                                $sql = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name ASC");
+                                while ($row = mysqli_fetch_assoc($sql)) {
+                                    $client_id = intval($row['client_id']);
+                                    $client_name = nullable_htmlentities($row['client_name']); ?>
+                                    <li class="list-group-item py-1 api-key-dept-row" data-name="<?php echo strtolower($client_name); ?>">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input api-key-dept" id="apiKeyDept<?php echo $client_id; ?>" name="clients[]" value="<?php echo $client_id; ?>" disabled>
+                                            <label class="form-check-label ms-2" for="apiKeyDept<?php echo $client_id; ?>"><?php echo "$client_name (ID: $client_id)"; ?></label>
+                                        </div>
+                                    </li>
+                                <?php } ?>
+                            </ul>
+                        </div>
+                        <small class="text-muted"><span id="apiKeyDeptCount">0</span> selected. Choose at least one department.</small>
+                    </div>
+                    <small class="text-muted" id="apiKeyAllHint">The key can reach every department. Untick to limit it to one or more departments.</small>
                 </div>
 
                 <div class="form-group">
@@ -160,6 +170,29 @@ ob_start();
         if (dates[preset.value]) expiry.value = dates[preset.value];
         if (!expiry.readOnly) expiry.focus();
     });
+    var all = document.getElementById('apiKeyAllDepartments');
+    var picker = document.getElementById('apiKeyDepartmentPicker');
+    var hint = document.getElementById('apiKeyAllHint');
+    var search = document.getElementById('apiKeyDepartmentSearch');
+    var count = document.getElementById('apiKeyDeptCount');
+    var boxes = picker.querySelectorAll('.api-key-dept');
+    function refresh() {
+        var n = 0;
+        boxes.forEach(function (b) { b.disabled = all.checked; if (b.checked) n++; });
+        picker.classList.toggle('d-none', all.checked);
+        hint.classList.toggle('d-none', !all.checked);
+        count.textContent = n;
+    }
+    all.addEventListener('change', refresh);
+    picker.addEventListener('change', refresh);
+    search.addEventListener('input', function () {
+        var q = search.value.trim().toLowerCase();
+        picker.querySelectorAll('.api-key-dept-row').forEach(function (row) {
+            row.classList.toggle('d-none', q !== '' && row.getAttribute('data-name').indexOf(q) === -1);
+        });
+    });
+    search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+    refresh();
     var permission = document.getElementById('apiKeyPermission');
     var allowDelete = document.getElementById('apiKeyAllowDelete');
     permission.addEventListener('change', function () {
