@@ -2293,6 +2293,160 @@ CREATE TABLE `notifications` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `oidc_client_config`
+--
+
+DROP TABLE IF EXISTS `oidc_client_config`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_client_config` (
+  `ocfg_client_id` int(11) NOT NULL,
+  `ocfg_redirect_uris` text DEFAULT NULL,
+  `ocfg_login_url` varchar(500) DEFAULT NULL,
+  `ocfg_allow_profile` tinyint(1) NOT NULL DEFAULT 0,
+  `ocfg_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`ocfg_client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_codes`
+--
+
+DROP TABLE IF EXISTS `oidc_codes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_codes` (
+  `ocode_hash` char(64) NOT NULL,
+  `ocode_client_id` int(11) NOT NULL,
+  `ocode_contact_id` int(11) NOT NULL,
+  `ocode_user_id` int(11) NOT NULL,
+  `ocode_redirect_uri` varchar(500) NOT NULL,
+  `ocode_challenge` char(43) NOT NULL,
+  `ocode_nonce` varchar(255) NOT NULL,
+  `ocode_scope` varchar(100) NOT NULL,
+  `ocode_auth_time` int(10) unsigned NOT NULL,
+  `ocode_amr` varchar(60) NOT NULL DEFAULT '',
+  `ocode_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `ocode_expires_at` datetime NOT NULL,
+  `ocode_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`ocode_hash`),
+  KEY `idx_oidc_code_exp` (`ocode_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_events`
+--
+
+DROP TABLE IF EXISTS `oidc_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_events` (
+  `oev_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `oev_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `oev_type` varchar(30) NOT NULL,
+  `oev_result` varchar(10) NOT NULL,
+  `oev_reason` varchar(60) NOT NULL DEFAULT '',
+  `oev_client_id` int(11) NOT NULL DEFAULT 0,
+  `oev_contact_id` int(11) NOT NULL DEFAULT 0,
+  `oev_ip` varchar(45) NOT NULL DEFAULT '',
+  `oev_detail` varchar(200) NOT NULL DEFAULT '',
+  PRIMARY KEY (`oev_id`),
+  KEY `idx_oidc_ev_at` (`oev_at`),
+  KEY `idx_oidc_ev_ip` (`oev_ip`,`oev_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_pending`
+--
+
+DROP TABLE IF EXISTS `oidc_pending`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_pending` (
+  `opend_hash` char(64) NOT NULL,
+  `opend_client_id` int(11) NOT NULL,
+  `opend_redirect_uri` varchar(500) NOT NULL,
+  `opend_scope` varchar(100) NOT NULL,
+  `opend_state` varchar(512) NOT NULL,
+  `opend_nonce` varchar(255) NOT NULL,
+  `opend_challenge` char(43) NOT NULL,
+  `opend_force_login` tinyint(1) NOT NULL DEFAULT 0,
+  `opend_max_age` int(11) DEFAULT NULL,
+  `opend_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `opend_expires_at` datetime NOT NULL,
+  `opend_consumed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`opend_hash`),
+  KEY `idx_oidc_pending_exp` (`opend_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_provider_settings`
+--
+
+DROP TABLE IF EXISTS `oidc_provider_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_provider_settings` (
+  `ops_id` tinyint(4) NOT NULL DEFAULT 1,
+  `ops_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `ops_max_auth_age_minutes` smallint(6) NOT NULL DEFAULT 480,
+  `ops_id_token_ttl` smallint(6) NOT NULL DEFAULT 300,
+  `ops_access_token_ttl` smallint(6) NOT NULL DEFAULT 300,
+  `ops_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `ops_updated_by_user_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`ops_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_signing_keys`
+--
+
+DROP TABLE IF EXISTS `oidc_signing_keys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_signing_keys` (
+  `okey_kid` varchar(32) NOT NULL,
+  `okey_alg` varchar(10) NOT NULL DEFAULT 'ES256',
+  `okey_public_pem` text NOT NULL,
+  `okey_private_enc` text NOT NULL,
+  `okey_status` enum('active','retired') NOT NULL DEFAULT 'active',
+  `okey_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `okey_retired_at` datetime DEFAULT NULL,
+  `okey_publish_until` datetime DEFAULT NULL,
+  `okey_created_by_user_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`okey_kid`),
+  KEY `idx_oidc_key_status` (`okey_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `oidc_tokens`
+--
+
+DROP TABLE IF EXISTS `oidc_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `oidc_tokens` (
+  `otok_hash` char(64) NOT NULL,
+  `otok_code_hash` char(64) NOT NULL,
+  `otok_client_id` int(11) NOT NULL,
+  `otok_contact_id` int(11) NOT NULL,
+  `otok_scope` varchar(100) NOT NULL,
+  `otok_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `otok_expires_at` datetime NOT NULL,
+  `otok_revoked_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`otok_hash`),
+  KEY `idx_oidc_tok_code` (`otok_code_hash`),
+  KEY `idx_oidc_tok_exp` (`otok_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `payment_methods`
 --
 

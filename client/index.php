@@ -428,6 +428,17 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
             <?php if ($portal_training_on) { ?>
                 <a href="training.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>Training</a>
             <?php } ?>
+            <?php
+            // Single sign-on to the QMS (issue #55): only while the SSO provider is on and a client with a login address is registered, never on a shared (kiosk) screen,
+            // and never in the admin preview (no person is signed in there). The address was checked when the administrator saved it.
+            $portal_quality_url = null;
+            if (empty($portal_preview_active) && empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+                $portal_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
+            }
+            if ($portal_quality_url !== null) { ?>
+                <a href="<?= nullable_htmlentities($portal_quality_url) ?>" class="portal-tile" rel="noopener noreferrer"><span class="portal-tile-icon"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>Open Quality</a>
+            <?php } ?>
             <?php if ($portal_is_tech) { ?>
                 <a href="assets.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-desktop" aria-hidden="true"></i></span>Assets</a>
                 <a href="domains.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-globe" aria-hidden="true"></i></span>Domains</a>

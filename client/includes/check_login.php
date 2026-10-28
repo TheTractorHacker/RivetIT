@@ -200,6 +200,17 @@ if (!$portal_preview_active) {
         }
     }
 
+    // Single sign-on to Quality (RivetIT as the OpenID Connect provider, issue #55): when this sign-in was started by /oidc/authorize, the
+    // landing page hands the browser back to it. Only the portal's landing pages, only GET, and only while the stored request is still valid.
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && !empty($_COOKIE['rivet_oidc_pending'])
+        && in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['index.php', 'training.php'], true)) {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+        $oidc_resume = \ITFlow\Oidc\PortalResume::resumeUrl($mysqli, $_COOKIE);
+        if ($oidc_resume !== null) {
+            redirect($oidc_resume);
+        }
+    }
+
 } else {
 
     /*

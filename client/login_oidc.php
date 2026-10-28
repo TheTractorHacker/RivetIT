@@ -163,6 +163,8 @@ try {
     $_SESSION['contact_id'] = (int) $account['contact_id'];
     $_SESSION['csrf_token'] = randomString(32);
     $_SESSION['login_method'] = 'oidc';
+    $_SESSION['portal_auth_time'] = time();   // read by the SSO provider (oidc/authorize.php) to enforce its maximum sign-in age
+    $_SESSION['portal_amr'] = 'fed';
     $session_user_id = (int) $account['user_id'];
     $session_ip = sanitizeInput(getIP());
     $session_user_agent = sanitizeInput($_SERVER['HTTP_USER_AGENT'] ?? '');

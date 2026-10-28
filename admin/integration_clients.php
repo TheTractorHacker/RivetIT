@@ -11,6 +11,7 @@ $ic_scope_help = [
     'lms:evidence:read' => 'Download completion evidence files',
     'directory:read' => 'Read the employee and department directory (reserved; not served yet)',
     'quality:events' => 'Send signed events to RivetIT (reserved; not served yet)',
+    'sso' => 'Sign people in through RivetIT single sign-on (OpenID Connect). Not an API scope: register addresses under Single sign-on provider',
 ];
 
 // A secret created or rotated by the last action is shown exactly once.

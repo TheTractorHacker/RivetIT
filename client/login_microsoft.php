@@ -132,6 +132,8 @@ if (isset($_POST['code']) && $_POST['state'] == session_id()) {
                 $_SESSION['contact_id'] = $contact_id;
                 $_SESSION['csrf_token'] = randomString(32);
                 $_SESSION['login_method'] = "azure";
+                $_SESSION['portal_auth_time'] = time();   // read by the SSO provider (oidc/authorize.php) to enforce its maximum sign-in age
+                $_SESSION['portal_amr'] = 'fed';
 
                 // Logging
                 logAction("Client Login", "Success", "Client contact $upn successfully logged in via Entra", $client_id, $user_id);

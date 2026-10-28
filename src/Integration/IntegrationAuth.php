@@ -16,8 +16,19 @@ namespace ITFlow\Integration;
  */
 final class IntegrationAuth
 {
-    public const SCOPES = ['lms:read', 'lms:assign', 'lms:completions:read', 'lms:evidence:read', 'directory:read', 'quality:events'];
+    public const SCOPES = ['lms:read', 'lms:assign', 'lms:completions:read', 'lms:evidence:read', 'directory:read', 'quality:events', self::SSO_SCOPE];
+    /**
+     * The "sso" capability (#55): this client may sign people in through RivetIT's OpenID Connect provider (/oidc/*). It is a capability of the
+     * CLIENT, not an API scope: POST /api/v1/oauth/token never puts it in an access token (see API_SCOPES), and the OIDC scopes `openid` and
+     * `profile` are not integration scopes at all, so an SSO-only client cannot call anything under /api/v1.
+     */
+    public const SSO_SCOPE = 'sso';
     public const TOKEN_TTL = 600;
+    /** Scopes an API access token may carry: every scope except the sign-in capability. */
+    public static function apiScopes(): array
+    {
+        return array_values(array_diff(self::SCOPES, [self::SSO_SCOPE]));
+    }
     public const MAX_ACTIVE_SECRETS = 2;
     private const KEY_CONTEXT = 'integration_token_key';
 
@@ -191,7 +202,7 @@ final class IntegrationAuth
         // Effective scopes: what the token carries AND what the client is still granted (narrowing a client's scopes bites immediately).
         $granted = self::parseScopes((string) $row['client_scopes']);
         $carried = self::parseScopes((string) ($claims['scope'] ?? ''));
-        $scopes = array_values(array_intersect($carried, $granted));
+        $scopes = array_values(array_intersect($carried, $granted, self::apiScopes()));   // the sso capability never counts as an API scope
         $cid = (int) $row['client_id'];
         $db->query("UPDATE integration_clients SET client_last_used_at = NOW() WHERE client_id = $cid AND (client_last_used_at IS NULL OR client_last_used_at < NOW() - INTERVAL 60 SECOND)");
         return ['ok' => true, 'client' => $row, 'scopes' => $scopes];

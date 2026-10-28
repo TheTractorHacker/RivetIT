@@ -61,7 +61,8 @@ if ($oauth_auth === null) {
 }
 [$oauth_row, $oauth_secret_id] = $oauth_auth;
 
-$oauth_granted = IntegrationAuth::parseScopes((string) $oauth_row['client_scopes']);
+// The 'sso' capability (OpenID Connect sign-in, #55) is not an API scope: it is never granted or accepted here, so a client that only signs people in cannot mint an API token.
+$oauth_granted = array_values(array_intersect(IntegrationAuth::parseScopes((string) $oauth_row['client_scopes']), IntegrationAuth::apiScopes()));
 $oauth_asked = isset($_POST['scope']) && trim((string) $_POST['scope']) !== ''
     ? preg_split('/\s+/', trim((string) $_POST['scope']), -1, PREG_SPLIT_NO_EMPTY) : $oauth_granted;
 foreach ($oauth_asked as $s) {

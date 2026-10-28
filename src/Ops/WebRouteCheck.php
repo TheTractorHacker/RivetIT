@@ -77,10 +77,13 @@ final class WebRouteCheck
         return new self($appRoot, $baseUrl, $db ? self::mcpContext($db) : [], 'https', null, WebRoutes::INSTALLED_PATH, null, self::TTL, null, $why);
     }
 
-    /** @return array{mcp_ready:bool, mcp_builtin:bool} */
+    /** @return array{mcp_ready:bool, mcp_builtin:bool, oidc_on:bool} */
     public static function mcpContext(\mysqli $db): array
     {
-        $ctx = ['mcp_ready' => false, 'mcp_builtin' => false];
+        $ctx = ['mcp_ready' => false, 'mcp_builtin' => false, 'oidc_on' => false];
+        try {
+            $ctx['oidc_on'] = (bool) \ITFlow\Oidc\OidcConfig::load($db)['enabled'];
+        } catch (\Throwable) { /* treated as off */ }
         try {
             $mcp = \ITFlow\Mcp\McpConfig::load($db);
             $oauth = \ITFlow\Mcp\OAuth\OAuthConfig::load($db);

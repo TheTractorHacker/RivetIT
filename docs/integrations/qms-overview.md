@@ -61,6 +61,7 @@ Module toggle pattern (Training), role permission rows, `rivetEmitEvent` and the
 - [ ] API contract and OpenAPI (`qms-api-contract.md`) agreed with the QMS repository
 - [ ] Phase 1: module switch, admin settings page, portal route and nav gating, cron gating (no agent navigation)
 - [ ] Phase 2: integration clients and token endpoint
+- [x] Single sign-on provider (#55): RivetIT as an OpenID Connect provider for the QMS (`qms-sso.md`). The Quality module switch and department gate plug into `QualityAccessPolicy` in Phase 1
 - [ ] Phase 3: QMS API client and connection health
 - [ ] Phase 4: LMS API (courses, assignments, completions, evidence), idempotency
 - [ ] Phase 5: employees and departments API, Odoo ID mapping, incremental sync

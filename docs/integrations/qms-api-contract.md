@@ -1,6 +1,6 @@
 # QMS integration: API contract (draft v1)
 
-Status: draft for agreement with the QMS repository. **Implemented in RivetIT (PR 1 of #52):** `POST /oauth/token` and everything under `/lms`; the tables below say where shipped behaviour differs from the first draft. Not built yet: employees and departments, events/webhooks, `POST /integrations/qms/events`, and the RivetIT-side QMS client. Base paths: RivetIT `/api/v1`, QMS `/api/v1`. All JSON, UTF-8, HTTPS. Versioned by path; breaking changes get `/v2`.
+Status: draft for agreement with the QMS repository. **Implemented in RivetIT (PR 1 of #52):** `POST /oauth/token` and everything under `/lms`; the tables below say where shipped behaviour differs from the first draft. Also implemented (#55): the OpenID Connect provider below. Not built yet: employees and departments, events/webhooks, `POST /integrations/qms/events`, and the RivetIT-side QMS client. Base paths: RivetIT `/api/v1`, QMS `/api/v1`. All JSON, UTF-8, HTTPS. Versioned by path; breaking changes get `/v2`.
 
 ## Conventions (both directions)
 
@@ -26,6 +26,20 @@ Status: draft for agreement with the QMS repository. **Implemented in RivetIT (P
 | `GET /employees`, `GET /employees/{id}` | `directory:read` | *Not built yet.* id, odoo_employee_id, department_ids, manager_id, employment_status, job_title, updated_at. No contact details |
 | `GET /departments`, `GET /departments/{id}` | `directory:read` | *Not built yet.* id, odoo_department_id, parent_id, head_employee_id, status, updated_at |
 | `POST /integrations/qms/events` | `quality:events` | *Not built yet.* inbound QMS events (signed) |
+
+## RivetIT identity provider (consumed by the QMS; OpenID Connect)
+
+Implemented in #55. Not under `/api/v1`: the endpoints live at the issuer root and use their own credentials and tokens (see `qms-sso.md` for flow, claims and the validation checklist).
+
+| Method and path | Auth | Notes |
+|---|---|---|
+| `GET /.well-known/openid-configuration` | none | discovery; 404 while the provider is off |
+| `GET /oidc/jwks` | none | public keys (ES256, `kid`); a retired key stays 15 minutes after rotation |
+| `GET /oidc/authorize` | the person's portal session | code flow, PKCE S256 required, `state` and `nonce` required, exact `redirect_uri` |
+| `POST /oidc/token` | integration client with the `sso` capability: `client_secret_basic` or `client_secret_post` | `authorization_code` only; returns `id_token` and an opaque 5 minute `access_token`; no refresh token |
+| `GET`/`POST /oidc/userinfo` | `Authorization: Bearer <SSO access token>` | `sub`, `rivetit_id`, `name` only with the `profile` scope |
+
+The ID token carries `iss`, `aud` (client id), `sub` (Odoo employee id, or `rivetit:<contact id>` when not linked), `rivetit_id`, `iat`, `nbf`, `exp` (5 minutes), `auth_time`, `nonce`, `amr`, `jti`, `at_hash`, and `name` on request. The `sso` capability is not an API scope: `POST /oauth/token` above never issues it, and an SSO token is refused on every `/api/v1` route.
 
 ## QMS endpoints (consumed by RivetIT; proposed, to agree)
 

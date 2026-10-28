@@ -70,6 +70,11 @@ final class ColumnRegistry
         // leave it on the old key exactly as the two RMM columns above did before they were added; wrapPlaintext stays false - the column is
         // always either NULL or already sealed, never a legacy cleartext value to migrate.
         $specs[] = new ColumnSpec('rmm_data_store_connection', 'id', 'password_sealed', 'settings', false, true);
+        // The SSO provider's ID-token signing keys (issue #55): sealed with encryptSetting($pem, 'oidc_signing_key'), i.e. under their OWN context name, so the row
+        // is kind 'custom' (the AAD is the fixed name, not the generic one) and keyed by the string kid. Without this entry a settings-key rotation would leave the
+        // private key on the old key and retiring that key would make every ID token unsignable.
+        $specs[] = new ColumnSpec('oidc_signing_keys', 'okey_kid', 'okey_private_enc', 'custom', false, false,
+            static fn (string $id): string => SettingsCrypto::contextFor(\RivetCore\Crypto\KeyPurpose::SETTINGS, \ITFlow\Oidc\KeyStore::CONTEXT));
         // The license keys were cleartext on old installs; every reader goes through decryptSetting().
         $specs[] = new ColumnSpec('software', 'software_id', 'software_key', 'settings', true);
         $specs[] = new ColumnSpec('software_keys', 'software_key_id', 'software_key', 'settings', true);

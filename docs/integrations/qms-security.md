@@ -1,13 +1,13 @@
 # QMS integration: security
 
-Targets: OWASP ASVS Level 2, OWASP API Security Top 10, NIST SSDF, least privilege. Status: design.
+Targets: OWASP ASVS Level 2, OWASP API Security Top 10, NIST SSDF, least privilege. Status: design; the machine credentials (PR 1 of #52) and the SSO provider (#55) are implemented.
 
 ## Machine credentials (integration clients)
 
 - Table `integration_clients` (name, client id, allowed scopes, optional IP/CIDR allow-list, status, expiry). `integration_client_secrets` holds up to two active secrets per client so a rotation has an overlap period. Secrets are shown once, stored as a password hash (argon2id/bcrypt via `password_hash`), never logged.
 - `POST /api/v1/oauth/token` (grant `client_credentials`, `application/x-www-form-urlencoded`). Returns a signed, short-lived (10 minute) access token with `iss`, `aud`, `sub` (client id), `scope`, `jti`, `exp`. Rate limited per client and IP. Failures return a uniform error and are audited.
 - Tokens are validated on every request: signature, issuer, audience, expiry, client still active, scope. Revoking a client or secret takes effect at the next request (`jti` stored in `integration_tokens` with the client status check).
-- Scopes (deny by default): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`, `quality:events`. An endpoint declares the scope it needs; there is no wildcard scope.
+- Scopes (deny by default): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`, `quality:events`. An endpoint declares the scope it needs; there is no wildcard scope. A client may additionally hold the `sso` capability (OpenID Connect sign-in, see below); it is not an API scope and is never issued in an API token.
 - A service token does not see more than its scopes allow, and for employee-facing calls it acts only on the person named in the signed per-user context.
 
 ## Per-user context
@@ -45,4 +45,13 @@ Existing device and session policy applies unchanged. Shared screens show counts
 
 ## SSO
 
-User SSO to the QMS uses OIDC (authorization code with PKCE) with explicit issuer and audience checks. Passwords, sessions and cookies are never shared between the applications. Machine credentials and user identities are separate.
+User SSO to the QMS: RivetIT is an OpenID Connect provider (authorization code with PKCE S256 only, confidential client, ES256 ID tokens). Full design, claims, key rotation, threat notes and the validation checklist Datum must implement: `qms-sso.md`. In short:
+
+- The QMS is an integration client holding the `sso` capability plus a registration (exact redirect URIs, login address). The capability is not an API scope: it never appears in an API token, and a client with only `sso` cannot obtain one. SSO access tokens (opaque, hashed at rest, 5 minutes) are refused everywhere under `/api/v1`; LMS tokens and API keys are refused at `/oidc/userinfo`.
+- The person is the department-portal session of a contact. No session means the normal portal sign-in first, then back to a request that is kept server side (never in a URL). Refused, audited, with a plain page that reflects nothing from the request: provider off, contact inactive, archived or terminated, not a portal user, kiosk or agent sessions, department inactive, portal off. A portal sign-in older than the configured age (default 8 hours) forces re-authentication.
+- `QualityAccessPolicy::allows()` is the one place that decides, called at authorize, token and every userinfo call. The Quality module switch and the per-department list plug in there when Phase 1 exists.
+- Codes: single use, 60 seconds, bound to client, redirect URI, PKCE challenge, nonce and person, burned on first presentation; replay revokes the tokens issued from the code and is audited. No refresh tokens, no implicit, password or client-credentials grant at the OIDC endpoints.
+- ID token claims are an identifier set (`sub` = Odoo employee id when linked, otherwise `rivetit:<contact id>`; `rivetit_id`), timing, `nonce`, `amr`, and the display name only on request. No email, phone or PIN.
+- The signing key is encrypted at rest under its own context, registered for settings-key rotation, rotated from the admin page with a 15 minute overlap. The issuer comes from the configured base URL only.
+- Rate limits on Redis (fail open) plus database counters (independent of Redis); every issue and refusal is an audit row; uniform error responses; `no-store` on token and userinfo; frame, referrer and CSP headers on the authorize pages.
+- Passwords, sessions and cookies are never shared between the applications. Machine credentials and user identities are separate.
