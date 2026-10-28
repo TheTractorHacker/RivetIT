@@ -1710,6 +1710,17 @@ if (isset($_POST['test_datastore'])) {
     $in = ea_datastore_conn_from_post();
     // Blank host/db/user means "test the stored connection" (the form was submitted with nothing changed); otherwise test exactly what is typed, unsaved.
     $tryUnsaved = $in['host'] !== '' || $in['database'] !== '' || $in['user'] !== '';
+    // The form always posts its filled-in fields, so an unchanged form would be tested as "unsaved" and the result never recorded (the card and the
+    // Update page kept saying "never tested"). When nothing differs from the saved connection and no new password was typed, test the saved one:
+    // RivetCore records the result only for that.
+    $stored = $tryUnsaved && $in['password'] === '' ? $rmm->dataStoreSwitch()->connectionSettings() : null;
+    if ($stored !== null
+        && $in['host'] === (string) $stored['host'] && (int) $in['port'] === (int) $stored['port']
+        && $in['database'] === (string) $stored['database'] && $in['user'] === (string) $stored['user']
+        && $in['sslmode'] === (string) $stored['sslmode'] && $in['schema'] === (string) $stored['schema']
+        && (string) ($in['sslrootcert'] ?? '') === (string) ($stored['sslrootcert'] ?? '')) {
+        $tryUnsaved = false;
+    }
     $res = $rmm->dataStoreSwitch()->testConnection($tryUnsaved ? $in : null);
     if ($res['ok']) {
         $message = 'Connected. Server ' . ($res['server_version'] ?? '?') . ', ' . ($res['storage_mode'] ?? 'no schema yet') . '.';
