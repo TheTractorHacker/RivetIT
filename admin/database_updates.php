@@ -11909,6 +11909,9 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ))->run();
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.199'");
         }
+    }
+
+    if ($rivetit_db_version() == '2.6.199') {
         // DB 2.6.200: when the RMM PostgreSQL password (rmm_data_store_connection.password_sealed, a RivetCore table) was last changed through
         // the Data store card's "Change password" action, for the 90-day-warning readout. rmm_data_store_connection belongs to RivetCore
         // (migration 0044) and is read whole by RmmModule code, so this edition-owned table carries the timestamp instead of a column added
