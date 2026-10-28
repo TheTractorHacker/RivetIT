@@ -10,6 +10,17 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+/** One integration client by id, selected columns from a fixed list, bound parameter. */
+function ic_client_row(mysqli $mysqli, int $cid, string $columns): ?array
+{
+    $st = $mysqli->prepare("SELECT $columns FROM integration_clients WHERE client_id = ?");
+    $st->bind_param('i', $cid);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    $st->close();
+    return $row ?: null;
+}
+
 use ITFlow\Integration\IntegrationAuth;
 
 $ic_admin_only = static function () use ($session_is_admin) {
@@ -67,7 +78,7 @@ if (isset($_POST['update_integration_client'])) {
     $ic_admin_only();
 
     $cid = intval($_POST['client_id'] ?? 0);
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name, client_status FROM integration_clients WHERE client_id = $cid"));
+    $row = ic_client_row($mysqli, $cid, 'client_name, client_status');
     $scopes = $ic_scopes_from_post();
     $expires = $ic_expiry_from_post();
     try {
@@ -97,7 +108,7 @@ if (isset($_POST['rotate_integration_secret'])) {
 
     $cid = intval($_POST['client_id'] ?? 0);
     $overlap = intval($_POST['overlap_hours'] ?? 24);
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_uid, client_name, client_status FROM integration_clients WHERE client_id = $cid"));
+    $row = ic_client_row($mysqli, $cid, 'client_uid, client_name, client_status');
     if (!$row || $row['client_status'] !== 'active') {
         flash_alert('That client is not active.', 'danger');
         redirect('/admin/integration_clients.php');
@@ -118,7 +129,7 @@ if (isset($_POST['revoke_integration_secret'])) {
 
     $cid = intval($_POST['client_id'] ?? 0);
     $sid = intval($_POST['secret_id'] ?? 0);
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM integration_clients WHERE client_id = $cid"));
+    $row = ic_client_row($mysqli, $cid, 'client_name');
     if ($row && IntegrationAuth::revokeSecret($mysqli, $cid, $sid)) {
         logAction('Integration', 'Secret Revoke', "$session_name revoked secret #$sid of integration client {$row['client_name']}", 0, $cid);
         flash_alert('Secret revoked. Tokens issued with it stop working at their next request.', 'warning');
@@ -133,7 +144,7 @@ if (isset($_POST['revoke_integration_client'])) {
     $ic_admin_only();
 
     $cid = intval($_POST['client_id'] ?? 0);
-    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_uid, client_name, client_status FROM integration_clients WHERE client_id = $cid"));
+    $row = ic_client_row($mysqli, $cid, 'client_uid, client_name, client_status');
     if ($row && $row['client_status'] === 'active') {
         IntegrationAuth::revokeClient($mysqli, $cid);
         logAction('Integration', 'Client Revoke', "$session_name revoked integration client {$row['client_name']} ({$row['client_uid']})", 0, $cid);
