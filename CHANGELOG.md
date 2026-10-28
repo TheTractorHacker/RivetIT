@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.74] RivetIT — Update page redesign with a hard-failure guard, RMM PostgreSQL credential hardening, the Test connection result is recorded
+
+- **Update page** rebuilt as a status-first screen (version tiles, Checks panel, release channel, update history, progress and result banner). **Update App refuses to run** when the Checks report the server cannot update itself (no exec, git, repo, git-write or tree-write access) and says why.
+- **RMM PostgreSQL**: peer authentication with no stored password, a "Remove stored password" action, password rotation with a re-test, credential change metadata (DB **2.6.200**), and tests that nothing sensitive reaches config, manifests, logs or pages.
+- **Test connection** on an unchanged data store form now tests the saved connection, so the result is recorded; the card and the Update page no longer stay at "never tested".
+- RivetCore pin moved through rc.52 (see the rc.49 entry below for the rc.46-rc.49 changes); org chart and My dashboard polish.
+  **Deploy notes:** take a database dump, then run the database update (Administration > Update, or `php scripts/update_cli.php --update_db`); DB 2.6.199 and 2.6.200 apply in one run.
+
 - **Org chart**: toggles sit beside the cards (24px, readable +/-), the root card is labelled with the organization, fit never zooms below 85%, text is crisp. **My dashboard**: calmer widget chips, a quiet "N available" toggle, readable group headings, a reset confirmation and a full-dashboard notice. No migration.
 
 - **RivetCore 1.0.0-rc.49** (pin moved from rc.42). Navigation links (admin section jump lists, breadcrumbs, tabs, list groups) are no longer underlined. Also brings the security fixes and hardening of rc.46-rc.48, the security baseline, customizable compliance frameworks and the reporting views.
