@@ -1901,7 +1901,7 @@ paths:
     get:
       tags: [Integration]
       summary: Published course catalog
-      description: Scope `lms:read`. Published, non-archived courses only; each is its latest published revision. Cursor paging, incremental sync with `updated_since`.
+      description: Scope `lms:read`. Published, non-archived courses only; each is its latest published revision. Limited to the client's department scope (all departments, or only courses linked to its departments by a live rule, a rule naming one of its people, or an assignment or completion of one of its people); `departments` and `requirements` list only what touches the allowed departments. Cursor paging, incremental sync with `updated_since`.
       security: [{integrationAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/IntLimit'}
@@ -1916,7 +1916,7 @@ paths:
     get:
       tags: [Integration]
       summary: One published course
-      description: Scope `lms:read`. `id` is the course id from the list (12 characters). Unpublished, archived and unknown ids are all 404.
+      description: Scope `lms:read`. `id` is the course id from the list (12 characters). Unpublished, archived, unknown and out-of-department-scope ids are all the same 404.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string}}
@@ -1929,7 +1929,7 @@ paths:
     get:
       tags: [Integration]
       summary: List assignments
-      description: Scope `lms:read`. Filters `employee` (RivetIT id), `odoo_employee_id`, `course`, `status` (open, completed, waived, cancelled), `external_system`, `external_ref`, `updated_since`.
+      description: Scope `lms:read`. Only assignments of people in the client's department scope. Filters `employee` (RivetIT id), `odoo_employee_id`, `course`, `status` (open, completed, waived, cancelled), `external_system`, `external_ref`, `updated_since`.
       security: [{integrationAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/IntLimit'}
@@ -1955,6 +1955,8 @@ paths:
         successful results are stored. The employee is identified by `odoo_employee_id` or `rivetit_id` (never by name). The course must
         have a published revision. Created through the assignment engine, so the training ledger stays valid. 201 when a new assignment
         was created, 200 when an open assignment for the employee and course (or the same external reference) already existed.
+        The employee and the course must be inside the client's department scope; outside it the answer is exactly the one for an unknown
+        employee or course (422 `employee_not_found` / `course_not_found`), and an external_ref held outside the scope is the same 409 `external_ref_conflict`.
       security: [{integrationAuth: []}]
       parameters:
         - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
@@ -1975,7 +1977,7 @@ paths:
     get:
       tags: [Integration]
       summary: One assignment
-      description: Scope `lms:read`. `id` looks like `asg_123`.
+      description: Scope `lms:read`. `id` looks like `asg_123`. An assignment of a person outside the client's department scope is the same 404 as an unknown id.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, example: asg_123}}
@@ -2010,7 +2012,7 @@ paths:
     get:
       tags: [Integration]
       summary: One completion
-      description: Scope `lms:completions:read`. `id` looks like `cmp_123`.
+      description: Scope `lms:completions:read`. `id` looks like `cmp_123`. A completion of a person outside the client's department scope is the same 404 as an unknown id.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, example: cmp_123}}

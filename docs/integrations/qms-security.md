@@ -8,6 +8,7 @@ Targets: OWASP ASVS Level 2, OWASP API Security Top 10, NIST SSDF, least privile
 - `POST /api/v1/oauth/token` (grant `client_credentials`, `application/x-www-form-urlencoded`). Returns a signed, short-lived (10 minute) access token with `iss`, `aud`, `sub` (client id), `scope`, `jti`, `exp`. Rate limited per client and IP. Failures return a uniform error and are audited.
 - Tokens are validated on every request: signature, issuer, audience, expiry, client still active, scope. Revoking a client or secret takes effect at the next request (`jti` stored in `integration_tokens` with the client status check).
 - Scopes (deny by default): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`, `quality:events`. An endpoint declares the scope it needs; there is no wildcard scope.
+- **Department scope (least privilege, OWASP API1 BOLA).** Each client has an explicit department scope: `integration_clients.client_all_departments` (1 = all departments, 0 = restricted, the column default) plus rows in `integration_client_departments`. A restricted client with no rows sees nothing. The scope is set on creation (a choice is required, no silent default), edited by administrators only, audited with department ids, and read from the database on every request so a change bites tokens already issued. It is enforced inside the SQL of every `/lms` endpoint (courses, assignments, create, completions, evidence); out-of-scope ids answer exactly like unknown ids (404, or the same 422 on create) so existence is not disclosed. `IntegrationScope::allowedDepartmentIds()` returns null for all departments, for reuse by the future directory endpoints.
 - A service token does not see more than its scopes allow, and for employee-facing calls it acts only on the person named in the signed per-user context.
 
 ## Per-user context
@@ -45,4 +46,4 @@ Existing device and session policy applies unchanged. Shared screens show counts
 
 ## SSO
 
-User SSO to the QMS uses OIDC (authorization code with PKCE) with explicit issuer and audience checks. Passwords, sessions and cookies are never shared between the applications. Machine credentials and user identities are separate.
+The SSO sign-in is per person and is unaffected by an integration client's department scope: the scope limits only what a machine client can read or create, never who may sign in. User SSO to the QMS uses OIDC (authorization code with PKCE) with explicit issuer and audience checks. Passwords, sessions and cookies are never shared between the applications. Machine credentials and user identities are separate.

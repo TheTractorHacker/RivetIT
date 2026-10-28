@@ -13,8 +13,19 @@ use ITFlow\Training\Records\EvidenceStore;
  * Read side of the LMS API (GET /api/v1/lms/...): the published course catalog, assignments and completions.
  *
  * SERVICE CONTEXT. src/Training/Core/Access.php is session-bound (it reads the logged-in user's module_training level), so it is not used
- * here. An integration client has no user: it sees every department's records, but only through the scope it was granted, and every
- * query below is read-only. Evidence goes through EvidenceStore::canServe() with an explicit service Ctx (level 3, user 0) and
+ * here. An integration client has no user: it sees only the departments it was granted (IntegrationScope: null = all, [] = none), and every
+ * read query below is filtered by that department scope IN SQL, so an object outside the scope is indistinguishable from one that does not exist.
+ *
+ * DEPARTMENT SCOPE (least privilege, OWASP API1). A department is clients.client_id; a person belongs to the department in
+ * contacts.contact_client_id (current value, evaluated per request). Assignments and completions are in scope when their person is.
+ * A COURSE is in scope when the client has all departments, or when at least one of these links it to an allowed department:
+ *   1. a live (not archived) requirement rule of the course that is "everyone" (requirement_all_people), has a department criterion on an
+ *      allowed department, or has a contact criterion naming a person of an allowed department (this is how manual assignments are stored);
+ *   2. an assignment of the course (any status) to a person of an allowed department;
+ *   3. a completion of the course by a person of an allowed department.
+ * A course with no such link (a draft-only catalog entry, or one whose rules use only job group / Odoo job / work location criteria) is
+ * visible to all-department clients only. The `departments` and `requirements` fields of a course list only the rules that touch the
+ * allowed departments, so another department's name or rule never appears. Evidence goes through EvidenceStore::canServe() with an explicit service Ctx (level 3, user 0) and
  * Scope::all(), i.e. the same "referenced by a completion whose person is in scope" rule the web endpoint applies.
  *
  * IDS. Courses are addressed by course_uid (12 characters, never the sequential row id), assignments as asg_<n> and completions as cmp_<n>.
@@ -24,8 +35,74 @@ final class LmsApi
     public const DEFAULT_LIMIT = 50;
     public const MAX_LIMIT = 200;
 
-    public function __construct(private readonly \mysqli $db)
+    /**
+     * @param list<int>|null $departments the client's allowed departments (IntegrationScope::allowedDepartmentIds): null = all, [] = none.
+     *        No default on purpose: a caller that forgets the scope must fail, not silently see everything.
+     */
+    public function __construct(private readonly \mysqli $db, private readonly ?array $departments)
     {
+    }
+
+    // ---- department scope --------------------------------------------------------------------------------------------
+
+    private function deptList(): string
+    {
+        return implode(',', array_map('intval', $this->departments ?? []));
+    }
+
+    /** SQL (leading AND) limiting $contactCol to people of the allowed departments. The ids are integers, so they are inlined. */
+    private function personScope(string $contactCol): string
+    {
+        if ($this->departments === null) {
+            return '';
+        }
+        if ($this->departments === []) {
+            return ' AND 1 = 0';
+        }
+        return " AND EXISTS (SELECT 1 FROM contacts sc WHERE sc.contact_id = $contactCol AND sc.contact_client_id IN (" . $this->deptList() . '))';
+    }
+
+    /** SQL condition (no leading AND): the requirement rule row $q touches an allowed department (rule 1 in the class comment). */
+    private function ruleTouches(string $q): string
+    {
+        $d = $this->deptList();
+        return "($q.requirement_all_people = 1
+            OR EXISTS (SELECT 1 FROM training_requirement_criteria rd WHERE rd.rcrit_requirement_id = $q.requirement_id AND rd.rcrit_kind = 'department' AND rd.rcrit_value_id IN ($d))
+            OR EXISTS (SELECT 1 FROM training_requirement_criteria rp JOIN contacts rpc ON rpc.contact_id = rp.rcrit_value_id
+                WHERE rp.rcrit_requirement_id = $q.requirement_id AND rp.rcrit_kind = 'contact' AND rpc.contact_client_id IN ($d)))";
+    }
+
+    /** SQL (leading AND) limiting $courseCol to courses linked to an allowed department (rules 1 to 3 in the class comment). */
+    private function courseScope(string $courseCol): string
+    {
+        if ($this->departments === null) {
+            return '';
+        }
+        if ($this->departments === []) {
+            return ' AND 1 = 0';
+        }
+        $d = $this->deptList();
+        return " AND (EXISTS (SELECT 1 FROM training_requirements sq WHERE sq.requirement_course_id = $courseCol AND sq.requirement_archived_at IS NULL AND " . $this->ruleTouches('sq') . ")
+            OR EXISTS (SELECT 1 FROM training_assignments sa JOIN contacts sac ON sac.contact_id = sa.tassign_contact_id WHERE sa.tassign_course_id = $courseCol AND sac.contact_client_id IN ($d))
+            OR EXISTS (SELECT 1 FROM training_completions sk JOIN contacts skc ON skc.contact_id = sk.completion_contact_id WHERE sk.completion_course_id = $courseCol AND skc.contact_client_id IN ($d)))";
+    }
+
+    /** Whether the person (contacts.contact_id) is in the client's department scope. */
+    public function personInScope(int $contactId): bool
+    {
+        return Db::one($this->db, 'SELECT 1 AS ok FROM dual WHERE 1 = 1' . $this->personScope((string) (int) $contactId), '', []) !== null;
+    }
+
+    /** Whether the course (training_courses.course_id, any publication state) is linked to the client's department scope. */
+    public function courseInScope(int $courseId): bool
+    {
+        return Db::one($this->db, 'SELECT 1 AS ok FROM dual WHERE 1 = 1' . $this->courseScope((string) (int) $courseId), '', []) !== null;
+    }
+
+    /** True when ANY assignment (in scope or not) carries this external pair. Only used to answer a conflict identically in and out of scope. */
+    public function externalRefTaken(string $system, string $ref): bool
+    {
+        return Db::one($this->db, 'SELECT 1 AS ok FROM training_assignments WHERE tassign_external_system = ? AND tassign_external_ref = ?', 'ss', [$system, $ref]) !== null;
     }
 
     // ---- shared parsing ---------------------------------------------------------------------------------------------
@@ -109,7 +186,7 @@ final class LmsApi
     public function courses(array $q): array
     {
         $p = self::paging($q);
-        $sql = self::COURSE_SELECT . ' AND c.course_id > ?';
+        $sql = self::COURSE_SELECT . $this->courseScope('c.course_id') . ' AND c.course_id > ?';
         $types = 'i';
         $args = [$p['after']];
         if ($p['since_utc'] !== null) {
@@ -127,7 +204,7 @@ final class LmsApi
         if (preg_match('/^[A-Za-z0-9]{12}$/D', $uid) !== 1) {
             return null;
         }
-        $r = Db::one($this->db, self::COURSE_SELECT . ' AND c.course_uid = ?', 's', [$uid]);
+        $r = Db::one($this->db, self::COURSE_SELECT . $this->courseScope('c.course_id') . ' AND c.course_uid = ?', 's', [$uid]);
         if ($r === null) {
             return null;
         }
@@ -144,8 +221,11 @@ final class LmsApi
         }
         $in = implode(',', array_fill(0, count($courseIds), '?'));
         $t = str_repeat('i', count($courseIds));
+        // A restricted client sees only the rules that touch its departments (never another department's rule or name).
+        $ruleScope = $this->departments === null ? '' : ' AND ' . ($this->departments === [] ? '1 = 0' : $this->ruleTouches('training_requirements'));
+        $deptScope = $this->departments === null ? '' : ' AND rc.rcrit_value_id IN (' . ($this->departments === [] ? '0' : $this->deptList()) . ')';
         foreach (Db::all($this->db, "SELECT requirement_id, requirement_course_id, requirement_name, requirement_required, requirement_one_time, requirement_all_people
-            FROM training_requirements WHERE requirement_course_id IN ($in) AND requirement_archived_at IS NULL AND requirement_is_manual = 0
+            FROM training_requirements WHERE requirement_course_id IN ($in) AND requirement_archived_at IS NULL AND requirement_is_manual = 0$ruleScope
             ORDER BY requirement_id", $t, $courseIds) as $r) {
             $out[(int) $r['requirement_course_id']]['requirements'][] = [
                 'name' => (string) $r['requirement_name'],
@@ -157,7 +237,7 @@ final class LmsApi
         foreach (Db::all($this->db, "SELECT DISTINCT q.requirement_course_id, rc.rcrit_value_label FROM training_requirements q
             JOIN training_requirement_criteria rc ON rc.rcrit_requirement_id = q.requirement_id AND rc.rcrit_kind = 'department'
             WHERE q.requirement_course_id IN ($in) AND q.requirement_archived_at IS NULL AND q.requirement_is_manual = 0
-            AND rc.rcrit_value_label IS NOT NULL ORDER BY rc.rcrit_value_label", $t, $courseIds) as $r) {
+            AND rc.rcrit_value_label IS NOT NULL$deptScope ORDER BY rc.rcrit_value_label", $t, $courseIds) as $r) {
             $out[(int) $r['requirement_course_id']]['departments'][] = (string) $r['rcrit_value_label'];
         }
         return $out;
@@ -200,7 +280,7 @@ final class LmsApi
     public function assignments(array $q): array
     {
         $p = self::paging($q);
-        $sql = self::ASSIGNMENT_SELECT . ' AND a.tassign_id > ?';
+        $sql = self::ASSIGNMENT_SELECT . $this->personScope('a.tassign_contact_id') . ' AND a.tassign_id > ?';
         $types = 'i';
         $args = [$p['after']];
         $str = static fn($k) => isset($q[$k]) && is_string($q[$k]) && $q[$k] !== '' ? $q[$k] : null;
@@ -245,19 +325,19 @@ final class LmsApi
 
     public function assignment(int $id): ?array
     {
-        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . ' AND a.tassign_id = ?', 'i', [$id]);
+        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . $this->personScope('a.tassign_contact_id') . ' AND a.tassign_id = ?', 'i', [$id]);
         return $r === null ? null : $this->shapeAssignment($r);
     }
 
     public function assignmentByExternal(string $system, string $ref): ?array
     {
-        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . ' AND a.tassign_external_system = ? AND a.tassign_external_ref = ?', 'ss', [$system, $ref]);
+        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . $this->personScope('a.tassign_contact_id') . ' AND a.tassign_external_system = ? AND a.tassign_external_ref = ?', 'ss', [$system, $ref]);
         return $r === null ? null : $this->shapeAssignment($r);
     }
 
     public function openAssignmentFor(int $contactId, int $courseId): ?array
     {
-        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . " AND a.tassign_contact_id = ? AND a.tassign_course_id = ? AND a.tassign_status = 'open'", 'ii', [$contactId, $courseId]);
+        $r = Db::one($this->db, self::ASSIGNMENT_SELECT . $this->personScope('a.tassign_contact_id') . " AND a.tassign_contact_id = ? AND a.tassign_course_id = ? AND a.tassign_status = 'open'", 'ii', [$contactId, $courseId]);
         return $r === null ? null : $this->shapeAssignment($r);
     }
 
@@ -307,7 +387,7 @@ final class LmsApi
     public function completions(array $q): array
     {
         $p = self::paging($q);
-        $sql = self::COMPLETION_SELECT . ' AND tc.completion_id > ?';
+        $sql = self::COMPLETION_SELECT . $this->personScope('tc.completion_contact_id') . ' AND tc.completion_id > ?';
         $types = 'i';
         $args = [$p['after']];
         $str = static fn($k) => isset($q[$k]) && is_string($q[$k]) && $q[$k] !== '' ? $q[$k] : null;
@@ -352,7 +432,7 @@ final class LmsApi
 
     public function completion(int $id): ?array
     {
-        $r = Db::one($this->db, self::COMPLETION_SELECT . ' AND tc.completion_id = ?', 'i', [$id]);
+        $r = Db::one($this->db, self::COMPLETION_SELECT . $this->personScope('tc.completion_contact_id') . ' AND tc.completion_id = ?', 'i', [$id]);
         return $r === null ? null : $this->shapeCompletion($r);
     }
 
@@ -400,7 +480,7 @@ final class LmsApi
      */
     public function evidenceMedia(int $completionId): ?array
     {
-        $r = Db::one($this->db, 'SELECT completion_evidence_media_id FROM training_completions WHERE completion_id = ?', 'i', [$completionId]);
+        $r = Db::one($this->db, 'SELECT tc.completion_evidence_media_id FROM training_completions tc WHERE tc.completion_id = ?' . $this->personScope('tc.completion_contact_id'), 'i', [$completionId]);
         $mid = (int) ($r['completion_evidence_media_id'] ?? 0);
         if ($mid < 1) {
             return null;

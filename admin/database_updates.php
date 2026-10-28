@@ -11986,6 +11986,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
   UNIQUE KEY `uq_api_idempotency_key` (`idem_client_id`,`idem_key`),
   KEY `idx_api_idempotency_exp` (`idem_expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        // Department scope of an integration client (least privilege): client_all_departments = 1 is an explicit "every department"; the default 0
+        // is restricted to the rows of integration_client_departments (client_id = integration_clients.client_id, department_id = clients.client_id),
+        // and a restricted client with no rows sees nothing. A client created before this column existed becomes restricted with no departments, so
+        // an admin has to choose for it (fail closed).
+        mysqli_query($mysqli, "ALTER TABLE `integration_clients` ADD COLUMN IF NOT EXISTS `client_all_departments` tinyint(1) NOT NULL DEFAULT 0 AFTER `client_allowed_ips`");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_client_departments` (
+  `client_id` int(11) NOT NULL,
+  `department_id` int(11) NOT NULL,
+  PRIMARY KEY (`client_id`,`department_id`),
+  KEY `idx_integration_client_dept_department` (`department_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_integration_signing_key` text DEFAULT NULL");
         if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'training_assignments'")) > 0) {
             mysqli_query($mysqli, "ALTER TABLE `training_assignments` ADD COLUMN IF NOT EXISTS `tassign_external_system` varchar(40) DEFAULT NULL");

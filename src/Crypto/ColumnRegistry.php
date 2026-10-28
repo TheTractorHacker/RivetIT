@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ITFlow\Crypto;
 
+use RivetCore\Crypto\KeyPurpose;
+
 /**
  * Every column that holds a value written by encryptSetting() (or the TOTP seed form), as one list for the rewrap tool, the Keys panel
  * and the tests. Adding a column that stores encryptSetting() output means adding it here, or a key rotation will not reach it.
@@ -34,6 +36,12 @@ final class ColumnRegistry
             $specs[] = new ColumnSpec('settings', 'company_id', $c);
         }
         $specs[] = new ColumnSpec('settings', 'company_id', 'config_vault_canonical_key', 'canonical');
+        // The HMAC key of the integration access tokens (LMS API, DB 2.6.201). Sealed with encryptSetting() under its OWN context name
+        // (IntegrationAuth::KEY_CONTEXT = 'integration_token_key', AAD "settings|integration_token_key"), not the generic one, so it needs a custom
+        // spec that carries that context. Missing from this list, a settings-key rotation left it on the retired key and retiring that key made every
+        // integration token fail to validate (the key would read as '' and a new one be generated). Never a cleartext value to wrap: wrapPlaintext false.
+        $specs[] = new ColumnSpec('settings', 'company_id', 'config_integration_signing_key', 'custom', false, true,
+            static fn (string $id): string => SettingsCrypto::contextFor(KeyPurpose::SETTINGS, \ITFlow\Integration\IntegrationAuth::KEY_CONTEXT));
 
         foreach ([
             ['webhooks', 'webhook_id', ['webhook_url', 'webhook_secret', 'webhook_auth_enc']],

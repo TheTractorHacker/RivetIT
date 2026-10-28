@@ -10,12 +10,16 @@
 //   GET  /api/v1/lms/completions/{id}                 lms:completions:read
 //   GET  /api/v1/lms/completions/{id}/evidence        lms:evidence:read     the stored scan, streamed; 404 when none or not servable
 //
+// DEPARTMENT SCOPE: a client sees only the departments it was granted (or all departments, an explicit setting). Records outside the scope
+// answer exactly like records that do not exist (404, or an empty list), never 403. See src/Integration/IntegrationScope.php and LmsApi.php.
+//
 // Errors are {"error":{"code","message","correlation_id"}}; X-Correlation-Id is echoed. The caller is the integration client in
 // $integration_client / $integration_scopes (set by index.php); there is no user and no session. Missing and forbidden ids are both 404.
 defined('FROM_API') || die();
 
 use ITFlow\Integration\ApiResponse;
 use ITFlow\Integration\Idempotency;
+use ITFlow\Integration\IntegrationScope;
 use ITFlow\Integration\LmsApi;
 use ITFlow\Integration\LmsApiException;
 use ITFlow\Integration\LmsAssigner;
@@ -49,7 +53,8 @@ $lms_leaf = $segments[3] ?? null;
 if (count($segments) > 4 || ($lms_leaf !== null && !($lms_res === 'completions' && $lms_leaf === 'evidence'))) {
     $lms_notfound();
 }
-$lms_api = new LmsApi($mysqli);
+// Department scope of this client (null = all departments, [] = none), read per request from the database. Every LmsApi query is filtered by it.
+$lms_api = new LmsApi($mysqli, IntegrationScope::allowedDepartmentIds($mysqli, $integration_client));
 
 try {
     switch ($lms_res) {

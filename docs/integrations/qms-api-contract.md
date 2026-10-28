@@ -13,6 +13,10 @@ Status: draft for agreement with the QMS repository. **Implemented in RivetIT (P
 - Rate limits: per client (600 requests per minute on `/lms`; the token endpoint is throttled per IP and per client). Over the limit: `429` with `Retry-After`. The `X-RateLimit-*` headers are not sent.
 - IDs: stable opaque strings. People carry `odoo_employee_id` (nullable) and `rivetit_id` (both strings; `qms_id` belongs to the QMS and RivetIT does not store it in PR 1). Courses use a 12 character id (never the database row id); assignments are `asg_<n>` and completions `cmp_<n>`. Timestamps are RFC 3339 UTC with milliseconds; `*_on` fields are plain dates in the company time zone.
 
+## Department scope
+
+A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Every `/lms` endpoint is filtered by it on the server. Outside the scope an object answers exactly like one that does not exist (404 by id, filtered lists, 422 `employee_not_found` / `course_not_found` on `POST /lms/assignments`), never 403. Courses: in scope when a live rule for an allowed department or for everyone, a rule naming one of its people, or an assignment/completion of one of its people links them; an unlinked course is visible to all-department clients only. People are scoped by their current department. The QMS asks the RivetIT administrator for the departments it needs.
+
 ## RivetIT endpoints (consumed by the QMS)
 
 | Method and path | Scope | Notes |

@@ -15,6 +15,11 @@ use ITFlow\Training\Core\Db;
  * (uq_training_assign_open) is honoured exactly as for a person using "Assign training" in the web UI. The caller is not a user: the
  * service context has user id 0 (ledger actor "system") and the rule is named after the client.
  *
+ * DEPARTMENT SCOPE. The employee and the course must be inside the client's department scope (see LmsApi). An employee or course outside
+ * it is refused with exactly the answer for one that does not exist (422 employee_not_found / course_not_found), so the response never says
+ * whether a person or course exists in another department. An external_ref held by an out-of-scope assignment answers 409
+ * external_ref_conflict, the same as a ref mapped to a different employee inside the scope.
+ *
  * Results: ['status' => 201|200, 'assignment' => shape, 'reused' => bool]. Failures throw LmsApiException.
  */
 final class LmsAssigner
@@ -43,7 +48,7 @@ final class LmsAssigner
             throw new LmsApiException(422, 'invalid_course_id', 'course_id must be a course id from GET /lms/courses.');
         }
         $course = Db::one($this->db, 'SELECT course_id, course_current_revision_id, course_archived_at FROM training_courses WHERE course_uid = ?', 's', [$uid]);
-        if ($course === null) {
+        if ($course === null || !$this->api->courseInScope((int) $course['course_id'])) {
             throw new LmsApiException(422, 'course_not_found', 'No such course.');
         }
         if ($course['course_current_revision_id'] === null || $course['course_archived_at'] !== null) {
@@ -79,7 +84,10 @@ final class LmsAssigner
 
         // The external reference maps to exactly one assignment.
         if ($extSystem !== null) {
-            $byRef = $this->api->assignmentByExternal($extSystem, $extRef);
+            $byRef = $this->api->assignmentByExternal($extSystem, $extRef);   // in scope only
+            if ($byRef === null && $this->api->externalRefTaken($extSystem, $extRef)) {
+                throw new LmsApiException(409, 'external_ref_conflict', 'That external_ref is already mapped to a different employee or course.');
+            }
             if ($byRef !== null) {
                 if ($byRef['employee']['rivetit_id'] !== (string) $contactId || $byRef['course_id'] !== $uid) {
                     throw new LmsApiException(409, 'external_ref_conflict', 'That external_ref is already mapped to a different employee or course.');
@@ -161,7 +169,7 @@ final class LmsAssigner
                 throw new LmsApiException(422, 'invalid_employee', 'rivetit_id must be a RivetIT employee id.');
             }
             $row = Db::one($this->db, 'SELECT contact_id FROM contacts WHERE contact_id = ? AND contact_archived_at IS NULL', 'i', [(int) $v]);
-            if ($row === null) {
+            if ($row === null || !$this->api->personInScope((int) $row['contact_id'])) {
                 throw new LmsApiException(422, 'employee_not_found', 'No such employee.');
             }
             $found[(int) $row['contact_id']] = true;
@@ -173,6 +181,8 @@ final class LmsAssigner
             }
             $rows = Db::all($this->db, 'SELECT DISTINCT l.contact_id FROM contact_odoo_links l JOIN contacts c ON c.contact_id = l.contact_id
                 WHERE l.odoo_employee_id = ? AND c.contact_archived_at IS NULL', 'i', [(int) $v]);
+            // People outside the department scope do not exist for this client (not even as the second match of an "ambiguous" id).
+            $rows = array_values(array_filter($rows, fn(array $r): bool => $this->api->personInScope((int) $r['contact_id'])));
             if ($rows === []) {
                 throw new LmsApiException(422, 'employee_not_found', 'No employee is linked to that odoo_employee_id.');
             }

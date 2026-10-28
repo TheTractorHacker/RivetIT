@@ -144,6 +144,7 @@ curl -s https://rivetit.example.com/api/v1/lms/courses -H "Authorization: Bearer
 
 Rules that matter to an integrator:
 
+- **Department scope.** A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Records outside the scope are indistinguishable from records that do not exist: a by-id read is 404, lists are filtered, and a create for an employee or course outside it answers 422 `employee_not_found` / `course_not_found`. A course is in scope when it has a live requirement rule for an allowed department (or for everyone), a rule naming a person of an allowed department, or an assignment or completion of such a person; the `departments` and `requirements` of a course list only what touches the allowed departments.
 - The access token is accepted **only on `/api/v1/lms/*`**. Every other route answers it with 403, and it never acts as a user.
   A user token or legacy key is not accepted on `/lms` (401).
 - Scopes (deny by default, no wildcard): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`
@@ -472,7 +473,7 @@ In-app notifications, including an SSE stream for live delivery.
 
 ### Integration (LMS)
 
-Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-lms)); not available to user tokens or API keys.
+Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-lms)); not available to user tokens or API keys. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
 
 | Method | Path | Scope | Description |
 |---|---|---|---|
