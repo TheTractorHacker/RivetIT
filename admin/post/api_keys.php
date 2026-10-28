@@ -80,14 +80,17 @@ if (isset($_POST['add_api_key'])) {
         $department_text = 'all departments';
     } else {
         $names = [];
-        $marks = implode(',', array_fill(0, count($department_ids), '?'));
-        $st = $mysqli->prepare("SELECT client_id, client_name FROM clients WHERE client_id IN ($marks) ORDER BY client_name");
-        $st->bind_param(str_repeat('i', count($department_ids)), ...$department_ids);
-        $st->execute();
-        $res = $st->get_result();
-        while ($res && ($r = mysqli_fetch_assoc($res))) {
-            $names[] = $r['client_name'] . ' (ID ' . intval($r['client_id']) . ')';
+        $st = $mysqli->prepare("SELECT client_id, client_name FROM clients WHERE client_id = ?");
+        foreach ($department_ids as $department_id) {
+            $st->bind_param('i', $department_id);
+            $st->execute();
+            $r = $st->get_result()->fetch_assoc();
+            if ($r) {
+                $names[] = $r['client_name'] . ' (ID ' . intval($r['client_id']) . ')';
+            }
         }
+        $st->close();
+        sort($names);
         $department_text = (count($names) === 1 ? 'department ' : 'departments ') . implode(', ', $names);
     }
     $department_text = sanitizeInput($department_text);
