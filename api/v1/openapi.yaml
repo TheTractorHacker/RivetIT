@@ -49,6 +49,7 @@ tags:
   - name: Notifications
   - name: Alerts
   - name: Diagnostics
+  - name: Integration
   - name: Public
   - name: Meta
 security:
@@ -1864,8 +1865,185 @@ paths:
         '404': {description: "Not found, or code unmapped", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '409': {description: "device_offline, not_configured or device_retired", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '503': {description: "MeshCentral unavailable", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /oauth/token:
+    post:
+      tags: [Integration]
+      summary: OAuth2 client-credentials token for an integration client
+      description: >
+        Public (no Bearer). `application/x-www-form-urlencoded` with `grant_type=client_credentials`, `client_id` and `client_secret`
+        (or HTTP Basic). Optional `scope` (space separated; must be a subset of the client's scopes, default all of them).
+        Returns a signed access token valid for 10 minutes that is accepted ONLY on `/lms/*`. Every authentication failure is the same
+        401 `invalid_client`; repeated failures per IP and per client are throttled (429). Clients are managed in
+        Administration > Integration clients.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, client_secret]
+              properties:
+                grant_type: {type: string, enum: [client_credentials]}
+                client_id: {type: string, example: ic_0123456789abcdef0123}
+                client_secret: {type: string, format: password}
+                scope: {type: string, example: "lms:read lms:completions:read"}
+      responses:
+        '200':
+          description: Access token
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IntegrationToken'}
+        '400': {description: "invalid_request, unsupported_grant_type or invalid_scope", content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}}
+        '401': {description: "invalid_client", content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}}
+        '429': {description: "rate_limited (Retry-After)", content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}}
+  /lms/courses:
+    get:
+      tags: [Integration]
+      summary: Published course catalog
+      description: Scope `lms:read`. Published, non-archived courses only; each is its latest published revision. Cursor paging, incremental sync with `updated_since`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IntLimit'}
+        - {$ref: '#/components/parameters/IntCursor'}
+        - {$ref: '#/components/parameters/IntUpdatedSince'}
+      responses:
+        '200': {description: Courses, content: {application/json: {schema: {$ref: '#/components/schemas/LmsCoursePage'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+  /lms/courses/{id}:
+    get:
+      tags: [Integration]
+      summary: One published course
+      description: Scope `lms:read`. `id` is the course id from the list (12 characters). Unpublished, archived and unknown ids are all 404.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Course, content: {application/json: {schema: {type: object, properties: {data: {$ref: '#/components/schemas/LmsCourse'}}}}}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /lms/assignments:
+    get:
+      tags: [Integration]
+      summary: List assignments
+      description: Scope `lms:read`. Filters `employee` (RivetIT id), `odoo_employee_id`, `course`, `status` (open, completed, waived, cancelled), `external_system`, `external_ref`, `updated_since`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IntLimit'}
+        - {$ref: '#/components/parameters/IntCursor'}
+        - {$ref: '#/components/parameters/IntUpdatedSince'}
+        - {name: employee, in: query, schema: {type: string}}
+        - {name: odoo_employee_id, in: query, schema: {type: string}}
+        - {name: course, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string, enum: [open, completed, waived, cancelled]}}
+        - {name: external_system, in: query, schema: {type: string}}
+        - {name: external_ref, in: query, schema: {type: string}}
+      responses:
+        '200': {description: Assignments, content: {application/json: {schema: {$ref: '#/components/schemas/LmsAssignmentPage'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+    post:
+      tags: [Integration]
+      summary: Create (or reuse) an assignment
+      description: >
+        Scope `lms:assign`. `Idempotency-Key` is required: the same key with the same body replays the stored response (header
+        `Idempotent-Replay: true`), the same key with a different body is 422 `idempotency_key_reuse`; keys are kept 24 hours and only
+        successful results are stored. The employee is identified by `odoo_employee_id` or `rivetit_id` (never by name). The course must
+        have a published revision. Created through the assignment engine, so the training ledger stays valid. 201 when a new assignment
+        was created, 200 when an open assignment for the employee and course (or the same external reference) already existed.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LmsAssignmentCreate'}
+      responses:
+        '200': {description: Existing assignment reused (or idempotent replay of a 200), content: {application/json: {schema: {$ref: '#/components/schemas/LmsAssignmentResult'}}}}
+        '201': {description: Assignment created, content: {application/json: {schema: {$ref: '#/components/schemas/LmsAssignmentResult'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '409': {description: "external_ref_conflict, assignment_waived, already_current or idempotency_in_progress", content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}}
+        '422': {description: "Validation: invalid_employee, employee_not_found, employee_ambiguous, employee_mismatch, employee_not_eligible, course_not_found, course_not_published, invalid_due_on, due_on_in_past, idempotency_key_reuse, ...", content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}}
+  /lms/assignments/{id}:
+    get:
+      tags: [Integration]
+      summary: One assignment
+      description: Scope `lms:read`. `id` looks like `asg_123`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, example: asg_123}}
+      responses:
+        '200': {description: Assignment, content: {application/json: {schema: {type: object, properties: {data: {$ref: '#/components/schemas/LmsAssignment'}}}}}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /lms/completions:
+    get:
+      tags: [Integration]
+      summary: List completions
+      description: >
+        Scope `lms:completions:read`. Completion records are never deleted; a corrected record is `voided` or `superseded` and stays listed.
+        Filters `employee`, `odoo_employee_id`, `course`, `assignment`, `status` (completed, voided, superseded), `updated_since`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IntLimit'}
+        - {$ref: '#/components/parameters/IntCursor'}
+        - {$ref: '#/components/parameters/IntUpdatedSince'}
+        - {name: employee, in: query, schema: {type: string}}
+        - {name: odoo_employee_id, in: query, schema: {type: string}}
+        - {name: course, in: query, schema: {type: string}}
+        - {name: assignment, in: query, schema: {type: string, example: asg_123}}
+        - {name: status, in: query, schema: {type: string, enum: [completed, voided, superseded]}}
+      responses:
+        '200': {description: Completions, content: {application/json: {schema: {$ref: '#/components/schemas/LmsCompletionPage'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+  /lms/completions/{id}:
+    get:
+      tags: [Integration]
+      summary: One completion
+      description: Scope `lms:completions:read`. `id` looks like `cmp_123`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, example: cmp_123}}
+      responses:
+        '200': {description: Completion, content: {application/json: {schema: {type: object, properties: {data: {$ref: '#/components/schemas/LmsCompletion'}}}}}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /lms/completions/{id}/evidence:
+    get:
+      tags: [Integration]
+      summary: The completion's evidence file
+      description: Scope `lms:evidence:read`. Streamed through the API after the same visibility check the web endpoint applies (the file must be referenced by the completion). 404 when there is no file or it may not be served.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, example: cmp_123}}
+      responses:
+        '200':
+          description: The file (PDF, JPEG or PNG), as an attachment
+          content:
+            application/pdf: {schema: {type: string, format: binary}}
+            image/jpeg: {schema: {type: string, format: binary}}
+            image/png: {schema: {type: string, format: binary}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
 components:
   securitySchemes:
+    integrationAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from POST /oauth/token (an integration client, 10 minutes). Accepted only on /lms/*; every other route answers 403 to it.
     bearerAuth:
       type: http
       scheme: bearer
@@ -1880,6 +2058,20 @@ components:
       name: X-Api-Key
       description: Department-scoped API key with read/write permission, separate delete permission, expiration, and optional IP allowlist. Denied on /credentials and /me.
   parameters:
+    IntLimit:
+      name: limit
+      in: query
+      schema: {type: integer, default: 50, minimum: 1, maximum: 200}
+    IntCursor:
+      name: cursor
+      in: query
+      description: Opaque `next_cursor` from the previous page
+      schema: {type: string}
+    IntUpdatedSince:
+      name: updated_since
+      in: query
+      description: RFC 3339 timestamp; only records changed at or after it
+      schema: {type: string, format: date-time}
     IdPath:
       name: id
       in: path
@@ -1942,7 +2134,161 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
+    IntegrationBadRequest:
+      description: invalid_limit, invalid_cursor, invalid_updated_since, invalid_status, invalid_json, idempotency_key_required or idempotency_key_invalid
+      content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
+    IntegrationUnauthorized:
+      description: invalid_token (missing, expired, revoked, wrong audience, bad signature) or unauthorized
+      content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
+    IntegrationForbidden:
+      description: insufficient_scope (the token does not carry the scope the route needs)
+      content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
+    IntegrationNotFound:
+      description: not_found (unknown, unpublished or not servable; the two are not distinguished)
+      content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
   schemas:
+    IntegrationError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: {type: string, example: not_found}
+            message: {type: string}
+            correlation_id: {type: string, description: "Echo of X-Correlation-Id, or generated"}
+    IntegrationToken:
+      type: object
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, example: Bearer}
+        expires_in: {type: integer, example: 600}
+        scope: {type: string, example: "lms:read lms:assign"}
+    LmsEmployeeRef:
+      type: object
+      properties:
+        rivetit_id: {type: string}
+        odoo_employee_id: {type: string, nullable: true}
+    LmsCourse:
+      type: object
+      properties:
+        id: {type: string, description: "Stable course id (12 characters)"}
+        kind: {type: string, enum: [training, document]}
+        code: {type: string, nullable: true}
+        external_code: {type: string, nullable: true, description: "The code the QMS knows the course by"}
+        title: {type: string}
+        description: {type: string, nullable: true}
+        status: {type: string, enum: [published]}
+        revision: {type: integer, description: "Published revision number"}
+        revision_id: {type: integer}
+        departments: {type: array, items: {type: string}, description: "Departments targeted by the course's active requirement rules"}
+        est_minutes: {type: integer, nullable: true}
+        validity_months: {type: integer, nullable: true}
+        category: {type: string, nullable: true}
+        requirements:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              required: {type: boolean}
+              one_time: {type: boolean}
+              all_people: {type: boolean}
+        updated_at: {type: string, format: date-time}
+    LmsCoursePage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/LmsCourse'}}
+        next_cursor: {type: string, nullable: true}
+    LmsAssignmentCreate:
+      type: object
+      required: [employee, course_id, due_on]
+      properties:
+        employee:
+          type: object
+          description: Exactly the identifiers odoo_employee_id and/or rivetit_id (if both, they must be the same person)
+          properties:
+            odoo_employee_id: {type: string}
+            rivetit_id: {type: string}
+        course_id: {type: string}
+        due_on: {type: string, format: date, description: "Today or later"}
+        source: {type: string, maxLength: 40, example: qms}
+        external_system: {type: string, maxLength: 40, example: qms}
+        external_ref: {type: string, maxLength: 120, example: NCR-0381, description: "Maps to exactly one assignment; send with external_system"}
+    LmsAssignment:
+      type: object
+      properties:
+        id: {type: string, example: asg_123}
+        employee: {$ref: '#/components/schemas/LmsEmployeeRef'}
+        course_id: {type: string}
+        course_revision: {type: integer, nullable: true}
+        status: {type: string, enum: [open, completed, waived, cancelled]}
+        overdue: {type: boolean}
+        required: {type: boolean}
+        reason: {type: string}
+        due_on: {type: string, format: date}
+        original_due_on: {type: string, format: date}
+        external_system: {type: string, nullable: true}
+        external_ref: {type: string, nullable: true}
+        completion_id: {type: string, nullable: true}
+        created_at: {type: string, format: date-time}
+        closed_at: {type: string, format: date-time, nullable: true}
+        close_reason: {type: string, nullable: true}
+        updated_at: {type: string, format: date-time}
+        revision: {type: integer}
+    LmsAssignmentResult:
+      type: object
+      properties:
+        data:
+          allOf:
+            - {$ref: '#/components/schemas/LmsAssignment'}
+            - type: object
+              properties:
+                reused: {type: boolean}
+                source: {type: string, nullable: true, description: "Echo of the request's source"}
+    LmsAssignmentPage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/LmsAssignment'}}
+        next_cursor: {type: string, nullable: true}
+    LmsCompletion:
+      type: object
+      properties:
+        id: {type: string, example: cmp_123}
+        employee: {$ref: '#/components/schemas/LmsEmployeeRef'}
+        course_id: {type: string}
+        course_revision: {type: integer, nullable: true}
+        course_revision_id: {type: integer, nullable: true}
+        assignment_id: {type: string, nullable: true}
+        assignment:
+          type: object
+          nullable: true
+          properties:
+            external_system: {type: string, nullable: true}
+            external_ref: {type: string, nullable: true}
+        completed_on: {type: string, format: date}
+        result: {type: string, enum: [passed]}
+        score_pct: {type: number, nullable: true}
+        pass_mark_pct: {type: integer, nullable: true}
+        method: {type: string}
+        status: {type: string, enum: [completed, voided, superseded]}
+        supersedes_id: {type: string, nullable: true}
+        expires_on: {type: string, format: date, nullable: true, description: "Recertification date"}
+        evidence_ref:
+          type: object
+          properties:
+            certificate_number: {type: string, nullable: true}
+            external_issuer: {type: string, nullable: true}
+            external_ref: {type: string, nullable: true}
+            evidence_available: {type: boolean}
+            evidence_path: {type: string, nullable: true}
+        recorded_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        revision: {type: integer}
+    LmsCompletionPage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/LmsCompletion'}}
+        next_cursor: {type: string, nullable: true}
     RelationshipCreate:
       type: object
       required: [src_type, src_id, dst_type, dst_id]

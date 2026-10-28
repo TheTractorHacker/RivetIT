@@ -98,6 +98,7 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Odoo Integration',        'keywords' => ['odoo', 'erp'],                                                          'url' => '/admin/settings_integrations.php?tab=directorysync', 'visible' => true],
         ['label' => 'Custom Fields',           'keywords' => ['custom field'],                                                         'url' => '/admin/settings_custom_fields.php',      'visible' => true],
         ['label' => 'API Keys',                'keywords' => ['api key', 'api access'],                                                'url' => '/admin/api_keys.php',                    'visible' => true],
+        ['label' => 'Integration clients',     'keywords' => ['integration', 'oauth', 'client credentials', 'qms', 'machine credentials', 'lms api'],  'url' => '/admin/integration_clients.php',         'visible' => true],
         ['label' => 'API Documentation',       'keywords' => ['api docs', 'api reference', 'openapi'],                                 'url' => '/admin/api_docs.php',                    'visible' => true],
         ['label' => 'Users',                   'keywords' => ['user', 'technician', 'agent', 'staff'],                                 'url' => '/admin/users.php',                       'visible' => true],
         ['label' => 'Department logins',       'keywords' => ['supervisor', 'manager', 'portal', 'department', 'login', 'training'],  'url' => '/admin/portal_users.php',                'visible' => true],

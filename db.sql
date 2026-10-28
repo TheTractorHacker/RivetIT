@@ -79,6 +79,28 @@ CREATE TABLE `ai_providers` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `api_idempotency`
+--
+
+DROP TABLE IF EXISTS `api_idempotency`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_idempotency` (
+  `idem_id` int(11) NOT NULL AUTO_INCREMENT,
+  `idem_client_id` int(11) NOT NULL,
+  `idem_key` varchar(128) NOT NULL,
+  `idem_request_sha256` char(64) NOT NULL,
+  `idem_response_status` smallint(6) NOT NULL DEFAULT 0,
+  `idem_response_body` mediumtext DEFAULT NULL,
+  `idem_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `idem_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`idem_id`),
+  UNIQUE KEY `uq_api_idempotency_key` (`idem_client_id`,`idem_key`),
+  KEY `idx_api_idempotency_exp` (`idem_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `api_keys`
 --
 
@@ -1886,6 +1908,74 @@ CREATE TABLE `history` (
   `history_recurring_invoice_id` int(11) NOT NULL DEFAULT 0,
   `history_quote_id` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`history_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_clients`
+--
+
+DROP TABLE IF EXISTS `integration_clients`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_clients` (
+  `client_id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_uid` varchar(40) NOT NULL,
+  `client_name` varchar(150) NOT NULL,
+  `client_description` varchar(500) DEFAULT NULL,
+  `client_scopes` varchar(500) NOT NULL DEFAULT '',
+  `client_allowed_ips` text DEFAULT NULL,
+  `client_status` enum('active','revoked') NOT NULL DEFAULT 'active',
+  `client_expires_at` datetime DEFAULT NULL,
+  `client_created_by_user_id` int(11) NOT NULL DEFAULT 0,
+  `client_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `client_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `client_revoked_at` datetime DEFAULT NULL,
+  `client_last_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`client_id`),
+  UNIQUE KEY `uq_integration_client_uid` (`client_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_client_secrets`
+--
+
+DROP TABLE IF EXISTS `integration_client_secrets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_client_secrets` (
+  `secret_id` int(11) NOT NULL AUTO_INCREMENT,
+  `secret_client_id` int(11) NOT NULL,
+  `secret_hash` varchar(255) NOT NULL,
+  `secret_status` enum('active','revoked') NOT NULL DEFAULT 'active',
+  `secret_expires_at` datetime DEFAULT NULL,
+  `secret_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `secret_revoked_at` datetime DEFAULT NULL,
+  `secret_last_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`secret_id`),
+  KEY `idx_integration_secret_client` (`secret_client_id`,`secret_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_tokens`
+--
+
+DROP TABLE IF EXISTS `integration_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_tokens` (
+  `token_jti` char(32) NOT NULL,
+  `token_client_id` int(11) NOT NULL,
+  `token_secret_id` int(11) NOT NULL,
+  `token_scope` varchar(500) NOT NULL DEFAULT '',
+  `token_ip` varchar(45) DEFAULT NULL,
+  `token_issued_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `token_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`token_jti`),
+  KEY `idx_integration_token_client` (`token_client_id`),
+  KEY `idx_integration_token_exp` (`token_expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -4798,6 +4888,7 @@ CREATE TABLE `settings` (
   `config_redis_tls_cert_file` text DEFAULT NULL,
   `config_redis_tls_key_file` text DEFAULT NULL,
   `config_api_rate_limit` int(11) NOT NULL DEFAULT 300,
+  `config_integration_signing_key` text DEFAULT NULL,
   `config_compliance_profile` varchar(20) NOT NULL DEFAULT 'none',
   `config_audit_retention_days` int(11) NOT NULL DEFAULT 365,
   `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
@@ -5714,8 +5805,11 @@ CREATE TABLE `training_assignments` (
   `tassign_close_note` varchar(500) DEFAULT NULL,
   `tassign_reopened_count` smallint(5) unsigned NOT NULL DEFAULT 0,
   `tassign_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `tassign_external_system` varchar(40) DEFAULT NULL,
+  `tassign_external_ref` varchar(120) DEFAULT NULL,
   PRIMARY KEY (`tassign_id`),
   UNIQUE KEY `uq_training_assign_open` (`tassign_contact_id`,`tassign_course_id`,`tassign_open_guard`),
+  UNIQUE KEY `uq_training_assign_external` (`tassign_external_system`,`tassign_external_ref`),
   KEY `idx_training_assign_status_due` (`tassign_status`,`tassign_due_on`),
   KEY `idx_training_assign_course` (`tassign_course_id`,`tassign_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -6136,6 +6230,7 @@ CREATE TABLE `training_courses` (
   `course_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `course_archived_at` datetime DEFAULT NULL,
   `course_archived_by` int(11) DEFAULT NULL,
+  `course_external_code` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`course_id`),
   UNIQUE KEY `uq_training_course_uid` (`course_uid`),
   UNIQUE KEY `uq_training_course_code` (`course_code`),

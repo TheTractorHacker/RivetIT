@@ -7,7 +7,7 @@ require __DIR__ . '/rmm_gate.php';
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Biometric, X-Api-Key');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Biometric, X-Api-Key, Idempotency-Key, X-Correlation-Id');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -97,6 +97,13 @@ if ($resource === 'branding') {
     ]);
 }
 
+// Public endpoint: OAuth2 client-credentials token for integration clients (POST /api/v1/oauth/token). Rate limits, throttling and
+// audit are inside oauth.php; the access token it issues is accepted only on /api/v1/lms (see the integration block below).
+if ($resource === 'oauth') {
+    require __DIR__ . '/oauth.php';
+    exit;
+}
+
 // Public endpoint: auth
 if ($resource === 'auth') {
     // Tight per-IP limit on the unauthenticated login path. FAILS CLOSED if Redis is down (logout stays available)
@@ -169,6 +176,45 @@ $authHeader = $_SERVER['HTTP_AUTHORIZATION']
 if (empty($authHeader) && function_exists('getallheaders')) {
     $hdrs = getallheaders();
     $authHeader = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
+}
+
+// Integration clients (the QMS; Administration > Integration clients): a Bearer value shaped like a JWT is an integration access token,
+// never an api_tokens row. It is decided HERE, before the api_tokens lookup, the legacy X-Api-Key path and the user-session setup below:
+//   - invalid / expired / revoked / wrong audience  -> 401, never falls through to another auth method;
+//   - valid, but not an /api/v1/lms route           -> 403 for EVERY other route (this is the only place an integration token is read);
+//   - valid on /lms                                 -> handled entirely by lms.php with no $api_user_id, no session user, no user permissions.
+if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\IntegrationAuth::looksLikeToken($im[1])) {
+    $int_ip = (string) getIP();
+    try {
+        $int_auth = \ITFlow\Integration\IntegrationAuth::validateBearer($mysqli, $im[1], $int_ip);
+    } catch (\Throwable $e) {
+        error_log('Integration auth: ' . get_class($e) . ': ' . $e->getMessage());
+        \ITFlow\Integration\ApiResponse::error(401, 'invalid_token', 'The access token is missing, invalid or expired.');
+    }
+    if (!$int_auth['ok']) {
+        // Bad tokens are audited, but a flood of them must not become a flood of audit rows: 60 per IP per minute, then 429.
+        if (!api_rate_limit('int_bad_ip:' . $int_ip, 60, 60)) {
+            header('Retry-After: ' . api_rate_limit_retry_after());
+            \ITFlow\Integration\ApiResponse::error(429, 'rate_limited', 'Too many rejected requests.');
+        }
+        \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration Token', 'Rejected', 'Access token rejected: ' . $int_auth['reason'], 0, $int_ip);
+        \ITFlow\Integration\ApiResponse::error(401, 'invalid_token', 'The access token is missing, invalid or expired.');
+    }
+    if ($resource !== 'lms') {
+        \ITFlow\Integration\ApiResponse::error(403, 'forbidden', 'Integration access tokens are only accepted on /api/v1/lms.');
+    }
+    $integration_client = $int_auth['client'];
+    $integration_scopes = $int_auth['scopes'];
+    if (!api_rate_limit('int:' . (int) $integration_client['client_id'], 600, 60)) {
+        header('Retry-After: ' . api_rate_limit_retry_after());
+        \ITFlow\Integration\ApiResponse::error(429, 'rate_limited', 'Rate limit exceeded.');
+    }
+    require __DIR__ . '/lms.php';
+    exit;
+}
+if ($resource === 'lms') {
+    // /lms accepts integration tokens only; no user token, session or legacy key is ever honoured here.
+    \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
 }
 
 if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
