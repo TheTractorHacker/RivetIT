@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RivetIT Quality module mockup</title>
+<!-- Static mockup. Tokens mirror css/itflow_design.css (--if-*). Sample data is invented. Not wired to anything. -->
+<style>
+:root{--bg:#eef2f2;--surface:#fff;--border:#e3e9ea;--ink:#16232a;--muted:#4b5d64;--primary:#0d9488;--soft:#ccfbf1;--warn:#b45309;--warn-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--ok:#047857;--ok-bg:#d1fae5;--r:12px}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1417;--surface:#14201f;--border:#24332f;--ink:#e7eeef;--muted:#93a6ab;--soft:#0f3d38;--warn:#fbbf24;--warn-bg:#3b2a07;--bad:#fca5a5;--bad-bg:#3f1212;--ok:#6ee7b7;--ok-bg:#0b3326}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+nav{background:var(--surface);border-right:1px solid var(--border);padding:16px 12px}
+nav h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 8px 6px}
+nav a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none}
+nav a.on{background:var(--soft);font-weight:600}
+main{padding:20px max(16px,3vw);min-width:0}
+.views{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.views button{border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer;font:inherit}
+.views button[aria-selected=true]{background:var(--primary);color:#fff;border-color:var(--primary)}
+.view{display:none}.view.on{display:block}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;min-width:0}
+.card h3{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:600}
+.big{font-size:28px;font-weight:600}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:600}
+.wrap{overflow-x:auto}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px}
+.ok{background:var(--ok-bg);color:var(--ok)}.warn{background:var(--warn-bg);color:var(--warn)}.bad{background:var(--bad-bg);color:var(--bad)}
+.btn{display:inline-block;border:1px solid var(--primary);background:var(--primary);color:#fff;padding:5px 12px;border-radius:8px;font:inherit;cursor:pointer}
+.btn.sec{background:var(--surface);color:var(--ink);border-color:var(--border)}
+.banner{border:1px solid var(--warn);background:var(--warn-bg);color:var(--warn);border-radius:var(--r);padding:12px 16px;margin-bottom:16px}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border:0}.muted{color:var(--muted)}input[type=text]{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.sw{width:34px;height:20px;border-radius:99px;background:var(--border);position:relative;flex:none}.sw.on{background:var(--primary)}.sw:after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}.sw.on:after{left:16px}
+@media(max-width:720px){.shell{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--border)}}
+</style></head><body>
+<div class="shell">
+<nav aria-label="Mockup navigation"><strong>RivetIT</strong>
+<h4>Work</h4><a href="#">Tickets</a><a href="#">Training</a><a class="on" href="#">Quality</a>
+<h4>Quality</h4><a href="#">My tasks</a><a href="#">Corrective actions</a><a href="#">Documents</a><a href="#">Required training</a><a href="#">Department dashboard</a>
+<p class="muted" style="font-size:12px;margin:16px 8px">Sidebar entry shown only when the module is on, the department is enabled and the role has module_quality.</p></nav>
+<main>
+<div class="views" role="tablist">
+<button role="tab" aria-selected="true" data-v="emp">Employee</button>
+<button role="tab" aria-selected="false" data-v="mgr">Manager dashboard</button>
+<button role="tab" aria-selected="false" data-v="adm">Admin settings</button>
+<button role="tab" aria-selected="false" data-v="down">QMS unavailable</button>
+<button role="tab" aria-selected="false" data-v="kiosk">Kiosk</button></div>
+
+<section class="view on" id="emp">
+<h1>My Quality</h1><p class="sub">Maria Alvarez, Machining. Data from the QMS, last checked 2 minutes ago.</p>
+<div class="grid"><div class="card"><h3>Open tasks</h3><div class="big">4</div></div><div class="card"><h3>Corrective actions</h3><div class="big">1</div></div><div class="card"><h3>To acknowledge</h3><div class="big">2</div></div><div class="card"><h3>Required training</h3><div class="big">1</div></div></div>
+<div class="card wrap"><h3>My quality tasks</h3><table><tr><th>Task</th><th>Source</th><th>Due</th><th>Status</th><th></th></tr>
+<tr><td>Respond to CAPA-0142: Gauge calibration lapse</td><td>Corrective action</td><td>Nov 4</td><td><span class="pill warn">Due soon</span></td><td><a class="btn" href="#">Respond</a></td></tr>
+<tr><td>Acknowledge SOP-210 rev C, Lockout procedure</td><td>Document</td><td>Nov 1</td><td><span class="pill bad">Overdue</span></td><td><a class="btn" href="#">Review</a></td></tr>
+<tr><td>Complete "Torque wrench use" (LMS)</td><td>Training, linked to NCR-0381</td><td>Nov 12</td><td><span class="pill ok">Assigned</span></td><td><a class="btn sec" href="#">Open in LMS</a></td></tr></table>
+<p class="muted" style="margin:10px 0 0">Advanced workflows: <a href="#">Open in QMS</a></p></div></section>
+
+<section class="view" id="mgr">
+<h1>Department Quality Dashboard</h1><p class="sub">Machining only. Other departments are never shown.</p>
+<div class="grid"><div class="card"><h3>Overdue tasks</h3><div class="big">3</div></div><div class="card"><h3>Open corrective actions</h3><div class="big">5</div></div><div class="card"><h3>Training compliance</h3><div class="big">92%</div></div><div class="card"><h3>Pending acknowledgments</h3><div class="big">7</div></div></div>
+<div class="card wrap"><h3>Training compliance by requirement</h3><table><tr><th>Requirement</th><th>Course</th><th>Complete</th><th>Overdue</th></tr>
+<tr><td>Lockout/tagout</td><td>LOTO annual</td><td>18 / 19</td><td><span class="pill bad">1</span></td></tr>
+<tr><td>Torque wrench use</td><td>Torque basics rev 2</td><td>12 / 14</td><td><span class="pill warn">2</span></td></tr></table></div></section>
+
+<section class="view" id="adm">
+<h1>Settings &gt; Modules &gt; Quality</h1><p class="sub">Administrators only. Secrets are write-only and never shown again.</p>
+<div class="card"><div class="row"><div><strong>Enable Quality</strong><div class="muted">Off hides navigation and rejects portal routes on the server. Settings and mappings are kept. LMS is unaffected.</div></div><div class="sw on"></div></div>
+<div class="row" style="display:block"><label>QMS URL (HTTPS, public host unless allowed in Webhook networks)</label><input type="text" value="https://qms.example.com"></div>
+<div class="row" style="display:block"><label>Machine client ID</label><input type="text" value="rivetit-prod"><br><br><label>Client secret</label><input type="text" value="Stored encrypted (replace to change)"></div>
+<div class="row"><span>Connection</span><span><span class="pill ok">Connected</span> API v1, 142 ms <a class="btn sec" href="#">Test connection</a></span></div></div>
+<br><div class="grid"><div class="card"><h3>Sync health</h3>Employees: 4 min ago, ok<br>Departments: 4 min ago, ok<br>Completions: 1 min ago, ok<br>Dead-letter events: <span class="pill warn">2</span> <a href="#">View</a><br><br><a class="btn sec" href="#">Resync now</a></div>
+<div class="card"><h3>Intervals</h3>Reconciliation: every 15 min<br>Employee/department: every 60 min<br>Retry: 5 attempts, backoff</div>
+<div class="card"><h3>Departments allowed</h3>Machining, Assembly, Shipping, Quality (4 of 9)<br><br><a class="btn sec" href="#">Choose departments</a></div>
+<div class="card"><h3>Features</h3><div class="row"><span>My tasks</span><div class="sw on"></div></div><div class="row"><span>Corrective actions</span><div class="sw on"></div></div><div class="row"><span>Document acknowledgment</span><div class="sw on"></div></div><div class="row"><span>Kiosk</span><div class="sw"></div></div></div></div>
+<div class="card wrap" style="margin-top:12px"><h3>Integration errors</h3><table><tr><th>When</th><th>Where</th><th>Correlation ID</th><th>Message</th></tr><tr><td>Oct 28 09:14</td><td>QMS GET /me/quality/tasks</td><td>8f2c…a1</td><td>Timeout after 10 s (retry 2 of 3)</td></tr></table></div></section>
+
+<section class="view" id="down">
+<h1>My Quality</h1>
+<div class="banner"><strong>The QMS is not reachable right now.</strong> Quality tasks and documents can't be shown because they can't be checked. Last successful contact: Oct 28, 08:50. Your training in the LMS is not affected. <a href="#">Retry</a></div>
+<div class="card"><h3>What you can still do</h3><a class="btn sec" href="#">Open required training in LMS</a></div></section>
+
+<section class="view" id="kiosk">
+<h1>Kiosk: Quality</h1><p class="sub">Shared screen. Only training, acknowledgments and the signed-in person's own task counts.</p>
+<div class="grid"><div class="card"><h3>Training to do</h3><div class="big">1</div><a class="btn" href="#">Start course</a></div><div class="card"><h3>Documents to acknowledge</h3><div class="big">2</div><a class="btn" href="#">Review</a></div><div class="card"><h3>Open tasks</h3><div class="big">4</div><span class="muted">Details on your own device</span></div></div>
+<div class="card"><strong>Acknowledge SOP-210 rev C</strong><p class="muted">Re-enter your PIN to sign. No corrective action or nonconformance details are shown on kiosks.</p><a class="btn" href="#">Enter PIN and acknowledge</a></div></section>
+</main></div>
+<script>document.querySelectorAll('.views button').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.views button').forEach(function(x){x.setAttribute('aria-selected',x===b)});document.querySelectorAll('.view').forEach(function(v){v.classList.toggle('on',v.id===b.dataset.v)})})})</script>
+</body></html>
