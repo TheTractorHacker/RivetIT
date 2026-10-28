@@ -35,6 +35,10 @@ Employee-facing requests to the QMS carry the person's identity (Odoo employee I
 - Errors are structured (`code`, `message`, `correlation_id`) and never include stack traces, SQL, hostnames or secrets.
 - Directory endpoints return only fields the QMS needs; no PIN, phone, address or personal email.
 
+## Portal access
+
+Quality pages are served from the department portal, not the agent interface. A portal user reaches them only when the module is on, their department is enabled, the feature is on and their portal role allows it. Every page and action re-checks this on the server and passes the signed per-user context to the QMS.
+
 ## Kiosk
 
 Existing device and session policy applies unchanged. Shared screens show counts, training and document acknowledgment only. Corrective-action or nonconformance details never render on a kiosk. Acknowledgments and signing re-enter the PIN.

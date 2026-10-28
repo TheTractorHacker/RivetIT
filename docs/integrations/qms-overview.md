@@ -22,6 +22,8 @@ RivetIT does not become a quality management system. A separate open-source QMS 
 | Module switch | `settings.config_module_enable_quality`. QMS URL, secrets and intervals live in side tables because `settings` is near the MariaDB row-size limit. |
 | Disabling Quality | Hides navigation, rejects portal routes, stops Quality cron and event processing. Keeps settings, mappings and history. The LMS is not affected. |
 | Edition boundary | Built in the RivetIT tree (`src/`, edition-owned). RivetCore tables are not altered. The LMS is not in RivetMSP, so Quality is RivetIT-only unless that changes. |
+| Where it lives | The department portal (`client/`) and the kiosk. There are no Quality pages or navigation in the agent interface, so IT staff do not work in it. The only agent-side surface is the administrator settings page (Settings > Modules > Quality) for setup, health and errors. |
+| Who can use it | Portal and kiosk users, by department (`quality_departments`) and portal role (`contact_portal_role`), using the existing portal and kiosk sign-in. Managers see only their own department. The agent role module `module_quality` is used only to decide which administrators may change the settings. |
 | Writes to the QMS | Only through its authenticated API. Never to its database. |
 
 ## What exists and is reused
@@ -35,7 +37,7 @@ Module toggle pattern (Training), role permission rows, `rivetEmitEvent` and the
 3. Integration-client credential and token endpoint (`/api/v1/oauth/token`), named scopes, rotation, revoke, audit.
 4. `/api/v1/lms/*`, `/api/v1/employees`, `/api/v1/departments` with `updated_since` cursors, plus an `Idempotency-Key` store.
 5. Inbound event receiver with signature, timestamp window, replay table and event log; outbound events through the existing bus.
-6. Portal and kiosk pages, manager dashboard.
+6. Department portal and kiosk pages (employee and manager), no agent-side pages.
 7. Tests, OpenAPI file, remaining docs.
 
 ## Database changes (additive)
@@ -57,12 +59,12 @@ Module toggle pattern (Training), role permission rows, `rivetEmitEvent` and the
 - [x] UI mockup approved (content only; real pages use RivetIT styles)
 - [x] Architecture, credential design, hub decision (this document)
 - [ ] API contract and OpenAPI (`qms-api-contract.md`) agreed with the QMS repository
-- [ ] Phase 1: module switch, admin page, role, nav and route gating, cron gating
+- [ ] Phase 1: module switch, admin settings page, portal route and nav gating, cron gating (no agent navigation)
 - [ ] Phase 2: integration clients and token endpoint
 - [ ] Phase 3: QMS API client and connection health
 - [ ] Phase 4: LMS API (courses, assignments, completions, evidence), idempotency
 - [ ] Phase 5: employees and departments API, Odoo ID mapping, incremental sync
 - [ ] Phase 6: inbound and outbound events, replay protection, resync, reconciliation
-- [ ] Phase 7: employee and manager portal pages
+- [ ] Phase 7: employee and manager department portal pages
 - [ ] Phase 8: kiosk workflows
 - [ ] Phase 9: tests, remaining docs, end-to-end check with the QMS
