@@ -80,7 +80,11 @@ if (isset($_POST['add_api_key'])) {
         $department_text = 'all departments';
     } else {
         $names = [];
-        $res = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_id IN (" . implode(',', array_map('intval', $department_ids)) . ") ORDER BY client_name");
+        $marks = implode(',', array_fill(0, count($department_ids), '?'));
+        $st = $mysqli->prepare("SELECT client_id, client_name FROM clients WHERE client_id IN ($marks) ORDER BY client_name");
+        $st->bind_param(str_repeat('i', count($department_ids)), ...$department_ids);
+        $st->execute();
+        $res = $st->get_result();
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $names[] = $r['client_name'] . ' (ID ' . intval($r['client_id']) . ')';
         }
@@ -128,7 +132,7 @@ if (isset($_GET['delete_api_key'])) {
     $client_id = max(0, intval($row['api_key_client_id']));
 
     mysqli_query($mysqli,"DELETE FROM api_keys WHERE api_key_id = $api_key_id");
-    mysqli_query($mysqli, "DELETE FROM api_key_clients WHERE api_key_id = $api_key_id");
+    $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE api_key_id = ?"); $st->bind_param('i', $api_key_id); $st->execute(); $st->close();
 
     logAction("API Key", "Delete", "$session_name deleted API key $api_key_name", $client_id);
 
@@ -166,7 +170,7 @@ if (isset($_POST['bulk_delete_api_keys'])) {
             $client_id = max(0, intval($row['api_key_client_id']));
 
             mysqli_query($mysqli, "DELETE FROM api_keys WHERE api_key_id = $api_key_id");
-            mysqli_query($mysqli, "DELETE FROM api_key_clients WHERE api_key_id = $api_key_id");
+            $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE api_key_id = ?"); $st->bind_param('i', $api_key_id); $st->execute(); $st->close();
 
             logAction("API Key", "Delete", "$session_name deleted API key $api_key_name", $client_id);
 

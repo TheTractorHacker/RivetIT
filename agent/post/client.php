@@ -486,9 +486,9 @@ if (isset($_GET['delete_client'])) {
     // Delete Associations
     // Delete Client Data
     // Single-department keys go with the department; a key limited to several just loses this one (a key left with none reaches nothing).
-    mysqli_query($mysqli, "DELETE FROM api_key_clients WHERE api_key_id IN (SELECT api_key_id FROM api_keys WHERE api_key_client_id = $client_id)");
+    $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE api_key_id IN (SELECT api_key_id FROM api_keys WHERE api_key_client_id = ?)"); $st->bind_param('i', $client_id); $st->execute(); $st->close();
     mysqli_query($mysqli, "DELETE FROM api_keys WHERE api_key_client_id = $client_id");
-    mysqli_query($mysqli, "DELETE FROM api_key_clients WHERE client_id = $client_id");
+    $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE client_id = ?"); $st->bind_param('i', $client_id); $st->execute(); $st->close();
     mysqli_query($mysqli, "DELETE FROM certificates WHERE certificate_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM documents WHERE document_client_id = $client_id");
 
