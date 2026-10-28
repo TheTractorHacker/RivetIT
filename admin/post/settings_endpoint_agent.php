@@ -1567,7 +1567,7 @@ if (isset($_POST['test_extstore'])) {
 /** host/port/database/user/sslmode/schema/sslrootcert from $_POST, trimmed; password is '' when the field was left blank (keep the stored one). */
 function ea_datastore_conn_from_post(): array
 {
-    return [
+    $in = [
         'host' => trim((string) ($_POST['ds_host'] ?? '')),
         'port' => (int) ($_POST['ds_port'] ?? 5432),
         'database' => trim((string) ($_POST['ds_db'] ?? '')),
@@ -1577,6 +1577,13 @@ function ea_datastore_conn_from_post(): array
         'schema' => trim((string) ($_POST['ds_schema'] ?? 'public')),
         'sslrootcert' => trim((string) ($_POST['ds_rootcert'] ?? '')) !== '' ? trim((string) $_POST['ds_rootcert']) : null,
     ];
+    // RivetCore 1.0.0-rc.53: a remote host with sslmode disable/allow/prefer is refused unless this is strictly true. It is an explicit admin
+    // checkbox (never defaulted, never stored: it has to be ticked again on every save and test); Core audit-logs each acknowledgement.
+    if (($_POST['ds_insecure_ack'] ?? '') === '1') {
+        $in['allow_insecure_transport'] = true;
+    }
+
+    return $in;
 }
 
 if (isset($_POST['save_datastore_connection'])) {
@@ -1587,7 +1594,7 @@ if (isset($_POST['save_datastore_connection'])) {
     if ($errors !== []) {
         rivetRmmScaleMsg('datastore', 'error', implode(' ', $errors), $in + ['password' => '']);
     } else {
-        logAction('RMM', 'Settings Changed', "$session_name saved the RMM PostgreSQL connection settings (password not logged).");
+        logAction('RMM', 'Settings Changed', "$session_name saved the RMM PostgreSQL connection settings (password not logged)." . (isset($in['allow_insecure_transport']) ? ' The administrator accepted an unencrypted connection to a remote host.' : ''));
         rivetRmmScaleMsg('datastore', 'success', 'Connection saved. Run "Test connection" before switching.');
     }
     ea_scale_back('datastore');
@@ -1720,7 +1727,7 @@ if (isset($_POST['test_datastore'])) {
     if ($res['warnings'] !== []) {
         $message .= ' ' . implode(' ', $res['warnings']);
     }
-    logAction('RMM', 'Settings Changed', "$session_name tested the RMM PostgreSQL connection: " . ($res['ok'] ? 'ok' : 'failed'));
+    logAction('RMM', 'Settings Changed', "$session_name tested the RMM PostgreSQL connection: " . ($res['ok'] ? 'ok' : 'failed') . (isset($in['allow_insecure_transport']) ? ' (administrator accepted an unencrypted connection to a remote host)' : ''));
     if ($json) {
         header('Content-Type: application/json');
         header('Cache-Control: no-store');

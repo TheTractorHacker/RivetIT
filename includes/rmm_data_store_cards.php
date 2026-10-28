@@ -58,6 +58,9 @@ systemctl reload postgresql</pre>'
 
     // ---- connection form
     $pwPlaceholder = ($conn['password_set'] ?? false) ? 'leave blank to keep the stored password' : 'leave blank for peer authentication (recommended, same server)';
+    // RivetCore 1.0.0-rc.53: a remote host defaults to verify-full (Core refuses disable/allow/prefer there); a socket or loopback host keeps prefer.
+    $dsHost = (string) $val('host', '127.0.0.1');
+    $dsDefaultSsl = ($dsHost === '' || str_starts_with($dsHost, '/') || in_array(strtolower($dsHost), ['localhost', '127.0.0.1', '::1'], true)) ? 'prefer' : 'verify-full';
     $form = '<form method="post" action="post.php" id="ds_conn_form" autocomplete="off">' . $csrf
         . '<div class="row g-2">'
         . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_host">Host</label><input class="form-control form-control-sm" id="ds_host" name="ds_host" value="' . rmmH($val('host', '127.0.0.1')) . '" maxlength="255" placeholder="127.0.0.1 or /var/run/postgresql" required></div>'
@@ -66,11 +69,14 @@ systemctl reload postgresql</pre>'
         . '<div class="col-sm-6 col-lg-3"><label class="form-label small" for="ds_user">Role</label><input class="form-control form-control-sm" id="ds_user" name="ds_user" value="' . rmmH($val('user')) . '" maxlength="63" required></div>'
         . '<div class="col-sm-6 col-lg-4"><label class="form-label small" for="ds_pass">Password <span class="text-muted">(blank = peer auth, see above)</span></label><input type="password" class="form-control form-control-sm" id="ds_pass" name="ds_pass" autocomplete="new-password" placeholder="' . rmmH($pwPlaceholder) . '"></div>'
         . '<div class="col-sm-4 col-lg-2"><label class="form-label small" for="ds_sslmode">SSL mode</label><select class="form-select form-select-sm" id="ds_sslmode" name="ds_sslmode">'
-        . implode('', array_map(static fn (string $m) => '<option value="' . $m . '"' . ($val('sslmode', 'prefer') === $m ? ' selected' : '') . '>' . $m . '</option>', ['disable', 'prefer', 'require', 'verify-ca', 'verify-full']))
+        . implode('', array_map(static fn (string $m) => '<option value="' . $m . '"' . ($val('sslmode', $dsDefaultSsl) === $m ? ' selected' : '') . '>' . $m . '</option>', ['disable', 'prefer', 'require', 'verify-ca', 'verify-full']))
         . '</select></div>'
         . '<div class="col-sm-4 col-lg-3"><label class="form-label small" for="ds_schema">Schema</label><input class="form-control form-control-sm" id="ds_schema" name="ds_schema" value="' . rmmH($val('schema', 'public')) . '" maxlength="63"></div>'
         . '<div class="col-sm-4 col-lg-3"><label class="form-label small" for="ds_rootcert">SSL root CA file (optional)</label><input class="form-control form-control-sm" id="ds_rootcert" name="ds_rootcert" value="' . rmmH($val('sslrootcert')) . '" maxlength="255"></div>'
         . '</div>'
+        . '<div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="ds_insecure_ack" name="ds_insecure_ack" value="1">'
+        . '<label class="form-check-label small" for="ds_insecure_ack"><strong>I accept an unencrypted connection to a remote host.</strong> Only needed when the host is not this server and SSL mode is disable, allow or prefer. '
+        . 'Anyone on the network path can read the traffic, and the password if one is used. Prefer <code>verify-full</code> with a root CA file. This is not remembered: tick it again for every save or test, and each use is audit-logged.</label></div>'
         . '<p class="small text-muted mt-2 mb-2">Changing the host, port, role or database requires retyping the password (the stored one is only ever reused for the exact target it was saved for); a stored password reused for a host other than localhost/127.0.0.1/::1/a unix socket needs SSL mode <code>verify-full</code> or <code>verify-ca</code>. A connection with no password at all (peer authentication) is only usable over a unix socket (host starting with <code>/</code>).</p>'
         . '<button type="submit" name="save_datastore_connection" class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-save me-1" aria-hidden="true"></i>Save connection</button>'
         . '<button type="submit" name="test_datastore" class="btn btn-outline-primary btn-sm" data-ds-test><i class="fas fa-vial me-1" aria-hidden="true"></i>Test connection</button>'

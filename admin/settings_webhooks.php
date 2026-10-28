@@ -139,6 +139,9 @@ $wh_popular = ['n8n', 'slack', 'discord', 'teams', 'ntfy', 'home-assistant', 'ge
                                 <a class="whl-name text-reset" href="webhook_edit.php?id=<?= $wid ?>"><?= $wname ?></a>
                                 <?php if ($wdest !== null) { ?><span class="badge text-bg-info ms-1"><?= nullable_htmlentities($wdest->name) ?></span><?php } elseif ($wchat) { ?><span class="badge text-bg-info ms-1"><?= $wtype === 'slack' ? 'Slack' : 'Teams' ?></span><?php } ?>
                                 <div class="d-md-none mt-1"><span class="whl-chip"><i class="fas fa-bell" aria-hidden="true"></i><?= $ev_label ?></span></div>
+                                <?php if (!$wchat && \RivetCore\Webhooks\UrlPolicy::isPlainHttp($wurl_plain)) { $whttp_ok = (DestinationConfig::extra($wh)['allow_http'] ?? false) === true; ?>
+                                    <div class="small <?= $whttp_ok ? 'text-warning-emphasis' : 'text-danger' ?>"><i class="fas fa-unlock me-1" aria-hidden="true"></i><?= $whttp_ok ? 'Plain http allowed for this destination (unencrypted).' : 'Not delivered: this address is plain http://. Edit the webhook to allow it, or change it to https://.' ?></div>
+                                <?php } ?>
                                 <?php if ($wrouted) { ?>
                                     <div class="small text-secondary"><?= $wh['webhook_min_priority'] !== '' ? nullable_htmlentities($wh['webhook_min_priority']) . '+ ' : '' ?><?= $wh['webhook_client_ids'] !== '' ? count(array_filter(explode(',', $wh['webhook_client_ids']))) . ' client filter' : '' ?></div>
                                 <?php } ?>

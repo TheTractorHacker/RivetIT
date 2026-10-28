@@ -57,6 +57,12 @@ function webhookFail(array $errors): void {
     redirect();
 }
 
+/** Whether a webhooks row (or a validated form row) carries the plain-http opt-in (RivetCore 1.0.0-rc.53 requireHttps). */
+function webhookAllowsHttp(array $row): bool
+{
+    return (\ITFlow\Webhooks\DestinationConfig::extra($row)['allow_http'] ?? false) === true;
+}
+
 if (isset($_POST['add_webhook'])) {
 
     webhookCheckCsrf();
@@ -81,6 +87,9 @@ if (isset($_POST['add_webhook'])) {
 
     $webhook_name = nullable_htmlentities($row['webhook_name']);
     logAction("Settings", "Webhook", "$session_name added " . $v['destination']->name . " webhook " . sanitizeInput($row['webhook_name']));
+    if (webhookAllowsHttp($row)) {
+        logAction("Settings", "Webhook", "$session_name allowed webhook " . sanitizeInput($row['webhook_name']) . " to be reached over plain http (unencrypted) when it was added");
+    }
 
     if (webhookWantsJson()) {
         webhookJson(['ok' => true, 'id' => $new_id, 'name' => $row['webhook_name'], 'destination' => $v['destination']->id]);
@@ -123,6 +132,11 @@ if (isset($_POST['edit_webhook'])) {
     mysqli_stmt_execute($stmt);
 
     logAction("Settings", "Webhook", "$session_name edited webhook " . sanitizeInput($row['webhook_name']));
+    $http_was = webhookAllowsHttp($existing);
+    $http_now = webhookAllowsHttp($row);
+    if ($http_was !== $http_now) {
+        logAction("Settings", "Webhook", "$session_name " . ($http_now ? 'allowed' : 'stopped allowing') . " webhook " . sanitizeInput($row['webhook_name']) . ($http_now ? ' to be reached over plain http (unencrypted)' : ' to be reached over plain http'));
+    }
 
     if (webhookWantsJson()) {
         webhookJson(['ok' => true, 'id' => $webhook_id, 'name' => $row['webhook_name'], 'destination' => $v['destination']->id]);

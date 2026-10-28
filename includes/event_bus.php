@@ -69,7 +69,7 @@ function rivetWebhookDispatcher($mysqli, ?\RivetCore\Webhooks\WebhookSubscriptio
     // Delivery re-vets (and pins) with the same policy the settings page used: public addresses plus the admin's allowed networks.
     $policy = rivetWebhookUrlPolicy($mysqli);
     return new \RivetCore\Webhooks\WebhookDispatcher($db, $subscriptions ?? new $subsClass($db), new \RivetCore\Support\SystemClock(), rivetWebhookHeaderPrefixes(),
-        null, \RivetCore\Webhooks\WebhookDispatcher::DEFAULT_TIMEOUT_SECONDS, $policy, true);
+        null, \RivetCore\Webhooks\WebhookDispatcher::DEFAULT_TIMEOUT_SECONDS, $policy, true, true);   // last two: require the URL policy, and (RivetCore 1.0.0-rc.53) refuse plain http:// unless the destination carries allow_http
 }
 
 /**
