@@ -66,6 +66,6 @@ final class OidcPages
             . '.card{max-width:32rem;margin:8vh auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}'
             . 'h1{font-size:1.3rem;margin:0 0 .75rem;display:flex;align-items:center;gap:.6rem}.ico{color:var(--accent);flex:none}.who{color:var(--muted)}.alt{margin-left:14px;color:var(--muted);text-decoration:underline}.row{display:flex;align-items:center;flex-wrap:wrap}p{margin:.5rem 0}.muted{color:var(--muted);font-size:.9rem}.row{margin-top:1.2rem}'
             . 'button{font:inherit;cursor:pointer;border-radius:8px;padding:10px 18px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:600}'
-            . '</style></head><body><main class="card"><h1>' . self::h($headline) . '</h1>' . $body . '</main></body></html>';
+            . '</style></head><body><main class="card"><h1>' . $icon . self::h($headline) . '</h1>' . $body . '</main></body></html>';
     }
 }

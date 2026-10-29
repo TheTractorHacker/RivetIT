@@ -445,11 +445,11 @@ OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
 echo "== authorize: sign-in age\n";
 $stale = portalSession(['portal_auth_time' => time() - 9 * 3600]);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $stale]);
-t('session older than 8 h: re-authentication prompt, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'sign in again') && !str_contains($r['body'], 'code='));
+t('session older than 8 h: re-authentication prompt, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'Sign in again') && !str_contains($r['body'], 'code='));
 preg_match('/name="csrf_token" value="([^"]+)"/', $r['body'], $cm);
 $noAuthTime = craftSession(['client_logged_in' => true, 'client_id' => $CLIENT_DEPT, 'user_id' => $USER_ID, 'user_type' => 2, 'contact_id' => $CONTACT_ID, 'logged' => true, 'csrf_token' => 'c1', 'login_method' => 'local']);
 $r0 = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $noAuthTime]);
-t('session with no recorded sign-in time (older than this feature): treated as stale', $r0['status'] === 200 && str_contains($r0['body'], 'sign in again'));
+t('session with no recorded sign-in time (older than this feature): treated as stale', $r0['status'] === 200 && str_contains($r0['body'], 'Sign in again'));
 $pendC = implode(';', preg_grep('/rivet_oidc_pending=/', $r['h']['set-cookie'] ?? []));
 preg_match('/rivet_oidc_pending=([A-Za-z0-9_-]+)/', $pendC, $pm);
 $bad = http('POST', '/oidc/authorize', ['cookie' => $stale . '; rivet_oidc_pending=' . ($pm[1] ?? ''), 'body' => ['action' => 'reauth', 'csrf_token' => 'wrong']]);
@@ -458,9 +458,9 @@ $ok = http('POST', '/oidc/authorize', ['cookie' => $stale . '; rivet_oidc_pendin
 t('re-auth POST ends the portal session and goes to /login.php', $ok['status'] === 302 && $ok['loc'] === '/login.php');
 t('the stale session no longer works', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $stale])['loc'] === '/login.php');
 $r = http('GET', '/oidc/authorize?' . authq(['max_age' => '30']), ['cookie' => portalSession(['portal_auth_time' => time() - 600])]);
-t('max_age=30 with a 10 minute old sign-in: re-auth prompt', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+t('max_age=30 with a 10 minute old sign-in: re-auth prompt', $r['status'] === 200 && str_contains($r['body'], 'Sign in again'));
 $r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'login']), ['cookie' => $ck]);
-t('prompt=login forces a fresh sign-in', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+t('prompt=login forces a fresh sign-in', $r['status'] === 200 && str_contains($r['body'], 'Sign in again'));
 $r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'none']), ['cookie' => $stale === '' ? '' : portalSession(['portal_auth_time' => time() - 9 * 3600])]);
 t('prompt=none with a stale session: login_required to the client', ($r['loc'] ? (qs($r['loc'])['error'] ?? '') : '') === 'login_required');
 // Full re-auth round trip through the real login page.
@@ -620,14 +620,14 @@ OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
 echo "-- (d) sign-in age\n";
 $noTime = craftSession(['logged' => true, 'user_id' => $ADMIN_UID, 'user_type' => 1, 'csrf_token' => 'csrfA']);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $noTime]);
-t('agent session with no agent_auth_time: re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'sign in again') && !str_contains($r['body'], 'code='));
+t('agent session with no agent_auth_time: re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'Sign in again') && !str_contains($r['body'], 'code='));
 $oldAdm = agentSession($ADMIN_UID, ['agent_auth_time' => time() - 9 * 3600]);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $oldAdm]);
-t('agent sign-in older than the maximum age (8 h): re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'sign in again') && !str_contains($r['body'], 'code='));
+t('agent sign-in older than the maximum age (8 h): re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'Sign in again') && !str_contains($r['body'], 'code='));
 $r = http('GET', '/oidc/authorize?' . authq(['max_age' => '30']), ['cookie' => agentSession($ADMIN_UID, ['agent_auth_time' => time() - 600])]);
-t('max_age=30 with a 10 minute old agent sign-in: re-sign-in page', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+t('max_age=30 with a 10 minute old agent sign-in: re-sign-in page', $r['status'] === 200 && str_contains($r['body'], 'Sign in again'));
 $r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'login']), ['cookie' => $adm]);
-t('prompt=login forces a fresh sign-in for an administrator too', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+t('prompt=login forces a fresh sign-in for an administrator too', $r['status'] === 200 && str_contains($r['body'], 'Sign in again'));
 $r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'none']), ['cookie' => $oldAdm]);
 t('prompt=none with a stale administrator sign-in: login_required to the client', ($r['loc'] ? (qs($r['loc'])['error'] ?? '') : '') === 'login_required');
 // the "sign in again" button works for an agent session (CSRF from the agent session, session ended, then the normal login page)
@@ -683,6 +683,194 @@ t('SSO provider admin page shows "Open Quality as administrator" and "Administra
     , 'status ' . $pgA['status']);
 $mysqli->query("DELETE FROM oidc_pending");
 $mysqli->query("UPDATE oidc_events SET oev_ip = '10.9.9.9'");   // same reason as at the top of this section
+
+// ================================================================================================================ DB 2.6.206: "administrators may open Quality" switch, resume after agent sign-in, re-sign-in page, account menu
+echo "== administrators allowed switch (ops_allow_admins), agent resume, re-sign-in page, account menu\n";
+$setAllow = static function (bool $on) use ($mysqli): void { OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1, $on); };
+$setAllow(true);
+
+echo "-- (a) saveSettings / load round trip\n";
+t('load(): allow_admins is on by default (column default 1)', OidcConfig::load($mysqli)['allow_admins'] === true && (int) q('SELECT ops_allow_admins v FROM oidc_provider_settings WHERE ops_id = 1')[0]['v'] === 1);
+OidcConfig::saveSettings($mysqli, true, 123, 222, 333, 1, false);
+$c = OidcConfig::load($mysqli);
+t('saveSettings(..., false): allow_admins off, stored 0, every other setting saved as given', $c['allow_admins'] === false && $c['enabled'] === true && $c['max_auth_age_minutes'] === 123 && $c['id_token_ttl'] === 222
+    && $c['access_token_ttl'] === 333 && (int) q('SELECT ops_allow_admins v FROM oidc_provider_settings WHERE ops_id = 1')[0]['v'] === 0);
+OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
+t('saveSettings() without the new argument turns administrators back on (default true)', OidcConfig::load($mysqli)['allow_admins'] === true);
+OidcConfig::saveSettings($mysqli, false, 480, 300, 300, 1, false);
+t('allow_admins is independent of the main switch (provider off, admins off)', OidcConfig::load($mysqli)['allow_admins'] === false && OidcConfig::load($mysqli)['enabled'] === false);
+$setAllow(true);
+
+echo "-- (b) policy and authorize with administrators switched off\n";
+$adm = agentSession($ADMIN_UID);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm]);
+t('(control) allowed: authorize issues an administrator a code', str_starts_with((string) $r['loc'], $REDIRECT . '?code='), (string) ($r['loc'] ?? $r['status']));
+t('policy: allowed administrator ok', QualityAccessPolicy::allows($ADM_PRINCIPAL, $mysqli) === ['ok' => true, 'reason' => 'ok']);
+[$cx] = authorizeCode($adm);          // a code and a token issued while allowed
+[$cy] = authorizeCode($adm);
+$tokAllowed = exchange((string) $cy);
+$accAllowed = (string) ($tokAllowed['json']['access_token'] ?? '');
+t('(setup) one code exchanged, one waiting', $cx !== null && $tokAllowed['status'] === 200 && $accAllowed !== '');
+$setAllow(false);
+t('policy: administrator refused with reason admins_not_allowed', QualityAccessPolicy::allows($ADM_PRINCIPAL, $mysqli) === ['ok' => false, 'reason' => 'admins_not_allowed']);
+$before = events('policy:admins_not_allowed');
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm]);
+t('authorize refuses an otherwise valid administrator: 403, no redirect, no code', $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code='));
+t('authorize refusal is audited as policy:admins_not_allowed (with the negative principal)', events('policy:admins_not_allowed') > $before
+    && (int) q('SELECT COUNT(*) n FROM oidc_events WHERE oev_reason = ? AND oev_contact_id = ?', 'si', ['policy:admins_not_allowed', -$ADMIN_UID])[0]['n'] >= 1);
+t('the refusal page names no internal reason', !str_contains($r['body'], 'admins_not_allowed'));
+$ex = exchange((string) $cx);
+t('between authorize and token: invalid_grant, no tokens', $ex['status'] === 400 && ($ex['json']['error'] ?? '') === 'invalid_grant' && !isset($ex['json']['access_token']));
+t('between authorize and token: the refusal is audited admins_not_allowed', events('policy:admins_not_allowed') >= $before + 2);
+t('after the token was issued: userinfo refuses (401)', http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $accAllowed]])['status'] === 401);
+$ckx = portalSession();
+[$dc, , , $dr] = authorizeCode($ckx);
+t('department contact is unaffected: still gets a code', $dc !== null && str_starts_with((string) $dr['loc'], $REDIRECT . '?code='), (string) ($dr['loc'] ?? $dr['status']));
+$dex = exchange((string) $dc);
+$dtok = (string) ($dex['json']['access_token'] ?? '');
+t('department contact: code exchanges and userinfo answers', $dex['status'] === 200 && http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $dtok]])['status'] === 200);
+t('policy: department contact still ok while administrators are off', QualityAccessPolicy::allows($CONTACT_ID, $mysqli) === ['ok' => true, 'reason' => 'ok']);
+t('technician: still refused while administrators are off (the switch is checked first, so the reason is admins_not_allowed)', QualityAccessPolicy::allows(-$TECH_UID, $mysqli) === ['ok' => false, 'reason' => 'admins_not_allowed']);
+$setAllow(true);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm]);
+t('switched back on: administrator gets a code again', str_starts_with((string) $r['loc'], $REDIRECT . '?code='), (string) ($r['loc'] ?? $r['status']));
+t('switched back on: the earlier access token works again (state read live)', http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $accAllowed]])['status'] === 200);
+
+echo "-- (c) PortalResume::agentResumeUrl\n";
+$pv2 = new OidcProvider($mysqli, OidcConfig::load($mysqli));
+$mkPending = static fn(): string => $pv2->createPending(OidcConfig::ssoClient($mysqli, $CLIENT_UID), ['redirect_uri' => $REDIRECT, 'scope' => 'openid', 'state' => 'abcdefgh', 'nonce' => 'nonce1234', 'challenge' => b64u(random_bytes(32)), 'force_login' => 0, 'max_age' => null]);
+$pidA = $mkPending();
+$resumed = PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID);
+t('allowed administrator + valid pending cookie: the fixed path /oidc/authorize (a path, not an absolute URL)', $resumed === '/oidc/authorize' && !str_contains((string) $resumed, '//'));
+t('non-administrator agent + valid pending cookie: null (never detoured to a refusal)', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $TECH_UID) === null);
+t('department login id + valid pending cookie: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $USER_ID) === null);
+t('user id 0 / negative / unknown: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], 0) === null && PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], -$ADMIN_UID) === null
+    && PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], 999999) === null);
+t('no cookie: null', PortalResume::agentResumeUrl($mysqli, [], $ADMIN_UID) === null);
+t('junk / hostile cookie values: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => 'https://evil.example/'], $ADMIN_UID) === null
+    && PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => '//evil.example'], $ADMIN_UID) === null && PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => ''], $ADMIN_UID) === null);
+t('well-formed but unknown pending id: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => b64u(random_bytes(32))], $ADMIN_UID) === null);
+$setAllow(false);
+t('administrators switched off: null even with a valid pending cookie and an administrator', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID) === null);
+$setAllow(true);
+$setUser('user_status = 0');
+t('disabled administrator: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID) === null);
+$resetAdmin();
+OidcConfig::saveSettings($mysqli, false, 480, 300, 300, 1);
+t('provider off: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID) === null);
+OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
+t('(control) restored: the path again', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID) === '/oidc/authorize');
+$pv2->consumePending($pidA);
+t('consumed pending id: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidA], $ADMIN_UID) === null);
+$pidE = $mkPending();
+$mysqli->query("UPDATE oidc_pending SET opend_expires_at = NOW() - INTERVAL 1 SECOND WHERE opend_hash = '" . hash('sha256', $pidE) . "'");
+t('expired pending id: null', PortalResume::agentResumeUrl($mysqli, [PortalResume::COOKIE => $pidE], $ADMIN_UID) === null);
+
+echo "-- (d) real login.php agent sign-in resumes the request\n";
+$ADM_PW = 'T3st-Admin-Pw#2026';
+$aph = password_hash($ADM_PW, PASSWORD_DEFAULT);
+$st = $mysqli->prepare('UPDATE users SET user_password = ? WHERE user_id = ?');
+$st->bind_param('si', $aph, $ADMIN_UID);
+$st->execute();
+$st->close();
+$admEmail = 'oidc-test-admin@scratch.invalid';
+$loginVia = function (bool $withPending) use ($ADMIN_UID, $admEmail, $ADM_PW): array {
+    $jar = newJar();
+    if ($withPending) {
+        http('GET', '/oidc/authorize?' . authq(), ['jar' => $jar]);   // no session: parks the request in the pending cookie, redirects to /login.php
+    }
+    http('GET', '/login.php', ['jar' => $jar]);
+    $lg = http('POST', '/login.php', ['jar' => $jar, 'body' => ['login' => '1', 'email' => $admEmail, 'password' => $ADM_PW]]);
+    return [$lg, $jar];
+};
+[$lg, $jarA] = $loginVia(true);
+t('login.php (password) with a pending request: 302 to exactly /oidc/authorize', in_array($lg['status'], [302, 303], true) && $lg['loc'] === '/oidc/authorize', 'status ' . $lg['status'] . ' loc ' . ($lg['loc'] ?? '-'));
+$rs = http('GET', '/oidc/authorize', ['jar' => $jarA]);
+t('...and the resume issues a code to the registered redirect (agent_auth_time/agent_amr set by login.php)', str_starts_with((string) $rs['loc'], $REDIRECT . '?code='), (string) ($rs['loc'] ?? $rs['status']));
+[$lg2] = $loginVia(false);
+t('login.php without a pending request: normal landing, not /oidc/authorize', in_array($lg2['status'], [302, 303], true) && $lg2['loc'] !== null && !str_contains((string) $lg2['loc'], 'oidc'), 'loc ' . ($lg2['loc'] ?? '-'));
+$setAllow(false);
+[$lg3] = $loginVia(true);
+t('login.php with a pending request while administrators are off: normal landing, not /oidc/authorize', in_array($lg3['status'], [302, 303], true) && $lg3['loc'] !== null && !str_contains((string) $lg3['loc'], 'oidc'), 'loc ' . ($lg3['loc'] ?? '-'));
+$setAllow(true);
+// A non-administrator agent signing in with a pending request is never detoured.
+$TECH_PW = 'T3st-Tech-Pw#2026';
+$tph = password_hash($TECH_PW, PASSWORD_DEFAULT);
+$st = $mysqli->prepare('UPDATE users SET user_password = ? WHERE user_id = ?');
+$st->bind_param('si', $tph, $TECH_UID);
+$st->execute();
+$st->close();
+$jarT = newJar();
+http('GET', '/oidc/authorize?' . authq(), ['jar' => $jarT]);
+http('GET', '/login.php', ['jar' => $jarT]);
+$lgT = http('POST', '/login.php', ['jar' => $jarT, 'body' => ['login' => '1', 'email' => 'oidc-test-tech@scratch.invalid', 'password' => $TECH_PW]]);
+t('non-administrator agent with a pending request: normal landing, not /oidc/authorize', in_array($lgT['status'], [302, 303], true) && $lgT['loc'] !== null && !str_contains((string) $lgT['loc'], 'oidc'), 'status ' . $lgT['status'] . ' loc ' . ($lgT['loc'] ?? '-'));
+
+echo "-- (e) re-sign-in page: display name, Cancel, escaping\n";
+$evilName = 'Ada <b>"Bold"</b> O\'Neil & <script>alert(1)</script>';
+$st = $mysqli->prepare('UPDATE users SET user_name = ? WHERE user_id = ?');
+$st->bind_param('si', $evilName, $ADMIN_UID);
+$st->execute();
+$st->close();
+$stale = agentSession($ADMIN_UID, ['agent_auth_time' => time() - 9 * 3600]);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $stale]);
+$esc = htmlspecialchars($evilName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+t('re-sign-in page (200): "Signed in as <strong>NAME</strong>" with the name HTML-escaped', $r['status'] === 200 && str_contains($r['body'], 'Signed in as <strong>' . $esc . '</strong>'));
+t('re-sign-in page: no unescaped markup from the name', !str_contains($r['body'], '<b>') && !str_contains($r['body'], '<script>alert') && !str_contains($r['body'], 'O\'Neil') && !str_contains($r['body'], '"Bold"'));
+t('re-sign-in page: Cancel link, Sign in again button, lock icon, CSRF form to /oidc/authorize', str_contains($r['body'], '<a class="alt" href="/">Cancel</a>') && str_contains($r['body'], 'Sign in again</button>')
+    && str_contains($r['body'], '<svg class="ico"') && str_contains($r['body'], 'action="/oidc/authorize"') && str_contains($r['body'], 'name="csrf_token"'));
+t('re-sign-in page: the lock icon sits inside the heading, before the title', preg_match('#<h1><svg class="ico"[^>]*>.*</svg>Confirm it is you</h1>#s', $r['body']) === 1);
+t('re-sign-in page keeps its security headers and is never cached', str_contains($r['h']['cache-control'][0] ?? '', 'no-store') && ($r['h']['x-frame-options'][0] ?? '') === 'DENY');
+$st = $mysqli->prepare('UPDATE users SET user_name = \'Ada Admin\' WHERE user_id = ?');
+$st->bind_param('i', $ADMIN_UID);
+$st->execute();
+$st->close();
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => agentSession($ADMIN_UID, ['agent_auth_time' => time() - 9 * 3600])]);
+t('plain name shows as "Signed in as <strong>Ada Admin</strong>"', str_contains($r['body'], 'Signed in as <strong>Ada Admin</strong>'));
+// A department person's re-sign-in page shows the portal login's own name (users.user_name, from the database).
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => portalSession(['portal_auth_time' => time() - 9 * 3600])]);
+t('department re-sign-in page also names the signed-in login (from the database, not the session)', $r['status'] === 200 && str_contains($r['body'], 'Signed in as <strong>'));
+
+echo "-- (f) admin page switch and account menu\n";
+$navCs = 'csrf' . bin2hex(random_bytes(8));
+$navAdm = agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]);
+$refN = ['Referer: ' . $BASE . '/admin/sso_provider.php'];
+$postSet = fn(array $extra) => http('POST', '/admin/post.php', ['cookie' => $navAdm, 'headers' => $refN, 'body' => ['save_sso_settings' => '1', 'csrf_token' => $navCs, 'enabled' => '1', 'max_auth_age' => 480, 'id_token_ttl' => 300, 'access_token_ttl' => 300] + $extra]);
+$postSet(['allow_admins' => '1']);
+t('admin POST with the checkbox ticked: administrators allowed', OidcConfig::load($mysqli)['allow_admins'] === true && OidcConfig::load($mysqli)['enabled'] === true);
+$pgOn = http('GET', '/admin/sso_provider.php', ['cookie' => $navAdm]);
+t('admin page: switch rendered, ticked, labelled', $pgOn['status'] === 200 && preg_match('/<input[^>]*name="allow_admins"[^>]*\schecked>/', $pgOn['body']) === 1 && str_contains($pgOn['body'], 'Let administrators open Quality'));
+$postSet([]);
+t('admin POST with the checkbox unticked: administrators not allowed (provider stays on)', OidcConfig::load($mysqli)['allow_admins'] === false && OidcConfig::load($mysqli)['enabled'] === true);
+$pgOff = http('GET', '/admin/sso_provider.php', ['cookie' => $navAdm]);
+t('admin page: switch rendered unticked', preg_match('/<input[^>]*name="allow_admins"[^>]*>/', $pgOff['body'], $mm) === 1 && !str_contains($mm[0], 'checked'));
+t('settings change is audited with the administrators wording', (int) q("SELECT COUNT(*) n FROM logs WHERE log_type = 'SSO Provider' AND log_description LIKE '%administrators may not open Quality%'")[0]['n'] >= 1);
+$postSet(['allow_admins' => '1']);
+
+// Account menu on an agent page (/agent/ renders includes/top_nav.php).
+$menu = static fn(string $cookie): array => http('GET', '/agent/', ['cookie' => $cookie]);
+$mAdm = $menu(agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]));
+t('(setup) agent page renders its account menu for the administrator', $mAdm['status'] === 200 && str_contains($mAdm['body'], 'Administration'));
+t('menu: "Open Quality" shown (provider on, administrators allowed, login address saved), href is the saved https login URL, rel noopener',
+    str_contains($mAdm['body'], 'Open Quality') && str_contains($mAdm['body'], '<a href="' . htmlspecialchars((string) q('SELECT ocfg_login_url u FROM oidc_client_config WHERE ocfg_client_id = ?', 'i', [$CLIENT_ID])[0]['u'], ENT_QUOTES) . '" class="dropdown-item" rel="noopener noreferrer">'));
+$setAllow(false);
+t('menu: hidden when administrators are not allowed', !str_contains($menu(agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]))['body'], 'Open Quality'));
+$setAllow(true);
+$mTech = $menu(agentSession($TECH_UID, ['csrf_token' => $navCs, 'login_time' => time()]));
+t('menu: never shown to a non-administrator agent (even while allowed)', !str_contains($mTech['body'], 'Open Quality'));
+OidcConfig::saveSettings($mysqli, false, 480, 300, 300, 1, true);
+t('menu: hidden when the provider is off', !str_contains($menu(agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]))['body'], 'Open Quality'));
+OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1, true);
+$loginUrlNow = (string) q('SELECT ocfg_login_url u FROM oidc_client_config WHERE ocfg_client_id = ?', 'i', [$CLIENT_ID])[0]['u'];
+OidcConfig::saveClient($mysqli, $CLIENT_ID, $REDIRECT, null, true);
+t('menu: hidden when no Quality login address is saved', !str_contains($menu(agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]))['body'], 'Open Quality'));
+OidcConfig::saveClient($mysqli, $CLIENT_ID, $REDIRECT, 'https://datum.example/auth/login?a=1&b="><script>x</script>', true);
+$mx = $menu(agentSession($ADMIN_UID, ['csrf_token' => $navCs, 'login_time' => time()]));
+t('menu: the saved login URL is HTML-escaped where rendered', !str_contains($mx['body'], '<script>x</script>'));
+OidcConfig::saveClient($mysqli, $CLIENT_ID, $REDIRECT . "\nhttps://datum.example/other/callback", $loginUrlNow, true);
+$setAllow(true);
+$mysqli->query("DELETE FROM oidc_pending");
+$mysqli->query("UPDATE oidc_events SET oev_ip = '10.9.9.9'");   // keep the abuse limiter budget for the sections below
 
 // ================================================================================================================ token endpoint
 echo "== token endpoint\n";
