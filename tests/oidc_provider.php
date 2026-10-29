@@ -179,6 +179,24 @@ $mysqli->query("DELETE FROM user_settings WHERE user_id = $USER_ID AND 0");
 $mysqli->query("UPDATE clients SET client_archived_at = NULL, client_status = 'Active' WHERE client_id = $CLIENT_DEPT");
 $mysqli->query("DELETE FROM contact_odoo_links WHERE contact_id = $CONTACT_ID");
 $mysqli->query("INSERT INTO contact_odoo_links (contact_id, odoo_integration_id, odoo_employee_id) VALUES ($CONTACT_ID, 1, 1842)");
+// Administrator / technician fixtures (dropped again before the rate-limit section). An administrator signs in to Quality as themselves.
+$mysqli->query("DELETE FROM users WHERE user_email LIKE 'oidc-test-%@scratch.invalid'");
+$mysqli->query("DELETE FROM user_roles WHERE role_name LIKE 'OIDC TEST%'");
+$mysqli->query("INSERT INTO user_roles (role_name, role_is_admin) VALUES ('OIDC TEST Admin', 1)");
+$ADM_ROLE = (int) $mysqli->insert_id;
+$mysqli->query("INSERT INTO user_roles (role_name, role_is_admin) VALUES ('OIDC TEST Tech', 0)");
+$TECH_ROLE = (int) $mysqli->insert_id;
+$mkUser = function (string $name, string $slug, int $role) use ($mysqli): int {
+    $st = $mysqli->prepare("INSERT INTO users (user_name, user_email, user_password, user_type, user_status, user_role_id) VALUES (?, ?, 'x', 1, 1, ?)");
+    $email = "oidc-test-$slug@scratch.invalid";
+    $st->bind_param('ssi', $name, $email, $role);
+    $st->execute();
+    $id = (int) $mysqli->insert_id;
+    $st->close();
+    return $id;
+};
+$ADMIN_UID = $mkUser('Ada Admin', 'admin', $ADM_ROLE);
+$TECH_UID = $mkUser('Tom Tech', 'tech', $TECH_ROLE);
 foreach (['oidc_codes', 'oidc_tokens', 'oidc_pending', 'oidc_events', 'oidc_client_config', 'oidc_signing_keys'] as $tbl) { $mysqli->query("DELETE FROM $tbl"); }
 $mysqli->query("DELETE FROM integration_clients WHERE client_name LIKE 'OIDC TEST%'");
 OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
@@ -361,12 +379,17 @@ t('resume with an unknown pending id: plain page, no redirect', $r['status'] ===
 $kiosk = portalSession(['kiosk_session' => true]);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $kiosk]);
 t('kiosk/shared-screen session refused (audited)', $r['status'] === 403 && $r['loc'] === null && events('kiosk_session') >= 1);
-$agent = craftSession(['logged' => true, 'user_id' => 9, 'user_type' => 1, 'csrf_token' => 'x']);
+// An agent session is no department person. Only an ADMINISTRATOR may continue, as themselves (section "administrator sign-in" below);
+// a non-administrator agent is refused by the access policy, and a "logged" session with no usable user id is refused as before.
+$agent = craftSession(['logged' => true, 'user_type' => 1, 'csrf_token' => 'x']);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $agent]);
-t('agent session is not a department person: refused (audited)', $r['status'] === 403 && $r['loc'] === null && events('not_portal_session') >= 1);
-$preview = craftSession(['portal_preview' => ['x' => 1], 'logged' => true, 'user_id' => 9, 'user_type' => 1]);
+t('logged session with no user id is not a person: refused (audited)', $r['status'] === 403 && $r['loc'] === null && events('not_portal_session') >= 1);
+$agent = craftSession(['logged' => true, 'user_id' => $TECH_UID, 'user_type' => 1, 'csrf_token' => 'x', 'agent_auth_time' => time() - 60]);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $agent]);
+t('non-administrator agent session: refused (audited)', $r['status'] === 403 && $r['loc'] === null && events('policy:not_administrator') >= 1);
+$preview = craftSession(['portal_preview' => ['x' => 1], 'logged' => true, 'user_id' => $TECH_UID, 'user_type' => 1, 'agent_auth_time' => time() - 60]);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $preview]);
-t('admin portal-preview state is not a portal login: refused', $r['status'] === 403 && $r['loc'] === null);
+t('portal-preview state of a non-administrator is refused', $r['status'] === 403 && $r['loc'] === null);
 $mismatch = portalSession(['user_id' => 14]);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $mismatch]);
 t('session user not owning the contact: refused', $r['status'] === 403 && events('session_contact_mismatch') >= 1);
@@ -453,6 +476,213 @@ $lg = http('POST', '/login.php', ['jar' => $jar2, 'body' => ['login' => '1', 'em
 $ld = http('GET', '/client/' . basename((string) ($lg['loc'] ?? 'index.php')), ['jar' => $jar2]);
 $rs = http('GET', '/oidc/authorize', ['jar' => $jar2]);
 t('stale -> re-auth -> real login -> resume issues a code', $ld['loc'] === '/oidc/authorize' && str_starts_with((string) $rs['loc'], $REDIRECT . '?code='), (string) ($rs['loc'] ?? $rs['status']));
+
+// ================================================================================================================ administrator sign-in
+// An administrator opens Quality as themselves: no department contact. The principal stored in the "contact id" columns is the NEGATIVE user id.
+echo "== administrator sign-in\n";
+// The abuse limiter counts refusals per address over 10 minutes (60 on authorize) and the sections above already produced many on purpose.
+// Keep those audit rows (later sections read them) but file them under another address so this section starts with a clean budget.
+$mysqli->query("UPDATE oidc_events SET oev_ip = '10.9.9.9'");
+$ADM_PRINCIPAL = QualityAccessPolicy::administratorPrincipal($ADMIN_UID);
+t('principal helpers: -user id, and back', $ADM_PRINCIPAL === -$ADMIN_UID && QualityAccessPolicy::administratorUserId($ADM_PRINCIPAL) === $ADMIN_UID
+    && QualityAccessPolicy::administratorPrincipal(-$ADMIN_UID) === -$ADMIN_UID && QualityAccessPolicy::administratorUserId($CONTACT_ID) === 0);
+function agentSession(int $userId, array $over = []): string
+{
+    return craftSession($over + ['logged' => true, 'user_id' => $userId, 'user_type' => 1, 'csrf_token' => 'csrf' . bin2hex(random_bytes(8)),
+        'agent_auth_time' => time() - 60, 'agent_amr' => 'pwd,otp,mfa']);
+}
+function jwtParts(string $jwt): array { return json_decode((string) base64_decode(strtr(explode('.', $jwt)[1] ?? '', '-_', '+/')), true) ?: []; }
+$setUser = function (string $set) use ($mysqli, $ADMIN_UID): void { $mysqli->query("UPDATE users SET $set WHERE user_id = $ADMIN_UID"); };
+$resetAdmin = function () use ($mysqli, $ADMIN_UID, $ADM_ROLE): void {
+    $mysqli->query("UPDATE users SET user_status = 1, user_archived_at = NULL, user_type = 1, user_role_id = $ADM_ROLE, user_token = NULL WHERE user_id = $ADMIN_UID");
+    $mysqli->query("UPDATE user_roles SET role_archived_at = NULL, role_is_admin = 1 WHERE role_id = $ADM_ROLE");
+    $mysqli->query("DELETE FROM user_settings WHERE user_id = $ADMIN_UID");
+};
+
+echo "-- (a) happy path\n";
+$authStart = time() - 60;
+$adm = agentSession($ADMIN_UID, ['agent_auth_time' => $authStart]);
+[$ac, $ast, $anonce, $ar] = authorizeCode($adm);
+t('admin agent session: authorize issues a code to the registered redirect URI (state echoed)', $ac !== null && str_starts_with((string) $ar['loc'], $REDIRECT . '?') && $ast !== null && (qs($ar['loc'])['iss'] ?? '') === $ISS, (string) ($ar['loc'] ?? $ar['status']));
+$crow = $ac !== null ? q('SELECT ocode_contact_id, ocode_user_id, ocode_auth_time, ocode_amr FROM oidc_codes WHERE ocode_hash = ?', 's', [hash('sha256', $ac)]) : [];
+t('code row carries the negative principal and the real user id', ($crow[0]['ocode_contact_id'] ?? null) == $ADM_PRINCIPAL && ($crow[0]['ocode_user_id'] ?? null) == $ADMIN_UID
+    && (int) ($crow[0]['ocode_auth_time'] ?? 0) === $authStart && ($crow[0]['ocode_amr'] ?? '') === 'pwd,otp,mfa');
+$aex = $ac !== null ? exchange($ac) : ['status' => 0, 'json' => []];
+t('admin code exchanges for tokens', $aex['status'] === 200 && isset($aex['json']['id_token'], $aex['json']['access_token']));
+$aidt = (string) ($aex['json']['id_token'] ?? '');
+$aacc = (string) ($aex['json']['access_token'] ?? '');
+$adec = [];
+try { $adec = (array) JWT::decode($aidt, JWK::parseKeySet(jwksKeySet(), 'ES256')); t('admin ID token: ES256 signature verifies against the JWKS', true); }
+catch (\Throwable $e) { t('admin ID token: ES256 signature verifies against the JWKS', false, $e::class); }
+t("ID token: sub is 'rivetit-admin:<id>' (never a bare number), rivetit_id 'admin:<id>'", ($adec['sub'] ?? '') === 'rivetit-admin:' . $ADMIN_UID && ($adec['rivetit_id'] ?? '') === 'admin:' . $ADMIN_UID);
+t("ID token: rivetit_role is 'administrator'", ($adec['rivetit_role'] ?? null) === 'administrator');
+t('ID token: name present with the profile scope', ($adec['name'] ?? '') === 'Ada Admin');
+t('ID token: iss/aud/nonce/auth_time/amr as for any person', ($adec['iss'] ?? '') === $ISS && ($adec['aud'] ?? null) === $CLIENT_UID && ($adec['nonce'] ?? '') === $anonce
+    && ($adec['auth_time'] ?? 0) === $authStart && ($adec['amr'] ?? []) === ['pwd', 'otp', 'mfa']);
+t('ID token: no email / phone claims', !array_intersect(['email', 'email_verified', 'phone_number'], array_keys($adec)));
+$aui = http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $aacc]]);
+t('userinfo: sub, rivetit_id, rivetit_role, name', $aui['status'] === 200 && ($aui['json']['sub'] ?? '') === 'rivetit-admin:' . $ADMIN_UID && ($aui['json']['rivetit_id'] ?? '') === 'admin:' . $ADMIN_UID
+    && ($aui['json']['rivetit_role'] ?? '') === 'administrator' && ($aui['json']['name'] ?? '') === 'Ada Admin' && !isset($aui['json']['email']));
+$trow = q('SELECT otok_contact_id FROM oidc_tokens WHERE otok_hash = ?', 's', [hash('sha256', $aacc)]);
+t('token row carries the negative principal', ($trow[0]['otok_contact_id'] ?? null) == $ADM_PRINCIPAL);
+// Without the profile scope there is no name, but the role claim stays (it is not personal data).
+[$ac2, , , $ar2] = authorizeCode($adm, ['scope' => 'openid']);
+$aex2 = $ac2 !== null ? exchange($ac2) : ['json' => []];
+$adec2 = jwtParts((string) ($aex2['json']['id_token'] ?? ''));
+t('openid-only scope: no name claim, role claim still present', $ac2 !== null && !isset($adec2['name']) && ($adec2['rivetit_role'] ?? '') === 'administrator' && ($adec2['sub'] ?? '') === 'rivetit-admin:' . $ADMIN_UID);
+$aui2 = http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . ($aex2['json']['access_token'] ?? 'x')]]);
+t('openid-only scope: userinfo has no name either', $aui2['status'] === 200 && !isset($aui2['json']['name']) && ($aui2['json']['rivetit_role'] ?? '') === 'administrator');
+// A client that is not allowed the profile scope gets no name even for profile (same rule as for people).
+$aNp = http('GET', '/oidc/authorize?' . authq(['client_id' => $noprof['client_uid'], 'redirect_uri' => 'https://noprof.example/cb', 'scope' => 'openid']), ['cookie' => $adm]);
+t('another registered SSO client also gets an admin code (per-client registration unchanged)', str_starts_with((string) $aNp['loc'], 'https://noprof.example/cb?code='), (string) ($aNp['loc'] ?? $aNp['status']));
+t('principal never collides with a department person: sub of a person is unchanged', QualityAccessPolicy::subject($mysqli, $CONTACT_ID)['sub'] === '1842' && !isset(QualityAccessPolicy::subject($mysqli, $CONTACT_ID)['role']));
+t('policy: live administrator allowed; user id 0 / unknown refused', QualityAccessPolicy::allows($ADM_PRINCIPAL, $mysqli) === ['ok' => true, 'reason' => 'ok']
+    && QualityAccessPolicy::allows(-999999, $mysqli)['reason'] === 'admin_not_found');
+
+echo "-- (b) non-administrators\n";
+$techS = agentSession($TECH_UID);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $techS]);
+t('technician (non-admin role) agent session: refused, no redirect, audited policy:not_administrator', $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code=') && events('policy:not_administrator') >= 1);
+t('technician refusal audit row carries the negative principal', (int) q('SELECT COUNT(*) n FROM oidc_events WHERE oev_reason = ? AND oev_contact_id = ?', 'si', ['policy:not_administrator', -$TECH_UID])[0]['n'] >= 1);
+$mysqli->query("UPDATE users SET user_role_id = 0 WHERE user_id = $TECH_UID");
+t('agent with no role at all: refused', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $techS])['status'] === 403);
+$mysqli->query("UPDATE users SET user_role_id = $TECH_ROLE WHERE user_id = $TECH_UID");
+t('policy: technician and nonexistent role refused', QualityAccessPolicy::allows(-$TECH_UID, $mysqli)['reason'] === 'not_administrator');
+[$pcode, , , $pr] = authorizeCode(portalSession());
+$pex = $pcode !== null ? exchange($pcode) : ['json' => []];
+$pdec = jwtParts((string) ($pex['json']['id_token'] ?? ''));
+t('department contact: ID token has NO rivetit_role claim', $pcode !== null && ($pdec['sub'] ?? '') === '1842' && !array_key_exists('rivetit_role', $pdec));
+$pui = http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . ($pex['json']['access_token'] ?? 'x')]]);
+t('department contact: userinfo has NO rivetit_role claim', $pui['status'] === 200 && ($pui['json']['sub'] ?? '') === '1842' && !array_key_exists('rivetit_role', $pui['json']));
+$pcrow = q('SELECT ocode_contact_id FROM oidc_codes WHERE ocode_hash = ?', 's', [hash('sha256', (string) $pcode)]);
+t('department code row keeps the positive contact id', ($pcrow[0]['ocode_contact_id'] ?? null) == $CONTACT_ID);
+
+echo "-- (c) account state changes\n";
+// authorize refuses a disabled/archived/demoted administrator outright
+foreach ([
+    'disabled' => ["user_status = 0", 'policy:login_disabled'],
+    'archived' => ["user_archived_at = NOW()", 'policy:login_disabled'],
+    'demoted to a non-admin role' => ["user_role_id = $TECH_ROLE", 'policy:not_administrator'],
+    'no role' => ["user_role_id = 0", 'policy:not_administrator'],
+    'no longer an agent (user_type 2)' => ["user_type = 2", 'policy:not_administrator'],
+] as $label => [$set, $reason]) {
+    $setUser($set);
+    $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm]);
+    t("authorize: administrator $label is refused ($reason)", $r['status'] === 403 && $r['loc'] === null && events($reason) >= 1);
+    $resetAdmin();
+}
+$mysqli->query("UPDATE user_roles SET role_is_admin = 0 WHERE role_id = $ADM_ROLE");
+t('authorize: role stripped of its administrator flag is refused', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm])['status'] === 403);
+$resetAdmin();
+$mysqli->query("UPDATE user_roles SET role_archived_at = NOW() WHERE role_id = $ADM_ROLE");
+t('authorize: archived administrator role is refused', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm])['status'] === 403);
+$resetAdmin();
+$mysqli->query("INSERT INTO user_settings (user_id, user_config_force_mfa) VALUES ($ADMIN_UID, 1) ON DUPLICATE KEY UPDATE user_config_force_mfa = 1");
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm]);
+t('authorize: two-factor required but not enrolled is refused', $r['status'] === 403 && events('policy:mfa_enrollment_required') >= 1);
+$setUser("user_token = 'enrolled'");
+t('authorize: two-factor required and enrolled is allowed', str_starts_with((string) http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm])['loc'], $REDIRECT . '?code='));
+$resetAdmin();
+t('(setup) administrator restored: allowed again', QualityAccessPolicy::allows($ADM_PRINCIPAL, $mysqli)['ok'] === true);
+
+// changes BETWEEN authorize and token / userinfo
+foreach ([
+    'disabled' => ["user_status = 0", 'policy:login_disabled'],
+    'archived' => ["user_archived_at = NOW()", 'policy:login_disabled'],
+    'demoted' => ["user_role_id = $TECH_ROLE", 'policy:not_administrator'],
+] as $label => [$set, $reason]) {
+    [$cx] = authorizeCode($adm);
+    [$cy] = authorizeCode($adm);
+    $tokOk = exchange($cy);
+    $tokAccess = (string) ($tokOk['json']['access_token'] ?? '');
+    t("($label) setup: one code exchanged, one still waiting", $cx !== null && $tokOk['status'] === 200 && $tokAccess !== '');
+    $setUser($set);
+    $ex = exchange((string) $cx);
+    t("$label between authorize and token: invalid_grant, no tokens, audited $reason", $ex['status'] === 400 && ($ex['json']['error'] ?? '') === 'invalid_grant' && !isset($ex['json']['access_token']) && events($reason) >= 1);
+    $ui = http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $tokAccess]]);
+    t("$label after the token was issued: userinfo refuses (401)", $ui['status'] === 401);
+    $resetAdmin();
+    t("$label then restored: the earlier token works again (state is read live, nothing cached)", http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $tokAccess]])['status'] === 200);
+}
+// provider switched off between authorize and token / userinfo
+[$cz] = authorizeCode($adm);
+[$cw] = authorizeCode($adm);
+$tokP = exchange((string) $cw);
+$accP = (string) ($tokP['json']['access_token'] ?? '');
+OidcConfig::saveSettings($mysqli, false, 480, 300, 300, 1);
+$ex = exchange((string) $cz);
+t('provider off between authorize and token: no tokens', $ex['status'] >= 400 && !isset($ex['json']['access_token']));
+t('provider off: admin userinfo refused', http('GET', '/oidc/userinfo', ['headers' => ['Authorization: Bearer ' . $accP]])['status'] >= 400);
+t('provider off: authorize refuses an administrator (503, no redirect)', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $adm])['status'] === 503);
+t('provider off: policy refuses an administrator', QualityAccessPolicy::allows($ADM_PRINCIPAL, $mysqli)['reason'] === 'provider_disabled');
+OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
+
+echo "-- (d) sign-in age\n";
+$noTime = craftSession(['logged' => true, 'user_id' => $ADMIN_UID, 'user_type' => 1, 'csrf_token' => 'csrfA']);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $noTime]);
+t('agent session with no agent_auth_time: re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'sign in again') && !str_contains($r['body'], 'code='));
+$oldAdm = agentSession($ADMIN_UID, ['agent_auth_time' => time() - 9 * 3600]);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $oldAdm]);
+t('agent sign-in older than the maximum age (8 h): re-sign-in page, no code', $r['status'] === 200 && $r['loc'] === null && str_contains($r['body'], 'sign in again') && !str_contains($r['body'], 'code='));
+$r = http('GET', '/oidc/authorize?' . authq(['max_age' => '30']), ['cookie' => agentSession($ADMIN_UID, ['agent_auth_time' => time() - 600])]);
+t('max_age=30 with a 10 minute old agent sign-in: re-sign-in page', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+$r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'login']), ['cookie' => $adm]);
+t('prompt=login forces a fresh sign-in for an administrator too', $r['status'] === 200 && str_contains($r['body'], 'sign in again'));
+$r = http('GET', '/oidc/authorize?' . authq(['prompt' => 'none']), ['cookie' => $oldAdm]);
+t('prompt=none with a stale administrator sign-in: login_required to the client', ($r['loc'] ? (qs($r['loc'])['error'] ?? '') : '') === 'login_required');
+// the "sign in again" button works for an agent session (CSRF from the agent session, session ended, then the normal login page)
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $oldAdm]);
+preg_match('/name="csrf_token" value="([^"]+)"/', $r['body'], $am);
+$apc = implode(';', preg_grep('/rivet_oidc_pending=/', $r['h']['set-cookie'] ?? []));
+preg_match('/rivet_oidc_pending=([A-Za-z0-9_-]+)/', $apc, $apm);
+$bad = http('POST', '/oidc/authorize', ['cookie' => $oldAdm . '; rivet_oidc_pending=' . ($apm[1] ?? ''), 'body' => ['action' => 'reauth', 'csrf_token' => 'wrong']]);
+t('admin re-sign-in POST with a wrong CSRF token is refused', $bad['status'] === 400);
+$okp = http('POST', '/oidc/authorize', ['cookie' => $oldAdm . '; rivet_oidc_pending=' . ($apm[1] ?? ''), 'body' => ['action' => 'reauth', 'csrf_token' => $am[1] ?? '']]);
+t('admin re-sign-in POST ends the agent session and goes to /login.php', $okp['status'] === 302 && $okp['loc'] === '/login.php');
+t('the ended agent session no longer yields a code', !str_contains((string) http('GET', '/oidc/authorize?' . authq(), ['cookie' => $oldAdm])['loc'], 'code='));
+
+echo "-- (e) department portal sessions are never administrators\n";
+// A department person whose portal login shares nothing with an administrator: positive contact id, Odoo-number sub, no role.
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => portalSession()]);
+t('portal session: still a department person (code issued)', str_starts_with((string) $r['loc'], $REDIRECT . '?code='));
+$lastCode = q('SELECT ocode_contact_id, ocode_user_id FROM oidc_codes WHERE ocode_hash = ?', 's', [hash('sha256', (string) (qs((string) $r['loc'])['code'] ?? ''))]);
+t('portal session code row: positive contact id, portal user id (not the admin branch)', ($lastCode[0]['ocode_contact_id'] ?? 0) == $CONTACT_ID && ($lastCode[0]['ocode_user_id'] ?? 0) == $USER_ID);
+// A portal session that names an administrator's user id must not become that administrator.
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => portalSession(['user_id' => $ADMIN_UID])]);
+t('portal session claiming an admin user id: refused (contact does not belong to that login), no code', $r['status'] === 403 && $r['loc'] === null && events('session_contact_mismatch') >= 1);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => craftSession(['client_logged_in' => true, 'client_id' => $CLIENT_DEPT, 'user_id' => $ADMIN_UID, 'user_type' => 2, 'logged' => true, 'csrf_token' => 'c', 'portal_auth_time' => time() - 60])]);
+t('portal-flagged session without a contact id is not turned into an administrator: refused', $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code='));
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => craftSession(['client_logged_in' => true, 'client_id' => $CLIENT_DEPT, 'user_id' => $USER_ID, 'user_type' => 2, 'contact_id' => 0, 'logged' => true, 'csrf_token' => 'c', 'portal_auth_time' => time() - 60])]);
+t('portal-flagged session with contact id 0 and a department user: refused (not the admin branch)', $r['status'] === 403 && $r['loc'] === null);
+$r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => agentSession($USER_ID)]);
+t('agent-shaped session naming a department login (user_type 2 in the database): refused, not_administrator', $r['status'] === 403 && $r['loc'] === null);
+t('policy: a department login id as a principal is refused', QualityAccessPolicy::allows(-$USER_ID, $mysqli)['reason'] === 'not_administrator');
+
+echo "-- (f) kiosk\n";
+foreach (['kiosk_session', 'kiosk_device', 'is_kiosk'] as $kflag) {
+    $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => agentSession($ADMIN_UID, [$kflag => true])]);
+    t("administrator session flagged $kflag: refused (403, no redirect)", $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code='));
+}
+t('kiosk refusals are audited', events('kiosk_session') >= 2);
+
+echo "-- (g) audit and discovery\n";
+t('discovery claims_supported includes rivetit_role (and still no personal claims)', in_array('rivetit_role', $doc['claims_supported'] ?? [], true) && in_array('rivetit_id', $doc['claims_supported'] ?? [], true)
+    && !array_intersect(['email', 'phone_number', 'pin'], $doc['claims_supported'] ?? []));
+$live = http('GET', '/.well-known/openid-configuration');
+t('live discovery document also lists rivetit_role', in_array('rivetit_role', $live['json']['claims_supported'] ?? [], true));
+$neg = q('SELECT oev_type, oev_result, oev_reason, oev_contact_id FROM oidc_events WHERE oev_contact_id = ? ORDER BY oev_id', 'i', [$ADM_PRINCIPAL]);
+$kinds = array_map(static fn($e) => $e['oev_type'] . ':' . $e['oev_result'] . ':' . $e['oev_reason'], $neg);
+t('oidc_events rows for the administrator carry the negative contact id: authorize ok / code_issued', in_array('authorize:ok:code_issued', $kinds, true));
+t('oidc_events rows with the negative id also cover refusals (policy:...)', count(array_filter($kinds, static fn($k) => str_contains($k, ':refused:policy:'))) >= 1);
+t('no event row stores a positive contact id for an administrator (user id never mistaken for a contact)', (int) q('SELECT COUNT(*) n FROM oidc_events WHERE oev_contact_id = ?', 'i', [$ADMIN_UID])[0]['n'] === 0);
+$gl = q("SELECT log_description FROM logs WHERE log_type = 'SSO Provider' AND log_description LIKE ? ORDER BY log_id DESC LIMIT 1", 's', ['%administrator #' . $ADMIN_UID . '%']);
+t('general audit log words it as "administrator #<id>", not a contact number', $gl !== [] && !str_contains($gl[0]['log_description'], 'contact #-'));
+$adminCs = 'csrf' . bin2hex(random_bytes(8));
+$pgA = http('GET', '/admin/sso_provider.php', ['cookie' => agentSession($ADMIN_UID, ['csrf_token' => $adminCs, 'login_time' => time()])]);
+t('SSO provider admin page shows "Open Quality as administrator" and "Administrator #<id>" rows', $pgA['status'] === 200 && str_contains($pgA['body'], 'Open Quality as administrator') && str_contains($pgA['body'], 'Administrator #' . $ADMIN_UID)
+    , 'status ' . $pgA['status']);
+$mysqli->query("DELETE FROM oidc_pending");
+$mysqli->query("UPDATE oidc_events SET oev_ip = '10.9.9.9'");   // same reason as at the top of this section
 
 // ================================================================================================================ token endpoint
 echo "== token endpoint\n";
@@ -710,6 +940,10 @@ $logs = (int) q("SELECT COUNT(*) n FROM logs WHERE log_type = 'SSO Provider'")[0
 t('and recorded in the general audit log', $logs > 10);
 t('the secrets never reach the logs or events', (int) q("SELECT COUNT(*) n FROM logs WHERE log_description LIKE ? OR log_description LIKE '%rvo\\_%'", 's', ['%' . $CLIENT_SECRET . '%'])[0]['n'] === 0
     && (int) q('SELECT COUNT(*) n FROM oidc_events WHERE oev_detail LIKE ? OR oev_reason LIKE ?', 'ss', ['%' . $access . '%', '%' . $code . '%'])[0]['n'] === 0);
+
+// Fixtures of the administrator section are dropped again.
+$mysqli->query("DELETE FROM users WHERE user_email LIKE 'oidc-test-%@scratch.invalid'");
+$mysqli->query("DELETE FROM user_roles WHERE role_name LIKE 'OIDC TEST%'");
 
 // ================================================================================================================ rate limits (last: they lock this address out for a while)
 echo "== rate limits\n";
