@@ -11924,3 +11924,76 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.200'");
     }
+
+    if ($rivetit_db_version() == '2.6.200') {
+        // DB 2.6.201: machine credentials for the LMS API (integration clients, #52). Four edition-owned tables, three nullable columns and one
+        // settings column; all additive and idempotent. integration_clients/_secrets/_tokens back POST /api/v1/oauth/token (client credentials, short
+        // JWT access tokens, a jti row per token so revoking a client or secret bites on the next request). api_idempotency stores the Idempotency-Key
+        // replay record for POST /api/v1/lms/assignments (24 hours). training_assignments gets (external_system, external_ref), unique together when
+        // set, so a QMS requirement id maps to exactly one assignment; training_courses.course_external_code is the code the QMS knows the course by.
+        // settings.config_integration_signing_key is the HMAC key for the access tokens (encryptSetting(), generated on first use).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_clients` (
+  `client_id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_uid` varchar(40) NOT NULL,
+  `client_name` varchar(150) NOT NULL,
+  `client_description` varchar(500) DEFAULT NULL,
+  `client_scopes` varchar(500) NOT NULL DEFAULT '',
+  `client_allowed_ips` text DEFAULT NULL,
+  `client_status` enum('active','revoked') NOT NULL DEFAULT 'active',
+  `client_expires_at` datetime DEFAULT NULL,
+  `client_created_by_user_id` int(11) NOT NULL DEFAULT 0,
+  `client_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `client_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `client_revoked_at` datetime DEFAULT NULL,
+  `client_last_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`client_id`),
+  UNIQUE KEY `uq_integration_client_uid` (`client_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_client_secrets` (
+  `secret_id` int(11) NOT NULL AUTO_INCREMENT,
+  `secret_client_id` int(11) NOT NULL,
+  `secret_hash` varchar(255) NOT NULL,
+  `secret_status` enum('active','revoked') NOT NULL DEFAULT 'active',
+  `secret_expires_at` datetime DEFAULT NULL,
+  `secret_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `secret_revoked_at` datetime DEFAULT NULL,
+  `secret_last_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`secret_id`),
+  KEY `idx_integration_secret_client` (`secret_client_id`,`secret_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_tokens` (
+  `token_jti` char(32) NOT NULL,
+  `token_client_id` int(11) NOT NULL,
+  `token_secret_id` int(11) NOT NULL,
+  `token_scope` varchar(500) NOT NULL DEFAULT '',
+  `token_ip` varchar(45) DEFAULT NULL,
+  `token_issued_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `token_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`token_jti`),
+  KEY `idx_integration_token_client` (`token_client_id`),
+  KEY `idx_integration_token_exp` (`token_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `api_idempotency` (
+  `idem_id` int(11) NOT NULL AUTO_INCREMENT,
+  `idem_client_id` int(11) NOT NULL,
+  `idem_key` varchar(128) NOT NULL,
+  `idem_request_sha256` char(64) NOT NULL,
+  `idem_response_status` smallint(6) NOT NULL DEFAULT 0,
+  `idem_response_body` mediumtext DEFAULT NULL,
+  `idem_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `idem_expires_at` datetime NOT NULL,
+  PRIMARY KEY (`idem_id`),
+  UNIQUE KEY `uq_api_idempotency_key` (`idem_client_id`,`idem_key`),
+  KEY `idx_api_idempotency_exp` (`idem_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_integration_signing_key` text DEFAULT NULL");
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'training_assignments'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `training_assignments` ADD COLUMN IF NOT EXISTS `tassign_external_system` varchar(40) DEFAULT NULL");
+            mysqli_query($mysqli, "ALTER TABLE `training_assignments` ADD COLUMN IF NOT EXISTS `tassign_external_ref` varchar(120) DEFAULT NULL");
+            mysqli_query($mysqli, "ALTER TABLE `training_assignments` ADD UNIQUE KEY IF NOT EXISTS `uq_training_assign_external` (`tassign_external_system`,`tassign_external_ref`)");
+        }
+        if (mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'training_courses'")) > 0) {
+            mysqli_query($mysqli, "ALTER TABLE `training_courses` ADD COLUMN IF NOT EXISTS `course_external_code` varchar(60) DEFAULT NULL");
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.201'");
+    }

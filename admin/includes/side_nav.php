@@ -63,6 +63,12 @@ $admin_current_page = basename($_SERVER['PHP_SELF']);
                         <span class="nav-link-title">API Keys</span>
                     </a>
                 </li>
+                <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == "integration_clients.php") {echo " active";} ?>">
+                    <a href="/admin/integration_clients.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "integration_clients.php") {echo "active";} ?>">
+                        <span class="nav-link-icon"><i class="fas fa-plug"></i></span>
+                        <span class="nav-link-title">Integration clients</span>
+                    </a>
+                </li>
                 <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == "api_docs.php") {echo " active";} ?>">
                     <a href="/admin/api_docs.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "api_docs.php") {echo "active";} ?>">
                         <span class="nav-link-icon"><i class="fas fa-code"></i></span>

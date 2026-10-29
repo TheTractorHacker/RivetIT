@@ -128,11 +128,44 @@ curl -s https://your-instance.example.com/api/v1/tickets \
   -H "X-Api-Key: your-legacy-key-here"
 ```
 
+### Integration clients (machine credentials for `/lms`)
+
+Another system (the QMS) authenticates with an **integration client**, created in *Administration > Integration clients*
+(client id `ic_...`, a secret shown once, scopes ticked per client, optional IP allow-list and expiry). It exchanges
+the client id and secret for a 10 minute access token:
+
+```bash
+curl -s -X POST https://rivetit.example.com/api/v1/oauth/token \
+  -d grant_type=client_credentials -d client_id=ic_0123456789abcdef0123 --data-urlencode client_secret="$SECRET" \
+  -d "scope=lms:read lms:completions:read"          # scope is optional; omitted = every scope the client holds
+# {"access_token":"eyJ...","token_type":"Bearer","expires_in":600,"scope":"lms:read lms:completions:read"}
+curl -s https://rivetit.example.com/api/v1/lms/courses -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+Rules that matter to an integrator:
+
+- The access token is accepted **only on `/api/v1/lms/*`**. Every other route answers it with 403, and it never acts as a user.
+  A user token or legacy key is not accepted on `/lms` (401).
+- Scopes (deny by default, no wildcard): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`
+  (`directory:read` and `quality:events` are reserved for later). A route needs its scope in the token; removing a scope from the
+  client takes effect at the next request, and so does revoking the client or the secret that issued the token.
+- A client holds at most two active secrets, so rotate by adding the new secret (the old one keeps working for the overlap you
+  choose) and switching over.
+- Token endpoint failures are one uniform `401 invalid_client` and are throttled (`429`, `Retry-After`).
+- Errors on these routes are `{"error":{"code","message","correlation_id"}}`; send `X-Correlation-Id` (echoed) to trace a call.
+- Lists take `limit` (default 50, max 200), `cursor` (the opaque `next_cursor`) and `updated_since` (RFC 3339).
+- `POST` needs an `Idempotency-Key` header (8 to 128 characters). Same key and same body replays the original response
+  (`Idempotent-Replay: true`); same key and a different body is `422 idempotency_key_reuse`. Records are kept 24 hours; only
+  successful results are stored, so a corrected retry with the same key is processed normally.
+
+See [integrations/qms-lms-sync.md](integrations/qms-lms-sync.md) for the assignment and completion flow.
+
 ### Public endpoints (no credentials required)
 
 A short list of endpoints is intentionally reachable without any auth header:
 
 - `POST /auth`, `GET /auth` — you need these *to get* a token.
+- `POST /oauth/token` — the client-credentials token endpoint for integration clients (above).
 - `POST /crash-reports` — mobile crash reporting; must work even when login
   is failing or a token has expired. A token is honored for correlation when
   present but never required.
@@ -436,6 +469,22 @@ In-app notifications, including an SSE stream for live delivery.
 | POST | `/notifications/{id}/read` | Mark a single notification read/dismissed |
 | POST | `/notifications/read-all` | Mark all notifications read/dismissed |
 | GET | `/notifications/stream` | Server-Sent Events stream of new notifications |
+
+### Integration (LMS)
+
+Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-lms)); not available to user tokens or API keys.
+
+| Method | Path | Scope | Description |
+|---|---|---|---|
+| POST | `/oauth/token` | none | Client-credentials grant; form-encoded `grant_type`, `client_id`, `client_secret`, optional `scope`. Returns a 10 minute access token. |
+| GET | `/lms/courses` | `lms:read` | Published, non-archived courses (latest published revision): `id`, `kind`, `code`, `external_code`, `title`, `description`, `status`, `revision`, `departments`, `est_minutes`, `validity_months`, `category`, `requirements`, `updated_at`. |
+| GET | `/lms/courses/{id}` | `lms:read` | One course. Unpublished, archived and unknown are all 404. |
+| POST | `/lms/assignments` | `lms:assign` | Body `employee` (`odoo_employee_id` and/or `rivetit_id`), `course_id`, `due_on`, optional `source`, `external_system` + `external_ref`. Needs `Idempotency-Key`. 201 new, 200 an open assignment (or the same external reference) already existed. Created through the assignment engine (ledger stays valid). |
+| GET | `/lms/assignments` | `lms:read` | Filters `employee`, `odoo_employee_id`, `course`, `status`, `external_system`, `external_ref`, `updated_since`. |
+| GET | `/lms/assignments/{id}` | `lms:read` | One assignment (`asg_<n>`). |
+| GET | `/lms/completions` | `lms:completions:read` | Filters `employee`, `odoo_employee_id`, `course`, `assignment`, `status` (`completed`, `voided`, `superseded`), `updated_since`. Records are never deleted. |
+| GET | `/lms/completions/{id}` | `lms:completions:read` | One completion (`cmp_<n>`): course and revision, assignment, `completed_on`, `result`, `score_pct`, `expires_on` (recertification date), `evidence_ref` (certificate number, file available), `status`, `updated_at`, `revision`. |
+| GET | `/lms/completions/{id}/evidence` | `lms:evidence:read` | The completion's evidence file (PDF/JPEG/PNG) as an attachment; 404 when none or not servable. |
 
 ### Diagnostics
 

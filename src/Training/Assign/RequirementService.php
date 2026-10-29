@@ -318,8 +318,8 @@ final class RequirementService
             }
             Ledger::append($db, [
                 'type' => 'requirement.saved',
-                'actor_type' => 'user',
-                'actor_user_id' => $userId,
+                'actor_type' => $userId > 0 ? 'user' : 'system',   // user 0 = a service caller (LMS API integration client)
+                'actor_user_id' => $userId > 0 ? $userId : null,
                 'course_id' => $v['course_id'],
                 'entity_type' => 'requirement',
                 'entity_id' => $rid,
@@ -376,7 +376,7 @@ final class RequirementService
      *
      * @return array{rule_id:int, duplicate:bool, outcomes:list<array{contact_id:int, outcome:string}>, reconcile:?array}
      */
-    public function createManual(array $contactIds, int $courseId, string $dueOn, ?string $note, string $requestUid): array
+    public function createManual(array $contactIds, int $courseId, string $dueOn, ?string $note, string $requestUid, ?string $assignedBy = null): array
     {
         $db = $this->c->db;
         $today = Clock::todayLocal();
@@ -388,7 +388,8 @@ final class RequirementService
         if ($ids === [] || count($ids) > 200) {
             throw ApiException::validation(['contact_ids' => 'Choose 1 to 200 people.']);
         }
-        $userName = (string) (Db::one($db, 'SELECT user_name FROM users WHERE user_id = ?', 'i', [$this->c->userId])['user_name'] ?? 'user #' . $this->c->userId);
+        // $assignedBy names a non-user caller (an integration client of the LMS API); otherwise the signed-in user.
+        $userName = $assignedBy ?? (string) (Db::one($db, 'SELECT user_name FROM users WHERE user_id = ?', 'i', [$this->c->userId])['user_name'] ?? 'user #' . $this->c->userId);
         $name = mb_substr('Assigned by ' . $userName . ' on ' . $today, 0, 150);
         $before = $this->openFor($ids, $courseId);
         $saved = $this->save(null, null, [
