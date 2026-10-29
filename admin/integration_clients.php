@@ -4,6 +4,8 @@ require_once "includes/inc_all_admin.php";
 
 use ITFlow\Integration\IntegrationAuth;
 use ITFlow\Integration\IntegrationScope;
+use ITFlow\Integration\ApiScopes;
+use ITFlow\Integration\LegacyKeys;
 
 $ic_scope_help = [
     'lms:read' => 'Read the published course catalog and assignments',
@@ -22,6 +24,17 @@ unset($_SESSION['integration_secret_once']);
 $ic_tables_ok = mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_clients'")) > 0;
 $ic_clients = $ic_tables_ok ? mysqli_query($mysqli, "SELECT * FROM integration_clients ORDER BY client_status, client_name") : false;
 $ic_now = date('Y-m-d H:i:s');
+$ic_migrated = $ic_tables_ok && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_legacy_keys'")) > 0;
+$ic_policy = $ic_migrated ? LegacyKeys::policy($mysqli) : null;
+// client_id => legacy key usage, for the "uses the old X-Api-Key header" badge
+$ic_legacy = [];
+if ($ic_migrated) {
+    $lres = mysqli_query($mysqli, "SELECT lk_client_id, lk_api_key_id, lk_last_used_at, lk_use_count, lk_last_ip FROM integration_legacy_keys");
+    while ($lres && ($l = mysqli_fetch_assoc($lres))) {
+        $ic_legacy[(int) $l['lk_client_id']] = $l;
+    }
+}
+$ic_legacy_in_use = array_filter($ic_legacy, static fn($l) => (int) $l['lk_use_count'] > 0);
 
 // Non-archived departments (clients.client_id) for the department scope; id => name.
 $ic_departments = [];
@@ -55,11 +68,44 @@ $ic_dept_fields = static function (?bool $all, array $granted, string $idPrefix)
 };
 
 $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_scope_help): string {
-    $h = '';
+    $h = '<div class="small fw-bold text-muted mb-1">LMS, directory and sign-in</div>';
     foreach (IntegrationAuth::SCOPES as $s) {
         $id = $idPrefix . preg_replace('/[^a-z]/', '_', $s);
         $h .= '<div class="form-check"><input class="form-check-input" type="checkbox" name="scopes[]" value="' . nullable_htmlentities($s) . '" id="' . $id . '"'
             . (in_array($s, $selected, true) ? ' checked' : '') . '><label class="form-check-label" for="' . $id . '"><code>' . nullable_htmlentities($s) . '</code></label></div>';
+    }
+    // General REST API: one row per resource, one box per action. Nothing is ticked by default and there is no wildcard.
+    $h .= '<div class="small fw-bold text-muted mt-3 mb-1">General API (api:&lt;resource&gt;:read | write | delete)</div>'
+        . '<div class="mb-1 ic-presets">'
+        . '<button type="button" class="btn btn-outline-secondary btn-sm me-1" data-ic-preset="read">Read only</button>'
+        . '<button type="button" class="btn btn-outline-secondary btn-sm me-1" data-ic-preset="readwrite">Read &amp; write</button>'
+        . '<button type="button" class="btn btn-outline-secondary btn-sm" data-ic-preset="clear">Clear</button></div>'
+        . '<div class="table-responsive"><table class="table table-sm table-borderless mb-0 ic-scope-table"><thead class="text-muted"><tr><th>Resource</th><th class="text-center">Read</th><th class="text-center">Write</th><th class="text-center">Delete</th></tr></thead><tbody>';
+    foreach (ApiScopes::RESOURCES as $res => $label) {
+        $h .= '<tr><td>' . nullable_htmlentities($label) . '</td>';
+        foreach (ApiScopes::ACTIONS as $act) {
+            $sc = ApiScopes::scope($res, $act);
+            $id = $idPrefix . preg_replace('/[^a-z]/', '_', $sc);
+            $h .= '<td class="text-center"><input class="form-check-input" type="checkbox" name="scopes[]" value="' . $sc . '" id="' . $id . '" data-ic-action="' . $act . '" title="' . $sc . '"'
+                . (in_array($sc, $selected, true) ? ' checked' : '') . '></td>';
+        }
+        $h .= '</tr>';
+    }
+    return $h . '</tbody></table></div><div class="form-text">Person-bound routes (credentials, profile, notifications, approvals) are never available to a client.</div>';
+};
+/** Compact scope badges: the fixed scopes as they are, the general-API scopes grouped per resource ("tickets: read write"). */
+$ic_scope_badges = static function (array $scopes) use ($ic_scope_help): string {
+    $h = '';
+    $byRes = [];
+    foreach ($scopes as $s) {
+        if (preg_match('/^api:([a-z_]+):(read|write|delete)$/D', $s, $m)) {
+            $byRes[$m[1]][] = $m[2];
+            continue;
+        }
+        $h .= '<span class="badge text-bg-secondary me-1" title="' . nullable_htmlentities($ic_scope_help[$s] ?? '') . '">' . nullable_htmlentities($s) . '</span>';
+    }
+    foreach ($byRes as $res => $acts) {
+        $h .= '<span class="badge text-bg-dark me-1" title="api:' . nullable_htmlentities($res) . ':' . implode(' ', array_map('nullable_htmlentities', $acts)) . '">api ' . nullable_htmlentities($res) . ': ' . nullable_htmlentities(implode(' ', $acts)) . '</span>';
     }
     return $h;
 };
@@ -92,12 +138,54 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted">Machine credentials for other systems, such as the QMS, to call the LMS API at <code>/api/v1/lms</code>. A client holds only the scopes you tick and sees only the departments you choose;
-            nothing is allowed by default, and there is no wildcard. These credentials never act as a user and are not accepted on any other API route.</p>
+        <p class="text-muted">The one place for machine credentials: other systems, such as the QMS or your own scripts, authenticate with a Client ID and secret
+            (<code>POST /api/v1/oauth/token</code>) and receive a 10 minute access token. A client holds only the scopes you tick (LMS, directory, and the general API per resource and action)
+            and sees only the departments you choose; nothing is allowed by default and there is no wildcard. A client never acts as a user or an administrator.
+            This page also carries the former API keys: each was converted into a client with the same permissions, departments, IP allow-list and expiry.</p>
 
         <?php if (!$ic_tables_ok) { ?>
             <div class="alert alert-warning mb-0">The database has not been updated for integration clients yet (needs DB 2.6.201). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
         <?php } else { ?>
+
+        <?php if (!$ic_migrated) { ?>
+            <div class="alert alert-warning">The database has not been updated for the unified API credentials yet (needs DB 2.6.204). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>. Until then the old API keys cannot authenticate.</div>
+        <?php } else { ?>
+        <div class="border rounded p-3 mb-4 <?php echo $ic_policy['accepted'] ? 'border-warning' : ''; ?>" id="legacy-header">
+            <div class="d-flex justify-content-between flex-wrap">
+                <div>
+                    <strong><i class="fas fa-fw fa-key me-1"></i>Old <code>X-Api-Key</code> header</strong>
+                    <?php if ($ic_policy['accepted']) { ?>
+                        <span class="badge text-bg-warning ms-2">Accepted (deprecated)</span>
+                    <?php } else { ?>
+                        <span class="badge text-bg-success ms-2">Switched off</span>
+                    <?php } ?>
+                    <div class="small text-muted mt-1">
+                        <?php if ($ic_policy['accepted']) { ?>
+                            Migrated keys still work through the <code>X-Api-Key</code> header. Every use is logged and counted below.
+                            <?php if ($ic_policy['sunset']) { ?>It stops working on <strong><?php echo nullable_htmlentities($ic_policy['sunset']); ?></strong>.<?php } else { ?>No removal date is set.<?php } ?>
+                        <?php } else { ?>
+                            <?php echo $ic_policy['reason'] === 'sunset_reached' ? 'The removal date (' . nullable_htmlentities((string) $ic_policy['sunset']) . ') has been reached. ' : ''; ?>The header answers 401 with a message telling the caller to use its Client ID and secret.
+                        <?php } ?>
+                    </div>
+                </div>
+            </div>
+            <?php if ($ic_legacy_in_use) { ?>
+                <div class="alert alert-warning py-2 mt-2 mb-2 small"><strong><?php echo count($ic_legacy_in_use); ?></strong> client(s) still use the old header (listed below with a badge).
+                    Give each one a secret (<em>Rotate secret</em> on its card), switch the integration to <code>POST /api/v1/oauth/token</code>, then turn the header off.</div>
+            <?php } ?>
+            <form action="post.php" method="post" class="row g-2 align-items-end mt-1">
+                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
+                <div class="col-md-4"><label class="form-label small mb-0">Header</label>
+                    <select class="form-select form-select-sm" name="legacy_header_enabled" id="legacy_header_enabled">
+                        <option value="1"<?php echo $ic_policy['enabled'] ? ' selected' : ''; ?>>Accept (deprecated)</option>
+                        <option value="0"<?php echo !$ic_policy['enabled'] ? ' selected' : ''; ?>>Switch off</option>
+                    </select></div>
+                <div class="col-md-4"><label class="form-label small mb-0">Removal date (optional)</label>
+                    <input type="date" class="form-control form-control-sm" name="legacy_header_sunset" value="<?php echo nullable_htmlentities((string) ($ic_policy['sunset'] ?? '')); ?>"></div>
+                <div class="col-md-4"><button class="btn btn-outline-primary btn-sm" name="save_legacy_header_policy" value="1"><i class="fas fa-save me-1"></i>Save</button></div>
+            </form>
+        </div>
+        <?php } ?>
 
         <div class="collapse mb-4" id="icAddForm">
             <form action="post.php" method="post" autocomplete="off" class="border rounded p-3">
@@ -131,7 +219,7 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
             $active = $c['client_status'] === 'active' && !$expired;
             $secrets = mysqli_query($mysqli, "SELECT * FROM integration_client_secrets WHERE secret_client_id = $cid ORDER BY secret_id DESC LIMIT 10");
             ?>
-            <div class="border rounded p-3 mb-3">
+            <div class="border rounded p-3 mb-3" id="client-<?php echo $cid; ?>">
                 <div class="d-flex justify-content-between flex-wrap">
                     <div>
                         <strong><?php echo nullable_htmlentities($c['client_name']); ?></strong>
@@ -143,7 +231,14 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
                             &middot; last used <?php echo $c['client_last_used_at'] ? nullable_htmlentities($c['client_last_used_at']) : 'never'; ?>
                             <?php if ($c['client_expires_at']) { ?>&middot; expires <?php echo nullable_htmlentities($c['client_expires_at']); ?><?php } ?></div>
                         <?php if ($c['client_description']) { ?><div class="small"><?php echo nullable_htmlentities($c['client_description']); ?></div><?php } ?>
-                        <div class="mt-1"><?php foreach ($scopes as $s) { ?><span class="badge text-bg-secondary me-1" title="<?php echo nullable_htmlentities($ic_scope_help[$s] ?? ''); ?>"><?php echo nullable_htmlentities($s); ?></span><?php } ?>
+                        <?php $lk = $ic_legacy[$cid] ?? null; if ($lk) { $lk_active = $active && $ic_policy && $ic_policy['accepted']; ?>
+                            <div class="mt-1"><span class="badge <?php echo (int) $lk['lk_use_count'] > 0 ? 'text-bg-warning' : 'text-bg-secondary'; ?>"><i class="fas fa-key me-1"></i>uses the old X-Api-Key header</span>
+                                <span class="small text-muted">migrated from legacy API key #<?php echo intval($lk['lk_api_key_id']); ?>
+                                    &middot; header last used <?php echo $lk['lk_last_used_at'] ? nullable_htmlentities($lk['lk_last_used_at']) : 'never'; ?>
+                                    &middot; <?php echo intval($lk['lk_use_count']); ?> request(s)<?php echo $lk['lk_last_ip'] ? ' &middot; last from ' . nullable_htmlentities($lk['lk_last_ip']) : ''; ?>
+                                    <?php if (!$lk_active && $active) { ?>&middot; <strong>header switched off: this key no longer works</strong><?php } ?></span></div>
+                        <?php } ?>
+                        <div class="mt-1"><?php echo $ic_scope_badges($scopes); ?>
                             <?php if (!empty($c['client_allowed_ips'])) { ?><span class="badge text-bg-info"><i class="fas fa-network-wired me-1"></i>IP restricted</span><?php } ?></div>
                         <div class="mt-1 small">Departments:
                             <?php if ($c_depts === null) { ?><span class="badge text-bg-warning">All departments</span>
@@ -168,9 +263,9 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="client_id" value="<?php echo $cid; ?>">
                         <div class="row g-3">
-                            <div class="col-md-4"><?php echo $ic_scope_boxes($scopes, 'icEdit' . $cid . '_'); ?></div>
-                            <div class="col-md-4"><?php echo $ic_dept_fields($c_depts === null, $c_depts ?? [], 'icEditDept' . $cid . '_'); ?></div>
-                            <div class="col-md-4"><label class="form-label">Allowed IPs / CIDR</label>
+                            <div class="col-lg-5"><?php echo $ic_scope_boxes($scopes, 'icEdit' . $cid . '_'); ?></div>
+                            <div class="col-lg-4"><?php echo $ic_dept_fields($c_depts === null, $c_depts ?? [], 'icEditDept' . $cid . '_'); ?></div>
+                            <div class="col-lg-3"><label class="form-label">Allowed IPs / CIDR</label>
                                 <textarea class="form-control" name="allowed_ips" rows="3"><?php echo nullable_htmlentities((string) $c['client_allowed_ips']); ?></textarea>
                                 <label class="form-label mt-2">Expires</label>
                                 <input type="date" class="form-control" name="expires" value="<?php echo $c['client_expires_at'] ? nullable_htmlentities(substr($c['client_expires_at'], 0, 10)) : ''; ?>"></div>
@@ -212,7 +307,7 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
                             <select class="form-select form-select-sm" name="overlap_hours">
                                 <option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">7 days</option><option value="720">30 days</option>
                             </select></div>
-                        <div class="col-auto"><button class="btn btn-outline-primary btn-sm" name="rotate_integration_secret" value="1"><i class="fas fa-sync-alt me-1"></i>Rotate secret</button></div>
+                        <div class="col-auto"><button class="btn btn-outline-primary btn-sm" name="rotate_integration_secret" value="1"><i class="fas fa-sync-alt me-1"></i><?php echo $secrets && mysqli_num_rows($secrets) === 0 ? 'Create secret' : 'Rotate secret'; ?></button></div>
                         <div class="col-auto small text-muted">A client holds at most two active secrets.</div>
                     </form>
                     <?php } ?>
@@ -222,6 +317,8 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
         <?php } ?>
     </div>
 </div>
+
+<script src="../js/integration_clients.js"></script>
 
 <?php
 require_once "../includes/footer.php";

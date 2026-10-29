@@ -489,6 +489,10 @@ if (isset($_GET['delete_client'])) {
     $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE api_key_id IN (SELECT api_key_id FROM api_keys WHERE api_key_client_id = ?)"); $st->bind_param('i', $client_id); $st->execute(); $st->close();
     mysqli_query($mysqli, "DELETE FROM api_keys WHERE api_key_client_id = $client_id");
     $st = $mysqli->prepare("DELETE FROM api_key_clients WHERE client_id = ?"); $st->bind_param('i', $client_id); $st->execute(); $st->close();
+    // Integration clients (which carry the former API keys) lose this department too; a client left with none reaches nothing (fail closed).
+    try {
+        $st = $mysqli->prepare("DELETE FROM integration_client_departments WHERE department_id = ?"); $st->bind_param('i', $client_id); $st->execute(); $st->close();
+    } catch (mysqli_sql_exception $e) { /* database not yet at the version that has the table */ }
     mysqli_query($mysqli, "DELETE FROM certificates WHERE certificate_client_id = $client_id");
     mysqli_query($mysqli, "DELETE FROM documents WHERE document_client_id = $client_id");
 

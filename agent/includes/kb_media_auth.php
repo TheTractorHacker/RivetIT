@@ -249,44 +249,41 @@ function kbMediaResolvePrincipal(string $principal): ?array
         return ['user_id' => intval($row['token_user_id']), 'key_client_id' => 0, 'key_client_ids' => null];
     }
 
-    if ($type === 'k') {
-        /* Legacy instance-wide X-Api-Key. Naming the KEY rather than the user
-           it resolves to is the entire point: api_keys carries an expiry and a
-           department restriction that the resolved user does not, so signing
-           'u<admin_id>' instead would (a) keep outstanding URLs alive after the
-           key was deleted or expired and (b) hand a department-scoped key an
-           admin-scoped capability. */
-        $key_row = mysqli_fetch_assoc(mysqli_query(
+    if ($type === 'i' || $type === 'k') {
+        /* A machine caller: an integration client ('i<client id>'), or a legacy key id ('k<api_key_id>', URLs signed before DB 2.6.204)
+           which is mapped to the client it was converted into. The client is re-checked here on every fetch (active, unexpired, holds
+           api:kb:read) and acts as the service identity - never as an administrator - with its own department scope. */
+        $client_id = $id;
+        if ($type === 'k') {
+            $lk = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT lk_client_id FROM integration_legacy_keys WHERE lk_api_key_id = $id LIMIT 1"));
+            if (!$lk) {
+                return null;
+            }
+            $client_id = intval($lk['lk_client_id']);
+        }
+        $client = mysqli_fetch_assoc(mysqli_query(
             $mysqli,
-            "SELECT api_key_id, api_key_client_id
-             FROM api_keys
-             WHERE api_key_id = $id
-               AND api_key_expire > NOW()
+            "SELECT * FROM integration_clients
+             WHERE client_id = $client_id AND client_status = 'active' AND (client_expires_at IS NULL OR client_expires_at > NOW())
              LIMIT 1"
         ));
-
-        if (!$key_row) {
+        if (!$client) {
             return null;
         }
-
-        // api_keys has no user column at all, so the API resolves a legacy key
-        // to "the first admin". Same query as api/v1/index.php:190-192, so the
-        // two cannot pick different users.
-        $admin = mysqli_fetch_assoc(mysqli_query(
-            $mysqli,
-            "SELECT user_id FROM users
-             WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL
-             ORDER BY user_id LIMIT 1"
-        ));
-
-        if (!$admin) {
+        $scopes = \ITFlow\Integration\IntegrationAuth::parseScopes((string) $client['client_scopes']);
+        if (!\ITFlow\Integration\ApiScopes::has($scopes, 'kb', 'read')) {
             return null;
         }
-
+        $service = \ITFlow\Integration\ServiceIdentity::userId($mysqli);
+        if ($service < 1) {
+            return null;
+        }
+        $depts = \ITFlow\Integration\IntegrationScope::allowedDepartmentIds($mysqli, $client);
         return [
-            'user_id'       => intval($admin['user_id']),
-            'key_client_id' => intval($key_row['api_key_client_id'] ?? 0),
-            'key_client_ids' => rivetitApiKeyClientIds($mysqli, intval($key_row['api_key_id']), intval($key_row['api_key_client_id'] ?? 0)),
+            'user_id'        => $service,
+            'key_client_id'  => $depts === null ? 0 : (count($depts) === 1 ? $depts[0] : -1),
+            'key_client_ids' => $depts,
+            'machine_kb_ok'  => true,   // api:kb:read was checked above; the service identity holds no role for kbMediaHasModuleKb()
         ];
     }
 

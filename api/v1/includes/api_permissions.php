@@ -8,6 +8,12 @@ defined('FROM_API') || die();
  * whole request the way a hard 403 would.
  */
 function api_has_module_permission(mysqli $mysqli, int $api_user_id, string $module_name, int $min_level = 1): bool {
+    // An integration client is not a role-holder: its scopes are its only authority (ApiScopes::moduleAllows). It acts as a role-less
+    // service identity, so falling through to the role lookup below would deny everything, and must never be made to allow it.
+    global $integration_client, $integration_scopes, $api_scope_route;
+    if (!empty($integration_client)) {
+        return \ITFlow\Integration\ApiScopes::moduleAllows((array) ($integration_scopes ?? []), $module_name, $min_level, $api_scope_route ?? null);
+    }
     $role = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT u.user_role_id, r.role_is_admin
          FROM users u LEFT JOIN user_roles r ON r.role_id = u.user_role_id
@@ -47,10 +53,9 @@ function api_require_module_permission(mysqli $mysqli, int $api_user_id, string 
  *  - the resolved user's own user_client_permissions rows (fail-open to "all
  *    clients" when the user has none, matching enforceClientAccess()'s
  *    behavior for the classic web app)
- *  - if authenticated via a legacy API key scoped to one client
- *    ($api_key_client_id, set in index.php), that key's own restriction -
- *    previously never enforced by any endpoint regardless of what an admin
- *    picked in the key's "Client Access" setting.
+ *  - if the caller is an integration client (an access token, or the deprecated
+ *    X-Api-Key header of a migrated legacy key), that client's department scope
+ *    ($api_key_client_ids / $api_key_client_id, set in index.php).
  *
  * $client_id_column must be a trusted SQL column reference (e.g.
  * 't.ticket_client_id'), never raw user input.

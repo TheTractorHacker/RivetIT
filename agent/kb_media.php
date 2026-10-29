@@ -252,7 +252,7 @@ if ($has_signature) {
     // Viewing is a READ - level 1 deliberately, so a read-only KB role can see
     // the images in the articles it is allowed to read. Skipped for the pool;
     // see section 4.
-    if ($kind !== \ITFlow\KB\MediaToken::KIND_POOL && !kbMediaHasModuleKb($auth_user_id, 1)) {
+    if ($kind !== \ITFlow\KB\MediaToken::KIND_POOL && empty($resolved['machine_kb_ok']) && !kbMediaHasModuleKb($auth_user_id, 1)) {
         kbMediaFail(403, 'Access denied');
     }
 

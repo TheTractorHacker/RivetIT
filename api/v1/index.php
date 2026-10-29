@@ -178,11 +178,20 @@ if (empty($authHeader) && function_exists('getallheaders')) {
     $authHeader = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
 }
 
-// Integration clients (the QMS; Administration > Integration clients): a Bearer value shaped like a JWT is an integration access token,
-// never an api_tokens row. It is decided HERE, before the api_tokens lookup, the legacy X-Api-Key path and the user-session setup below:
-//   - invalid / expired / revoked / wrong audience  -> 401, never falls through to another auth method;
-//   - valid, but not an /lms, /employees or /departments route -> 403 for EVERY other route (this is the only place an integration token is read);
-//   - valid on /lms, /employees, /departments      -> handled entirely by lms.php / directory.php with no $api_user_id, no session user, no user permissions.
+// ONE machine-authentication path (Administration > Integration clients). A machine caller is an integration client, whichever way it
+// presents itself:
+//   1. "Authorization: Bearer <access token>" - the signed 10 minute token from POST /api/v1/oauth/token (Client ID + secret). A value
+//      shaped like a JWT is decided HERE, before the api_tokens lookup and the user-session setup: invalid / expired / revoked / wrong
+//      audience -> 401, and it never falls through to another auth method;
+//   2. "X-Api-Key: <key>" - DEPRECATED. A legacy API key that was converted to an integration client (DB 2.6.204) resolves to that client and
+//      from here on is indistinguishable from case 1. It can be switched off (Administration > Integration clients).
+// Both produce the same context ($integration_client, $integration_scopes, department scope) and both go through the same checks below:
+// the route's scope, the department scope, the IP allow-list, the per-client rate limit and the audit trail. There is no second rule set.
+// User-session Bearer tokens (api_tokens: a signed-in PERSON in the mobile app) are a different thing and are handled further down, unchanged.
+$integration_client = null;
+$integration_scopes = [];
+$integration_via = null;       // 'bearer' | 'legacy_key'
+$legacy_api_key_id = 0;
 if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\IntegrationAuth::looksLikeToken($im[1])) {
     $int_ip = (string) getIP();
     try {
@@ -200,30 +209,28 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
         \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration Token', 'Rejected', 'Access token rejected: ' . $int_auth['reason'], 0, $int_ip);
         \ITFlow\Integration\ApiResponse::error(401, 'invalid_token', 'The access token is missing, invalid or expired.');
     }
-    $int_directory = ($resource === 'employees' || $resource === 'departments');
-    if ($resource !== 'lms' && !$int_directory) {
-        \ITFlow\Integration\ApiResponse::error(403, 'forbidden', 'Integration access tokens are only accepted on /api/v1/lms, /api/v1/employees and /api/v1/departments.');
-    }
     $integration_client = $int_auth['client'];
     $integration_scopes = $int_auth['scopes'];
-    if (!api_rate_limit('int:' . (int) $integration_client['client_id'], 600, 60)) {
-        header('Retry-After: ' . api_rate_limit_retry_after());
-        \ITFlow\Integration\ApiResponse::error(429, 'rate_limited', 'Rate limit exceeded.');
-    }
-    if ($int_directory) {
-        // The directory routes use $segments from the resource on ($segments[0] = employees|departments).
-        require __DIR__ . '/directory.php';
+    $integration_via = 'bearer';
+    $int_directory = ($resource === 'employees' || $resource === 'departments');
+    if ($int_directory || $resource === 'lms') {
+        // /lms, /employees and /departments are served by lms.php / directory.php, which apply their own lms:* / directory:read scopes and
+        // department scope. They use no $api_user_id, no session user and no user permissions.
+        if (!api_rate_limit('int:' . (int) $integration_client['client_id'], 600, 60)) {
+            header('Retry-After: ' . api_rate_limit_retry_after());
+            \ITFlow\Integration\ApiResponse::error(429, 'rate_limited', 'Rate limit exceeded.');
+        }
+        if ($int_directory) {
+            // The directory routes use $segments from the resource on ($segments[0] = employees|departments).
+            require __DIR__ . '/directory.php';
+            exit;
+        }
+        require __DIR__ . '/lms.php';
         exit;
     }
-    require __DIR__ . '/lms.php';
-    exit;
-}
-if ($resource === 'lms' || $resource === 'employees' || $resource === 'departments') {
-    // /lms, /employees and /departments accept integration tokens only; no user token, session or legacy key is ever honoured here.
-    \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
 }
 
-if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
+if ($integration_client === null && preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
     $raw_token  = $m[1];
     $token_hash = hash('sha256', $raw_token);
     $esc        = mysqli_real_escape_string($mysqli, $token_hash);
@@ -260,34 +267,16 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $m)) {
     }
 }
 
-// Legacy api_key auth: accept header (preferred — keeps key out of server logs) or ?api_key= query param
-require_once $DOCUMENT_ROOT . '/includes/api_key_security.php';
-$legacy_api_key_auth = false;
-$legacy_key_raw = null;
-if (!empty($_SERVER['HTTP_X_API_KEY'])) {
-    $legacy_key_raw = $_SERVER['HTTP_X_API_KEY'];
-} elseif (isset($_GET['api_key'])) {
-    $legacy_key_raw = $_GET['api_key'];
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Some clients send the api_key in the JSON body instead of the query string
-    $json_body = json_decode(file_get_contents('php://input'), true);
-    if (is_array($json_body) && isset($json_body['api_key'])) {
-        $legacy_key_raw = $json_body['api_key'];
+if ($integration_client === null && !$api_user_id && !empty($_SERVER['HTTP_X_API_KEY'])) {
+    // Deprecated compat input. Only the header is read (never the query string or body, where a secret lands in logs and proxies), and only
+    // for the general API: /lms, /employees and /departments need an access token.
+    $legacy_key_raw = (string) $_SERVER['HTTP_X_API_KEY'];
+    $int_ip = (string) getIP();
+    if ($resource === 'lms' || $resource === 'employees' || $resource === 'departments') {
+        \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
     }
-}
-// api_key_client_id, when non-zero, is the "Client Access" restriction an admin
-// picked when creating this legacy key (0/NULL = "ALL CLIENTS"). This used to be
-// stored but never actually read/enforced anywhere - every legacy key granted
-// full instance-wide access regardless of this setting. api_client_scope_sql()/
-// api_client_scope_ok() in includes/api_permissions.php now fold this in.
-// A key limited to several departments stores -1 here (matches no real department, so a consumer
-// that only looks at this value denies rather than allows) and lists them in api_key_clients;
-// $api_key_client_ids is the resolved list (null = all departments) every scope helper uses.
-$api_key_client_id = null;
-$api_key_client_ids = null;
-if (!$api_user_id && $legacy_key_raw !== null) {
     // Failed-attempt throttle, same policy as validate_api_key.php: 15 failures per IP in 10 minutes -> 429 (pentest F-07)
-    $rl_ip = mysqli_real_escape_string($mysqli, (string) getIP());
+    $rl_ip = mysqli_real_escape_string($mysqli, $int_ip);
     $rl_failed = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT COUNT(log_id) AS c FROM logs
          WHERE log_type = 'API' AND log_action = 'Failed' AND log_ip = '$rl_ip'
@@ -296,40 +285,70 @@ if (!$api_user_id && $legacy_key_raw !== null) {
     if (intval($rl_failed['c'] ?? 0) >= 15) {
         api_error(429, 'Too many failed attempts. Please try again later.');
     }
-    $legacy_key = mysqli_real_escape_string($mysqli, hash('sha256', (string) $legacy_key_raw));
-    $legacy_sql = mysqli_query($mysqli,
-        "SELECT * FROM api_keys WHERE api_key_secret = '$legacy_key' AND api_key_expire > NOW() LIMIT 1"
-    );
-    $legacy_key_row = mysqli_fetch_assoc($legacy_sql);
-    if (!$legacy_key_row) {
+    $legacy = \ITFlow\Integration\LegacyKeys::resolve($mysqli, $legacy_key_raw, $int_ip);
+    if (!$legacy['ok']) {
+        if (str_starts_with($legacy['reason'], 'header_')) {
+            // The header has been switched off: say so clearly, and do not count it as a failed guess.
+            if (api_rate_limit('legacy_off_ip:' . $int_ip, 60, 60)) {
+                \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration API', 'Legacy Key Refused', 'X-Api-Key refused: the deprecated header is switched off (' . $legacy['reason'] . ')', 0, $int_ip);
+            }
+            header('WWW-Authenticate: Bearer');
+            api_error(401, $legacy['message']);
+        }
+        if ($legacy['status'] === 403) {
+            // A valid key from an address its allow-list does not permit: audited, but not counted as a guessed key.
+            \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration API', 'Legacy Key Refused', 'X-Api-Key refused: ' . $legacy['reason'], 0, $int_ip);
+            api_error(403, $legacy['message']);
+        }
         $rl_ua = mysqli_real_escape_string($mysqli, substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250));
         mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'API', log_action = 'Failed', log_description = 'Incorrect or expired key (router)', log_ip = '$rl_ip', log_user_agent = '$rl_ua'");
-    }
-    if ($legacy_key_row) {
-        if (!rivetitApiKeyIpAllowed((string) ($legacy_key_row['api_key_allowed_ips'] ?? ''), getIP())) {
-            api_error(403, 'This API key is not permitted from your IP address');
-        }
-        $admin = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT user_id, user_name FROM users
-             JOIN user_roles ON user_role_id = role_id
-             WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL AND role_is_admin = 1
-             ORDER BY user_id LIMIT 1"
-        ));
-        if ($admin) {
-            $api_user_id        = intval($admin['user_id']);
-            $session_user_id    = $api_user_id;
-            $session_name       = $admin['user_name'];
-            $session_company_id = 1;
-            $legacy_api_key_auth = true;
-            $api_key_client_id  = intval($legacy_key_row['api_key_client_id'] ?? 0) ?: null;
-            $api_key_client_ids = rivetitApiKeyClientIds($mysqli, intval($legacy_key_row['api_key_id'] ?? 0), intval($api_key_client_id ?? 0));
-        }
+        // fall through: no machine context -> the 401 gate below answers (a user token, if one was also sent, still works).
+    } else {
+        $integration_client = $legacy['client'];
+        $integration_scopes = $legacy['scopes'];
+        $integration_via = 'legacy_key';
+        $legacy_api_key_id = (int) $legacy['key_id'];
     }
 }
+if ($integration_client === null && ($resource === 'lms' || $resource === 'employees' || $resource === 'departments')) {
+    // /lms, /employees and /departments accept integration access tokens only; no user token, session or legacy key is ever honoured here.
+    \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
+}
 
-// Enforce key scopes before routing, including separate delete permission.
-if ($legacy_api_key_auth && !rivetitApiKeyRequestAllowed($legacy_key_row, $method)) {
-    api_error(403, 'This API key does not permit this operation');
+// Machine context for the general API. A client acts as the fixed, disabled, role-less service identity (ServiceIdentity), never as an
+// administrator: its only authority is its scopes and its department scope, enforced below and in api_permissions.php.
+// $legacy_api_key_auth stays true for every machine caller: it is the flag the endpoints already use for "not a person" (credentials, me,
+// approvals refuse it; the module-only profile check is skipped).
+//
+// Department scope (all / one / several / none) is carried in the variables the endpoints already read: $api_key_client_ids is the list
+// (null = all departments, [] = none) and $api_key_client_id is the single-id / -1 sentinel form, so any code that reads only the latter
+// still denies (-1 matches no real department) instead of allowing.
+$legacy_api_key_auth = false;
+$api_key_client_id = null;
+$api_key_client_ids = null;
+$api_scope_route = null;
+if ($integration_client !== null && !$api_user_id) {
+    $int_actor = \ITFlow\Integration\ServiceIdentity::userId($mysqli);
+    if ($int_actor < 1) {
+        error_log('Integration auth: the service identity could not be created');
+        api_error(503, 'Service unavailable');
+    }
+    $api_user_id        = $int_actor;
+    $session_user_id    = $int_actor;
+    $session_name       = 'Integration client ' . $integration_client['client_name'];
+    $session_company_id = 1;
+    $legacy_api_key_auth = true;
+    $api_key_client_ids = \ITFlow\Integration\IntegrationScope::allowedDepartmentIds($mysqli, $integration_client);
+    $api_key_client_id  = $api_key_client_ids === null ? null : (count($api_key_client_ids) === 1 ? $api_key_client_ids[0] : -1);
+    if ($integration_via === 'legacy_key') {
+        \ITFlow\Integration\LegacyKeys::recordUse($mysqli, $legacy_api_key_id, $integration_client, (string) getIP(), $method, (string) $uri);
+        $lk_policy = \ITFlow\Integration\LegacyKeys::policy($mysqli);
+        header('Deprecation: true');
+        if (!empty($lk_policy['sunset'])) {
+            header('Sunset: ' . gmdate('D, d M Y 00:00:00 \G\M\T', strtotime($lk_policy['sunset'] . ' 00:00:00 UTC')));
+        }
+        header('X-Api-Key-Notice: ' . \ITFlow\Integration\LegacyKeys::MSG_NOTICE);
+    }
 }
 
 // Semi-public endpoint: crash-reports. Bearer/legacy-key parsing above already ran
@@ -369,17 +388,18 @@ if (!$api_user_id) {
 
 // ── Per-caller rate limit ────────────────────────────────────────────────────
 // Best-effort abuse guard; fails open when Redis is unavailable. Keyed per
-// token (or per legacy key / per user) so one caller can't starve others.
+// token (or per integration client / per user) so one caller can't starve others.
+// An integration client has ONE bucket (int:<client id>) whether it presents an access token or the deprecated X-Api-Key header.
 // Long-lived SSE streams are excluded so a held-open connection
 // (notifications/stream, tickets/{id}/chat?stream=1) never trips the limiter —
 // this counts connections, not stream duration.
 $is_sse_stream = ($resource === 'notifications' && $sub === 'stream')
               || ($resource === 'tickets' && $sub === 'chat' && isset($_GET['stream']));
 if (!$is_sse_stream) {
-    if ($api_token_row) {
+    if ($integration_client !== null) {
+        $rl_bucket = 'int:' . (int) $integration_client['client_id'];
+    } elseif ($api_token_row) {
         $rl_bucket = 'tok:' . substr($token_hash, 0, 40);
-    } elseif ($legacy_api_key_auth) {
-        $rl_bucket = 'key:' . substr($legacy_key, 0, 40);
     } else {
         $rl_bucket = 'usr:' . intval($api_user_id);
     }
@@ -389,9 +409,31 @@ if (!$is_sse_stream) {
     }
 }
 
+// Scope check for an integration client: a route is reachable only with that route's scope (deny by default, no wildcard).
+// Person-bound routes (credentials, me, notifications, approvals) are refused for every client.
+if ($integration_client !== null) {
+    if (in_array($resource, \ITFlow\Integration\ApiScopes::DENIED_ROUTES, true)) {
+        api_error(403, 'This endpoint is only available to a signed-in user (user API token), not to an integration client.');
+    }
+    if ($resource !== 'validate_api_key') {
+        $api_scope_route = \ITFlow\Integration\ApiScopes::routeResource($resource, is_string($sub) ? $sub : null);
+        if ($api_scope_route === null) {
+            // No scope exists for this route (unknown path): deny by default rather than reveal which paths exist.
+            api_error(403, 'No scope grants access to this route.');
+        }
+        $int_action = \ITFlow\Integration\ApiScopes::actionForMethod($method);
+        if ($int_action === null) {
+            api_error(405, 'Method not allowed');
+        }
+        if (!\ITFlow\Integration\ApiScopes::has($integration_scopes, $api_scope_route, $int_action)) {
+            api_error(403, 'This integration client does not hold the scope ' . \ITFlow\Integration\ApiScopes::scope($api_scope_route, $int_action));
+        }
+    }
+}
+
 // Roles audit P0: a module-only (limited) login's user token - no Departments, Tickets/assets/docs or
 // Assets - may use only its profile, its notifications and the resources of modules it holds (same
-// families as the web allow-list). Legacy X-Api-Key auth is unchanged (it acts as the first admin).
+// families as the web allow-list). Integration clients are not users: their scopes decide (above).
 if (!$legacy_api_key_auth) {
     $api_access_profile = itflow_user_access_profile(intval($api_user_id));
     if (itflow_profile_is_limited($api_access_profile)) {

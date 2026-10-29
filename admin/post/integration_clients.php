@@ -23,6 +23,7 @@ function ic_client_row(mysqli $mysqli, int $cid, string $columns): ?array
 
 use ITFlow\Integration\IntegrationAuth;
 use ITFlow\Integration\IntegrationScope;
+use ITFlow\Integration\LegacyKeys;
 
 $ic_admin_only = static function () use ($session_is_admin) {
     if (empty($session_is_admin)) {
@@ -32,7 +33,7 @@ $ic_admin_only = static function () use ($session_is_admin) {
 };
 $ic_scopes_from_post = static function (): array {
     $posted = isset($_POST['scopes']) && is_array($_POST['scopes']) ? array_map('strval', $_POST['scopes']) : [];
-    return array_values(array_intersect(IntegrationAuth::SCOPES, $posted));   // only known scopes; no wildcard
+    return array_values(array_intersect(IntegrationAuth::knownScopes(), $posted));   // only known scopes (lms:*, directory:read, quality:events, sso, api:<resource>:<action>); no wildcard
 };
 $ic_expiry_from_post = static function (): ?string {
     $raw = trim((string) ($_POST['expires'] ?? ''));
@@ -161,7 +162,7 @@ if (isset($_POST['rotate_integration_secret'])) {
         flash_alert('This client already has two active secrets. Revoke one (or wait for the older one to expire) before rotating again.', 'danger');
         redirect('/admin/integration_clients.php');
     }
-    logAction('Integration', 'Secret Rotate', "$session_name rotated the secret of integration client {$row['client_name']} ({$row['client_uid']}); the previous secret keeps working for $overlap hours", 0, $cid);
+    logAction('Integration', 'Secret Rotate', "$session_name created or rotated the secret of integration client {$row['client_name']} ({$row['client_uid']}); any previous secret keeps working for $overlap hours", 0, $cid);
     $_SESSION['integration_secret_once'] = ['client_uid' => $row['client_uid'], 'name' => $row['client_name'], 'secret' => $secret, 'event' => 'rotated'];
     redirect('/admin/integration_clients.php');
 }
@@ -195,5 +196,34 @@ if (isset($_POST['revoke_integration_client'])) {
     } else {
         flash_alert('Client not found or already revoked.', 'danger');
     }
+    redirect('/admin/integration_clients.php');
+}
+
+if (isset($_POST['save_legacy_header_policy'])) {
+    validateCSRFToken($_POST['csrf_token'] ?? null);
+    $ic_admin_only();
+
+    // The deprecation switch for the old X-Api-Key header: accept it, or switch it off, optionally with a removal date.
+    $enabled = (string) ($_POST['legacy_header_enabled'] ?? '1') !== '0';
+    $sunsetRaw = trim((string) ($_POST['legacy_header_sunset'] ?? ''));
+    $sunset = null;
+    if ($sunsetRaw !== '') {
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $sunsetRaw);
+        if (!$d || $d->format('Y-m-d') !== $sunsetRaw) {
+            flash_alert('Use a valid removal date (YYYY-MM-DD) or leave it blank. Nothing was changed.', 'danger');
+            redirect('/admin/integration_clients.php');
+        }
+        $sunset = $sunsetRaw;
+    }
+    $before = LegacyKeys::policy($mysqli);
+    try {
+        LegacyKeys::setPolicy($mysqli, $enabled, $sunset);
+    } catch (Throwable $e) {
+        flash_alert('Could not save: the database has not been updated for the unified API credentials yet (DB 2.6.204).', 'danger');
+        redirect('/admin/integration_clients.php');
+    }
+    logAction('Integration', 'Legacy Header Policy', "$session_name set the deprecated X-Api-Key header to " . ($enabled ? 'accepted' : 'switched off') . ', removal date ' . ($sunset ?? 'none')
+        . ' (was ' . ($before['enabled'] ? 'accepted' : 'switched off') . ', ' . ($before['sunset'] ?? 'no date') . ')');
+    flash_alert($enabled ? 'The deprecated X-Api-Key header is accepted' . ($sunset ? ' until ' . nullable_htmlentities($sunset) : '') . '.' : 'The deprecated X-Api-Key header is switched off: it now answers 401.', $enabled ? 'success' : 'warning');
     redirect('/admin/integration_clients.php');
 }

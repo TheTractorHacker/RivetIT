@@ -1938,7 +1938,7 @@ CREATE TABLE `integration_clients` (
   `client_uid` varchar(40) NOT NULL,
   `client_name` varchar(150) NOT NULL,
   `client_description` varchar(500) DEFAULT NULL,
-  `client_scopes` varchar(500) NOT NULL DEFAULT '',
+  `client_scopes` text NOT NULL,
   `client_allowed_ips` text DEFAULT NULL,
   `client_all_departments` tinyint(1) NOT NULL DEFAULT 0,
   `client_status` enum('active','revoked') NOT NULL DEFAULT 'active',
@@ -1990,6 +1990,40 @@ CREATE TABLE `integration_client_secrets` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `integration_legacy_keys` (legacy API key <-> migrated integration client, and X-Api-Key usage)
+--
+
+DROP TABLE IF EXISTS `integration_legacy_keys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_legacy_keys` (
+  `lk_api_key_id` int(11) NOT NULL,
+  `lk_client_id` int(11) NOT NULL,
+  `lk_migrated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `lk_last_used_at` datetime DEFAULT NULL,
+  `lk_use_count` bigint(20) NOT NULL DEFAULT 0,
+  `lk_last_ip` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`lk_api_key_id`),
+  UNIQUE KEY `uq_integration_legacy_client` (`lk_client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_settings` (the X-Api-Key deprecation switch)
+--
+
+DROP TABLE IF EXISTS `integration_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_settings` (
+  `setting_key` varchar(60) NOT NULL,
+  `setting_value` varchar(255) NOT NULL DEFAULT '',
+  `setting_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `integration_tokens`
 --
 
@@ -2000,7 +2034,7 @@ CREATE TABLE `integration_tokens` (
   `token_jti` char(32) NOT NULL,
   `token_client_id` int(11) NOT NULL,
   `token_secret_id` int(11) NOT NULL,
-  `token_scope` varchar(500) NOT NULL DEFAULT '',
+  `token_scope` text NOT NULL,
   `token_ip` varchar(45) DEFAULT NULL,
   `token_issued_at` datetime NOT NULL DEFAULT current_timestamp(),
   `token_expires_at` datetime NOT NULL,

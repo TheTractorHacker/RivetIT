@@ -8,11 +8,30 @@ info:
     endpoints served by /api/v1/index.php and its per-resource handlers.
 
 
-    Authentication: send a bearer token issued by POST /auth
-    (`Authorization: Bearer <token>`) OR a legacy instance API key
-    (`X-Api-Key: <key>`). The legacy key resolves to the first active admin and
-    is intentionally denied on `/credentials` and `/me`. The `/auth`,
-    `/branding`, `/openapi` and `/docs` endpoints are public (no token required).
+    Authentication. There are two kinds of credential and one machine-credential system:
+
+
+    * **Integration clients** (machines; the primary method). Create a client under
+      Administration > Integration clients, exchange its Client ID and secret at
+      `POST /oauth/token` (OAuth2 client credentials) for a 10 minute signed access
+      token and send it as `Authorization: Bearer <access token>`. A token reaches a
+      route only if it holds that route's scope (`api:<resource>:read|write|delete`,
+      `lms:*`, `directory:read`); there is no wildcard, and the client's department
+      scope applies. It never acts as a user or an administrator.
+
+    * **User session tokens** (a signed-in person, e.g. the mobile app): a bearer
+      token issued by `POST /auth`. Unrelated to integration clients and unchanged.
+
+    * **`X-Api-Key` (deprecated).** Legacy API keys were converted into integration
+      clients (DB 2.6.204); the key string keeps working through the `X-Api-Key`
+      header for a deprecation period, resolved to its migrated client and subject
+      to the same scope, department, IP, expiry, rate-limit and audit rules. Each
+      response carries `Deprecation: true`. When the header is switched off (or its
+      removal date passes) it answers 401. It is denied on `/credentials`, `/me`,
+      `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog` and
+      `/workflow_tasks`, and is not accepted on `/lms`, `/employees` or `/departments`.
+
+    The `/auth`, `/branding`, `/openapi` and `/docs` endpoints are public (no token required).
 
 
     Response conventions:
@@ -53,6 +72,7 @@ tags:
   - name: Public
   - name: Meta
 security:
+  - integrationClient: []
   - bearerAuth: []
   - ApiKeyAuth: []
 paths:
@@ -2107,15 +2127,92 @@ paths:
         '404': {$ref: '#/components/responses/IntegrationNotFound'}
 components:
   securitySchemes:
+    integrationClient:
+      type: oauth2
+      description: >
+        Primary machine authentication. OAuth2 client credentials: POST /oauth/token with grant_type=client_credentials, the integration
+        client's Client ID and secret (form body or HTTP Basic) returns a 10 minute signed access token; send it as a Bearer token. The
+        token carries the scopes the client holds (ask for fewer with the `scope` parameter). Deny by default, no wildcard; the client's
+        department scope applies.
+      flows:
+        clientCredentials:
+          tokenUrl: /api/v1/oauth/token
+          scopes:
+            lms:read: Read the published course catalog and assignments
+            lms:assign: Create (or reuse) training assignments
+            lms:completions:read: Read training completions
+            lms:evidence:read: Download completion evidence files
+            directory:read: Read the employee and department directory
+            quality:events: Reserved
+          api:alerts:read: Read alerts
+          api:alerts:write: Write alerts
+          api:alerts:delete: Delete alerts
+          api:appointments:read: Read appointments
+          api:appointments:write: Write appointments
+          api:appointments:delete: Delete appointments
+          api:assets:read: Read assets
+          api:assets:write: Write assets
+          api:assets:delete: Delete assets
+          api:clients:read: Read clients
+          api:clients:write: Write clients
+          api:clients:delete: Delete clients
+          api:contacts:read: Read contacts
+          api:contacts:write: Write contacts
+          api:contacts:delete: Delete contacts
+          api:contracts:read: Read contracts
+          api:contracts:write: Write contracts
+          api:contracts:delete: Delete contracts
+          api:dashboard:read: Read dashboard
+          api:dashboard:write: Write dashboard
+          api:dashboard:delete: Delete dashboard
+          api:kb:read: Read kb
+          api:kb:write: Write kb
+          api:kb:delete: Delete kb
+          api:milestones:read: Read milestones
+          api:milestones:write: Write milestones
+          api:milestones:delete: Delete milestones
+          api:outtakes:read: Read outtakes
+          api:outtakes:write: Write outtakes
+          api:outtakes:delete: Delete outtakes
+          api:projects:read: Read projects
+          api:projects:write: Write projects
+          api:projects:delete: Delete projects
+          api:relationships:read: Read relationships
+          api:relationships:write: Write relationships
+          api:relationships:delete: Delete relationships
+          api:reports:read: Read reports
+          api:reports:write: Write reports
+          api:reports:delete: Delete reports
+          api:search:read: Read search
+          api:search:write: Write search
+          api:search:delete: Delete search
+          api:tasks:read: Read tasks
+          api:tasks:write: Write tasks
+          api:tasks:delete: Delete tasks
+          api:ticket_attachments:read: Read ticket attachments
+          api:ticket_attachments:write: Write ticket attachments
+          api:ticket_attachments:delete: Delete ticket attachments
+          api:ticket_categories:read: Read ticket categories
+          api:ticket_categories:write: Write ticket categories
+          api:ticket_categories:delete: Delete ticket categories
+          api:ticket_views:read: Read ticket views
+          api:ticket_views:write: Write ticket views
+          api:ticket_views:delete: Delete ticket views
+          api:tickets:read: Read tickets
+          api:tickets:write: Write tickets
+          api:tickets:delete: Delete tickets
+          api:worksheets:read: Read worksheets
+          api:worksheets:write: Write worksheets
+          api:worksheets:delete: Delete worksheets
     integrationAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token from POST /oauth/token (an integration client, 10 minutes). Accepted only on /lms/*, /employees/* and /departments/*; every other route answers 403 to it.
+      description: Access token from POST /oauth/token (an integration client, 10 minutes). It reaches a route only if it holds that route's scope (lms:*, directory:read, api:<resource>:read|write|delete); a route with no scope answers 403.
     bearerAuth:
       type: http
       scheme: bearer
-      description: Token issued by POST /api/v1/auth
+      description: User session token issued by POST /api/v1/auth (a signed-in person, e.g. the mobile app). Not an integration credential.
     deviceAuth:
       type: http
       scheme: bearer
@@ -2124,7 +2221,13 @@ components:
       type: apiKey
       in: header
       name: X-Api-Key
-      description: Department-scoped API key with read/write permission, separate delete permission, expiration, and optional IP allowlist. Denied on /credentials and /me.
+      x-deprecated: true
+      description: >
+        DEPRECATED. A legacy API key converted into an integration client (DB 2.6.204); the same key string still authenticates through this
+        header and resolves to the migrated client, with the same scopes, department scope, IP allow-list, expiry and rate limit. Responses carry
+        `Deprecation: true` (and `Sunset` when a removal date is set); when an administrator switches the header off it answers 401. Only the
+        header is read (not the query string or body). Denied on /credentials, /me, /notifications, /approvals, /endpoint_devices,
+        /service_catalog and /workflow_tasks; not accepted on /lms, /employees or /departments. Use integrationClient instead.
   parameters:
     IntLimit:
       name: limit

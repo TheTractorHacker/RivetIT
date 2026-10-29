@@ -183,15 +183,15 @@ foreach (['oidc_codes', 'oidc_tokens', 'oidc_pending', 'oidc_events', 'oidc_clie
 $mysqli->query("DELETE FROM integration_clients WHERE client_name LIKE 'OIDC TEST%'");
 OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
 
-$made = IntegrationAuth::createClient($mysqli, 'OIDC TEST Datum', null, ['sso'], '', null, 1);
+$made = IntegrationAuth::createClient($mysqli, 'OIDC TEST Datum', null, ['sso'], '', null, 1, true, []);
 $CLIENT_UID = $made['client_uid']; $CLIENT_SECRET = $made['secret']; $CLIENT_ID = $made['client_id'];
 OidcConfig::saveClient($mysqli, $CLIENT_ID, $REDIRECT . "\nhttps://datum.example/other/callback", 'https://datum.example/auth/login', true);
-$other = IntegrationAuth::createClient($mysqli, 'OIDC TEST Other SSO', null, ['sso'], '', null, 1);
+$other = IntegrationAuth::createClient($mysqli, 'OIDC TEST Other SSO', null, ['sso'], '', null, 1, true, []);
 OidcConfig::saveClient($mysqli, $other['client_id'], 'https://other.example/cb', null, false);
-$noprof = IntegrationAuth::createClient($mysqli, 'OIDC TEST No profile', null, ['sso'], '', null, 1);
+$noprof = IntegrationAuth::createClient($mysqli, 'OIDC TEST No profile', null, ['sso'], '', null, 1, true, []);
 OidcConfig::saveClient($mysqli, $noprof['client_id'], 'https://noprof.example/cb', null, false);
-$lms = IntegrationAuth::createClient($mysqli, 'OIDC TEST LMS only', null, ['lms:read'], '', null, 1);
-$ssoNoReg = IntegrationAuth::createClient($mysqli, 'OIDC TEST sso but unregistered', null, ['sso'], '', null, 1);
+$lms = IntegrationAuth::createClient($mysqli, 'OIDC TEST LMS only', null, ['lms:read'], '', null, 1, true, []);
+$ssoNoReg = IntegrationAuth::createClient($mysqli, 'OIDC TEST sso but unregistered', null, ['sso'], '', null, 1, true, []);
 
 // ================================================================================================================ discovery + JWKS
 echo "== discovery and JWKS\n";
@@ -596,7 +596,7 @@ $ssoOnlyApi = http('POST', '/api/v1/oauth/token', ['body' => ['grant_type' => 'c
 t('sso-only client cannot mint an API token', $ssoOnlyApi['status'] === 400 && !isset($ssoOnlyApi['json']['access_token']));
 $ssoAsk = http('POST', '/api/v1/oauth/token', ['body' => ['grant_type' => 'client_credentials', 'client_id' => $CLIENT_UID, 'client_secret' => $CLIENT_SECRET, 'scope' => 'sso']]);
 t('asking for the sso scope on the API token endpoint is refused', $ssoAsk['status'] === 400);
-$both = IntegrationAuth::createClient($mysqli, 'OIDC TEST both', null, ['sso', 'lms:read'], '', null, 1);
+$both = IntegrationAuth::createClient($mysqli, 'OIDC TEST both', null, ['sso', 'lms:read'], '', null, 1, true, []);
 $bothTok = http('POST', '/api/v1/oauth/token', ['body' => ['grant_type' => 'client_credentials', 'client_id' => $both['client_uid'], 'client_secret' => $both['secret']]]);
 t('a client granted both gets an API token with only the lms scope (never sso)', $bothTok['status'] === 200 && ($bothTok['json']['scope'] ?? '') === 'lms:read');
 foreach (['SSO access token' => $access . 'x', 'live SSO access token' => (string) ($e10['json']['access_token'] ?? ''), 'SSO ID token' => (string) $exB['json']['id_token'], 'SSO access token (fresh)' => (string) (exchange(authorizeCode($ck)[0] ?? 'x')['json']['access_token'] ?? 'rvo_none')] as $label => $tk) {

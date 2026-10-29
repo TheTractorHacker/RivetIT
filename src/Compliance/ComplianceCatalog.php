@@ -195,23 +195,32 @@ final class ComplianceCatalog
                 return $n === 0 ? CheckResult::pass('No stored credential is past its rotation date.') : CheckResult::warn("$n stored credentials are past their rotation date.", null, 'credentials.php', ['overdue' => $n]);
             });
 
-        $out[] = new CallbackCheck('api_keys', 'API keys expire', 'Access control',
-            'Keys that never expire stay valid after the person or system that used them is gone.',
+        // API keys are integration clients since DB 2.6.204 (the former keys were converted), so this looks at the clients; before that
+        // migration it still reads the old api_keys table.
+        $out[] = new CallbackCheck('api_keys', 'API credentials expire', 'Access control',
+            'Credentials that never expire stay valid after the person or system that used them is gone.',
             [F::ISO27001 => ['A.5.16', 'A.8.2'], F::SOC2 => ['CC6.2'], F::PCI => ['8.6.3'], F::HIPAA => ['164.308(a)(3)(ii)(C)']],
             function (): CheckResult {
-                $r = $this->one("SELECT COUNT(*) AS total, SUM(CASE WHEN api_key_expire IS NULL OR api_key_expire >= '2099-01-01' THEN 1 ELSE 0 END) AS forever, SUM(CASE WHEN api_key_expire < NOW() THEN 1 ELSE 0 END) AS expired FROM api_keys");
+                $clients = $this->one("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'integration_legacy_keys'");
+                if ((int) ($clients['n'] ?? 0) > 0) {
+                    $r = $this->one("SELECT COUNT(*) AS total, SUM(CASE WHEN client_expires_at IS NULL OR client_expires_at >= '2099-01-01' THEN 1 ELSE 0 END) AS forever, SUM(CASE WHEN client_expires_at < NOW() THEN 1 ELSE 0 END) AS expired FROM integration_clients WHERE client_status = 'active' AND client_scopes <> 'sso'");
+                    $where = 'integration clients';
+                } else {
+                    $r = $this->one("SELECT COUNT(*) AS total, SUM(CASE WHEN api_key_expire IS NULL OR api_key_expire >= '2099-01-01' THEN 1 ELSE 0 END) AS forever, SUM(CASE WHEN api_key_expire < NOW() THEN 1 ELSE 0 END) AS expired FROM api_keys");
+                    $where = 'API keys';
+                }
                 $total = (int) ($r['total'] ?? 0);
                 if ($total === 0) {
-                    return CheckResult::notApplicable('No API keys exist.');
+                    return CheckResult::notApplicable("No $where exist.");
                 }
                 $forever = (int) $r['forever'];
                 $expired = (int) $r['expired'];
                 $m = ['keys' => $total, 'no_expiry' => $forever, 'expired' => $expired];
                 if ($forever === 0 && $expired === 0) {
-                    return CheckResult::pass("All $total API keys have a future expiry.", null, $m);
+                    return CheckResult::pass("All $total $where have a future expiry.", null, $m);
                 }
 
-                return CheckResult::warn("$forever of $total API keys never expire; $expired are expired and still listed.", 'Delete unused keys and set an expiry on the rest.', 'api_keys.php', $m);
+                return CheckResult::warn("$forever of $total $where never expire; $expired are expired and still active.", 'Revoke unused clients and set an expiry on the rest.', 'integration_clients.php', $m);
             });
 
         $out[] = new CallbackCheck('dormant_agents', 'No dormant agent accounts', 'Access control',

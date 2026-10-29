@@ -84,16 +84,18 @@ if ($sub === 'articles') {
          * department restriction, and index.php:189-200 resolves it to "the
          * first admin" - so signing 'u<admin_id>' would both outlive the key's
          * deletion and hand a department-scoped key an admin-scoped capability.
-         * $api_token_row and $legacy_key_row are in scope because index.php
+         * $api_token_row and $integration_client are in scope because index.php
          * require's this file at file scope. 'u' is the last-resort principal
          * for the impossible case of an authenticated caller with neither row.
          */
         $kb_token_row     = $api_token_row  ?? null;
-        $kb_legacy_row    = $legacy_key_row ?? null;
+        // A machine caller (integration client: access token or the deprecated X-Api-Key) is named by its client, 'i<client id>'; the media
+        // endpoint re-checks that client (active, unexpired, holds api:kb:read, department scope) on every fetch.
+        $kb_client_row    = $integration_client ?? null;
         if (!empty($kb_token_row['token_id'])) {
             $kb_media_principal = 't' . intval($kb_token_row['token_id']);
-        } elseif (!empty($kb_legacy_row['api_key_id'])) {
-            $kb_media_principal = 'k' . intval($kb_legacy_row['api_key_id']);
+        } elseif (!empty($kb_client_row['client_id'])) {
+            $kb_media_principal = 'i' . intval($kb_client_row['client_id']);
         } else {
             $kb_media_principal = 'u' . intval($uid);
         }

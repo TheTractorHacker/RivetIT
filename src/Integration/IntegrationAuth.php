@@ -8,8 +8,9 @@ namespace ITFlow\Integration;
  * A client authenticates with client_id + client_secret at POST /api/v1/oauth/token (grant client_credentials) and receives a signed,
  * 10 minute access token (HS256, claims iss/aud/sub/scope/jti/exp). Every request re-validates the token against the database:
  * signature, issuer, audience, expiry, the jti row, the client (active, not expired, IP allow-list), the issuing secret (still active)
- * and the scope - revoking a client or secret therefore takes effect at the next request. An integration token is NOT a user session and
- * is never accepted outside /api/v1/lms (api/v1/index.php enforces that before any other routing).
+ * and the scope - revoking a client or secret therefore takes effect at the next request. An integration token is NOT a user session: it
+ * reaches a route only when it holds that route's scope (lms:*, directory:read, api:<resource>:read|write|delete; see ApiScopes), and
+ * api/v1/index.php enforces that before any endpoint runs.
  *
  * Secrets are random 256-bit values shown once and stored with password_hash(); a client holds at most two active secrets so a rotation
  * has an overlap window. Nothing here ever logs or returns a secret or the signing key.
@@ -27,7 +28,13 @@ final class IntegrationAuth
     /** Scopes an API access token may carry: every scope except the sign-in capability. */
     public static function apiScopes(): array
     {
-        return array_values(array_diff(self::SCOPES, [self::SSO_SCOPE]));
+        return array_values(array_merge(array_diff(self::SCOPES, [self::SSO_SCOPE]), ApiScopes::all()));
+    }
+
+    /** Every scope a client can hold: the fixed ones above, the sign-in capability and the general-API scopes (api:<resource>:read|write|delete). */
+    public static function knownScopes(): array
+    {
+        return array_values(array_merge(self::SCOPES, ApiScopes::all()));
     }
     public const MAX_ACTIVE_SECRETS = 2;
     /** The encryptSetting() context of settings.config_integration_signing_key. Frozen (changing it makes the stored key unreadable); ColumnRegistry uses it to re-wrap the column on a key rotation. */
@@ -63,7 +70,7 @@ final class IntegrationAuth
     /** True for anything shaped like a JWT (three dot-separated base64url segments). api_tokens values are plain hex and never match. */
     public static function looksLikeToken(string $bearer): bool
     {
-        return preg_match('/^[A-Za-z0-9_-]{10,600}\.[A-Za-z0-9_-]{10,2000}\.[A-Za-z0-9_-]{20,200}$/D', $bearer) === 1;
+        return preg_match('/^[A-Za-z0-9_-]{10,600}\.[A-Za-z0-9_-]{10,6000}\.[A-Za-z0-9_-]{20,200}$/D', $bearer) === 1;
     }
 
     /** The HMAC key (hex), generated on first use and stored through encryptSetting(). Never logged. */
@@ -216,7 +223,7 @@ final class IntegrationAuth
     {
         $out = [];
         foreach (preg_split('/[\s,]+/', trim($s), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $one) {
-            if (in_array($one, self::SCOPES, true)) {
+            if (in_array($one, self::knownScopes(), true)) {
                 $out[$one] = $one;
             }
         }

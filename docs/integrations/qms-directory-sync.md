@@ -63,7 +63,7 @@ References are filtered too: `manager_id`, `parent_id` and `head_employee_id` ar
 
 * Access tokens come from `POST /oauth/token` and must carry `directory:read`. A client without the scope cannot request it; narrowing
   or revoking takes effect at the next request. No `lms:*` scope grants the directory, and `directory:read` grants nothing on `/lms`.
-* Integration tokens are accepted only on `/lms`, `/employees` and `/departments`; every other route is 403. A user token or legacy
+* An integration token reaches a route only with that route's scope (`directory:read` here); a QMS client should hold only its `lms:*` and `directory:read` scopes, so every other route is 403 for it. A user token or legacy
   key is `401` on the directory routes.
 * Rate limit: 600 requests per minute per client, shared with the LMS routes (one bucket per client). `429` with `Retry-After`.
 * Audit: rejected tokens are audited exactly as on the LMS routes (rate-limited per IP); successful reads are not logged per request, on

@@ -12125,3 +12125,41 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.203'");
     }
+
+    if ($rivetit_db_version() == '2.6.203') {
+        // DB 2.6.204: ONE machine-credential system. Legacy API keys (api_keys, X-Api-Key) become integration clients; the key string keeps
+        // working through the deprecated X-Api-Key header, resolved to the migrated client and subject to the same scope, department-scope,
+        // IP, expiry, rate-limit and audit rules. Additive and idempotent; api_keys rows are kept (rollback) and never changed.
+        //   integration_clients.client_scopes / integration_tokens.token_scope  widen to text: a client can now hold the general-API scopes
+        //                                          (api:<resource>:read|write|delete), more than 500 characters.
+        //   integration_legacy_keys                api_key_id <-> integration client, plus usage (last used, count, last IP) per migrated key.
+        //   integration_settings                   the X-Api-Key deprecation switch (side table: `settings` is near its row-size limit).
+        // Then every api_keys row without a link is converted (LegacyKeys::migrate): read -> api:*:read, write -> read+write,
+        // write+delete -> read+write+delete, department scope and IP allow-list and expiry carried over, no secret (the key string is the credential).
+        mysqli_query($mysqli, "ALTER TABLE `integration_clients` MODIFY COLUMN `client_scopes` text NOT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `integration_tokens` MODIFY COLUMN `token_scope` text NOT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_legacy_keys` (
+  `lk_api_key_id` int(11) NOT NULL,
+  `lk_client_id` int(11) NOT NULL,
+  `lk_migrated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `lk_last_used_at` datetime DEFAULT NULL,
+  `lk_use_count` bigint(20) NOT NULL DEFAULT 0,
+  `lk_last_ip` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`lk_api_key_id`),
+  UNIQUE KEY `uq_integration_legacy_client` (`lk_client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `integration_settings` (
+  `setting_key` varchar(60) NOT NULL,
+  `setting_value` varchar(255) NOT NULL DEFAULT '',
+  `setting_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `integration_settings` (`setting_key`, `setting_value`) VALUES ('legacy_header_enabled', '1'), ('legacy_header_sunset', '')");
+        try {
+            \ITFlow\Integration\ServiceIdentity::userId($mysqli);
+            \ITFlow\Integration\LegacyKeys::migrate($mysqli);
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.204 legacy API key migration: ' . get_class($e) . ': ' . $e->getMessage());
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.204'");
+    }

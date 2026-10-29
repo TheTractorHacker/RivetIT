@@ -135,7 +135,8 @@ final class MediaToken
      * Principal grammar: one letter naming the credential TABLE, then its id.
      *
      *   t<api_tokens.token_id>  - a per-user Bearer token (the Android app)
-     *   k<api_keys.api_key_id>  - a legacy instance-wide X-Api-Key
+     *   k<api_keys.api_key_id>  - a legacy X-Api-Key (now a migrated integration client; URLs signed before DB 2.6.204)
+     *   i<integration_clients.client_id> - an integration client (an access token, or the deprecated X-Api-Key of a migrated key)
      *   u<users.user_id>        - a bare user, the weak fallback (see kb_media.php)
      *
      * The letter matters as much as the number: a legacy key carries its own
@@ -159,7 +160,7 @@ final class MediaToken
      */
     public static function isValidPrincipal(string $principal): bool
     {
-        return (bool) preg_match('/^[utk][1-9][0-9]{0,9}$/', $principal);
+        return (bool) preg_match('/^[utki][1-9][0-9]{0,9}$/', $principal);
     }
 
     /**

@@ -1,21 +1,21 @@
 <?php
 
-// Default Column Sortby Filter
+// Retired page. Legacy API keys were converted into integration clients (DB 2.6.204); this page only explains that and lists the old keys
+// read-only, each linked to the client that now carries it. Nothing here can create, change or delete a credential.
+
 $sort = "api_key_name";
 $order = "ASC";
 
 require_once "includes/inc_all_admin.php";
-require_once __DIR__ . '/../includes/api_key_security.php';
 
-$sql = mysqli_query(
-    $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS * FROM api_keys
-    LEFT JOIN clients on api_keys.api_key_client_id = clients.client_id
-    WHERE (api_key_name LIKE '%$q%')
-    ORDER BY $sort $order LIMIT $record_from, $record_to"
-);
-
-$num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
+$ak_migrated = mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_legacy_keys'")) > 0;
+$ak_rows = $ak_migrated ? mysqli_query($mysqli,
+    "SELECT k.api_key_id, k.api_key_name, k.api_key_created_at, k.api_key_expire, l.lk_client_id, l.lk_last_used_at, l.lk_use_count, c.client_uid, c.client_status
+     FROM api_keys k
+     LEFT JOIN integration_legacy_keys l ON l.lk_api_key_id = k.api_key_id
+     LEFT JOIN integration_clients c ON c.client_id = l.lk_client_id
+     ORDER BY k.api_key_name") : false;
+$ak_policy = $ak_migrated ? \ITFlow\Integration\LegacyKeys::policy($mysqli) : null;
 
 ?>
 
@@ -23,177 +23,61 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-key me-2"></i>API Keys</h3>
         <div class="card-tools">
-            <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/api/api_key_add.php" data-modal-size="lg"><i class="fas fa-plus me-2"></i>New API Key</button>
+            <a class="btn btn-primary" href="/admin/integration_clients.php"><i class="fas fa-plug me-2"></i>Open Integration clients</a>
         </div>
     </div>
 
     <div class="card-body">
+        <div class="alert alert-info">
+            <strong>API keys are now integration clients.</strong> There is one machine-credential system: <a href="/admin/integration_clients.php">Administration &gt; Integration clients</a>
+            (Client ID + secret, short-lived signed access tokens, per-resource scopes, department limits, secret rotation). Every key below was converted
+            automatically with the same permissions, departments, IP allow-list and expiry, and its key still works through the deprecated
+            <code>X-Api-Key</code> header for now. Switch each integration to its Client ID and secret, then turn the old header off.
+        </div>
 
-        <form autocomplete="off">
-            <div class="row">
+        <?php if (!$ak_migrated) { ?>
+            <div class="alert alert-warning mb-0">The database has not been updated yet (needs DB 2.6.204). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
+        <?php } else { ?>
 
-                <div class="col-md-4">
-                    <div class="input-group mb-3 mb-md-0">
-                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search keys">
-                        <div class="input-group-append">
-                            <button class="btn btn-primary"><i class="fa fa-search"></i></button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-8">
-                    <div class="btn-group float-end">
-                        <div class="dropdown ms-2" id="bulkActionButton" hidden>
-                            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-fw fa-layer-group me-2"></i>Bulk Action (<span id="selectedCount">0</span>)
-                            </button>
-                            <div class="dropdown-menu">
-                                <button class="dropdown-item text-danger text-bold confirm-link"
-                                        type="submit" form="bulkActions" name="bulk_delete_api_keys">
-                                    <i class="fas fa-fw fa-trash me-2"></i>Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-        </form>
-        <hr>
+        <p class="text-muted">
+            The <code>X-Api-Key</code> header is currently
+            <?php if ($ak_policy['accepted']) { ?>
+                <span class="badge text-bg-warning">accepted (deprecated)</span><?php if ($ak_policy['sunset']) { ?> until <strong><?php echo nullable_htmlentities($ak_policy['sunset']); ?></strong><?php } ?>.
+            <?php } else { ?>
+                <span class="badge text-bg-success">switched off</span>.
+            <?php } ?>
+            Change this on the Integration clients page. The old key rows below are kept unchanged (read-only) so a rollback stays possible.
+        </p>
 
         <div class="table-responsive-sm">
-
-            <form id="bulkActions" action="post.php" method="post">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
-
-                <table class="table table-striped table-borderless table-hover">
-                    <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
+            <table class="table table-striped table-borderless table-hover">
+                <thead class="text-dark">
+                <tr><th>Name</th><th>Created</th><th>Legacy expiry</th><th>Now managed as</th><th>X-Api-Key last used</th><th class="text-end">Uses</th></tr>
+                </thead>
+                <tbody>
+                <?php while ($ak_rows && ($r = mysqli_fetch_assoc($ak_rows))) { ?>
                     <tr>
-                        <td class=" checkbox-column">
-                            <div class="form-check">
-                                <input class="form-check-input" id="selectAllCheckbox" type="checkbox">
-                            </div>
+                        <td class="text-bold"><?php echo nullable_htmlentities($r['api_key_name']); ?></td>
+                        <td><?php echo nullable_htmlentities($r['api_key_created_at']); ?></td>
+                        <td><?php echo nullable_htmlentities($r['api_key_expire']); ?></td>
+                        <td>
+                            <?php if ($r['lk_client_id']) { ?>
+                                <a href="/admin/integration_clients.php#client-<?php echo intval($r['lk_client_id']); ?>"><code><?php echo nullable_htmlentities($r['client_uid']); ?></code></a>
+                                <?php echo $r['client_status'] === 'revoked' ? '<span class="badge text-bg-danger">Revoked</span>' : ''; ?>
+                            <?php } else { ?>
+                                <span class="text-muted">converted on first use</span>
+                            <?php } ?>
                         </td>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_name&order=<?php echo sortLinkOrder('api_key_name'); ?>">
-                                Name <?php if ($sort == 'api_key_name') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_client_id&order=<?php echo sortLinkOrder('api_key_client_id'); ?>">
-                                Department <?php if ($sort == 'api_key_client_id') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_secret&order=<?php echo sortLinkOrder('api_key_secret'); ?>">
-                                Secret <?php if ($sort == 'api_key_secret') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_permission&order=<?php echo sortLinkOrder('api_key_permission'); ?>">
-                                Permission <?php if ($sort == 'api_key_permission') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_created_at&order=<?php echo sortLinkOrder('api_key_created_at'); ?>">
-                                Created <?php if ($sort == 'api_key_created_at') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th>
-                            <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=api_key_expire&order=<?php echo sortLinkOrder('api_key_expire'); ?>">
-                                Expires <?php if ($sort == 'api_key_expire') { echo $order_icon; } ?>
-                            </a>
-                        </th>
-                        <th class="text-center">Action</th>
+                        <td><?php echo $r['lk_last_used_at'] ? nullable_htmlentities($r['lk_last_used_at']) : 'never'; ?></td>
+                        <td class="text-end"><?php echo intval($r['lk_use_count'] ?? 0); ?></td>
                     </tr>
-                    </thead>
-                    <tbody>
-                    <?php
-
-                    while ($row = mysqli_fetch_assoc($sql)) {
-                        $api_key_id = intval($row['api_key_id']);
-                        $api_key_name = nullable_htmlentities($row['api_key_name']);
-                        $api_key_secret = "************";
-                        $api_key_created_at = nullable_htmlentities($row['api_key_created_at']);
-                        $api_key_expire = nullable_htmlentities($row['api_key_expire']);
-                        if ($api_key_expire < date("Y-m-d H:i:s")) {
-                            $api_key_expire = $api_key_expire . " (Expired)";
-                        }
-
-                        // Several departments: api_key_client_id is -1 and the list lives in api_key_clients.
-                        $key_department_ids = rivetitApiKeyClientIds($mysqli, $api_key_id, intval($row['api_key_client_id']));
-                        if ($key_department_ids === null) {
-                            $api_key_client = "<i>All Departments</i>";
-                        } else {
-                            $key_department_full = rivetitApiKeyDepartmentLabel($mysqli, $api_key_id, intval($row['api_key_client_id']), 1000);
-                            $key_department_short = rivetitApiKeyDepartmentLabel($mysqli, $api_key_id, intval($row['api_key_client_id']), 2);
-                            $api_key_client = '<span title="' . nullable_htmlentities($key_department_full) . '">' . nullable_htmlentities($key_department_short);
-                            if (count($key_department_ids) > 1) {
-                                $api_key_client .= ' <span class="badge text-bg-secondary">' . count($key_department_ids) . '</span>';
-                            }
-                            $api_key_client .= '</span>';
-                        }
-
-                        $api_key_permission = $row['api_key_permission'] ?? 'write';
-                        $api_key_permission_display = $api_key_permission === 'read'
-                            ? '<span class="badge text-bg-secondary"><i class="fas fa-fw fa-eye me-1"></i>Read Only</span>'
-                            : '<span class="badge text-bg-primary"><i class="fas fa-fw fa-pen me-1"></i>Read &amp; Write</span>';
-                        if ($api_key_permission === 'write' && !empty($row['api_key_allow_delete'] ?? 1)) {
-                            $api_key_permission_display .= ' <span class="badge text-bg-danger">Delete</span>';
-                        }
-                        if (!empty($row['api_key_allowed_ips'])) {
-                            $api_key_permission_display .= '<div class="small text-muted mt-1" title="' . nullable_htmlentities($row['api_key_allowed_ips']) . '"><i class="fas fa-network-wired me-1"></i>IP restricted</div>';
-                        }
-
-                        ?>
-                        <tr>
-                            <td class=" checkbox-column">
-                                <div class="form-check">
-                                    <input class="form-check-input bulk-select" type="checkbox" name="api_key_ids[]" value="<?php echo $api_key_id ?>">
-                                </div>
-                            </td>
-                            <td class="text-bold"><?php echo $api_key_name; ?></td>
-                            <td><?php echo $api_key_client; ?></td>
-                            <td><?php echo $api_key_secret; ?></td>
-                            <td><?php echo $api_key_permission_display; ?></td>
-                            <td><?php echo $api_key_created_at; ?></td>
-                            <td><?php echo $api_key_expire; ?></td>
-                            <td>
-                                <div class="dropdown dropleft text-center">
-                                    <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
-                                        <i class="fas fa-ellipsis-h"></i>
-                                    </button>
-                                    <div class="dropdown-menu">
-                                        <?php if ($api_key_expire > date("Y-m-d H:i:s")) { ?>
-                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?revoke_api_key=<?php echo $api_key_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
-                                                <i class="fas fa-fw fa-times me-2"></i>Revoke
-                                            </a>
-                                        <?php } ?>
-                                        <?php if ($api_key_expire < date("Y-m-d H:i:s")) { ?>
-                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_api_key=<?php echo $api_key_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
-                                                <i class="fas fa-fw fa-times me-2"></i>Delete
-                                            </a>
-                                        <?php } ?>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-
-                    <?php } ?>
-
-
-                    </tbody>
-                </table>
-
-            </form>
-
+                <?php } ?>
+                </tbody>
+            </table>
         </div>
-        <?php require_once "../includes/filter_footer.php"; ?>
+        <?php } ?>
     </div>
 </div>
-
-<script src="../js/bulk_actions.js"></script>
 
 <?php
 require_once "../includes/footer.php";

@@ -4,22 +4,9 @@
 defined('FROM_API') || die();
 require_once __DIR__ . '/includes/api_permissions.php';
 
-// Require module_rmm_alerts permission (mirrors enforceUserPermission on the web page)
-$_api_role = mysqli_fetch_assoc(mysqli_query($mysqli,
-    "SELECT u.user_role_id, r.role_is_admin
-     FROM users u LEFT JOIN user_roles r ON r.role_id = u.user_role_id
-     WHERE u.user_id = $api_user_id LIMIT 1"
-));
-if (!$_api_role || (!$_api_role['role_is_admin'] && !mysqli_fetch_assoc(mysqli_query($mysqli,
-    "SELECT urp.user_role_permission_level
-     FROM user_role_permissions urp
-     JOIN modules m ON m.module_id = urp.module_id
-     WHERE urp.user_role_id = {$_api_role['user_role_id']}
-       AND m.module_name = 'module_rmm_alerts'
-       AND urp.user_role_permission_level >= 1 LIMIT 1"
-)))) {
-    api_error(403, 'Insufficient permissions');
-}
+// Require module_rmm_alerts permission (mirrors enforceUserPermission on the web page). An integration client is decided by its scopes
+// inside api_has_module_permission(); a user by the role lookup there (admin roles always pass).
+api_require_module_permission($mysqli, intval($api_user_id), 'module_rmm_alerts', 1);
 
 if ($method === 'GET') {
     $filter_status   = $_GET['status'] ?? 'new';
