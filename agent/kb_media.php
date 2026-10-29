@@ -247,7 +247,7 @@ if ($has_signature) {
     }
 
     $auth_user_id  = $resolved['user_id'];
-    $key_client_id = $resolved['key_client_id'];
+    $key_client_id = $resolved['key_client_ids'];
 
     // Viewing is a READ - level 1 deliberately, so a read-only KB role can see
     // the images in the articles it is allowed to read. Skipped for the pool;
@@ -267,7 +267,7 @@ if ($has_signature) {
     require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
 
     $auth_user_id  = intval($session_user_id);
-    $key_client_id = 0;
+    $key_client_id = null;
 
     if ($kind !== \ITFlow\KB\MediaToken::KIND_POOL) {
         /* lookupUserPermission() is consulted first only so that a denial can
@@ -448,7 +448,7 @@ if ($kind === \ITFlow\KB\MediaToken::KIND_ATTACHMENT) {
        images for legacy-key callers, and the correct fix then is the schema
        change described above - a row per pool file recording what it belongs
        to - not relaxing this line. */
-    if ($key_client_id > 0) {
+    if ($key_client_id !== null) {
         kbMediaFail(403, 'Access denied');
     }
 

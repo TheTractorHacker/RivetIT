@@ -11,7 +11,7 @@ $month_filter = $month ? "AND MONTH(t.ticket_created_at) = $month" : "";
 // A legacy API key deliberately restricted to one client ($api_key_client_id) must never
 // see another client's (or the whole company's) ticket breakdown - an unrestricted key
 // keeps the same company-wide behavior as before.
-$client_filter = !empty($api_key_client_id) ? " AND c.client_id = " . intval($api_key_client_id) : '';
+$client_filter = api_key_client_filter('c.client_id');
 
 $sql = mysqli_query($mysqli,
     "SELECT

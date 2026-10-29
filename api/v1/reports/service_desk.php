@@ -10,4 +10,4 @@ api_require_module_permission($mysqli, $api_user_id, 'module_support');
 $from = isset($_GET['from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['from']) ? $_GET['from'] : date('Y-01-01');
 $to   = isset($_GET['to'])   && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['to'])   ? $_GET['to']   : date('Y-m-d');
 
-api_response(200, getServiceDeskReport($mysqli, $from, $to, !empty($api_key_client_id) ? intval($api_key_client_id) : null));
+api_response(200, getServiceDeskReport($mysqli, $from, $to, api_key_report_client()));

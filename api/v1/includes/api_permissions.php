@@ -56,17 +56,64 @@ function api_require_module_permission(mysqli $mysqli, int $api_user_id, string 
  * 't.ticket_client_id'), never raw user input.
  */
 function api_client_scope_sql(string $client_id_column): string {
-    global $mysqli, $api_user_id, $api_key_client_id;
+    global $mysqli, $api_user_id;
     $uid = intval($api_user_id);
     $sql = "(
         NOT EXISTS (SELECT 1 FROM user_client_permissions WHERE user_id = $uid LIMIT 1)
         OR EXISTS (SELECT 1 FROM user_client_permissions ucp WHERE ucp.user_id = $uid AND ucp.client_id = $client_id_column LIMIT 1)
     )";
-    if (!empty($api_key_client_id)) {
-        $restrict = intval($api_key_client_id);
-        $sql = "($sql AND $client_id_column = $restrict)";
+    $key_ids = api_key_allowed_client_ids();
+    if ($key_ids !== null) {
+        $sql = "($sql AND " . api_key_client_in_sql($client_id_column, $key_ids) . ")";
     }
     return $sql;
+}
+
+/**
+ * The departments the current legacy API key is limited to: null = unrestricted (or not a legacy key),
+ * otherwise a list of client ids (possibly empty = nothing). Uses the $api_key_client_ids set by index.php;
+ * if only $api_key_client_id is present it is honoured, and any value below zero (the "several departments"
+ * sentinel) without a resolved list denies everything - it is never read as "all".
+ *
+ * @return list<int>|null
+ */
+function api_key_allowed_client_ids(): ?array {
+    global $api_key_client_id, $api_key_client_ids;
+    if (isset($api_key_client_ids) && is_array($api_key_client_ids)) {
+        return array_values(array_map('intval', $api_key_client_ids));
+    }
+    $single = intval($api_key_client_id ?? 0);
+    if ($single > 0) {
+        return [$single];
+    }
+    if ($single < 0) {
+        return [];
+    }
+    return null;
+}
+
+/** SQL boolean "column is one of these departments" ((1 = 0) for an empty list). The column must be a trusted reference. */
+function api_key_client_in_sql(string $column, array $ids): string {
+    $ids = array_values(array_unique(array_map('intval', $ids)));
+    if ($ids === []) {
+        return '(1 = 0)';
+    }
+    return count($ids) === 1 ? "$column = " . $ids[0] : "$column IN (" . implode(',', $ids) . ")";
+}
+
+/** " AND <column restriction>" for the current legacy key, or '' when the key is unrestricted. */
+function api_key_client_filter(string $column): string {
+    $ids = api_key_allowed_client_ids();
+    return $ids === null ? '' : ' AND ' . api_key_client_in_sql($column, $ids);
+}
+
+/** Value for the shared report functions' $client_id parameter: null = company-wide, int = one department, array = several (or none). */
+function api_key_report_client() {
+    $ids = api_key_allowed_client_ids();
+    if ($ids === null) {
+        return null;
+    }
+    return count($ids) === 1 ? $ids[0] : $ids;
 }
 
 /**
@@ -76,9 +123,10 @@ function api_client_scope_sql(string $client_id_column): string {
  * rather than list-query WHERE clauses.
  */
 function api_client_scope_ok(int $client_id): bool {
-    global $mysqli, $api_user_id, $api_key_client_id;
+    global $mysqli, $api_user_id;
     $uid = intval($api_user_id);
-    if (!empty($api_key_client_id) && intval($api_key_client_id) !== $client_id) {
+    $key_ids = api_key_allowed_client_ids();
+    if ($key_ids !== null && !in_array($client_id, $key_ids, true)) {
         return false;
     }
     return (bool) mysqli_fetch_assoc(mysqli_query($mysqli,

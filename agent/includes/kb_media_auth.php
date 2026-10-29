@@ -23,6 +23,8 @@
 
 defined('FROM_KB_MEDIA') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../../includes/api_key_security.php'; // rivetitApiKeyClientIds()
+
 /**
  * Does this user hold an admin role?
  *
@@ -145,9 +147,19 @@ function kbMediaHasModuleKb(int $user_id, int $min_level = 1): bool
  * line: grep -n kb_client_scope_clause api/v1/kb.php finds it in one hop and
  * cannot go stale under an unrelated edit.)
  */
-function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id = 0): bool
+function kbMediaClientAccessOk(int $user_id, int $client_id, int|array|null $key_client_id = 0): bool
 {
     global $mysqli;
+
+    // The key's department scope as a list (null = unrestricted). A bare int is the single-department shape; a
+    // negative int is the "several departments" sentinel that was not resolved to a list, which reaches nothing.
+    if (is_array($key_client_id)) {
+        $key_scope = array_values(array_map('intval', $key_client_id));
+    } elseif ($key_client_id === null || $key_client_id === 0) {
+        $key_scope = null;
+    } else {
+        $key_scope = $key_client_id > 0 ? [$key_client_id] : [];
+    }
 
     if ($user_id < 1) {
         return false;
@@ -157,7 +169,7 @@ function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id 
     // credential, not of the person - but NOT on a company-wide (client_id 0)
     // article, because api/v1/kb.php's $kb_client_scope_clause does not apply
     // it there either.
-    if ($key_client_id > 0 && $client_id > 0 && $key_client_id !== $client_id) {
+    if ($key_scope !== null && $client_id > 0 && !in_array($client_id, $key_scope, true)) {
         return false;
     }
 
@@ -186,7 +198,8 @@ function kbMediaClientAccessOk(int $user_id, int $client_id, int $key_client_id 
  * still resolves to an enabled non-archived agent, and - for a legacy key -
  * has not expired. Nothing is cached and nothing is trusted from the URL.
  *
- * Returns ['user_id' => int, 'key_client_id' => int] or null.
+ * Returns ['user_id' => int, 'key_client_id' => int, 'key_client_ids' => ?list<int>] or null
+ * (key_client_ids: null = no department limit, otherwise the departments a legacy key may reach).
  *
  * DELIBERATELY READ-ONLY. api/v1/index.php:151 DELETEs a Bearer token it finds
  * inactive for 90 days, and :158 UPDATEs token_last_used_at on every call; this
@@ -233,7 +246,7 @@ function kbMediaResolvePrincipal(string $principal): ?array
             return null;
         }
 
-        return ['user_id' => intval($row['token_user_id']), 'key_client_id' => 0];
+        return ['user_id' => intval($row['token_user_id']), 'key_client_id' => 0, 'key_client_ids' => null];
     }
 
     if ($type === 'k') {
@@ -245,7 +258,7 @@ function kbMediaResolvePrincipal(string $principal): ?array
            admin-scoped capability. */
         $key_row = mysqli_fetch_assoc(mysqli_query(
             $mysqli,
-            "SELECT api_key_client_id
+            "SELECT api_key_id, api_key_client_id
              FROM api_keys
              WHERE api_key_id = $id
                AND api_key_expire > NOW()
@@ -273,6 +286,7 @@ function kbMediaResolvePrincipal(string $principal): ?array
         return [
             'user_id'       => intval($admin['user_id']),
             'key_client_id' => intval($key_row['api_key_client_id'] ?? 0),
+            'key_client_ids' => rivetitApiKeyClientIds($mysqli, intval($key_row['api_key_id']), intval($key_row['api_key_client_id'] ?? 0)),
         ];
     }
 
@@ -295,5 +309,5 @@ function kbMediaResolvePrincipal(string $principal): ?array
         return null;
     }
 
-    return ['user_id' => intval($row['user_id']), 'key_client_id' => 0];
+    return ['user_id' => intval($row['user_id']), 'key_client_id' => 0, 'key_client_ids' => null];
 }

@@ -1669,13 +1669,32 @@ function report_render_email_html(mysqli $mysqli, $report_key)
 }
 
 /**
+ * SQL boolean limiting $column (a trusted column reference) to a department scope: an int (one department,
+ * "col = N" exactly as before), or a list of ints (several; an empty list matches nothing).
+ */
+function reportClientIn($client_id, string $column): string
+{
+    $ids = array_values(array_unique(array_map('intval', is_array($client_id) ? $client_id : [$client_id])));
+    if ($ids === []) {
+        return '(1 = 0)';
+    }
+    return count($ids) === 1 ? "$column = " . $ids[0] : "$column IN (" . implode(',', $ids) . ")";
+}
+
+/** " AND ..." form of reportClientIn() for appending to a WHERE clause. */
+function reportClientClause($client_id, string $column): string
+{
+    return ' AND ' . reportClientIn($client_id, $column);
+}
+
+/**
  * Service-desk & SLA operations report data (set-based, no per-row PHP loops for aggregates).
  * Shared by agent/reports/service_desk.php (web) and api/v1/reports/service_desk.php (JSON)
  * so both surfaces return identical numbers. $date_from/$date_to are 'Y-m-d' strings and are
  * validated here (defence in depth); metrics that are point-in-time snapshots (open-ticket
  * aging, current per-tech open workload) intentionally ignore the range.
  */
-function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null)
+function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id = null)
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
         $date_from = date('Y-01-01');
@@ -1688,8 +1707,8 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause   = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
-    $client_clause_t = $client_id !== null ? " AND t.ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('t.ticket_client_id');
+    $client_clause   = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause_t = $client_id !== null ? reportClientClause($client_id, 't.ticket_client_id') : \ITFlow\Reports\ReportScope::clause('t.ticket_client_id');
     $created_range = "ticket_created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
 
     // --- Ticket volume trend (opened vs resolved, grouped by month, set-based) ---
@@ -1894,7 +1913,7 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, ?int $client
  * install renders a bounded table/chart rather than several years of rows;
  * $report['truncated'] is true when the requested range was cut short.
  */
-function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null)
+function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, $client_id = null)
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
         $date_from = date('Y-m-d', strtotime('-29 days'));
@@ -1904,7 +1923,7 @@ function getTicketDayBreakdownReport(mysqli $mysqli, $date_from, $date_to, ?int 
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $created_by_day = [];
     $res = mysqli_query($mysqli,
@@ -2024,13 +2043,13 @@ function report_business_days($date_from, $date_to)
  *
  * @return array<int, array{rated_count:int, sum_rating:int, satisfied_count:int, comment_count:int}>
  */
-function getCsatAggregateByGroup(mysqli $mysqli, string $group_column, string $from_dt, string $to_dt, ?int $client_id = null, int $satisfied_threshold = 4): array
+function getCsatAggregateByGroup(mysqli $mysqli, string $group_column, string $from_dt, string $to_dt, $client_id = null, int $satisfied_threshold = 4): array
 {
     $allowed_columns = ['ticket_assigned_to', 'ticket_client_id'];
     if (!in_array($group_column, $allowed_columns, true)) {
         return [];
     }
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
 
     $out = [];
     $res = mysqli_query($mysqli,
@@ -2060,7 +2079,7 @@ function getCsatAggregateByGroup(mysqli $mysqli, string $group_column, string $f
  * hours (joined to labor_types), tickets closed, avg handle time, CSAT and utilization
  * against a business-time capacity baseline. $date_from/$date_to are 'Y-m-d' strings.
  */
-function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null)
+function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, $client_id = null)
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
         $date_from = date('Y-01-01');
@@ -2075,8 +2094,8 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?i
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide). ticket_replies carries no
     // client column of its own, so it's joined to tickets only when scoping is active.
-    $client_clause         = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
-    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($client_id) : (\ITFlow\Reports\ReportScope::isRestricted() ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
+    $client_clause         = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND " . reportClientIn($client_id, 'trt.ticket_client_id') : (\ITFlow\Reports\ReportScope::isRestricted() ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
 
     $hpd = defined('REPORT_CAPACITY_HOURS_PER_DAY') ? REPORT_CAPACITY_HOURS_PER_DAY : 8;
     $business_days    = report_business_days($date_from, $date_to);
@@ -2223,7 +2242,7 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, ?i
  * actually submitted (ticket_csat_rated_at) - a deliberately different lens ("when
  * sentiment was expressed" vs "of the work finished this period, how did it land").
  */
-function getCsatReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null, int $low_rating_threshold = 2): array
+function getCsatReport(mysqli $mysqli, $date_from, $date_to, $client_id = null, int $low_rating_threshold = 2): array
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
         $date_from = date('Y-01-01');
@@ -2233,7 +2252,7 @@ function getCsatReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = n
     }
     $from_dt = "$date_from 00:00:00";
     $to_dt   = "$date_to 23:59:59";
-    $client_clause = $client_id !== null ? " AND ticket_client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
+    $client_clause = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
     // Two distinct cohorts, because "closed in period" and "rated in period" are
     // genuinely different questions - a ticket can be rated long after it closes
     // (email reminder, or just real-world lag). $closed_range answers "of tickets
@@ -2532,7 +2551,7 @@ function getClientIncludedIssuesUsage(mysqli $mysqli, int $client_id, ?int $mont
  * noisiest assets & clients, and alert->ticket conversion. Guards for an empty
  * rmm_alerts table (integration not configured). $date_from/$date_to are 'Y-m-d'.
  */
-function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, ?int $client_id = null)
+function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, $client_id = null)
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date_from)) {
         $date_from = date('Y-01-01');
@@ -2545,8 +2564,8 @@ function getRmmHealthReport(mysqli $mysqli, $date_from, $date_to, ?int $client_i
     // $client_id restricts every query below to one client - used by the API when the
     // caller is authenticated via a client-scoped legacy key. The classic web report
     // always calls this with $client_id = null (company-wide).
-    $client_clause    = $client_id !== null ? " AND client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('client_id');
-    $client_clause_ra = $client_id !== null ? " AND ra.client_id = " . intval($client_id) : \ITFlow\Reports\ReportScope::clause('ra.client_id');
+    $client_clause    = $client_id !== null ? reportClientClause($client_id, 'client_id') : \ITFlow\Reports\ReportScope::clause('client_id');
+    $client_clause_ra = $client_id !== null ? reportClientClause($client_id, 'ra.client_id') : \ITFlow\Reports\ReportScope::clause('ra.client_id');
     $range     = "created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause";
     $range_ra  = "ra.created_at BETWEEN '$from_dt' AND '$to_dt'$client_clause_ra";
 

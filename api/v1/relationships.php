@@ -8,9 +8,10 @@
 // cannot be deleted here. Record types: asset, software, vendor, document, kb_article, service, network, domain, certificate,
 // credential, contact, location, ticket.
 defined('FROM_API') || die();
+require_once __DIR__ . '/includes/api_permissions.php';
 require_once __DIR__ . '/includes/api_mobile.php';
 
-$actor = \ITFlow\Links\LinkActor::forUser($mysqli, intval($api_user_id), $api_key_client_id ?: null);
+$actor = \ITFlow\Links\LinkActor::forUser($mysqli, intval($api_user_id), api_key_allowed_client_ids());
 $service = new \ITFlow\Links\LinkService($mysqli);
 
 $shape = static function (array $e, bool $outgoing): array {

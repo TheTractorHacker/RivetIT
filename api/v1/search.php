@@ -180,7 +180,7 @@ foreach ($rows as $row) {
 }
 
 // Software, networks, services and linked records (ITFlow\Links\PlatformSearch: the same code as the web search), additive keys.
-$platform_actor  = \ITFlow\Links\LinkActor::forUser($mysqli, intval($uid), $api_key_client_id ?: null);
+$platform_actor  = \ITFlow\Links\LinkActor::forUser($mysqli, intval($uid), api_key_allowed_client_ids());
 $platform_search = new \ITFlow\Links\PlatformSearch($mysqli);
 $platform_map = static fn (array $rows): array => array_map(static fn ($r) => ['id' => $r['id'], 'name' => $r['name'], 'detail' => $r['detail'], 'client_id' => $r['client_id'], 'client' => $r['client_name']], $rows);
 $software = $platform_map($platform_search->software($platform_actor, $q_raw, 5));

@@ -10,7 +10,7 @@ $year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 // A legacy API key deliberately restricted to one client ($api_key_client_id) must never
 // see another client's (or the whole company's) ticket overview - an unrestricted key
 // keeps the same company-wide behavior as the classic web dashboard.
-$client_where = !empty($api_key_client_id) ? " AND ticket_client_id = " . intval($api_key_client_id) : '';
+$client_where = api_key_client_filter('ticket_client_id');
 
 $by_priority = [];
 $sql = mysqli_query($mysqli,

@@ -10,8 +10,8 @@ $year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 // see another client's (or the whole company's) time totals - an unrestricted key keeps
 // the same company-wide behavior as before. ticket_replies carries no client column of its
 // own, so it's joined to tickets only when scoping is active.
-$client_where        = !empty($api_key_client_id) ? " AND ticket_client_id = " . intval($api_key_client_id) : '';
-$client_join_replies = !empty($api_key_client_id) ? " JOIN tickets trt ON trt.ticket_id = ticket_replies.ticket_reply_ticket_id AND trt.ticket_client_id = " . intval($api_key_client_id) : '';
+$client_where        = api_key_client_filter('ticket_client_id');
+$client_join_replies = api_key_allowed_client_ids() !== null ? " JOIN tickets trt ON trt.ticket_id = ticket_replies.ticket_reply_ticket_id AND " . api_key_client_in_sql('trt.ticket_client_id', api_key_allowed_client_ids()) : '';
 
 $users = [];
 $sql_users = mysqli_query($mysqli,

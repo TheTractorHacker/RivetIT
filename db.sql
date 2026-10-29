@@ -123,6 +123,21 @@ CREATE TABLE `api_keys` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `api_key_clients` (the departments a legacy API key limited to several departments may reach)
+--
+
+DROP TABLE IF EXISTS `api_key_clients`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_key_clients` (
+  `api_key_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  PRIMARY KEY (`api_key_id`,`client_id`),
+  KEY `client_id` (`client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `app_logs`
 --
 
