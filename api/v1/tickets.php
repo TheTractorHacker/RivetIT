@@ -729,6 +729,9 @@ if ($method === 'POST' && $id === null) {
         'ss',
         [$subject_raw, $details_raw]
     );
+    // Per-category SLA-exempt / Non-billable (DB 2.6.205).
+    require_once $DOCUMENT_ROOT . '/includes/ticket_category_rules.php';
+    ticketCategoryApplyOnCreate($mysqli, $new_id, $category);
 
     // Notify the assigned agent of the new ticket, or broadcast to active
     // agents if it wasn't auto-assigned (e.g. ITPanel Pro quick-ticket

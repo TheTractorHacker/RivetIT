@@ -153,6 +153,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $category_parent = intval($row['category_parent'] ?? 0);
                         $is_group = ($category === 'Ticket' && $category_parent == 0);
                         $parent_name = ($category === 'Ticket' && $category_parent > 0) ? ($group_names[$category_parent] ?? '') : '';
+                        $category_sla_exempt = ($category === 'Ticket') && !empty($row['category_sla_exempt']);
+                        $category_non_billable = ($category === 'Ticket') && !empty($row['category_non_billable']);
 
                         ?>
                         <tr <?= $is_group ? 'class="table-secondary"' : '' ?>>
@@ -166,6 +168,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <?php if ($parent_name) { ?><small class="text-muted me-1"><?= $parent_name ?> /</small><?php } ?>
                                         <?= $category_name ?>
                                     <?php } ?>
+                                    <?php if ($category_sla_exempt) { ?><span class="badge text-bg-secondary ms-1">No SLA</span><?php } ?>
+                                    <?php if ($category_non_billable) { ?><span class="badge text-bg-secondary ms-1">Non-billable</span><?php } ?>
                                     <div><small class="text-secondary"><?= $category_description ?></small></div>
                                 </a>
                             </td>

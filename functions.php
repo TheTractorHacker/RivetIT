@@ -1769,7 +1769,9 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
         ['label' => '30d+',  'count' => intval($aging['b4'] ?? 0)],
     ];
 
-    // --- SLA compliance (tickets created in range that carry an SLA due) ---
+    // --- SLA compliance (tickets created in range that carry an SLA due; SLA-exempt category tickets are left out) ---
+    $sla_flag_col = mysqli_query($mysqli, "SHOW COLUMNS FROM tickets LIKE 'ticket_counts_sla'"); // DB 2.6.205
+    $sla_counts_clause = ($sla_flag_col && mysqli_num_rows($sla_flag_col) > 0) ? ' AND ticket_counts_sla = 1' : '';
     $sla_row = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT
             SUM(CASE WHEN ticket_sla_response_due IS NOT NULL THEN 1 ELSE 0 END) AS resp_total,
@@ -1778,7 +1780,7 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
             SUM(CASE WHEN ticket_sla_resolution_due IS NOT NULL THEN 1 ELSE 0 END) AS reso_total,
             SUM(CASE WHEN ticket_sla_resolution_due IS NOT NULL AND ticket_resolved_at IS NOT NULL
                      AND ticket_resolved_at <= ticket_sla_resolution_due THEN 1 ELSE 0 END) AS reso_met
-         FROM tickets WHERE $created_range AND ticket_archived_at IS NULL"));
+         FROM tickets WHERE $created_range AND ticket_archived_at IS NULL" . $sla_counts_clause));
     $resp_total = intval($sla_row['resp_total'] ?? 0);
     $resp_met   = intval($sla_row['resp_met'] ?? 0);
     $reso_total = intval($sla_row['reso_total'] ?? 0);
@@ -4393,6 +4395,9 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
 
     mysqli_query($mysqli, "INSERT INTO tickets SET ticket_mail_message_id = $mail_message_id_sql, ticket_prefix = '$ticket_prefix_esc', ticket_number = $ticket_number, ticket_source = 'Email', ticket_subject = '$subject_esc', ticket_details = '$message_esc', ticket_priority = 'Low', ticket_status = $ticket_status, ticket_category = $category_id, ticket_billable = $config_ticket_default_billable, ticket_created_by = 0, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_mailbox_id = $ticket_mailbox_id_sql, ticket_assigned_to = $resolved_assigned_to");
     $id = mysqli_insert_id($mysqli);
+    // Per-category SLA-exempt / Non-billable (DB 2.6.205): no SLA and billable = 0 for a ticket in such a category, whatever config_ticket_default_billable says.
+    require_once __DIR__ . '/includes/ticket_category_rules.php';
+    ticketCategoryApplyOnCreate($mysqli, $id, intval($category_id));
 
     // Logging
     logAction("Ticket", "Create", "Email parser: Department contact $contact_email_esc created ticket $ticket_prefix_esc$ticket_number ($subject) ($id)", $client_id, $id);

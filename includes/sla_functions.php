@@ -42,6 +42,15 @@ function slaColumnExists($mysqli, string $table, string $column): bool {
 }
 
 /**
+ * SQL fragment that leaves SLA-exempt tickets (ticket_counts_sla = 0, DB 2.6.205) out of an SLA report/widget/emitter query, or '' before
+ * that migration has run. Returned with a leading " AND " so it can be appended to a WHERE clause. $alias is the tickets table alias
+ * including the dot ("t."), or ''.
+ */
+function slaCountsClause($mysqli, string $alias = ''): string {
+    return slaColumnExists($mysqli, 'tickets', 'ticket_counts_sla') ? " AND {$alias}ticket_counts_sla = 1" : '';
+}
+
+/**
  * Load a calendar (periods + holidays) as a plain array.
  *
  *   [] (empty)  => treat as 24/7 (raw wall-clock diff)
@@ -217,10 +226,14 @@ function slaAddBusinessSeconds(DateTime $start, int $seconds, array $calendar): 
  * per-priority targets; recalculateTicketSla handles that per-field.
  */
 function slaGetPolicyForTicket($mysqli, int $ticket_id): ?array {
+    $flag_col = slaColumnExists($mysqli, 'tickets', 'ticket_counts_sla') ? ', ticket_counts_sla' : '';
     $t = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ticket_sla_policy_id, ticket_contract_id, ticket_client_id FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"
+        "SELECT ticket_sla_policy_id, ticket_contract_id, ticket_client_id$flag_col FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"
     ));
     if (!$t) return null;
+
+    // A ticket in an SLA-exempt category (DB 2.6.205, ticket_counts_sla = 0) has no SLA at all, so no policy governs it.
+    if (isset($t['ticket_counts_sla']) && intval($t['ticket_counts_sla']) === 0) return null;
 
     // 1) Explicit policy pinned on the ticket
     $explicit = intval($t['ticket_sla_policy_id'] ?? 0);
@@ -303,13 +316,24 @@ function slaPolicyTargetsForPriority(array $policy, ?string $priority): array {
  *     ticket_created_at; NULL when no contract / no hours).
  */
 function recalculateTicketSla($mysqli, int $ticket_id): void {
+    $flag_cols = slaColumnExists($mysqli, 'tickets', 'ticket_counts_sla') ? ', ticket_counts_sla, ticket_sla_started_at' : '';
     $ticket = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT ticket_contract_id, ticket_priority, ticket_created_at, ticket_sla_paused_seconds FROM tickets WHERE ticket_id = $ticket_id"
+        "SELECT ticket_contract_id, ticket_priority, ticket_created_at, ticket_sla_paused_seconds$flag_cols FROM tickets WHERE ticket_id = $ticket_id"
     ));
     if (!$ticket) return;
 
+    // DB 2.6.205: a ticket with ticket_counts_sla = 0 (it sits in an SLA-exempt category) has NO SLA at all - no policy, no due dates,
+    // so nothing can be at risk or breached and every report/widget that keys on the due dates leaves it out. Beats the contract-hour fallback too.
+    if (isset($ticket['ticket_counts_sla']) && intval($ticket['ticket_counts_sla']) === 0) {
+        mysqli_query($mysqli,
+            "UPDATE tickets SET ticket_sla_response_due = NULL, ticket_sla_resolution_due = NULL, ticket_sla_policy_id = NULL WHERE ticket_id = $ticket_id"
+        );
+        return;
+    }
+
     $priority   = $ticket['ticket_priority'] ?? '';
-    $created_ts = strtotime($ticket['ticket_created_at']);
+    // The clock starts at ticket_sla_started_at when a ticket left an SLA-exempt category (never backdated), else at creation (as always).
+    $created_ts = strtotime(!empty($ticket['ticket_sla_started_at']) ? $ticket['ticket_sla_started_at'] : $ticket['ticket_created_at']);
     $paused_sec = intval($ticket['ticket_sla_paused_seconds'] ?? 0);
 
     // --- Legacy contract-hour targets (fallback for either field) ---
@@ -557,7 +581,8 @@ function slaStampResponseIfMissing($mysqli, int $ticket_id): void {
  */
 function slaStatus(array $ticket, array $calendar): array {
     $now_ts     = time();
-    $created_ts = !empty($ticket['ticket_created_at']) ? strtotime($ticket['ticket_created_at']) : $now_ts;
+    $created_ts = !empty($ticket['ticket_sla_started_at']) ? strtotime($ticket['ticket_sla_started_at'])
+        : (!empty($ticket['ticket_created_at']) ? strtotime($ticket['ticket_created_at']) : $now_ts);
     $is_paused  = !empty($ticket['ticket_sla_paused_at']);
     // The clock is frozen at the moment the pause began, so a ticket waiting on someone never drifts into "breached".
     $ref_ts     = $is_paused ? strtotime($ticket['ticket_sla_paused_at']) : $now_ts;

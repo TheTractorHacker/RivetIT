@@ -97,6 +97,12 @@ final class EndpointPanelGateway implements PanelTicketGatewayInterface
                 [$prefix, $ticketNumber, 'Panel', $categoryId !== null ? (string) $categoryId : null, $subject, $body, 'Medium', $statusId, $contactId ?? 0, $urlKey, $clientId, $assignedTo]
             );
 
+            // Per-category SLA-exempt / Non-billable (DB 2.6.205).
+            require_once dirname(__DIR__, 4) . '/includes/ticket_category_rules.php';
+            if ($categoryId !== null) {
+                ticketCategoryApplyOnCreate($this->mysqli, (int) $ticketId, (int) $categoryId);
+            }
+
             $replyId = $this->insertVisibleReply($ticketId, $contactId, $body, $requesterHint);
             $this->run('UPDATE tickets SET ticket_initial_issue_reply_id = ? WHERE ticket_id = ?', [$replyId, $ticketId]);
             $this->storeAttachments($ticketId, $replyId, $attachments);

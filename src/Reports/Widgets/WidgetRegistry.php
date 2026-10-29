@@ -225,9 +225,10 @@ final class WidgetRegistry
 
     private static function slaAtRisk(\mysqli $db, WidgetContext $ctx): array
     {
+        require_once dirname(__DIR__, 3) . '/includes/sla_functions.php';
         $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_sla_resolution_due FROM tickets
             WHERE " . self::OPEN . " AND ticket_sla_resolution_due IS NOT NULL AND ticket_sla_paused_at IS NULL AND ticket_sla_resolution_due <= NOW() + INTERVAL 4 HOUR"
-            . $ctx->scope('ticket_client_id') . " ORDER BY ticket_sla_resolution_due ASC LIMIT 10");
+            . \slaCountsClause($db) . $ctx->scope('ticket_client_id') . " ORDER BY ticket_sla_resolution_due ASC LIMIT 10");
         $rows = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], $r['ticket_sla_resolution_due']], 'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];

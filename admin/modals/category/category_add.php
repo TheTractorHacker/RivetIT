@@ -58,6 +58,19 @@ $category_types_array = ['Expense', 'Income', 'Referral', 'Ticket'];
         <input type="hidden" name="category_parent" value="0">
         <?php } ?>
 
+        <?php if ($category === 'Ticket') { ?>
+        <div class="form-group">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="category_sla_exempt" value="1" id="categorySlaExempt">
+                <label class="form-check-label" for="categorySlaExempt">SLA exempt <small class="text-muted">(tickets in this category get no SLA policy, due dates or breaches)</small></label>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="category_non_billable" value="1" id="categoryNonBillable">
+                <label class="form-check-label" for="categoryNonBillable">Non-billable <small class="text-muted">(tickets in this category default to not billable)</small></label>
+            </div>
+        </div>
+        <?php } ?>
+
         <div class="form-group">
             <label>Name <strong class="text-danger">*</strong></label>
             <div class="input-group">

@@ -7,6 +7,7 @@
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/ticket_category_rules.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/redis_functions.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/ai_functions.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/ticket_automation_dispatch.php';
@@ -115,6 +116,9 @@ if (isset($_POST['add_ticket'])) {
     mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_source = 'Agent', ticket_category = $category_id, ticket_subject = '$subject', ticket_details = '$details', ticket_priority = '$priority', ticket_status = '$ticket_status', ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_contact_id = $contact_id, ticket_url_key = '$url_key', ticket_due_at = $due, ticket_client_id = $client_id, ticket_project_id = $project_id, ticket_contract_id = $contract_id_sql, ticket_sla_response_due = $sla_response_due, ticket_sla_resolution_due = $sla_resolution_due, ticket_delivery_method = $delivery_method_sql, ticket_catalog_item_id = $catalog_item_sql");
 
     $ticket_id = mysqli_insert_id($mysqli);
+
+    // Per-category SLA-exempt / Non-billable (DB 2.6.205): no SLA and billable = 0 for a ticket in such a category. Before the SLA engine runs below.
+    ticketCategoryApplyOnCreate($mysqli, $ticket_id, $category_id);
 
     // Store the request form and, when the item needs approval, hold the ticket and ask the first approvers.
     if ($catalog_item && $catalog_service->hasRequestFlow($catalog_item)) {
@@ -322,7 +326,16 @@ if (isset($_POST['edit_ticket'])) {
         enforceClientAccess();
     }
 
+    // Per-category SLA-exempt / Non-billable (DB 2.6.205): snapshot the OLD category/billable state before the UPDATE.
+    $old_ticket_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_category, ticket_billable" . (ticketBillableOverrideColumnExists($mysqli) ? ", ticket_billable_overridden" : "") . " FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+    $old_category_id = intval($old_ticket_row['ticket_category'] ?? 0);
+    $old_billable = intval($old_ticket_row['ticket_billable'] ?? 0);
+    $old_billable_overridden = intval($old_ticket_row['ticket_billable_overridden'] ?? 0);
+
     mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id, ticket_subject = '$ticket_subject', ticket_priority = '$ticket_priority', ticket_details = '$details', ticket_due_at = $due, ticket_vendor_ticket_number = '$vendor_ticket_number', ticket_contact_id = $contact_id, ticket_assigned_to = $assigned_to, ticket_vendor_id = $vendor_id, ticket_location_id = $location_id, ticket_asset_id = $asset_id, ticket_project_id = $project_id WHERE ticket_id = $ticket_id");
+
+    // Category actually changed: apply the new category's SLA-exempt / Non-billable rules (this form does not edit billable itself).
+    ticketCategoryApplyOnCategoryChange($mysqli, $ticket_id, $old_category_id, $category_id, $old_billable, $old_billable, $old_billable_overridden);
 
     recalculateTicketSla($mysqli, $ticket_id);
     queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'details', 'changed_by_user_id' => intval($session_user_id)]);
@@ -982,13 +995,15 @@ if (isset($_POST['quick_categorize_ticket'])) {
     $ticket_id   = intval($_POST['ticket_id']);
     $category_id = intval($_POST['category_id']);
 
-    $td = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_client_id FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+    $td = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_client_id, ticket_category, ticket_billable" . (ticketBillableOverrideColumnExists($mysqli) ? ", ticket_billable_overridden" : "") . " FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
     if (!$td) { echo json_encode(['ok' => false]); exit; }
 
     $client_id = intval($td['ticket_client_id']);
     if ($client_id) { enforceClientAccess($client_id); }
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_category = $category_id WHERE ticket_id = $ticket_id");
+    // Per-category SLA-exempt / Non-billable (DB 2.6.205): this quick action never touches billable itself.
+    ticketCategoryApplyOnCategoryChange($mysqli, $ticket_id, intval($td['ticket_category']), $category_id, intval($td['ticket_billable']), intval($td['ticket_billable']), intval($td['ticket_billable_overridden'] ?? 0));
     queueWebhookEvent('ticket.updated', getWebhookTicketPayload($ticket_id) + ['changed' => 'category', 'changed_by_user_id' => intval($session_user_id)]);
 
     $cat_name = $category_id ? nullable_htmlentities(mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT category_name FROM categories WHERE category_id = $category_id LIMIT 1"))['category_name'] ?? '') : '';
@@ -1549,7 +1564,7 @@ if (isset($_POST['bulk_edit_ticket_category'])) {
         foreach ($_POST['ticket_ids'] as $ticket_id) {
             $ticket_id = intval($ticket_id);
 
-            $sql = mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_subject, category_name, ticket_client_id FROM tickets LEFT JOIN categories ON ticket_category = category_id WHERE ticket_id = $ticket_id");
+            $sql = mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_subject, category_name, ticket_client_id, ticket_category, ticket_billable" . (ticketBillableOverrideColumnExists($mysqli) ? ", ticket_billable_overridden" : "") . " FROM tickets LEFT JOIN categories ON ticket_category = category_id WHERE ticket_id = $ticket_id");
             $row = mysqli_fetch_assoc($sql);
 
             $ticket_prefix = sanitizeInput($row['ticket_prefix']);
@@ -1568,6 +1583,8 @@ if (isset($_POST['bulk_edit_ticket_category'])) {
 
             // Update ticket
             mysqli_query($mysqli, "UPDATE tickets SET ticket_category = '$category_id' WHERE ticket_id = $ticket_id");
+            // Per-category SLA-exempt / Non-billable (DB 2.6.205): this bulk action never touches billable itself.
+            ticketCategoryApplyOnCategoryChange($mysqli, $ticket_id, intval($row['ticket_category']), $category_id, intval($row['ticket_billable']), intval($row['ticket_billable']), intval($row['ticket_billable_overridden'] ?? 0));
 
             logAction("Ticket", "Edit", "$session_name updated the category on ticket $ticket_prefix$ticket_number - $ticket_subject from $previous_category_name to $category_name", $client_id, $ticket_id);
 
@@ -2135,6 +2152,8 @@ if (isset($_POST['bulk_add_asset_ticket'])) {
             mysqli_query($mysqli, "INSERT INTO tickets SET ticket_prefix = '$config_ticket_prefix', ticket_number = $ticket_number, ticket_category = $category_id, ticket_subject = '$subject_asset_prepended', ticket_details = '$details', ticket_priority = '$priority', ticket_status = $ticket_status, ticket_asset_id = $asset_id, ticket_created_by = $session_user_id, ticket_assigned_to = $assigned_to, ticket_url_key = '$url_key', ticket_client_id = $client_id, ticket_project_id = $project_id");
 
             $ticket_id = mysqli_insert_id($mysqli);
+            // Per-category SLA-exempt / Non-billable (DB 2.6.205).
+            ticketCategoryApplyOnCreate($mysqli, $ticket_id, $category_id);
 
             // Add Tasks
             if (!empty($_POST['tasks'])) {
