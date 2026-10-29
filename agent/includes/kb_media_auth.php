@@ -249,18 +249,16 @@ function kbMediaResolvePrincipal(string $principal): ?array
         return ['user_id' => intval($row['token_user_id']), 'key_client_id' => 0, 'key_client_ids' => null];
     }
 
-    if ($type === 'i' || $type === 'k') {
-        /* A machine caller: an integration client ('i<client id>'), or a legacy key id ('k<api_key_id>', URLs signed before DB 2.6.204)
-           which is mapped to the client it was converted into. The client is re-checked here on every fetch (active, unexpired, holds
-           api:kb:read) and acts as the service identity - never as an administrator - with its own department scope. */
+    if ($type === 'k') {
+        /* 'k<api_key_id>' named a legacy API key (URLs signed before DB 2.6.204). Legacy keys are no longer a credential, so these URLs
+           fail closed (they were short-lived signed URLs anyway; the caller asks the API for a fresh one). */
+        return null;
+    }
+
+    if ($type === 'i') {
+        /* A machine caller: an integration client ('i<client id>'). The client is re-checked here on every fetch (active, unexpired,
+           holds api:kb:read) and acts as the service identity - never as an administrator - with its own department scope. */
         $client_id = $id;
-        if ($type === 'k') {
-            $lk = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT lk_client_id FROM integration_legacy_keys WHERE lk_api_key_id = $id LIMIT 1"));
-            if (!$lk) {
-                return null;
-            }
-            $client_id = intval($lk['lk_client_id']);
-        }
         $client = mysqli_fetch_assoc(mysqli_query(
             $mysqli,
             "SELECT * FROM integration_clients

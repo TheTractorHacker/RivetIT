@@ -332,12 +332,9 @@ final class IntegrationAuth
     }
 
     /**
-     * Permanently deletes a client: its secrets, tokens, department rows, single-sign-on configuration and in-flight sign-in state go with it.
-     *
-     * A client that carries a migrated legacy API key keeps a TOMBSTONE in integration_legacy_keys (lk_client_id = -api_key_id, which no real
-     * client can have), so the key string can never be converted again: LegacyKeys::migrate() and the first-use conversion both see the key
-     * as "already linked", and the lookup of client -api_key_id finds nothing, so the header answers 401. The api_keys row is also expired
-     * (kept, not deleted) so even code that reads api_keys directly refuses it.
+     * Permanently deletes a client: its secrets, tokens, department rows, single-sign-on configuration and in-flight sign-in state go with it,
+     * and so does its link in integration_legacy_keys (the migrated-from-an-old-key record). The old api_keys row is left untouched as rollback
+     * data: it authenticates nothing (the X-Api-Key header is not accepted any more), so nothing needs to keep it from being converted again.
      *
      * @return bool false when the client does not exist
      */
@@ -368,23 +365,10 @@ final class IntegrationAuth
                 }
             }
             if ($tableExists('integration_legacy_keys')) {
-                $st = $db->prepare('SELECT lk_api_key_id FROM integration_legacy_keys WHERE lk_client_id = ?');
+                $st = $db->prepare('DELETE FROM integration_legacy_keys WHERE lk_client_id = ?');
                 $st->bind_param('i', $clientId);
                 $st->execute();
-                $lk = $st->get_result()->fetch_assoc();
                 $st->close();
-                if ($lk) {
-                    $keyId = (int) $lk['lk_api_key_id'];
-                    $tomb = -$keyId;
-                    $st = $db->prepare('UPDATE integration_legacy_keys SET lk_client_id = ? WHERE lk_api_key_id = ?');
-                    $st->bind_param('ii', $tomb, $keyId);
-                    $st->execute();
-                    $st->close();
-                    $st = $db->prepare("UPDATE api_keys SET api_key_expire = '1970-01-02' WHERE api_key_id = ?");
-                    $st->bind_param('i', $keyId);
-                    $st->execute();
-                    $st->close();
-                }
             }
             $st = $db->prepare('DELETE FROM integration_clients WHERE client_id = ?');
             $st->bind_param('i', $clientId);

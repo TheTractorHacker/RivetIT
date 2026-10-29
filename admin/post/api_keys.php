@@ -10,12 +10,6 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
-// The retired legacy-key actions (old bookmarks, old forms, scripts): nothing is created or deleted; point at this page.
-if (isset($_POST['add_api_key']) || isset($_GET['revoke_api_key']) || isset($_GET['delete_api_key']) || isset($_POST['bulk_delete_api_keys'])) {
-    flash_alert('API keys are managed on this page now: create, change, rotate the secret of, revoke and delete them here. Nothing was changed.', 'warning');
-    redirect('/admin/api_keys.php');
-}
-
 /** One integration client by id, selected columns from a fixed list, bound parameter. */
 function ic_client_row(mysqli $mysqli, int $cid, string $columns): ?array
 {
@@ -29,7 +23,6 @@ function ic_client_row(mysqli $mysqli, int $cid, string $columns): ?array
 
 use ITFlow\Integration\IntegrationAuth;
 use ITFlow\Integration\IntegrationScope;
-use ITFlow\Integration\LegacyKeys;
 
 $ic_admin_only = static function () use ($session_is_admin) {
     if (empty($session_is_admin)) {
@@ -210,7 +203,7 @@ if (isset($_POST['delete_integration_client'])) {
     $ic_admin_only();
 
     // Permanent. Revoke is the reversible-by-recreating, keep-the-record option; Delete removes the key, its secrets, tokens, departments
-    // and single sign-on settings. A migrated legacy key stays unusable for good (tombstone, see IntegrationAuth::deleteClient).
+    // and single sign-on settings. 
     $cid = intval($_POST['client_id'] ?? 0);
     $row = ic_client_row($mysqli, $cid, 'client_uid, client_name');
     if ($row && IntegrationAuth::deleteClient($mysqli, $cid)) {
@@ -219,34 +212,5 @@ if (isset($_POST['delete_integration_client'])) {
     } else {
         flash_alert('API key not found.', 'danger');
     }
-    redirect('/admin/api_keys.php');
-}
-
-if (isset($_POST['save_legacy_header_policy'])) {
-    validateCSRFToken($_POST['csrf_token'] ?? null);
-    $ic_admin_only();
-
-    // The deprecation switch for the old X-Api-Key header: accept it, or switch it off, optionally with a removal date.
-    $enabled = (string) ($_POST['legacy_header_enabled'] ?? '1') !== '0';
-    $sunsetRaw = trim((string) ($_POST['legacy_header_sunset'] ?? ''));
-    $sunset = null;
-    if ($sunsetRaw !== '') {
-        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $sunsetRaw);
-        if (!$d || $d->format('Y-m-d') !== $sunsetRaw) {
-            flash_alert('Use a valid removal date (YYYY-MM-DD) or leave it blank. Nothing was changed.', 'danger');
-            redirect('/admin/api_keys.php');
-        }
-        $sunset = $sunsetRaw;
-    }
-    $before = LegacyKeys::policy($mysqli);
-    try {
-        LegacyKeys::setPolicy($mysqli, $enabled, $sunset);
-    } catch (Throwable $e) {
-        flash_alert('Could not save: the database has not been updated for the unified API credentials yet (DB 2.6.204).', 'danger');
-        redirect('/admin/api_keys.php');
-    }
-    logAction('Integration', 'Legacy Header Policy', "$session_name set the deprecated X-Api-Key header to " . ($enabled ? 'accepted' : 'switched off') . ', removal date ' . ($sunset ?? 'none')
-        . ' (was ' . ($before['enabled'] ? 'accepted' : 'switched off') . ', ' . ($before['sunset'] ?? 'no date') . ')');
-    flash_alert($enabled ? 'The deprecated X-Api-Key header is accepted' . ($sunset ? ' until ' . nullable_htmlentities($sunset) : '') . '.' : 'The deprecated X-Api-Key header is switched off: it now answers 401.', $enabled ? 'success' : 'warning');
     redirect('/admin/api_keys.php');
 }

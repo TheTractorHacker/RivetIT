@@ -198,7 +198,7 @@ Because `CURRENT_DATABASE_VERSION` is a PHP constant fixed once per request and 
 
 ## 7. REST API
 
-`api/v1/index.php` is a flat, single-router dispatcher, entirely separate from the cookie-session auth used by the four portals above. It supports Bearer-token auth (per-user tokens in `api_tokens`, minted via `POST /api/v1/auth`) and a legacy company-wide `X-Api-Key` mechanism with its own read/write permission and optional client scoping. The API was deliberately left out of the Department rename (paths and fields still say `client`), and the RivetIT rename does not change it either — see `docs/API.md` for the full reference rather than duplicating it here.
+`api/v1/index.php` is a flat, single-router dispatcher, entirely separate from the cookie-session auth used by the four portals above. It supports Bearer-token auth (per-user tokens in `api_tokens`, minted via `POST /api/v1/auth`) and machine clients (API keys: Client ID + secret exchanged at `POST /api/v1/oauth/token` for a short-lived token, with per-resource scopes and department limits). The old company-wide `X-Api-Key` mechanism is removed. The API was deliberately left out of the Department rename (paths and fields still say `client`), and the RivetIT rename does not change it either — see `docs/API.md` for the full reference rather than duplicating it here.
 
 ## 8. Integrations and background jobs
 

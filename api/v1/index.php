@@ -7,7 +7,7 @@ require __DIR__ . '/rmm_gate.php';
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Biometric, X-Api-Key, Idempotency-Key, X-Correlation-Id');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Biometric, Idempotency-Key, X-Correlation-Id');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -183,15 +183,12 @@ if (empty($authHeader) && function_exists('getallheaders')) {
 //   1. "Authorization: Bearer <access token>" - the signed 10 minute token from POST /api/v1/oauth/token (Client ID + secret). A value
 //      shaped like a JWT is decided HERE, before the api_tokens lookup and the user-session setup: invalid / expired / revoked / wrong
 //      audience -> 401, and it never falls through to another auth method;
-//   2. "X-Api-Key: <key>" - DEPRECATED. A legacy API key that was converted to an integration client (DB 2.6.204) resolves to that client and
-//      from here on is indistinguishable from case 1. It can be switched off (Administration > API Keys).
-// Both produce the same context ($integration_client, $integration_scopes, department scope) and both go through the same checks below:
+//   (The old "X-Api-Key" header is NOT authenticated any more: it is answered 401 below, pointing at the token endpoint.)
+// It produces the context ($integration_client, $integration_scopes, department scope) and goes through these checks below:
 // the route's scope, the department scope, the IP allow-list, the per-client rate limit and the audit trail. There is no second rule set.
 // User-session Bearer tokens (api_tokens: a signed-in PERSON in the mobile app) are a different thing and are handled further down, unchanged.
 $integration_client = null;
 $integration_scopes = [];
-$integration_via = null;       // 'bearer' | 'legacy_key'
-$legacy_api_key_id = 0;
 if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\IntegrationAuth::looksLikeToken($im[1])) {
     $int_ip = (string) getIP();
     try {
@@ -211,7 +208,6 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
     }
     $integration_client = $int_auth['client'];
     $integration_scopes = $int_auth['scopes'];
-    $integration_via = 'bearer';
     $int_directory = ($resource === 'employees' || $resource === 'departments');
     if ($int_directory || $resource === 'lms') {
         // /lms, /employees and /departments are served by lms.php / directory.php, which apply their own lms:* / directory:read scopes and
@@ -268,50 +264,17 @@ if ($integration_client === null && preg_match('/^Bearer\s+(\S+)$/i', $authHeade
 }
 
 if ($integration_client === null && !$api_user_id && !empty($_SERVER['HTTP_X_API_KEY'])) {
-    // Deprecated compat input. Only the header is read (never the query string or body, where a secret lands in logs and proxies), and only
-    // for the general API: /lms, /employees and /departments need an access token.
-    $legacy_key_raw = (string) $_SERVER['HTTP_X_API_KEY'];
+    // The old X-Api-Key header is not a credential any more. Say so plainly (the key itself is never read, logged or compared); the audit
+    // line lets an administrator see which address still sends it.
     $int_ip = (string) getIP();
-    if ($resource === 'lms' || $resource === 'employees' || $resource === 'departments') {
-        \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
+    if (api_rate_limit('legacy_off_ip:' . $int_ip, 60, 60)) {
+        \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration API', 'Legacy Key Refused', 'X-Api-Key refused: legacy API keys are no longer accepted', 0, $int_ip);
     }
-    // Failed-attempt throttle, same policy as validate_api_key.php: 15 failures per IP in 10 minutes -> 429 (pentest F-07)
-    $rl_ip = mysqli_real_escape_string($mysqli, $int_ip);
-    $rl_failed = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT COUNT(log_id) AS c FROM logs
-         WHERE log_type = 'API' AND log_action = 'Failed' AND log_ip = '$rl_ip'
-           AND log_created_at > (NOW() - INTERVAL 10 MINUTE)"
-    ));
-    if (intval($rl_failed['c'] ?? 0) >= 15) {
-        api_error(429, 'Too many failed attempts. Please try again later.');
-    }
-    $legacy = \ITFlow\Integration\LegacyKeys::resolve($mysqli, $legacy_key_raw, $int_ip);
-    if (!$legacy['ok']) {
-        if (str_starts_with($legacy['reason'], 'header_')) {
-            // The header has been switched off: say so clearly, and do not count it as a failed guess.
-            if (api_rate_limit('legacy_off_ip:' . $int_ip, 60, 60)) {
-                \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration API', 'Legacy Key Refused', 'X-Api-Key refused: the deprecated header is switched off (' . $legacy['reason'] . ')', 0, $int_ip);
-            }
-            header('WWW-Authenticate: Bearer');
-            api_error(401, $legacy['message']);
-        }
-        if ($legacy['status'] === 403) {
-            // A valid key from an address its allow-list does not permit: audited, but not counted as a guessed key.
-            \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration API', 'Legacy Key Refused', 'X-Api-Key refused: ' . $legacy['reason'], 0, $int_ip);
-            api_error(403, $legacy['message']);
-        }
-        $rl_ua = mysqli_real_escape_string($mysqli, substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250));
-        mysqli_query($mysqli, "INSERT INTO logs SET log_type = 'API', log_action = 'Failed', log_description = 'Incorrect or expired key (router)', log_ip = '$rl_ip', log_user_agent = '$rl_ua'");
-        // fall through: no machine context -> the 401 gate below answers (a user token, if one was also sent, still works).
-    } else {
-        $integration_client = $legacy['client'];
-        $integration_scopes = $legacy['scopes'];
-        $integration_via = 'legacy_key';
-        $legacy_api_key_id = (int) $legacy['key_id'];
-    }
+    header('WWW-Authenticate: Bearer');
+    api_error(401, \ITFlow\Integration\LegacyKeys::MSG_REMOVED);
 }
 if ($integration_client === null && ($resource === 'lms' || $resource === 'employees' || $resource === 'departments')) {
-    // /lms, /employees and /departments accept integration access tokens only; no user token, session or legacy key is ever honoured here.
+    // /lms, /employees and /departments accept integration access tokens only; no user token or session is ever honoured here.
     \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
 }
 
@@ -340,15 +303,6 @@ if ($integration_client !== null && !$api_user_id) {
     $legacy_api_key_auth = true;
     $api_key_client_ids = \ITFlow\Integration\IntegrationScope::allowedDepartmentIds($mysqli, $integration_client);
     $api_key_client_id  = $api_key_client_ids === null ? null : (count($api_key_client_ids) === 1 ? $api_key_client_ids[0] : -1);
-    if ($integration_via === 'legacy_key') {
-        \ITFlow\Integration\LegacyKeys::recordUse($mysqli, $legacy_api_key_id, $integration_client, (string) getIP(), $method, (string) $uri);
-        $lk_policy = \ITFlow\Integration\LegacyKeys::policy($mysqli);
-        header('Deprecation: true');
-        if (!empty($lk_policy['sunset'])) {
-            header('Sunset: ' . gmdate('D, d M Y 00:00:00 \G\M\T', strtotime($lk_policy['sunset'] . ' 00:00:00 UTC')));
-        }
-        header('X-Api-Key-Notice: ' . \ITFlow\Integration\LegacyKeys::MSG_NOTICE);
-    }
 }
 
 // Semi-public endpoint: crash-reports. Bearer/legacy-key parsing above already ran

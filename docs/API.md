@@ -62,11 +62,12 @@ different things and are not interchangeable:
 |---|---|---|---|
 | **API key access token** (primary for machines) | `Authorization: Bearer <access token>` from `POST /oauth/token` | A *machine client* (Client ID + secret), with scopes and department limits | Scripts, RMM tooling, the QMS, any server-to-server integration |
 | User session token | `Authorization: Bearer <token>` from `POST /auth` | A *person* signed in (the mobile app) | The Android/iOS app and anything acting as one technician |
-| Legacy API key (**deprecated**) | `X-Api-Key: <key>` | The *migrated integration client* the key was converted to | Existing scripts only, until they move to a Client ID + secret |
 
-**There is one machine-credential system: API keys** (a Client ID + secret; internally still called integration clients). The legacy API keys of earlier versions were converted into
-integration clients automatically (DB 2.6.204). Their key strings keep working through `X-Api-Key` during a deprecation period, and
-then the header is switched off.
+**There is one machine credential: an API key (a Client ID + secret; internally still called an integration client).** The old
+`X-Api-Key` header is **no longer accepted**: **BREAKING** for anything that still sends it, which now gets `401` with a message pointing at
+`POST /oauth/token`. Keys of earlier versions were converted into API keys at the 2.6.204 update (same scopes, departments, IP list and
+expiry) but **have no secret**: an administrator opens the key on Administration > API Keys, presses **Create secret**, and the integration
+switches to the token endpoint.
 
 **User session tokens (`api_tokens`) are unrelated to this and are unchanged**: they identify a signed-in person on a device, are
 issued by `POST /auth`, carry that person's role and permissions, and are what the mobile app uses. Nothing in the unification
@@ -99,49 +100,27 @@ client-side and post the resulting `passkey_response` plus the
 
 To log out and revoke the current token, call `DELETE /auth`.
 
-A bearer token is also required (not just accepted) for a small number of
-endpoints that a legacy API key is explicitly denied on — see below.
+A user bearer token is also required (not just accepted) for a small number of
+endpoints that API keys are explicitly denied on — see below.
 
-### Legacy API keys (deprecated: now integration clients)
+### The old X-Api-Key header (removed)
 
-`X-Api-Key: <key>` was the older, instance-level mechanism. Since DB 2.6.204 there is no separate API-key system: **every key was
-converted into an integration client** (Administration > API Keys, flagged "Old X-Api-Key header"), with
+`X-Api-Key: <key>` (and `?api_key=` / an `api_key` field in the body) no longer authenticates anything. The response is
+`401 {"error": "The X-Api-Key header is no longer accepted. Authenticate with an API key (Client ID + secret): POST /api/v1/oauth/token ..."}`
+with `WWW-Authenticate: Bearer`; the key itself is never read or logged (an audit line records the address that still sends it).
 
-| Legacy setting | Becomes |
-|---|---|
-| Read Only | the scopes `api:<resource>:read` for every general resource |
-| Read & Write | `api:<resource>:read` and `:write` |
-| Read & Write + Delete | `:read`, `:write` and `:delete` (a read-only key never had delete, whatever its flag said) |
-| Department: all / one / several | the client's department scope: all departments / that department / those departments (a key limited to "several" with no departments left reaches nothing) |
-| Allowed IPs, expiry, revoked | the client's IP allow-list, expiry (the key stopped at 00:00 of its expire date, and still does) and status |
-
-The same key string authenticates through `X-Api-Key`: it resolves to the migrated client and from then on is subject to exactly the
-same scope, department, IP, expiry, rate-limit (the same `int:<client id>` bucket as the client's access tokens) and audit rules as
-any other client. Differences from the old behaviour, all deliberate:
-
-- **It no longer acts as the first administrator.** Machine clients act as a fixed, disabled, role-less service identity
-  ("API integration service"); their only authority is their scopes and departments (see [Acting identity](#acting-identity-of-a-machine-client)).
-- Only the **header** is read. `?api_key=` and a key inside the JSON body are no longer accepted (a secret in a URL or body ends up in logs and proxies).
-- Routes that act for a person, or that always demanded a user token, answer 403: `/credentials`, `/me`, `/notifications`, `/approvals`,
-  `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`. An unknown route is 403 too (deny by default).
-- `/lms`, `/employees` and `/departments` need an access token, never `X-Api-Key`.
-- Every `X-Api-Key` response carries `Deprecation: true`, an `X-Api-Key-Notice` header and (when an administrator set a removal date)
-  a `Sunset` header. Every use is audit-logged with the client id and counted (last used, request count, last IP), visible on
-  Administration > API Keys so you can see which integrations still use the old header.
-- **When an administrator switches the header off, or the removal date passes, `X-Api-Key` answers `401`** with a message explaining
-  to authenticate with the Client ID and secret. Access tokens are unaffected.
-
-To migrate an integration: on Administration > API Keys open the migrated client, press **Create secret** (the secret is shown once, with a Copy button), and change the
-integration to `POST /api/v1/oauth/token` + `Authorization: Bearer`. The client keeps its scopes and departments.
+To migrate an integration: on Administration > API Keys open the converted key (it reads "No secret yet"), press **Create secret** (the
+secret is shown once, with a Copy button), and change the integration:
 
 ```bash
-# deprecated, still works until switched off
-curl -s https://your-instance.example.com/api/v1/tickets -H "X-Api-Key: your-legacy-key-here"
-# preferred
 TOKEN=$(curl -s -X POST https://your-instance.example.com/api/v1/oauth/token \
   -d grant_type=client_credentials -d client_id=ic_0123456789abcdef0123 --data-urlencode client_secret="$SECRET" | jq -r .access_token)
 curl -s https://your-instance.example.com/api/v1/tickets -H "Authorization: Bearer $TOKEN"
 ```
+
+Machine clients act as a fixed, disabled, role-less service identity ("API integration service"), never as an administrator; their only
+authority is their scopes and departments (see [Acting identity](#acting-identity-of-a-machine-client)). Routes that act for a person
+answer 403 for them: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`.
 
 ### API keys (machine credentials for the whole API)
 
@@ -159,9 +138,9 @@ curl -s https://rivetit.example.com/api/v1/lms/courses -H "Authorization: Bearer
 
 Rules that matter to an integrator:
 
-- **Department scope.** On the general API the scope applies exactly as it did to legacy keys (all / one / several departments; a restricted client with none reaches nothing; list endpoints, by-id reads, search, KB, relationships and reports are filtered). Resources that hold no department data (for example ticket categories, company-wide KB articles) are reachable by any client holding their scope. A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Records outside the scope are indistinguishable from records that do not exist: a by-id read is 404, lists are filtered, and a create for an employee or course outside it answers 422 `employee_not_found` / `course_not_found`. A course is in scope when it has a live requirement rule for an allowed department (or for everyone), a rule naming a person of an allowed department, or an assignment or completion of such a person; the `departments` and `requirements` of a course list only what touches the allowed departments.
+- **Department scope.** On the general API the scope applies exactly as it did to the old API keys (all / one / several departments; a restricted client with none reaches nothing; list endpoints, by-id reads, search, KB, relationships and reports are filtered). Resources that hold no department data (for example ticket categories, company-wide KB articles) are reachable by any client holding their scope. A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Records outside the scope are indistinguishable from records that do not exist: a by-id read is 404, lists are filtered, and a create for an employee or course outside it answers 422 `employee_not_found` / `course_not_found`. A course is in scope when it has a live requirement rule for an allowed department (or for everyone), a rule naming a person of an allowed department, or an assignment or completion of such a person; the `departments` and `requirements` of a course list only what touches the allowed departments.
 - **A token reaches a route only if it holds that route's scope** (deny by default, no wildcard, no implication between scopes); a route with no scope answers 403. It never acts as a user.
-  A user token or legacy key is not accepted on `/lms`, `/employees` or `/departments` (401).
+  A user token is not accepted on `/lms`, `/employees` or `/departments` (401).
 - Scopes: `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read` (`quality:events` is reserved for later), and, for the general API,
   **`api:<resource>:read`, `api:<resource>:write`, `api:<resource>:delete`** per resource: `alerts`, `appointments`, `assets`, `clients`, `contacts`, `contracts`, `dashboard`, `kb`, `milestones`,
   `outtakes`, `projects`, `relationships`, `reports`, `search`, `tasks`, `ticket_attachments`, `ticket_categories`, `ticket_views`, `tickets` (also `/statuses`) and `worksheets` (also `tickets/charges`).
@@ -184,7 +163,7 @@ See [integrations/qms-lms-sync.md](integrations/qms-lms-sync.md) for the assignm
 
 #### Acting identity of a machine client
 
-Legacy keys ran as "the first active administrator", so every key carried a whole administrator's authority. API keys do not.
+The old keys ran as "the first active administrator", so every key carried a whole administrator's authority. API keys do not.
 On the general API a client acts as one fixed **service identity** ("API integration service"): a *disabled*, *role-less* user that cannot
 sign in, owns no user token, and is not an administrator. It is the user recorded in `created_by`-style columns and the audit trail for
 machine writes (the log text names the client, and the legacy-header audit lines carry the client id). Because it holds no role, every
@@ -206,7 +185,7 @@ A short list of endpoints is intentionally reachable without any auth header:
 - `GET /openapi`, `GET /docs` — the spec and human-readable reference
   themselves.
 
-Everything else requires an integration access token, a user bearer token or (deprecated) a migrated API key.
+Everything else requires an API key's access token or a user bearer token.
 
 ---
 
@@ -260,7 +239,7 @@ Common status codes: `400` bad request/validation, `401` missing or invalid
 credentials, `403` authenticated but not permitted (wrong scope, read-only
 key, wrong department), `404` not found, `429` rate limited.
 
-**Rate limiting.** Each caller (per user token, or per integration client whether it presents an access token or the deprecated `X-Api-Key`) is limited to 300
+**Rate limiting.** Each caller (per user token, or per API key, by its access tokens) is limited to 300
 requests per 60 seconds. Exceeding it returns `429` with a `Retry-After`
 header telling you how many seconds to wait before retrying.
 
@@ -292,7 +271,7 @@ above for the full flow.
 ### Profile
 
 The signed-in user's own profile. `GET /me` and the profile-update
-operations require a bearer token — a legacy API key is denied here, since
+operations require a bearer token — an API key is denied here, since
 there's no specific user for it to represent.
 
 | Method | Path | Description |
@@ -429,8 +408,8 @@ URIs — the decrypted secret is a separate, deliberately harder call.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/credentials` | List credentials — names/URIs only, no secrets; paged, filterable by `client_id`. Requires a user token — a legacy API key is denied. |
-| GET | `/credentials/{id}` | Decrypted credential detail. Requires a user token (legacy key denied) **and** a signed biometric step-up challenge — see below. |
+| GET | `/credentials` | List credentials — names/URIs only, no secrets; paged, filterable by `client_id`. Requires a user token — an API key is denied. |
+| GET | `/credentials/{id}` | Decrypted credential detail. Requires a user token (API keys denied) **and** a signed biometric step-up challenge — see below. |
 
 **Biometric step-up for `/credentials/{id}`.** Beyond normal auth, this call
 requires two additional headers proving a fresh biometric/passkey unlock on
@@ -504,7 +483,7 @@ In-app notifications, including an SSE stream for live delivery.
 
 ### Integration (LMS)
 
-Integration-client token only (see [API keys](#api-keys-machine-credentials-for-the-whole-api)); not available to user tokens or the deprecated API-key header. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
+Integration-client token only (see [API keys](#api-keys-machine-credentials-for-the-whole-api)); not available to user tokens. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
 
 | Method | Path | Scope | Description |
 |---|---|---|---|

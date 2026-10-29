@@ -1,6 +1,6 @@
 <?php
 
-// Administration > API Keys: the one place for machine credentials (Client ID + secret). Formerly "Integration clients" (admin/integration_clients.php
+// Administration > API Keys: the one place for machine credentials (Client ID + secret; the old X-Api-Key header is not accepted any more). Formerly "Integration clients" (admin/integration_clients.php
 // redirects here). Internal names (tables, classes, scope strings) still say "integration client".
 
 require_once "includes/inc_all_admin.php";
@@ -9,7 +9,6 @@ require_once __DIR__ . '/modals/api/api_key_form_lib.php';
 use ITFlow\Integration\IntegrationAuth;
 use ITFlow\Integration\IntegrationScope;
 use ITFlow\Integration\ApiScopes;
-use ITFlow\Integration\LegacyKeys;
 
 // A secret created or rotated by the last action is shown exactly once.
 $ic_once = $_SESSION['integration_secret_once'] ?? null;
@@ -18,17 +17,6 @@ unset($_SESSION['integration_secret_once']);
 $ic_tables_ok = mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_clients'")) > 0;
 $ic_clients = $ic_tables_ok ? mysqli_query($mysqli, "SELECT * FROM integration_clients ORDER BY client_status, client_name") : false;
 $ic_now = date('Y-m-d H:i:s');
-$ic_migrated = $ic_tables_ok && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_legacy_keys'")) > 0;
-$ic_policy = $ic_migrated ? LegacyKeys::policy($mysqli) : null;
-// client_id => legacy key usage, for the "Old X-Api-Key header" badge (tombstones of deleted keys have a negative client id and are skipped)
-$ic_legacy = [];
-if ($ic_migrated) {
-    $lres = mysqli_query($mysqli, "SELECT lk_client_id, lk_api_key_id, lk_last_used_at, lk_use_count, lk_last_ip FROM integration_legacy_keys WHERE lk_client_id > 0");
-    while ($lres && ($l = mysqli_fetch_assoc($lres))) {
-        $ic_legacy[(int) $l['lk_client_id']] = $l;
-    }
-}
-$ic_legacy_in_use = array_filter($ic_legacy, static fn($l) => (int) $l['lk_use_count'] > 0);
 $ic_departments = $ic_tables_ok ? ak_departments($mysqli) : [];
 $ic_total = $ic_clients ? mysqli_num_rows($ic_clients) : 0;
 
@@ -82,37 +70,6 @@ $ic_csrf = $_SESSION['csrf_token'];
             <div class="alert alert-warning mb-0">The database has not been updated for API keys yet (needs DB 2.6.201). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
         <?php } else { ?>
 
-        <?php if (!$ic_migrated) { ?>
-            <div class="alert alert-warning">The database has not been updated for the unified API credentials yet (needs DB 2.6.204). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>. Until then keys that came from the old X-Api-Key header cannot authenticate.</div>
-        <?php } elseif ($ic_legacy) { ?>
-        <div class="alert <?php echo $ic_policy['accepted'] ? 'alert-warning' : 'alert-info'; ?> mb-3" id="legacy-header" role="region" aria-label="Old X-Api-Key header">
-            <div class="d-flex flex-wrap gap-3 align-items-start justify-content-between">
-                <div class="flex-grow-1">
-                    <strong><i class="fas fa-fw fa-exclamation-triangle me-1"></i>The old <code>X-Api-Key</code> header is <?php echo $ic_policy['accepted'] ? 'deprecated' : 'switched off'; ?>.</strong>
-                    <?php if ($ic_policy['accepted']) { ?>
-                        Keys that came from the old API keys still work through it for now
-                        <?php if ($ic_policy['sunset']) { ?>until <strong><?php echo nullable_htmlentities($ic_policy['sunset']); ?></strong><?php } else { ?>(no removal date is set)<?php } ?>.
-                        <?php if ($ic_legacy_in_use) { ?><strong><?php echo count($ic_legacy_in_use); ?></strong> of them used it recently.<?php } ?>
-                        To switch a system over: open the key, choose <em>Create secret</em>, then have the system use its Client ID and secret instead.
-                    <?php } else { ?>
-                        <?php echo $ic_policy['reason'] === 'sunset_reached' ? 'The removal date (' . nullable_htmlentities((string) $ic_policy['sunset']) . ') has been reached. ' : ''; ?>The header now answers 401 and tells the caller to use its Client ID and secret.
-                    <?php } ?>
-                </div>
-                <form action="post.php" method="post" class="d-flex flex-wrap gap-2 align-items-end">
-                    <input type="hidden" name="csrf_token" value="<?php echo $ic_csrf; ?>">
-                    <div><label class="form-label small mb-0" for="legacy_header_enabled">Header</label>
-                        <select class="form-select form-select-sm" name="legacy_header_enabled" id="legacy_header_enabled">
-                            <option value="1"<?php echo $ic_policy['enabled'] ? ' selected' : ''; ?>>Accept (deprecated)</option>
-                            <option value="0"<?php echo !$ic_policy['enabled'] ? ' selected' : ''; ?>>Switch off</option>
-                        </select></div>
-                    <div><label class="form-label small mb-0" for="legacy_header_sunset">Removal date (optional)</label>
-                        <input type="date" class="form-control form-control-sm" id="legacy_header_sunset" name="legacy_header_sunset" value="<?php echo nullable_htmlentities((string) ($ic_policy['sunset'] ?? '')); ?>"></div>
-                    <button class="btn btn-outline-primary btn-sm" name="save_legacy_header_policy" value="1"><i class="fas fa-save me-1"></i>Save</button>
-                </form>
-            </div>
-        </div>
-        <?php } ?>
-
         <?php if ($ic_total === 0) { ?>
             <p class="text-muted mb-0">No API keys yet. Use <strong>Add API key</strong> to create one.</p>
         <?php } else { ?>
@@ -143,9 +100,19 @@ $ic_csrf = $_SESSION['csrf_token'];
                     $expired = $c['client_expires_at'] !== null && $c['client_expires_at'] < $ic_now;
                     $is_active = $c['client_status'] === 'active';
                     $live = $is_active && !$expired;
-                    $secrets = mysqli_query($mysqli, "SELECT * FROM integration_client_secrets WHERE secret_client_id = $cid ORDER BY secret_id DESC LIMIT 10");
-                    $n_secrets = $secrets ? mysqli_num_rows($secrets) : 0;
-                    $lk = $ic_legacy[$cid] ?? null;
+                    $secrets = [];
+                    $sres = mysqli_query($mysqli, "SELECT * FROM integration_client_secrets WHERE secret_client_id = $cid ORDER BY secret_id DESC LIMIT 10");
+                    while ($sres && ($sr = mysqli_fetch_assoc($sres))) {
+                        $sr['live'] = $sr['secret_status'] === 'active' && ($sr['secret_expires_at'] === null || $sr['secret_expires_at'] > $ic_now);
+                        $secrets[] = $sr;
+                    }
+                    $n_secrets = count($secrets);
+                    $has_secret = (bool) array_filter($secrets, static fn($x) => $x['live']);   // a client without a live secret cannot sign in
+                    // Clients converted from an old API key carry a stored note about the old header; show the current truth instead.
+                    $notes = (string) $c['client_description'];
+                    if (preg_match('/^Migrated from legacy API key #(\d+)\./', $notes, $nm)) {
+                        $notes = 'Converted from old API key #' . $nm[1] . ' (same access, departments, IP list and expiry). The old X-Api-Key header no longer works: create a secret so the other system can sign in with a Client ID and secret.';
+                    }
                     $status = $live ? '<span class="badge text-bg-success">Active</span>' : ($c['client_status'] === 'revoked' ? '<span class="badge text-bg-danger">Revoked</span>' : '<span class="badge text-bg-warning">Expired</span>');
                     $access_title = nullable_htmlentities($sum['text']);
                     $extra = $sum['extras'] ? '<div class="ak-sub">' . nullable_htmlentities(implode(', ', array_slice($sum['extras'], 0, 2))) . (count($sum['extras']) > 2 ? ' +' . (count($sum['extras']) - 2) : '') . '</div>' : '';
@@ -156,7 +123,6 @@ $ic_csrf = $_SESSION['csrf_token'];
                         <td class="ak-namecell">
                             <div class="ak-name"><?php echo $name; ?></div>
                             <div class="ak-sub d-sm-none"><?php echo nullable_htmlentities($sum['headline']); ?></div>
-                            <?php if ($lk) { ?><span class="badge text-bg-secondary fw-normal" title="Migrated from old API key #<?php echo intval($lk['lk_api_key_id']); ?>. Header last used: <?php echo $lk['lk_last_used_at'] ? nullable_htmlentities($lk['lk_last_used_at']) : 'never'; ?>; <?php echo intval($lk['lk_use_count']); ?> request(s)<?php echo $lk['lk_last_ip'] ? '; last from ' . nullable_htmlentities($lk['lk_last_ip']) : ''; ?>">Old X-Api-Key header</span><?php } ?>
                             <?php if (!empty($c['client_allowed_ips'])) { ?><span class="badge text-bg-secondary fw-normal" title="Only the listed IP addresses may use this key">IP restricted</span><?php } ?>
                         </td>
                         <td class="d-none d-xl-table-cell text-nowrap"><span class="ak-id" id="ak-uid-<?php echo $cid; ?>"><?php echo $uid; ?></span>
@@ -170,7 +136,7 @@ $ic_csrf = $_SESSION['csrf_token'];
                             ?></td>
                         <td class="ak-wide text-nowrap"><?php echo $c['client_last_used_at'] ? '<span title="' . nullable_htmlentities($c['client_last_used_at']) . '">' . $ic_day($c['client_last_used_at']) . '</span>' : '<span class="text-muted">never</span>'; ?></td>
                         <td class="ak-wide text-nowrap"><?php echo $c['client_expires_at'] ? '<span class="' . ($expired ? 'text-danger' : '') . '" title="' . nullable_htmlentities($c['client_expires_at']) . '">' . $ic_day($c['client_expires_at']) . '</span>' : '<span class="text-muted">never</span>'; ?></td>
-                        <td class="text-nowrap"><?php echo $status; ?></td>
+                        <td class="text-nowrap"><?php echo $status; ?><?php if ($live && !$has_secret) { ?><div class="ak-sub text-warning-emphasis" title="No secret yet: create one so the other system can sign in">No secret yet</div><?php } ?></td>
                         <td class="text-end text-nowrap ak-actions">
                             <?php if ($is_active) { ?>
                                 <button type="button" class="btn btn-sm btn-outline-secondary ajax-modal d-none d-sm-inline-block" data-modal-url="modals/api/api_key_edit.php?id=<?php echo $cid; ?>" data-modal-size="lg"><i class="fas fa-fw fa-pen me-1"></i>Edit</button>
@@ -199,10 +165,7 @@ $ic_csrf = $_SESSION['csrf_token'];
                                         <dt>Expires</dt><dd><?php echo $c['client_expires_at'] ? nullable_htmlentities($c['client_expires_at']) : 'never'; ?></dd>
                                         <dt>Departments</dt><dd><?php echo $c_depts === null ? 'All departments' : ($c_depts === [] ? '<span class="text-danger">None (sees nothing; choose departments)</span>' : nullable_htmlentities(implode(', ', $dept_names))); ?></dd>
                                         <dt>IP addresses</dt><dd><?php echo !empty($c['client_allowed_ips']) ? nullable_htmlentities(str_replace("\n", ', ', (string) $c['client_allowed_ips'])) : 'any'; ?></dd>
-                                        <?php if ($c['client_description']) { ?><dt>Notes</dt><dd><?php echo nullable_htmlentities($c['client_description']); ?></dd><?php } ?>
-                                        <?php if ($lk) { $lk_on = $live && $ic_policy && $ic_policy['accepted']; ?>
-                                            <dt>Old header</dt><dd>Converted from old API key #<?php echo intval($lk['lk_api_key_id']); ?>; header last used <?php echo $lk['lk_last_used_at'] ? nullable_htmlentities($lk['lk_last_used_at']) : 'never'; ?>, <?php echo intval($lk['lk_use_count']); ?> request(s)<?php echo $lk['lk_last_ip'] ? ', last from ' . nullable_htmlentities($lk['lk_last_ip']) : ''; ?>.<?php if (!$lk_on && $live) { ?> <strong>The header is switched off, so the old key no longer works.</strong><?php } ?></dd>
-                                        <?php } ?>
+                                        <?php if ($notes !== '') { ?><dt>Notes</dt><dd><?php echo nullable_htmlentities($notes); ?></dd><?php } ?>
                                     </dl>
                                 </section>
                                 <section aria-label="Access of <?php echo $name; ?>">
@@ -219,13 +182,12 @@ $ic_csrf = $_SESSION['csrf_token'];
                                 </section>
                                 <section aria-label="Secrets of <?php echo $name; ?>">
                                     <h4>Secrets</h4>
-                                    <?php if ($n_secrets === 0) { ?>
-                                        <div class="text-muted small mb-2"><?php echo $lk ? 'No secret yet: this key still uses the old header. Create a secret to switch it over.' : 'No secret yet.'; ?></div>
-                                    <?php } else { ?>
+                                    <?php if (!$has_secret && $is_active) { ?>
+                                        <div class="alert alert-warning py-2 small mb-2" role="status"><strong>No secret yet:</strong> create one so the other system can sign in.</div>
+                                    <?php } ?>
+                                    <?php if ($n_secrets > 0) { ?>
                                         <ul class="list-unstyled small mb-2">
-                                        <?php while ($secrets && ($s = mysqli_fetch_assoc($secrets))) {
-                                            $s_live = $s['secret_status'] === 'active' && ($s['secret_expires_at'] === null || $s['secret_expires_at'] > $ic_now);
-                                            ?>
+                                        <?php foreach ($secrets as $s) { $s_live = $s['live']; ?>
                                             <li class="d-flex flex-wrap justify-content-between gap-2 py-1 border-bottom">
                                                 <span><strong>Secret #<?php echo intval($s['secret_id']); ?></strong>
                                                     <?php echo $s_live ? '<span class="badge text-bg-success">Active</span>' : ($s['secret_status'] === 'revoked' ? '<span class="badge text-bg-danger">Revoked</span>' : '<span class="badge text-bg-secondary">Expired</span>'); ?><br>
@@ -239,13 +201,13 @@ $ic_csrf = $_SESSION['csrf_token'];
                                     <form action="post.php" method="post" class="d-flex flex-wrap gap-2 align-items-end">
                                         <input type="hidden" name="csrf_token" value="<?php echo $ic_csrf; ?>">
                                         <input type="hidden" name="client_id" value="<?php echo $cid; ?>">
-                                        <?php if ($n_secrets > 0) { ?>
+                                        <?php if ($has_secret) { ?>
                                         <div><label class="form-label small mb-0" for="ak-overlap-<?php echo $cid; ?>">Keep the current secret working for</label>
                                             <select class="form-select form-select-sm" id="ak-overlap-<?php echo $cid; ?>" name="overlap_hours">
                                                 <option value="1">1 hour</option><option value="24" selected>24 hours</option><option value="168">7 days</option><option value="720">30 days</option>
                                             </select></div>
                                         <?php } else { ?><input type="hidden" name="overlap_hours" value="24"><?php } ?>
-                                        <button class="btn btn-outline-primary btn-sm" name="rotate_integration_secret" value="1"><i class="fas fa-sync-alt me-1"></i><?php echo $n_secrets === 0 ? 'Create secret' : 'Rotate secret'; ?></button>
+                                        <button class="btn btn-outline-primary btn-sm" name="rotate_integration_secret" value="1"><i class="fas fa-sync-alt me-1"></i><?php echo !$has_secret ? 'Create secret' : 'Rotate secret'; ?></button>
                                     </form>
                                     <div class="small text-muted mt-1">A key holds at most two active secrets. The new secret is shown once.</div>
                                     <?php } ?>

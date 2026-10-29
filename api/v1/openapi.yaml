@@ -8,7 +8,7 @@ info:
     endpoints served by /api/v1/index.php and its per-resource handlers.
 
 
-    Authentication. There are two kinds of credential and one machine-credential system:
+    Authentication. There are two kinds of credential:
 
 
     * **API keys** (machines; the primary method: a Client ID + secret). Create a client under
@@ -22,14 +22,8 @@ info:
     * **User session tokens** (a signed-in person, e.g. the mobile app): a bearer
       token issued by `POST /auth`. Unrelated to integration clients and unchanged.
 
-    * **`X-Api-Key` (deprecated).** Legacy API keys were converted into integration
-      clients (DB 2.6.204); the key string keeps working through the `X-Api-Key`
-      header for a deprecation period, resolved to its migrated client and subject
-      to the same scope, department, IP, expiry, rate-limit and audit rules. Each
-      response carries `Deprecation: true`. When the header is switched off (or its
-      removal date passes) it answers 401. It is denied on `/credentials`, `/me`,
-      `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog` and
-      `/workflow_tasks`, and is not accepted on `/lms`, `/employees` or `/departments`.
+    The old `X-Api-Key` header (legacy API keys) is **not accepted any more**: a request that sends it without a valid token
+    is answered 401 with a message pointing at `POST /oauth/token`. Existing integrations must switch to an API key's Client ID + secret.
 
     The `/auth`, `/branding`, `/openapi` and `/docs` endpoints are public (no token required).
 
@@ -74,7 +68,6 @@ tags:
 security:
   - integrationClient: []
   - bearerAuth: []
-  - ApiKeyAuth: []
 paths:
   /branding:
     get:
@@ -183,7 +176,7 @@ paths:
       tags: [Public]
       summary: Aggregate CSAT rating summary for public embedding (e.g. a website trust badge)
       description: >
-        Fully public: no bearer token or API key accepted or required. Returns only
+        Fully public: no bearer token accepted or required. Returns only
         the aggregate rating and anonymous 4-5 star comment snippets - never client
         names, contact names, or ticket subjects - so the response is safe to embed
         directly on a public marketing site with no further filtering by the caller.
@@ -957,7 +950,7 @@ paths:
   /credentials:
     get:
       tags: [Credentials]
-      summary: List credentials (names/URIs only, no secrets; paged). Requires a user token — legacy API key is denied.
+      summary: List credentials (names/URIs only, no secrets; paged). Requires a user token (API keys are denied).
       parameters:
         - {$ref: '#/components/parameters/SearchParam'}
         - {$ref: '#/components/parameters/PageParam'}
@@ -1266,7 +1259,7 @@ paths:
   /me:
     get:
       tags: [Profile]
-      summary: Current user profile. Requires a user token — legacy API key is denied.
+      summary: Current user profile. Requires a user token (API keys are denied).
       responses:
         '200':
           description: Profile
@@ -1376,7 +1369,7 @@ paths:
       tags: [Mobile]
       summary: Approvals the caller may decide right now (service catalog requests + workflow approval tasks)
       description: >
-        Needs a user token (legacy API key denied) and Tickets (catalog) and/or Departments (workflow) access.
+        Needs a user token (API keys denied) and Tickets (catalog) and/or Departments (workflow) access.
         Same rules as agent/service_catalog_approvals.php and the workflow run page; administrators also see every
         other pending catalog request (decided as an override). Module-only (limited) logins get 403.
       responses:
@@ -1596,7 +1589,7 @@ paths:
   /validate_api_key:
     get:
       tags: [Meta]
-      summary: Validate the presented token/key (legacy compatibility probe)
+      summary: Validate the presented access token (probe)
       responses:
         '200':
           description: Key is valid
@@ -1795,7 +1788,7 @@ paths:
     get:
       tags: [Endpoint agent]
       summary: List endpoint agent devices in the caller's departments
-      description: Needs a user token and RMM (module_rmm) view access. Module-only logins and the legacy shared key get 403.
+      description: Needs a user token and RMM (module_rmm) view access. Module-only logins and API keys get 403.
       parameters:
         - {name: limit, in: query, schema: {type: integer, maximum: 200}}
         - {name: offset, in: query, schema: {type: integer}}
@@ -2217,17 +2210,6 @@ components:
       type: http
       scheme: bearer
       description: Per-device credential issued by POST /agent_enroll (256-bit, only its SHA-256 stored, rotatable and revocable). Not a user token.
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-Api-Key
-      x-deprecated: true
-      description: >
-        DEPRECATED. A legacy API key converted into an integration client (DB 2.6.204); the same key string still authenticates through this
-        header and resolves to the migrated client, with the same scopes, department scope, IP allow-list, expiry and rate limit. Responses carry
-        `Deprecation: true` (and `Sunset` when a removal date is set); when an administrator switches the header off it answers 401. Only the
-        header is read (not the query string or body). Denied on /credentials, /me, /notifications, /approvals, /endpoint_devices,
-        /service_catalog and /workflow_tasks; not accepted on /lms, /employees or /departments. Use integrationClient instead.
   parameters:
     IntLimit:
       name: limit
@@ -3132,7 +3114,7 @@ components:
             A SHORT-LIVED, SIGNED, ABSOLUTE URL. Fetch it with no credentials of
             any kind - the signature in the query string IS the credential,
             which is what lets an external browser or a WebView (neither of which
-            can send `Authorization` or `X-Api-Key`) open it.
+            can send `Authorization`) open it.
 
 
             Shape:
