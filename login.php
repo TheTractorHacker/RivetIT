@@ -180,6 +180,9 @@ function portalCompleteLogin(int $user_id, int $client_id, int $contact_id, stri
     $_SESSION['user_type']        = 2;
     $_SESSION['contact_id']       = $contact_id;
     $_SESSION['login_method']     = "local";
+    // When and how this portal sign-in happened: the SSO provider (oidc/authorize.php) asks for a fresh sign-in once it is older than its configured age, and reports amr.
+    $_SESSION['portal_auth_time'] = time();
+    $_SESSION['portal_amr']       = str_contains($extended_log, 'MFA') ? 'pwd,otp,mfa' : 'pwd';
 
     // Keep consistent with agent flow (helps any shared session checks)
     $_SESSION['logged']     = true;

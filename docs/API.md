@@ -150,6 +150,8 @@ Rules that matter to an integrator:
 - Scopes (deny by default, no wildcard): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`
   (`quality:events` is reserved for later). `directory:read` is the only scope that opens `/employees` and `/departments`, and it opens nothing else. A route needs its scope in the token; removing a scope from the
   client takes effect at the next request, and so does revoking the client or the secret that issued the token.
+  A client may also hold the `sso` capability (OpenID Connect sign-in to the QMS, `docs/integrations/qms-sso.md`); it is not an API scope,
+  is never issued in a token here, and an SSO token or ID token is refused on every `/api/v1` route.
 - A client holds at most two active secrets, so rotate by adding the new secret (the old one keeps working for the overlap you
   choose) and switching over.
 - Token endpoint failures are one uniform `401 invalid_client` and are throttled (`429`, `Retry-After`).

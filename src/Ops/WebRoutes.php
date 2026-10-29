@@ -37,6 +37,7 @@ final class WebRoutes
     public const CONDITIONS = [
         'mcp_ready' => 'Remote MCP is switched on and set up',
         'mcp_builtin' => 'Remote MCP built-in sign-in is on',
+        'oidc_on' => 'The single sign-on provider (OpenID Connect for the Quality system) is switched on',
     ];
 
     /** A request that must succeed before any other probe means anything: PHP answers through the public address. */
@@ -97,6 +98,10 @@ final class WebRoutes
                 ['method' => 'GET', 'path' => '/oauth/token.php', 'status' => [400, 401, 403, 404, 405], 'headers' => ['Pragma' => 'no-cache']]),
             $e('oauth_authorize', '=', '/oauth/authorize.php', 'Remote MCP built-in sign-in: the consent screen (framing denied, never cached).', 'Remote MCP built-in sign-in', 'feature',
                 ['method' => 'GET', 'path' => '/oauth/authorize.php', 'status' => [200, 302, 400, 401, 403, 404], 'headers' => ['Pragma' => 'no-cache']]),
+            $e('oidc_discovery', '=', '/.well-known/openid-configuration', 'Single sign-on provider (OpenID Connect for the Quality system): the discovery document the Quality system reads first. 404 until the provider is switched on.', 'Single sign-on to Quality', 'feature',
+                ['method' => 'GET', 'path' => '/.well-known/openid-configuration', 'status' => [200], 'headers' => ['Content-Type' => 'json'], 'requires' => 'oidc_on']),
+            $e('oidc_endpoints', '^~', '/oidc/', 'Single sign-on provider: jwks, authorize, token and userinfo all go to one PHP front controller (no .php file under /oidc/ is reachable directly), with framing denied.', 'Single sign-on to Quality', 'feature',
+                ['method' => 'GET', 'path' => '/oidc/token', 'status' => [404, 405], 'headers' => ['Pragma' => 'no-cache']]),
             $e('training_video_frame', '=', '/agent/training_video_frame.php', 'The one agent page the app frames itself (training video check).', 'Training videos', 'feature', self::NO_PROBE),
             $e('php', '~', '\.php$', 'Run PHP pages (and answer the /health endpoints).', 'The application itself', 'security',
                 ['method' => 'GET', 'path' => '/health/live.php', 'status' => [200]]),
