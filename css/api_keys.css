@@ -1,0 +1,43 @@
+/* Administration > API Keys. Colours come from the Tabler tokens set by itflow_design.css (light and dark); nothing is hard-coded. */
+.ak-table > :not(caption) > * > * { vertical-align: middle; }
+.ak-table .ak-name { font-weight: 600; }
+.ak-table .ak-sub { font-size: .8125rem; color: var(--tblr-secondary, #6c757d); }
+.ak-table .ak-id { font-family: var(--tblr-font-monospace, monospace); font-size: .8125rem; user-select: text; }
+.ak-details-row > td { background: var(--tblr-bg-surface-secondary, transparent); padding: 1rem 1.25rem; }
+.ak-details-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.ak-details-grid h4 { font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--tblr-secondary, #6c757d); margin: 0 0 .5rem; }
+.ak-dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem .75rem; margin: 0; font-size: .875rem; }
+.ak-dl dt { font-weight: 400; color: var(--tblr-secondary, #6c757d); }
+.ak-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.ak-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .125rem .75rem; font-size: .8125rem; }
+.ak-area { display: flex; justify-content: space-between; gap: .5rem; }
+.ak-marks { font-family: var(--tblr-font-monospace, monospace); letter-spacing: .1em; white-space: nowrap; }
+.ak-marks .off { opacity: .3; }
+.ak-access { cursor: help; }
+.ak-scope-scroll { max-height: 18rem; overflow: auto; }
+.ak-scope-table thead th { position: sticky; top: 0; background: var(--tblr-bg-surface, var(--tblr-body-bg, #fff)); z-index: 1; }
+.ak-dept-list { max-height: 11rem; overflow: auto; }
+.ak-secret-value { font-family: var(--tblr-font-monospace, monospace); user-select: all; -webkit-user-select: all; cursor: text; }
+.ak-secret-modal .form-control[readonly] { user-select: text; -webkit-user-select: text; pointer-events: auto; }
+.ak-toggle { width: 1.9rem; padding-left: 0; padding-right: 0; }
+.ak-table .ak-namecell { min-width: 11rem; }
+.ak-dept-fieldset legend, .ak-scope-fieldset legend { float: none; width: auto; font-size: 1rem; font-weight: 500; }
+.table.ak-table td .badge { white-space: nowrap; overflow-wrap: normal; max-width: none; display: inline-block; }
+@media (max-width: 575.98px) {
+  .ak-table .ak-namecell { min-width: 0; }
+  .ak-table > :not(caption) > * > * { padding-left: .35rem; padding-right: .35rem; }
+  .ak-details-row > td { padding: .75rem .5rem; }
+  .ak-dl { grid-template-columns: 1fr; gap: 0; }
+  .ak-dl dd { margin-bottom: .4rem; }
+}
+textarea.ak-secret-value { resize: none; word-break: break-all; overflow-wrap: anywhere; line-height: 1.4; }
+textarea.ak-secret-value { field-sizing: content; min-height: 2.4rem; }
+@media (max-width: 575.98px) {
+  .table.ak-table td.ak-namecell .badge { white-space: normal; }
+  .ak-table .ak-toggle { padding-left: 0; padding-right: 0; width: 1.75rem; }
+  .ak-table td.ak-toggle, .ak-table th.ak-toggle { padding: 0 !important; }
+}
+.ak-table .ak-wide { display: none; }
+@media (min-width: 1700px) { .ak-table .ak-wide { display: table-cell; } }
+.ak-table > :not(caption) > * > * { padding-left: .5rem; padding-right: .5rem; }
+@media (max-width: 575.98px) { .ak-table > :not(caption) > * > * { padding-left: .35rem; padding-right: .35rem; } }

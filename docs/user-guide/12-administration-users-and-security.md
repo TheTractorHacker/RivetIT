@@ -285,35 +285,23 @@ The sign-in page then shows **Login with Microsoft Entra**. Emptying the client 
 
 ## API keys and API docs
 
-An API key lets a script or another system call the RivetIT API. Keys are not tied to a person or a role. A request with a key is handled as the oldest active user account, which is normally your first administrator, and appears under that name in the audit log. Treat a key like an administrator password.
+An API key lets a script or another system call the RivetIT API. Each key has a **Client ID** and a **secret**: they are the username and password the other system uses to get a short-lived access token (`POST /api/v1/oauth/token`, then `Authorization: Bearer <token>`). A key is not tied to a person or a role and never acts as an administrator: it can do only what you tick, and sees only the departments you choose. The old `X-Api-Key` header is no longer accepted.
 
 ### The API Keys list
 
-**Administration → API Keys** lists every key with its department scope, permission, creation date and expiry.
+**Administration → API Keys** lists every key on one row: name, Client ID (with a Copy button), a short access summary (for example "Read & write: 20 areas"; hover for every area), departments and status. The arrow at the start of a row opens its details: dates, allowed IP addresses, the areas it can use (R read, W write, D delete) and its secrets.
 
-![The API Keys list with New API Key, Department, Permission, an expired key and the row menu marked 1 to 5](images/admin-accounts/11-api-keys.png)
-
-*Figure 11 — The API Keys list. (1) New API Key. (2) The department scope. (3) Read & Write or Read Only. (4) An expired key. (5) The row menu.*
-
-- Only a fingerprint of each key is stored. The **Secret** column shows the last four characters of that fingerprint, not of your copy, so identify keys by name and date.
-- **Revoke** (active keys, with confirmation) sets the expiry to now. **Delete** appears for expired keys.
-- Tick rows to open **Bulk Action**, then **Delete**. It removes the selected keys at once, active or expired, with no confirmation.
+- A key that was converted from an old API key keeps its access, departments, IP list and expiry, but has **no secret yet**. Open it and choose **Create secret** so the other system can sign in.
+- **Edit** changes access, departments, IP addresses and expiry. **Revoke key** stops the key now and keeps it in the list. **Delete key** removes it for good, with its secrets. Both ask for confirmation.
 - Disabling or archiving a user deletes that person's mobile app tokens. Each person sees their own under **Account → Security**.
 
-### Create an API key
+### Add an API key
 
-1. Select **New API Key**.
-2. On **Details**, enter a **Name** that says what uses the key. Expiration defaults to **30 days**; choose 60 days, 90 days, or a custom date if needed. The key stops working at the start of that day.
-3. Select a department under **Department Access**.
-4. **Read only** is the default. Choose **Read & write** for create/update requests, and explicitly tick **Also allow deleting and archiving records** if needed. Under **Security restrictions**, optionally enter allowed IP addresses or CIDR networks, one per line.
-5. Open the **Keys** tab. Copy the **API Key** and the **Login credential decryption password** now. They exist only in this pop-up.
-6. Tick **I have made a copy of the key(s)** and select **Create**.
-
-![The New Key pop-up with expiry, department access, permission and the Keys tab marked 1 to 4](images/admin-accounts/12-new-api-key.png)
-
-*Figure 12 — The New Key pop-up, filled in with example values. (1) Expiration Date. (2) Department Access. (3) Permission. (4) The Keys tab.*
-
-Callers send the key in an `X-Api-Key` header. A key cannot read stored credentials; the API refuses that, so use a user token instead.
+1. Select **Add API key**.
+2. Enter a **Name** that says what uses the key, and optionally an expiry date, a description and allowed IP addresses.
+3. Under **Departments**, choose **All departments** or tick the departments the key may see.
+4. Under **Access**, tick what the key may do per area (Read, Write, Delete), or use the **Read only** / **Read & write** presets.
+5. Select **Create key and show secret**. A pop-up shows the **Client ID** and **secret** once, with Copy buttons. Copy the secret now: it cannot be shown again. If it is lost, use **Create secret** or **Rotate secret** on the key.
 
 ### API Docs
 

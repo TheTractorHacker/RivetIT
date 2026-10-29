@@ -6,7 +6,7 @@ Server-side endpoints for the RivetIT Android app. They live under `/api/v1/` ne
 
 - **Auth**: `Authorization: Bearer <token>` from `POST /api/v1/auth`. No token or a bad one is `401`.
 - **Module-only (limited) logins** get `403` on all four endpoints (they may only use `me`, `notifications` and their own modules).
-- **Legacy `X-Api-Key`** is refused (`403`) on `approvals`, `service_catalog` and `workflow_tasks` because the decision must be attributable to a person; `ticket_attachments` accepts it like the other ticket endpoints.
+- **API keys (machine clients)** are refused (`403`) on `approvals`, `service_catalog` and `workflow_tasks` because the decision must be attributable to a person; the old `X-Api-Key` header is no longer accepted anywhere.
 - **Permissions** mirror the web pages: catalog and attachments need Tickets (`module_support`, view for GET, edit for POST); workflow tasks need Departments (`module_client`, view for GET, edit for POST; `scope=all` needs edit); approvals need whichever of the two covers the kind. Admin roles pass everything. Department (client) access is enforced on every record, like `enforceClientAccess()`.
 - **Errors** are `{"error": "message"}`. Validation is `422`. Anything the caller may not see is answered like something that does not exist (`404` for approvals/tasks, `403` for tickets/attachments), so ids cannot be probed.
 - Rate limit: the usual per-token limit (300/min).

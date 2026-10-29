@@ -14,7 +14,7 @@ The employee and department feed that this flow's `odoo_employee_id` values come
 
 ## Credentials
 
-One integration client per QMS environment (Administration > Integration clients) with the scopes it needs, normally
+One integration client per QMS environment (Administration > API Keys) with the scopes it needs, normally
 `lms:read lms:assign lms:completions:read lms:evidence:read`. The QMS calls `POST /api/v1/oauth/token` (client credentials),
 caches the 10 minute access token and asks for a new one shortly before it expires. Rotate secrets with the overlap window
 (two secrets may be active at once). The token is valid on `/api/v1/lms/*` only.

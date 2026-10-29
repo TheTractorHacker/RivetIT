@@ -331,6 +331,57 @@ final class IntegrationAuth
         $st->close();
     }
 
+    /**
+     * Permanently deletes a client: its secrets, tokens, department rows, single-sign-on configuration and in-flight sign-in state go with it,
+     * and so does its link in integration_legacy_keys (the migrated-from-an-old-key record). The old api_keys row is left untouched as rollback
+     * data: it authenticates nothing (the X-Api-Key header is not accepted any more), so nothing needs to keep it from being converted again.
+     *
+     * @return bool false when the client does not exist
+     */
+    public static function deleteClient(\mysqli $db, int $clientId): bool
+    {
+        $db->begin_transaction();
+        try {
+            $st = $db->prepare('SELECT client_id FROM integration_clients WHERE client_id = ? FOR UPDATE');
+            $st->bind_param('i', $clientId);
+            $st->execute();
+            $found = $st->get_result()->fetch_assoc();
+            $st->close();
+            if (!$found) {
+                $db->rollback();
+                return false;
+            }
+            $tableExists = static function (string $t) use ($db): bool {
+                $r = $db->query("SHOW TABLES LIKE '" . $db->real_escape_string($t) . "'");
+                return $r && $r->num_rows > 0;
+            };
+            foreach ([['oidc_pending', 'opend_client_id'], ['oidc_codes', 'ocode_client_id'], ['oidc_tokens', 'otok_client_id'], ['oidc_client_config', 'ocfg_client_id'],
+                      ['integration_tokens', 'token_client_id'], ['integration_client_secrets', 'secret_client_id'], ['integration_client_departments', 'client_id']] as [$t, $col]) {
+                if ($tableExists($t)) {
+                    $st = $db->prepare("DELETE FROM `$t` WHERE `$col` = ?");
+                    $st->bind_param('i', $clientId);
+                    $st->execute();
+                    $st->close();
+                }
+            }
+            if ($tableExists('integration_legacy_keys')) {
+                $st = $db->prepare('DELETE FROM integration_legacy_keys WHERE lk_client_id = ?');
+                $st->bind_param('i', $clientId);
+                $st->execute();
+                $st->close();
+            }
+            $st = $db->prepare('DELETE FROM integration_clients WHERE client_id = ?');
+            $st->bind_param('i', $clientId);
+            $st->execute();
+            $st->close();
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+        return true;
+    }
+
     // ---- client authentication at the token endpoint ---------------------------------------------------------------------
 
     /**

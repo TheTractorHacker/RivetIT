@@ -130,7 +130,7 @@ The validated request is stored in `oidc_pending`, keyed by the SHA-256 of a 256
 
 Administration > **Single sign-on provider** (`admin/sso_provider.php`): the kill switch, maximum portal sign-in age, ID token and access token lifetimes (bounded), the issuer and discovery URL (with a copy button), the Datum registration (redirect URIs, login-initiation URL, whether the display name is shared), the active signing key id with a **Rotate** button, and the 50 most recent sign-in events. Every change needs a CSRF token and an administrator, and is audited.
 
-Registering Datum: create an integration client (Administration > Integration clients) with the **`sso`** capability (add `lms:*` scopes only if Datum also calls the training API); copy the client id and secret once; then on the SSO page enter its redirect URIs and the login address. The login address is validated at save time (https only, no userinfo or fragment, and the existing `UrlPolicy`: public addresses plus networks listed under Internal network access; loopback, link-local and metadata addresses never). The portal's **Open Quality** button opens it; it is hidden while the provider is off, when no client has a login address, in the admin preview and on a kiosk.
+Registering Datum: create an integration client (Administration > API Keys) with the **`sso`** capability (add `lms:*` scopes only if Datum also calls the training API); copy the client id and secret once; then on the SSO page enter its redirect URIs and the login address. The login address is validated at save time (https only, no userinfo or fragment, and the existing `UrlPolicy`: public addresses plus networks listed under Internal network access; loopback, link-local and metadata addresses never). The portal's **Open Quality** button opens it; it is hidden while the provider is off, when no client has a login address, in the admin preview and on a kiosk.
 
 The `sso` capability is a property of the client, not an API scope: `POST /api/v1/oauth/token` never puts it in a token, and a client that holds only `sso` cannot obtain an API token at all.
 
@@ -180,7 +180,7 @@ ES256 key pair, generated on first use, one `kid` (16 hex characters). The priva
 6. Identify the person only by `sub` (Odoo employee id) and `rivetit_id`. Never by `name` or by an email. Someone Datum cannot match goes to the review queue; Datum does not create an account from the token alone.
 7. Start Datum's own short session (secure, HttpOnly, SameSite=Lax cookie, new session id at sign-in). Do not share cookies or passwords with RivetIT. Log out locally; there is no RivetIT logout endpoint.
 8. Treat the ID token as a one-time proof of sign-in: do not store it, do not use it as a session or API credential. If Datum wants to refresh the person's status, call `/oidc/userinfo` with the access token within its 5 minute life; a 401 means the person is no longer allowed.
-9. Keep the client secret in a secret store, rotate it with the overlap feature on the Integration clients page, and alert on repeated `invalid_client`.
+9. Keep the client secret in a secret store, rotate it with the overlap feature on the API Keys page, and alert on repeated `invalid_client`.
 
 ## Server step (administrator)
 

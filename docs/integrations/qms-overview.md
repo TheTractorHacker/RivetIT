@@ -16,7 +16,7 @@ RivetIT does not become a quality management system. A separate open-source QMS 
 |---|---|
 | Identity flow | Odoo -> RivetIT -> QMS. RivetIT is the hub for Midwest. The QMS also supports direct Odoo and standalone use, but that is not turned on at Midwest. |
 | Shared person key | The Odoo employee ID. Each system also stores its own ID and the others'. People are never matched by name or email alone. |
-| Machine credential | A new integration-client credential (OAuth 2.0 client credentials, short-lived signed tokens, named scopes). Legacy API keys no longer exist as a separate system: they were converted into integration clients (DB 2.6.204) and no integration client runs as an administrator. |
+| Machine credential | A new integration-client credential (OAuth 2.0 client credentials, short-lived signed tokens, named scopes). The old API keys and the `X-Api-Key` header are gone: keys were converted into API keys without a secret (DB 2.6.204; an administrator creates one) and no API key runs as an administrator. |
 | Per-user authorization | A service token identifies the calling system only. Every employee-facing request carries a per-user context, and the QMS and RivetIT each enforce their own rules. A service token never widens what a user may see. |
 | Module state | Enforced on the server: routes, API, cron, workers and event processing all re-check the setting. The UI hides things as a convenience only. |
 | Module switch | `settings.config_module_enable_quality`. QMS URL, secrets and intervals live in side tables because `settings` is near the MariaDB row-size limit. |
