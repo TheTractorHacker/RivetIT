@@ -98,7 +98,7 @@ if ($resource === 'branding') {
 }
 
 // Public endpoint: OAuth2 client-credentials token for integration clients (POST /api/v1/oauth/token). Rate limits, throttling and
-// audit are inside oauth.php; the access token it issues is accepted only on /api/v1/lms (see the integration block below).
+// audit are inside oauth.php; the access token it issues is accepted only on /api/v1/lms, /employees and /departments (see the integration block below).
 if ($resource === 'oauth') {
     require __DIR__ . '/oauth.php';
     exit;
@@ -181,8 +181,8 @@ if (empty($authHeader) && function_exists('getallheaders')) {
 // Integration clients (the QMS; Administration > Integration clients): a Bearer value shaped like a JWT is an integration access token,
 // never an api_tokens row. It is decided HERE, before the api_tokens lookup, the legacy X-Api-Key path and the user-session setup below:
 //   - invalid / expired / revoked / wrong audience  -> 401, never falls through to another auth method;
-//   - valid, but not an /api/v1/lms route           -> 403 for EVERY other route (this is the only place an integration token is read);
-//   - valid on /lms                                 -> handled entirely by lms.php with no $api_user_id, no session user, no user permissions.
+//   - valid, but not an /lms, /employees or /departments route -> 403 for EVERY other route (this is the only place an integration token is read);
+//   - valid on /lms, /employees, /departments      -> handled entirely by lms.php / directory.php with no $api_user_id, no session user, no user permissions.
 if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\IntegrationAuth::looksLikeToken($im[1])) {
     $int_ip = (string) getIP();
     try {
@@ -200,8 +200,9 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
         \ITFlow\Integration\IntegrationAuth::audit($mysqli, 'Integration Token', 'Rejected', 'Access token rejected: ' . $int_auth['reason'], 0, $int_ip);
         \ITFlow\Integration\ApiResponse::error(401, 'invalid_token', 'The access token is missing, invalid or expired.');
     }
-    if ($resource !== 'lms') {
-        \ITFlow\Integration\ApiResponse::error(403, 'forbidden', 'Integration access tokens are only accepted on /api/v1/lms.');
+    $int_directory = ($resource === 'employees' || $resource === 'departments');
+    if ($resource !== 'lms' && !$int_directory) {
+        \ITFlow\Integration\ApiResponse::error(403, 'forbidden', 'Integration access tokens are only accepted on /api/v1/lms, /api/v1/employees and /api/v1/departments.');
     }
     $integration_client = $int_auth['client'];
     $integration_scopes = $int_auth['scopes'];
@@ -209,11 +210,16 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
         header('Retry-After: ' . api_rate_limit_retry_after());
         \ITFlow\Integration\ApiResponse::error(429, 'rate_limited', 'Rate limit exceeded.');
     }
+    if ($int_directory) {
+        // The directory routes use $segments from the resource on ($segments[0] = employees|departments).
+        require __DIR__ . '/directory.php';
+        exit;
+    }
     require __DIR__ . '/lms.php';
     exit;
 }
-if ($resource === 'lms') {
-    // /lms accepts integration tokens only; no user token, session or legacy key is ever honoured here.
+if ($resource === 'lms' || $resource === 'employees' || $resource === 'departments') {
+    // /lms, /employees and /departments accept integration tokens only; no user token, session or legacy key is ever honoured here.
     \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
 }
 

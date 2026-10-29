@@ -130,6 +130,11 @@ final class LmsApi
         if (isset($q['updated_since'])) {
             $dt = is_string($q['updated_since']) ? \DateTimeImmutable::createFromFormat(\DateTimeInterface::RFC3339, $q['updated_since'])
                 ?: \DateTimeImmutable::createFromFormat(\DateTimeInterface::RFC3339_EXTENDED, $q['updated_since']) : false;
+            // createFromFormat() silently rolls an impossible date (month 13, day 45) over; refuse it instead.
+            $warn = \DateTimeImmutable::getLastErrors();
+            if ($dt !== false && is_array($warn) && ($warn['warning_count'] ?? 0) > 0) {
+                $dt = false;
+            }
             if ($dt === false) {
                 throw new LmsApiException(400, 'invalid_updated_since', 'updated_since must be an RFC 3339 timestamp, e.g. 2026-10-01T00:00:00Z.');
             }

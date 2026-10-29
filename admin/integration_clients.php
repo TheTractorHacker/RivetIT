@@ -10,7 +10,7 @@ $ic_scope_help = [
     'lms:assign' => 'Create (or reuse) training assignments',
     'lms:completions:read' => 'Read training completions',
     'lms:evidence:read' => 'Download completion evidence files',
-    'directory:read' => 'Read the employee and department directory (reserved; not served yet)',
+    'directory:read' => 'Read the employee and department directory (names, work email, job title, Odoo ids, employment status)',
     'quality:events' => 'Send signed events to RivetIT (reserved; not served yet)',
 ];
 
