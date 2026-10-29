@@ -30,6 +30,19 @@ final class PortalResume
         return (new OidcProvider($db, $cfg))->loadPending($id) !== null ? self::PATH : null;
     }
 
+    /**
+     * After an AGENT sign-in (password, passkey or company sign-in): back to /oidc/authorize when that sign-in was started by it and this
+     * login is allowed to open Quality as an administrator. Anyone else goes to their normal start page - an agent who is not an
+     * administrator is never detoured to a refusal page.
+     */
+    public static function agentResumeUrl(\mysqli $db, array $cookies, int $userId): ?string
+    {
+        if ($userId <= 0 || self::resumeUrl($db, $cookies) === null) {
+            return null;
+        }
+        return QualityAccessPolicy::allows(QualityAccessPolicy::administratorPrincipal($userId), $db)['ok'] ? self::PATH : null;
+    }
+
     public static function openQualityUrl(\mysqli $db): ?string
     {
         return OidcConfig::portalLoginUrl($db);

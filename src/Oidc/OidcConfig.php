@@ -32,7 +32,7 @@ final class OidcConfig
     /** @return array{enabled:bool, max_auth_age_minutes:int, id_token_ttl:int, access_token_ttl:int, table_ready:bool} */
     public static function load(\mysqli $db): array
     {
-        $out = ['enabled' => false, 'max_auth_age_minutes' => 480, 'id_token_ttl' => 300, 'access_token_ttl' => 300, 'table_ready' => false];
+        $out = ['enabled' => false, 'allow_admins' => true, 'max_auth_age_minutes' => 480, 'id_token_ttl' => 300, 'access_token_ttl' => 300, 'table_ready' => false];
         try {
             $res = $db->query('SELECT ops_enabled, ops_max_auth_age_minutes, ops_id_token_ttl, ops_access_token_ttl FROM oidc_provider_settings WHERE ops_id = 1');
             $row = $res ? $res->fetch_assoc() : null;
@@ -47,6 +47,14 @@ final class OidcConfig
         $out['max_auth_age_minutes'] = self::clamp((int) $row['ops_max_auth_age_minutes'], self::MAX_AGE_MIN, self::MAX_AGE_MAX);
         $out['id_token_ttl'] = self::clamp((int) $row['ops_id_token_ttl'], self::ID_TOKEN_TTL_MIN, self::ID_TOKEN_TTL_MAX);
         $out['access_token_ttl'] = self::clamp((int) $row['ops_access_token_ttl'], self::ACCESS_TOKEN_TTL_MIN, self::ACCESS_TOKEN_TTL_MAX);
+        // DB 2.6.206. Read on its own so that new code on a database that has not been updated yet keeps the provider working (and administrators allowed).
+        try {
+            $r2 = $db->query('SELECT ops_allow_admins FROM oidc_provider_settings WHERE ops_id = 1');
+            $row2 = $r2 ? $r2->fetch_assoc() : null;
+            $out['allow_admins'] = $row2 === null || (int) $row2['ops_allow_admins'] === 1;
+        } catch (\Throwable) {
+            $out['allow_admins'] = true;
+        }
         return $out;
     }
 
@@ -65,7 +73,7 @@ final class OidcConfig
         return IntegrationAuth::issuer();
     }
 
-    public static function saveSettings(\mysqli $db, bool $enabled, int $maxAgeMinutes, int $idTokenTtl, int $accessTokenTtl, int $userId): void
+    public static function saveSettings(\mysqli $db, bool $enabled, int $maxAgeMinutes, int $idTokenTtl, int $accessTokenTtl, int $userId, bool $allowAdmins = true): void
     {
         $e = $enabled ? 1 : 0;
         $a = self::clamp($maxAgeMinutes, self::MAX_AGE_MIN, self::MAX_AGE_MAX);
@@ -75,6 +83,11 @@ final class OidcConfig
         $st->bind_param('iiiii', $e, $a, $i, $t, $userId);
         $st->execute();
         $st->close();
+        try {
+            $aa = $allowAdmins ? 1 : 0;
+            $db->query("UPDATE oidc_provider_settings SET ops_allow_admins = $aa WHERE ops_id = 1");   // column arrives with DB 2.6.206
+        } catch (\Throwable) {
+        }
     }
 
     // ---- registered SSO clients ---------------------------------------------------------------------------------------------

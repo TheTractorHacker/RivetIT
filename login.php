@@ -749,7 +749,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         unset($_SESSION['pending_mfa_login']);
                         unset($_SESSION['pending_dual_login']);
 
-                        // Redirect
+                        // Redirect. A sign-in that was started by "Open Quality" (the SSO provider) goes straight back to it.
+                        require_once __DIR__ . '/vendor/autoload.php';
+                        if (($oidc_resume = \ITFlow\Oidc\PortalResume::agentResumeUrl($mysqli, $_COOKIE, intval($user_id))) !== null) {
+                            redirect($oidc_resume);
+                        }
                         if (isset($_GET['last_visited']) && (str_starts_with(base64_decode($_GET['last_visited']), '/agent') || str_starts_with(base64_decode($_GET['last_visited']), '/admin') || str_starts_with(base64_decode($_GET['last_visited']), '/oauth/authorize.php?'))) {
                             redirect($_SERVER["REQUEST_SCHEME"] . "://" . $config_base_url . base64_decode($_GET['last_visited']));
                         } else {

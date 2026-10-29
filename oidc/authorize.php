@@ -204,7 +204,8 @@ if ($stale) {
         $loginRequired();
     }
     OidcAudit::record($mysqli, 'authorize', 'info', 'reauth_prompt', $clientId, $contactId);
-    OidcPages::reauth((string) ($_SESSION['csrf_token'] ?? ''));
+    $whoRow = $mysqli->query('SELECT user_name FROM users WHERE user_id = ' . (int) $sess['user_id'])->fetch_assoc();
+    OidcPages::reauth((string) ($_SESSION['csrf_token'] ?? ''), (string) ($whoRow['user_name'] ?? ''));
 }
 
 // ---- issue the code -----------------------------------------------------------------------------------------------------------------------------

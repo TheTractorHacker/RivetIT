@@ -12186,3 +12186,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN IF NOT EXISTS `ticket_billable_overridden` TINYINT(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.205'");
     }
+
+    if ($rivetit_db_version() == '2.6.205') {
+        // DB 2.6.206: switch for "administrators can open Quality" (single sign-on provider). Default ON, so an install that already uses the
+        // provider keeps working for its administrators; switch it off on Administration > Single sign-on provider. Idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `oidc_provider_settings` ADD COLUMN IF NOT EXISTS `ops_allow_admins` TINYINT(1) NOT NULL DEFAULT 1 AFTER `ops_enabled`");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.206'");
+    }

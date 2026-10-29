@@ -40,8 +40,9 @@ if (isset($_POST['save_sso_settings'])) {
         flash_alert('The server base URL is not set, so single sign-on cannot be switched on.', 'danger');
         redirect('/admin/sso_provider.php');
     }
-    OidcConfig::saveSettings($mysqli, $enabled, $age, $idTtl, $atTtl, intval($session_user_id));
-    logAction('SSO Provider', 'Settings', "$session_name set single sign-on " . ($enabled ? 'on' : 'off') . "; maximum portal sign-in age $age min, ID token $idTtl s, access token $atTtl s");
+    $allowAdmins = !empty($_POST['allow_admins']);
+    OidcConfig::saveSettings($mysqli, $enabled, $age, $idTtl, $atTtl, intval($session_user_id), $allowAdmins);
+    logAction('SSO Provider', 'Settings', "$session_name set single sign-on " . ($enabled ? 'on' : 'off') . "; administrators " . ($allowAdmins ? 'may' : 'may not') . " open Quality; maximum portal sign-in age $age min, ID token $idTtl s, access token $atTtl s");
     OidcAudit::record($mysqli, 'admin', 'ok', $enabled ? 'enabled' : 'disabled', 0, 0, "by user #" . intval($session_user_id));
     flash_alert('Single sign-on settings saved. Single sign-on is <strong>' . ($enabled ? 'on' : 'off') . '</strong>.');
     redirect('/admin/sso_provider.php');

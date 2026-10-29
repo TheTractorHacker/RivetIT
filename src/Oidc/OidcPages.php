@@ -31,16 +31,22 @@ final class OidcPages
         exit;
     }
 
-    /** The "sign in again" prompt. $csrf is the session CSRF token. A POST destroys the portal session and sends the person to the sign-in page. */
-    public static function reauth(string $csrf): never
+    /**
+     * The "sign in again" prompt. $csrf is the session CSRF token; $who is the signed-in person's display name (from the database, escaped here).
+     * A POST destroys the session and sends the person to the sign-in page, which brings them straight back to /oidc/authorize.
+     */
+    public static function reauth(string $csrf, string $who = ''): never
     {
         self::headers();
         http_response_code(200);
-        $body = '<p>For your security, please sign in again before continuing to Quality.</p>'
+        $lock = '<svg class="ico" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+        $body = '<p>Quality asks for a recent sign-in before it opens. Sign in again and you will go straight to Quality; nothing else changes.</p>'
+            . ($who !== '' ? '<p class="who">Signed in as <strong>' . self::h($who) . '</strong></p>' : '')
             . '<form method="post" action="/oidc/authorize"><input type="hidden" name="csrf_token" value="' . self::h($csrf) . '">'
-            . '<input type="hidden" name="action" value="reauth"><div class="row"><button class="go" type="submit">Sign in again</button></div></form>'
-            . '<p class="muted">You will return here automatically after you sign in.</p>';
-        echo self::shell('Confirm it is you', $body);
+            . '<input type="hidden" name="action" value="reauth"><div class="row"><button class="go" type="submit">Sign in again</button>'
+            . '<a class="alt" href="/">Cancel</a></div></form>'
+            . '<p class="muted">You will be taken to the sign-in page and brought back here automatically.</p>';
+        echo self::shell('Confirm it is you', $body, $lock);
         exit;
     }
 
@@ -49,7 +55,7 @@ final class OidcPages
         return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private static function shell(string $headline, string $body): string
+    private static function shell(string $headline, string $body, string $icon = ''): string
     {
         $app = defined('APP_NAME') ? (string) APP_NAME : 'RivetIT';
         return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -58,7 +64,7 @@ final class OidcPages
             . '@media (prefers-color-scheme:dark){:root{--bg:#10141b;--fg:#e6eaf1;--muted:#9aa5b6;--card:#181e28;--line:#2a3342;--accent:#2dd4bf;--accent-fg:#06201d}}'
             . '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px}'
             . '.card{max-width:32rem;margin:8vh auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}'
-            . 'h1{font-size:1.25rem;margin:0 0 .75rem}p{margin:.5rem 0}.muted{color:var(--muted);font-size:.9rem}.row{margin-top:1.2rem}'
+            . 'h1{font-size:1.3rem;margin:0 0 .75rem;display:flex;align-items:center;gap:.6rem}.ico{color:var(--accent);flex:none}.who{color:var(--muted)}.alt{margin-left:14px;color:var(--muted);text-decoration:underline}.row{display:flex;align-items:center;flex-wrap:wrap}p{margin:.5rem 0}.muted{color:var(--muted);font-size:.9rem}.row{margin-top:1.2rem}'
             . 'button{font:inherit;cursor:pointer;border-radius:8px;padding:10px 18px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:600}'
             . '</style></head><body><main class="card"><h1>' . self::h($headline) . '</h1>' . $body . '</main></body></html>';
     }

@@ -2460,6 +2460,7 @@ DROP TABLE IF EXISTS `oidc_provider_settings`;
 CREATE TABLE `oidc_provider_settings` (
   `ops_id` tinyint(4) NOT NULL DEFAULT 1,
   `ops_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `ops_allow_admins` tinyint(1) NOT NULL DEFAULT 1,
   `ops_max_auth_age_minutes` smallint(6) NOT NULL DEFAULT 480,
   `ops_id_token_ttl` smallint(6) NOT NULL DEFAULT 300,
   `ops_access_token_ttl` smallint(6) NOT NULL DEFAULT 300,

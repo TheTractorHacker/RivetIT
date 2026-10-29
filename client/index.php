@@ -436,6 +436,9 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
             if (empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
                 $portal_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
+                if (!empty($portal_preview_active) && !\ITFlow\Oidc\OidcConfig::load($mysqli)['allow_admins']) {
+                    $portal_quality_url = null;   // the previewing person is an administrator, and administrators are switched off
+                }
             }
             if ($portal_quality_url !== null) { ?>
                 <a href="<?= nullable_htmlentities($portal_quality_url) ?>" class="portal-tile" rel="noopener noreferrer"><span class="portal-tile-icon"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>Open Quality</a>

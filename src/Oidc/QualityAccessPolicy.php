@@ -144,6 +144,9 @@ final class QualityAccessPolicy
         if ($userId <= 0) {
             return $no('admin_not_found');
         }
+        if (!OidcConfig::load($db)['allow_admins']) {
+            return $no('admins_not_allowed');
+        }
         $st = $db->prepare('SELECT u.user_type, u.user_status, u.user_archived_at, u.user_token, r.role_is_admin, r.role_archived_at,
                 (SELECT us.user_config_force_mfa FROM user_settings us WHERE us.user_id = u.user_id LIMIT 1) AS force_mfa
             FROM users u LEFT JOIN user_roles r ON r.role_id = u.user_role_id WHERE u.user_id = ?');

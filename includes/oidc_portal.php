@@ -307,6 +307,8 @@ function agentOidcSignIn(array $account): void
     $_SESSION['logged']       = true;
     $_SESSION['user_type']    = 1;
     $_SESSION['login_method'] = 'oidc';
+    $_SESSION['agent_auth_time'] = time();   // see login.php: the SSO provider asks for a fresh sign-in once this is old
+    $_SESSION['agent_amr']       = 'fed';
     session_regenerate_id(true);
 
     $start = (string) (mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_start_page FROM settings WHERE company_id = 1 LIMIT 1'))['config_start_page'] ?? 'dashboard.php');
@@ -315,6 +317,8 @@ function agentOidcSignIn(array $account): void
     } elseif (function_exists('itflow_limited_home_url_for_user') && ($limited = itflow_limited_home_url_for_user($user_id)) !== null) {
         $start = substr($limited, strlen('/agent/'));
     }
-    header('Location: /agent/' . ltrim($start, '/'), true, 303);
+    require_once __DIR__ . '/../vendor/autoload.php';
+    $oidc_resume = \ITFlow\Oidc\PortalResume::agentResumeUrl($mysqli, $_COOKIE, (int) $user_id);
+    header('Location: ' . ($oidc_resume ?? '/agent/' . ltrim($start, '/')), true, 303);
     exit;
 }

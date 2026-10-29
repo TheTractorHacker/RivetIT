@@ -202,6 +202,20 @@ ob_start();
                 <div class="py-1">
                     <?php if ($session_is_admin) { ?>
                         <a href="/admin/" class="dropdown-item"><i class="fas fa-fw fa-user-shield me-2"></i>Administration</a>
+                        <?php
+                        // Single sign-on to Quality for administrators (QualityAccessPolicy decides at /oidc/authorize): shown only while the provider is on,
+                        // the setting allows administrators and a Quality login address is saved.
+                        $nav_quality_url = null;
+                        try {
+                            require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+                            if (\ITFlow\Oidc\OidcConfig::load($mysqli)['allow_admins']) {
+                                $nav_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
+                            }
+                        } catch (\Throwable) {
+                        }
+                        if ($nav_quality_url !== null) { ?>
+                            <a href="<?= nullable_htmlentities($nav_quality_url) ?>" class="dropdown-item" rel="noopener noreferrer"><i class="fas fa-fw fa-clipboard-check me-2"></i>Open Quality</a>
+                        <?php } ?>
                     <?php } ?>
                     <?php if (intval($session_user_type ?? 1) === 2) { ?>
                         <a href="/client/index.php" class="dropdown-item"><i class="fas fa-fw fa-arrow-left me-2"></i>Back to portal</a>

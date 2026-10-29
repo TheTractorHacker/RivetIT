@@ -48,6 +48,11 @@ if ($sso_tables_ok) {
                 <label class="form-check-label" for="ssoEnabled"><strong>Single sign-on is on</strong>
                     <span class="text-muted">(the kill switch: off ends sign-ins and token exchanges at once and hides the portal button)</span></label>
             </div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="ssoAllowAdmins" name="allow_admins" value="1"<?php echo !empty($sso_cfg['allow_admins']) ? ' checked' : ''; ?>>
+                <label class="form-check-label" for="ssoAllowAdmins"><strong>Let administrators open Quality</strong>
+                    <span class="text-muted">(adds <strong>Open Quality</strong> to the administrator account menu and the department preview; administrators sign in as themselves, no department)</span></label>
+            </div>
             <div class="row g-3">
                 <div class="col-md-4"><label class="form-label">Longest portal sign-in age (minutes)</label>
                     <input type="number" class="form-control" name="max_auth_age" min="<?php echo OidcConfig::MAX_AGE_MIN; ?>" max="<?php echo OidcConfig::MAX_AGE_MAX; ?>" value="<?php echo intval($sso_cfg['max_auth_age_minutes']); ?>">

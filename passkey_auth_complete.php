@@ -88,6 +88,8 @@ try {
     $_SESSION['user_id']    = $userId;
     $_SESSION['csrf_token'] = randomString(32);
     $_SESSION['logged']     = true;
+    $_SESSION['agent_auth_time'] = time();   // see login.php: the SSO provider asks for a fresh sign-in once this is old
+    $_SESSION['agent_amr']       = 'hwk';
     session_regenerate_id(true);
 
     $user_name  = sanitizeInput($userRow['user_name']);
@@ -160,7 +162,9 @@ try {
     // Roles audit P0: a module-only login lands on its own module; everyone else on the start page.
     $limited_home = itflow_limited_home_url_for_user(intval($userId));
 
-    echo json_encode(['ok' => true, 'redirect' => $limited_home ?? "/agent/$start"]);
+    require_once __DIR__ . '/vendor/autoload.php';
+    $oidc_resume = \ITFlow\Oidc\PortalResume::agentResumeUrl($mysqli, $_COOKIE, intval($userId));
+    echo json_encode(['ok' => true, 'redirect' => $oidc_resume ?? $limited_home ?? "/agent/$start"]);
 
 } catch (Throwable $e) {
     $session_user_id = $userId;
