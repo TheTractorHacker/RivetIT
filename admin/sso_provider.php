@@ -80,7 +80,7 @@ if ($sso_tables_ok) {
             }
         }
         if (!$sso_clients) { ?>
-            <div class="alert alert-info">No client can sign people in yet. Create one under <a href="/admin/integration_clients.php">Integration clients</a> and tick the
+            <div class="alert alert-info">No API key can sign people in yet. Create one under <a href="/admin/api_keys.php">API Keys</a> and tick the
                 <code>sso</code> capability (add the LMS scopes only if the same system also needs the training API). Then come back to register its addresses.</div>
         <?php }
         foreach ($sso_clients as $c) { $cid = intval($c['client_id']); ?>

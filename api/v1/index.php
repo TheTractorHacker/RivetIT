@@ -178,13 +178,13 @@ if (empty($authHeader) && function_exists('getallheaders')) {
     $authHeader = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
 }
 
-// ONE machine-authentication path (Administration > Integration clients). A machine caller is an integration client, whichever way it
+// ONE machine-authentication path (Administration > API Keys). A machine caller is an integration client, whichever way it
 // presents itself:
 //   1. "Authorization: Bearer <access token>" - the signed 10 minute token from POST /api/v1/oauth/token (Client ID + secret). A value
 //      shaped like a JWT is decided HERE, before the api_tokens lookup and the user-session setup: invalid / expired / revoked / wrong
 //      audience -> 401, and it never falls through to another auth method;
 //   2. "X-Api-Key: <key>" - DEPRECATED. A legacy API key that was converted to an integration client (DB 2.6.204) resolves to that client and
-//      from here on is indistinguishable from case 1. It can be switched off (Administration > Integration clients).
+//      from here on is indistinguishable from case 1. It can be switched off (Administration > API Keys).
 // Both produce the same context ($integration_client, $integration_scopes, department scope) and both go through the same checks below:
 // the route's scope, the department scope, the IP allow-list, the per-client rate limit and the audit trail. There is no second rule set.
 // User-session Bearer tokens (api_tokens: a signed-in PERSON in the mobile app) are a different thing and are handled further down, unchanged.

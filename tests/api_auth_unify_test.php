@@ -745,29 +745,59 @@ function areq(string $method, string $path, array $form = [], ?string $referer =
 areq('GET', '/login.php');
 [$st] = areq('POST', '/login.php', ['email' => 'admin@scratch.test', 'password' => $pw, 'login' => '1']);
 ok(in_array($st, [302, 303], true), 'scratch admin logs in', "HTTP $st");
-[$st, $html] = areq('GET', '/admin/integration_clients.php');
+// The old URL is only a redirect to the canonical page (query string kept), and answers before any login is needed
+[$st, , $loc] = areq('GET', '/admin/integration_clients.php?x=1');
+ok(in_array($st, [301, 302], true) && $loc === '/admin/api_keys.php?x=1', 'Administration > Integration clients redirects to /admin/api_keys.php', "HTTP $st $loc");
+[$st, $html] = areq('GET', '/admin/api_keys.php');
 preg_match('/name="csrf_token" value="([^"]+)"/', $html, $cm2);
 $csrf = $cm2[1] ?? '';
-ok($st === 200 && str_contains($html, 'uses the old X-Api-Key header'), 'the unified page flags migrated clients that use the old header');
-ok(str_contains($html, 'key read_all') && str_contains($html, 'Last used'), 'migrated clients are listed with their last use');
-ok(str_contains($html, 'api:tickets:read') && str_contains($html, 'Tickets'), 'the general API scopes are offered, per resource');
+ok($st === 200 && str_contains($html, '<title>') && str_contains($html, 'Old X-Api-Key header'), 'the unified API Keys page flags migrated keys that use the old header');
+ok(str_contains($html, 'key read_all') && str_contains($html, 'Last used'), 'migrated keys are listed with their last use');
+ok(str_contains($html, 'Read only: 20 areas') && str_contains($html, 'Read &amp; write: 20 areas') && !str_contains($html, 'api alerts: read'), 'access is a short summary, not one badge per scope');
+ok(str_contains($html, 'data-ak-confirm="delete"') && str_contains($html, 'id="akConfirm"') && !str_contains($html, 'return confirm('), 'revoke / delete use the in-page confirmation pop-up, not the browser confirm()');
+ok(!str_contains($html, 'Integration clients') && !str_contains($html, 'integration_clients.php'), 'no user-facing "Integration clients" wording or link remains on the page');
 ok(str_contains($html, 'legacy_header_enabled') && str_contains($html, 'Switch off'), 'the page offers the deprecation switch and removal date');
 ok(!str_contains($html, $K['read_all'][0]) && !str_contains($html, hash('sha256', $K['read_all'][0])), 'the page never shows a legacy key or its hash');
-$ref = 'http://127.0.0.1:8096/admin/integration_clients.php';
+[$st, $rawAdd] = areq('GET', '/admin/modals/api/api_key_add.php');
+$addJson = json_decode($rawAdd, true)['content'] ?? '';
+ok($st === 200 && str_contains($addJson, 'api:tickets:read') && str_contains($addJson, 'Tickets') && str_contains($addJson, 'data-ak-preset="readwrite"'), 'the Add API key pop-up offers the general API scopes per area, with presets');
+$ref = 'http://127.0.0.1:8096/admin/api_keys.php';
 [$st, , $loc] = areq('POST', '/admin/post.php', ['add_integration_client' => 1, 'name' => 'UI general', 'scopes' => ['api:tickets:read', 'api:contacts:read', 'api:tickets:*', '*', 'api:bogus:read'], 'csrf_token' => $csrf, 'dept_mode' => 'selected', 'departments' => [(string) $D['A'], (string) $D['B']]], $ref);
+ok($loc === '/admin/api_keys.php', 'creating a key returns to /admin/api_keys.php', (string) $loc);
 $row = q($db, "SELECT * FROM integration_clients WHERE client_name = 'UI general'")[0] ?? null;
 $rs = $row ? IntegrationAuth::parseScopes((string) $row['client_scopes']) : [];
 sort($rs);
 ok($row && $rs === ['api:contacts:read', 'api:tickets:read'] && !str_contains((string) $row['client_scopes'], '*'), 'create via the page: general scopes saved, wildcard and unknown scopes dropped');
-ok($row && IntegrationScope::allowedDepartmentIds($db, $row) === [$D['A'], $D['B']], 'create via the page: department multi-select saved');
-[$st, $html2] = areq('GET', '/admin/integration_clients.php');
-preg_match('/Client secret<\/label>\s*<input[^>]*value="(rvs_[^"]+)"/', $html2, $sm);
+ok($row && IntegrationScope::allowedDepartmentIds($db, $row) === [$D['A'], $D['B']], 'create via the page: department selection saved');
+// the one-time secret: shown in the rendered page right after Create key, copyable, hash-only in the database, gone on the next load
+[$st, $html2] = areq('GET', '/admin/api_keys.php');
+preg_match('/id="akSecretValue"[^>]*>(rvs_[^<]+)</', $html2, $sm);
 $uiSecret = $sm[1] ?? '';
+ok($uiSecret !== '' && str_contains($html2, 'data-ak-copy="akSecretValue"') && str_contains($html2, 'id="akSecretModal"') && str_contains($html2, 'shown once'), 'Create key: the one-time secret is in the page with a Copy button and a "shown once" warning');
+$secRow = q($db, 'SELECT * FROM integration_client_secrets WHERE secret_client_id = ' . (int) $row['client_id'])[0] ?? [];
+ok($uiSecret !== '' && ($secRow['secret_hash'] ?? '') !== $uiSecret && password_verify($uiSecret, (string) ($secRow['secret_hash'] ?? '')) && !in_array($uiSecret, array_map('strval', $secRow), true), 'Create key: only a hash of the secret is stored');
+[, $htmlAgain] = areq('GET', '/admin/api_keys.php');
+ok(!str_contains($htmlAgain, 'akSecretModal') && !str_contains($htmlAgain, $uiSecret), 'the secret is not shown a second time');
 $tokUi = tokenFor((string) $row['client_uid'], $uiSecret);
 [$st, , $j] = api('GET', 'tickets?limit=50', bearer($tokUi));
-ok($st === 200 && names($j, 'client') === $expNames([$D['A'], $D['B']]), 'a client created on the page works on the general API within its departments');
+ok($st === 200 && names($j, 'client') === $expNames([$D['A'], $D['B']]), 'a key created on the page works on the general API within its departments');
 [$st, , $loc] = areq('POST', '/admin/post.php', ['add_integration_client' => 1, 'name' => 'UI bad', 'scopes' => ['api:tickets:read'], 'csrf_token' => $csrf], $ref);
 ok((int) q1($db, "SELECT COUNT(*) FROM integration_clients WHERE client_name = 'UI bad'") === 0, 'create without a department choice is refused');
+// Create secret on a migrated key (no secret yet), then Rotate: both show the secret the same way
+$migId = (int) $clientOf('read_all')['client_id'];
+$db->query("DELETE FROM integration_client_secrets WHERE secret_client_id = $migId");
+[, , $loc] = areq('POST', '/admin/post.php', ['rotate_integration_secret' => 1, 'client_id' => $migId, 'overlap_hours' => 24, 'csrf_token' => $csrf], $ref);
+[, $htmlCs] = areq('GET', '/admin/api_keys.php');
+preg_match('/id="akSecretValue"[^>]*>(rvs_[^<]+)</', $htmlCs, $sm2);
+$csSecret = $sm2[1] ?? '';
+$csRow = q($db, "SELECT * FROM integration_client_secrets WHERE secret_client_id = $migId ORDER BY secret_id DESC")[0] ?? [];
+ok($loc === '/admin/api_keys.php' && $csSecret !== '' && str_contains($htmlCs, 'data-ak-copy="akSecretValue"'), 'Create secret on a migrated key shows the new secret in the page');
+ok($csSecret !== '' && password_verify($csSecret, (string) ($csRow['secret_hash'] ?? '')) && ($csRow['secret_hash'] ?? '') !== $csSecret, 'Create secret: only a hash is stored');
+areq('POST', '/admin/post.php', ['rotate_integration_secret' => 1, 'client_id' => $migId, 'overlap_hours' => 1, 'csrf_token' => $csrf], 'http://127.0.0.1:8096/admin/integration_clients.php');   // old Referer still reaches the handler
+[, $htmlRot] = areq('GET', '/admin/api_keys.php');
+preg_match('/id="akSecretValue"[^>]*>(rvs_[^<]+)</', $htmlRot, $sm3);
+ok(($sm3[1] ?? '') !== '' && ($sm3[1] ?? '') !== $csSecret && str_contains($htmlRot, 'New secret created'), 'Rotate secret shows the new secret the same way (also through the old Referer)');
+$db->query("DELETE FROM integration_client_secrets WHERE secret_client_id = $migId");
 // deprecation switch from the page
 [$st] = areq('POST', '/admin/post.php', ['save_legacy_header_policy' => 1, 'csrf_token' => $csrf, 'legacy_header_enabled' => '0', 'legacy_header_sunset' => ''], $ref);
 ok(LegacyKeys::policy($db)['enabled'] === false, 'the admin can switch the old header off from the page');
@@ -778,21 +808,97 @@ ok(LegacyKeys::policy($db)['enabled'] === false, 'the policy form needs a valid 
 $future2 = date('Y-m-d', strtotime('+60 days'));
 [$st] = areq('POST', '/admin/post.php', ['save_legacy_header_policy' => 1, 'csrf_token' => $csrf, 'legacy_header_enabled' => '1', 'legacy_header_sunset' => $future2], $ref);
 ok(LegacyKeys::policy($db)['enabled'] === true && LegacyKeys::policy($db)['sunset'] === $future2, 'switch back on with a removal date');
-[, $html3] = areq('GET', '/admin/integration_clients.php');
+[, $html3] = areq('GET', '/admin/api_keys.php');
 ok(str_contains($html3, $future2), 'the removal date is visible on the page');
-// legacy page
-[$st, $html4] = areq('GET', '/admin/api_keys.php');
-ok($st === 200 && str_contains($html4, 'integration_clients.php') && str_contains($html4, 'Integration clients') && !str_contains($html4, 'New API Key'), 'Administration > API keys is a notice pointing at the unified page, with no create button');
-$ref2 = 'http://127.0.0.1:8096/admin/api_keys.php';
+// the retired legacy-key actions change nothing
 $nKeys = (int) q1($db, 'SELECT COUNT(*) FROM api_keys');
-[$st] = areq('POST', '/admin/post.php', ['add_api_key' => 1, 'name' => 'new legacy', 'expire' => $future, 'permission' => 'write', 'key' => str_repeat('z', 32), 'password' => 'x', 'ack' => 1, 'all_departments' => 1, 'csrf_token' => $csrf], $ref2);
+[$st] = areq('POST', '/admin/post.php', ['add_api_key' => 1, 'name' => 'new legacy', 'expire' => $future, 'permission' => 'write', 'key' => str_repeat('z', 32), 'password' => 'x', 'ack' => 1, 'all_departments' => 1, 'csrf_token' => $csrf], $ref);
 ok((int) q1($db, 'SELECT COUNT(*) FROM api_keys') === $nKeys, 'new legacy API keys can no longer be created');
 areq('GET', '/admin/api_keys.php');
-[$st] = areq('GET', '/admin/post.php?delete_api_key=' . $K['expired'][1] . '&csrf_token=' . $csrf, [], $ref2);
+[$st] = areq('GET', '/admin/post.php?delete_api_key=' . $K['expired'][1] . '&csrf_token=' . $csrf, [], $ref);
 ok((int) q1($db, 'SELECT COUNT(*) FROM api_keys') === $nKeys, 'legacy API key rows are kept (no delete through the old handler)');
-[, $nav] = areq('GET', '/admin/integration_clients.php');
-ok(str_contains($nav, '/admin/api_keys.php') && str_contains($nav, '/admin/integration_clients.php'), 'both side-nav entries still exist');
-ok(str_contains(file_get_contents($ROOT . '/includes/settings_search_index.php'), "'/admin/api_keys.php'") && str_contains(file_get_contents($ROOT . '/includes/settings_search_index.php'), "'/admin/integration_clients.php'"), 'both settings-search entries still exist');
+[, $nav] = areq('GET', '/admin/api_keys.php');
+ok(str_contains($nav, '>API Keys<') && str_contains($nav, '/admin/api_keys.php') && !str_contains($nav, 'API Keys (legacy)'), 'one side-nav entry: API Keys');
+$sidenav = file_get_contents($ROOT . '/admin/includes/side_nav.php');
+$ssi = file_get_contents($ROOT . '/includes/settings_search_index.php');
+ok(!str_contains($sidenav, 'Integration clients') && !str_contains($sidenav, 'integration_clients.php'), 'the side nav no longer lists Integration clients');
+ok(str_contains($ssi, "'label' => 'API Keys'") && str_contains($ssi, "'/admin/api_keys.php'") && !str_contains($ssi, 'integration_clients.php')
+    && str_contains($ssi, "'integration'") && str_contains($ssi, "'oauth'") && str_contains($ssi, "'client credentials'") && str_contains($ssi, "'qms'"), 'settings search: one "API Keys" entry with the integration / oauth / client credentials / qms keywords');
+
+// ---------------------------------------------------------------- 12. access summary helper
+section('Access summary (ApiScopes::summary)');
+$allRes = array_keys(ApiScopes::RESOURCES);
+$mk = static function (array $acts, ?array $res = null) use ($allRes): array {
+    $o = [];
+    foreach ($res ?? $allRes as $r) {
+        foreach ($acts as $a) {
+            $o[] = "api:$r:$a";
+        }
+    }
+    return $o;
+};
+ok(ApiScopes::summary($mk(['read']))['headline'] === 'Read only: 20 areas', 'every area read -> "Read only: 20 areas"');
+ok(ApiScopes::summary($mk(['read', 'write']))['headline'] === 'Read & write: 20 areas', 'every area read+write -> "Read & write: 20 areas"');
+ok(ApiScopes::summary($mk(['read', 'write', 'delete']))['headline'] === 'Read, write & delete: 20 areas', 'every area all three -> "Read, write & delete: 20 areas"');
+ok(ApiScopes::summary($mk(['read'], ['tickets']))['headline'] === 'Read only: 1 area', 'one area is singular');
+$cu = ApiScopes::summary(['api:tickets:read', 'api:tickets:write', 'api:assets:read', 'api:contacts:read', 'api:kb:read']);
+ok($cu['headline'] === 'Custom: Assets (read), Contacts (read) +2' && $cu['areas'] === 4, 'mixed access -> "Custom: Assets (read), Contacts (read) +2"', $cu['headline']);
+$tk = array_values(array_filter($cu['groups'], static fn($g) => $g['resource'] === 'tickets'))[0] ?? [];
+ok(($tk['marks'] ?? '') === 'RW-' && str_contains($cu['text'], 'Tickets (and statuses): read, write'), 'groups carry R / W / D marks and the tooltip text lists every area');
+ok(ApiScopes::summary([])['headline'] === 'No access' && ApiScopes::summary(['lms:read', 'sso'])['extras'] === ['LMS: read', 'Single sign-on'] && ApiScopes::summary(['lms:read'])['headline'] === 'No general API access', 'no scopes / only LMS and sign-in scopes are described plainly');
+ok(ApiScopes::summary(['api:tickets:read', 'api:tickets:read'])['areas'] === 1 && ApiScopes::summary(['api:*:read'])['areas'] === 0, 'duplicates collapse and a wildcard counts as nothing');
+
+// ---------------------------------------------------------------- 13. delete a key
+section('Delete an API key');
+$delSecret = 'lk_delete_' . bin2hex(random_bytes(10));
+$delId = legacyKey($db, 'key to delete', $delSecret, 'read', 0, 0, $future);   // NOT migrated: converted on first use
+[$st] = api('GET', 'tickets', xkey($delSecret));
+$delClient = (int) q1($db, "SELECT lk_client_id FROM integration_legacy_keys WHERE lk_api_key_id = $delId");
+ok($st === 200 && $delClient > 0, 'first use of an unconverted legacy key converts it and works');
+$delSecretNew = IntegrationAuth::addSecret($db, $delClient);
+$delUid = (string) q1($db, "SELECT client_uid FROM integration_clients WHERE client_id = $delClient");
+$delTok = tokenFor($delUid, $delSecretNew);
+[$st] = api('GET', 'tickets', bearer($delTok));
+ok($st === 200, 'its access token works before the delete');
+$db->query("INSERT INTO integration_client_departments (client_id, department_id) VALUES ($delClient, {$D['A']}) ON DUPLICATE KEY UPDATE department_id = department_id");
+// single sign-on registration on a separate client, to prove the oidc rows go too
+[$ssoUid, , $ssoId] = mkClient($db, 'sso to delete', ['sso'], true);
+\ITFlow\Oidc\OidcConfig::saveClient($db, $ssoId, 'https://sso-del.example/cb', null, false);
+ok(\ITFlow\Oidc\OidcConfig::ssoClient($db, $ssoUid) !== null, 'the sso client resolves before the delete');
+$db->query("INSERT INTO oidc_pending (opend_hash, opend_client_id, opend_redirect_uri, opend_scope, opend_state, opend_nonce, opend_challenge, opend_force_login, opend_max_age, opend_expires_at) VALUES ('" . str_repeat('a', 64) . "', $ssoId, 'https://sso-del.example/cb', 'openid', 's', 'n', 'c', 0, 0, NOW() + INTERVAL 5 MINUTE)");
+// refused without a valid CSRF token / by GET; nothing changes
+areq('POST', '/admin/post.php', ['delete_integration_client' => 1, 'client_id' => $delClient, 'csrf_token' => 'wrong'], $ref);
+[$st] = areq('GET', '/admin/post.php?delete_integration_client=1&client_id=' . $delClient . '&csrf_token=' . $csrf, [], $ref);
+ok((int) q1($db, "SELECT COUNT(*) FROM integration_clients WHERE client_id = $delClient") === 1, 'delete needs a valid CSRF token and a POST');
+// the real delete, from the confirmation pop-up's form
+$logsBefore = (int) q1($db, "SELECT COUNT(*) FROM logs WHERE log_type = 'Integration' AND log_action = 'Client Delete'");
+[$st, , $loc] = areq('POST', '/admin/post.php', ['delete_integration_client' => 1, 'client_id' => $delClient, 'csrf_token' => $csrf], $ref);
+ok($loc === '/admin/api_keys.php' && (int) q1($db, "SELECT COUNT(*) FROM integration_clients WHERE client_id = $delClient") === 0, 'Delete removes the client');
+foreach (['integration_client_secrets' => 'secret_client_id', 'integration_tokens' => 'token_client_id', 'integration_client_departments' => 'client_id'] as $t => $col) {
+    ok((int) q1($db, "SELECT COUNT(*) FROM $t WHERE $col = $delClient") === 0, "Delete removes its rows in $t");
+}
+[$st] = api('GET', 'tickets', xkey($delSecret));
+ok($st === 401, 'the old X-Api-Key string answers 401 after the delete', "HTTP $st");
+ok((int) q1($db, "SELECT COUNT(*) FROM integration_clients WHERE client_name = 'key to delete'") === 0 && (int) q1($db, 'SELECT COUNT(*) FROM api_keys WHERE api_key_id = ' . $delId) === 1, 'first-use conversion did not recreate the client (the api_keys row is kept, expired)');
+ok(LegacyKeys::migrate($db)['migrated'] === 0 && (int) q1($db, "SELECT COUNT(*) FROM integration_clients WHERE client_name = 'key to delete'") === 0, 'LegacyKeys::migrate() never re-converts a deleted key');
+ok((int) q1($db, "SELECT lk_client_id FROM integration_legacy_keys WHERE lk_api_key_id = $delId") < 0, 'a tombstone in integration_legacy_keys marks the key as deleted');
+[$st] = api('GET', 'tickets', bearer($delTok));
+ok($st === 401, 'an access token issued before the delete stops working at the next request', "HTTP $st");
+[$st] = http('POST', '/api/v1/oauth/token', ['Content-Type' => 'application/x-www-form-urlencoded'], http_build_query(['grant_type' => 'client_credentials', 'client_id' => $delUid, 'client_secret' => $delSecretNew]));
+ok($st === 401, 'the deleted key\'s Client ID and secret no longer get a token', "HTTP $st");
+ok(kbMediaResolvePrincipal('k' . $delId) === null && kbMediaResolvePrincipal('i' . $delClient) === null, 'signed media URLs of the deleted key stop resolving');
+$line = q($db, "SELECT log_description FROM logs WHERE log_type = 'Integration' AND log_action = 'Client Delete' ORDER BY log_id DESC LIMIT 1")[0]['log_description'] ?? '';
+ok((int) q1($db, "SELECT COUNT(*) FROM logs WHERE log_type = 'Integration' AND log_action = 'Client Delete'") === $logsBefore + 1 && str_contains($line, 'key to delete') && str_contains($line, (string) $delClient)
+    && !str_contains($line, $delSecretNew) && !str_contains($line, $delSecret), 'the delete is audited (who, which client id and name) without any secret');
+areq('POST', '/admin/post.php', ['delete_integration_client' => 1, 'client_id' => $ssoId, 'csrf_token' => $csrf], $ref);
+ok((int) q1($db, "SELECT COUNT(*) FROM oidc_client_config WHERE ocfg_client_id = $ssoId") === 0 && (int) q1($db, "SELECT COUNT(*) FROM oidc_pending WHERE opend_client_id = $ssoId") === 0
+    && \ITFlow\Oidc\OidcConfig::ssoClient($db, $ssoUid) === null, 'deleting an sso client removes its sso configuration and sign-in state; sign-in through it fails closed');
+// Revoke stays the reversible-record option: the row is kept
+[$uidRv, , $idRv] = mkClient($db, 'revoke keeps', ['api:tickets:read'], true);
+areq('POST', '/admin/post.php', ['revoke_integration_client' => 1, 'client_id' => $idRv, 'csrf_token' => $csrf], $ref);
+ok(q1($db, "SELECT client_status FROM integration_clients WHERE client_id = $idRv") === 'revoked', 'Revoke keeps the client, marked revoked');
+[, $htmlRv] = areq('GET', '/admin/api_keys.php');
+ok(str_contains($htmlRv, 'revoke keeps') && str_contains($htmlRv, 'Revoked') && !str_contains($htmlRv, 'key to delete'), 'a revoked key stays in the list; a deleted one does not');
 
 // ---------------------------------------------------------------- done
 echo "\n$PASS passed, " . count($FAIL) . " failed\n";

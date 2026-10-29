@@ -19,7 +19,7 @@ namespace ITFlow\Integration;
  */
 final class ApiScopes
 {
-    /** resource => label shown on Administration > Integration clients */
+    /** resource => label shown on Administration > API Keys */
     public const RESOURCES = [
         'alerts' => 'Alerts (RMM and backup)',
         'appointments' => 'Appointments',
@@ -190,5 +190,68 @@ final class ApiScopes
             }
         }
         return $out;
+    }
+    /**
+     * A short human summary of a client's scopes for the API Keys list (Administration > API Keys), instead of one badge per scope.
+     *
+     * 'headline' is e.g. "Read only: 20 areas", "Read & write: 18 areas", "Read, write & delete: 3 areas" (every area holds the same
+     * actions) or "Custom: Tickets (read, write), Assets (read) +4" (mixed). 'extras' names the non-general-API scopes (LMS, directory,
+     * single sign-on) by their plain names. 'groups' is the full list, one entry per area, with R / W / D marks; 'text' is the whole thing as
+     * plain text for a tooltip. Pure function: no database, no HTML.
+     *
+     * @param list<string> $scopes
+     * @return array{headline:string, areas:int, extras:list<string>, groups:list<array{resource:string,label:string,read:bool,write:bool,delete:bool,marks:string}>, text:string}
+     */
+    public static function summary(array $scopes): array
+    {
+        $held = [];
+        $extras = [];
+        $extraNames = ['lms:read' => 'LMS: read', 'lms:assign' => 'LMS: assign', 'lms:completions:read' => 'LMS: completions', 'lms:evidence:read' => 'LMS: evidence',
+            'directory:read' => 'Directory: read', 'quality:events' => 'Quality events', 'sso' => 'Single sign-on'];
+        foreach (array_unique($scopes) as $s) {
+            if (preg_match('/^api:([a-z_]+):(read|write|delete)$/D', $s, $m) && isset(self::RESOURCES[$m[1]])) {
+                $held[$m[1]][$m[2]] = true;
+            } elseif ($s !== '') {
+                $extras[] = $extraNames[$s] ?? $s;
+            }
+        }
+        $groups = [];
+        $sigs = [];
+        foreach (self::RESOURCES as $res => $label) {
+            if (!isset($held[$res])) {
+                continue;
+            }
+            $r = !empty($held[$res]['read']);
+            $w = !empty($held[$res]['write']);
+            $d = !empty($held[$res]['delete']);
+            $groups[] = ['resource' => $res, 'label' => $label, 'read' => $r, 'write' => $w, 'delete' => $d,
+                'marks' => ($r ? 'R' : '-') . ($w ? 'W' : '-') . ($d ? 'D' : '-')];
+            $sigs[$r . $w . $d] = true;
+        }
+        $n = count($groups);
+        $words = static function (array $g): string {
+            return implode(', ', array_filter([$g['read'] ? 'read' : '', $g['write'] ? 'write' : '', $g['delete'] ? 'delete' : '']));
+        };
+        $shortLabel = static fn(string $l): string => trim(preg_replace('/\s*\(.*$/', '', $l));
+        if ($n === 0) {
+            $headline = $extras ? 'No general API access' : 'No access';
+        } elseif (count($sigs) === 1) {
+            $g = $groups[0];
+            $kind = $g['read'] && !$g['write'] && !$g['delete'] ? 'Read only'
+                : ($g['read'] && $g['write'] && !$g['delete'] ? 'Read & write'
+                : ($g['read'] && $g['write'] && $g['delete'] ? 'Read, write & delete' : ucfirst($words($g))));
+            $headline = $kind . ': ' . $n . ($n === 1 ? ' area' : ' areas');
+        } else {
+            $shown = array_slice($groups, 0, 2);
+            $headline = 'Custom: ' . implode(', ', array_map(static fn($g) => $shortLabel($g['label']) . ' (' . $words($g) . ')', $shown)) . ($n > 2 ? ' +' . ($n - 2) : '');
+        }
+        $lines = [$headline];
+        foreach ($groups as $g) {
+            $lines[] = $g['label'] . ': ' . $words($g);
+        }
+        foreach ($extras as $e) {
+            $lines[] = $e;
+        }
+        return ['headline' => $headline, 'areas' => $n, 'extras' => $extras, 'groups' => $groups, 'text' => implode("\n", $lines)];
     }
 }

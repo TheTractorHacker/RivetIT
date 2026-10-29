@@ -11,8 +11,8 @@ info:
     Authentication. There are two kinds of credential and one machine-credential system:
 
 
-    * **Integration clients** (machines; the primary method). Create a client under
-      Administration > Integration clients, exchange its Client ID and secret at
+    * **API keys** (machines; the primary method: a Client ID + secret). Create a client under
+      Administration > API Keys, exchange its Client ID and secret at
       `POST /oauth/token` (OAuth2 client credentials) for a 10 minute signed access
       token and send it as `Authorization: Bearer <access token>`. A token reaches a
       route only if it holds that route's scope (`api:<resource>:read|write|delete`,
@@ -1894,7 +1894,7 @@ paths:
         (or HTTP Basic). Optional `scope` (space separated; must be a subset of the client's scopes, default all of them).
         Returns a signed access token valid for 10 minutes that is accepted ONLY on `/lms/*`, `/employees/*` and `/departments/*`. Every authentication failure is the same
         401 `invalid_client`; repeated failures per IP and per client are throttled (429). Clients are managed in
-        Administration > Integration clients.
+        Administration > API Keys.
       security: []
       requestBody:
         required: true

@@ -60,11 +60,11 @@ different things and are not interchangeable:
 
 | Credential | Header | Identifies | Use it for |
 |---|---|---|---|
-| **Integration client access token** (primary for machines) | `Authorization: Bearer <access token>` from `POST /oauth/token` | A *machine client* (Client ID + secret), with scopes and department limits | Scripts, RMM tooling, the QMS, any server-to-server integration |
+| **API key access token** (primary for machines) | `Authorization: Bearer <access token>` from `POST /oauth/token` | A *machine client* (Client ID + secret), with scopes and department limits | Scripts, RMM tooling, the QMS, any server-to-server integration |
 | User session token | `Authorization: Bearer <token>` from `POST /auth` | A *person* signed in (the mobile app) | The Android/iOS app and anything acting as one technician |
 | Legacy API key (**deprecated**) | `X-Api-Key: <key>` | The *migrated integration client* the key was converted to | Existing scripts only, until they move to a Client ID + secret |
 
-**There is one machine-credential system: integration clients.** The legacy API keys of earlier versions were converted into
+**There is one machine-credential system: API keys** (a Client ID + secret; internally still called integration clients). The legacy API keys of earlier versions were converted into
 integration clients automatically (DB 2.6.204). Their key strings keep working through `X-Api-Key` during a deprecation period, and
 then the header is switched off.
 
@@ -105,7 +105,7 @@ endpoints that a legacy API key is explicitly denied on — see below.
 ### Legacy API keys (deprecated: now integration clients)
 
 `X-Api-Key: <key>` was the older, instance-level mechanism. Since DB 2.6.204 there is no separate API-key system: **every key was
-converted into an integration client** (Administration > Integration clients, flagged "uses the old X-Api-Key header"), with
+converted into an integration client** (Administration > API Keys, flagged "Old X-Api-Key header"), with
 
 | Legacy setting | Becomes |
 |---|---|
@@ -127,11 +127,11 @@ any other client. Differences from the old behaviour, all deliberate:
 - `/lms`, `/employees` and `/departments` need an access token, never `X-Api-Key`.
 - Every `X-Api-Key` response carries `Deprecation: true`, an `X-Api-Key-Notice` header and (when an administrator set a removal date)
   a `Sunset` header. Every use is audit-logged with the client id and counted (last used, request count, last IP), visible on
-  Administration > Integration clients so you can see which integrations still use the old header.
+  Administration > API Keys so you can see which integrations still use the old header.
 - **When an administrator switches the header off, or the removal date passes, `X-Api-Key` answers `401`** with a message explaining
   to authenticate with the Client ID and secret. Access tokens are unaffected.
 
-To migrate an integration: on Administration > Integration clients open the migrated client, press **Create secret**, and change the
+To migrate an integration: on Administration > API Keys open the migrated client, press **Create secret** (the secret is shown once, with a Copy button), and change the
 integration to `POST /api/v1/oauth/token` + `Authorization: Bearer`. The client keeps its scopes and departments.
 
 ```bash
@@ -143,9 +143,9 @@ TOKEN=$(curl -s -X POST https://your-instance.example.com/api/v1/oauth/token \
 curl -s https://your-instance.example.com/api/v1/tickets -H "Authorization: Bearer $TOKEN"
 ```
 
-### Integration clients (machine credentials for the whole API)
+### API keys (machine credentials for the whole API)
 
-Another system (the QMS) authenticates with an **integration client**, created in *Administration > Integration clients*
+Another system (the QMS) authenticates with an **integration client**, created in *Administration > API Keys*
 (client id `ic_...`, a secret shown once, scopes ticked per client, optional IP allow-list and expiry). It exchanges
 the client id and secret for a 10 minute access token:
 
@@ -184,7 +184,7 @@ See [integrations/qms-lms-sync.md](integrations/qms-lms-sync.md) for the assignm
 
 #### Acting identity of a machine client
 
-Legacy keys ran as "the first active administrator", so every key carried a whole administrator's authority. Integration clients do not.
+Legacy keys ran as "the first active administrator", so every key carried a whole administrator's authority. API keys do not.
 On the general API a client acts as one fixed **service identity** ("API integration service"): a *disabled*, *role-less* user that cannot
 sign in, owns no user token, and is not an administrator. It is the user recorded in `created_by`-style columns and the audit trail for
 machine writes (the log text names the client, and the legacy-header audit lines carry the client id). Because it holds no role, every
@@ -504,7 +504,7 @@ In-app notifications, including an SSE stream for live delivery.
 
 ### Integration (LMS)
 
-Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-the-whole-api)); not available to user tokens or the deprecated API-key header. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
+Integration-client token only (see [API keys](#api-keys-machine-credentials-for-the-whole-api)); not available to user tokens or the deprecated API-key header. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
 
 | Method | Path | Scope | Description |
 |---|---|---|---|
@@ -657,5 +657,5 @@ Include `time_worked` (`HH:MM:SS`) to log time in the same call, or use
 - Live OpenAPI spec: `GET /api/v1/openapi.yaml`
 - Interactive human-readable reference: `GET /api/v1/docs` (also linked from
   **Admin > API Docs**)
-- Machine credentials (former API keys included): **Admin > Integration clients** (Admin > API Keys is now a read-only pointer)
+- Machine credentials (former API keys included): **Admin > API Keys** (the former "Integration clients" page; `/admin/integration_clients.php` redirects there)
 - Module toggles (including billing): **Settings > Modules**

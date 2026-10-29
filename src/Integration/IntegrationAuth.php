@@ -331,6 +331,73 @@ final class IntegrationAuth
         $st->close();
     }
 
+    /**
+     * Permanently deletes a client: its secrets, tokens, department rows, single-sign-on configuration and in-flight sign-in state go with it.
+     *
+     * A client that carries a migrated legacy API key keeps a TOMBSTONE in integration_legacy_keys (lk_client_id = -api_key_id, which no real
+     * client can have), so the key string can never be converted again: LegacyKeys::migrate() and the first-use conversion both see the key
+     * as "already linked", and the lookup of client -api_key_id finds nothing, so the header answers 401. The api_keys row is also expired
+     * (kept, not deleted) so even code that reads api_keys directly refuses it.
+     *
+     * @return bool false when the client does not exist
+     */
+    public static function deleteClient(\mysqli $db, int $clientId): bool
+    {
+        $db->begin_transaction();
+        try {
+            $st = $db->prepare('SELECT client_id FROM integration_clients WHERE client_id = ? FOR UPDATE');
+            $st->bind_param('i', $clientId);
+            $st->execute();
+            $found = $st->get_result()->fetch_assoc();
+            $st->close();
+            if (!$found) {
+                $db->rollback();
+                return false;
+            }
+            $tableExists = static function (string $t) use ($db): bool {
+                $r = $db->query("SHOW TABLES LIKE '" . $db->real_escape_string($t) . "'");
+                return $r && $r->num_rows > 0;
+            };
+            foreach ([['oidc_pending', 'opend_client_id'], ['oidc_codes', 'ocode_client_id'], ['oidc_tokens', 'otok_client_id'], ['oidc_client_config', 'ocfg_client_id'],
+                      ['integration_tokens', 'token_client_id'], ['integration_client_secrets', 'secret_client_id'], ['integration_client_departments', 'client_id']] as [$t, $col]) {
+                if ($tableExists($t)) {
+                    $st = $db->prepare("DELETE FROM `$t` WHERE `$col` = ?");
+                    $st->bind_param('i', $clientId);
+                    $st->execute();
+                    $st->close();
+                }
+            }
+            if ($tableExists('integration_legacy_keys')) {
+                $st = $db->prepare('SELECT lk_api_key_id FROM integration_legacy_keys WHERE lk_client_id = ?');
+                $st->bind_param('i', $clientId);
+                $st->execute();
+                $lk = $st->get_result()->fetch_assoc();
+                $st->close();
+                if ($lk) {
+                    $keyId = (int) $lk['lk_api_key_id'];
+                    $tomb = -$keyId;
+                    $st = $db->prepare('UPDATE integration_legacy_keys SET lk_client_id = ? WHERE lk_api_key_id = ?');
+                    $st->bind_param('ii', $tomb, $keyId);
+                    $st->execute();
+                    $st->close();
+                    $st = $db->prepare("UPDATE api_keys SET api_key_expire = '1970-01-02' WHERE api_key_id = ?");
+                    $st->bind_param('i', $keyId);
+                    $st->execute();
+                    $st->close();
+                }
+            }
+            $st = $db->prepare('DELETE FROM integration_clients WHERE client_id = ?');
+            $st->bind_param('i', $clientId);
+            $st->execute();
+            $st->close();
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+        return true;
+    }
+
     // ---- client authentication at the token endpoint ---------------------------------------------------------------------
 
     /**

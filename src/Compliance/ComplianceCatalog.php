@@ -204,7 +204,7 @@ final class ComplianceCatalog
                 $clients = $this->one("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'integration_legacy_keys'");
                 if ((int) ($clients['n'] ?? 0) > 0) {
                     $r = $this->one("SELECT COUNT(*) AS total, SUM(CASE WHEN client_expires_at IS NULL OR client_expires_at >= '2099-01-01' THEN 1 ELSE 0 END) AS forever, SUM(CASE WHEN client_expires_at < NOW() THEN 1 ELSE 0 END) AS expired FROM integration_clients WHERE client_status = 'active' AND client_scopes <> 'sso'");
-                    $where = 'integration clients';
+                    $where = 'API keys';
                 } else {
                     $r = $this->one("SELECT COUNT(*) AS total, SUM(CASE WHEN api_key_expire IS NULL OR api_key_expire >= '2099-01-01' THEN 1 ELSE 0 END) AS forever, SUM(CASE WHEN api_key_expire < NOW() THEN 1 ELSE 0 END) AS expired FROM api_keys");
                     $where = 'API keys';
@@ -220,7 +220,7 @@ final class ComplianceCatalog
                     return CheckResult::pass("All $total $where have a future expiry.", null, $m);
                 }
 
-                return CheckResult::warn("$forever of $total $where never expire; $expired are expired and still active.", 'Revoke unused clients and set an expiry on the rest.', 'integration_clients.php', $m);
+                return CheckResult::warn("$forever of $total $where never expire; $expired are expired and still active.", 'Revoke or delete unused keys and set an expiry on the rest.', 'api_keys.php', $m);
             });
 
         $out[] = new CallbackCheck('dormant_agents', 'No dormant agent accounts', 'Access control',

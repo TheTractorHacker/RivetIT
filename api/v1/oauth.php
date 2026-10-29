@@ -2,7 +2,7 @@
 // POST /api/v1/oauth/token  (grant_type=client_credentials, application/x-www-form-urlencoded)
 //
 // Public route (no Bearer yet), like `auth`: routed from index.php above the Bearer parsing. Returns a signed 10 minute access token for an
-// integration client (Administration > Integration clients). Every authentication failure is the same 401 invalid_client; each is audited
+// integration client (Administration > API Keys). Every authentication failure is the same 401 invalid_client; each is audited
 // (without the secret) and counted against a per-IP and per-client throttle read from the audit log, so the throttle cannot be lifted by
 // taking Redis away. Credentials are accepted in the form body or an HTTP Basic header, never in the query string.
 defined('FROM_API') || die();
