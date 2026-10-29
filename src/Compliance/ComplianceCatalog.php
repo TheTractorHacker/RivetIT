@@ -156,6 +156,15 @@ final class ComplianceCatalog
                 }
                 $age = (time() - $newest) / 86400;
                 $notes = [$enabled ? 'scheduled backups on' : 'scheduled backups off', $m['offsite'] ? 'off-site copy on' : 'no off-site copy'];
+                // RivetCore 1.0.0-rc.53: encryption is read from the newest backup FILE (its header), not assumed. A plain archive fails this check.
+                $facts = EditionBackupFacts::checked($this->db, $this->appRoot . '/backups')->backupFacts();
+                if ($facts->available && $facts->lastSuccessAt !== null) {
+                    $m['encrypted'] = $facts->encrypted;
+                    if ($facts->encrypted === false) {
+                        return CheckResult::fail('The newest backup is not encrypted (' . $facts->reason . ').', implode('; ', $notes), 'backup.php', $m);
+                    }
+                    $notes[] = $facts->encrypted === true ? 'encrypted' : 'encryption could not be confirmed from the file';
+                }
                 if ($age > 14) {
                     return CheckResult::fail('The newest backup is ' . (int) $age . ' days old.', implode('; ', $notes), 'backup.php', $m);
                 }

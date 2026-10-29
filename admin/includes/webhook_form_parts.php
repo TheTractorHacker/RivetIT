@@ -41,6 +41,7 @@ if (!function_exists('webhookFormContext')) {
             }
         }
         $stored_url = $c['same'] ? decryptSetting((string) ($wh['webhook_url'] ?? '')) : '';
+        $c['allow_http'] = $editing && (DestinationConfig::extra((array) $wh)['allow_http'] ?? false) === true;
         $c['url_prefill'] = '';
         if (!$editing && (str_contains($d->urlHint, '{') || $c['has_url_fields'])) {
             $c['url_prefill'] = $d->urlHint;     // keeps {topic}, {txn} ... in view so it is clear what the preset builds
@@ -188,6 +189,13 @@ if (!function_exists('webhookFormContext')) {
                 <?php if ($c['url_secret']) { ?>It is stored encrypted and never shown again.<?php } ?>
                 <?php if ($c['has_url_fields']) { ?>Parts in braces are filled from the fields below.<?php } ?>
             </div>
+            <?php if (empty($c['is_chat'])) { ?>
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="<?= $uid ?>-allow-http" name="webhook_allow_http" value="1"<?= !empty($c['allow_http']) ? ' checked' : '' ?>>
+                <label class="form-check-label" for="<?= $uid ?>-allow-http">Allow plain <code>http://</code> for this destination</label>
+                <div class="form-text text-warning-emphasis">Webhooks are sent over https only. Tick this only for an address that starts with <code>http://</code> on a network you trust: the event data (and the signature) travel unencrypted. It is ignored for an <code>https://</code> address, and every change is audit-logged.</div>
+            </div>
+            <?php } ?>
             <?php } ?>
         </div>
         <?php

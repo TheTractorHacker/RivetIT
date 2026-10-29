@@ -121,8 +121,11 @@ final class DestinationConfig
     public static function options(array $row, ?string $event = null, array $data = [], bool $test = false): array
     {
         $d = self::destination($row);
+        // RivetCore 1.0.0-rc.53 (requireHttps): the destination's own, explicit opt-in to be reached over plain http://. Only ever read from this row's stored
+        // extra, so a per-job option cannot set it. It does not count as a format option for a legacy row.
+        $allowHttp = (self::extra($row)['allow_http'] ?? false) === true;
         if ($d === null) {
-            return [];
+            return $allowHttp ? ['allow_http' => true] : [];
         }
         $format = (string) ($row['webhook_format'] ?? '') ?: $d->format;
         $method = strtoupper((string) ($row['webhook_method'] ?? '')) ?: $d->method;
@@ -154,6 +157,9 @@ final class DestinationConfig
         }
 
         $opts = ['format' => $format, 'method' => $method, 'extraHeaders' => $headers, 'format_options' => $fo];
+        if ($allowHttp) {
+            $opts['allow_http'] = true;
+        }
         if ($format === 'template') {
             $opts['template'] = (string) ($row['webhook_template'] ?? '') !== '' ? (string) $row['webhook_template'] : (string) ($d->formatOptions['template'] ?? '');
             $opts['template_encoding'] = (string) ($extra['template_encoding'] ?? ($d->formatOptions['template_encoding'] ?? 'json'));
@@ -476,6 +482,20 @@ final class DestinationConfig
                 $errors[] = $problem;
             }
             $urlStored = $url;
+        }
+
+        // ---- plain http opt-in (RivetCore 1.0.0-rc.53). Delivery refuses http:// unless this destination carries allow_http. The box only counts
+        // while the address really is http://; an https:// address never keeps the flag.
+        $effectiveUrl = $urlStored;
+        if ($keepUrl && $existing !== null) {
+            try {
+                $effectiveUrl = decryptSetting((string) ($existing['webhook_url'] ?? ''));
+            } catch (\Throwable) {
+                $effectiveUrl = '';
+            }
+        }
+        if (isset($post['webhook_allow_http']) && $effectiveUrl !== '' && \RivetCore\Webhooks\UrlPolicy::isPlainHttp($effectiveUrl)) {
+            $extra['allow_http'] = true;
         }
 
         // ---- method

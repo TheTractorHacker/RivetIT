@@ -63,7 +63,7 @@ $badge = $profile === RetentionPolicy::NONE ? ['No preset', 'secondary'] : [Rete
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="audit_retention_days">Audit trail retention <small class="text-secondary">(days; 0 keeps forever)</small></label>
+                    <label class="form-label" for="audit_retention_days">Audit trail retention <small class="text-secondary">(days; 0 keeps forever; a value from 1 to 89 is raised to 90, the security baseline minimum)</small></label>
                     <input class="form-control" type="number" min="0" max="36500" id="audit_retention_days" name="audit_retention_days" value="<?= $audit_days ?>">
                     <div class="form-text">Security events: sign-ins, changes to settings, and Remote MCP tool calls.</div>
                 </div>

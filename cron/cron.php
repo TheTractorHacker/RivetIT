@@ -183,7 +183,12 @@ if ($log_retention_days >= 1) {
 // follow the activity-log horizon. Never fatal: the cron's other work must run even if these tables are missing.
 if (class_exists(\RivetCore\Retention\RetentionService::class)) {
     try {
-        (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($log_retention_days, $audit_retention_days);
+        // RivetCore 1.0.0-rc.53: the audit horizon goes through SecurityBaseline (never below 90 days). 0 still means "keep everything"
+        // (the Compliance page says so), and effective() would raise that to the floor, so only a real horizon is passed through it.
+        $audit_prune_days = ($audit_retention_days >= 1 && class_exists(\RivetCore\Security\SecurityBaseline::class))
+            ? \RivetCore\Security\SecurityBaseline::auditRetentionDays($audit_retention_days)
+            : $audit_retention_days;
+        (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($log_retention_days, $audit_prune_days);
     } catch (\Throwable $e) {
         error_log('RivetCore retention skipped: ' . $e->getMessage());
     }
@@ -866,6 +871,10 @@ X-RivetIT-Event: $wq_event
         $wq_opts = \ITFlow\Webhooks\DestinationConfig::options($wq, $wq_event, $wq_data);
         $wq_res = rivetWebhookDispatcher($mysqli)->deliverTo(intval($wq['webhook_id']), $wq_event, $wq_data, $wq_attempts, is_array($wq_decoded) ? ($wq_decoded['timestamp'] ?? null) : null, time(), $wq_opts === [] ? null : $wq_opts);
         $resp_code = intval($wq_res['http_status'] ?? 0);
+    } elseif (\RivetCore\Webhooks\UrlPolicy::isPlainHttp($wq_url) && (\ITFlow\Webhooks\DestinationConfig::extra($wq)['allow_http'] ?? false) !== true) {
+        // RivetCore 1.0.0-rc.53: the plain POST below used to send to http:// without question. Same rule as WebhookDispatcher: only a destination
+        // whose administrator allowed plain http (Settings > Webhooks) is contacted; the attempt fails and follows the normal retry/give-up path.
+        $resp_code = 0;
     } else {
         @file_get_contents($wq_url, false, $ctx);
         if (isset($http_response_header) && preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $m)) {

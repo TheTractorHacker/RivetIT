@@ -27,7 +27,8 @@ class WebhookDispatcher
             $database,
             new WebhooksTableSubscriptions($database),
             new SystemClock(),
-            ['X-ITFlow', 'X-RivetIT']
+            ['X-ITFlow', 'X-RivetIT'],
+            requireHttps: true   // RivetCore 1.0.0-rc.53: plain http:// only for a destination that carries allow_http
         );
     }
 
