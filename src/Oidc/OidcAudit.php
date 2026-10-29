@@ -35,7 +35,7 @@ final class OidcAudit
         } catch (\Throwable $e) {
             error_log('OIDC audit failed: ' . $e::class);
         }
-        IntegrationAuth::audit($db, 'SSO Provider', ucfirst($result) . ': ' . $type, "$type $result ($reason)" . ($contactId > 0 ? " contact #$contactId" : '') . ($detail !== '' ? " - $detail" : ''), $clientId, $ip);
+        IntegrationAuth::audit($db, 'SSO Provider', ucfirst($result) . ': ' . $type, "$type $result ($reason)" . ($contactId > 0 ? " contact #$contactId" : ($contactId < 0 ? " administrator #" . abs($contactId) : '')) . ($detail !== '' ? " - $detail" : ''), $clientId, $ip);
     }
 
     public static function ip(): string

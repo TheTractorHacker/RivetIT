@@ -429,10 +429,11 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
                 <a href="training.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>Training</a>
             <?php } ?>
             <?php
-            // Single sign-on to the QMS (issue #55): only while the SSO provider is on and a client with a login address is registered, never on a shared (kiosk) screen,
-            // and never in the admin preview (no person is signed in there). The address was checked when the administrator saved it.
+            // Single sign-on to the QMS (issue #55): only while the SSO provider is on and a client with a login address is registered, never on a shared (kiosk) screen.
+            // The address was checked when the administrator saved it. In the admin preview there is no department person, but the previewing administrator
+            // may open Quality as themselves (QualityAccessPolicy decides at /oidc/authorize), so the button is shown there too.
             $portal_quality_url = null;
-            if (empty($portal_preview_active) && empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
+            if (empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
                 $portal_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
             }

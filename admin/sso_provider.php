@@ -27,6 +27,12 @@ if ($sso_tables_ok) {
             department portal presses <strong>Open Quality</strong> and lands in Datum already signed in. RivetIT only shares a stable person id (and, if you allow it,
             the display name). Setup steps and the checks Datum must make are in <code>docs/integrations/qms-sso.md</code>.</p>
 
+        <?php $sso_admin_url = $sso_tables_ok ? OidcConfig::portalLoginUrl($mysqli) : null;
+        if ($sso_admin_url !== null) { ?>
+            <p><a href="<?php echo nullable_htmlentities($sso_admin_url); ?>" class="btn btn-primary" rel="noopener noreferrer"><i class="fas fa-fw fa-clipboard-check me-2"></i>Open Quality as administrator</a>
+                <span class="text-muted ms-2">Signs you in as yourself (an administrator, no department). Each use is logged below.</span></p>
+        <?php } ?>
+
         <?php if (!$sso_tables_ok) { ?>
             <div class="alert alert-warning mb-0">The database has not been updated for single sign-on yet (needs DB 2.6.202). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
         <?php } else { ?>
@@ -135,7 +141,7 @@ if ($sso_tables_ok) {
                         <td><?php echo nullable_htmlentities($e['oev_type']); ?></td>
                         <td><?php echo $e['oev_result'] === 'ok' ? '<span class="badge text-bg-success">ok</span>' : ($e['oev_result'] === 'refused' ? '<span class="badge text-bg-danger">refused</span>' : '<span class="badge text-bg-secondary">' . nullable_htmlentities($e['oev_result']) . '</span>'); ?></td>
                         <td><code><?php echo nullable_htmlentities($e['oev_reason']); ?></code></td>
-                        <td><?php echo $e['contact_name'] ? nullable_htmlentities($e['contact_name']) : ($e['oev_contact_id'] > 0 ? '#' . intval($e['oev_contact_id']) : ''); ?></td>
+                        <td><?php echo $e['contact_name'] ? nullable_htmlentities($e['contact_name']) : ($e['oev_contact_id'] > 0 ? '#' . intval($e['oev_contact_id']) : ($e['oev_contact_id'] < 0 ? 'Administrator #' . abs(intval($e['oev_contact_id'])) : '')); ?></td>
                         <td><?php echo nullable_htmlentities((string) $e['client_name']); ?></td>
                         <td><?php echo nullable_htmlentities($e['oev_ip']); ?></td>
                         <td class="small"><?php echo nullable_htmlentities($e['oev_detail']); ?></td>

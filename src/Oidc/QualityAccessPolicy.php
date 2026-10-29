@@ -38,6 +38,11 @@ final class QualityAccessPolicy
             return ['ok' => false, 'reason' => 'provider_disabled'];
         }
 
+        // An administrator signs in as themselves, not as a department person (see allowsAdministrator()).
+        if ($contactId < 0) {
+            return self::allowsAdministrator(self::administratorUserId($contactId), $db);
+        }
+
         // ---- PHASE 1 HOOK: Quality module switch and per-department gate go here (see the class comment). --------------------------
 
         if ($contactId <= 0) {
@@ -85,9 +90,12 @@ final class QualityAccessPolicy
         return ['ok' => true, 'reason' => 'ok'];
     }
 
-    /** The subject and display facts for an eligible contact: sub, rivetit_id, name. @return array{sub:string, rivetit_id:string, name:string, user_id:int}|null */
+    /** The subject and display facts for an eligible contact: sub, rivetit_id, name. @return array{sub:string, rivetit_id:string, name:string, user_id:int, role?:string}|null */
     public static function subject(\mysqli $db, int $contactId): ?array
     {
+        if ($contactId < 0) {
+            return self::administratorSubject($db, self::administratorUserId($contactId));
+        }
         $st = $db->prepare('SELECT c.contact_name, c.contact_user_id, (SELECT MIN(l.odoo_employee_id) FROM contact_odoo_links l WHERE l.contact_id = c.contact_id) AS odoo_id
             FROM contacts c WHERE c.contact_id = ?');
         $st->bind_param('i', $contactId);
@@ -103,6 +111,79 @@ final class QualityAccessPolicy
             'rivetit_id' => (string) $contactId,
             'name' => (string) $r['contact_name'],
             'user_id' => (int) $r['contact_user_id'],
+        ];
+    }
+
+    // ---- administrators ----------------------------------------------------------------------------------------------------------
+    //
+    // An administrator is not a department person: there is no contact. The rest of the provider stores one integer "contact id" per code,
+    // token and audit row, so an administrator is that column holding the NEGATIVE of their user id (-7 = user 7). No real contact id is ever
+    // negative, so the two can never collide, and every existing check (code, token, userinfo, audit) goes through allows() / subject() and
+    // so applies the administrator rule without any other code knowing about it.
+
+    /** The value stored where a contact id would be, for an administrator's user id. */
+    public static function administratorPrincipal(int $userId): int
+    {
+        return -abs($userId);
+    }
+
+    /** The user id behind an administrator principal (0 for anything that is not one). */
+    public static function administratorUserId(int $principal): int
+    {
+        return $principal < 0 ? -$principal : 0;
+    }
+
+    /**
+     * May this user open Quality as an administrator? The provider must be on (checked by the caller) and the login must be a live agent
+     * (type 1) on an administrator role, not disabled, not archived, and not stuck at the "enroll two-factor first" gate.
+     * @return array{ok:bool, reason:string}
+     */
+    private static function allowsAdministrator(int $userId, \mysqli $db): array
+    {
+        $no = static fn(string $why): array => ['ok' => false, 'reason' => $why];
+        if ($userId <= 0) {
+            return $no('admin_not_found');
+        }
+        $st = $db->prepare('SELECT u.user_type, u.user_status, u.user_archived_at, u.user_token, r.role_is_admin, r.role_archived_at,
+                (SELECT us.user_config_force_mfa FROM user_settings us WHERE us.user_id = u.user_id LIMIT 1) AS force_mfa
+            FROM users u LEFT JOIN user_roles r ON r.role_id = u.user_role_id WHERE u.user_id = ?');
+        $st->bind_param('i', $userId);
+        $st->execute();
+        $r = $st->get_result()->fetch_assoc();
+        $st->close();
+        if (!$r) {
+            return $no('admin_not_found');
+        }
+        if ((int) $r['user_type'] !== 1 || (int) ($r['role_is_admin'] ?? 0) !== 1 || $r['role_archived_at'] !== null) {
+            return $no('not_administrator');
+        }
+        if ((int) $r['user_status'] !== 1 || $r['user_archived_at'] !== null) {
+            return $no('login_disabled');
+        }
+        if ((int) ($r['force_mfa'] ?? 0) === 1 && empty($r['user_token'])) {
+            return $no('mfa_enrollment_required');
+        }
+        return ['ok' => true, 'reason' => 'ok'];
+    }
+
+    /** @return array{sub:string, rivetit_id:string, name:string, user_id:int, role:string}|null */
+    private static function administratorSubject(\mysqli $db, int $userId): ?array
+    {
+        $st = $db->prepare('SELECT user_name FROM users WHERE user_id = ?');
+        $st->bind_param('i', $userId);
+        $st->execute();
+        $r = $st->get_result()->fetch_assoc();
+        $st->close();
+        if (!$r) {
+            return null;
+        }
+        return [
+            // Never an Odoo employee number: an administrator may not be an employee, and a number-shaped sub could collide with a real person.
+            'sub' => 'rivetit-admin:' . $userId,
+            'rivetit_id' => 'admin:' . $userId,
+            'name' => (string) $r['user_name'],
+            'user_id' => $userId,
+            'role' => 'administrator',
         ];
     }
 }

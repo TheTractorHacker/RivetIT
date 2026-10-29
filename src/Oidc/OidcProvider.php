@@ -280,6 +280,9 @@ final class OidcProvider
             'amr' => array_values(array_filter(explode(',', (string) $row['ocode_amr']))),
             'jti' => bin2hex(random_bytes(12)),
         ];
+        if (isset($subject['role'])) {
+            $claims['rivetit_role'] = $subject['role'];   // present only for an administrator; department people carry no role claim
+        }
         if (in_array('profile', $scopes, true) && (int) $client['ocfg_allow_profile'] === 1) {
             $claims['name'] = $subject['name'];
         }
@@ -342,6 +345,9 @@ final class OidcProvider
             return ['ok' => false, 'reason' => 'contact_not_found'];
         }
         $claims = ['sub' => $subject['sub'], 'rivetit_id' => $subject['rivetit_id']];
+        if (isset($subject['role'])) {
+            $claims['rivetit_role'] = $subject['role'];
+        }
         if (in_array('profile', explode(' ', (string) $row['otok_scope']), true) && (int) $client['ocfg_allow_profile'] === 1) {
             $claims['name'] = $subject['name'];
         }
@@ -365,7 +371,7 @@ final class OidcProvider
             'id_token_signing_alg_values_supported' => [KeyStore::ALG],
             'token_endpoint_auth_methods_supported' => ['client_secret_basic', 'client_secret_post'],
             'scopes_supported' => OidcConfig::SCOPES,
-            'claims_supported' => ['iss', 'aud', 'sub', 'rivetit_id', 'iat', 'nbf', 'exp', 'auth_time', 'nonce', 'amr', 'jti', 'at_hash', 'name'],
+            'claims_supported' => ['iss', 'aud', 'sub', 'rivetit_id', 'rivetit_role', 'iat', 'nbf', 'exp', 'auth_time', 'nonce', 'amr', 'jti', 'at_hash', 'name'],
             'code_challenge_methods_supported' => ['S256'],
             'claims_parameter_supported' => false,
             'request_parameter_supported' => false,

@@ -657,6 +657,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['login']) || isset($_
                         $_SESSION['csrf_token'] = randomString(32);
                         $_SESSION['logged']     = true;
                         $_SESSION['user_type']  = 1;   // clears a stale department-login marker (index.php routes on it)
+                        // When and how this agent sign-in happened: the SSO provider (oidc/authorize.php) asks an administrator for a fresh sign-in once it is older than its configured age.
+                        $_SESSION['agent_auth_time'] = time();
+                        $_SESSION['agent_amr']       = str_contains($extended_log, 'MFA') ? 'pwd,otp,mfa' : 'pwd';
                         session_regenerate_id(true);
                         secSessionStart($mysqli, $user_id);   // idle / absolute clocks and the Active sessions row
 

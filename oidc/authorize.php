@@ -72,8 +72,19 @@ if (isset($_SESSION) && is_array($_SESSION)) {
             // How the person signed in, as OIDC amr values. A portal login that predates this feature has no record: 'pwd' would be a guess, so say nothing.
             'amr' => (string) ($_SESSION['portal_amr'] ?? match ($method_) { 'oidc', 'odoo', 'azure' => 'fed', default => '' }),
         ];
+    } elseif (!empty($_SESSION['logged']) && empty($_SESSION['client_logged_in']) && (int) ($_SESSION['user_id'] ?? 0) > 0) {
+        // An agent (or an agent previewing a portal). Not a department person, but an ADMINISTRATOR may open Quality as themselves:
+        // the principal is the negative of the user id (QualityAccessPolicy::administratorPrincipal), and allows() below decides whether
+        // this agent really is a live administrator. Anyone else is refused at that check.
+        $sessionState = 'portal';
+        $sess = [
+            'contact_id' => QualityAccessPolicy::administratorPrincipal((int) $_SESSION['user_id']),
+            'user_id' => (int) $_SESSION['user_id'],
+            'auth_time' => (int) ($_SESSION['agent_auth_time'] ?? 0),
+            'amr' => (string) ($_SESSION['agent_amr'] ?? ''),
+        ];
     } elseif (!empty($_SESSION['logged'])) {
-        $sessionState = 'agent';   // an agent (or an agent previewing a portal) is not a department person
+        $sessionState = 'agent';
     }
 }
 
