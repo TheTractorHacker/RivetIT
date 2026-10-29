@@ -128,7 +128,7 @@ curl -s https://your-instance.example.com/api/v1/tickets \
   -H "X-Api-Key: your-legacy-key-here"
 ```
 
-### Integration clients (machine credentials for `/lms`)
+### Integration clients (machine credentials for `/lms`, `/employees` and `/departments`)
 
 Another system (the QMS) authenticates with an **integration client**, created in *Administration > Integration clients*
 (client id `ic_...`, a secret shown once, scopes ticked per client, optional IP allow-list and expiry). It exchanges
@@ -144,10 +144,11 @@ curl -s https://rivetit.example.com/api/v1/lms/courses -H "Authorization: Bearer
 
 Rules that matter to an integrator:
 
-- The access token is accepted **only on `/api/v1/lms/*`**. Every other route answers it with 403, and it never acts as a user.
-  A user token or legacy key is not accepted on `/lms` (401).
-- Scopes (deny by default, no wildcard): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`
-  (`directory:read` and `quality:events` are reserved for later). A route needs its scope in the token; removing a scope from the
+- **Department scope.** A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Records outside the scope are indistinguishable from records that do not exist: a by-id read is 404, lists are filtered, and a create for an employee or course outside it answers 422 `employee_not_found` / `course_not_found`. A course is in scope when it has a live requirement rule for an allowed department (or for everyone), a rule naming a person of an allowed department, or an assignment or completion of such a person; the `departments` and `requirements` of a course list only what touches the allowed departments.
+- The access token is accepted **only on `/api/v1/lms/*`, `/api/v1/employees/*` and `/api/v1/departments/*`**. Every other route answers it with 403, and it never acts as a user.
+  A user token or legacy key is not accepted on those three (401).
+- Scopes (deny by default, no wildcard): `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`
+  (`quality:events` is reserved for later). `directory:read` is the only scope that opens `/employees` and `/departments`, and it opens nothing else. A route needs its scope in the token; removing a scope from the
   client takes effect at the next request, and so does revoking the client or the secret that issued the token.
 - A client holds at most two active secrets, so rotate by adding the new secret (the old one keeps working for the overlap you
   choose) and switching over.
@@ -158,7 +159,7 @@ Rules that matter to an integrator:
   (`Idempotent-Replay: true`); same key and a different body is `422 idempotency_key_reuse`. Records are kept 24 hours; only
   successful results are stored, so a corrected retry with the same key is processed normally.
 
-See [integrations/qms-lms-sync.md](integrations/qms-lms-sync.md) for the assignment and completion flow.
+See [integrations/qms-lms-sync.md](integrations/qms-lms-sync.md) for the assignment and completion flow and [integrations/qms-directory-sync.md](integrations/qms-directory-sync.md) for the directory feed.
 
 ### Public endpoints (no credentials required)
 
@@ -472,7 +473,7 @@ In-app notifications, including an SSE stream for live delivery.
 
 ### Integration (LMS)
 
-Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-lms)); not available to user tokens or API keys.
+Integration-client token only (see [Integration clients](#integration-clients-machine-credentials-for-lms)); not available to user tokens or API keys. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.
 
 | Method | Path | Scope | Description |
 |---|---|---|---|
@@ -485,6 +486,17 @@ Integration-client token only (see [Integration clients](#integration-clients-ma
 | GET | `/lms/completions` | `lms:completions:read` | Filters `employee`, `odoo_employee_id`, `course`, `assignment`, `status` (`completed`, `voided`, `superseded`), `updated_since`. Records are never deleted. |
 | GET | `/lms/completions/{id}` | `lms:completions:read` | One completion (`cmp_<n>`): course and revision, assignment, `completed_on`, `result`, `score_pct`, `expires_on` (recertification date), `evidence_ref` (certificate number, file available), `status`, `updated_at`, `revision`. |
 | GET | `/lms/completions/{id}/evidence` | `lms:evidence:read` | The completion's evidence file (PDF/JPEG/PNG) as an attachment; 404 when none or not servable. |
+
+### Integration (directory)
+
+Integration-client token with scope `directory:read` only; not available to user tokens or API keys, and no `lms:*` scope grants it. Filtered by the client's department scope like the LMS routes: an id outside it answers 404 exactly like an unknown id, and a list simply omits it. `GET` only. Same `limit`, `cursor`, `updated_since`, error format and 600 requests/minute limit as the LMS routes.
+
+| Method | Path | Scope | Description |
+|---|---|---|---|
+| GET | `/employees` | `directory:read` | Employees (contacts, vendors excluded), ascending id. Terminated and archived people stay in the feed with `active: false`. Fields: `id`, `odoo_employee_id`, `name`, `work_email`, `job_title`, `department_id`, `odoo_department_id`, `manager_id`, `employment_status`, `active`, `updated_at`. Filters `department_id`, `odoo_employee_id`, `updated_since`. |
+| GET | `/employees/{id}` | `directory:read` | One employee. |
+| GET | `/departments` | `directory:read` | Departments (clients; CRM leads excluded), ascending id. Archived and inactive departments stay with `active: false`. Fields: `id`, `odoo_department_id`, `name`, `parent_id`, `head_employee_id`, `status`, `active`, `updated_at`. |
+| GET | `/departments/{id}` | `directory:read` | One department. |
 
 ### Diagnostics
 

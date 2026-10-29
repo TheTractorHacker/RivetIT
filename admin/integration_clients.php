@@ -3,13 +3,14 @@
 require_once "includes/inc_all_admin.php";
 
 use ITFlow\Integration\IntegrationAuth;
+use ITFlow\Integration\IntegrationScope;
 
 $ic_scope_help = [
     'lms:read' => 'Read the published course catalog and assignments',
     'lms:assign' => 'Create (or reuse) training assignments',
     'lms:completions:read' => 'Read training completions',
     'lms:evidence:read' => 'Download completion evidence files',
-    'directory:read' => 'Read the employee and department directory (reserved; not served yet)',
+    'directory:read' => 'Read the employee and department directory (names, work email, job title, Odoo ids, employment status)',
     'quality:events' => 'Send signed events to RivetIT (reserved; not served yet)',
 ];
 
@@ -20,6 +21,37 @@ unset($_SESSION['integration_secret_once']);
 $ic_tables_ok = mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'integration_clients'")) > 0;
 $ic_clients = $ic_tables_ok ? mysqli_query($mysqli, "SELECT * FROM integration_clients ORDER BY client_status, client_name") : false;
 $ic_now = date('Y-m-d H:i:s');
+
+// Non-archived departments (clients.client_id) for the department scope; id => name.
+$ic_departments = [];
+if ($ic_tables_ok) {
+    $ic_dres = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL ORDER BY client_name");
+    while ($ic_dres && ($d = mysqli_fetch_assoc($ic_dres))) {
+        $ic_departments[(int) $d['client_id']] = (string) $d['client_name'];
+    }
+}
+/**
+ * The department-scope fields. Nothing is pre-selected on a new client (an explicit choice is required); an existing client shows its saved choice.
+ * $granted = department ids the client holds; $all = true/false for a saved client, null for the creation form.
+ */
+$ic_dept_fields = static function (?bool $all, array $granted, string $idPrefix) use ($ic_departments, $mysqli): string {
+    $h = '<label class="form-label">Departments <span class="text-danger">*</span></label>'
+        . '<div class="form-check"><input class="form-check-input" type="radio" name="dept_mode" value="all" id="' . $idPrefix . 'All"' . ($all === true ? ' checked' : '') . ' required>'
+        . '<label class="form-check-label" for="' . $idPrefix . 'All">All departments (including people with no department)</label></div>'
+        . '<div class="form-check"><input class="form-check-input" type="radio" name="dept_mode" value="selected" id="' . $idPrefix . 'Sel"' . ($all === false ? ' checked' : '') . ' required>'
+        . '<label class="form-check-label" for="' . $idPrefix . 'Sel">Only these departments</label></div>'
+        . '<select class="form-control select2 mt-1" name="departments[]" multiple data-placeholder="Select departments">';
+    foreach ($ic_departments as $id => $name) {
+        $h .= '<option value="' . $id . '"' . (in_array($id, $granted, true) ? ' selected' : '') . '>' . nullable_htmlentities($name) . '</option>';
+    }
+    // A department that was granted and has since been archived stays visible so the admin can see it and remove it (saving it again is refused).
+    foreach (array_diff($granted, array_keys($ic_departments)) as $id) {
+        $r = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT client_name FROM clients WHERE client_id = ' . (int) $id));
+        $h .= '<option value="' . (int) $id . '" selected>' . nullable_htmlentities($r ? $r['client_name'] . ' (archived: remove)' : 'Department #' . (int) $id . ' (removed: remove)') . '</option>';
+    }
+    return $h . '</select><div class="form-text">The client sees only people, assignments, completions and courses of the departments chosen here. '
+        . 'Choose "All departments" or pick at least one; a client with no department sees nothing.</div>';
+};
 
 $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_scope_help): string {
     $h = '';
@@ -59,7 +91,7 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted">Machine credentials for other systems, such as the QMS, to call the LMS API at <code>/api/v1/lms</code>. A client holds only the scopes you tick;
+        <p class="text-muted">Machine credentials for other systems, such as the QMS, to call the LMS API at <code>/api/v1/lms</code>. A client holds only the scopes you tick and sees only the departments you choose;
             nothing is allowed by default, and there is no wildcard. These credentials never act as a user and are not accepted on any other API route.</p>
 
         <?php if (!$ic_tables_ok) { ?>
@@ -80,6 +112,7 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
                         <?php echo $ic_scope_boxes([], 'icNew'); ?></div>
                     <div class="col-md-6"><label class="form-label">Allowed IPs / CIDR (optional)</label>
                         <textarea class="form-control" name="allowed_ips" rows="4" placeholder="One per line or comma separated. Blank = any address."></textarea></div>
+                    <div class="col-md-6"><?php echo $ic_dept_fields(null, [], 'icNewDept'); ?></div>
                 </div>
                 <button class="btn btn-primary mt-3" name="add_integration_client" value="1"><i class="fas fa-check me-2"></i>Create client and show secret</button>
             </form>
@@ -92,6 +125,7 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
         <?php while ($ic_clients && ($c = mysqli_fetch_assoc($ic_clients))) {
             $cid = intval($c['client_id']);
             $scopes = IntegrationAuth::parseScopes((string) $c['client_scopes']);
+            $c_depts = IntegrationScope::allowedDepartmentIds($mysqli, $c);   // null = all departments
             $expired = $c['client_expires_at'] !== null && $c['client_expires_at'] < $ic_now;
             $active = $c['client_status'] === 'active' && !$expired;
             $secrets = mysqli_query($mysqli, "SELECT * FROM integration_client_secrets WHERE secret_client_id = $cid ORDER BY secret_id DESC LIMIT 10");
@@ -110,6 +144,10 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
                         <?php if ($c['client_description']) { ?><div class="small"><?php echo nullable_htmlentities($c['client_description']); ?></div><?php } ?>
                         <div class="mt-1"><?php foreach ($scopes as $s) { ?><span class="badge text-bg-secondary me-1" title="<?php echo nullable_htmlentities($ic_scope_help[$s] ?? ''); ?>"><?php echo nullable_htmlentities($s); ?></span><?php } ?>
                             <?php if (!empty($c['client_allowed_ips'])) { ?><span class="badge text-bg-info"><i class="fas fa-network-wired me-1"></i>IP restricted</span><?php } ?></div>
+                        <div class="mt-1 small">Departments:
+                            <?php if ($c_depts === null) { ?><span class="badge text-bg-warning">All departments</span>
+                            <?php } elseif ($c_depts === []) { ?><span class="badge text-bg-danger">None (sees nothing; choose departments)</span>
+                            <?php } else { foreach ($c_depts as $did) { ?><span class="badge text-bg-primary me-1"><?php echo nullable_htmlentities($ic_departments[$did] ?? ('#' . $did . ' (archived)')); ?></span><?php } } ?></div>
                     </div>
                     <?php if ($c['client_status'] === 'active') { ?>
                     <div>
@@ -124,15 +162,16 @@ $ic_scope_boxes = static function (array $selected, string $idPrefix) use ($ic_s
 
                 <?php if ($c['client_status'] === 'active') { ?>
                 <details class="mt-2">
-                    <summary class="small text-muted">Edit scopes, IP allow-list and expiry</summary>
+                    <summary class="small text-muted">Edit scopes, departments, IP allow-list and expiry</summary>
                     <form action="post.php" method="post" class="mt-2">
                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="client_id" value="<?php echo $cid; ?>">
                         <div class="row g-3">
-                            <div class="col-md-5"><?php echo $ic_scope_boxes($scopes, 'icEdit' . $cid . '_'); ?></div>
+                            <div class="col-md-4"><?php echo $ic_scope_boxes($scopes, 'icEdit' . $cid . '_'); ?></div>
+                            <div class="col-md-4"><?php echo $ic_dept_fields($c_depts === null, $c_depts ?? [], 'icEditDept' . $cid . '_'); ?></div>
                             <div class="col-md-4"><label class="form-label">Allowed IPs / CIDR</label>
-                                <textarea class="form-control" name="allowed_ips" rows="3"><?php echo nullable_htmlentities((string) $c['client_allowed_ips']); ?></textarea></div>
-                            <div class="col-md-3"><label class="form-label">Expires</label>
+                                <textarea class="form-control" name="allowed_ips" rows="3"><?php echo nullable_htmlentities((string) $c['client_allowed_ips']); ?></textarea>
+                                <label class="form-label mt-2">Expires</label>
                                 <input type="date" class="form-control" name="expires" value="<?php echo $c['client_expires_at'] ? nullable_htmlentities(substr($c['client_expires_at'], 0, 10)) : ''; ?>"></div>
                         </div>
                         <button class="btn btn-primary btn-sm mt-2" name="update_integration_client" value="1">Save changes</button>

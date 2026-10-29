@@ -3,6 +3,8 @@
 Status: implemented in the LMS API v1 (issue #52, PR 1). Companion to [qms-api-contract.md](qms-api-contract.md) (the contract) and
 [qms-security.md](qms-security.md) (credentials). The consumer view is the QMS repository's `docs/integrations/rivetit-lms.md`.
 
+The employee and department feed that this flow's `odoo_employee_id` values come from is described in [qms-directory-sync.md](qms-directory-sync.md).
+
 ## Roles
 
 | RivetIT | QMS |

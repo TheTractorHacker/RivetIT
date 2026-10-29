@@ -22,6 +22,7 @@ function ic_client_row(mysqli $mysqli, int $cid, string $columns): ?array
 }
 
 use ITFlow\Integration\IntegrationAuth;
+use ITFlow\Integration\IntegrationScope;
 
 $ic_admin_only = static function () use ($session_is_admin) {
     if (empty($session_is_admin)) {
@@ -44,6 +45,34 @@ $ic_expiry_from_post = static function (): ?string {
     }
     return $raw . ' 23:59:59';
 };
+/**
+ * The department scope from the form: ['all' => bool, 'ids' => list<int>] or an error string. An explicit choice is required (no default):
+ * dept_mode = all (and no department ticked), or dept_mode = selected with at least one non-archived department. Unknown, archived or
+ * malformed ids are refused, never dropped silently.
+ */
+$ic_departments_from_post = static function () use ($mysqli) {
+    $mode = (string) ($_POST['dept_mode'] ?? '');
+    $posted = $_POST['departments'] ?? [];
+    if ($mode !== 'all' && $mode !== 'selected') {
+        return 'Choose which departments the client may see: "All departments" or specific departments.';
+    }
+    if (!is_array($posted)) {
+        return 'The department list is not valid.';
+    }
+    if ($mode === 'all') {
+        return $posted === [] ? ['all' => true, 'ids' => []] : 'Choose either "All departments" or specific departments, not both.';
+    }
+    $ids = IntegrationScope::validIds($mysqli, $posted);
+    if ($ids === null) {
+        return 'One or more selected departments do not exist or are archived.';
+    }
+    if ($ids === []) {
+        return 'Select at least one department, or choose "All departments".';
+    }
+    return ['all' => false, 'ids' => $ids];
+};
+$ic_departments_label = static fn(array $d): string => $d['all'] ? 'all departments' : 'departments [' . implode(',', $d['ids']) . ']';
+
 $ic_ips_from_post = static function (): string {
     require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/api_key_security.php';
     return implode("\n", rivetitApiKeyNetworks((string) ($_POST['allowed_ips'] ?? '')));   // throws InvalidArgumentException when malformed
@@ -67,8 +96,13 @@ if (isset($_POST['add_integration_client'])) {
         flash_alert('Enter a name, choose at least one scope, and use a future expiry date (or leave it blank).', 'danger');
         redirect('/admin/integration_clients.php');
     }
-    $made = IntegrationAuth::createClient($mysqli, $name, $description === '' ? null : $description, $scopes, $ips, $expires, intval($session_user_id));
-    logAction('Integration', 'Client Create', "$session_name created integration client $name (" . $made['client_uid'] . ") with scopes: " . implode(' ', $scopes), 0, $made['client_id']);
+    $dept = $ic_departments_from_post();
+    if (is_string($dept)) {
+        flash_alert($dept, 'danger');
+        redirect('/admin/integration_clients.php');
+    }
+    $made = IntegrationAuth::createClient($mysqli, $name, $description === '' ? null : $description, $scopes, $ips, $expires, intval($session_user_id), $dept['all'], $dept['ids']);
+    logAction('Integration', 'Client Create', "$session_name created integration client $name (" . $made['client_uid'] . ") with scopes: " . implode(' ', $scopes) . '; ' . $ic_departments_label($dept), 0, $made['client_id']);
     $_SESSION['integration_secret_once'] = ['client_uid' => $made['client_uid'], 'name' => $name, 'secret' => $made['secret'], 'event' => 'created'];
     redirect('/admin/integration_clients.php');
 }
@@ -78,7 +112,7 @@ if (isset($_POST['update_integration_client'])) {
     $ic_admin_only();
 
     $cid = intval($_POST['client_id'] ?? 0);
-    $row = ic_client_row($mysqli, $cid, 'client_name, client_status');
+    $row = ic_client_row($mysqli, $cid, 'client_name, client_status, client_all_departments');
     $scopes = $ic_scopes_from_post();
     $expires = $ic_expiry_from_post();
     try {
@@ -91,14 +125,23 @@ if (isset($_POST['update_integration_client'])) {
         flash_alert('Could not update the client: choose at least one scope and use a future expiry date (or leave it blank).', 'danger');
         redirect('/admin/integration_clients.php');
     }
+    $dept = $ic_departments_from_post();
+    if (is_string($dept)) {
+        flash_alert($dept, 'danger');
+        redirect('/admin/integration_clients.php');
+    }
+    $dept_before = IntegrationScope::allowedDepartmentIds($mysqli, $row + ['client_id' => $cid]);
     $scope = implode(' ', $scopes);
     $st = $mysqli->prepare('UPDATE integration_clients SET client_scopes = ?, client_allowed_ips = ?, client_expires_at = ? WHERE client_id = ?');
     $ips_db = $ips === '' ? null : $ips;
     $st->bind_param('sssi', $scope, $ips_db, $expires, $cid);
     $st->execute();
     $st->close();
-    logAction('Integration', 'Client Update', "$session_name updated integration client {$row['client_name']}: scopes [$scope], IP allow-list " . ($ips === '' ? 'none' : 'set') . ', expiry ' . ($expires ?? 'none'), 0, $cid);
-    flash_alert('Integration client <strong>' . nullable_htmlentities($row['client_name']) . '</strong> updated. Scope changes apply to existing tokens at their next request.');
+    IntegrationScope::save($mysqli, $cid, $dept['all'], $dept['ids']);
+    $dept_was = $dept_before === null ? 'all departments' : 'departments [' . implode(',', $dept_before) . ']';
+    logAction('Integration', 'Client Update', "$session_name updated integration client {$row['client_name']}: scopes [$scope], IP allow-list " . ($ips === '' ? 'none' : 'set') . ', expiry ' . ($expires ?? 'none')
+        . '; ' . ($dept_was === $ic_departments_label($dept) ? 'departments unchanged (' . $dept_was . ')' : "departments changed from $dept_was to " . $ic_departments_label($dept)), 0, $cid);
+    flash_alert('Integration client <strong>' . nullable_htmlentities($row['client_name']) . '</strong> updated. Scope and department changes apply to existing tokens at their next request.');
     redirect('/admin/integration_clients.php');
 }
 

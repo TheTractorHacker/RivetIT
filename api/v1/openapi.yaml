@@ -1872,7 +1872,7 @@ paths:
       description: >
         Public (no Bearer). `application/x-www-form-urlencoded` with `grant_type=client_credentials`, `client_id` and `client_secret`
         (or HTTP Basic). Optional `scope` (space separated; must be a subset of the client's scopes, default all of them).
-        Returns a signed access token valid for 10 minutes that is accepted ONLY on `/lms/*`. Every authentication failure is the same
+        Returns a signed access token valid for 10 minutes that is accepted ONLY on `/lms/*`, `/employees/*` and `/departments/*`. Every authentication failure is the same
         401 `invalid_client`; repeated failures per IP and per client are throttled (429). Clients are managed in
         Administration > Integration clients.
       security: []
@@ -1901,7 +1901,7 @@ paths:
     get:
       tags: [Integration]
       summary: Published course catalog
-      description: Scope `lms:read`. Published, non-archived courses only; each is its latest published revision. Cursor paging, incremental sync with `updated_since`.
+      description: Scope `lms:read`. Published, non-archived courses only; each is its latest published revision. Limited to the client's department scope (all departments, or only courses linked to its departments by a live rule, a rule naming one of its people, or an assignment or completion of one of its people); `departments` and `requirements` list only what touches the allowed departments. Cursor paging, incremental sync with `updated_since`.
       security: [{integrationAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/IntLimit'}
@@ -1916,7 +1916,7 @@ paths:
     get:
       tags: [Integration]
       summary: One published course
-      description: Scope `lms:read`. `id` is the course id from the list (12 characters). Unpublished, archived and unknown ids are all 404.
+      description: Scope `lms:read`. `id` is the course id from the list (12 characters). Unpublished, archived, unknown and out-of-department-scope ids are all the same 404.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string}}
@@ -1929,7 +1929,7 @@ paths:
     get:
       tags: [Integration]
       summary: List assignments
-      description: Scope `lms:read`. Filters `employee` (RivetIT id), `odoo_employee_id`, `course`, `status` (open, completed, waived, cancelled), `external_system`, `external_ref`, `updated_since`.
+      description: Scope `lms:read`. Only assignments of people in the client's department scope. Filters `employee` (RivetIT id), `odoo_employee_id`, `course`, `status` (open, completed, waived, cancelled), `external_system`, `external_ref`, `updated_since`.
       security: [{integrationAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/IntLimit'}
@@ -1955,6 +1955,8 @@ paths:
         successful results are stored. The employee is identified by `odoo_employee_id` or `rivetit_id` (never by name). The course must
         have a published revision. Created through the assignment engine, so the training ledger stays valid. 201 when a new assignment
         was created, 200 when an open assignment for the employee and course (or the same external reference) already existed.
+        The employee and the course must be inside the client's department scope; outside it the answer is exactly the one for an unknown
+        employee or course (422 `employee_not_found` / `course_not_found`), and an external_ref held outside the scope is the same 409 `external_ref_conflict`.
       security: [{integrationAuth: []}]
       parameters:
         - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
@@ -1975,7 +1977,7 @@ paths:
     get:
       tags: [Integration]
       summary: One assignment
-      description: Scope `lms:read`. `id` looks like `asg_123`.
+      description: Scope `lms:read`. `id` looks like `asg_123`. An assignment of a person outside the client's department scope is the same 404 as an unknown id.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, example: asg_123}}
@@ -2010,7 +2012,7 @@ paths:
     get:
       tags: [Integration]
       summary: One completion
-      description: Scope `lms:completions:read`. `id` looks like `cmp_123`.
+      description: Scope `lms:completions:read`. `id` looks like `cmp_123`. A completion of a person outside the client's department scope is the same 404 as an unknown id.
       security: [{integrationAuth: []}]
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, example: cmp_123}}
@@ -2037,13 +2039,79 @@ paths:
         '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
         '403': {$ref: '#/components/responses/IntegrationForbidden'}
         '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /employees:
+    get:
+      tags: [Integration]
+      summary: Employee directory
+      description: |
+        Scope `directory:read` only (no `lms:*` scope grants it). Employees are RivetIT contacts; the identity key for the QMS is `odoo_employee_id`
+        (from the Odoo directory link; null when the person is not linked). Deactivated people stay in the feed with `active: false`
+        (terminated or archived) so the QMS can deprovision them. Limited to the client's department scope: a restricted client sees only
+        the employees of its departments; `manager_id` is null when the manager is outside that scope. Ascending id, cursor paging,
+        incremental sync with `updated_since`. Only name, work email and job title are exposed - no phone, PIN, address or notes.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IntLimit'}
+        - {$ref: '#/components/parameters/IntCursor'}
+        - {$ref: '#/components/parameters/IntUpdatedSince'}
+        - {name: department_id, in: query, schema: {type: string}, description: "Only the employees of this department (RivetIT id)"}
+        - {name: odoo_employee_id, in: query, schema: {type: string}}
+      responses:
+        '200': {description: Employees, content: {application/json: {schema: {$ref: '#/components/schemas/DirectoryEmployeePage'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+  /employees/{id}:
+    get:
+      tags: [Integration]
+      summary: One employee
+      description: Scope `directory:read`. `id` is the RivetIT id from the list. Unknown, malformed and out-of-department-scope ids are all the same 404. A deactivated employee is returned with active set to false.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, example: "123"}}
+      responses:
+        '200': {description: Employee, content: {application/json: {schema: {type: object, properties: {data: {$ref: '#/components/schemas/DirectoryEmployee'}}}}}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /departments:
+    get:
+      tags: [Integration]
+      summary: Department directory
+      description: |
+        Scope `directory:read` only. Departments are RivetIT clients (CRM leads are not departments). Archived and inactive departments stay in the
+        feed (`active: false`). Limited to the client's department scope; `parent_id` and `head_employee_id` are null when they point outside it.
+        Ascending id, cursor paging, incremental sync with `updated_since`.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IntLimit'}
+        - {$ref: '#/components/parameters/IntCursor'}
+        - {$ref: '#/components/parameters/IntUpdatedSince'}
+      responses:
+        '200': {description: Departments, content: {application/json: {schema: {$ref: '#/components/schemas/DirectoryDepartmentPage'}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+  /departments/{id}:
+    get:
+      tags: [Integration]
+      summary: One department
+      description: Scope `directory:read`. Unknown, malformed and out-of-department-scope ids are all the same 404.
+      security: [{integrationAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, example: "7"}}
+      responses:
+        '200': {description: Department, content: {application/json: {schema: {type: object, properties: {data: {$ref: '#/components/schemas/DirectoryDepartment'}}}}}}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '404': {$ref: '#/components/responses/IntegrationNotFound'}
 components:
   securitySchemes:
     integrationAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token from POST /oauth/token (an integration client, 10 minutes). Accepted only on /lms/*; every other route answers 403 to it.
+      description: Access token from POST /oauth/token (an integration client, 10 minutes). Accepted only on /lms/*, /employees/* and /departments/*; every other route answers 403 to it.
     bearerAuth:
       type: http
       scheme: bearer
@@ -2135,7 +2203,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
     IntegrationBadRequest:
-      description: invalid_limit, invalid_cursor, invalid_updated_since, invalid_status, invalid_json, idempotency_key_required or idempotency_key_invalid
+      description: invalid_limit, invalid_cursor, invalid_updated_since, invalid_department_id, invalid_odoo_employee_id, invalid_status, invalid_json, idempotency_key_required or idempotency_key_invalid
       content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
     IntegrationUnauthorized:
       description: invalid_token (missing, expired, revoked, wrong audience, bad signature) or unauthorized
@@ -2194,6 +2262,41 @@ components:
               one_time: {type: boolean}
               all_people: {type: boolean}
         updated_at: {type: string, format: date-time}
+    DirectoryEmployee:
+      type: object
+      properties:
+        id: {type: string, description: "RivetIT contact id"}
+        odoo_employee_id: {type: string, nullable: true, description: "Identity key: the Odoo employee id from the directory link"}
+        name: {type: string}
+        work_email: {type: string, nullable: true}
+        job_title: {type: string, nullable: true}
+        department_id: {type: string, nullable: true, description: "RivetIT department id (null = no department)"}
+        odoo_department_id: {type: string, nullable: true}
+        manager_id: {type: string, nullable: true, description: "Null when there is no manager or the manager is outside the client's department scope"}
+        employment_status: {type: string, description: "pre-hire, active, leave, suspended, transfer_pending, termination_pending, terminated or archived"}
+        active: {type: boolean, description: "false for terminated or archived people (tombstones): deprovision them"}
+        updated_at: {type: string, format: date-time}
+    DirectoryEmployeePage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/DirectoryEmployee'}}
+        next_cursor: {type: string, nullable: true}
+    DirectoryDepartment:
+      type: object
+      properties:
+        id: {type: string, description: "RivetIT department (client) id"}
+        odoo_department_id: {type: string, nullable: true}
+        name: {type: string}
+        parent_id: {type: string, nullable: true, description: "Null when there is no parent or it is outside the client's department scope"}
+        head_employee_id: {type: string, nullable: true, description: "Null when there is no head or the head is outside the client's department scope"}
+        status: {type: string, description: "active, inactive, on_hold or archived"}
+        active: {type: boolean, description: "false when archived or inactive (tombstone)"}
+        updated_at: {type: string, format: date-time}
+    DirectoryDepartmentPage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/DirectoryDepartment'}}
+        next_cursor: {type: string, nullable: true}
     LmsCoursePage:
       type: object
       properties:

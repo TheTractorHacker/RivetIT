@@ -1925,6 +1925,7 @@ CREATE TABLE `integration_clients` (
   `client_description` varchar(500) DEFAULT NULL,
   `client_scopes` varchar(500) NOT NULL DEFAULT '',
   `client_allowed_ips` text DEFAULT NULL,
+  `client_all_departments` tinyint(1) NOT NULL DEFAULT 0,
   `client_status` enum('active','revoked') NOT NULL DEFAULT 'active',
   `client_expires_at` datetime DEFAULT NULL,
   `client_created_by_user_id` int(11) NOT NULL DEFAULT 0,
@@ -1934,6 +1935,21 @@ CREATE TABLE `integration_clients` (
   `client_last_used_at` datetime DEFAULT NULL,
   PRIMARY KEY (`client_id`),
   UNIQUE KEY `uq_integration_client_uid` (`client_uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `integration_client_departments`
+--
+
+DROP TABLE IF EXISTS `integration_client_departments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `integration_client_departments` (
+  `client_id` int(11) NOT NULL,
+  `department_id` int(11) NOT NULL,
+  PRIMARY KEY (`client_id`,`department_id`),
+  KEY `idx_integration_client_dept_department` (`department_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

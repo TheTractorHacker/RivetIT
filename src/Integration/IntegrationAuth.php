@@ -19,7 +19,8 @@ final class IntegrationAuth
     public const SCOPES = ['lms:read', 'lms:assign', 'lms:completions:read', 'lms:evidence:read', 'directory:read', 'quality:events'];
     public const TOKEN_TTL = 600;
     public const MAX_ACTIVE_SECRETS = 2;
-    private const KEY_CONTEXT = 'integration_token_key';
+    /** The encryptSetting() context of settings.config_integration_signing_key. Frozen (changing it makes the stored key unreadable); ColumnRegistry uses it to re-wrap the column on a key rotation. */
+    public const KEY_CONTEXT = 'integration_token_key';
 
     // ---- tokens ---------------------------------------------------------------------------------------------------
 
@@ -224,8 +225,15 @@ final class IntegrationAuth
         return 'rvs_' . self::b64uEncode(random_bytes(32));
     }
 
-    /** @param list<string> $scopes @return array{client_id:int, client_uid:string, secret:string} the secret is returned once */
-    public static function createClient(\mysqli $db, string $name, ?string $description, array $scopes, string $allowedIps, ?string $expiresAt, int $userId): array
+    /**
+     * Department scope is a required, explicit choice (no default): $allDepartments = true, or the clients.client_id list of departments
+     * ($allDepartments = false with [] is a client that sees nothing). See {@see IntegrationScope}.
+     *
+     * @param list<string> $scopes
+     * @param list<int> $departmentIds
+     * @return array{client_id:int, client_uid:string, secret:string} the secret is returned once
+     */
+    public static function createClient(\mysqli $db, string $name, ?string $description, array $scopes, string $allowedIps, ?string $expiresAt, int $userId, bool $allDepartments, array $departmentIds): array
     {
         $uid = 'ic_' . bin2hex(random_bytes(10));
         $scope = implode(' ', self::parseScopes(implode(' ', $scopes)));
@@ -236,6 +244,7 @@ final class IntegrationAuth
         $st->execute();
         $cid = (int) $db->insert_id;
         $st->close();
+        IntegrationScope::save($db, $cid, $allDepartments, $departmentIds);
         $secret = self::addSecret($db, $cid);
         return ['client_id' => $cid, 'client_uid' => $uid, 'secret' => $secret];
     }
