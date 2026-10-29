@@ -66,6 +66,56 @@ function rivetRmmScaleSwitch(string $id, string $name, string $label, bool $chec
 }
 
 /**
+ * RivetCore 1.0.0-rc.54: the Windows security log presets as a checklist. Ticked = settings.log_presets[].selected (the saved choice, or the compliance baseline
+ * while nobody has chosen; showing the baseline stores nothing). After a refused save the person's own ticks win. Never switches log collection on.
+ *
+ * @param array<string,mixed> $rs  RemoteSettings::summary()
+ * @param array<string,mixed> $old the refused form of the card
+ */
+function rivetRmmLogPresetsFieldset(array $rs, array $old): string
+{
+    $chosen = !empty($rs['log_presets_chosen']);
+    $formBack = !empty($old['log_presets_form']);
+    $ticked = $formBack ? (array) ($old['log_presets'] ?? []) : [];
+    $note = rmmH((string) ($rs['log_presets_audit_note'] ?? ''));
+    $out = '<fieldset class="mb-3" id="lg_presets"><legend class="fs-6">Windows security event presets</legend>'
+        . '<p class="small text-muted mb-2">Ready-made sources for the security log. They apply to Windows devices that announce the preset collector, and only while the switch above is on.</p>';
+    if (!$chosen) {
+        $out .= '<div class="alert alert-info py-2 mb-2" role="status" id="lg_presets_unset">Nothing is saved yet. The recommended presets are ticked; they take effect when you save.</div>';
+    }
+    $out .= '<div class="alert alert-warning py-2 mb-2" role="note" id="lg_presets_audit"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>' . $note
+        . ' RivetIT cannot read the audit policy of a device, so it does not show whether it is on. Turn the subcategories on with Group Policy or <code>auditpol</code> (see the <code>audit_policy</code> line of each preset below and the <a href="https://github.com/TheTractorHacker/rivet-core/blob/main/docs/rmm/GPO_TEMPLATES_PLAN.md" target="_blank" rel="noopener noreferrer">GPO template plan</a>; a ready-made script is not part of this release).</div>'
+        . '<input type="hidden" name="log_presets_form" value="1">';
+    foreach ((array) ($rs['log_presets'] ?? []) as $i => $p) {
+        $id = (string) $p['id'];
+        $on = $formBack ? in_array($id, $ticked, true) : !empty($p['selected']);
+        $fw = implode(', ', array_map('strval', (array) ($p['frameworks'] ?? [])));
+        $dom = 'lg_preset_' . (int) $i;
+        $out .= '<div class="form-check mb-2"><input type="checkbox" class="form-check-input" id="' . $dom . '" name="log_presets[]" value="' . rmmH($id) . '"' . ($on ? ' checked' : '') . ' aria-describedby="' . $dom . '_h">'
+            . '<label class="form-check-label fw-semibold" for="' . $dom . '">' . rmmH((string) $p['title']) . '</label>'
+            . (!empty($p['recommended']) ? ' <span class="badge bg-success ms-1">Recommended for compliance</span>' : '')
+            . '<div class="form-text" id="' . $dom . '_h">' . rmmH((string) $p['description'])
+            . ($fw !== '' ? '<br><span class="small">' . rmmH($fw) . '</span>' : '')
+            . ((string) ($p['audit_policy'] ?? '') !== '' ? '<br><span class="small">Needs: ' . rmmH((string) $p['audit_policy']) . '</span>' : '')
+            . '</div></div>';
+    }
+
+    return $out . '</fieldset>';
+}
+
+/** The "Apply compliance baseline" button: its own form, shown to administrators only (the handler checks the permission again). */
+function rivetRmmLogPresetApply(array $rs, string $csrf, bool $logsOn, bool $isAdmin): string
+{
+    if (!$isAdmin) {
+        return '';
+    }
+
+    return '<form action="post.php" method="post" class="mt-3" autocomplete="off">' . $csrf
+        . '<button type="submit" name="apply_log_preset_baseline" class="btn btn-outline-primary btn-sm"><i class="fas fa-check-double me-1" aria-hidden="true"></i>Apply compliance baseline</button>'
+        . '<span class="form-text ms-2">Adds the recommended presets to those already chosen; nothing is unticked. It does not switch log collection on' . ($logsOn ? '.' : ', and it is off now.') . '</span></form>';
+}
+
+/**
  * @param array<string,mixed> $c context from the page: csrf, module_on, features, remote{...}, transfer{...}, logs{...}, scale{...}, ext{...}, msg{card=>?array}, old{card=>array}
  */
 function rivetRmmUiScaleCards(array $c): string
@@ -178,6 +228,7 @@ function rivetRmmUiScaleCards(array $c): string
         . '<form action="post.php" method="post" autocomplete="off" data-rmm-scale-logs>' . $csrf
         . rivetRmmScaleSwitch('lg_on', 'feature_logs', 'Collect logs from devices <code>logs</code>', array_key_exists('feature_logs', $oLg) ? !empty($oLg['feature_logs']) : $lgOn, '', ' data-rmm-scale-gate="#lg_ack" data-rmm-scale-was="' . ($lgOn ? '1' : '0') . '"')
         . '<div id="lg_ack">' . rivetRmmScaleAck('lg_accept', 'accept_logs_storage', (string) $rs['logs_storage_warning'], 'I understand how much this stores, and I will watch the figures below', $lgOn) . '</div>'
+        . rivetRmmLogPresetsFieldset($rs, $oLg)
         . '<h6 class="mt-3">What to collect</h6><p class="small text-muted mb-2">Choose narrow sources: warnings and errors from a few channels or services. Every device gets the list for its own platform. An empty list collects nothing, even with the switch on.</p>'
         . '<fieldset class="mb-3"><legend class="fs-6">Windows event-log channels (up to 20)</legend><div data-rmm-scale-rows="win">' . $wHtml . '</div>'
         . '<button type="button" class="btn btn-outline-primary btn-sm mt-1" data-rmm-scale-add="win"><i class="fas fa-plus me-1" aria-hidden="true"></i>Add a Windows channel</button></fieldset>'
@@ -192,6 +243,7 @@ function rivetRmmUiScaleCards(array $c): string
         . rivetRmmScaleNumber('lg_rate', 'logs_rate_per_min', 'Entries one device may send per minute', $lim['logs_rate_per_min'], '10 to 6,000. The agent applies the same budget. Default 600.', $oLg, 10, 6000)
         . rivetRmmScaleNumber('lg_int', 'logs_interval_s', 'How often a device sends (seconds)', $lim['logs_interval_s'], '30 to 3,600. Each batch is at most 200 entries. Default 60.', $oLg, 30, 3600)
         . '</div><button type="submit" name="save_logs_settings" class="btn btn-primary mt-3"><i class="fas fa-save me-1" aria-hidden="true"></i>Save log collection settings</button></form>'
+        . rivetRmmLogPresetApply($rs, $csrf, $lgOn, !empty($c['is_admin']))
         . '<h6 class="mt-4">What the limits add up to</h6>' . rivetRmmUiDl([
             ['Worst case for one device', rmmH(rivetRmmScaleBytes($perDev)) . ' <span class="text-muted small">(' . rmmH(number_format((int) $lim['logs_device_max_rows'])) . ' entries at about 600 bytes each)</span>'],
             ['Cap for the whole fleet', rmmH(rivetRmmScaleBytes($fleetCap)) . ' <span class="text-muted small">(' . rmmH(number_format((int) $lim['logs_fleet_max_rows'])) . ' entries)</span>'],

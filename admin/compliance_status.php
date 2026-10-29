@@ -158,7 +158,7 @@ $q = static fn (array $extra): string => http_build_query(array_filter($extra, s
                 <tr>
                     <td><strong><?= nullable_htmlentities($r['title']) ?></strong><div class="small text-muted"><?= nullable_htmlentities($r['category']) ?> &middot; <?= nullable_htmlentities($r['why']) ?></div></td>
                     <td><span class="badge bg-<?= $status_badge[$r['status']] ?? 'secondary' ?>"><?= nullable_htmlentities($r['status_label']) ?></span></td>
-                    <td><?= nullable_htmlentities($r['summary']) ?><?php if ($r['detail']) { ?><div class="small text-muted"><?= nullable_htmlentities($r['detail']) ?></div><?php } ?>
+                    <td><?= nullable_htmlentities($r['summary']) ?><?php if ($r['detail']) { ?><div class="small text-muted"><?= nl2br(nullable_htmlentities($r['detail']), false) ?></div><?php } ?>
                         <?php if ($href && in_array($r['status'], ['warn', 'fail'], true)) { ?><a class="small" href="<?= nullable_htmlentities($href) ?>">Fix this &rarr;</a><?php } ?></td>
                     <?php if ($resp_all) { ?><td class="small"><?= nullable_htmlentities($party_label($r['responsible'] ?? null)) ?></td><?php } ?>
                     <td class="small text-muted d-none d-lg-table-cell"><?= nullable_htmlentities($controls_text($r['controls'])) ?></td>

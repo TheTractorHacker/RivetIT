@@ -1279,7 +1279,8 @@ if (isset($_POST['save_logs_settings'])) {
         $old[$k] = $_POST[$k] ?? '';
     }
     $want = !empty($_POST['feature_logs']);
-    if ($want !== $rmm->settings()->features()['logs']) {
+    $wasOn = $rmm->settings()->features()['logs'];
+    if ($want !== $wasOn) {
         $in['features'] = ['logs' => $want];
         if ($want) {
             $in['accept_logs_storage'] = !empty($_POST['accept_logs_storage']);
@@ -1289,6 +1290,18 @@ if (isset($_POST['save_logs_settings'])) {
     $curSources = ['linux' => $rs->logSources('linux'), 'windows' => $rs->logSources('windows')];
     if (json_encode($sources) !== json_encode($curSources)) {
         $in['logs_collect'] = $sources;
+    }
+    // RivetCore 1.0.0-rc.54: the preset checklist. Saved as an explicit choice (an empty list included); the baseline flag goes along only with the first enable.
+    $pre = rivetRmmLogPresetInput($rs->summary(), $_POST, $wasOn, $want);
+    if ($pre['ticked'] !== null) {
+        $old['log_presets_form'] = 1;
+        $old['log_presets'] = $pre['ticked'];
+    }
+    if ($pre['presets'] !== null) {
+        $in['logs_collect'] = ($in['logs_collect'] ?? []) + ['presets' => $pre['presets']];
+    }
+    if ($pre['compliance_baseline_if_unset']) {
+        $in['compliance_baseline_if_unset'] = true;
     }
     $limits = [];
     $labels = ['logs_retention_days' => 'Keep entries for (days)', 'logs_device_max_rows' => 'Entries kept per device', 'logs_fleet_max_rows' => 'Entries kept for the whole fleet',
@@ -1320,12 +1333,32 @@ if (isset($_POST['save_logs_settings'])) {
             $bits[] = 'Log collection switched ' . ($want ? 'on' : 'off');
         }
         if (isset($in['logs_collect'])) {
-            $bits[] = 'sources saved';
+            $bits[] = isset($in['logs_collect']['presets']) && count($in['logs_collect']) === 1 ? 'presets saved' : 'sources saved';
         }
         if (isset($in['limits'])) {
             $bits[] = 'limits saved';
         }
         rivetRmmScaleMsg('log-collection', 'success', ucfirst(implode(', ', $bits)) . '.');
+    }
+    ea_scale_back('log-collection');
+}
+
+// RivetCore 1.0.0-rc.54: "Apply compliance baseline". Administrators only (checked again here); adds the baseline to the presets already chosen, never switches log collection on.
+if (isset($_POST['apply_log_preset_baseline'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    ea_scale_require_admin($rmm, (int) $session_user_id, 'log-collection');
+    $rmm->settings()->refresh();
+    $before = $rmm->remoteSettings()->logPresets();
+    $r = $rmm->remoteActions()->applyLogPresetBaseline($ea_who);
+    $rmm->syncState();
+    if (!$r->ok) {
+        rivetRmmScaleMsg('log-collection', 'error', $r->message);
+    } else {
+        $rmm->remoteSettings()->refresh();
+        $added = count(array_diff($rmm->remoteSettings()->logPresets(), $before));
+        $logsOn = $rmm->settings()->features()['logs'];
+        rivetRmmScaleMsg('log-collection', 'success', ($added > 0 ? "Compliance baseline applied: $added preset" . ($added === 1 ? '' : 's') . ' added.' : 'The compliance baseline was already saved; nothing changed.')
+            . ($logsOn ? '' : ' Log collection is still off, so nothing is collected until you switch it on.'));
     }
     ea_scale_back('log-collection');
 }

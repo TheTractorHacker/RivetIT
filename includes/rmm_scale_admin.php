@@ -380,3 +380,49 @@ function rivetRmmScaleBucketSuggestion($mysqli, int $checkInIntervalS): array
 
     return ['per_min' => min(1000000, $perMin), 'burst' => min(1000000, max(200, $perMin * 4)), 'largest' => $largest];
 }
+
+/**
+ * RivetCore 1.0.0-rc.54 (log presets): what the "Log collection" form says about the Windows security presets, as the pieces to merge into the
+ * RemoteActions::updateSettings() input. Pure: it reads the settings summary and the posted fields and decides nothing about permissions.
+ *
+ * - `presets` is the ticked ids (only known preset ids), set when the form carried the checklist AND either nobody ever chose (saving the form is the
+ *   explicit choice the banner announces) or the ticks differ from the saved choice. An empty list is a valid explicit choice ("none").
+ * - `compliance_baseline_if_unset` is true only for the first enable: the switch goes off -> on while log_presets_chosen is false. Core stores the
+ *   baseline only if no choice exists; it is never sent when a choice exists, and nothing here turns the switch on.
+ *
+ * @param array<string,mixed> $summary RemoteSettings::summary()
+ * @param array<string,mixed> $post    the posted fields
+ * @return array{presets:?list<string>,compliance_baseline_if_unset:bool,ticked:?list<string>}
+ */
+function rivetRmmLogPresetInput(array $summary, array $post, bool $logsWereOn, bool $wantsOn): array
+{
+    $chosen = !empty($summary['log_presets_chosen']);
+    $known = [];
+    $saved = [];
+    foreach ((array) ($summary['log_presets'] ?? []) as $p) {
+        $known[] = (string) $p['id'];
+        if (!empty($p['selected'])) {
+            $saved[] = (string) $p['id'];
+        }
+    }
+    $out = ['presets' => null, 'compliance_baseline_if_unset' => $wantsOn && !$logsWereOn && !$chosen, 'ticked' => null];
+    if (empty($post['log_presets_form'])) {
+        return $out;
+    }
+    $ticked = [];
+    foreach (is_array($post['log_presets'] ?? null) ? $post['log_presets'] : [] as $id) {
+        if (is_string($id) && in_array($id, $known, true) && !in_array($id, $ticked, true)) {
+            $ticked[] = $id;
+        }
+    }
+    $out['ticked'] = $ticked;
+    $a = $ticked;
+    $b = $saved;
+    sort($a);
+    sort($b);
+    if (!$chosen || $a !== $b) {
+        $out['presets'] = $ticked;
+    }
+
+    return $out;
+}
