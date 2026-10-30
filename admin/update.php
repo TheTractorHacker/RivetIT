@@ -237,7 +237,8 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                         <div class="upd-tile-value">PostgreSQL</div>
                         <div class="upd-tile-note"><?= $pill('crit', $pg_conn['tested_at'] !== null ? 'Last test failed, ' . $pg_conn['tested_at'] . ' UTC' : 'Connection never tested') ?> <a href="settings_endpoint_agent.php">Fix</a></div>
                     <?php } else { ?>
-                        <div class="upd-tile-value">PostgreSQL <?= $h($pg_conn['server_version'] ?? '') ?></div>
+                        <?php $pg_full_version = (string) ($pg_conn['server_version'] ?? ''); $pg_short_version = preg_match('/\d+(?:\.\d+)+/', $pg_full_version, $pg_vm) === 1 ? $pg_vm[0] : $pg_full_version; ?>
+                        <div class="upd-tile-value" title="<?= $h($pg_full_version) ?>">PostgreSQL <?= $h($pg_short_version) ?></div>
                         <div class="upd-tile-note"><?= $pill('ok', 'Connection OK') ?></div>
                     <?php } ?>
                 </div>
