@@ -6,6 +6,7 @@
 require_once '../../../includes/modal_header.php';
 require_once '../../../includes/project_tasks.php';
 require_once '../../../includes/project_task_form.php';
+require_once '../../../includes/project_task_panels.php';
 
 $task_id = intval($_GET['id'] ?? 0);
 
@@ -83,6 +84,9 @@ ob_start();
         </div>
 
         <?php projectTaskRenderFields($mysqli, ['project_id' => $task_project_id, 'task' => $row]); ?>
+
+        <?php /* Checklist, subtasks, comments, files (DB 2.6.208 / 2.6.209): their own buttons, saved as you go, separate from the form's Save */ ?>
+        <?= projectTaskRenderPanels($mysqli, $ctx, ['write' => $can_write, 'user_id' => intval($session_user_id), 'is_admin' => !empty($session_is_admin), 'can_delete_file' => $can_delete || !empty($session_is_admin)]) ?>
 
         <?php if ($move_targets) { ?>
             <hr>

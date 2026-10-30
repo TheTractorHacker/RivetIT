@@ -160,7 +160,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 let ok = true;
                 if (pr !== '' && card.getAttribute('data-priority') !== pr) { ok = false; }
                 if (lb !== '' && (',' + card.getAttribute('data-labels') + ',').indexOf(',' + lb + ',') === -1) { ok = false; }
-                if (as !== '' && card.getAttribute('data-assignee') !== as) { ok = false; }
+                if (as !== '') {
+                    // data-assignees lists every person on the card (primary first); "0" means unassigned. Falls back to the primary-only attribute.
+                    const people = card.hasAttribute('data-assignees') ? card.getAttribute('data-assignees') : card.getAttribute('data-assignee');
+                    const list = people === '' || people === '0' ? [] : people.split(',');
+                    if (as === '0' ? list.length !== 0 : list.indexOf(as) === -1) { ok = false; }
+                }
                 card.classList.toggle('is-filtered-out', !ok);
                 if (ok) { shown++; }
             });

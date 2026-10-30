@@ -67,6 +67,9 @@ foreach ($lanes as $l) {
     $board[$l] = [];
 }
 
+// Subtasks (DB 2.6.208) live in their parent's pop-up and show as a count on the parent's card, not as cards of their own
+$subtask_filter = projectTaskPhase2Ready($mysqli) ? 'AND tasks.task_parent_id IS NULL' : '';
+
 // Fetch project tasks (directly on the project, or via a project ticket)
 $sql_tasks = mysqli_query(
     $mysqli,
@@ -78,6 +81,7 @@ $sql_tasks = mysqli_query(
      LEFT JOIN tickets AS created_ticket ON created_ticket.ticket_id = tasks.task_created_ticket_id
      LEFT JOIN users ON users.user_id = tasks.task_assigned_to
      WHERE (tasks.task_project_id = $project_id OR tickets.ticket_project_id = $project_id)
+     $subtask_filter
      ORDER BY tasks.task_order ASC, tasks.task_created_at ASC"
 );
 
@@ -100,7 +104,16 @@ while ($t = mysqli_fetch_assoc($sql_tasks)) {
 $phase1_ready = projectTaskPhase1Ready($mysqli);
 $task_labels = $phase1_ready ? projectTaskLabelsByTask($mysqli, $all_task_ids) : [];
 $board_labels = [];      // labels in use on this board, for the filter
-$board_assignees = [];   // assignees in use on this board, for the filter
+$board_assignees = [];   // user_id => name of everyone assigned to a card on this board, for the filter
+// Checklist / subtask / comment / file counts (DB 2.6.208 / 2.6.209) and every assignee of every card, each in one query
+$phase2_ready = projectTaskPhase2Ready($mysqli);
+$phase3_ready = projectTaskPhase3Ready($mysqli);
+$task_counts = projectTaskCounts($mysqli, $all_task_ids);
+$task_people = projectTaskAssigneesByTask($mysqli, $all_task_ids);
+foreach ($task_people as $people) {
+    foreach ($people as $p) { $board_assignees[$p['user_id']] = $p['user_name']; }
+}
+asort($board_assignees, SORT_NATURAL | SORT_FLAG_CASE);
 foreach ($task_labels as $lbls) {
     foreach ($lbls as $l) { $board_labels[$l['label_id']] = $l['label_name']; }
 }
@@ -133,7 +146,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
         color: var(--if-ink);
     }
     /* Board layout: equal-width lanes that scroll sideways as a group instead of clipping the last one, a header that stays put, and no giant empty band. */
-    #kanban-board { height: auto; gap: 12px; padding: 0 0 .75rem; align-items: flex-start; scroll-snap-type: x proximity; }
+    #kanban-board { min-width: 0; max-width: 100%; height: auto; gap: 12px; padding: 0 0 .75rem; align-items: flex-start; scroll-snap-type: x proximity; }
     #kanban-board .kanban-column { flex: 1 0 280px; min-width: 280px; margin: 0; padding: 0; min-height: 0; max-height: calc(100vh - 290px); overflow: hidden; scroll-snap-align: start; display: flex; flex-direction: column; }
     #kanban-board .panel-title { display: flex; align-items: center; gap: .5rem; margin: 0; padding: .7rem .85rem; font-size: .9rem; font-weight: 600; border-bottom: 1px solid var(--if-border); background: var(--if-surface); position: sticky; top: 0; z-index: 1; flex: 0 0 auto; }
     #kanban-board .panel-title .badge { float: none !important; margin-left: auto; }
@@ -154,6 +167,17 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     #kanban-board .task-label-chip { font-weight: 500; }
     #kanban-board .task-progress { height: 4px; border-radius: 2px; background: var(--if-border); overflow: hidden; }
     #kanban-board .task-progress > span { display: block; height: 100%; background: var(--bs-info, #4299e1); }
+    #kanban-board .task-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+    #kanban-board .task-stats { display: flex; flex-wrap: wrap; gap: .5rem; font-size: .75rem; color: var(--bs-secondary-color, #6c757d); }
+    #kanban-board .task-stat { white-space: nowrap; }
+    #kanban-board .task-stat i { margin-right: .15rem; }
+    #kanban-board .task-stat.is-complete { color: var(--bs-success, #2fb344); }
+    #kanban-board .task-avatars { display: inline-flex; align-items: center; margin-left: auto; min-width: 0; }
+    #kanban-board .task-avatars .task-avatar { margin-left: -.35rem; border: 2px solid var(--if-surface); }
+    #kanban-board .task-avatars .task-avatar:first-child { margin-left: 0; }
+    #kanban-board .task-avatar.is-primary { background: var(--bs-primary, #206bc4); color: #fff; }
+    #kanban-board .task-avatar-more { font-size: .6rem; }
+    #kanban-board .task-assignee-name { margin-left: .35rem; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9rem; }
     #kanban-board .task-assignee { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); }
     #kanban-board .task-avatar { width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--if-border); color: var(--if-ink); display: inline-flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 600; flex: 0 0 auto; }
     #kanban-board .task.is-filtered-out { display: none; }
@@ -225,17 +249,8 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     <select class="form-select form-select-sm" id="kanban-filter-assignee" aria-label="Filter by assignee">
         <option value="">Anyone</option>
         <option value="0">Unassigned</option>
-        <?php
-        $seen_assignees = [];
-        foreach ($board as $lane_items) {
-            foreach ($lane_items as $it) {
-                $uid = intval($it['task_assigned_to'] ?? 0);
-                if ($uid && !isset($seen_assignees[$uid])) { $seen_assignees[$uid] = (string) ($it['assigned_name'] ?? ''); }
-            }
-        }
-        asort($seen_assignees, SORT_NATURAL | SORT_FLAG_CASE);
-        foreach ($seen_assignees as $uid => $uname) { ?>
-            <option value="<?= $uid ?>"><?= nullable_htmlentities($uname) ?></option>
+        <?php foreach ($board_assignees as $uid => $uname) { ?>
+            <option value="<?= intval($uid) ?>"><?= nullable_htmlentities($uname) ?></option>
         <?php } ?>
     </select>
     <button type="button" class="btn btn-sm btn-outline-secondary" id="kanban-filter-clear" hidden><i class="fas fa-times me-1"></i>Clear filters</button>
@@ -263,21 +278,18 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
                     $t_ticket_id = intval($item['task_ticket_id']);
                     $t_prefix = nullable_htmlentities($item['ticket_prefix'] ?? '');
                     $t_number = nullable_htmlentities($item['ticket_number'] ?? '');
-                    $t_assigned = nullable_htmlentities($item['assigned_name'] ?? '');
                     $t_assigned_id = intval($item['task_assigned_to'] ?? 0);
+                    $t_people = $task_people[$t_id] ?? [];
+                    $t_people_ids = implode(',', array_column($t_people, 'user_id'));
+                    $t_counts = $task_counts[$t_id] ?? ['chk_done' => 0, 'chk_total' => 0, 'sub_done' => 0, 'sub_total' => 0, 'comments' => 0, 'files' => 0];
+                    $t_repeats = $phase3_ready && intval($item['task_repeat_interval'] ?? 0) > 0;
+                    $t_reminder = $phase3_ready && !empty($item['task_reminder_at']) && empty($item['task_reminder_sent_at']);
                     $t_priority = $phase1_ready ? projectTaskNormalizePriority($item['task_priority'] ?? 0) : 0;
                     $t_prio_meta = projectTaskPriorityMeta($t_priority);
                     $t_color = $phase1_ready ? projectTaskNormalizeColor($item['task_color'] ?? '') : null;
                     $t_has_desc = $phase1_ready && trim((string) ($item['task_description'] ?? '')) !== '';
                     $t_labels = $task_labels[$t_id] ?? [];
                     $t_label_ids = implode(',', array_column($t_labels, 'label_id'));
-                    $t_initials = '';
-                    if ($t_assigned !== '') {
-                        foreach (preg_split('/\s+/', trim((string) $item['assigned_name'])) as $part) {
-                            $t_initials .= mb_strtoupper(mb_substr($part, 0, 1));
-                        }
-                        $t_initials = nullable_htmlentities(mb_substr($t_initials, 0, 2));
-                    }
                     // See project_details.php's render_task_row for why this is a
                     // separate column/relationship from task_ticket_id above.
                     $t_created_ticket_id = intval($item['task_created_ticket_id'] ?? 0);
@@ -288,7 +300,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
                     $is_done = $lane === 'Done';
                     ?>
                     <div class="task grab-cursor<?= $t_color ? ' task-accent' : '' ?>" data-task-id="<?= $t_id ?>" data-task-status="<?= $lane ?>"
-                         data-order="<?= $order_index ?>" data-priority="<?= $t_priority ?>" data-labels="<?= $t_label_ids ?>" data-assignee="<?= $t_assigned_id ?>"
+                         data-order="<?= $order_index ?>" data-priority="<?= $t_priority ?>" data-labels="<?= $t_label_ids ?>" data-assignee="<?= $t_assigned_id ?>" data-assignees="<?= $t_people_ids ?>"
                          style="<?= $t_priority > 0 ? '--task-prio:' . $t_prio_meta['color'] . ';' : '' ?><?= $t_color ? '--task-accent:' . $t_color . ';' : '' ?>">
                         <div class="task-head">
                             <span class="task-title ajax-modal" role="button" tabindex="0" data-modal-url="<?= $detail_url ?>" data-modal-size="lg" title="Open task details"><?= $t_name ?></span>
@@ -350,8 +362,43 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
                             <div class="task-progress" role="progressbar" aria-valuenow="<?= $t_progress ?>" aria-valuemin="0" aria-valuemax="100" aria-label="Progress <?= $t_progress ?>%"><span style="width: <?= $t_progress ?>%;"></span></div>
                         <?php } ?>
 
-                        <?php if ($t_assigned) { ?>
-                            <div class="task-assignee"><span class="task-avatar" aria-hidden="true"><?= $t_initials ?></span><span><?= $t_assigned ?></span></div>
+                        <?php
+                        $has_stats = $t_counts['chk_total'] || $t_counts['sub_total'] || $t_counts['comments'] || $t_counts['files'] || $t_repeats || $t_reminder;
+                        if ($has_stats || $t_people) { ?>
+                            <div class="task-foot">
+                                <div class="task-stats">
+                                    <?php if ($t_counts['chk_total']) { ?>
+                                        <span class="task-stat<?= $t_counts['chk_done'] === $t_counts['chk_total'] ? ' is-complete' : '' ?>" title="Checklist: <?= $t_counts['chk_done'] ?> of <?= $t_counts['chk_total'] ?> done"><i class="far fa-fw fa-check-square"></i><?= $t_counts['chk_done'] ?>/<?= $t_counts['chk_total'] ?></span>
+                                    <?php } ?>
+                                    <?php if ($t_counts['sub_total']) { ?>
+                                        <span class="task-stat<?= $t_counts['sub_done'] === $t_counts['sub_total'] ? ' is-complete' : '' ?>" title="Subtasks: <?= $t_counts['sub_done'] ?> of <?= $t_counts['sub_total'] ?> done"><i class="fas fa-fw fa-sitemap"></i><?= $t_counts['sub_done'] ?>/<?= $t_counts['sub_total'] ?></span>
+                                    <?php } ?>
+                                    <?php if ($t_counts['comments']) { ?>
+                                        <span class="task-stat" title="<?= $t_counts['comments'] ?> comment(s)"><i class="far fa-fw fa-comment"></i><?= $t_counts['comments'] ?></span>
+                                    <?php } ?>
+                                    <?php if ($t_counts['files']) { ?>
+                                        <span class="task-stat" title="<?= $t_counts['files'] ?> file(s)"><i class="fas fa-fw fa-paperclip"></i><?= $t_counts['files'] ?></span>
+                                    <?php } ?>
+                                    <?php if ($t_repeats) { ?>
+                                        <span class="task-stat" title="Repeats every <?= intval($item['task_repeat_interval']) ?> <?= nullable_htmlentities($item['task_repeat_unit']) ?>(s)"><i class="fas fa-fw fa-redo"></i><span class="visually-hidden">Repeating task</span></span>
+                                    <?php } ?>
+                                    <?php if ($t_reminder) { ?>
+                                        <span class="task-stat" title="Reminder: <?= nullable_htmlentities($item['task_reminder_at']) ?>"><i class="far fa-fw fa-bell"></i><span class="visually-hidden">Has a reminder</span></span>
+                                    <?php } ?>
+                                </div>
+                                <?php if ($t_people) { ?>
+                                    <div class="task-avatars" title="<?= nullable_htmlentities(implode(', ', array_column($t_people, 'user_name'))) ?>">
+                                        <?php foreach (array_slice($t_people, 0, 3) as $person) {
+                                            $initials = '';
+                                            foreach (preg_split('/\s+/', trim($person['user_name'])) as $part) { $initials .= mb_strtoupper(mb_substr($part, 0, 1)); }
+                                            ?>
+                                            <span class="task-avatar<?= $person['primary'] ? ' is-primary' : '' ?>" title="<?= nullable_htmlentities($person['user_name']) ?>"><?= nullable_htmlentities(mb_substr($initials, 0, 2)) ?></span>
+                                        <?php } ?>
+                                        <?php if (count($t_people) > 3) { ?><span class="task-avatar task-avatar-more">+<?= count($t_people) - 3 ?></span><?php } ?>
+                                        <?php if (count($t_people) === 1) { ?><span class="task-assignee-name"><?= nullable_htmlentities($t_people[0]['user_name']) ?></span><?php } ?>
+                                    </div>
+                                <?php } ?>
+                            </div>
                         <?php } ?>
                     </div>
                 <?php } ?>

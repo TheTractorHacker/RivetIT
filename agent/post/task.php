@@ -111,8 +111,8 @@ if (isset($_POST['edit_project_task'])) {
 
     mysqli_query($mysqli, "UPDATE tasks SET task_name = '$task_name', task_milestone_id = $milestone_id_sql, task_assigned_to = $assigned_to_sql, task_start = $task_start_sql, task_due = $task_due_sql, task_completion_estimate = $task_completion_estimate, task_progress = $task_progress WHERE task_id = $task_id");
 
-    // Priority, description, colour, lane and labels (DB 2.6.207; a no-op until Update Database has run)
-    projectTaskApplyPostedExtras($mysqli, $task_id, $ctx['project_id'], intval($session_user_id), lookupUserPermission('module_support') >= 3);
+    // Priority, description, colour, lane, labels, assignees, reminder and repeat (DB 2.6.207 / 2.6.209; a no-op until Update Database has run)
+    projectTaskApplyPostedExtras($mysqli, $task_id, $ctx['project_id'], intval($session_user_id), lookupUserPermission('module_support') >= 3, intval($ctx['row']['task_assigned_to'] ?? 0));
 
     logAction("Task", "Edit", "$session_name edited task $task_name", $client_id, $task_id);
 
@@ -321,6 +321,11 @@ if (isset($_GET['complete_task'])) {
     }
 
     mysqli_query($mysqli, "UPDATE tasks SET task_completed_at = NOW(), task_completed_by = $session_user_id, task_progress = 100 WHERE task_id = $task_id");
+
+    // A repeating project task creates its next occurrence now (once; DB 2.6.209)
+    if (empty($row['task_completed_at'])) {
+        projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+    }
 
     // Only log a time entry against a ticket for ticket-linked tasks.
     // Project-only tasks have no ticket, so we must NOT insert an orphan ticket_replies row.
