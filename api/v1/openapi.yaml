@@ -1006,6 +1006,258 @@ paths:
                   id: {type: integer}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}/checklist:
+    get:
+      tags: [Projects]
+      summary: A task's checklist items (database 2.6.208)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Items in order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/TaskChecklistItem'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Update Database has not run yet}
+    post:
+      tags: [Projects]
+      summary: Add a checklist item at the end (scope api:tasks:write)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string, maxLength: 255}
+      responses:
+        '201':
+          description: The new item
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskChecklistItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}/checklist/{itemId}:
+    patch:
+      tags: [Projects]
+      summary: Change an item's text and/or done flag (scope api:tasks:write)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: itemId, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: {type: string, maxLength: 255}
+                done: {type: boolean}
+      responses:
+        '200':
+          description: The item
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskChecklistItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Projects]
+      summary: Delete an item (scope api:tasks:delete)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: itemId, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: '{deleted: true, id}'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}/subtasks:
+    get:
+      tags: [Projects]
+      summary: A task's subtasks (database 2.6.208)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Subtasks in order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subtasks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: integer}
+                        name: {type: string}
+                        done: {type: boolean}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Projects]
+      summary: Create a subtask (scope api:tasks:write). A subtask cannot have subtasks.
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, maxLength: 255}
+      responses:
+        '201':
+          description: The new task (its parent_id is this task)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tasks/{id}/comments:
+    get:
+      tags: [Projects]
+      summary: A task's comments, oldest first (database 2.6.208)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items: {$ref: '#/components/schemas/TaskComment'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      tags: [Projects]
+      summary: Add a comment as the caller (scope api:tasks:write)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: {type: string, maxLength: 20000, description: Plain text (tags are stripped)}
+      responses:
+        '201': {description: '{id}'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tasks/{id}/comments/{commentId}:
+    patch:
+      tags: [Projects]
+      summary: Edit a comment (its author only; scope api:tasks:write)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: commentId, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: {type: string}
+      responses:
+        '200': {description: '{id}'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Projects]
+      summary: Delete a comment (its author, or an administrator; scope api:tasks:delete)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: commentId, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: '{deleted: true, id}'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}/attachments:
+    get:
+      tags: [Projects]
+      summary: Metadata of a task's files (database 2.6.209); never the stored name
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: integer}
+                        name: {type: string}
+                        size: {type: integer}
+                        mime: {type: string, nullable: true}
+                        uploaded_by: {type: string, nullable: true}
+                        created_at: {type: string}
+    post:
+      tags: [Projects]
+      summary: Attach a file (multipart/form-data, field "file"; scope api:tasks:write). Scripts, web pages and installers are refused; up to 25 MB and 50 files per task.
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '201': {description: '{id}'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /tasks/{id}/attachments/{attachmentId}:
+    get:
+      tags: [Projects]
+      summary: Download a file (always sent as an attachment, application/octet-stream, nosniff)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: attachmentId, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: The file bytes
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Projects]
+      summary: Delete a file (the uploader, or Service Desk level 3 / an administrator; scope api:tasks:delete)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+        - {name: attachmentId, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: '{deleted: true, id}'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /tasks/{id}/toggle:
     post:
       tags: [Projects]
@@ -2923,6 +3175,54 @@ components:
               id: {type: integer}
               name: {type: string}
               color: {type: string}
+        parent_id: {type: integer, nullable: true, description: 'The parent task when this is a subtask (database 2.6.208; null before the update and for ordinary tasks)'}
+        assignees:
+          type: array
+          description: Everyone on the task, the primary assignee first (database 2.6.209; before it, only the primary). `assigned_to` stays the primary's name.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              primary: {type: boolean}
+        checklist:
+          type: object
+          description: Checklist progress (database 2.6.208; zeros before it)
+          properties:
+            done: {type: integer}
+            total: {type: integer}
+        subtasks:
+          type: object
+          description: Subtask progress (database 2.6.208)
+          properties:
+            done: {type: integer}
+            total: {type: integer}
+        comment_count: {type: integer}
+        attachment_count: {type: integer}
+        reminder_at: {type: string, nullable: true, example: '2026-11-02 09:00:00', description: 'One-off reminder time (database 2.6.209)'}
+        reminder_sent_at: {type: string, nullable: true}
+        repeat:
+          type: object
+          nullable: true
+          description: 'Repeat rule (database 2.6.209); null when the task does not repeat. Completing the task creates the next occurrence with the due date moved on.'
+          properties:
+            interval: {type: integer, minimum: 1, maximum: 999}
+            unit: {type: string, enum: [day, week, month, year]}
+    TaskChecklistItem:
+      type: object
+      properties:
+        id: {type: integer}
+        text: {type: string}
+        done: {type: boolean}
+    TaskComment:
+      type: object
+      properties:
+        id: {type: integer}
+        user_id: {type: integer, nullable: true}
+        user: {type: string, description: 'Author name, or "Former user"'}
+        body: {type: string}
+        created_at: {type: string}
+        updated_at: {type: string, nullable: true}
     ProjectTaskInput:
       type: object
       description: Every field is optional on PATCH/PUT; project_id and name are required on POST /tasks.
@@ -2953,6 +3253,19 @@ components:
           type: array
           description: Existing labels that are global or belong to the task's project (others are ignored).
           items: {type: integer}
+        parent_id: {type: integer, nullable: true, description: "Make the task a subtask of this task (same project, one level deep, no cycles); null or 0 detaches. On POST the parent is checked before anything is created."}
+        assignee_ids:
+          type: array
+          description: 'Everyone on the task (active users). The current primary stays primary when it is in the list, otherwise the first one becomes it. assigned_user_id alone (older clients) swaps the primary and keeps the rest; 0 clears everyone.'
+          items: {type: integer}
+        reminder_at: {type: string, nullable: true, example: '2026-11-02 09:00', description: "YYYY-MM-DD HH:MM[:SS]; null clears. Changing the time re-arms a delivered reminder."}
+        repeat:
+          type: object
+          nullable: true
+          description: Repeat rule; null stops repeating.
+          properties:
+            interval: {type: integer, minimum: 1, maximum: 999}
+            unit: {type: string, enum: [day, week, month, year]}
     ProjectTicket:
       type: object
       properties:

@@ -22,6 +22,7 @@ final class JobCatalog
             'ticket_email_parser.php' => ['label' => 'Ticket email parser', 'description' => 'Reads the support mailbox and turns messages into tickets and replies.', 'run_now' => false, 'note' => 'Reads the live mailbox.'],
             'outlook_schedule_sync.php' => ['label' => 'Outlook calendar sync', 'description' => 'Keeps scheduled tickets and Outlook calendars in step.', 'run_now' => false, 'note' => 'Writes to Outlook calendars.'],
             'crm_reminders.php' => ['label' => 'CRM reminders', 'description' => 'Sends follow-up reminders.', 'run_now' => false, 'note' => 'Sends real email.'],
+            'task_reminders.php' => ['label' => 'Task reminders', 'description' => 'Notifies everyone on a project task when its reminder time arrives.', 'run_now' => false, 'note' => 'Sends in-app and push notifications (no email). Runs with the main cron.'],
             'report_scheduler.php' => ['label' => 'Scheduled reports', 'description' => 'Emails reports on their schedules.', 'run_now' => false, 'note' => 'Sends real email.'],
             'domain_refresher.php' => ['label' => 'Domain refresh', 'description' => 'Looks up domain expiry and DNS details and updates the records.', 'run_now' => true, 'note' => ''],
             'certificate_refresher.php' => ['label' => 'Certificate refresh', 'description' => 'Checks SSL certificates and updates their expiry dates.', 'run_now' => true, 'note' => ''],

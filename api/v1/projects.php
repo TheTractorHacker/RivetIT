@@ -130,6 +130,7 @@ while ($t = mysqli_fetch_assoc($sql)) {
 // Priority / description / colour / labels (DB 2.6.207), additive to the fields below
 require_once dirname(__DIR__, 2) . '/includes/project_tasks.php';
 $task_labels = projectTaskLabelsByTask($mysqli, array_column($task_rows, 'task_id'));
+$task_extras2 = projectTaskApiExtras2($mysqli, $task_rows);   // parent, assignees, counts, reminder, repeat (DB 2.6.208 / 2.6.209)
 foreach ($task_rows as $t) {
     $tasks[] = [
         'id'           => intval($t['task_id']),
@@ -142,7 +143,7 @@ foreach ($task_rows as $t) {
         'completed_at' => $t['task_completed_at'],
         'assigned_to'  => $t['assigned_to_name'],
         'ticket_number'=> $t['ticket_number'] !== null ? $t['ticket_prefix'] . $t['ticket_number'] : null,
-    ] + projectTaskApiExtras($t, $task_labels);
+    ] + projectTaskApiExtras($t, $task_labels) + ($task_extras2[intval($t['task_id'])] ?? []);
 }
 
 $tickets = [];

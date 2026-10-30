@@ -414,6 +414,25 @@ Writable on `POST` / `PATCH`: `name`, `status`, `progress`, `start_at`, `due_at`
 `label_ids` (existing labels that are global or belong to the task's project; anything else is ignored). Invalid values answer `400`.
 Department scope applies as for projects: a task of a department outside the client's scope is `403`.
 
+**Checklists, subtasks, comments, assignees, files, reminders and repeats** (databases 2.6.208 and 2.6.209; before Update Database the new task fields read as neutral values
+and the sub-resources answer `409`). A task also has `parent_id` (the parent when it is a subtask), `assignees` (`[{id, name, primary}]`, the primary first; `assigned_to` stays the
+primary's name), `checklist` and `subtasks` (`{done, total}`), `comment_count`, `attachment_count`, `reminder_at`, `reminder_sent_at` and `repeat` (`{interval, unit}` or null).
+Writable on `POST` / `PATCH`: `parent_id` (same project, one level deep, no cycles; null detaches), `assignee_ids` (active users; `assigned_user_id` alone still works and keeps the rest of the team),
+`reminder_at` (`YYYY-MM-DD HH:MM`, null clears) and `repeat` (`{"interval": 1-999, "unit": "day|week|month|year"}` or null). Completing a repeating project task (`/toggle`, status `Done`, the web app) creates the next occurrence once, with the due date moved on.
+
+| Method | Path | Description |
+|---|---|---|
+| GET / POST | `/tasks/{id}/checklist` | List / add an item (`{"text": "..."}`) |
+| PATCH / DELETE | `/tasks/{id}/checklist/{item}` | Change `text` / `done`; delete |
+| GET / POST | `/tasks/{id}/subtasks` | List / create a subtask (`{"name": "..."}`) |
+| GET / POST | `/tasks/{id}/comments` | List / add a comment (`{"body": "..."}`, plain text) |
+| PATCH / DELETE | `/tasks/{id}/comments/{comment}` | Edit (author only) / delete (author, or an administrator) |
+| GET / POST | `/tasks/{id}/attachments` | List metadata / upload (`multipart/form-data`, field `file`) |
+| GET / DELETE | `/tasks/{id}/attachments/{file}` | Download (always an attachment) / delete (uploader, level 3 or administrator) |
+
+The sub-resources use the task's scopes and department scope: `api:tasks:read` to read, `write` to add and change, `delete` to delete. Files: up to 25 MB, 50 per task; scripts, web pages (`html`, `svg`),
+installers and similar are refused with `400`.
+
 ### Assets
 
 Managed devices/equipment tracked per department.
