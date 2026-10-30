@@ -919,6 +919,93 @@ paths:
               schema: {$ref: '#/components/schemas/ContractDetail'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /tasks:
+    post:
+      tags: [Projects]
+      summary: Create a project task (scope api:tasks:write; project_id and name required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectTaskInput'}
+      responses:
+        '201':
+          description: Created task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /tasks/{id}:
+    get:
+      tags: [Projects]
+      summary: One task, with priority, description, colour and labels
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Projects]
+      summary: Change the fields sent (scope api:tasks:write); PUT behaves the same
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectTaskInput'}
+      responses:
+        '200':
+          description: Updated task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Projects]
+      summary: Same as PATCH (only the fields sent change)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectTaskInput'}
+      responses:
+        '200':
+          description: Updated task
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProjectTask'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Projects]
+      summary: Delete a task and its label links (scope api:tasks:delete; Service Desk level 3)
+      parameters:
+        - {$ref: '#/components/parameters/IdPath'}
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: {type: boolean}
+                  id: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /tasks/{id}/toggle:
     post:
       tags: [Projects]
@@ -2824,6 +2911,48 @@ components:
         completed_at: {type: string, nullable: true}
         assigned_to: {type: string, nullable: true}
         ticket_number: {type: string, nullable: true}
+        priority: {type: integer, minimum: 0, maximum: 4, description: '0 none, 1 low, 2 medium, 3 high, 4 urgent (database 2.6.207; 0 before the update)'}
+        priority_name: {type: string, example: High}
+        description: {type: string, nullable: true, description: 'Plain text, never HTML'}
+        color: {type: string, nullable: true, example: '#206bc4', description: 'Card accent as #rrggbb'}
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              color: {type: string}
+    ProjectTaskInput:
+      type: object
+      description: Every field is optional on PATCH/PUT; project_id and name are required on POST /tasks.
+      properties:
+        project_id: {type: integer, description: 'Create only'}
+        name: {type: string, maxLength: 255}
+        status: {type: string, enum: ['To Do', 'In Progress', 'Blocked', 'Done']}
+        progress: {type: integer, minimum: 0, maximum: 100}
+        start_at: {type: string, format: date, nullable: true}
+        due_at: {type: string, format: date, nullable: true}
+        milestone_id: {type: integer, description: "Must belong to the task's project; 0 clears"}
+        assigned_user_id: {type: integer, description: 'An active user; 0 clears'}
+        estimate_minutes: {type: integer, minimum: 0}
+        priority: {type: integer, minimum: 0, maximum: 4}
+        description: {type: string, nullable: true, maxLength: 20000}
+        color: {type: string, nullable: true, example: '#206bc4'}
+        labels:
+          type: array
+          description: Label names, or {name, color}; unknown names are created in the task's project; replaces the task's labels ([] clears).
+          items:
+            oneOf:
+              - {type: string}
+              - type: object
+                properties:
+                  name: {type: string}
+                  color: {type: string}
+        label_ids:
+          type: array
+          description: Existing labels that are global or belong to the task's project (others are ignored).
+          items: {type: integer}
     ProjectTicket:
       type: object
       properties:

@@ -166,7 +166,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     .sortable-chosen { box-shadow: 0 6px 18px rgba(0, 0, 0, .25) !important; }
     .project-new-task { min-height: 2.5rem; padding-inline: 1.1rem; font-weight: 600; }
     #kanban-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem; }
-    #kanban-toolbar .form-select { width: auto; min-width: 8.5rem; max-width: 100%; }
+    #kanban-toolbar .form-select { width: auto; min-width: 10.5rem; max-width: 100%; }
     @media (max-width: 575.98px) {
         #kanban-toolbar .form-select { flex: 1 1 8.5rem; }
         #kanban-board .kanban-column { flex-basis: 85vw; min-width: 85vw; max-height: none; }

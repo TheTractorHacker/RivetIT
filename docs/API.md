@@ -391,6 +391,29 @@ Scheduled entries against a ticket (site visits, scheduled calls, etc.).
 | GET | `/appointments` | List appointments — filterable by `when` (`past`/`today`/`future`), `mine`, `client_id` (bare array) |
 | POST | `/appointments` | Create an appointment (ticket schedule entry) |
 
+### Project tasks
+
+Tasks of a project (and checklist items of a project's tickets). Scopes `api:tasks:read` / `write` / `delete`; roles need Service Desk level 1 / 2 / 3.
+`GET /projects/{id}` lists a project's tasks.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/tasks/{id}` | One task |
+| POST | `/tasks` | Create a project task (`project_id` and `name` required) |
+| PATCH / PUT | `/tasks/{id}` | Change the fields you send; the rest stay as they are |
+| DELETE | `/tasks/{id}` | Delete a task (and its label links); `{"deleted": true, "id": n}` |
+| POST | `/tasks/{id}/toggle` | Toggle completed |
+
+A task has `id`, `name`, `status` (`To Do`, `In Progress`, `Blocked`, `Done`), `progress` (0-100), `start_at`, `due_at` (`YYYY-MM-DD`), `milestone_id`, `completed_at`,
+`assigned_to` (name), `ticket_number`, and, from database 2.6.207 (additive, existing clients are unaffected):
+`priority` (0 none, 1 low, 2 medium, 3 high, 4 urgent), `priority_name`, `description` (plain text, no HTML), `color` (`#rrggbb` or null) and `labels` (`[{id, name, color}]`).
+Before Update Database has run these read as `0`, `"None"`, `null`, `null`, `[]` and writes to them are ignored.
+
+Writable on `POST` / `PATCH`: `name`, `status`, `progress`, `start_at`, `due_at` (null clears), `milestone_id` (must belong to the task's project), `assigned_user_id` (an active user, 0 clears),
+`estimate_minutes`, `priority`, `description`, `color`, `labels` (names, or `{name, color}`; unknown names are created in the task's project; replaces the set, `[]` clears) and
+`label_ids` (existing labels that are global or belong to the task's project; anything else is ignored). Invalid values answer `400`.
+Department scope applies as for projects: a task of a department outside the client's scope is `403`.
+
 ### Assets
 
 Managed devices/equipment tracked per department.

@@ -495,6 +495,8 @@ ok($st === 403, 'read-only scope cannot create');
 ok($st === 403 && (int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_id = $apiId") === 1, 'write scope without api:tasks:delete cannot DELETE');
 [$st, $j] = api('PATCH', "tasks/$apiId", $WR, ['priority' => 4]);
 ok($st === 200 && $j['priority'] === 4, 'api:tasks:write -> PATCH');
+[$st, $j] = api('POST', 'tasks', $WR + ['Idempotency-Key' => 'ptp1-create-0001'], ['project_id' => $projA, 'name' => 'Created by a write-scope client', 'priority' => 2]);
+ok($st === 201 && $j['priority'] === 2, 'api:tasks:write client can create a task (with the Idempotency-Key the API asks of POST)', "HTTP $st");
 // department scope: a client limited to Client A cannot touch B's task
 [$st] = api('GET', "tasks/$bTask", $ADM);
 ok($st === 200, 'administrator token reads any task');
