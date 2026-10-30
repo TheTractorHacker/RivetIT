@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.79] RivetIT — Hotfix: restore the version file
+
+- **Fixes the Administration > Update page showing only a partial page with no Update buttons after updating to 26.10.77 or 26.10.78.** Those two releases shipped `includes/app_version.php` empty (a release-script mistake), so `APP_VERSION` and `APP_RELEASES_URL` were undefined and the update page stopped rendering. The file is restored; no database change. **If a server is already on 26.10.77/78:** the Update page cannot offer the button, so run the app update from the command line (`php scripts/update_cli.php --update`, as the web user) or `git pull` the release branch, then Update Database as usual.
+
 ## [26.10.78] RivetIT — Open Quality for administrators: account-menu link, setting, return after sign-in
 
 - **Administrators: Open Quality in the account menu** (database **2.6.206**). A new **Open Quality** item in the account menu next to Administration, and a switch on Administration > Single sign-on provider, **Let administrators open Quality** (default on; off hides the menu item and the preview tile and refuses administrator sign-ins, including tokens already issued). One additive column (`oidc_provider_settings.ops_allow_admins`, idempotent); new code on an un-updated database keeps working with administrators allowed. **Deploy notes:** dump, then Update Database.
