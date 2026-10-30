@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.78] RivetIT — Open Quality for administrators: account-menu link, setting, return after sign-in
+
+- **Administrators: Open Quality in the account menu** (database **2.6.206**). A new **Open Quality** item in the account menu next to Administration, and a switch on Administration > Single sign-on provider, **Let administrators open Quality** (default on; off hides the menu item and the preview tile and refuses administrator sign-ins, including tokens already issued). One additive column (`oidc_provider_settings.ops_allow_admins`, idempotent); new code on an un-updated database keeps working with administrators allowed. **Deploy notes:** dump, then Update Database.
+- **Return to Quality after signing in.** A password, passkey or company sign-in that was started by Open Quality now goes straight back to Quality for an administrator (other agents go to their start page as before). Passkey and company sign-ins now record the sign-in time like the password login, so they no longer loop on the "sign in again" prompt.
+- **Clearer "Confirm it is you" page:** shows who is signed in, explains what happens next, with a Cancel link.
+
 ## [26.10.77] RivetIT — Administrators can open Quality; API Keys page; ticket category SLA/billing switches
 
 - **Administrators can open Quality as themselves.** An administrator signs in to the QMS (Datum) through the SSO provider as their own user, not as a department contact: ID token `sub` = `rivetit-admin:<user id>`, `rivetit_id` = `admin:<user id>`, plus a new `rivetit_role` = `administrator` claim (department people never carry it; `rivetit_role` is listed in discovery `claims_supported`). Allowed only while the provider is on and the login is a live agent on an administrator role (not disabled, archived, or stuck at the two-factor enrollment gate), re-checked at authorize, token exchange and userinfo. **Open Quality** now also shows in the department preview, and Administration > Single sign-on provider has an **Open Quality as administrator** button; admin sign-ins appear in the activity list as "Administrator #id". No DB change (an administrator is stored as the negative user id in the existing contact-id columns). Agent logins now record `agent_auth_time` / `agent_amr`; an administrator session without them is asked to sign in again once. The QMS must accept a sign-in with `rivetit_role=administrator` and no department.
