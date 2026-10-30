@@ -20,7 +20,11 @@
  *   projectTaskContext()                                        - task row + owning project + client, for access checks
  *   projectTaskStatusSql()                                      - the SET fragment for a lane change (same rules as the Kanban drag)
  *   projectTaskDelete() / projectTaskDuplicate() / projectTaskMove()
+ *
+ * Phases 2 and 3 (DB 2.6.208 / 2.6.209: checklists, subtasks, comments, several assignees, attachments, reminders, repeating tasks)
+ * live in includes/project_task_extras.php, loaded below; projectTaskPhase2Ready() / projectTaskPhase3Ready() are their switches.
  */
+require_once __DIR__ . '/project_task_extras.php';
 
 /** Lanes of the project Kanban, in order. task_status holds one of these names (or NULL/other = derived). */
 function projectTaskLanes(): array
@@ -247,12 +251,21 @@ function projectTaskStatusSql($mysqli, string $status, int $user_id): string
     return "task_status = '$status_esc', task_progress = IF(task_progress >= 100, 0, task_progress), task_completed_at = NULL, task_completed_by = NULL";
 }
 
-/** Delete a task and everything hanging off it (label links, schedule dependencies in both directions). Returns true if a row went. */
+/**
+ * Delete a task and everything hanging off it: label links, checklist, comments, assignees and attachments (rows and files), schedule
+ * dependencies in both directions. Its subtasks are NOT deleted: they stop being subtasks and stay in the project as ordinary tasks.
+ * Returns true if a row went.
+ */
 function projectTaskDelete($mysqli, int $task_id): bool
 {
-    // The label links also cascade by foreign key; deleting them here keeps it correct on any engine/setup that skipped the key.
-    if (projectTaskLabelTablesExist($mysqli)) {
-        mysqli_query($mysqli, "DELETE FROM task_label_links WHERE task_id = $task_id");
+    // The child tables also cascade by foreign key; deleting them here keeps it correct on any engine/setup that skipped the keys,
+    // and the attachment files have to be removed by hand either way.
+    projectTaskReleaseSubtasks($mysqli, $task_id);
+    projectTaskAttachmentsPurge($mysqli, $task_id);
+    foreach (['task_label_links' => 'task_id', 'task_checklist_items' => 'item_task_id', 'task_comments' => 'comment_task_id', 'task_assignees' => 'task_id'] as $table => $col) {
+        if (projectTaskTableExists($mysqli, $table)) {
+            mysqli_query($mysqli, "DELETE FROM `$table` WHERE `$col` = $task_id");
+        }
     }
     $dep = @mysqli_query($mysqli, "SHOW TABLES LIKE 'project_task_dependencies'");
     if ($dep && mysqli_num_rows($dep) > 0) {
@@ -264,38 +277,98 @@ function projectTaskDelete($mysqli, int $task_id): bool
 }
 
 /**
- * Copy a task as a new, not-started project task in the same project: same name ("(copy)" appended), description, priority, colour,
- * labels, milestone, assignee, dates and estimate; never the completion state, progress, ticket links or schedule dependencies.
+ * Copy a task row into a new task of the same project. Options ($o):
+ *   suffix         text appended to the name (default ' (copy)')
+ *   due / start / reminder   override those dates (a 'Y-m-d' / 'Y-m-d H:i:s' string, or null to clear); absent = copy the source's
+ *                            (a copied reminder that is already in the past is dropped, it would fire at once)
+ *   keep_parent    a subtask is copied as a sibling under the same parent (default false)
+ *   parent_id      make the copy a subtask of this task
+ *   copy_children  also copy the subtasks, as subtasks of the copy (default false)
+ * Never copied: completion state, progress, ticket links, schedule dependencies, comments, attachments. Copied: description, priority,
+ * colour, labels, milestone, assignees, estimate, repeat settings, and the checklist (every item unticked).
  * Returns the new task id (0 on failure).
  */
-function projectTaskDuplicate($mysqli, array $ctx): int
+function projectTaskCopy($mysqli, array $ctx, array $o = []): int
 {
     $src = $ctx['row'];
+    $src_id = intval($src['task_id']);
     $project_id = intval($ctx['project_id']);
-    $name = mb_substr((string) $src['task_name'], 0, 244) . ' (copy)';
+    $suffix = array_key_exists('suffix', $o) ? (string) $o['suffix'] : ' (copy)';
+    $name = mb_substr((string) $src['task_name'], 0, 255 - mb_strlen($suffix)) . $suffix;
     $name_esc = mysqli_real_escape_string($mysqli, $name);
+    $date_sql = function ($v) use ($mysqli) {
+        return $v ? "'" . mysqli_real_escape_string($mysqli, (string) $v) . "'" : 'NULL';
+    };
     $milestone = $src['task_milestone_id'] !== null ? intval($src['task_milestone_id']) : 'NULL';
     $assigned = $src['task_assigned_to'] !== null ? intval($src['task_assigned_to']) : 'NULL';
-    $start = $src['task_start'] ? "'" . mysqli_real_escape_string($mysqli, $src['task_start']) . "'" : 'NULL';
-    $due = $src['task_due'] ? "'" . mysqli_real_escape_string($mysqli, $src['task_due']) . "'" : 'NULL';
+    $start = $date_sql(array_key_exists('start', $o) ? $o['start'] : $src['task_start']);
+    $due = $date_sql(array_key_exists('due', $o) ? $o['due'] : $src['task_due']);
     $estimate = intval($src['task_completion_estimate']);
     $order = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COALESCE(MAX(task_order), 0) + 1 FROM tasks WHERE task_project_id = $project_id"))[0] ?? 1);
 
     $extra = '';
     if (projectTaskColumnsExist($mysqli)) {
         $color = projectTaskNormalizeColor($src['task_color'] ?? '');
-        $extra = ", task_priority = " . projectTaskNormalizePriority($src['task_priority'] ?? 0)
+        $extra .= ", task_priority = " . projectTaskNormalizePriority($src['task_priority'] ?? 0)
             . ", task_description = " . (($src['task_description'] ?? '') !== '' && $src['task_description'] !== null ? "'" . mysqli_real_escape_string($mysqli, $src['task_description']) . "'" : 'NULL')
             . ", task_color = " . ($color ? "'$color'" : 'NULL');
+    }
+    $parent_id = null;
+    if (!empty($o['parent_id'])) {
+        $parent_id = intval($o['parent_id']);
+    } elseif (!empty($o['keep_parent']) && !empty($src['task_parent_id'])) {
+        $parent_id = intval($src['task_parent_id']);
+    }
+    if (projectTaskHasColumn($mysqli, 'task_parent_id') && $parent_id) {
+        $extra .= ", task_parent_id = $parent_id";
+    }
+    if (projectTaskPhase3Ready($mysqli)) {
+        $reminder = array_key_exists('reminder', $o) ? $o['reminder'] : $src['task_reminder_at'];
+        if ($reminder && strtotime((string) $reminder) <= time()) {
+            $reminder = null;
+        }
+        $extra .= ', task_reminder_at = ' . $date_sql($reminder)
+            . ', task_repeat_interval = ' . intval($src['task_repeat_interval'])
+            . ", task_repeat_unit = '" . mysqli_real_escape_string($mysqli, (string) $src['task_repeat_unit']) . "'";
     }
 
     mysqli_query($mysqli, "INSERT INTO tasks SET task_name = '$name_esc', task_status = 'To Do', task_order = $order, task_project_id = $project_id, task_milestone_id = $milestone, task_assigned_to = $assigned, task_start = $start, task_due = $due, task_completion_estimate = $estimate$extra");
     $new_id = intval(mysqli_insert_id($mysqli));
-    if ($new_id && projectTaskLabelTablesExist($mysqli)) {
-        mysqli_query($mysqli, "INSERT IGNORE INTO task_label_links (task_id, label_id) SELECT $new_id, label_id FROM task_label_links WHERE task_id = " . intval($src['task_id']));
+    if (!$new_id) {
+        return 0;
+    }
+    if (projectTaskLabelTablesExist($mysqli)) {
+        mysqli_query($mysqli, "INSERT IGNORE INTO task_label_links (task_id, label_id) SELECT $new_id, label_id FROM task_label_links WHERE task_id = $src_id");
+    }
+    if (projectTaskPhase3Ready($mysqli)) {
+        mysqli_query($mysqli, "INSERT IGNORE INTO task_assignees (task_id, user_id) SELECT $new_id, user_id FROM task_assignees WHERE task_id = $src_id");
+        if ($src['task_assigned_to'] !== null) {
+            mysqli_query($mysqli, "INSERT IGNORE INTO task_assignees (task_id, user_id) VALUES ($new_id, " . intval($src['task_assigned_to']) . ')');
+        }
+    }
+    if (projectTaskPhase2Ready($mysqli)) {
+        mysqli_query($mysqli, "INSERT INTO task_checklist_items (item_task_id, item_text, item_order) SELECT $new_id, item_text, item_order FROM task_checklist_items WHERE item_task_id = $src_id ORDER BY item_order, item_id");
+        if (!empty($o['copy_children'])) {
+            foreach (projectTaskSubtasks($mysqli, $src_id) as $child) {
+                $child_ctx = projectTaskContext($mysqli, $child['task_id']);
+                if ($child_ctx) {
+                    projectTaskCopy($mysqli, $child_ctx, ['suffix' => '', 'parent_id' => $new_id, 'copy_children' => false]);
+                }
+            }
+        }
     }
 
     return $new_id;
+}
+
+/**
+ * Duplicate a task as a new, not-started project task in the same project ("(copy)" appended): description, priority, colour, labels,
+ * milestone, assignees, dates, estimate, repeat settings, the checklist (unticked) and its subtasks; never the completion state,
+ * progress, comments, attachments, ticket links or schedule dependencies. Returns the new task id (0 on failure).
+ */
+function projectTaskDuplicate($mysqli, array $ctx): int
+{
+    return projectTaskCopy($mysqli, $ctx, ['keep_parent' => true, 'copy_children' => true]);
 }
 
 /**
@@ -308,6 +381,9 @@ function projectTaskMove($mysqli, array $ctx, int $target_project_id, int $targe
     $task_id = intval($ctx['row']['task_id']);
     if (intval($ctx['row']['task_ticket_id'])) {
         return 'A task that belongs to a ticket cannot be moved to another project.';
+    }
+    if (!empty($ctx['row']['task_parent_id'])) {
+        return 'A subtask moves with its parent task. Detach it from the parent first.';
     }
     $project = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT project_id FROM projects WHERE project_id = $target_project_id AND project_completed_at IS NULL LIMIT 1"));
     if (!$project) {
@@ -322,16 +398,27 @@ function projectTaskMove($mysqli, array $ctx, int $target_project_id, int $targe
         $milestone_sql = $target_milestone_id;
     }
     $order = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COALESCE(MAX(task_order), 0) + 1 FROM tasks WHERE task_project_id = $target_project_id"))[0] ?? 1);
+    // The task and its subtasks (a subtask must stay in its parent's project) move together
+    $moving = [$task_id];
+    if (projectTaskHasColumn($mysqli, 'task_parent_id')) {
+        foreach (projectTaskSubtasks($mysqli, $task_id) as $child) {
+            $moving[] = $child['task_id'];
+        }
+    }
+    $moving_list = implode(',', $moving);
     if ($target_project_id !== intval($ctx['project_id'])) {
         if (projectTaskLabelTablesExist($mysqli)) {
-            mysqli_query($mysqli, "DELETE l FROM task_label_links l JOIN task_labels t ON t.label_id = l.label_id WHERE l.task_id = $task_id AND t.label_project_id IS NOT NULL AND t.label_project_id <> $target_project_id");
+            mysqli_query($mysqli, "DELETE l FROM task_label_links l JOIN task_labels t ON t.label_id = l.label_id WHERE l.task_id IN ($moving_list) AND t.label_project_id IS NOT NULL AND t.label_project_id <> $target_project_id");
         }
         $dep = @mysqli_query($mysqli, "SHOW TABLES LIKE 'project_task_dependencies'");
         if ($dep && mysqli_num_rows($dep) > 0) {
-            mysqli_query($mysqli, "DELETE FROM project_task_dependencies WHERE task_id = $task_id OR predecessor_id = $task_id");
+            mysqli_query($mysqli, "DELETE FROM project_task_dependencies WHERE task_id IN ($moving_list) OR predecessor_id IN ($moving_list)");
         }
     }
     mysqli_query($mysqli, "UPDATE tasks SET task_project_id = $target_project_id, task_milestone_id = $milestone_sql, task_order = $order WHERE task_id = $task_id");
+    if (count($moving) > 1) {
+        mysqli_query($mysqli, "UPDATE tasks SET task_project_id = $target_project_id, task_milestone_id = $milestone_sql WHERE task_parent_id = $task_id");
+    }
 
     return '';
 }
@@ -342,7 +429,7 @@ function projectTaskMove($mysqli, array $ctx, int $target_project_id, int $targe
  * label_global = 1 and $can_global, in every project). A no-op before the upgrade. Posted label ids that are not global or from this
  * project are ignored. Returns a short summary for the audit log ('' when nothing applies).
  */
-function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, int $user_id, bool $can_global): string
+function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, int $user_id, bool $can_global, int $old_primary = 0): string
 {
     if (!projectTaskColumnsExist($mysqli)) {
         return '';
@@ -364,10 +451,41 @@ function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, in
         mysqli_query($mysqli, 'UPDATE tasks SET ' . implode(', ', $sets) . " WHERE task_id = $task_id");
     }
     // Only a lane the person actually changed is applied (an untouched lane must not undo a progress they typed)
+    $became_done = false;
     if (!empty($_POST['status']) && (string) $_POST['status'] !== (string) ($_POST['status_orig'] ?? '')) {
         $status_sql = projectTaskStatusSql($mysqli, (string) $_POST['status'], $user_id);
         if ($status_sql !== '') {
             mysqli_query($mysqli, "UPDATE tasks SET $status_sql WHERE task_id = $task_id");
+            $became_done = (string) $_POST['status'] === 'Done';
+        }
+    }
+
+    // DB 2.6.209: assignees, reminder, repeat (each only when the form says it carried that field)
+    if (projectTaskPhase3Ready($mysqli)) {
+        if (isset($_POST['assigned_to']) || !empty($_POST['assignees_present'])) {
+            $primary = intval($_POST['assigned_to'] ?? 0);
+            $others = !empty($_POST['assignees_present']) ? (is_array($_POST['assignee_ids'] ?? null) ? $_POST['assignee_ids'] : []) : null;
+            projectTaskSyncAssignees($mysqli, $task_id, $primary, $old_primary, $others);
+        }
+        if (!empty($_POST['reminder_present'])) {
+            $due = (string) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT task_due FROM tasks WHERE task_id = $task_id"))[0] ?? '');
+            $reminder = projectTaskReminderFromDue($due !== '' ? $due : null, (string) ($_POST['reminder_from_due'] ?? ''));
+            if ($reminder === null) {
+                $reminder = projectTaskNormalizeReminder($_POST['reminder_at'] ?? '');
+            }
+            if ($reminder !== false) {
+                // The delivered flag is cleared only when the time really changes (the assignment is evaluated before task_reminder_at)
+                $r = $reminder === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, $reminder) . "'";
+                mysqli_query($mysqli, "UPDATE tasks SET task_reminder_sent_at = IF(task_reminder_at <=> $r, task_reminder_sent_at, NULL), task_reminder_at = $r WHERE task_id = $task_id");
+            }
+        }
+        if (!empty($_POST['repeat_present'])) {
+            [$n, $u] = projectTaskNormalizeRepeat($_POST['repeat_interval'] ?? 0, $_POST['repeat_unit'] ?? 'day');
+            $u_esc = mysqli_real_escape_string($mysqli, $u);
+            mysqli_query($mysqli, "UPDATE tasks SET task_repeat_interval = $n, task_repeat_unit = '$u_esc' WHERE task_id = $task_id");
+        }
+        if ($became_done) {
+            projectTaskCompleted($mysqli, $task_id, $user_id);
         }
     }
 

@@ -12228,3 +12228,90 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.207'");
     }
+
+    if ($rivetit_db_version() == '2.6.207') {
+        // DB 2.6.208: project tasks, phase 2 of the Vikunja-style upgrade (checklists, subtasks, comments).
+        //
+        // task_checklist_items  one row per checklist line of a task; deleted with the task.
+        // tasks.task_parent_id  subtask -> parent task (same project, one level deep, enforced in includes/project_task_extras.php).
+        //                       Deleting a parent leaves its subtasks as ordinary tasks (ON DELETE SET NULL), it never deletes them.
+        // task_comments         discussion on a task; deleted with the task. comment_user_id has no key on purpose: a removed user
+        //                       must not take the history with them (shown as "Former user").
+        //
+        // Additive and idempotent; nothing is back-filled.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_parent_id` INT(11) NULL DEFAULT NULL,
+            ADD KEY IF NOT EXISTS `task_parent_id` (`task_parent_id`)");
+        $has_parent_fk = mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks' AND CONSTRAINT_NAME = 'tasks_parent_fk'"));
+        if (empty($has_parent_fk[0])) {
+            mysqli_query($mysqli, "ALTER TABLE `tasks` ADD CONSTRAINT `tasks_parent_fk` FOREIGN KEY (`task_parent_id`) REFERENCES `tasks` (`task_id`) ON DELETE SET NULL");
+        }
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_checklist_items` (
+            `item_id` int(11) NOT NULL AUTO_INCREMENT,
+            `item_task_id` int(11) NOT NULL,
+            `item_text` varchar(255) NOT NULL,
+            `item_done` tinyint(1) NOT NULL DEFAULT 0,
+            `item_order` int(11) NOT NULL DEFAULT 0,
+            `item_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `item_done_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`item_id`),
+            KEY `item_task_id` (`item_task_id`),
+            CONSTRAINT `task_checklist_items_ibfk_1` FOREIGN KEY (`item_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_comments` (
+            `comment_id` int(11) NOT NULL AUTO_INCREMENT,
+            `comment_task_id` int(11) NOT NULL,
+            `comment_user_id` int(11) DEFAULT NULL,
+            `comment_body` mediumtext NOT NULL,
+            `comment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `comment_updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`comment_id`),
+            KEY `comment_task_id` (`comment_task_id`),
+            CONSTRAINT `task_comments_ibfk_1` FOREIGN KEY (`comment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.208'");
+    }
+
+    if ($rivetit_db_version() == '2.6.208') {
+        // DB 2.6.209: project tasks, phase 3 (several assignees, attachments, reminders, repeating tasks).
+        //
+        // task_assignees         every person on a task. tasks.task_assigned_to stays the PRIMARY assignee (older clients, the API's
+        //                        assigned_to and the ticket-style views keep reading it); the primary is always also in this table.
+        //                        Back-filled once from task_assigned_to. Deleted with the task.
+        // task_attachments       files on a task. attachment_reference is the random name the file is stored under
+        //                        (uploads/task_attachments/, no extension, only ever served by an access-checked script).
+        // tasks.task_reminder_at / task_reminder_sent_at   one-off reminder time and when the cron job delivered it.
+        // tasks.task_repeat_interval / task_repeat_unit    0 = does not repeat; unit is day, week, month or year.
+        // tasks.task_repeat_spawned_at                     set when the next occurrence was created, so a task repeats once only.
+        //
+        // Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_reminder_at` DATETIME NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_reminder_sent_at` DATETIME NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_repeat_interval` SMALLINT(5) UNSIGNED NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `task_repeat_unit` VARCHAR(10) NOT NULL DEFAULT 'day',
+            ADD COLUMN IF NOT EXISTS `task_repeat_spawned_at` DATETIME NULL DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_assignees` (
+            `task_id` int(11) NOT NULL,
+            `user_id` int(11) NOT NULL,
+            `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`task_id`,`user_id`),
+            KEY `user_id` (`user_id`),
+            CONSTRAINT `task_assignees_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `task_assignees` (`task_id`, `user_id`) SELECT `task_id`, `task_assigned_to` FROM `tasks` WHERE `task_assigned_to` IS NOT NULL AND `task_assigned_to` > 0");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_attachments` (
+            `attachment_id` int(11) NOT NULL AUTO_INCREMENT,
+            `attachment_task_id` int(11) NOT NULL,
+            `attachment_name` varchar(255) NOT NULL,
+            `attachment_reference` varchar(64) NOT NULL,
+            `attachment_size` bigint(20) NOT NULL DEFAULT 0,
+            `attachment_mime` varchar(100) DEFAULT NULL,
+            `attachment_uploaded_by` int(11) DEFAULT NULL,
+            `attachment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`attachment_id`),
+            KEY `attachment_task_id` (`attachment_task_id`),
+            CONSTRAINT `task_attachments_ibfk_1` FOREIGN KEY (`attachment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.209'");
+    }
