@@ -5395,6 +5395,42 @@ CREATE TABLE `task_approvals` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `task_label_links`
+--
+
+DROP TABLE IF EXISTS `task_label_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_label_links` (
+  `task_id` int(11) NOT NULL,
+  `label_id` int(11) NOT NULL,
+  PRIMARY KEY (`task_id`,`label_id`),
+  KEY `label_id` (`label_id`),
+  CONSTRAINT `task_label_links_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE,
+  CONSTRAINT `task_label_links_ibfk_2` FOREIGN KEY (`label_id`) REFERENCES `task_labels` (`label_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_labels`
+--
+
+DROP TABLE IF EXISTS `task_labels`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_labels` (
+  `label_id` int(11) NOT NULL AUTO_INCREMENT,
+  `label_name` varchar(100) NOT NULL,
+  `label_color` varchar(7) NOT NULL DEFAULT '#206bc4',
+  `label_project_id` int(11) DEFAULT NULL,
+  `label_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`label_id`),
+  KEY `label_project_id` (`label_project_id`),
+  CONSTRAINT `task_labels_ibfk_1` FOREIGN KEY (`label_project_id`) REFERENCES `projects` (`project_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `task_templates`
 --
 
@@ -5439,6 +5475,9 @@ CREATE TABLE `tasks` (
   `task_start` date DEFAULT NULL,
   `task_due` date DEFAULT NULL,
   `task_progress` tinyint(4) NOT NULL DEFAULT 0,
+  `task_priority` tinyint(4) NOT NULL DEFAULT 0,
+  `task_description` mediumtext DEFAULT NULL,
+  `task_color` varchar(7) DEFAULT NULL,
   PRIMARY KEY (`task_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -12193,3 +12193,38 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `oidc_provider_settings` ADD COLUMN IF NOT EXISTS `ops_allow_admins` TINYINT(1) NOT NULL DEFAULT 1 AFTER `ops_enabled`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.206'");
     }
+
+    if ($rivetit_db_version() == '2.6.206') {
+        // DB 2.6.207: project tasks, phase 1 of the Vikunja-style upgrade (priority, description, colour, labels).
+        //
+        // tasks.task_priority     0 none, 1 low, 2 medium, 3 high, 4 urgent. Default 0, so every existing task is unchanged.
+        // tasks.task_description  free text (shown with line breaks, always escaped on output).
+        // tasks.task_color        optional card accent as #rrggbb.
+        // task_labels             label_project_id NULL = available in every project, otherwise only in that project (deleted with it).
+        // task_label_links        which labels a task carries (both sides cascade, so deleting a task or a label cleans the links).
+        //
+        // Additive and idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS); nothing is back-filled.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_priority` TINYINT(4) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `task_description` MEDIUMTEXT NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_color` VARCHAR(7) NULL DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_labels` (
+            `label_id` int(11) NOT NULL AUTO_INCREMENT,
+            `label_name` varchar(100) NOT NULL,
+            `label_color` varchar(7) NOT NULL DEFAULT '#206bc4',
+            `label_project_id` int(11) DEFAULT NULL,
+            `label_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`label_id`),
+            KEY `label_project_id` (`label_project_id`),
+            CONSTRAINT `task_labels_ibfk_1` FOREIGN KEY (`label_project_id`) REFERENCES `projects` (`project_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_label_links` (
+            `task_id` int(11) NOT NULL,
+            `label_id` int(11) NOT NULL,
+            PRIMARY KEY (`task_id`,`label_id`),
+            KEY `label_id` (`label_id`),
+            CONSTRAINT `task_label_links_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE,
+            CONSTRAINT `task_label_links_ibfk_2` FOREIGN KEY (`label_id`) REFERENCES `task_labels` (`label_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.207'");
+    }
