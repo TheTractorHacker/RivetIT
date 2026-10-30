@@ -169,8 +169,10 @@ function updateChecks(string $dir, ?string $currentDbVersion = null, ?string $la
             }
         }
         if ($generated) {
-            $add('composer', 'Composer files are clean', 'warn', count($generated) . ' generated file(s) under vendor/composer differ from the release (for example ' . $generated[0] . '). Composer rewrites them whenever it runs.',
-                'Nothing to do: Update App puts them back automatically before it pulls. To do it yourself: git -C ' . $dir . ' checkout -- vendor/composer');
+            // Composer rewrites these on EVERY update (the post-update `composer install`), and Update App restores them before it pulls, so
+            // they differ after every update by design. That is a note, not a warning: nothing needs fixing.
+            $add('composer', 'Composer files are clean', 'info', count($generated) . ' generated file(s) under vendor/composer differ from the release (for example ' . $generated[0] . '). Composer rewrites them after every update; this is normal.',
+                'Nothing to do: Update App puts them back automatically before it pulls.');
         } else {
             $add('composer', 'Composer files are clean', 'ok', 'vendor/composer matches the release.');
         }
