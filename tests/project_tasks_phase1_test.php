@@ -22,6 +22,7 @@ if (!str_contains((string) $database, 'scratch')) {
     exit(1);
 }
 require_once $ROOT . '/functions.php';
+require_once $ROOT . '/includes/database_version.php';
 
 use ITFlow\Integration\IntegrationAuth;
 
@@ -142,6 +143,14 @@ function noPhpErrors(string $text): bool
 // ---------------------------------------------------------------- fixtures
 section('Fixtures (schema reset to 2.6.206)');
 $db->query('SET FOREIGN_KEY_CHECKS=0');
+// Phase 2 / 3 objects (2.6.208 / 2.6.209) go first so the schema is exactly 2.6.206 again
+foreach (['task_assignees', 'task_attachments', 'task_checklist_items', 'task_comments'] as $p23) {
+    $db->query("DROP TABLE IF EXISTS $p23");
+}
+if (q1($db, "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks' AND CONSTRAINT_NAME = 'tasks_parent_fk'")) {
+    $db->query('ALTER TABLE tasks DROP FOREIGN KEY tasks_parent_fk');
+}
+$db->query('ALTER TABLE tasks DROP COLUMN IF EXISTS task_parent_id, DROP COLUMN IF EXISTS task_reminder_at, DROP COLUMN IF EXISTS task_reminder_sent_at, DROP COLUMN IF EXISTS task_repeat_interval, DROP COLUMN IF EXISTS task_repeat_unit, DROP COLUMN IF EXISTS task_repeat_spawned_at');
 $db->query('DROP TABLE IF EXISTS task_label_links');
 $db->query('DROP TABLE IF EXISTS task_labels');
 $db->query('ALTER TABLE tasks DROP COLUMN IF EXISTS task_priority, DROP COLUMN IF EXISTS task_description, DROP COLUMN IF EXISTS task_color');
@@ -253,8 +262,9 @@ $update = function () use ($ROOT): string {
     return (string) shell_exec('cd ' . escapeshellarg($ROOT . '/scripts') . ' && php update_cli.php --update_db 2>&1');
 };
 $out = $update();
-ok(str_contains($out, 'to version 2.6.207') || str_contains($out, 'from version 2.6.206 to 2.6.207'), 'Update Database applies 2.6.207', trim(substr($out, -200)));
-ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.207', 'settings version is 2.6.207');
+// Later migrations (2.6.208, 2.6.209) run in the same pass, so the end version is the latest one; 2.6.207 is applied on the way
+ok(preg_match('/from version 2\.6\.206 to 2\.6\.2\d\d/', $out) === 1, 'Update Database applies 2.6.207 (and any later block)', trim(substr($out, -200)));
+ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === LATEST_DATABASE_VERSION && version_compare(LATEST_DATABASE_VERSION, '2.6.207', '>='), 'settings version is the latest (>= 2.6.207)');
 $show = function (mysqli $c, string $t): string {
     $r = $c->query("SHOW CREATE TABLE `$t`")->fetch_row()[1];
     return preg_replace('/ AUTO_INCREMENT=\d+/', '', $r);
@@ -290,7 +300,7 @@ $db->query("UPDATE tasks SET task_priority = 3, task_description = 'kept' WHERE 
 $db->query("INSERT INTO task_label_links SET task_id = $legacy1, label_id = $keepLabel");
 $db->query("UPDATE settings SET config_current_database_version = '2.6.206' WHERE company_id = 1");
 $out3 = $update();
-ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.207', 'the 2.6.207 block can run again (idempotent)');
+ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === LATEST_DATABASE_VERSION, 'the 2.6.207 block can run again (idempotent)');
 ok($before === ['tasks' => $show($db, 'tasks'), 'task_labels' => $show($db, 'task_labels'), 'task_label_links' => $show($db, 'task_label_links')], 'structure identical after the second run');
 ok((int) q1($db, "SELECT task_priority FROM tasks WHERE task_id = $legacy1") === 3 && (int) q1($db, "SELECT COUNT(*) FROM task_label_links WHERE task_id = $legacy1") === 1, 'data survives the second run');
 ok((int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_priority <> 0") === 1, 'no back-fill: every other task stays priority 0');
