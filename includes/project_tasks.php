@@ -157,14 +157,13 @@ function projectTaskLabelChip(array $label): string
 /**
  * Find or create a label by name in a scope ($project_id = null for a global label). Same name (any case) in the same scope is reused.
  * Returns the label id, or 0 when the name is empty or the tables do not exist yet.
- * $name must already be sanitizeInput()'d (SQL-safe); $color is normalised here.
+ * $name must already be sanitizeInput()'d (SQL-safe) and cut to 100 characters BEFORE sanitising; $color is normalised here.
  */
 function projectTaskCreateLabel($mysqli, string $name, ?string $color, ?int $project_id): int
 {
     if ($name === '' || !projectTaskLabelTablesExist($mysqli)) {
         return 0;
     }
-    $name = mb_substr($name, 0, 100);
     $scope_sql = $project_id ? "label_project_id = " . intval($project_id) : "label_project_id IS NULL";
     $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT label_id FROM task_labels WHERE label_name = '$name' AND $scope_sql LIMIT 1"));
     if ($row) {
@@ -364,7 +363,8 @@ function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, in
     if ($sets) {
         mysqli_query($mysqli, 'UPDATE tasks SET ' . implode(', ', $sets) . " WHERE task_id = $task_id");
     }
-    if (!empty($_POST['status'])) {
+    // Only a lane the person actually changed is applied (an untouched lane must not undo a progress they typed)
+    if (!empty($_POST['status']) && (string) $_POST['status'] !== (string) ($_POST['status_orig'] ?? '')) {
         $status_sql = projectTaskStatusSql($mysqli, (string) $_POST['status'], $user_id);
         if ($status_sql !== '') {
             mysqli_query($mysqli, "UPDATE tasks SET $status_sql WHERE task_id = $task_id");
@@ -377,7 +377,7 @@ function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, in
         $color = projectTaskNormalizeColor($_POST['new_label_color'] ?? '');
         $global = $can_global && !empty($_POST['label_global']);
         foreach (explode(',', (string) ($_POST['new_labels'] ?? '')) as $raw) {
-            $name = sanitizeInput($raw);
+            $name = sanitizeInput(mb_substr($raw, 0, 100));
             if ($name !== '') {
                 $lid = projectTaskCreateLabel($mysqli, $name, $color, $global ? null : $project_id);
                 if ($lid) {
@@ -390,4 +390,27 @@ function projectTaskApplyPostedExtras($mysqli, int $task_id, int $project_id, in
     }
 
     return $summary;
+}
+
+/**
+ * The additive API fields for a task row (DB 2.6.207): priority (0-4), priority_name, description, color, labels. Before the upgrade they
+ * are the neutral defaults (0 / 'None' / null / null / []), so a client can always read them.
+ * @param array<int, array> $labels_by_task projectTaskLabelsByTask() result for the rows being serialised
+ */
+function projectTaskApiExtras(array $row, array $labels_by_task): array
+{
+    $priority = projectTaskNormalizePriority($row['task_priority'] ?? 0);
+    $description = $row['task_description'] ?? null;
+    $labels = [];
+    foreach ($labels_by_task[intval($row['task_id'])] ?? [] as $l) {
+        $labels[] = ['id' => $l['label_id'], 'name' => $l['label_name'], 'color' => $l['label_color']];
+    }
+
+    return [
+        'priority' => $priority,
+        'priority_name' => projectTaskPriorityMeta($priority)['name'],
+        'description' => ($description === null || $description === '') ? null : (string) $description,
+        'color' => projectTaskNormalizeColor($row['task_color'] ?? ''),
+        'labels' => $labels,
+    ];
 }

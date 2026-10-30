@@ -115,8 +115,7 @@ while ($m = mysqli_fetch_assoc($sql)) {
 
 $tasks = [];
 $sql = mysqli_query($mysqli,
-    "SELECT tasks.task_id, tasks.task_name, tasks.task_status, tasks.task_progress, tasks.task_due, tasks.task_start,
-            tasks.task_milestone_id, tasks.task_completed_at,
+    "SELECT tasks.*,
             tt.ticket_prefix, tt.ticket_number, u.user_name AS assigned_to_name
      FROM tasks
      LEFT JOIN tickets tt ON tt.ticket_id = tasks.task_ticket_id
@@ -124,7 +123,14 @@ $sql = mysqli_query($mysqli,
      WHERE tt.ticket_project_id = $id OR tasks.task_project_id = $id
      ORDER BY tasks.task_order ASC, tasks.task_created_at ASC"
 );
+$task_rows = [];
 while ($t = mysqli_fetch_assoc($sql)) {
+    $task_rows[] = $t;
+}
+// Priority / description / colour / labels (DB 2.6.207), additive to the fields below
+require_once dirname(__DIR__, 2) . '/includes/project_tasks.php';
+$task_labels = projectTaskLabelsByTask($mysqli, array_column($task_rows, 'task_id'));
+foreach ($task_rows as $t) {
     $tasks[] = [
         'id'           => intval($t['task_id']),
         'name'         => $t['task_name'],
@@ -136,7 +142,7 @@ while ($t = mysqli_fetch_assoc($sql)) {
         'completed_at' => $t['task_completed_at'],
         'assigned_to'  => $t['assigned_to_name'],
         'ticket_number'=> $t['ticket_number'] !== null ? $t['ticket_prefix'] . $t['ticket_number'] : null,
-    ];
+    ] + projectTaskApiExtras($t, $task_labels);
 }
 
 $tickets = [];
