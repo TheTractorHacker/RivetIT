@@ -52,6 +52,19 @@ ob_start();
             </div>
         </div>
 
+        <?php
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+        $add_categories = (new \ITFlow\ITSM\ServiceCatalogService($mysqli))->getCategories(true);
+        if ($add_categories) { ?>
+        <div class="form-group">
+            <label>Catalog category <small class="text-secondary">(the tile group on Request Something)</small></label>
+            <select class="form-select" name="catalog_category_id">
+                <option value="0">- No category (shown under Other) -</option>
+                <?php foreach ($add_categories as $cc) { ?><option value="<?= intval($cc['category_id']) ?>"><?= nullable_htmlentities($cc['name']) ?></option><?php } ?>
+            </select>
+        </div>
+        <?php } ?>
+
         <div class="form-group">
             <label>Ticket Subject <strong class="text-danger">*</strong> <small class="text-secondary">(used as-is - no merge fields)</small></label>
             <div class="input-group">

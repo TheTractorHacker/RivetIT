@@ -41,6 +41,21 @@ if (isset($catalog_categories['General'])) { // "General" last
     $catalog_categories['General'] = true;
 }
 
+// Catalog categories (Administration > Service Catalog > Categories) drive the tile row. With none set up the page keeps its old
+// behaviour: chips made from each item's ticket category.
+$catalog_groups = $catalog_service->groupByCategory($catalog_items);
+$catalog_has_tiles = count(array_filter($catalog_groups, fn($g) => $g['id'] > 0)) > 0;
+if ($catalog_has_tiles) {
+    $group_name_by_id = [];
+    foreach ($catalog_groups as $g) { $group_name_by_id[$g['id']] = $g['name']; }
+    foreach ($catalog_items as &$ci) {
+        $gid = 0;
+        foreach ($catalog_groups as $g) { foreach ($g['items'] as $gi) { if (intval($gi['catalog_item_id']) === intval($ci['catalog_item_id'])) { $gid = $g['id']; } } }
+        $ci['cat_label'] = $group_name_by_id[$gid] ?? 'Other';
+    }
+    unset($ci);
+}
+
 ?>
 
     <ol class="breadcrumb d-print-none">
@@ -81,7 +96,27 @@ if (isset($catalog_categories['General'])) { // "General" last
                 <i class="fas fa-search" aria-hidden="true"></i>
                 <input type="search" class="form-control" placeholder="Search requests" aria-label="Search requests" data-portal-filter-input autocomplete="off" value="<?= nullable_htmlentities(mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100)) ?>">
             </div>
-            <?php if (count($catalog_categories) > 1) { ?>
+            <?php if ($catalog_has_tiles) { ?>
+                <div class="portal-cattiles" role="group" aria-label="Request categories" data-portal-cattiles>
+                    <button type="button" class="portal-cattile is-active" data-portal-filter-chip="" aria-pressed="true">
+                        <span class="portal-cattile-icon"><i class="fas fa-th-large" aria-hidden="true"></i></span>
+                        <span class="portal-cattile-name">Everything</span>
+                        <span class="portal-cattile-count"><?= count($catalog_items) ?> requests</span>
+                    </button>
+                    <?php foreach ($catalog_groups as $g) {
+                        $g_icon = preg_replace('/[^a-z0-9-]/', '', strtolower(trim((string) $g['icon'])));
+                        $g_icon = 'fa-' . (preg_replace('/^fa-/', '', $g_icon) ?: 'folder'); ?>
+                        <button type="button" class="portal-cattile" data-portal-filter-chip="<?= nullable_htmlentities($g['name']) ?>" aria-pressed="false">
+                            <span class="portal-cattile-icon"><i class="fas <?= $g_icon ?>" aria-hidden="true"></i></span>
+                            <span class="portal-cattile-name"><?= nullable_htmlentities($g['name']) ?></span>
+                            <?php if ($g['description'] !== '') { ?><span class="portal-cattile-desc"><?= nullable_htmlentities($g['description']) ?></span><?php } ?>
+                            <span class="portal-cattile-count"><?= count($g['items']) ?> request<?= count($g['items']) === 1 ? '' : 's' ?></span>
+                        </button>
+                    <?php } ?>
+                </div>
+            <?php } ?>
+
+            <?php if (!$catalog_has_tiles && count($catalog_categories) > 1) { ?>
                 <div class="portal-chips" role="group" aria-label="Filter by category">
                     <button type="button" class="portal-chip is-active" data-portal-filter-chip="" aria-pressed="true">All</button>
                     <?php foreach (array_keys($catalog_categories) as $cat) { ?>

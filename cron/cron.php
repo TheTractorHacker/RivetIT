@@ -1438,5 +1438,8 @@ require_once dirname(__DIR__) . '/cron/crm_reminders.php';
 // Deliver due project task reminders (tasks.task_reminder_at) to everyone on the task.
 require_once dirname(__DIR__) . '/cron/task_reminders.php';
 
+// Service catalog approvals: delegation re-routing, reminders, escalation and timeouts (off until switched on in Administration > Service Catalog).
+require_once dirname(__DIR__) . '/cron/catalog_approvals.php';
+
 // Logging
 logApp("Cron", "info", "Cron executed successfully");

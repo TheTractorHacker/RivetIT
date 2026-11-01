@@ -41,6 +41,7 @@ if ($reports_show_technical) {
     $report_catalog_technical[] = ['time_by_tech.php',            'fas fa-business-time', 'Time by Technician',       'Hours logged per technician, per year.'];
     $report_catalog_technical[] = ['technician_performance.php',  'fas fa-user-clock',    'Technician Performance',   'Utilization, tickets closed and handle time.'];
     $report_catalog_technical[] = ['csat.php',                    'fas fa-star',          'Customer Satisfaction',    'Ratings, trend and per-technician CSAT.'];
+    $report_catalog_technical[] = ['service_catalog.php',         'fas fa-concierge-bell', 'Service Catalog Requests', 'Request volume, approval turnaround and rejection rate.'];
     $report_catalog_technical[] = ['rmm_health.php',              'fas fa-heartbeat',     'RMM Health',               'Alert volume, severity and noisiest devices.'];
     $report_catalog_technical[] = ['client_ticket_time_detail.php', 'fas fa-history',     'Department Time Detail Audit',    'Every time entry behind a department&rsquo;s hours.'];
     $report_catalog_technical[] = ['included_issues.php',         'fas fa-house-user',    'Included Support Issues', 'Remote and onsite hours included per department.'];

@@ -40,7 +40,7 @@ Found in RivetIT `agent/`, absent from RivetMSP `agent/`.
 |---|---|---|---|---|
 | Problem management | `problems`, `problem_details` | Link recurring tickets to one root cause; standard in Halo/ConnectWise | M | Needs ticket-link table; MSP tickets differ (billing fields) |
 | Change management | `changes`, `change_details` | Approval trail for client changes, a selling point for managed contracts | M | Add client-facing approval via the portal |
-| Service catalog | `service_catalog` | Maps to billable MSP service offerings and ticket templates | M | Connect to `products`/`services` so a catalog item can price |
+| Service catalog | `service_catalog` | Maps to billable MSP service offerings and ticket templates | M | Connect to `products`/`services` so a catalog item can price. Done in the Internal IT tree (issue #30): categories, risk routing, parallel approvals, delegation and timeouts, catalog report |
 | KB v2 | `kb_article_versions`, `kb_media`, `kb_embed`, `kb_progress`, attachments | Version history and review dates; client-visible articles | M | Mostly self-contained |
 | Certificate and domain detail pages | `certificate_details`, `domain_details` | Expiry monitoring is core documentation (Hudu/IT Glue parity) | S | |
 | Intune devices | `intune_devices` | Microsoft-shop MSPs; pairs with RMM | M | Per-client tenants, not one tenant: needs a new credential model |
@@ -169,15 +169,15 @@ access. CAB, change calendar and release management are U even at Halo.
 
 | Capability | Freshservice | Jira Service Management | RivetIT now |
 |---|---|---|---|
-| Searchable service catalog and self-service portal | Yes; catalog also reachable from Slack or Teams | Yes: Help Center, configurable portals, request types | Yes. Recent/trending and per-item request forms and approvals added in 26.10 (migration 2.6.133) |
-| Request forms | Forms per catalog item | Dynamic forms with conditional show/hide, validation, tables | Per-item fields (text, textarea, select, checkbox, date, number); **no conditional logic or tables yet** |
-| Approvals | Automated approvals; onboarding sends forms to managers | Approval workflows by change type, risk and CAB; group authority; auto-approve low-risk changes | Ordered steps (any/all), risk score with auto-approve threshold, manager approver, inbox. **No CAB or change calendar** |
+| Searchable service catalog and self-service portal | Yes; catalog also reachable from Slack or Teams | Yes: Help Center, configurable portals, request types | Yes. Recent/trending and per-item request forms and approvals added in 26.10 (migration 2.6.133); **category tiles on the agent and portal pages (DB 2.6.211, issue #30)**. Catalog from Slack/Teams: the request entry point is a service method (`ServiceCatalogService::createRequest()`), the chat bridge is issue #36 |
+| Request forms | Forms per catalog item | Dynamic forms with conditional show/hide, validation, tables | Per-item fields (text, textarea, select, checkbox, date, number, **repeating table**); **conditional show/hide with up to three conditions (all/any)**; validation on the server (issue #30, DB 2.6.211) |
+| Approvals | Automated approvals; onboarding sends forms to managers | Approval workflows by change type, risk and CAB; group authority; auto-approve low-risk changes | Ordered steps (any/all), **parallel step groups**, **computed risk score (rules over the answers) with auto-approve threshold and risk-band routing to different chains**, manager approver, inbox, **out-of-office delegation, reminders, escalation to administrators and timeouts** (worker off by default; DB 2.6.211-2.6.212, issue #30). **No CAB or change calendar** |
 | Onboarding and lifecycle | HR + IT onboarding: requests from the portal, forms to managers and employees, progress tracking, reminders, bulk onboarding | Via automation and request types (not verified in detail) | Dependencies, due dates, reminders, approval and action tasks, dry-run, hire/termination triggers (26.10, migration 2.6.134). **No bulk onboarding, no HR-initiated portal request yet** |
 | Automation | Workflow Automator, Supervisor Rules, Orchestration Center (Okta, Azure AD, AWS, Slack) | Rules with out-of-the-box templates | Event rules + lifecycle actions (ticket, mail, notify, webhook, disable contact login). **No directory-account actions (Entra/Okta) yet** |
 | Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | One-way Slack and Teams notifications with routing filters (migration 2.6.135). **No two-way sync, no virtual agent, no interactive buttons** |
 | Assets and CMDB | CMDB and asset management | Assets (Premium/Enterprise): link assets and CIs to requests, incidents, problems, changes | Assets + Intune; relationship graph between items is not built |
 
-Gaps worth scheduling, in order of value: conditional logic in catalog forms; HR-initiated onboarding request from the
+Gaps worth scheduling, in order of value: HR-initiated onboarding request from the
 portal; directory actions (create/disable Entra account) in lifecycle workflows; interactive Slack/Teams actions and
 two-way sync (needs a signing-secret endpoint or bot); CAB and a change calendar. RivetIT priorities remain the
 Master Plan phases 5, 13, 14, 15.

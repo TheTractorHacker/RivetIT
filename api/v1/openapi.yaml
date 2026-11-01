@@ -1752,7 +1752,7 @@ paths:
     get:
       tags: [Mobile]
       summary: Active service catalog items with their request forms
-      description: Needs a user token and Tickets access. popular = top 5 items of the last 30 days; recent = the caller's last 5 distinct items.
+      description: Needs a user token and Tickets access. categories = the tile groups; popular = top 5 items of the last 30 days; recent = the caller's last 5 distinct items.
       responses:
         '200':
           description: Catalog
@@ -1765,8 +1765,11 @@ paths:
       tags: [Mobile]
       summary: Raise a ticket from a catalog item
       description: >
-        Validated exactly like the web form (required, type, select choices, 500/5000 length caps); answers whose key is not a
-        defined field are ignored. The caller is the requester. Needs Tickets edit access and access to client_id's department.
+        Validated exactly like the web form (required, type, select choices, table rows and cells, 500/5000 length caps); answers
+        whose key is not a defined field are ignored. The caller is the requester. Needs Tickets edit access and access to
+        client_id's department. The request's risk score is computed from the answers and routes it to the matching approval chain.
+        This endpoint is a thin wrapper over ServiceCatalogService::createRequest(), which is the entry point chat integrations
+        (Slack / Teams) are meant to call.
       requestBody:
         required: true
         content:
@@ -3749,6 +3752,16 @@ components:
     CatalogList:
       type: object
       properties:
+        categories:
+          type: array
+          description: Active catalog categories (the tile groups), in display order. An item whose category_id is null belongs to "Other".
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              description: {type: string}
+              icon: {type: string}
         items:
           type: array
           items:
@@ -3758,8 +3771,9 @@ components:
               name: {type: string}
               description: {type: string}
               icon: {type: string}
+              category_id: {type: integer, nullable: true}
               requires_approval: {type: boolean}
-              risk_score: {type: integer}
+              risk_score: {type: integer, description: "The item's base score. The score of a request is computed from this plus the item's risk rules and the answers; it decides auto-approval and which approval chain applies."}
               fields:
                 type: array
                 items:
@@ -3767,11 +3781,19 @@ components:
                   properties:
                     key: {type: string}
                     label: {type: string}
-                    type: {type: string, enum: [text, textarea, select, checkbox, date, number]}
+                    type: {type: string, enum: [text, textarea, select, checkbox, date, number, table]}
                     options: {type: array, items: {type: string}}
+                    columns:
+                      type: array
+                      description: "Only for type table: the columns of the repeating table. Send the answer as a list of rows (max 25), each row a list of cell values in column order or an object keyed by the column label."
+                      items:
+                        type: object
+                        properties:
+                          label: {type: string}
+                          type: {type: string, enum: [text, number, date]}
                     required: {type: boolean}
                     placeholder: {type: string}
-                    show_if: {type: object, nullable: true, description: "Show this field only when an earlier field matches: {field, op: equals|in|not_empty, value}. A hidden field is never required and its answer is ignored. null = always visible."}
+                    show_if: {type: object, nullable: true, description: "Show this field only when earlier fields match: one rule {field, op: equals|in|not_empty, value}, or several {match: all|any, rules: [rule, ...]} (up to 3). A hidden field is never required and its answer is ignored. null = always visible."}
         popular: {type: array, items: {type: integer}}
         recent: {type: array, items: {type: integer}}
     CatalogRequest:
@@ -3779,7 +3801,7 @@ components:
       required: [catalog_item_id]
       properties:
         catalog_item_id: {type: integer}
-        answers: {type: object, additionalProperties: true, description: "field key to value; booleans and numbers are accepted for checkbox/number fields"}
+        answers: {type: object, additionalProperties: true, description: "field key to value; booleans and numbers are accepted for checkbox/number fields; a table field takes a list of rows"}
         client_id: {type: integer, nullable: true}
     WorkflowTaskList:
       type: object

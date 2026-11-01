@@ -15,37 +15,17 @@ api_require_module_permission($mysqli, $uid, 'module_support', $method === 'GET'
 $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 
 if ($method === 'GET') {
+    // describeItem() is the one shape for a catalog item (the same description a chat integration uses).
     $items = [];
-    $rs = mysqli_query($mysqli, "SELECT * FROM service_catalog_items WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
-    while ($rs && ($row = mysqli_fetch_assoc($rs))) {
-        $item_id = intval($row['catalog_item_id']);
-        $fields = [];
-        foreach ($catalog_service->getFields($item_id) as $f) {
-            $options = [];
-            if ($f['field_type'] === 'select') {
-                $options = array_values(array_filter(array_map('trim', explode("\n", (string) ($f['options'] ?? ''))), 'strlen'));
-            }
-            $fields[] = [
-                'key'         => (string) $f['field_key'],
-                'label'       => (string) $f['label'],
-                'type'        => (string) $f['field_type'],
-                'options'     => $options,
-                'required'    => !empty($f['is_required']),
-                'placeholder' => (string) ($f['placeholder'] ?? ''),
-                // {"field":"<earlier key>","op":"equals|in|not_empty","value":...} or null (always visible); the same rule the web form uses.
-                'show_if'     => \ITFlow\ITSM\ServiceCatalogService::parseShowIf($f['show_if'] ?? null),
-            ];
-        }
-        $items[] = [
-            'id'                => $item_id,
-            'name'              => (string) $row['name'],
-            'description'       => (string) ($row['description'] ?? ''),
-            'icon'              => (string) ($row['icon'] ?: 'fa-ticket-alt'),
-            'requires_approval' => !empty($row['requires_approval']),
-            'risk_score'        => intval($row['risk_score']),
-            'fields'            => $fields,
-        ];
+    foreach ($catalog_service->activeItems() as $row) {
+        $items[] = $catalog_service->describeItem($row);
     }
+    $categories = array_map(fn($c) => [
+        'id'          => intval($c['category_id']),
+        'name'        => (string) $c['name'],
+        'description' => (string) ($c['description'] ?? ''),
+        'icon'        => (string) ($c['icon'] ?: 'fa-folder'),
+    ], $catalog_service->getCategories(true));
 
     $popular = array_map(fn($t) => intval($t['catalog_item_id']), $catalog_service->trending(5, 30));
 
@@ -60,7 +40,7 @@ if ($method === 'GET') {
         $recent[] = intval($r['catalog_item_id']);
     }
 
-    api_response(200, ['items' => $items, 'popular' => $popular, 'recent' => $recent]);
+    api_response(200, ['categories' => $categories, 'items' => $items, 'popular' => $popular, 'recent' => $recent]);
 }
 
 if ($method === 'POST') {
@@ -89,28 +69,6 @@ if ($method === 'POST') {
     if (!api_mobile_client_ok($client_id)) {
         api_error(403, 'Access denied');
     }
-    if ($client_id > 0) {
-        $c = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_id FROM clients WHERE client_id = $client_id AND client_archived_at IS NULL LIMIT 1"));
-        if (!$c) {
-            api_error(422, 'client_id does not exist');
-        }
-    }
-
-    // Answers: scalars arrive as the web form's strings (a JSON true/false/number becomes '1'/'0'/'12'). Arrays and objects are
-    // left as they are so validateInput() rejects them. Keys that are not a defined field are never read, so nothing is stored.
-    $post_answers = [];
-    foreach ($answers as $k => $v) {
-        if (is_bool($v)) {
-            $v = $v ? '1' : '0';
-        } elseif (is_int($v) || is_float($v)) {
-            $v = (string) $v;
-        }
-        $post_answers[(string) $k] = $v;
-    }
-    $check = \ITFlow\ITSM\ServiceCatalogService::validateInput($catalog_service->getFields($item_id), $post_answers);
-    if ($check['errors']) {
-        api_response(422, ['error' => implode(' ', $check['errors']), 'errors' => $check['errors']]);
-    }
 
     // Contact: the client's primary/first contact, like tickets.php (none for an internal, department-less request).
     $contact_id = 0;
@@ -121,56 +79,21 @@ if ($method === 'POST') {
         $contact_id = $pc ? intval($pc['contact_id']) : 0;
     }
 
-    $subject_raw = trim((string) ($item['ticket_subject_template'] ?? '')) !== '' ? trim((string) $item['ticket_subject_template']) : (string) $item['name'];
-    $details_raw = '<p>Requested via the mobile app: ' . htmlspecialchars((string) $item['name'], ENT_QUOTES, 'UTF-8') . '</p>';
-
-    $priority = ucfirst(strtolower((string) ($item['default_priority'] ?? '')));
-    if (!in_array($priority, ['Low', 'Medium', 'High', 'Critical'], true)) {
-        $priority = 'Low';
-    }
-    $category = intval($item['ticket_category_id'] ?? 0);
-    if ($category) {
-        $cat = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT category_id FROM categories WHERE category_id = $category AND category_type = 'Ticket' AND category_archived_at IS NULL LIMIT 1"));
-        if (!$cat) {
-            $category = 0;
+    // Validation, the ticket, the stored answers, the computed risk and the approval hold all happen in the service, which is also
+    // the entry point for chat (Slack / Teams). Access was decided above; the service trusts its caller for that.
+    $made = $catalog_service->createRequest($item_id, $answers, $client_id, $contact_id, $uid, 'API', 'Requested via the mobile app: ' . (string) $item['name']);
+    if (!$made['ok']) {
+        if ($made['code'] === 422 && count($made['errors']) > 0 && $made['error'] !== 'client_id does not exist') {
+            api_response(422, ['error' => $made['error'], 'errors' => $made['errors']]);
         }
+        api_error($made['code'], (string) $made['error']);
     }
-    $category = resolveTicketCategory($category);
-    $assigned = resolveTicketAssignee(0);
-    $status = resolveTicketCreationStatus($assigned);
-
-    mysqli_query($mysqli, "
-        UPDATE settings
-        SET config_ticket_next_number = LAST_INSERT_ID(config_ticket_next_number),
-            config_ticket_next_number = config_ticket_next_number + 1
-        WHERE company_id = 1
-    ");
-    $next_num = mysqli_insert_id($mysqli);
-    $prefix_esc = mysqli_real_escape_string($mysqli, $config_ticket_prefix ?? '');
-    $url_key = randomString(32);
-
-    $ticket_id = api_exec(
-        "INSERT INTO tickets (ticket_prefix, ticket_subject, ticket_details, ticket_client_id, ticket_contact_id, ticket_priority,
-         ticket_status, ticket_assigned_to, ticket_created_by, ticket_source, ticket_number, ticket_category, ticket_url_key,
-         ticket_catalog_item_id, ticket_created_at, ticket_updated_at)
-         VALUES ('$prefix_esc', ?, ?, $client_id, $contact_id, '$priority', $status, $assigned, $uid, 'API', $next_num, $category, '$url_key',
-                 $item_id, NOW(), NOW())",
-        'ss',
-        [$subject_raw, $details_raw]
-    );
-    if (!$ticket_id) {
-        api_error(500, 'Could not create the ticket');
-    }
-
-    // Store the answers and, when the item needs approval, hold the ticket and ask the first step's approvers.
-    $status_out = 'created';
-    if ($catalog_service->hasRequestFlow($item)) {
-        $sub = $catalog_service->submit($item, $ticket_id, $client_id, $contact_id, $uid, $check['values']);
-        if ($sub['status'] === 'pending_approval') {
-            $status_out = 'pending_approval';
-        }
-    }
+    $ticket_id = $made['ticket_id'];
+    $status_out = $made['status'];
+    $subject_raw = $made['subject'];
+    $next_num = $made['ticket_number'];
+    $assigned = $made['assigned_to'];
+    $category = $made['category_id'];
 
     // Per-category SLA-exempt / Non-billable (DB 2.6.205), before the SLA engine runs.
     require_once $DOCUMENT_ROOT . '/includes/ticket_category_rules.php';

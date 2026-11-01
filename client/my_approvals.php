@@ -50,7 +50,7 @@ $approvals = $catalog_service->pendingApprovals(null, $session_contact_id, $sess
                     <dl class="row mb-3">
                         <?php foreach ($values as $v) { ?>
                             <dt class="col-sm-4"><?= nullable_htmlentities($v['label'] ?? '') ?></dt>
-                            <dd class="col-sm-8"><?= nl2br(nullable_htmlentities($v['value'] ?? '')) ?></dd>
+                            <dd class="col-sm-8"><?= (($v['type'] ?? '') === 'table' && (string) ($v['value'] ?? '') !== '') ? \ITFlow\ITSM\ServiceCatalogService::tableValueHtml((string) $v['value']) : nl2br(nullable_htmlentities($v['value'] ?? '')) ?></dd>
                         <?php } ?>
                     </dl>
                 <?php } ?>

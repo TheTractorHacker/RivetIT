@@ -14,6 +14,10 @@ $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 
 $mine = $catalog_service->pendingApprovals(intval($session_user_id));
 $all = $session_is_admin ? $catalog_service->pendingApprovals(null, null, 0, true) : [];
+$my_delegations = $catalog_service->listDelegations(intval($session_user_id));
+$delegate_candidates = [];
+$dc = mysqli_query($mysqli, "SELECT user_id, user_name FROM users WHERE user_type = 1 AND user_status = 1 AND user_archived_at IS NULL AND user_id <> " . intval($session_user_id) . " ORDER BY user_name ASC");
+while ($dc && ($d = mysqli_fetch_assoc($dc))) { $delegate_candidates[] = $d; }
 $mine_request_ids = array_map(fn($r) => intval($r['request_id']), $mine);
 // Admin list: everything pending that is not already in "Waiting for me" (those are decided as the approver, not as an override)
 $others = array_values(array_filter($all, fn($r) => !in_array(intval($r['request_id']), $mine_request_ids, true)));
@@ -37,7 +41,7 @@ function catalog_approval_card(array $a, bool $override) {
                 <dl class="row mb-2">
                     <?php foreach ($values as $v) { ?>
                         <dt class="col-sm-3"><?= nullable_htmlentities($v['label'] ?? '') ?></dt>
-                        <dd class="col-sm-9"><?= nl2br(nullable_htmlentities($v['value'] ?? '')) ?></dd>
+                        <dd class="col-sm-9"><?= (($v['type'] ?? '') === 'table' && (string) ($v['value'] ?? '') !== '') ? \ITFlow\ITSM\ServiceCatalogService::tableValueHtml((string) $v['value']) : nl2br(nullable_htmlentities($v['value'] ?? '')) ?></dd>
                     <?php } ?>
                 </dl>
             <?php } ?>
@@ -63,6 +67,29 @@ function catalog_approval_card(array $a, bool $override) {
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-check me-2"></i>Approvals</h3>
     </div>
     <div class="card-body">
+        <div class="border rounded p-3 mb-4" id="catalogDelegation">
+            <h6 class="mb-1"><i class="fas fa-fw fa-plane-departure me-2"></i>Out of office</h6>
+            <p class="small text-secondary">While you are away, approvals addressed to you go to the person you pick. Requests you already have pending are handed over too when the approval worker is on.</p>
+            <?php foreach ($my_delegations as $dl) { ?>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span><i class="fas fa-fw fa-share me-2"></i><strong><?= nullable_htmlentities($dl['delegate_name'] ?? 'Unknown') ?></strong> covers from <?= nullable_htmlentities($dl['starts_at']) ?> to <?= nullable_htmlentities($dl['ends_at']) ?><?= (string) $dl['note'] !== '' ? ' (' . nullable_htmlentities($dl['note']) . ')' : '' ?></span>
+                    <form action="post.php" method="post"><input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="delegation_id" value="<?= intval($dl['delegation_id']) ?>"><button class="btn btn-sm btn-outline-danger" type="submit" name="delete_service_catalog_delegation"><i class="fas fa-times me-1"></i>End</button></form>
+                </div>
+            <?php } ?>
+            <form action="post.php" method="post" autocomplete="off" class="row g-2 align-items-end">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="col-md-3"><label class="form-label small mb-0" for="delegateUser">Delegate to</label>
+                    <select class="form-select form-select-sm" name="delegate_user_id" id="delegateUser" required>
+                        <option value="">- pick an agent -</option>
+                        <?php foreach ($delegate_candidates as $d) { ?><option value="<?= intval($d['user_id']) ?>"><?= nullable_htmlentities($d['user_name']) ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-2 col-6"><label class="form-label small mb-0" for="delegateFrom">From</label><input type="date" class="form-control form-control-sm" name="delegate_from" id="delegateFrom" value="<?= date('Y-m-d') ?>" required></div>
+                <div class="col-md-2 col-6"><label class="form-label small mb-0" for="delegateTo">Until (inclusive)</label><input type="date" class="form-control form-control-sm" name="delegate_to" id="delegateTo" value="<?= date('Y-m-d', time() + 7 * 86400) ?>" required></div>
+                <div class="col-md-3"><label class="form-label small mb-0" for="delegateNote">Note</label><input type="text" class="form-control form-control-sm" name="delegate_note" id="delegateNote" maxlength="200" placeholder="Optional"></div>
+                <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="submit" name="add_service_catalog_delegation"><i class="fas fa-plus me-1"></i>Add</button></div>
+            </form>
+        </div>
+
         <h6>Waiting for me</h6>
         <?php if (!$mine) { ?>
             <p class="text-secondary">Nothing is waiting for your approval.</p>
