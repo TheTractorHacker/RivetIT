@@ -313,6 +313,7 @@ EOF
     backup_postgres_dump "${pg_file}" || pg_rc=$?
     if [[ ${pg_rc} -eq 0 ]]; then
         pg_member=("$(basename "${pg_file}")")
+        BACKUP_PG_INCLUDED=1   # reported to the application (backup_runs.run_stores): only a dump that is really in the archive is claimed
         # BackupHook's guidance: record the descriptor (never the password) in the manifest so a restore knows a second database
         # travelled with this archive.
         php -r '

@@ -1,0 +1,274 @@
+{
+  "edition": "RivetIT",
+  "schema": 1,
+  "purpose": "How RivetIT implements the controls RivetCore's security baseline leaves to the edition (status edition-responsibility, or partial and needing the edition). Statuses are conservative: 'enforced' only when a named test in this repository proves the behaviour. Checked by scripts/edition-baseline-check.php; the public Security and trust page renders its counts. Wording rules: vendor/rivet/rivet-core/docs/security/CLAIMS.md.",
+  "statuses": [
+    "enforced",
+    "partial",
+    "gap"
+  ],
+  "controls": [
+    {
+      "core_control": "AUTH-01",
+      "status": "enforced",
+      "how": "Staff password minimum is the setting password_min_length, never below SecurityBaseline::MIN_PASSWORD_LENGTH (12) even if an old row holds a lower number; passphrases of 64 characters and more are accepted (limit 1024); no composition rules; refused when equal to name, username or email.",
+      "files": [
+        "includes/security_policy.php",
+        "admin/post/settings_security.php"
+      ],
+      "tests": [
+        "tests/security_passwords.php"
+      ],
+      "note": "Default is 12 (baseline default 14 is a recommendation, not a floor)."
+    },
+    {
+      "core_control": "AUTH-02",
+      "status": "enforced",
+      "how": "New hashes are Argon2id (64 MiB, 3 passes); old bcrypt hashes still verify and are rehashed at the next successful sign-in.",
+      "files": [
+        "includes/security_policy.php"
+      ],
+      "tests": [
+        "tests/security_passwords.php"
+      ],
+      "note": ""
+    },
+    {
+      "core_control": "AUTH-03",
+      "status": "partial",
+      "how": "Optional Have I Been Pwned range check (k-anonymity, only the 5 character SHA-1 prefix leaves the server, through RivetCore's UrlPolicy). Off by default and fails open.",
+      "files": [
+        "includes/security_policy.php"
+      ],
+      "tests": [
+        "tests/security_passwords.php"
+      ],
+      "note": "Gap by default: an administrator has to switch it on."
+    },
+    {
+      "core_control": "AUTH-07",
+      "status": "partial",
+      "how": "TOTP and passkeys with single-use recovery codes; policy off | admins | all with a grace period; remember-me cannot stand in for the second factor of an administrator.",
+      "files": [
+        "includes/security_policy.php",
+        "login.php",
+        "admin/settings_security.php"
+      ],
+      "tests": [
+        "tests/security_mfa.php"
+      ],
+      "note": "Gap against the baseline: the policy default is 'off', so administrators are not forced to enrol until an administrator sets the policy. SecurityBaseline::mfaRequired() is not wired in because forcing it would lock out installations that have not enrolled yet; a decision for the maintainer."
+    },
+    {
+      "core_control": "AUTH-08",
+      "status": "partial",
+      "how": "Password reset tokens are single use and expire; there is no default account (the installer makes the operator choose the first administrator password, minimum 12 characters).",
+      "files": [
+        "client/login_reset.php",
+        "scripts/setup_cli.php",
+        "setup/index.php"
+      ],
+      "tests": [
+        "tests/security_passwords.php"
+      ],
+      "note": "The staff reset flow is covered by the password-policy test only; no dedicated test for token expiry and single use."
+    },
+    {
+      "core_control": "SESS-01",
+      "status": "partial",
+      "how": "The session cookie is HttpOnly, SameSite=Lax and Secure on HTTPS (strict mode on); the vault-key cookie is SameSite=Strict.",
+      "files": [
+        "includes/security_sessions.php",
+        "includes/session_init.php",
+        "login.php"
+      ],
+      "tests": [
+        "tests/security_sessions.php"
+      ],
+      "note": "Gap: the cookie name does not carry the __Host- prefix (SecurityBaseline::hostCookieName() is not used), because renaming PHPSESSID would sign every user out and the app can run on plain HTTP in development."
+    },
+    {
+      "core_control": "SESS-02",
+      "status": "partial",
+      "how": "Idle timeout (default 480 minutes) and absolute lifetime (default 14 days) are enforced server side; sessions are listed and revocable; a password change revokes every other session; the vault asks for the password again after 15 idle minutes.",
+      "files": [
+        "includes/security_sessions.php",
+        "includes/security_policy.php"
+      ],
+      "tests": [
+        "tests/security_sessions.php"
+      ],
+      "note": "Deviates from the baseline: default 480 instead of 30 minutes, and an administrator may raise the idle timeout above the 480 minute ceiling (the setting accepts up to 90 days, used with remember-me). SecurityBaseline::effective('session_idle_minutes') is not applied."
+    },
+    {
+      "core_control": "ACC-03",
+      "status": "enforced",
+      "how": "Every cookie-authenticated POST handler validates a CSRF token (validateCSRFToken); the API uses bearer tokens, not cookies.",
+      "files": [
+        "functions.php",
+        "admin/post.php",
+        "agent/post.php"
+      ],
+      "tests": [
+        "tests/security_login_http.php"
+      ],
+      "note": "Verified by reading: 168 files call validateCSRFToken. The HTTP test needs the scratch web environment; it was not green in the 2026-10 parity run (environment, not code: same result without the parity changes)."
+    },
+    {
+      "core_control": "ACC-04",
+      "status": "partial",
+      "how": "Administrative pages require an administrator role; the MFA gate applies when the MFA policy is on; nginx denies the non-public trees and metadata files (static test).",
+      "files": [
+        "includes/check_login.php",
+        "deploy/templates/rivetit-locations.conf"
+      ],
+      "tests": [
+        "tests/nginx_private_paths.php",
+        "tests/security_mfa.php"
+      ],
+      "note": "Administrator MFA depends on AUTH-07 (policy default off)."
+    },
+    {
+      "core_control": "COMM-01",
+      "status": "partial",
+      "how": "The RMM data store form refuses weak transport (disable/allow/prefer) to a remote host unless an explicit, audit-logged acknowledgement is given, defaults a remote host to verify-full, and prefers a unix socket with peer authentication.",
+      "files": [
+        "includes/rmm_data_store_cards.php",
+        "admin/post/settings_endpoint_agent.php"
+      ],
+      "tests": [
+        "tests/rmm_pg_credential_no_plaintext_test.php"
+      ],
+      "note": "Not shown on the health page: SecurityBaseline::postgresTransportProblem() is not called for an already stored connection."
+    },
+    {
+      "core_control": "COMM-03",
+      "status": "partial",
+      "how": "HSTS and TLS rules are in the shipped nginx routes; the CSP-compatible headers are sent by the app; webhook destinations are https-only (WebhookDispatcher requireHttps) and plain http needs a per-destination, audit-logged opt-in.",
+      "files": [
+        "deploy/templates/rivetit-locations.conf",
+        "src/Webhooks/WebhookDispatcher.php",
+        "src/Webhooks/DestinationConfig.php"
+      ],
+      "tests": [
+        "tests/nginx_private_paths.php",
+        "tests/core/SharedModulesShimTest.php"
+      ],
+      "note": "The nginx test covers private paths, not the HSTS value."
+    },
+    {
+      "core_control": "COMM-04",
+      "status": "partial",
+      "how": "Content-Security-Policy (nonce scripts), X-Frame-Options DENY, X-Content-Type-Options nosniff and Referrer-Policy are sent on every app page; Permissions-Policy comes from nginx; inline event handlers are banned by a guard test.",
+      "files": [
+        "includes/header.php",
+        "deploy/templates/rivetit-locations.conf"
+      ],
+      "tests": [
+        "tests/csp_inline_handlers.php"
+      ],
+      "note": "Gaps: style-src keeps 'unsafe-inline'; the REST API sends Access-Control-Allow-Origin: * (bearer tokens only, no cookies)."
+    },
+    {
+      "core_control": "DATA-02",
+      "status": "partial",
+      "how": "Users and records can be exported and archived by an administrator; access is audit-logged.",
+      "files": [
+        "admin/users.php",
+        "admin/audit_trail.php"
+      ],
+      "tests": [],
+      "note": "No self-service export or deletion of personal data and no test: partial by documentation only."
+    },
+    {
+      "core_control": "DATA-03",
+      "status": "partial",
+      "how": "deploy/backup.sh produces an openssl AES-256-CBC archive (600000 iterations, key file kept apart) that also holds the RMM PostgreSQL dump when that store is in use; the in-app backup includes the PostgreSQL dump as rmm-postgres.dump (a dump that is expected and fails fails the whole run). Every run records which stores it really contained (backup_runs.run_stores), and the compliance backup check reads encryption from the newest backup file's header (ArtifactCheckedBackupFactsProvider).",
+      "files": [
+        "admin/post/backup.php",
+        "deploy/backup.sh",
+        "deploy/lib/backup_extras.sh",
+        "deploy/lib/backup_status.php",
+        "src/Compliance/EditionBackupFacts.php",
+        "src/Recovery/BackupStatus.php"
+      ],
+      "tests": [
+        "tests/security_backup.php",
+        "tests/backup_rmm_postgres.php",
+        "tests/core/BackupFactsConformanceTest.php"
+      ],
+      "note": "Gap: the in-app zip is a plain archive (db.sql is not encrypted; only its manifest, which holds the settings key, is). The compliance check therefore reports it as not encrypted. Only the root pipeline (.enc) is fully encrypted. An unmerged branch (encrypt-admin-zip-backups) addresses this."
+    },
+    {
+      "core_control": "ERR-01",
+      "status": "partial",
+      "how": "Audit events are written for logins, MFA, permission and role changes, vault reveals, settings and backup events, and sealed in a hash chain that a nightly cron verifies. There is no setting that turns AuditService off.",
+      "files": [
+        "src/Audit",
+        "cron/cron.php"
+      ],
+      "tests": [
+        "tests/audit_chain.php"
+      ],
+      "note": "A database failure still propagates from AuditService to the caller by design."
+    },
+    {
+      "core_control": "ERR-03",
+      "status": "partial",
+      "how": "Audit retention is fed through SecurityBaseline::auditRetentionDays(), so the 90 day floor holds in the cron prune.",
+      "files": [
+        "cron/cron.php"
+      ],
+      "tests": [
+        "tests/compliance_retention.php"
+      ],
+      "note": "The settings writes for password length, session timeout and MFA policy do not go through BaselineChanges::change() but they are audited by the settings handler."
+    },
+    {
+      "core_control": "HARD-01",
+      "status": "partial",
+      "how": "Audit logging cannot be switched off from the UI.",
+      "files": [
+        "src/Audit"
+      ],
+      "tests": [
+        "tests/audit_chain.php"
+      ],
+      "note": "Other locked-on baseline settings (tls_only, cookie_secure) are deployment configuration, not enforced by code."
+    },
+    {
+      "core_control": "HARD-03",
+      "status": "partial",
+      "how": "The installer asks for an existing database account and does not require a superuser; the RMM PostgreSQL store supports a unix socket with peer authentication and a dedicated role.",
+      "files": [
+        "scripts/setup_cli.php",
+        "setup/index.php",
+        "includes/rmm_data_store_cards.php"
+      ],
+      "tests": [],
+      "note": "The installer does not create the account itself; the read-only reporting role is created by the Reporting page (Administration > Reporting / Power BI)."
+    },
+    {
+      "core_control": "HARD-05",
+      "status": "gap",
+      "how": "The root backup pipeline (deploy/backup.sh) always encrypts its archive. The in-app backup requires a passphrase but only encrypts the manifest that carries the settings key; the archive itself is a plain zip. There is no audit-logged override because encryption is not optional in the root pipeline.",
+      "files": [
+        "admin/post/backup.php"
+      ],
+      "tests": [
+        "tests/security_backup.php"
+      ],
+      "note": "Gap against 'backups are encrypted by default' for the in-app zip."
+    },
+    {
+      "core_control": "FILE-02",
+      "status": "gap",
+      "how": "Uploads are validated by type and size; there is no antivirus scan.",
+      "files": [
+        "functions.php"
+      ],
+      "tests": [],
+      "note": "Optional ClamAV scan not built."
+    }
+  ]
+}

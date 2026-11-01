@@ -12193,3 +12193,17 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `oidc_provider_settings` ADD COLUMN IF NOT EXISTS `ops_allow_admins` TINYINT(1) NOT NULL DEFAULT 1 AFTER `ops_enabled`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.206'");
     }
+
+    if ($rivetit_db_version() == '2.6.206') {
+        // DB 2.6.207: RivetCore compliance phase 4 (backup facts). backup_runs records what a run REALLY contained, so the compliance backup checks
+        // judge facts and not configuration. Additive and idempotent; old rows keep NULL ("unknown", the file is then the evidence).
+        //
+        // backup_runs.run_stores           comma list of RivetCore BackupStore ids the run contained: control_db, rmm_postgres
+        // backup_runs.run_encrypted        1 = every file of the run was encrypted before it was written, 0 = not, NULL = unknown
+        // backup_runs.run_retention_days   how long the writer keeps backup sets (deploy/backup.sh --retention-days), NULL when not known
+        mysqli_query($mysqli, "ALTER TABLE `backup_runs`
+            ADD COLUMN IF NOT EXISTS `run_stores` varchar(100) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_encrypted` tinyint(1) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_retention_days` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.207'");
+    }

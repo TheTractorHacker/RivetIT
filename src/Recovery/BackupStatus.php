@@ -53,7 +53,24 @@ final class BackupStatus
         return $id;
     }
 
-    /** @param array{file?:?string,size?:?int,sha256?:?string,ok:bool,error?:?string,offsite?:?string} $r */
+    /** True once DB 2.6.207 added the fact columns (run_stores, run_encrypted, run_retention_days); older installs record the run without them. */
+    public static function hasFactColumns(\mysqli $db): bool
+    {
+        static $cache = [];
+        $key = spl_object_id($db);
+        if (!array_key_exists($key, $cache)) {
+            $r = @mysqli_query($db, "SHOW COLUMNS FROM backup_runs LIKE 'run_stores'");
+            $cache[$key] = $r && mysqli_num_rows($r) > 0;
+        }
+
+        return $cache[$key];
+    }
+
+    /**
+     * @param array{file?:?string,size?:?int,sha256?:?string,ok:bool,error?:?string,offsite?:?string,stores?:list<string>,encrypted?:?bool,retention_days?:?int} $r
+     *        stores: which RivetCore BackupStore ids this run really contained ('control_db', 'rmm_postgres'); encrypted: true only when every file was encrypted
+     *        (null = unknown, the file is then the evidence); retention_days: how long the writer keeps backup sets.
+     */
     public static function finish(\mysqli $db, ?int $id, array $r): void
     {
         if ($id === null) {
@@ -68,6 +85,13 @@ final class BackupStatus
         $off = isset($r['offsite']) ? "'" . mysqli_real_escape_string($db, substr((string) $r['offsite'], 0, 255)) . "'" : 'NULL';
         @mysqli_query($db, "UPDATE backup_runs SET run_finished_at = NOW(), run_ok = $ok, run_file = $file, run_size = $size, run_sha256 = $sha,
                             run_error = $err, run_offsite_result = $off WHERE run_id = " . (int) $id);
+        if (self::hasFactColumns($db)) {
+            $validStores = array_values(array_intersect((array) ($r['stores'] ?? []), ['control_db', 'rmm_postgres']));
+            $stores = $validStores === [] ? 'NULL' : "'" . implode(',', $validStores) . "'";
+            $enc = !array_key_exists('encrypted', $r) || $r['encrypted'] === null ? 'NULL' : ($r['encrypted'] ? '1' : '0');
+            $ret = isset($r['retention_days']) ? max(0, (int) $r['retention_days']) : 'NULL';
+            @mysqli_query($db, "UPDATE backup_runs SET run_stores = $stores, run_encrypted = $enc, run_retention_days = $ret WHERE run_id = " . (int) $id);
+        }
         if ($ok) {
             RecoveryAlerts::clear($db, 'backup.failed');
             RecoveryAlerts::clear($db, 'backup.stale');

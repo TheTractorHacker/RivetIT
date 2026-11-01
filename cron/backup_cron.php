@@ -113,7 +113,7 @@ require_once dirname(__DIR__) . '/admin/post/backup.php';
 
 try {
     $result = build_backup($mysqli, 'auto', $backup_dir);
-} catch (BackupPassphraseRequired $e) {
+} catch (BackupPassphraseRequired | BackupStoreFailed $e) {
     // No usable backup passphrase: refuse loudly instead of writing a backup that cannot protect the settings key.
     logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
     appNotify('Backup', 'Automatic backup was NOT taken: set a backup passphrase (16+ characters) in Admin > Backup.', '/admin/backup.php');

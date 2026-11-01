@@ -715,7 +715,7 @@ if ($config_backup_auto_enabled) {
         require_once dirname(__DIR__) . '/admin/post/backup.php';
         try {
             $result = build_backup($mysqli, 'auto', $backup_dir);
-        } catch (BackupPassphraseRequired $e) {
+        } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
             logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
             appNotify('Backup', 'Automatic backup was NOT taken: set a backup passphrase (16+ characters) in Admin > Backup.', '/admin/backup.php');
             echo gmdate('Y-m-d\TH:i:s\Z') . " cron: auto-backup refused (no backup passphrase)\n";
