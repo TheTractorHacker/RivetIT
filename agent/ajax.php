@@ -2124,7 +2124,15 @@ if (isset($_POST['update_task_schedule'])) {
     $sets[] = "task_progress = $progress";
 
     $set_sql = implode(', ', $sets);
+    $gantt_was_done = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM tasks WHERE task_id = $task_id AND task_completed_at IS NOT NULL"));
     mysqli_query($mysqli, "UPDATE tasks SET $set_sql WHERE task_id = $task_id");
+
+    // Dragging a Gantt bar to 100% completes the task (same rules as the Kanban Done lane), so a repeating task repeats (DB 2.6.209)
+    if ($progress >= 100 && !$gantt_was_done) {
+        require_once __DIR__ . '/../includes/project_tasks.php';
+        mysqli_query($mysqli, "UPDATE tasks SET " . projectTaskStatusSql($mysqli, 'Done', intval($session_user_id)) . " WHERE task_id = $task_id");
+        projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+    }
 
     echo json_encode(['status' => 'success']);
     exit;

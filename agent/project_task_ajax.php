@@ -26,6 +26,9 @@ function ptAjaxFail(int $status, string $message): void
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     ptAjaxFail(405, 'POST only.');
 }
+if (projectTaskPostTooLarge()) {
+    ptAjaxFail(413, 'That upload is larger than the server allows (the limit is ' . projectTaskHumanBytes(projectTaskUploadLimit()) . ').');
+}
 $token = $_POST['csrf_token'] ?? null;
 if (!is_string($token) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $token)) {
     ptAjaxFail(403, 'Your session token expired. Reload the page and try again.');

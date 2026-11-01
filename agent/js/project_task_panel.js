@@ -45,7 +45,7 @@
         if (file) { body.append('file', file); }
         section.classList.add('pt-busy');
         return fetch(root.getAttribute('data-endpoint'), { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'The server sent an unexpected answer (HTTP ' + r.status + ').' }; }); })
+            .then(function (r) { return r.json().catch(function () { return { ok: false, error: r.status === 413 ? 'That file is larger than the server allows.' : 'The server sent an unexpected answer (HTTP ' + r.status + ').' }; }); })
             .then(function (data) {
                 section.classList.remove('pt-busy');
                 var panels = data.panels || {};
@@ -172,10 +172,20 @@
         if (up && up.files.length) {
             var sec = sectionOf(up);
             var files = Array.prototype.slice.call(up.files);
+            var max = parseInt(up.getAttribute('data-max-bytes'), 10) || 0;
             up.value = '';
+            // Refuse an oversize file here with a clear message instead of sending it only to have the server drop it
+            var tooBig = files.filter(function (f) { return max && f.size > max; });
+            if (tooBig.length) {
+                showError(sec, '"' + tooBig[0].name + '" is larger than the server allows (' + (max / 1048576).toFixed(max >= 1048576 ? 1 : 2).replace(/\.0$/, '') + ' MB).');
+                files = files.filter(function (f) { return !max || f.size <= max; });
+            }
+            var msg = tooBig.length ? sec.querySelector('.pt-error') && sec.querySelector('.pt-error').textContent : '';
             files.reduce(function (chain, f) {
                 return chain.then(function () { return send(sec, { action: 'file_upload' }, f); });
-            }, Promise.resolve());
+            }, Promise.resolve()).then(function () {
+                if (msg) { showError(sec.closest('.task-panels').querySelector('[data-pt-panel="files"]'), msg); }
+            });
         }
     });
 

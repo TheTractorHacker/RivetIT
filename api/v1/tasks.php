@@ -26,6 +26,26 @@ $uid = $api_user_id;
 // Attribute the audit log rows (logAction) to the API caller
 $session_user_id = $uid;
 
+/**
+ * Everything a create or edit does is one transaction: api_error() ends the request, and the connection closing rolls back whatever was
+ * written so far, so a 400 halfway through (bad priority, milestone, parent, repeat ...) never leaves a placeholder task or half an edit.
+ */
+function api_task_tx_begin(mysqli $mysqli): void
+{
+    mysqli_begin_transaction($mysqli);
+    $GLOBALS['api_task_tx_open'] = true;
+    register_shutdown_function(function () use ($mysqli) {
+        if (!empty($GLOBALS['api_task_tx_open'])) {
+            @mysqli_rollback($mysqli);
+        }
+    });
+}
+function api_task_tx_commit(mysqli $mysqli): void
+{
+    mysqli_commit($mysqli);
+    $GLOBALS['api_task_tx_open'] = false;
+}
+
 /** Task row + owner, in the shape the endpoints return. */
 function api_task_payload(mysqli $mysqli, int $task_id): ?array
 {
@@ -270,6 +290,7 @@ if ($id !== null && in_array($sub, ['checklist', 'subtasks', 'comments', 'attach
             projectTaskAttachmentServe($row);
         }
         if ($method === 'POST' && $sub_id === null) {
+            if (projectTaskPostTooLarge()) api_error(413, 'That upload is larger than the server allows (the limit is ' . projectTaskHumanBytes(projectTaskUploadLimit()) . ')');
             $res = projectTaskAttachmentStore($mysqli, $ctx, $_FILES['file'] ?? [], $uid);
             if (!$res['ok']) api_error(400, $res['error']);
             logAction('Task', 'Edit', 'API attached a file to task ' . $tname, $ctx['client_id'], $id);
@@ -317,9 +338,11 @@ if ($method === 'POST' && $id === null && $sub === null) {
         if ($par['task_parent_id'] !== null) api_error(400, 'parent_id: subtasks can only go one level deep');
     }
     $placeholder = sanitizeInput(mb_substr((string) $body['name'], 0, 255));
+    api_task_tx_begin($mysqli);
     mysqli_query($mysqli, "INSERT INTO tasks SET task_name = '$placeholder', task_project_id = $project_id");
     $new_id = intval(mysqli_insert_id($mysqli));
     api_task_apply($mysqli, $new_id, $project_id, $body, $uid, true);
+    api_task_tx_commit($mysqli);
 
     logAction('Task', 'Create', 'API created task ' . $placeholder, $owner, $new_id);
 
@@ -334,7 +357,9 @@ if (($method === 'PATCH' || $method === 'PUT') && $id !== null && $sub === null)
     $body = json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) api_error(400, 'JSON body required');
 
+    api_task_tx_begin($mysqli);
     api_task_apply($mysqli, $id, $ctx['project_id'], $body, $uid, false);
+    api_task_tx_commit($mysqli);
 
     logAction('Task', 'Edit', 'API edited task ' . sanitizeInput($ctx['row']['task_name']), $ctx['client_id'], $id);
 

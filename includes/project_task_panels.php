@@ -164,8 +164,8 @@ function projectTaskRenderPanel($mysqli, string $panel, array $ctx, array $caps)
             </ul>
             <?php if ($write) { ?>
                 <label class="btn btn-outline-primary btn-sm mb-0"><i class="fas fa-fw fa-upload me-1"></i>Attach files
-                    <input type="file" class="d-none" multiple data-pt-upload></label>
-                <span class="small text-secondary ms-2">Up to <?= intval(PROJECT_TASK_ATTACHMENT_MAX_BYTES / 1048576) ?> MB each. Scripts, web pages and installers are not accepted.</span>
+                    <input type="file" class="d-none" multiple data-pt-upload data-max-bytes="<?= projectTaskUploadLimit() ?>"></label>
+                <span class="small text-secondary ms-2">Up to <?= nullable_htmlentities(projectTaskHumanBytes(projectTaskUploadLimit())) ?> each (this server's limit). Scripts, web pages and installers are not accepted.</span>
             <?php }
             break;
     }

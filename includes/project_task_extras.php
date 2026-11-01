@@ -520,6 +520,50 @@ function projectTaskSyncAssignees($mysqli, int $task_id, int $new_primary, int $
 const PROJECT_TASK_ATTACHMENT_MAX_BYTES = 26214400;   // 25 MB per file (the web server / php.ini limit may be lower)
 const PROJECT_TASK_ATTACHMENT_MAX_FILES = 50;         // per task
 
+/** A php.ini size ("8M", "512K", "1G", "2097152") in bytes; 0 for unlimited / unset. */
+function projectTaskIniBytes($value): int
+{
+    $v = trim((string) $value);
+    if ($v === '' || $v === '-1') {
+        return 0;
+    }
+    $n = (float) $v;
+    switch (strtolower(substr($v, -1))) {
+        case 'g': $n *= 1024;   // no break
+        case 'm': $n *= 1024;   // no break
+        case 'k': $n *= 1024;
+    }
+
+    return max(0, (int) $n);
+}
+
+/** The largest single file the server will take: the app's 25 MB cap, lowered to PHP's upload_max_filesize and post_max_size. */
+function projectTaskUploadLimit(): int
+{
+    $limits = [PROJECT_TASK_ATTACHMENT_MAX_BYTES];
+    foreach (['upload_max_filesize', 'post_max_size'] as $key) {
+        $b = projectTaskIniBytes(ini_get($key));
+        if ($b > 0) {
+            $limits[] = $b;
+        }
+    }
+
+    return min($limits);
+}
+
+function projectTaskHumanBytes(int $bytes): string
+{
+    return $bytes >= 1048576 ? round($bytes / 1048576, 1) . ' MB' : max(1, round($bytes / 1024)) . ' KB';
+}
+
+/** PHP drops the whole body (empty $_POST and $_FILES) when it is bigger than post_max_size; that is what an oversize upload looks like. */
+function projectTaskPostTooLarge(): bool
+{
+    $max = projectTaskIniBytes(ini_get('post_max_size'));
+
+    return $max > 0 && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $max && empty($_POST) && empty($_FILES);
+}
+
 /** Where task files live. Not served by the web server: only agent/project_task_attachment.php and the API read them. */
 function projectTaskAttachmentDir(): string
 {
@@ -598,7 +642,7 @@ function projectTaskAttachmentStore($mysqli, array $ctx, array $file, int $user_
     }
     $err = intval($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
-        return ['ok' => false, 'error' => 'That file is larger than the server allows.'];
+        return ['ok' => false, 'error' => 'That file is larger than the server allows (the limit is ' . projectTaskHumanBytes(projectTaskUploadLimit()) . ').'];
     }
     if ($err !== UPLOAD_ERR_OK || empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
         return ['ok' => false, 'error' => 'The file did not upload. Try again.'];
@@ -608,7 +652,7 @@ function projectTaskAttachmentStore($mysqli, array $ctx, array $file, int $user_
         return ['ok' => false, 'error' => 'That file is empty.'];
     }
     if ($size > PROJECT_TASK_ATTACHMENT_MAX_BYTES) {
-        return ['ok' => false, 'error' => 'Files can be up to ' . intval(PROJECT_TASK_ATTACHMENT_MAX_BYTES / 1048576) . ' MB.'];
+        return ['ok' => false, 'error' => 'Files can be up to ' . projectTaskHumanBytes(PROJECT_TASK_ATTACHMENT_MAX_BYTES) . '.'];
     }
     $name = projectTaskAttachmentCleanName($file['name'] ?? '');
     $problem = projectTaskAttachmentNameProblem($name);

@@ -18,6 +18,7 @@ uploads/contracts/*
 uploads/clients/*
 uploads/kb/
 uploads/training/
+uploads/task_attachments/
 !uploads/clients/index.php
 uploads/custom/*
 !uploads/custom/index.php
