@@ -57,7 +57,7 @@ Different customers deploy different ways. All of these work side by side.
 | Set up on the device | An admin signs in on the tablet (**Set up this device**). | One or two devices |
 | Setup code | **Get setup codes** prints a 10-character code per device; someone types it on the device. | A handful of devices, no MDM |
 | Per-device start URL | `https://<site>/kiosk/?d=<token>`, one per device, pushed or typed. | Windows kiosk-mode PCs, one at a time |
-| Per-device URL export | **Training › Devices & PINs › Fleet links**: after creating a link, **Per-device URLs (CSV)** lists one URL per tablet in the department with its serial already filled in. | An MDM that cannot fill in a serial macro |
+| Per-device URL export | **Training › Devices & PINs › Fleet links**: after creating a link, **Per-device URLs and profiles** lists the tablets of the department (with a usable serial) so you can pick some or all and download a CSV of device name + start URL, or a ZIP with one Web Clip `.mobileconfig` per iPad. Each URL has that tablet's serial already filled in. | An MDM that cannot fill in a serial macro |
 | **Fleet link with serial** (recommended for MDM) | One shared URL, `https://<site>/kiosk/?e=<token>&sn=<serial macro>`; the MDM fills in each tablet's serial. | Many iPads or Android tablets |
 | Fleet link, plain | `https://<site>/kiosk/?e=<token>` with no serial. Each tablet enrolls as an unlisted device and waits for approval. | Fallback when the MDM has no serial macro |
 
@@ -89,14 +89,14 @@ A serial must be 3 to 64 letters, digits, `.`, `_` or `-`. If the MDM did not ex
 5. For no-touch setup, enroll the iPads through **Apple Business Manager / School Manager** (automated device enrollment) so the profile arrives during Setup Assistant.
 6. On first tap of the icon the iPad enrolls (or waits for approval); after that the icon always opens the kiosk. Optional: **Guided Access** or Single App Mode as in the iPad section above.
 
-If the MDM cannot expand a macro inside a Web Clip, use **Per-device URLs (CSV)** and push each URL to its iPad (or paste each into a per-device Web Clip), or use the plain link and approve the tablets.
+If the MDM cannot expand a macro inside a Web Clip, use **Per-device URLs and profiles**: download the **.mobileconfig per iPad (ZIP)** (each profile is a managed Web Clip with that iPad's own serial in the URL, Full Screen, not removable, icon embedded; upload them all to the MDM) or the CSV and paste each URL into a per-device Web Clip. Or use the plain link and approve the tablets.
 
 ### Android: Android Enterprise
 
 1. Create the fleet link and copy the **MDM URL template** (choose the macro your MDM uses for the serial number).
 2. Enroll the tablets as **fully managed / dedicated devices** (zero-touch enrollment or a QR code).
 3. Push the URL as a **managed web app / web link** (Managed Google Play web apps) or as a **Chrome managed bookmark / homepage** (Chrome policy `HomepageLocation` and `RestoreOnStartupURLs`), and in dedicated-device (kiosk) mode allow only that app or Chrome.
-4. If your MDM has no serial macro for web links, use the plain link (tablets wait for approval) or **Per-device URLs (CSV)**.
+4. If your MDM has no serial macro for web links, use the plain link (tablets wait for approval) or **Per-device URLs and profiles** (CSV).
 
 Once a tablet is enrolled it keeps its own device cookie; clearing Chrome's data returns it to the link, which is refused for that serial until an admin revokes the old device entry (a deliberate guard against take-over).
 

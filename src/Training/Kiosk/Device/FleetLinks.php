@@ -268,10 +268,10 @@ final class FleetLinks
     }
 
     /** Pure profile builder (unit-testable): no database. */
-    public static function buildProfile(string $url, string $iconLabel, string $linkLabel, string $iconPng, int $fleetId, string $seed, string $host): string
+    public static function buildProfile(string $url, string $iconLabel, string $linkLabel, string $iconPng, int $fleetId, string $seed, string $host, string $idSuffix = ''): string
     {
         $x = static fn(string $s): string => htmlspecialchars($s, ENT_XML1 | ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $idBase = 'com.rivetit.kiosk.fleet.' . $fleetId;
+        $idBase = 'com.rivetit.kiosk.fleet.' . $fleetId . ($idSuffix === '' ? '' : '.' . $idSuffix);
         $b64 = chunk_split(base64_encode($iconPng), 76, "\n");
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' . "\n"
@@ -323,8 +323,16 @@ final class FleetLinks
     public function exportRows(int $fleetId, mixed $token): array
     {
         $l = $this->linkForToken($fleetId, $token);
+        $out = $this->deviceRows($l, (string) $token);
+        $this->audit('training.kiosk_fleet_export', $fleetId, 'fleet_export', 'Exported per-device URLs for training fleet link "' . $l['fleet_label'] . '"', ['rows' => count($out)]);
+        return $out;
+    }
+
+    /** @return list<array{asset_id:int, name:string, serial:string, type:string, url:string}> */
+    private function deviceRows(array $l, string $token): array
+    {
         $types = KioskSettings::ASSET_TYPES;
-        $rows = Db::all($this->c->db, 'SELECT asset_name, asset_serial, asset_type FROM assets WHERE asset_client_id = ? AND asset_archived_at IS NULL
+        $rows = Db::all($this->c->db, 'SELECT asset_id, asset_name, asset_serial, asset_type FROM assets WHERE asset_client_id = ? AND asset_archived_at IS NULL
             AND asset_serial IS NOT NULL AND asset_serial <> \'\' AND asset_type IN (' . implode(',', array_fill(0, count($types), '?')) . ')
             ORDER BY asset_name, asset_id LIMIT 2000', 'i' . str_repeat('s', count($types)), array_merge([(int) $l['fleet_client_id']], $types));
         $out = [];
@@ -333,10 +341,76 @@ final class FleetLinks
             if (preg_match(self::SERIAL_RE, $sn) !== 1) {
                 continue;   // a serial the kiosk would refuse (spaces, symbols) is left out rather than exported broken
             }
-            $out[] = ['name' => (string) $r['asset_name'], 'serial' => $sn, 'type' => (string) $r['asset_type'], 'url' => $this->url((string) $token, $sn)];
+            $out[] = ['asset_id' => (int) $r['asset_id'], 'name' => (string) $r['asset_name'], 'serial' => $sn, 'type' => (string) $r['asset_type'], 'url' => $this->url($token, $sn)];
         }
-        $this->audit('training.kiosk_fleet_export', $fleetId, 'fleet_export', 'Exported per-device URLs for training fleet link "' . $l['fleet_label'] . '"', ['rows' => count($out)]);
         return $out;
+    }
+
+    public const DEVICE_PROFILES_MAX = 300;
+
+    /**
+     * One Apple Web Clip .mobileconfig PER chosen tablet (its own serial in the URL, the kiosk icon embedded), zipped.
+     * Only assets of the link's department with a usable serial can be chosen; anything else in $assetIds is ignored.
+     *
+     * @param list<int> $assetIds
+     * @return array{filename:string, content_b64:string, count:int}
+     */
+    public function deviceProfiles(int $fleetId, mixed $token, string $name, array $assetIds): array
+    {
+        $l = $this->linkForToken($fleetId, $token);
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 40) {
+            throw ApiException::validation(['name' => 'Give the Home Screen icon a short name (up to 40 characters).']);
+        }
+        $want = array_fill_keys(array_map('intval', $assetIds), true);
+        if ($want === []) {
+            throw ApiException::validation(['assets' => 'Choose at least one tablet.']);
+        }
+        if (count($want) > self::DEVICE_PROFILES_MAX) {
+            throw ApiException::validation(['assets' => 'Choose at most ' . self::DEVICE_PROFILES_MAX . ' tablets at a time.']);
+        }
+        if (!class_exists(\ZipArchive::class)) {
+            throw new ApiException(500, 'server', 'The PHP zip extension is not installed on this server.');
+        }
+        $icon = @file_get_contents(dirname(__DIR__, 4) . self::ICON_PATH);
+        if ($icon === false || $icon === '') {
+            throw new ApiException(500, 'server', 'The kiosk icon is missing on this server.');
+        }
+        $rows = array_values(array_filter($this->deviceRows($l, (string) $token), static fn(array $r): bool => isset($want[$r['asset_id']])));
+        if ($rows === []) {
+            throw ApiException::validation(['assets' => 'None of the chosen tablets has a usable serial number in this department.']);
+        }
+        $host = (string) (parse_url($this->c->baseUrl, PHP_URL_HOST) ?: 'kiosk');
+        $tmp = tempnam(sys_get_temp_dir(), 'kfz');
+        if ($tmp === false) {
+            throw new ApiException(500, 'server', 'Could not build the archive.');
+        }
+        try {
+            $zip = new \ZipArchive();
+            if ($zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+                throw new ApiException(500, 'server', 'Could not build the archive.');
+            }
+            $used = [];
+            foreach ($rows as $r) {
+                $slug = strtolower(trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $r['name']), '-'));
+                $file = 'training-kiosk-' . ($slug === '' ? 'device' : substr($slug, 0, 40)) . '-' . $r['serial'] . '.mobileconfig';
+                $file = (string) preg_replace('/[^A-Za-z0-9._-]/', '_', $file);
+                while (isset($used[$file])) {
+                    $file = 'dup-' . $file;
+                }
+                $used[$file] = true;
+                $idSuffix = strtolower((string) preg_replace('/[^A-Za-z0-9]/', '', $r['serial']));
+                $xml = self::buildProfile($r['url'], $name, $l['fleet_label'] . ' / ' . $r['name'], $icon, (int) $l['fleet_id'], (string) $l['fleet_token_hash'] . '|' . $r['serial'], $host, $idSuffix);
+                $zip->addFromString($file, $xml);
+            }
+            $zip->close();
+            $bytes = (string) file_get_contents($tmp);
+        } finally {
+            @unlink($tmp);
+        }
+        $this->audit('training.kiosk_fleet_profiles', $fleetId, 'fleet_profiles', 'Downloaded ' . count($rows) . ' per-device Web Clip profile(s) for training fleet link "' . $l['fleet_label'] . '"', ['devices' => count($rows)]);
+        $slug = trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', (string) $l['fleet_label']), '-');
+        return ['filename' => 'training-kiosk-' . ($slug === '' ? 'fleet' : strtolower($slug)) . '-devices.zip', 'content_b64' => base64_encode($bytes), 'count' => count($rows)];
     }
 
     // ------------------------------------------------------------------------------------------

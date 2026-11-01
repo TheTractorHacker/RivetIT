@@ -343,6 +343,16 @@ final class KioskAdminActions
         return ['rows' => (new FleetLinks($c))->exportRows((int) $a->int('fleet_id', true, 1), $a->input['token'] ?? null)];
     }
 
+    /** POST fleet_device_profiles {fleet_id, token, name, asset_ids[]} (kiosk 3, Assets view) => {filename, content_b64, count}: one Web Clip .mobileconfig per chosen tablet, zipped. */
+    public static function fleetDeviceProfiles(Ctx $c, ApiContext $a): array
+    {
+        Access::apiKiosk(3);
+        if (!Access::canAssets()) {
+            throw ApiException::forbidden(Access::ASSETS_NEEDED);
+        }
+        return (new FleetLinks($c))->deviceProfiles((int) $a->int('fleet_id', true, 1), $a->input['token'] ?? null, (string) $a->str('name', 40), $a->ints('asset_ids'));
+    }
+
     /** POST fleet_approve {kiosk_id, label?, asset_id?} (kiosk 3). */
     public static function fleetApprove(Ctx $c, ApiContext $a): array
     {

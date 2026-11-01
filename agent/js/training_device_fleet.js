@@ -1,6 +1,6 @@
 /*
  * Training › Devices & PINs › Fleet links (2.6.151, issue #43). fleet_list / fleet_create / fleet_revoke / fleet_rotate /
- * fleet_mobileconfig / fleet_export / fleet_approve / fleet_reject (+ kiosk_asset_options for the approve form).
+ * fleet_mobileconfig / fleet_export / fleet_device_profiles / fleet_approve / fleet_reject (+ kiosk_asset_options for the approve form).
  * The plain token exists only in this page's memory after create / rotate (the server keeps sha256); the MDM URL, the
  * Web Clip profile and the per-device CSV are all built from it while the reveal panel is open. Every string reaches the
  * DOM through TrainingUi.el / textContent.
@@ -87,17 +87,60 @@
             return '"' + s.replace(/"/g, '""') + '"';
         }
         var csvBtn = $('trf-dl-csv');
+        var pickRows = [];
+        function checked() {
+            var ids = [];
+            $('trf-pick-list').querySelectorAll('input[type=checkbox]').forEach(function (c) { if (c.checked) { ids.push(parseInt(c.value, 10)); } });
+            return ids;
+        }
         if (csvBtn) {
             csvBtn.addEventListener('click', function () {
                 if (!shown) { return; }
                 csvBtn.disabled = true;
                 api.post('fleet_export', { fleet_id: shown.fleet_id, token: shown.token }).then(function (res) {
-                    var rows = (res && res.rows) || [];
-                    if (!rows.length) { ui.toast('No tablets with a usable serial number in this department.', { type: 'warning' }); return; }
-                    var out = ['Device name,Serial,Type,Start URL'];
-                    rows.forEach(function (r) { out.push([r.name, r.serial, r.type, r.url].map(csvCell).join(',')); });
-                    download('training-kiosk-device-urls.csv', 'text/csv', out.join('\r\n') + '\r\n');
+                    pickRows = (res && res.rows) || [];
+                    if (!pickRows.length) { $('trf-pick').hidden = true; ui.toast('No tablets with a usable serial number in this department.', { type: 'warning' }); return; }
+                    var list = $('trf-pick-list');
+                    clear(list);
+                    pickRows.forEach(function (r) {
+                        var cb = el('input', { type: 'checkbox', class: 'form-check-input', value: String(r.asset_id) });
+                        cb.checked = true;
+                        list.appendChild(el('label', { class: 'form-check d-block' }, [cb, el('span', { class: 'form-check-label', text: r.name + ' (' + r.serial + ')' })]));
+                    });
+                    $('trf-pick-all').checked = true;
+                    $('trf-pick').hidden = false;
                 }, function (err) { fail(err, 'Could not export.'); }).then(function () { csvBtn.disabled = false; });
+            });
+            $('trf-pick-all').addEventListener('change', function () {
+                var on = this.checked;
+                $('trf-pick-list').querySelectorAll('input[type=checkbox]').forEach(function (c) { c.checked = on; });
+            });
+            $('trf-pick-csv').addEventListener('click', function () {
+                var ids = checked();
+                if (!ids.length) { ui.toast('Choose at least one tablet.', { type: 'warning' }); return; }
+                var out = ['Device name,Serial,Type,Start URL'];
+                pickRows.forEach(function (r) { if (ids.indexOf(r.asset_id) !== -1) { out.push([r.name, r.serial, r.type, r.url].map(csvCell).join(',')); } });
+                download('training-kiosk-device-urls.csv', 'text/csv', out.join('\r\n') + '\r\n');
+            });
+            $('trf-pick-zip').addEventListener('click', function () {
+                var btn = this, ids = checked();
+                if (!shown) { return; }
+                if (!ids.length) { ui.toast('Choose at least one tablet.', { type: 'warning' }); return; }
+                btn.disabled = true;
+                api.post('fleet_device_profiles', { fleet_id: shown.fleet_id, token: shown.token, name: $('trf-clip-name').value.trim(), asset_ids: ids }).then(function (res) {
+                    var bin = atob(res.content_b64), bytes = new Uint8Array(bin.length);
+                    for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+                    var url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
+                    var a = el('a', { href: url, download: res.filename });
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+                }, function (err) {
+                    var f = (err && err.fields) || {};
+                    if (f.name) { $('trf-clip-name').classList.add('is-invalid'); }
+                    fail(err, 'Could not build the profiles.');
+                }).then(function () { btn.disabled = false; });
             });
         }
 

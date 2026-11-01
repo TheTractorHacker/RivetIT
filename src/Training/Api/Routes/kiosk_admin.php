@@ -27,6 +27,7 @@ return [
     'fleet_rotate'          => ['handler' => KioskAdminActions::class . '::fleetRotate',        'method' => 'POST', 'level' => 1],
     'fleet_mobileconfig'    => ['handler' => KioskAdminActions::class . '::fleetMobileconfig',  'method' => 'POST', 'level' => 1],
     'fleet_export'          => ['handler' => KioskAdminActions::class . '::fleetExport',        'method' => 'POST', 'level' => 1],
+    'fleet_device_profiles' => ['handler' => KioskAdminActions::class . '::fleetDeviceProfiles', 'method' => 'POST', 'level' => 1],
     'fleet_approve'         => ['handler' => KioskAdminActions::class . '::fleetApprove',       'method' => 'POST', 'level' => 1],
     'fleet_reject'          => ['handler' => KioskAdminActions::class . '::fleetReject',        'method' => 'POST', 'level' => 1],
     'pin_clear_pause'       => ['handler' => KioskAdminActions::class . '::pinClearPause',      'method' => 'POST', 'level' => 1],
