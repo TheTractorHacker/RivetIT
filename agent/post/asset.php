@@ -123,6 +123,12 @@ if (isset($_POST['edit_asset'])) {
     $old_primary_vendor = intval(getFieldById('assets', $asset_id, 'asset_vendor_id'));
     mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id WHERE asset_id = $asset_id");
     (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('asset', $asset_id, $old_primary_vendor);
+    if ($client_id !== $original_client_id) {
+        // The asset moved department with its person: an RMM device behind it follows (jobs, alerts, stored history).
+        require_once dirname(__DIR__, 2) . '/includes/event_bus.php';
+        require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+        rivetRmmAssetMoved($mysqli, $asset_id, $client_id, (int) $session_user_id);
+    }
 
     (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact, $session_user_id);
 

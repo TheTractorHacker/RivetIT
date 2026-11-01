@@ -322,8 +322,8 @@ $update = function () use ($ROOT): string {
     return (string) shell_exec('cd ' . escapeshellarg($ROOT . '/scripts') . ' && php update_cli.php --update_db 2>&1');
 };
 $out = $update();
-ok(preg_match('/from version 2\.6\.207 to 2\.6\.209/', $out) === 1, 'Update Database applies 2.6.208 and 2.6.209', trim(substr($out, -200)));
-ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.209' && LATEST_DATABASE_VERSION === '2.6.209', 'settings version and LATEST_DATABASE_VERSION are 2.6.209');
+ok(preg_match('/from version 2\.6\.207 to 2\.6\.2\d\d/', $out) === 1, 'Update Database applies 2.6.208 and 2.6.209', trim(substr($out, -200)));
+ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === LATEST_DATABASE_VERSION && version_compare(LATEST_DATABASE_VERSION, '2.6.209', '>='), 'settings version equals LATEST_DATABASE_VERSION (>= 2.6.209)');
 $show = function (mysqli $c, string $t): string {
     $r = $c->query("SHOW CREATE TABLE `$t`")->fetch_row()[1];
     return preg_replace('/ AUTO_INCREMENT=\d+/', '', $r);
@@ -360,7 +360,7 @@ $db->query("UPDATE tasks SET task_parent_id = $legacy1 WHERE task_id = $legacy2"
 $structBefore = array_map(fn($t) => $show($db, $t), $P23TABLES);
 $db->query("UPDATE settings SET config_current_database_version = '2.6.207' WHERE company_id = 1");
 $update();
-ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.209', 'the 2.6.208 / 2.6.209 blocks can run again (idempotent)');
+ok(q1($db, "SELECT config_current_database_version FROM settings WHERE company_id = 1") === LATEST_DATABASE_VERSION, 'the 2.6.208 / 2.6.209 blocks can run again (idempotent)');
 ok($structBefore === array_map(fn($t) => $show($db, $t), $P23TABLES), 'structure identical after the second run');
 ok((int) q1($db, "SELECT COUNT(*) FROM task_checklist_items") === 1 && (int) q1($db, "SELECT COUNT(*) FROM task_comments") === 1 && (int) q1($db, "SELECT COUNT(*) FROM task_assignees WHERE task_id = $legacy1") === 2 && (int) q1($db, "SELECT task_parent_id FROM tasks WHERE task_id = $legacy2") === $legacy1, 'data survives the second run (checklist, comment, both assignees, parent link)');
 // foreign keys

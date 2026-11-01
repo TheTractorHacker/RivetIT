@@ -52,7 +52,19 @@ final class EditionBackupFacts implements BackupFactsProviderInterface
             }
             $finished = new \DateTimeImmutable('@' . (int) $row['finished_ts']);
 
-            return new BackupFacts(true, $finished, [BackupStore::CONTROL_DB], $destinations, null, null, $offsiteOk ? $finished : null, null, null, [], 'backup_runs');
+            // What THIS run recorded (DB 2.6.210): the stores it really contained, whether every file was encrypted, how long its writer keeps sets. A row
+            // from before that update (NULL columns) claims the control database only, and encryption stays unknown so the file header decides.
+            $stores = [BackupStore::CONTROL_DB];
+            foreach (explode(',', (string) ($row['run_stores'] ?? '')) as $id) {
+                $id = trim($id);
+                if ($id !== '' && BackupStore::isValid($id) && !in_array($id, $stores, true)) {
+                    $stores[] = $id;
+                }
+            }
+            $encrypted = isset($row['run_encrypted']) && $row['run_encrypted'] !== null ? ((int) $row['run_encrypted'] === 1) : null;
+            $retention = isset($row['run_retention_days']) && $row['run_retention_days'] !== null ? max(0, (int) $row['run_retention_days']) : null;
+
+            return new BackupFacts(true, $finished, $stores, $destinations, $encrypted, $retention, $offsiteOk ? $finished : null, $encrypted === true ? 'aes-256-cbc' : null, null, [], 'backup_runs');
         } catch (\Throwable) {
             return BackupFacts::unavailable('The backup run record could not be read.');
         }
@@ -74,7 +86,8 @@ final class EditionBackupFacts implements BackupFactsProviderInterface
     /** @return array<string,mixed>|null */
     private function newestGoodRun(): ?array
     {
-        $r = @mysqli_query($this->db, 'SELECT run_file, run_offsite_result, UNIX_TIMESTAMP(run_finished_at) AS finished_ts FROM backup_runs
+        $extra = \ITFlow\Recovery\BackupStatus::hasFactColumns($this->db) ? ', run_stores, run_encrypted, run_retention_days' : '';
+        $r = @mysqli_query($this->db, 'SELECT run_file, run_offsite_result, UNIX_TIMESTAMP(run_finished_at) AS finished_ts' . $extra . ' FROM backup_runs
             WHERE run_ok = 1 AND run_finished_at IS NOT NULL ORDER BY run_id DESC LIMIT 1');
         $row = $r ? mysqli_fetch_assoc($r) : null;
 

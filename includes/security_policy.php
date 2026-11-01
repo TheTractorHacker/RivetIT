@@ -73,11 +73,18 @@ if (!function_exists('secSetting')) {
         return (int) secSetting($key, $mysqli);
     }
 
+    /** The baseline's password length floor (RivetCore SecurityBaseline::MIN_PASSWORD_LENGTH); 12 when Core is not loaded. */
+    function secBaselineMinPasswordLength(): int
+    {
+        return class_exists(\RivetCore\Security\SecurityBaseline::class) ? \RivetCore\Security\SecurityBaseline::MIN_PASSWORD_LENGTH : 12;
+    }
+
     /** Clamp / validate a value for a key; returns the string to store. */
     function secSettingNormalize(string $key, $value): string
     {
         switch ($key) {
-            case 'password_min_length':   return (string) max(8, min(128, (int) $value));
+            // RivetCore security baseline (AUTH-01): the floor is SecurityBaseline::MIN_PASSWORD_LENGTH (12), never lower; a value above 128 is clamped.
+            case 'password_min_length':   return (string) max(secBaselineMinPasswordLength(), min(128, (int) $value));
             case 'password_hibp_check':
             case 'remember_me_skips_mfa': return ((int) $value) === 1 ? '1' : '0';
             case 'mfa_policy':            return in_array((string) $value, ['off', 'admins', 'all'], true) ? (string) $value : 'off';
@@ -233,8 +240,10 @@ if (!function_exists('secSetting')) {
      */
     function secPasswordPolicyError(string $password, array $who = [], ?mysqli $mysqli = null, ?callable $fetcher = null): ?string
     {
-        $min = secSettingInt('password_min_length', $mysqli);
-        if (mb_strlen($password) < $min) {
+        // The configured minimum can never be below the baseline floor, even if an old row holds a lower number (SecurityBaseline::effective() raises it).
+        $min = max(secBaselineMinPasswordLength(), secSettingInt('password_min_length', $mysqli));
+        $baselineOk = !class_exists(\RivetCore\Security\SecurityBaseline::class) || \RivetCore\Security\SecurityBaseline::passwordLengthOk($password, $min);
+        if (!$baselineOk || mb_strlen($password) < $min) {
             return "The password must be at least $min characters long.";
         }
         if (strlen($password) > 1024) {

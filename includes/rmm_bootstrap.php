@@ -67,6 +67,11 @@ function rivetRmmModule($mysqli = null): RmmModule
         // calls it; without it a due step would stay due and never be recorded as sent.
         'escalation' => new EndpointEscalation($mysqli),
     ];
+    // RivetCore 1.0.0-rc.44 customizable frameworks: the selected profile's retention minimums. Lazy and tolerant: no profile selected, or the compliance tables
+    // not installed yet, means no minimum (RetentionFloors treats a failed read as "none"); it adds nothing until an administrator selects a framework.
+    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class)) {
+        $options['retention_floors'] = \RivetCore\Compliance\Profile\RetentionFloors::fromStore(\ITFlow\Compliance\ComplianceService::profiles($mysqli));
+    }
     if (defined('EA_BINARY_MAX_BYTES')) {
         $options['max_upload_bytes'] = (int) EA_BINARY_MAX_BYTES;
     }
@@ -400,4 +405,36 @@ function rivetRmmRequest(string $endpoint, array $pathSegments = []): RmmRequest
 function rivetRmmExcludePanelDevices(array $items): array
 {
     return array_values(array_filter($items, static fn (array $d): bool => ($d['link_state'] ?? null) !== 'panel'));
+}
+
+
+/**
+ * An asset changed department (client) outside RivetCore's own transfer: the RMM device behind it must follow, or its jobs, open alerts and (with the
+ * PostgreSQL data store) its stored log and change history keep the old client and a department's technicians would keep seeing a device that is no
+ * longer theirs. Routes through DeviceService::transfer(), which also repeats the history move later if the hot store is down. Never throws; does
+ * nothing for an asset that has no device or whose device is already in that department.
+ *
+ * @return bool true when a device was moved
+ */
+function rivetRmmAssetMoved($mysqli, int $assetId, int $clientId, int $userId = 0): bool
+{
+    try {
+        $stmt = mysqli_prepare($mysqli, 'SELECT device_id, client_id FROM endpoint_agent_devices WHERE asset_id = ? AND client_id <> ?');
+        if (!$stmt) {
+            return false;
+        }
+        mysqli_stmt_bind_param($stmt, 'ii', $assetId, $clientId);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $moved = false;
+        while ($res && ($d = mysqli_fetch_assoc($res))) {
+            $moved = rivetRmmModule($mysqli)->deviceService()->transfer((int) $d['device_id'], $clientId, 0, $userId) || $moved;
+        }
+
+        return $moved;
+    } catch (\Throwable $e) {
+        error_log('rivetRmmAssetMoved: ' . get_class($e) . ': ' . $e->getMessage());
+
+        return false;
+    }
 }

@@ -6,12 +6,12 @@
  * Called by deploy/backup.sh as root; best effort - a missing config, an un-migrated database (no backup_runs table) or an
  * unreachable database exits 0 silently so reporting can never break the backup itself.
  *
- *   php deploy/lib/backup_status.php --app-dir=/var/www/x --ok=1 --started=<epoch> --file=<name> --size=<bytes> --sha256=<hex> [--offsite="ok: ..."]
+ *   php deploy/lib/backup_status.php --app-dir=/var/www/x --ok=1 --started=<epoch> --file=<name> --size=<bytes> --sha256=<hex> [--offsite="ok: ..."] [--stores=control_db,rmm_postgres] [--encrypted=1] [--retention-days=N]
  *   php deploy/lib/backup_status.php --app-dir=/var/www/x --ok=0 --started=<epoch> --error="mysqldump failed"
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
-$o = getopt('', ['app-dir:', 'ok:', 'started:', 'file::', 'size::', 'sha256::', 'error::', 'offsite::', 'kind::']);
+$o = getopt('', ['app-dir:', 'ok:', 'started:', 'file::', 'size::', 'sha256::', 'error::', 'offsite::', 'kind::', 'stores::', 'encrypted::', 'retention-days::']);
 $app = rtrim((string) ($o['app-dir'] ?? ''), '/');
 if ($app === '' || !is_file($app . '/config.php') || !isset($o['ok'])) {
     fwrite(STDERR, "backup_status: --app-dir and --ok are required\n");
@@ -32,6 +32,10 @@ try {
         'sha256' => $o['sha256'] ?? null,
         'error' => $o['error'] ?? null,
         'offsite' => $o['offsite'] ?? null,
+        // What the run really contained / did (RivetCore compliance backup facts). Absent flags stay unknown (NULL), never guessed.
+        'stores' => isset($o['stores']) && $o['stores'] !== '' ? explode(',', (string) $o['stores']) : [],
+        'encrypted' => isset($o['encrypted']) ? ($o['encrypted'] === '1') : null,
+        'retention_days' => isset($o['retention-days']) ? (int) $o['retention-days'] : null,
     ]);
     echo $id === null ? "backup_status: backup_runs table not present, nothing recorded\n" : "backup_status: recorded run #$id\n";
 } catch (\Throwable $e) {

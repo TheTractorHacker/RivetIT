@@ -12315,3 +12315,30 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.209'");
     }
+
+    if ($rivetit_db_version() == '2.6.209') {
+        // DB 2.6.210: RivetCore compliance phase 4 (backup facts). backup_runs records what a run REALLY contained, so the compliance backup checks
+        // judge facts and not configuration. Additive and idempotent; old rows keep NULL ("unknown", the file is then the evidence).
+        //
+        // backup_runs.run_stores           comma list of RivetCore BackupStore ids the run contained: control_db, rmm_postgres
+        // backup_runs.run_encrypted        1 = every file of the run was encrypted before it was written, 0 = not, NULL = unknown
+        // backup_runs.run_retention_days   how long the writer keeps backup sets (deploy/backup.sh --retention-days), NULL when not known
+        mysqli_query($mysqli, "ALTER TABLE `backup_runs`
+            ADD COLUMN IF NOT EXISTS `run_stores` varchar(100) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_encrypted` tinyint(1) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_retention_days` int(11) DEFAULT NULL");
+        // RivetCore issue #91 phase 4 (Reporting / Power BI): RivetIT's own rpt_ views (clients, sites, assets, tickets, alert-to-ticket, SLA). The Core rpt_ views
+        // come from Core migration 0047, which an earlier step already ran. CREATE OR REPLACE, no DEFINER, nothing switched on and no account created.
+        try {
+            $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
+            foreach ($rpt['errors'] as $rpt_error) {
+                error_log('DB 2.6.210 reporting view not created: ' . $rpt_error);
+            }
+            if ($rpt['warning'] !== null) {
+                error_log('DB 2.6.210 reporting views: ' . $rpt['warning']);
+            }
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.210 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
+    }

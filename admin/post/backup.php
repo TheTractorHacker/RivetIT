@@ -208,6 +208,8 @@ function zip_uploads(string $uploadsPath, string $zipFilePath): void {
 
 /** Raised when a backup is requested without a usable backup passphrase. Callers show message(); cron logs it. */
 class BackupPassphraseRequired extends RuntimeException {}
+/** A store that this install keeps (the RMM PostgreSQL data store) could not be put into the backup: the run is recorded as FAILED and nothing is written. */
+class BackupStoreFailed extends RuntimeException {}
 
 /** Shortest backup passphrase the app accepts (the key that unlocks the settings key and every secret in a restore). */
 const BACKUP_PASSPHRASE_MIN_LENGTH = 16;
@@ -317,6 +319,73 @@ function build_backup_manifest(mysqli $mysqli, string $baseName, ?string $passph
     return ['name' => 'backup-manifest.json.enc', 'path' => $encFile];
 }
 
+
+/**
+ * RivetCore 1.0.0-rc.41 (issue #89 phase 4) RivetCore\Rmm\Store\BackupHook: when the RMM data store setting is 'postgres', dump that second database
+ * into $outFile (a pg_dump custom-format file, the same member name deploy/backup.sh uses: rmm-postgres.dump).
+ * Connection details come only from the stored data store setting; the password reaches the process through a 0600 PGPASSFILE that is shredded
+ * afterwards (peer authentication needs none) - never an argument, never logged, never in an error message.
+ *
+ * @return ?bool null: the store is MariaDB, nothing to dump. true: dumped. false: the store is PostgreSQL and the dump failed ($error says why, without secrets).
+ */
+function backup_rmm_postgres_dump(mysqli $mysqli, string $outFile, ?string &$error = null): ?bool {
+    $error = null;
+    $passFile = null;
+    try {
+        require_once dirname(__DIR__, 2) . '/includes/event_bus.php';
+        require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
+        $rmm = rivetRmmModule($mysqli);
+        if ($rmm->settings()->dataStore() !== \RivetCore\Rmm\Store\RmmDataStoreKind::POSTGRES) {
+            return null;
+        }
+        $cfg = $rmm->dataStoreSwitch()->postgresConfig();
+        if ($cfg === null) {
+            $error = 'the RMM data store is PostgreSQL but no connection is saved';
+            return false;
+        }
+        $cmd = \RivetCore\Rmm\Store\BackupHook::command('postgres', $cfg, dirname(__DIR__, 2) . '/vendor/rivet/rivet-core');
+        $env = $cmd['env'] + ['PATH' => '/usr/local/bin:/usr/bin:/bin'];
+        if ($cfg->password() !== '') {
+            $passFile = tempnam(sys_get_temp_dir(), 'rivetit-pgpass-');
+            @chmod($passFile, 0600);
+            $esc = static fn (string $v): string => str_replace([':', '\\'], ['\\:', '\\\\'], $v);
+            file_put_contents($passFile, $esc($cfg->host) . ':' . $cfg->port . ':' . $esc($cfg->database) . ':' . $esc($cfg->user) . ':' . $esc($cfg->password()) . "\n");
+            $env['PGPASSFILE'] = $passFile;
+        }
+        $out = @fopen($outFile, 'wb');
+        if ($out === false) {
+            $error = 'the PostgreSQL dump file could not be created';
+            return false;
+        }
+        @chmod($outFile, 0600);
+        $proc = proc_open($cmd['argv'], [0 => ['file', '/dev/null', 'r'], 1 => $out, 2 => ['pipe', 'w']], $pipes, null, $env);
+        if (!is_resource($proc)) {
+            fclose($out);
+            $error = 'pg_dump could not be started';
+            return false;
+        }
+        $stderr = stream_get_contents($pipes[2], 4096) ?: '';
+        fclose($pipes[2]);
+        $rc = proc_close($proc);
+        fclose($out);
+        if ($rc !== 0 || !is_file($outFile) || filesize($outFile) === 0) {
+            // The exit status and a short, single-line tail of pg_dump's own message (it never prints the password).
+            $tail = trim(preg_replace('/\s+/', ' ', $stderr) ?? '');
+            $error = 'pg_dump of the RMM store failed (exit ' . $rc . ')' . ($tail !== '' ? ': ' . substr($tail, 0, 200) : '');
+            return false;
+        }
+        return true;
+    } catch (\Throwable $e) {
+        $error = 'the RMM PostgreSQL store could not be dumped: ' . substr(preg_replace('/\s+/', ' ', $e->getMessage()) ?? '', 0, 200);
+        return false;
+    } finally {
+        if ($passFile !== null) {
+            @file_put_contents($passFile, str_repeat("\0", 256));
+            @unlink($passFile);
+        }
+    }
+}
+
 /**
  * Build a complete backup zip. Returns path to the zip (caller must delete temp files).
  * $type: 'manual' or 'auto'
@@ -367,6 +436,26 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
     $final->addFile($uploadsZip,      'uploads.zip');
     $final->addFile($versionFile,     'version.txt');
     $final->addFile($manifest['path'], $manifest['name']);
+    // The RMM PostgreSQL store (only when the data store setting says so). A dump that was expected and did not happen fails the whole run.
+    $pgFile = null;
+    $stores = ['control_db'];
+    $pgDump = null;
+    if (class_exists(\RivetCore\Rmm\Store\BackupHook::class)) {
+        $pgFile = tempnam(sys_get_temp_dir(), $baseName . '_pg_');
+        @chmod($pgFile, 0600);
+        $pgError = null;
+        $pgDump = backup_rmm_postgres_dump($mysqli, $pgFile, $pgError);
+        if ($pgDump === false) {
+            $final->close();
+            foreach ([$finalZip, $sqlFile, $uploadsZip, $versionFile, $manifest['path'], $pgFile] as $f) { @unlink($f); }
+            \ITFlow\Recovery\BackupStatus::finish($mysqli, $statusId, ['ok' => false, 'error' => 'the RMM PostgreSQL store was not included: ' . $pgError]);
+            throw new BackupStoreFailed('The backup was NOT written: ' . $pgError);
+        }
+        if ($pgDump === true) {
+            $final->addFile($pgFile, 'rmm-postgres.dump');
+            $stores[] = 'rmm_postgres';
+        }
+    }
     // Table snapshot for the restore drill (table-snapshot.json, counts only, no secrets). Separate from the manifest on purpose.
     $snapshotFile = \ITFlow\Recovery\TableSnapshot::toTempFile($mysqli, $baseName);
     if ($snapshotFile !== null) {
@@ -376,6 +465,7 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
     @chmod($finalZip, 0640);
 
     @unlink($sqlFile); @unlink($uploadsZip); @unlink($versionFile); @unlink($manifest['path']);
+    if ($pgFile !== null) { @unlink($pgFile); }
     if ($snapshotFile !== null) { @unlink($snapshotFile); }
 
     $zipOk = $zipClosed && is_file($finalZip) && filesize($finalZip) > 0;
@@ -384,6 +474,7 @@ function build_backup(mysqli $mysqli, string $type, string $backupDir): array {
         'file'   => $finalZip,
         'size'   => $zipOk ? filesize($finalZip) : null,
         'sha256' => $zipOk ? (hash_file('sha256', $finalZip) ?: null) : null,
+        'stores' => $stores,
         'error'  => $zipOk ? null : 'the backup zip could not be finalized (disk full or permissions on the backups folder)',
     ]);
 
@@ -508,7 +599,7 @@ if (isset($_GET['backup_download_fresh'])) {
 
     try {
         $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
-    } catch (BackupPassphraseRequired $e) {
+    } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
         flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
         redirect();
     }
@@ -536,7 +627,7 @@ if (isset($_GET['backup_save'])) {
     }
     try {
         $result = build_backup($mysqli, 'manual', $BACKUP_DIR);
-    } catch (BackupPassphraseRequired $e) {
+    } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
         flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
         redirect();
     }
@@ -564,7 +655,7 @@ if (isset($_GET['backup_s3_now'])) {
     }
     try {
         $result = build_backup($mysqli, 'manual', sys_get_temp_dir());
-    } catch (BackupPassphraseRequired $e) {
+    } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
         flash_alert(htmlspecialchars($e->getMessage(), ENT_QUOTES), 'error');
         redirect();
     }
@@ -738,7 +829,7 @@ if (isset($_GET['cron_backup']) && php_sapi_name() === 'cli') {
     // Only callable from CLI (cron)
     try {
         $result = build_backup($mysqli, 'auto', $BACKUP_DIR);
-    } catch (BackupPassphraseRequired $e) {
+    } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
         logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
         fwrite(STDERR, 'Auto-backup refused: ' . $e->getMessage() . "\n");
         exit(1);

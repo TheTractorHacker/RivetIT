@@ -929,6 +929,7 @@ if (isset($_GET['asset_inline_update'])) {
         if ($contact_id !== intval($asset_row['asset_contact_id']) || $new_client_id !== $client_id) {
             // The asset follows its person's department - the Edit modal's rule.
             mysqli_query($mysqli, "UPDATE assets SET asset_contact_id = $contact_id, asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+            if ($new_client_id !== $client_id) { require_once dirname(__DIR__) . '/includes/event_bus.php'; require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php'; rivetRmmAssetMoved($mysqli, $asset_id, $new_client_id, (int) $session_user_id); }
 
             (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact_id, $session_user_id);
 
@@ -973,6 +974,9 @@ if (isset($_GET['asset_inline_update'])) {
             // Transfer's copy-then-archive, which would change the asset's id
             // and strand its tickets/history on the archived original.
             mysqli_query($mysqli, "UPDATE assets SET asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+            require_once dirname(__DIR__) . '/includes/event_bus.php';
+            require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+            rivetRmmAssetMoved($mysqli, $asset_id, $new_client_id, (int) $session_user_id);
             moveAssetPhotoToClient($asset_id, $client_id, $new_client_id);
             $moved_department = true;
             logAction("Asset", "Edit", "$session_name moved asset $asset_name to department $new_client_name", $new_client_id, $asset_id);

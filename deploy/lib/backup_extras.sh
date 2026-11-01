@@ -12,6 +12,7 @@ BACKUP_STARTED_TS="$(date +%s)"
 BACKUP_RESULT_FILE=""
 BACKUP_STATUS_SENT=0
 BACKUP_OFFSITE_RESULT=""
+BACKUP_PG_INCLUDED=0
 
 # backup_make_snapshot <dest-file>: table snapshot (names + counts, no data) for the restore drill; silently absent on failure.
 backup_make_snapshot() {
@@ -83,6 +84,11 @@ backup_report_status() {
         size="$(stat -c '%s' "${BACKUP_RESULT_FILE}")"
         sha="$(awk '{print $1}' "${BACKUP_RESULT_FILE}.sha256" 2>/dev/null || true)"
         args+=(--file="$(basename "${BACKUP_RESULT_FILE}")" --size="${size}" --sha256="${sha}")
+        # What this run really contained and did (RivetCore compliance backup facts): the archive is a .enc written by openssl, so every file of it is
+        # encrypted; the PostgreSQL store only when its dump is really inside.
+        local stores="control_db"
+        [[ "${BACKUP_PG_INCLUDED}" -eq 1 ]] && stores="control_db,rmm_postgres"
+        args+=(--stores="${stores}" --encrypted=1 --retention-days="${RETENTION_DAYS}")
     fi
     [[ -n "${err}" ]] && args+=(--error="${err}")
     [[ -n "${BACKUP_OFFSITE_RESULT}" ]] && args+=(--offsite="${BACKUP_OFFSITE_RESULT}")
