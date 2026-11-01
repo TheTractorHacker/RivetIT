@@ -1431,5 +1431,8 @@ require_once dirname(__DIR__) . '/cron/report_scheduler.php';
 // Fire due CRM follow-up reminders (activity_reminder_at) to the activity owner.
 require_once dirname(__DIR__) . '/cron/crm_reminders.php';
 
+// Deliver due project task reminders (tasks.task_reminder_at) to everyone on the task.
+require_once dirname(__DIR__) . '/cron/task_reminders.php';
+
 // Logging
 logApp("Cron", "info", "Cron executed successfully");

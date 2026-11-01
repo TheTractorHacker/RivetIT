@@ -67,6 +67,7 @@ final class WebRoutes
             $e('composer_json', '=', '/composer.json', 'Refuse composer.json.', 'Basic site security', 'security', $deny('/composer.json')),
             $e('uploads_scripts', '~', '^/uploads/.*\.(php|phtml|phar|phps|cgi|pl|sh)$', 'Never run an uploaded file as a script.', 'Basic site security', 'security', $deny('/uploads/rivetit-route-check.php')),
             $e('uploads_kb', '^~', '/uploads/kb/', 'Knowledge-base media is only served through the authenticated endpoints, never directly.', 'Knowledge base', 'security', $deny('/uploads/kb/rivetit-route-check')),
+            $e('uploads_task_attachments', '^~', '/uploads/task_attachments/', 'Project task files are only served through the authenticated download (agent/project_task_attachment.php and the API), never directly.', 'Project task attachments', 'security', $deny('/uploads/task_attachments/rivetit-route-check')),
             $e('uploads_training', '^~', '/uploads/training/', 'Training media: internal only, reached through X-Accel-Redirect after the app authorizes the request (a harmless request cannot tell it apart: both answer 404).', 'Training media', 'security', self::NO_PROBE),
             $e('kiosk_entry', '=', '/kiosk/', 'Answer the kiosk start URLs /kiosk/?d= and ?e= with a no-log redirect so device and fleet tokens never reach the access log or PHP.', 'Training kiosk (device and fleet links)', 'feature',
                 ['method' => 'GET', 'path' => '/kiosk/?e=rvkf1_' . str_repeat('A', 43), 'status' => [302], 'absent' => ['Cross-Origin-Opener-Policy']]),

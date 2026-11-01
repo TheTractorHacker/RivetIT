@@ -2124,7 +2124,15 @@ if (isset($_POST['update_task_schedule'])) {
     $sets[] = "task_progress = $progress";
 
     $set_sql = implode(', ', $sets);
+    $gantt_was_done = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM tasks WHERE task_id = $task_id AND task_completed_at IS NOT NULL"));
     mysqli_query($mysqli, "UPDATE tasks SET $set_sql WHERE task_id = $task_id");
+
+    // Dragging a Gantt bar to 100% completes the task (same rules as the Kanban Done lane), so a repeating task repeats (DB 2.6.209)
+    if ($progress >= 100 && !$gantt_was_done) {
+        require_once __DIR__ . '/../includes/project_tasks.php';
+        mysqli_query($mysqli, "UPDATE tasks SET " . projectTaskStatusSql($mysqli, 'Done', intval($session_user_id)) . " WHERE task_id = $task_id");
+        projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+    }
 
     echo json_encode(['status' => 'success']);
     exit;
@@ -2169,9 +2177,15 @@ if (isset($_POST['update_project_task_kanban'])) {
 
         $status_esc = mysqli_real_escape_string($mysqli, $status_raw);
 
+        $was_done = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM tasks WHERE task_id = $task_id AND task_completed_at IS NOT NULL"));
         if ($status_raw === 'Done') {
             // Mark complete, preserving an existing completion time/author if present
             mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = 100, task_completed_at = COALESCE(task_completed_at, NOW()), task_completed_by = COALESCE(task_completed_by, $session_user_id) WHERE task_id = $task_id");
+            // A repeating project task creates its next occurrence on completion (once; DB 2.6.209)
+            require_once __DIR__ . '/../includes/project_tasks.php';
+            if (!$was_done) {
+                projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+            }
         } else {
             // Any non-Done lane: clear completion state
             mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = IF(task_progress >= 100, 0, task_progress), task_completed_at = NULL, task_completed_by = NULL WHERE task_id = $task_id");
