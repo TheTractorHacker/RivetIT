@@ -5395,6 +5395,122 @@ CREATE TABLE `task_approvals` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `task_assignees`
+--
+
+DROP TABLE IF EXISTS `task_assignees`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_assignees` (
+  `task_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`task_id`,`user_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `task_assignees_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_attachments`
+--
+
+DROP TABLE IF EXISTS `task_attachments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_attachments` (
+  `attachment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `attachment_task_id` int(11) NOT NULL,
+  `attachment_name` varchar(255) NOT NULL,
+  `attachment_reference` varchar(64) NOT NULL,
+  `attachment_size` bigint(20) NOT NULL DEFAULT 0,
+  `attachment_mime` varchar(100) DEFAULT NULL,
+  `attachment_uploaded_by` int(11) DEFAULT NULL,
+  `attachment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`attachment_id`),
+  KEY `attachment_task_id` (`attachment_task_id`),
+  CONSTRAINT `task_attachments_ibfk_1` FOREIGN KEY (`attachment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_checklist_items`
+--
+
+DROP TABLE IF EXISTS `task_checklist_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_checklist_items` (
+  `item_id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_task_id` int(11) NOT NULL,
+  `item_text` varchar(255) NOT NULL,
+  `item_done` tinyint(1) NOT NULL DEFAULT 0,
+  `item_order` int(11) NOT NULL DEFAULT 0,
+  `item_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `item_done_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`item_id`),
+  KEY `item_task_id` (`item_task_id`),
+  CONSTRAINT `task_checklist_items_ibfk_1` FOREIGN KEY (`item_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_comments`
+--
+
+DROP TABLE IF EXISTS `task_comments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_comments` (
+  `comment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `comment_task_id` int(11) NOT NULL,
+  `comment_user_id` int(11) DEFAULT NULL,
+  `comment_body` mediumtext NOT NULL,
+  `comment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `comment_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`comment_id`),
+  KEY `comment_task_id` (`comment_task_id`),
+  CONSTRAINT `task_comments_ibfk_1` FOREIGN KEY (`comment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_label_links`
+--
+
+DROP TABLE IF EXISTS `task_label_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_label_links` (
+  `task_id` int(11) NOT NULL,
+  `label_id` int(11) NOT NULL,
+  PRIMARY KEY (`task_id`,`label_id`),
+  KEY `label_id` (`label_id`),
+  CONSTRAINT `task_label_links_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE,
+  CONSTRAINT `task_label_links_ibfk_2` FOREIGN KEY (`label_id`) REFERENCES `task_labels` (`label_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `task_labels`
+--
+
+DROP TABLE IF EXISTS `task_labels`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `task_labels` (
+  `label_id` int(11) NOT NULL AUTO_INCREMENT,
+  `label_name` varchar(100) NOT NULL,
+  `label_color` varchar(7) NOT NULL DEFAULT '#206bc4',
+  `label_project_id` int(11) DEFAULT NULL,
+  `label_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`label_id`),
+  KEY `label_project_id` (`label_project_id`),
+  CONSTRAINT `task_labels_ibfk_1` FOREIGN KEY (`label_project_id`) REFERENCES `projects` (`project_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `task_templates`
 --
 
@@ -5439,7 +5555,18 @@ CREATE TABLE `tasks` (
   `task_start` date DEFAULT NULL,
   `task_due` date DEFAULT NULL,
   `task_progress` tinyint(4) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`task_id`)
+  `task_priority` tinyint(4) NOT NULL DEFAULT 0,
+  `task_description` mediumtext DEFAULT NULL,
+  `task_color` varchar(7) DEFAULT NULL,
+  `task_parent_id` int(11) DEFAULT NULL,
+  `task_reminder_at` datetime DEFAULT NULL,
+  `task_reminder_sent_at` datetime DEFAULT NULL,
+  `task_repeat_interval` smallint(5) unsigned NOT NULL DEFAULT 0,
+  `task_repeat_unit` varchar(10) NOT NULL DEFAULT 'day',
+  `task_repeat_spawned_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`task_id`),
+  KEY `task_parent_id` (`task_parent_id`),
+  CONSTRAINT `tasks_parent_fk` FOREIGN KEY (`task_parent_id`) REFERENCES `tasks` (`task_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

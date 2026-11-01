@@ -19,6 +19,7 @@ if (isset($_GET['client_id'])) {
 
 // Perms & Project client access snippet
 enforceUserPermission('module_support');
+require_once __DIR__ . '/../includes/project_tasks.php';
 $project_permission_snippet = '';
 
 if (!empty($client_access_string)) {
@@ -237,9 +238,17 @@ if (isset($_GET['project_id'])) {
         && ($estimated_hours > 0 || $project_budget_amount > 0 || $project_hourly_rate > 0 || $actual_hours > 0);
     $show_hours_only_card = $config_module_enable_accounting != 1 && ($estimated_hours > 0 || $actual_hours > 0);
 
+    // Priority / labels / description (DB 2.6.207); empty before Update Database
+    $pt_ready = projectTaskPhase1Ready($mysqli);
+    $pt_labels = $pt_ready ? projectTaskLabelsByTask($mysqli, array_map('intval', array_column($project_tasks, 'task_id'))) : [];
+
     // Renderer for a single task row (shared by the milestones section and the tasks card)
-    $render_task_row = function ($t) use ($project_id, $client_id, $project_completed_at) {
+    $render_task_row = function ($t) use ($project_id, $client_id, $project_completed_at, $pt_ready, $pt_labels) {
         $t_id = intval($t['task_id']);
+        $t_priority = $pt_ready ? projectTaskNormalizePriority($t['task_priority'] ?? 0) : 0;
+        $t_prio_meta = projectTaskPriorityMeta($t_priority);
+        $t_color = $pt_ready ? projectTaskNormalizeColor($t['task_color'] ?? '') : null;
+        $t_has_desc = $pt_ready && trim((string) ($t['task_description'] ?? '')) !== '';
         $t_name = nullable_htmlentities($t['task_name']);
         $t_completed = !empty($t['task_completed_at']);
         $t_progress = intval($t['task_progress']);
@@ -258,7 +267,7 @@ if (isset($_GET['project_id'])) {
         $csrf = $_SESSION['csrf_token'];
         $create_ticket_url = "modals/ticket/ticket_add_v2.php?client_id=$client_id&project_id=$project_id&source_task_id=$t_id&subject=" . urlencode($t['task_name'] ?? '');
         ?>
-        <tr>
+        <tr<?= $t_color ? ' style="box-shadow: inset 4px 0 0 ' . $t_color . ';"' : '' ?>>
             <td style="width: 28px;">
                 <?php if ($t_completed) { ?>
                     <a href="post.php?undo_complete_task=<?= $t_id ?>&csrf_token=<?= $csrf ?>" title="Mark incomplete">
@@ -271,7 +280,16 @@ if (isset($_GET['project_id'])) {
                 <?php } ?>
             </td>
             <td>
-                <span class="<?= $t_completed ? 'text-secondary' : '' ?>" style="<?= $t_completed ? 'text-decoration: line-through;' : '' ?>"><?= $t_name ?></span>
+                <?php if ($t_priority > 0) { ?>
+                    <span class="badge text-white me-1" style="background: <?= $t_prio_meta['color'] ?>;" title="<?= nullable_htmlentities($t_prio_meta['name']) ?> priority"><i class="fas fa-fw <?= $t_prio_meta['icon'] ?> me-1"></i><?= nullable_htmlentities($t_prio_meta['name']) ?></span>
+                <?php } ?>
+                <a href="#" class="ajax-modal <?= $t_completed ? 'text-secondary' : 'text-reset' ?>" data-modal-url="modals/project/task_detail.php?id=<?= $t_id ?>" data-modal-size="lg" style="<?= $t_completed ? 'text-decoration: line-through;' : '' ?>"><?= $t_name ?></a>
+                <?php if ($t_has_desc) { ?>
+                    <i class="fas fa-fw fa-align-left text-secondary ms-1" title="Has a description"></i>
+                <?php } ?>
+                <?php foreach ($pt_labels[$t_id] ?? [] as $t_label) { ?>
+                    <?= projectTaskLabelChip($t_label) ?>
+                <?php } ?>
                 <?php if ($t_ticket_id) { ?>
                     <a href="ticket.php?ticket_id=<?= $t_ticket_id ?>" class="badge text-bg-light border ms-1"><?= "$t_prefix$t_number" ?></a>
                 <?php } ?>
@@ -293,6 +311,7 @@ if (isset($_GET['project_id'])) {
                 <div class="dropdown">
                     <a href="#" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v text-secondary"></i></a>
                     <div class="dropdown-menu dropdown-menu-right">
+                        <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_detail.php?id=<?= $t_id ?>" data-modal-size="lg"><i class="fas fa-fw fa-expand-alt me-2"></i>Details</a>
                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_edit.php?id=<?= $t_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
                         <?php if (!$t_created_ticket_id && empty($project_completed_at)) { ?>
                             <a class="dropdown-item ajax-modal" href="#" data-modal-url="<?= $create_ticket_url ?>" data-modal-size="lg" title="Turn this task into a real ticket - assignment, status workflow, department communication"><i class="fas fa-fw fa-life-ring me-2"></i>Create Ticket</a>

@@ -1,0 +1,31 @@
+name: security baseline
+
+# docs/security/EDITION_BASELINE.json must agree with the pinned RivetCore baseline and with the files it cites
+# (scripts/edition-baseline-check.php). Fails on a control that is not in the pinned Core baseline, a missing
+# edition-responsibility control, a missing file, and an 'enforced' entry without a test.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/security/**'
+      - 'scripts/edition-baseline-check.php'
+      - 'composer.lock'
+      - '.github/workflows/security-baseline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-baseline:
+    name: security baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.5'
+      - name: Install the pinned RivetCore (for its baseline.json)
+        run: composer install --no-dev --no-interaction --no-scripts --prefer-dist
+      - name: Edition baseline check
+        run: php scripts/edition-baseline-check.php

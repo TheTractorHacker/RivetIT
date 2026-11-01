@@ -391,6 +391,48 @@ Scheduled entries against a ticket (site visits, scheduled calls, etc.).
 | GET | `/appointments` | List appointments — filterable by `when` (`past`/`today`/`future`), `mine`, `client_id` (bare array) |
 | POST | `/appointments` | Create an appointment (ticket schedule entry) |
 
+### Project tasks
+
+Tasks of a project (and checklist items of a project's tickets). Scopes `api:tasks:read` / `write` / `delete`; roles need Service Desk level 1 / 2 / 3.
+`GET /projects/{id}` lists a project's tasks.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/tasks/{id}` | One task |
+| POST | `/tasks` | Create a project task (`project_id` and `name` required) |
+| PATCH / PUT | `/tasks/{id}` | Change the fields you send; the rest stay as they are |
+| DELETE | `/tasks/{id}` | Delete a task (and its label links); `{"deleted": true, "id": n}` |
+| POST | `/tasks/{id}/toggle` | Toggle completed |
+
+A task has `id`, `name`, `status` (`To Do`, `In Progress`, `Blocked`, `Done`), `progress` (0-100), `start_at`, `due_at` (`YYYY-MM-DD`), `milestone_id`, `completed_at`,
+`assigned_to` (name), `ticket_number`, and, from database 2.6.207 (additive, existing clients are unaffected):
+`priority` (0 none, 1 low, 2 medium, 3 high, 4 urgent), `priority_name`, `description` (plain text, no HTML), `color` (`#rrggbb` or null) and `labels` (`[{id, name, color}]`).
+Before Update Database has run these read as `0`, `"None"`, `null`, `null`, `[]` and writes to them are ignored.
+
+Writable on `POST` / `PATCH`: `name`, `status`, `progress`, `start_at`, `due_at` (null clears), `milestone_id` (must belong to the task's project), `assigned_user_id` (an active user, 0 clears),
+`estimate_minutes`, `priority`, `description`, `color`, `labels` (names, or `{name, color}`; unknown names are created in the task's project; replaces the set, `[]` clears) and
+`label_ids` (existing labels that are global or belong to the task's project; anything else is ignored). Invalid values answer `400`.
+Department scope applies as for projects: a task of a department outside the client's scope is `403`.
+
+**Checklists, subtasks, comments, assignees, files, reminders and repeats** (databases 2.6.208 and 2.6.209; before Update Database the new task fields read as neutral values
+and the sub-resources answer `409`). A task also has `parent_id` (the parent when it is a subtask), `assignees` (`[{id, name, primary}]`, the primary first; `assigned_to` stays the
+primary's name), `checklist` and `subtasks` (`{done, total}`), `comment_count`, `attachment_count`, `reminder_at`, `reminder_sent_at` and `repeat` (`{interval, unit}` or null).
+Writable on `POST` / `PATCH`: `parent_id` (same project, one level deep, no cycles; null detaches), `assignee_ids` (active users; `assigned_user_id` alone still works and keeps the rest of the team),
+`reminder_at` (`YYYY-MM-DD HH:MM`, null clears) and `repeat` (`{"interval": 1-999, "unit": "day|week|month|year"}` or null). Completing a repeating project task (`/toggle`, status `Done`, the web app) creates the next occurrence once, with the due date moved on.
+
+| Method | Path | Description |
+|---|---|---|
+| GET / POST | `/tasks/{id}/checklist` | List / add an item (`{"text": "..."}`) |
+| PATCH / DELETE | `/tasks/{id}/checklist/{item}` | Change `text` / `done`; delete |
+| GET / POST | `/tasks/{id}/subtasks` | List / create a subtask (`{"name": "..."}`) |
+| GET / POST | `/tasks/{id}/comments` | List / add a comment (`{"body": "..."}`, plain text) |
+| PATCH / DELETE | `/tasks/{id}/comments/{comment}` | Edit (author only) / delete (author, or an administrator) |
+| GET / POST | `/tasks/{id}/attachments` | List metadata / upload (`multipart/form-data`, field `file`) |
+| GET / DELETE | `/tasks/{id}/attachments/{file}` | Download (always an attachment) / delete (uploader, level 3 or administrator) |
+
+The sub-resources use the task's scopes and department scope: `api:tasks:read` to read, `write` to add and change, `delete` to delete. Files: up to 25 MB, 50 per task; scripts, web pages (`html`, `svg`),
+installers and similar are refused with `400`.
+
 ### Assets
 
 Managed devices/equipment tracked per department.

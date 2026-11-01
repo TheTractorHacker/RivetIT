@@ -12193,3 +12193,152 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `oidc_provider_settings` ADD COLUMN IF NOT EXISTS `ops_allow_admins` TINYINT(1) NOT NULL DEFAULT 1 AFTER `ops_enabled`");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.206'");
     }
+
+    if ($rivetit_db_version() == '2.6.206') {
+        // DB 2.6.207: project tasks, phase 1 of the Vikunja-style upgrade (priority, description, colour, labels).
+        //
+        // tasks.task_priority     0 none, 1 low, 2 medium, 3 high, 4 urgent. Default 0, so every existing task is unchanged.
+        // tasks.task_description  free text (shown with line breaks, always escaped on output).
+        // tasks.task_color        optional card accent as #rrggbb.
+        // task_labels             label_project_id NULL = available in every project, otherwise only in that project (deleted with it).
+        // task_label_links        which labels a task carries (both sides cascade, so deleting a task or a label cleans the links).
+        //
+        // Additive and idempotent (ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS); nothing is back-filled.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_priority` TINYINT(4) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `task_description` MEDIUMTEXT NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_color` VARCHAR(7) NULL DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_labels` (
+            `label_id` int(11) NOT NULL AUTO_INCREMENT,
+            `label_name` varchar(100) NOT NULL,
+            `label_color` varchar(7) NOT NULL DEFAULT '#206bc4',
+            `label_project_id` int(11) DEFAULT NULL,
+            `label_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`label_id`),
+            KEY `label_project_id` (`label_project_id`),
+            CONSTRAINT `task_labels_ibfk_1` FOREIGN KEY (`label_project_id`) REFERENCES `projects` (`project_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_label_links` (
+            `task_id` int(11) NOT NULL,
+            `label_id` int(11) NOT NULL,
+            PRIMARY KEY (`task_id`,`label_id`),
+            KEY `label_id` (`label_id`),
+            CONSTRAINT `task_label_links_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE,
+            CONSTRAINT `task_label_links_ibfk_2` FOREIGN KEY (`label_id`) REFERENCES `task_labels` (`label_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.207'");
+    }
+
+    if ($rivetit_db_version() == '2.6.207') {
+        // DB 2.6.208: project tasks, phase 2 of the Vikunja-style upgrade (checklists, subtasks, comments).
+        //
+        // task_checklist_items  one row per checklist line of a task; deleted with the task.
+        // tasks.task_parent_id  subtask -> parent task (same project, one level deep, enforced in includes/project_task_extras.php).
+        //                       Deleting a parent leaves its subtasks as ordinary tasks (ON DELETE SET NULL), it never deletes them.
+        // task_comments         discussion on a task; deleted with the task. comment_user_id has no key on purpose: a removed user
+        //                       must not take the history with them (shown as "Former user").
+        //
+        // Additive and idempotent; nothing is back-filled.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_parent_id` INT(11) NULL DEFAULT NULL,
+            ADD KEY IF NOT EXISTS `task_parent_id` (`task_parent_id`)");
+        $has_parent_fk = mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks' AND CONSTRAINT_NAME = 'tasks_parent_fk'"));
+        if (empty($has_parent_fk[0])) {
+            mysqli_query($mysqli, "ALTER TABLE `tasks` ADD CONSTRAINT `tasks_parent_fk` FOREIGN KEY (`task_parent_id`) REFERENCES `tasks` (`task_id`) ON DELETE SET NULL");
+        }
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_checklist_items` (
+            `item_id` int(11) NOT NULL AUTO_INCREMENT,
+            `item_task_id` int(11) NOT NULL,
+            `item_text` varchar(255) NOT NULL,
+            `item_done` tinyint(1) NOT NULL DEFAULT 0,
+            `item_order` int(11) NOT NULL DEFAULT 0,
+            `item_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `item_done_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`item_id`),
+            KEY `item_task_id` (`item_task_id`),
+            CONSTRAINT `task_checklist_items_ibfk_1` FOREIGN KEY (`item_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_comments` (
+            `comment_id` int(11) NOT NULL AUTO_INCREMENT,
+            `comment_task_id` int(11) NOT NULL,
+            `comment_user_id` int(11) DEFAULT NULL,
+            `comment_body` mediumtext NOT NULL,
+            `comment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `comment_updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`comment_id`),
+            KEY `comment_task_id` (`comment_task_id`),
+            CONSTRAINT `task_comments_ibfk_1` FOREIGN KEY (`comment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.208'");
+    }
+
+    if ($rivetit_db_version() == '2.6.208') {
+        // DB 2.6.209: project tasks, phase 3 (several assignees, attachments, reminders, repeating tasks).
+        //
+        // task_assignees         every person on a task. tasks.task_assigned_to stays the PRIMARY assignee (older clients, the API's
+        //                        assigned_to and the ticket-style views keep reading it); the primary is always also in this table.
+        //                        Back-filled once from task_assigned_to. Deleted with the task.
+        // task_attachments       files on a task. attachment_reference is the random name the file is stored under
+        //                        (uploads/task_attachments/, no extension, only ever served by an access-checked script).
+        // tasks.task_reminder_at / task_reminder_sent_at   one-off reminder time and when the cron job delivered it.
+        // tasks.task_repeat_interval / task_repeat_unit    0 = does not repeat; unit is day, week, month or year.
+        // tasks.task_repeat_spawned_at                     set when the next occurrence was created, so a task repeats once only.
+        //
+        // Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `tasks`
+            ADD COLUMN IF NOT EXISTS `task_reminder_at` DATETIME NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_reminder_sent_at` DATETIME NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `task_repeat_interval` SMALLINT(5) UNSIGNED NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `task_repeat_unit` VARCHAR(10) NOT NULL DEFAULT 'day',
+            ADD COLUMN IF NOT EXISTS `task_repeat_spawned_at` DATETIME NULL DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_assignees` (
+            `task_id` int(11) NOT NULL,
+            `user_id` int(11) NOT NULL,
+            `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`task_id`,`user_id`),
+            KEY `user_id` (`user_id`),
+            CONSTRAINT `task_assignees_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "INSERT IGNORE INTO `task_assignees` (`task_id`, `user_id`) SELECT `task_id`, `task_assigned_to` FROM `tasks` WHERE `task_assigned_to` IS NOT NULL AND `task_assigned_to` > 0");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `task_attachments` (
+            `attachment_id` int(11) NOT NULL AUTO_INCREMENT,
+            `attachment_task_id` int(11) NOT NULL,
+            `attachment_name` varchar(255) NOT NULL,
+            `attachment_reference` varchar(64) NOT NULL,
+            `attachment_size` bigint(20) NOT NULL DEFAULT 0,
+            `attachment_mime` varchar(100) DEFAULT NULL,
+            `attachment_uploaded_by` int(11) DEFAULT NULL,
+            `attachment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`attachment_id`),
+            KEY `attachment_task_id` (`attachment_task_id`),
+            CONSTRAINT `task_attachments_ibfk_1` FOREIGN KEY (`attachment_task_id`) REFERENCES `tasks` (`task_id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.209'");
+    }
+
+    if ($rivetit_db_version() == '2.6.209') {
+        // DB 2.6.210: RivetCore compliance phase 4 (backup facts). backup_runs records what a run REALLY contained, so the compliance backup checks
+        // judge facts and not configuration. Additive and idempotent; old rows keep NULL ("unknown", the file is then the evidence).
+        //
+        // backup_runs.run_stores           comma list of RivetCore BackupStore ids the run contained: control_db, rmm_postgres
+        // backup_runs.run_encrypted        1 = every file of the run was encrypted before it was written, 0 = not, NULL = unknown
+        // backup_runs.run_retention_days   how long the writer keeps backup sets (deploy/backup.sh --retention-days), NULL when not known
+        mysqli_query($mysqli, "ALTER TABLE `backup_runs`
+            ADD COLUMN IF NOT EXISTS `run_stores` varchar(100) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_encrypted` tinyint(1) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `run_retention_days` int(11) DEFAULT NULL");
+        // RivetCore issue #91 phase 4 (Reporting / Power BI): RivetIT's own rpt_ views (clients, sites, assets, tickets, alert-to-ticket, SLA). The Core rpt_ views
+        // come from Core migration 0047, which an earlier step already ran. CREATE OR REPLACE, no DEFINER, nothing switched on and no account created.
+        try {
+            $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
+            foreach ($rpt['errors'] as $rpt_error) {
+                error_log('DB 2.6.210 reporting view not created: ' . $rpt_error);
+            }
+            if ($rpt['warning'] !== null) {
+                error_log('DB 2.6.210 reporting views: ' . $rpt['warning']);
+            }
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.210 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
+    }

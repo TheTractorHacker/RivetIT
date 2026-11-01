@@ -188,6 +188,10 @@ if (class_exists(\RivetCore\Retention\RetentionService::class)) {
         $audit_prune_days = ($audit_retention_days >= 1 && class_exists(\RivetCore\Security\SecurityBaseline::class))
             ? \RivetCore\Security\SecurityBaseline::auditRetentionDays($audit_retention_days)
             : $audit_retention_days;
+        // RivetCore 1.0.0-rc.44: the selected compliance framework's audit minimum raises the horizon (never lowers it, and 0 = keep everything stays 0).
+        if ($audit_prune_days >= 1 && \ITFlow\Compliance\ComplianceService::profilesReady($mysqli)) {
+            $audit_prune_days = \RivetCore\Compliance\Profile\RetentionFloors::fromStore(\ITFlow\Compliance\ComplianceService::profiles($mysqli))->effectiveDays('audit_events', $audit_prune_days);
+        }
         (new \RivetCore\Retention\RetentionService(new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli)))->prune($log_retention_days, $audit_prune_days);
     } catch (\Throwable $e) {
         error_log('RivetCore retention skipped: ' . $e->getMessage());
@@ -715,7 +719,7 @@ if ($config_backup_auto_enabled) {
         require_once dirname(__DIR__) . '/admin/post/backup.php';
         try {
             $result = build_backup($mysqli, 'auto', $backup_dir);
-        } catch (BackupPassphraseRequired $e) {
+        } catch (BackupPassphraseRequired | BackupStoreFailed $e) {
             logApp('Backup', 'error', 'Auto-backup refused: ' . $e->getMessage());
             appNotify('Backup', 'Automatic backup was NOT taken: set a backup passphrase (16+ characters) in Admin > Backup.', '/admin/backup.php');
             echo gmdate('Y-m-d\TH:i:s\Z') . " cron: auto-backup refused (no backup passphrase)\n";
@@ -1430,6 +1434,9 @@ require_once dirname(__DIR__) . '/cron/report_scheduler.php';
 
 // Fire due CRM follow-up reminders (activity_reminder_at) to the activity owner.
 require_once dirname(__DIR__) . '/cron/crm_reminders.php';
+
+// Deliver due project task reminders (tasks.task_reminder_at) to everyone on the task.
+require_once dirname(__DIR__) . '/cron/task_reminders.php';
 
 // Logging
 logApp("Cron", "info", "Cron executed successfully");

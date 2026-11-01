@@ -373,7 +373,7 @@ $sp = secSettingsAll($mysqli, true);
             <div class="row">
                 <div class="col-md-6 form-group">
                     <label>Minimum length</label>
-                    <input type="number" class="form-control" name="password_min_length" min="8" max="128" value="<?php echo intval($sp['password_min_length']); ?>">
+                    <input type="number" class="form-control" name="password_min_length" min="12" max="128" value="<?php echo intval($sp['password_min_length']); ?>">
                     <small class="form-text text-secondary">Default 12. A password may not be the same as the person&rsquo;s name or email address.</small>
                 </div>
                 <div class="col-md-6 form-group">

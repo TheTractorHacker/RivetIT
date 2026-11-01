@@ -6,6 +6,8 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+require_once __DIR__ . '/../../includes/project_tasks.php';
+
 if (isset($_POST['add_task'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -63,6 +65,9 @@ if (isset($_POST['add_project_task'])) {
 
     $task_id = mysqli_insert_id($mysqli);
 
+    // Priority, description, colour, lane and labels (DB 2.6.207; a no-op until Update Database has run)
+    projectTaskApplyPostedExtras($mysqli, $task_id, $project_id, intval($session_user_id), lookupUserPermission('module_support') >= 3);
+
     logAction("Task", "Create", "$session_name created task $task_name", $client_id, $task_id);
 
     flash_alert("You created Task <strong>$task_name</strong>");
@@ -89,14 +94,12 @@ if (isset($_POST['edit_project_task'])) {
     if ($task_progress > 100) { $task_progress = 100; }
 
     // Resolve client from the task's project (or its ticket) for access checks/logging
-    $sql = mysqli_query($mysqli, "SELECT * FROM tasks LEFT JOIN tickets ON ticket_id = task_ticket_id WHERE task_id = $task_id");
-    $row = mysqli_fetch_assoc($sql);
-    $task_project_id = intval($row['task_project_id']);
-    if ($task_project_id) {
-        $client_id = intval(getFieldById('projects', $task_project_id, 'project_client_id'));
-    } else {
-        $client_id = intval($row['ticket_client_id']);
+    $ctx = projectTaskContext($mysqli, $task_id);
+    if (!$ctx) {
+        flash_alert("That task no longer exists", 'error');
+        redirect();
     }
+    $client_id = $ctx['client_id'];
     if ($client_id) {
         enforceClientAccess($client_id);
     }
@@ -108,9 +111,108 @@ if (isset($_POST['edit_project_task'])) {
 
     mysqli_query($mysqli, "UPDATE tasks SET task_name = '$task_name', task_milestone_id = $milestone_id_sql, task_assigned_to = $assigned_to_sql, task_start = $task_start_sql, task_due = $task_due_sql, task_completion_estimate = $task_completion_estimate, task_progress = $task_progress WHERE task_id = $task_id");
 
+    // Priority, description, colour, lane, labels, assignees, reminder and repeat (DB 2.6.207 / 2.6.209; a no-op until Update Database has run)
+    projectTaskApplyPostedExtras($mysqli, $task_id, $ctx['project_id'], intval($session_user_id), lookupUserPermission('module_support') >= 3, intval($ctx['row']['task_assigned_to'] ?? 0));
+
     logAction("Task", "Edit", "$session_name edited task $task_name", $client_id, $task_id);
 
     flash_alert("Task <strong>$task_name</strong> edited");
+
+    redirect();
+
+}
+
+if (isset($_POST['delete_project_task'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    // Same level as the existing delete_task handler
+    enforceUserPermission('module_support', 3);
+
+    $task_id = intval($_POST['task_id']);
+
+    $ctx = projectTaskContext($mysqli, $task_id);
+    if (!$ctx) {
+        flash_alert("That task no longer exists", 'error');
+        redirect();
+    }
+    if ($ctx['client_id']) {
+        enforceClientAccess($ctx['client_id']);
+    }
+    $task_name = sanitizeInput($ctx['row']['task_name']);
+
+    projectTaskDelete($mysqli, $task_id);
+
+    logAction("Task", "Delete", "$session_name deleted task $task_name", $ctx['client_id'], $task_id);
+
+    flash_alert("Task <strong>$task_name</strong> deleted", 'error');
+
+    redirect();
+
+}
+
+if (isset($_POST['duplicate_project_task'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $task_id = intval($_POST['task_id']);
+
+    $ctx = projectTaskContext($mysqli, $task_id);
+    if (!$ctx || !$ctx['project_id']) {
+        flash_alert("That task cannot be duplicated", 'error');
+        redirect();
+    }
+    if ($ctx['client_id']) {
+        enforceClientAccess($ctx['client_id']);
+    }
+    $task_name = sanitizeInput($ctx['row']['task_name']);
+
+    $new_id = projectTaskDuplicate($mysqli, $ctx);
+
+    logAction("Task", "Create", "$session_name duplicated task $task_name", $ctx['client_id'], $new_id);
+
+    flash_alert("Task <strong>$task_name</strong> duplicated");
+
+    redirect();
+
+}
+
+if (isset($_POST['move_project_task'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $task_id = intval($_POST['task_id']);
+    $target_project_id = intval($_POST['target_project_id'] ?? 0);
+    $target_milestone_id = intval($_POST['target_milestone_id'] ?? 0);
+
+    $ctx = projectTaskContext($mysqli, $task_id);
+    if (!$ctx || !$ctx['project_id']) {
+        flash_alert("That task cannot be moved", 'error');
+        redirect();
+    }
+    if ($ctx['client_id']) {
+        enforceClientAccess($ctx['client_id']);
+    }
+    // The destination needs the same client access as the source
+    $target_client_id = intval(getFieldById('projects', $target_project_id, 'project_client_id'));
+    if ($target_client_id) {
+        enforceClientAccess($target_client_id);
+    }
+    $task_name = sanitizeInput($ctx['row']['task_name']);
+
+    $error = projectTaskMove($mysqli, $ctx, $target_project_id, $target_milestone_id);
+    if ($error !== '') {
+        flash_alert($error, 'error');
+        redirect();
+    }
+
+    logAction("Task", "Edit", "$session_name moved task $task_name to project #$target_project_id", $ctx['client_id'], $task_id);
+
+    flash_alert("Task <strong>$task_name</strong> moved");
 
     redirect();
 
@@ -172,14 +274,17 @@ if (isset($_GET['delete_task'])) {
 
     $task_id = intval($_GET['delete_task']);
 
-    // Get Client ID, task name from tasks and tickets using the task_id
-    $sql = mysqli_query($mysqli, "SELECT * FROM tasks LEFT JOIN tickets ON ticket_id = task_ticket_id WHERE task_id = $task_id");
-    $row = mysqli_fetch_assoc($sql);
-    $client_id = intval($row['ticket_client_id']);
+    // Get Client ID, task name from the task (a project-only task has no ticket: its client comes from the project)
+    $ctx = projectTaskContext($mysqli, $task_id);
+    if (!$ctx) {
+        flash_alert("That task no longer exists", 'error');
+        redirect();
+    }
+    $client_id = $ctx['client_id'];
     enforceClientAccess($client_id);
-    $task_name = sanitizeInput($row['task_name']);
+    $task_name = sanitizeInput($ctx['row']['task_name']);
 
-    mysqli_query($mysqli, "DELETE FROM tasks WHERE task_id = $task_id");
+    projectTaskDelete($mysqli, $task_id);
 
     logAction("Task", "Delete", "$session_name deleted task $task_name", $client_id, $task_id);
 
@@ -216,6 +321,11 @@ if (isset($_GET['complete_task'])) {
     }
 
     mysqli_query($mysqli, "UPDATE tasks SET task_completed_at = NOW(), task_completed_by = $session_user_id, task_progress = 100 WHERE task_id = $task_id");
+
+    // A repeating project task creates its next occurrence now (once; DB 2.6.209)
+    if (empty($row['task_completed_at'])) {
+        projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+    }
 
     // Only log a time entry against a ticket for ticket-linked tasks.
     // Project-only tasks have no ticket, so we must NOT insert an orphan ticket_replies row.

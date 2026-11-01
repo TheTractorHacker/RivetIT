@@ -929,6 +929,7 @@ if (isset($_GET['asset_inline_update'])) {
         if ($contact_id !== intval($asset_row['asset_contact_id']) || $new_client_id !== $client_id) {
             // The asset follows its person's department - the Edit modal's rule.
             mysqli_query($mysqli, "UPDATE assets SET asset_contact_id = $contact_id, asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+            if ($new_client_id !== $client_id) { require_once dirname(__DIR__) . '/includes/event_bus.php'; require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php'; rivetRmmAssetMoved($mysqli, $asset_id, $new_client_id, (int) $session_user_id); }
 
             (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact_id, $session_user_id);
 
@@ -973,6 +974,9 @@ if (isset($_GET['asset_inline_update'])) {
             // Transfer's copy-then-archive, which would change the asset's id
             // and strand its tickets/history on the archived original.
             mysqli_query($mysqli, "UPDATE assets SET asset_client_id = $new_client_id WHERE asset_id = $asset_id");
+            require_once dirname(__DIR__) . '/includes/event_bus.php';
+            require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
+            rivetRmmAssetMoved($mysqli, $asset_id, $new_client_id, (int) $session_user_id);
             moveAssetPhotoToClient($asset_id, $client_id, $new_client_id);
             $moved_department = true;
             logAction("Asset", "Edit", "$session_name moved asset $asset_name to department $new_client_name", $new_client_id, $asset_id);
@@ -2124,7 +2128,15 @@ if (isset($_POST['update_task_schedule'])) {
     $sets[] = "task_progress = $progress";
 
     $set_sql = implode(', ', $sets);
+    $gantt_was_done = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM tasks WHERE task_id = $task_id AND task_completed_at IS NOT NULL"));
     mysqli_query($mysqli, "UPDATE tasks SET $set_sql WHERE task_id = $task_id");
+
+    // Dragging a Gantt bar to 100% completes the task (same rules as the Kanban Done lane), so a repeating task repeats (DB 2.6.209)
+    if ($progress >= 100 && !$gantt_was_done) {
+        require_once __DIR__ . '/../includes/project_tasks.php';
+        mysqli_query($mysqli, "UPDATE tasks SET " . projectTaskStatusSql($mysqli, 'Done', intval($session_user_id)) . " WHERE task_id = $task_id");
+        projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+    }
 
     echo json_encode(['status' => 'success']);
     exit;
@@ -2169,9 +2181,15 @@ if (isset($_POST['update_project_task_kanban'])) {
 
         $status_esc = mysqli_real_escape_string($mysqli, $status_raw);
 
+        $was_done = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM tasks WHERE task_id = $task_id AND task_completed_at IS NOT NULL"));
         if ($status_raw === 'Done') {
             // Mark complete, preserving an existing completion time/author if present
             mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = 100, task_completed_at = COALESCE(task_completed_at, NOW()), task_completed_by = COALESCE(task_completed_by, $session_user_id) WHERE task_id = $task_id");
+            // A repeating project task creates its next occurrence on completion (once; DB 2.6.209)
+            require_once __DIR__ . '/../includes/project_tasks.php';
+            if (!$was_done) {
+                projectTaskCompleted($mysqli, $task_id, intval($session_user_id));
+            }
         } else {
             // Any non-Done lane: clear completion state
             mysqli_query($mysqli, "UPDATE tasks SET task_order = $order, task_status = '$status_esc', task_progress = IF(task_progress >= 100, 0, task_progress), task_completed_at = NULL, task_completed_by = NULL WHERE task_id = $task_id");

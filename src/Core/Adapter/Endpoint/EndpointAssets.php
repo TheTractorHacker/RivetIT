@@ -81,7 +81,13 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
         $osLabel = AssetInventorySync::osLabel((($device['os'] ?? 'windows') === 'linux' ? '' : 'Windows'), (string) $device['os_version']);
         // RivetCore 1.0.0-rc.29 device type: the installer's explicit choice (asset_type_hint) wins, else what the agent's hardware facts detected
         // (asset_type_detected, always present); resolve() maps the chosen label onto an asset type this edition actually has.
-        $label = DeviceTypeClassifier::choose($device['asset_type_hint'] ?? null, (string) ($device['asset_type_detected'] ?? ''));
+        // A caller that sends neither (an older caller, or a bare enrolment) gets the classifier's own decision table from the facts it did send, whose last row is
+        // the pre-rc.29 rule (os_version contains "server" -> Server, else Laptop); the conformance kit pins exactly that.
+        $hint = $device['asset_type_hint'] ?? null;
+        $detected = (string) ($device['asset_type_detected'] ?? '');
+        $label = DeviceTypeClassifier::validLabel($hint) || DeviceTypeClassifier::validLabel($detected)
+            ? DeviceTypeClassifier::choose($hint, $detected)
+            : DeviceTypeClassifier::classify($device);
         $assetType = DeviceTypeClassifier::resolve($label, self::ASSET_TYPES);
         $res = $this->database->execute(
             "INSERT INTO assets (asset_type, asset_name, asset_make, asset_model, asset_serial, asset_os, asset_status, asset_client_id, asset_location_id, asset_created_at)
