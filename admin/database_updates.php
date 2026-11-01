@@ -12205,5 +12205,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN IF NOT EXISTS `run_stores` varchar(100) DEFAULT NULL,
             ADD COLUMN IF NOT EXISTS `run_encrypted` tinyint(1) DEFAULT NULL,
             ADD COLUMN IF NOT EXISTS `run_retention_days` int(11) DEFAULT NULL");
+        // RivetCore issue #91 phase 4 (Reporting / Power BI): RivetIT's own rpt_ views (clients, sites, assets, tickets, alert-to-ticket, SLA). The Core rpt_ views
+        // come from Core migration 0047, which an earlier step already ran. CREATE OR REPLACE, no DEFINER, nothing switched on and no account created.
+        try {
+            $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
+            foreach ($rpt['errors'] as $rpt_error) {
+                error_log('DB 2.6.207 reporting view not created: ' . $rpt_error);
+            }
+            if ($rpt['warning'] !== null) {
+                error_log('DB 2.6.207 reporting views: ' . $rpt['warning']);
+            }
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.207 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+        }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.207'");
     }

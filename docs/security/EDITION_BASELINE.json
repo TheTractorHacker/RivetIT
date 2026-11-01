@@ -239,14 +239,18 @@
     {
       "core_control": "HARD-03",
       "status": "partial",
-      "how": "The installer asks for an existing database account and does not require a superuser; the RMM PostgreSQL store supports a unix socket with peer authentication and a dedicated role.",
+      "how": "The installer asks for an existing database account and does not require a superuser; the RMM PostgreSQL store supports a unix socket with peer authentication and a dedicated role; a separate read-only reporting account is created from Administration > Reporting / Power BI with a generated password and grants on the reporting views only (tested: it cannot read base tables or write).",
       "files": [
         "scripts/setup_cli.php",
         "setup/index.php",
-        "includes/rmm_data_store_cards.php"
+        "includes/rmm_data_store_cards.php",
+        "admin/reporting.php",
+        "src/Reporting/ReportingAdmin.php"
       ],
-      "tests": [],
-      "note": "The installer does not create the account itself; the read-only reporting role is created by the Reporting page (Administration > Reporting / Power BI)."
+      "tests": [
+        "tests/reporting_page.php"
+      ],
+      "note": "The installer does not create the application's own database account; only the reporting account is created by the product."
     },
     {
       "core_control": "HARD-05",

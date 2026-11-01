@@ -44,6 +44,7 @@ $admin_settings_labels = [
     'compliance_status.php' => 'Compliance status',
     'compliance_framework.php' => 'Compliance framework',
     'security_trust.php' => 'Security and trust',
+    'reporting.php' => 'Reporting / Power BI',
     'automation.php' => 'Automation',
     'automation_test.php' => 'Test rule',
     'event_rules.php' => 'Event rules',
