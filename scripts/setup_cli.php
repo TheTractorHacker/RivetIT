@@ -432,6 +432,8 @@ mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, m
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 2, user_role_permission_level = 2");
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 3, user_role_permission_level = 2");
 mysqli_query($mysqli, "INSERT INTO user_role_permissions SET user_role_id = 2, module_id = 4, user_role_permission_level = 2");
+// Knowledge base: technicians write articles (module_kb Modify). Reporting is deliberately NOT seeded: reports are company-wide, so an administrator grants it per install.
+mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_id, user_role_permission_level) SELECT 2, module_id, 2 FROM modules WHERE module_name = 'module_kb'");
 
 // Assets (module_assets, DB 2.6.95) at each built-in role's Tickets/assets/docs level, as the 2.6.95 migration grants.
 mysqli_query($mysqli, "INSERT INTO user_role_permissions (user_role_id, module_id, user_role_permission_level) SELECT 1, module_id, 1 FROM modules WHERE module_name = 'module_assets'"); // Read assets
