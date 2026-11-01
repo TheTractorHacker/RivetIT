@@ -255,10 +255,8 @@
       "files": [
         "admin/post/backup.php"
       ],
-      "tests": [
-        "tests/security_backup.php"
-      ],
-      "note": "Gap against 'backups are encrypted by default' for the in-app zip."
+      "tests": [],
+      "note": "Gap against 'backups are encrypted by default' for the in-app zip. (tests/security_backup.php covers the passphrase rule, which is why this is not claimed as a proof.)"
     },
     {
       "core_control": "FILE-02",

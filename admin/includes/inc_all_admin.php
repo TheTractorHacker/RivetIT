@@ -42,6 +42,7 @@ $admin_settings_labels = [
     'settings_security.php' => 'Security',
     'settings_compliance.php' => 'Compliance',
     'compliance_status.php' => 'Compliance status',
+    'security_trust.php' => 'Security and trust',
     'automation.php' => 'Automation',
     'automation_test.php' => 'Test rule',
     'event_rules.php' => 'Event rules',
