@@ -67,6 +67,11 @@ function rivetRmmModule($mysqli = null): RmmModule
         // calls it; without it a due step would stay due and never be recorded as sent.
         'escalation' => new EndpointEscalation($mysqli),
     ];
+    // RivetCore 1.0.0-rc.44 customizable frameworks: the selected profile's retention minimums. Lazy and tolerant: no profile selected, or the compliance tables
+    // not installed yet, means no minimum (RetentionFloors treats a failed read as "none"); it adds nothing until an administrator selects a framework.
+    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class)) {
+        $options['retention_floors'] = \RivetCore\Compliance\Profile\RetentionFloors::fromStore(\ITFlow\Compliance\ComplianceService::profiles($mysqli));
+    }
     if (defined('EA_BINARY_MAX_BYTES')) {
         $options['max_upload_bytes'] = (int) EA_BINARY_MAX_BYTES;
     }
