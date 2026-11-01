@@ -97,7 +97,7 @@ function http(string $method, string $url, array $headers = [], $body = null, ?s
 
 // ---------------------------------------------------------------- server
 $serverLog = sys_get_temp_dir() . '/pt23_server_' . getmypid() . '.log';
-$proc = proc_open(['php', '-S', "127.0.0.1:$PORT", '-t', $ROOT, '/home/sysadmin/demos/router.php'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $serverLog, 'w'], 2 => ['file', $serverLog, 'w']], $pipes, $ROOT);
+$proc = proc_open(['php', '-d', 'upload_max_filesize=2M', '-d', 'post_max_size=3M', '-S', "127.0.0.1:$PORT", '-t', $ROOT, '/home/sysadmin/demos/router.php'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $serverLog, 'w'], 2 => ['file', $serverLog, 'w']], $pipes, $ROOT);
 register_shutdown_function(function () use ($proc, $serverLog) {
     if (is_resource($proc)) {
         proc_terminate($proc);
@@ -803,7 +803,7 @@ ok(projectTaskNextDue('2026-01-31', 1, 'month', '2026-03-15') === '2026-03-31', 
 ok(projectTaskNextDue(null, 2, 'week', '2026-03-30') === '2026-04-13' && projectTaskNextDue('', 1, 'month', '2026-03-30') === '2026-04-30', 'next due: no due date = completion day + interval');
 ok(projectTaskNormalizeRepeat(0, 'week') === [0, 'day'] && projectTaskNormalizeRepeat(5000, 'week') === [999, 'week'] && projectTaskNormalizeRepeat(2, 'fortnight') === [2, 'day'] && projectTaskNormalizeRepeat(-3, 'day') === [0, 'day'], 'repeat values are clamped / defaulted');
 
-$today = date('Y-m-d');
+$today = gmdate('Y-m-d');   // the app (php -S, UTC install) computes "today" in UTC; this CLI may run in another zone
 $dueR = date('Y-m-d', strtotime('+3 days'));
 $startR = date('Y-m-d', strtotime('+1 day'));
 $gl = $db->query("INSERT INTO task_labels SET label_name = 'Rep-L', label_color = '#00aa00'") ? $db->insert_id : 0;
@@ -872,7 +872,7 @@ ok((int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Api status repea
 $noDue = $mkRep('No due repeat', 'day', 3, null);
 $db->query("UPDATE tasks SET task_start = '$today' WHERE task_id = $noDue");
 api('POST', "tasks/$noDue/toggle", $ADM);
-ok(q1($db, "SELECT task_due FROM tasks WHERE task_name = 'No due repeat' AND task_completed_at IS NULL") === projectTaskShiftDate($today, 3, 'day'), 'a repeating task without a due date is due completion day + interval');
+ok(in_array(q1($db, "SELECT task_due FROM tasks WHERE task_name = 'No due repeat' AND task_completed_at IS NULL"), [projectTaskShiftDate($today, 3, 'day'), projectTaskShiftDate(date('Y-m-d'), 3, 'day')], true), 'a repeating task without a due date is due completion day + interval');
 // repeating subtask keeps its parent
 $par = $mkRep('Parent of repeater', 'day', 0, null);
 $db->query("INSERT INTO tasks SET task_name = 'Repeating child', task_project_id = $projA, task_parent_id = $par, task_due = '$dueR', task_repeat_interval = 1, task_repeat_unit = 'day'");
@@ -1050,6 +1050,76 @@ ok($st === 200 && noPhpErrors($h) && !str_contains($h, 'name="delete_project_tas
 ok(!str_contains($h, 'c1') && !str_contains($h, 'a comment'), 'department scope: the pop-up of another department\'s task shows nothing');
 [$st, $kb] = http('GET', "$BASE/agent/project_kanban.php?project_id=$projA", [], null, $adminJar);
 ok($st === 200 && noPhpErrors($kb) && str_contains($kb, 'task-foot') && str_contains($kb, 'class="task-avatar'), 'Kanban renders with all the new markers');
+
+// ================================================================ 12. follow-ups: atomic API writes, Gantt completion, upload limits, private uploads
+section('API writes are all-or-nothing (no orphan placeholder task)');
+$cntTasks = fn() => (int) q1($db, 'SELECT COUNT(*) FROM tasks');
+$labelsBefore = (int) q1($db, 'SELECT COUNT(*) FROM task_labels');
+$before = $cntTasks();
+foreach ([
+    'priority 9' => ['priority' => 9],
+    'colour' => ['color' => 'blue'],
+    'date' => ['due_at' => '31/12/2026'],
+    'milestone of nowhere' => ['milestone_id' => 99999999],
+    'inactive assignee' => ['assigned_user_id' => $gone],
+    'bad status' => ['status' => 'Nope'],
+    'bad reminder' => ['reminder_at' => 'soon'],
+    'bad repeat' => ['repeat' => ['interval' => 0, 'unit' => 'day']],
+    'bad assignee_ids' => ['assignee_ids' => [$gone]],
+    'bad parent' => ['parent_id' => 99999999],
+] as $why => $bad) {
+    [$st] = api('POST', 'tasks', $ADM, ['project_id' => $projA, 'name' => 'Orphan probe ' . $why, 'labels' => ['orphan-label']] + $bad);
+    ok($st === 400 && (int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name LIKE 'Orphan probe%'") === 0, "POST /tasks with a bad $why -> 400 and nothing is left behind");
+}
+ok($cntTasks() === $before && (int) q1($db, 'SELECT COUNT(*) FROM task_labels') === $labelsBefore, 'no placeholder task and no half-created label after ten rejected creates');
+[$st, $j] = api('POST', 'tasks', $ADM, ['project_id' => $projA, 'name' => 'Atomic ok', 'priority' => 2, 'labels' => ['atomic-l']]);
+ok($st === 201 && (int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Atomic ok'") === 1 && (int) q1($db, "SELECT COUNT(*) FROM task_labels WHERE label_name = 'atomic-l'") === 1, 'a valid create still commits (task and new label)');
+$atom = (int) $j['id'];
+[$st] = api('PATCH', "tasks/$atom", $ADM, ['name' => 'Atomic renamed', 'priority' => 3, 'color' => 'not-a-colour']);
+ok($st === 400 && q1($db, "SELECT task_name FROM tasks WHERE task_id = $atom") === 'Atomic ok' && (int) q1($db, "SELECT task_priority FROM tasks WHERE task_id = $atom") === 2, 'PATCH with one bad field applies none of the others');
+[$st, $j] = api('PATCH', "tasks/$atom", $ADM, ['name' => 'Atomic renamed', 'priority' => 3]);
+ok($st === 200 && $j['name'] === 'Atomic renamed' && $j['priority'] === 3, 'and a valid PATCH still commits');
+
+section('Gantt progress to 100% completes the task and repeats it');
+$gRep = $mkRep('Gantt repeat', 'week', 1, $dueR);
+$gPlain = $mkRep('Gantt plain', 'week', 0, $dueR);
+$gantt = fn(int $id, int $progress) => http('POST', "$BASE/agent/ajax.php", ['Content-Type' => 'application/x-www-form-urlencoded'], http_build_query(['update_task_schedule' => 1, 'csrf_token' => $csrf, 'task_id' => "task_$id", 'start' => $startR, 'end' => $dueR, 'progress' => $progress]), $adminJar);
+$gantt($gRep, 60);
+ok((int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Gantt repeat'") === 1 && q1($db, "SELECT task_completed_at FROM tasks WHERE task_id = $gRep") === null, 'Gantt progress below 100 changes nothing else (no completion, no repeat)');
+$gantt($gRep, 100);
+ok(q1($db, "SELECT task_completed_at FROM tasks WHERE task_id = $gRep") !== null && q1($db, "SELECT task_status FROM tasks WHERE task_id = $gRep") === 'Done' && (int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Gantt repeat'") === 2 && q1($db, "SELECT task_due FROM tasks WHERE task_name = 'Gantt repeat' AND task_completed_at IS NULL") === projectTaskShiftDate($dueR, 1, 'week'), 'Gantt 100% completes the task and spawns the next occurrence');
+$gantt($gRep, 100);
+ok((int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Gantt repeat'") === 2, 'saving 100% again does not spawn another');
+$gantt($gPlain, 100);
+ok(q1($db, "SELECT task_completed_at FROM tasks WHERE task_id = $gPlain") !== null && (int) q1($db, "SELECT COUNT(*) FROM tasks WHERE task_name = 'Gantt plain'") === 1, 'a non-repeating task just completes');
+
+section('Oversize uploads: clear errors and the limit in the UI (server runs with upload_max_filesize=2M, post_max_size=3M)');
+$big = "$tmpd/big4.txt";   // bigger than post_max_size: PHP discards the whole body
+$mid = "$tmpd/mid25.txt";  // bigger than upload_max_filesize, smaller than post_max_size
+@mkdir($tmpd);
+file_put_contents($big, str_repeat('a', 4 * 1048576));
+file_put_contents($mid, str_repeat('b', (int) (2.5 * 1048576)));
+file_put_contents("$tmpd/small.txt", 'small');
+[$st, $j] = ptAjax($BASE, $adminJar, $csrf, ['action' => 'file_upload', 'task_id' => $t1], $big);
+ok($st === 413 && ($j['ok'] ?? true) === false && str_contains((string) $j['error'], 'larger than the server allows') && str_contains((string) $j['error'], '2 MB'), 'body over post_max_size: 413 with a clear message naming the limit (not a CSRF error)', "HTTP $st " . json_encode($j));
+[$st, $j] = ptAjax($BASE, $adminJar, $csrf, ['action' => 'file_upload', 'task_id' => $t1], $mid);
+ok($j['ok'] === false && str_contains((string) $j['error'], 'larger than the server allows') && str_contains((string) $j['error'], '2 MB'), 'file over upload_max_filesize: the message names the limit', json_encode($j));
+[$st, $j] = ptAjax($BASE, $adminJar, $csrf, ['action' => 'file_upload', 'task_id' => $t1], "$tmpd/small.txt");
+ok($j['ok'] === true, 'a small file still uploads on the same server');
+[$st, $h] = modal($BASE, $adminJar, "task_detail.php?id=$t1");
+ok(str_contains($h, 'data-max-bytes="2097152"') && str_contains($h, 'Up to 2 MB each'), 'the pop-up hint and the input show the server\'s real limit (2 MB), not the app\'s 25 MB');
+[$st, $j] = api('POST', "tasks/$t1/attachments", $ADM, null, ['file' => new CURLFile($big, 'text/plain', 'big4.txt')]);
+ok($st === 413 && str_contains((string) ($j['error'] ?? ''), '2 MB'), 'API upload over the limit: 413 with the limit');
+ok(projectTaskIniBytes('8M') === 8388608 && projectTaskIniBytes('512K') === 524288 && projectTaskIniBytes('1G') === 1073741824 && projectTaskIniBytes('-1') === 0 && projectTaskIniBytes('2097152') === 2097152 && projectTaskIniBytes('') === 0, 'php.ini size strings parse');
+$js = file_get_contents($ROOT . '/agent/js/project_task_panel.js');
+ok(str_contains($js, 'data-max-bytes') && str_contains($js, 'larger than the server allows'), 'the panel script refuses an oversize file before sending it');
+@unlink($big); @unlink($mid);
+
+section('Private uploads: the task files folder is denied in the repo web-route templates');
+ok(str_contains(file_get_contents($ROOT . '/deploy/templates/rivetit-locations.conf'), 'location ^~ /uploads/task_attachments/ {') && str_contains(file_get_contents($ROOT . '/docker/nginx.conf'), 'location ^~ /uploads/task_attachments/ {'), 'rivetit-locations.conf and docker/nginx.conf deny /uploads/task_attachments/');
+require_once $ROOT . '/src/Ops/WebRoutes.php';
+$ids = array_column(\ITFlow\Ops\WebRoutes::all(), null, 'id');
+ok(isset($ids['uploads_task_attachments']) && $ids['uploads_task_attachments']['path'] === '/uploads/task_attachments/' && ($ids['uploads_task_attachments']['probe']['status'] ?? []) === [403] && str_contains(file_get_contents($ROOT . '/docs/WEB_ROUTES.md'), 'uploads_task_attachments') && str_contains(file_get_contents($ROOT . '/.gitignore'), 'uploads/task_attachments/'), 'the managed web-routes registry, its doc and .gitignore list the folder');
 
 // ---------------------------------------------------------------- cleanup
 section('Cleanup');
