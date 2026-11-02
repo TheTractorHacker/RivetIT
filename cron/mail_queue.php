@@ -252,7 +252,8 @@ function sendQueueEmail(
     string $oauth_access_token,
     string $oauth_access_token_expires_at,
     string $message_id = '',
-    bool   $auto = true
+    bool   $auto = true,
+    array  $attachments = []
 ) {
     // Sensible defaults for OAuth providers if fields were left blank
     if ($provider === 'google_oauth') {
@@ -335,6 +336,11 @@ function sendQueueEmail(
         $mail->addStringAttachment($ics_str, 'Scheduled_ticket.ics', 'base64', 'text/calendar');
     }
 
+    // Files stored with the queued message (email_queue_attachments): scheduled PDF reports.
+    foreach ($attachments as $att) {
+        $mail->addStringAttachment($att['attachment_content'], $att['attachment_filename'], 'base64', $att['attachment_mime']);
+    }
+
     $mail->send();
     return true;
 }
@@ -405,6 +411,17 @@ function deliverQueueRow(array $row): bool {
         mysqli_query($mysqli, "UPDATE email_queue SET email_message_id = '$mid_esc' WHERE email_id = $email_id");
     }
 
+    // Attachments queued with this message (none for almost every email; the table exists from DB 2.6.223).
+    $queue_attachments = [];
+    try {
+        $att_res = mysqli_query($mysqli, "SELECT attachment_filename, attachment_mime, attachment_content FROM email_queue_attachments WHERE attachment_email_id = $email_id ORDER BY attachment_id");
+        while ($att_res && ($att_row = mysqli_fetch_assoc($att_res))) {
+            $queue_attachments[] = $att_row;
+        }
+    } catch (\mysqli_sql_exception $e) {
+        // table not created yet (code deployed before Update Database): send the message without attachments, as before
+    }
+
     try {
         sendQueueEmail(
             ($config_smtp_provider ?: 'standard_smtp'),
@@ -427,10 +444,15 @@ function deliverQueueRow(array $row): bool {
             (string)$config_mail_oauth_access_token,
             (string)$config_mail_oauth_access_token_expires_at,
             $message_id,
-            !empty($row['email_auto'])
+            !empty($row['email_auto']),
+            $queue_attachments
         );
 
         mysqli_query($mysqli, "UPDATE email_queue SET email_status = 3, email_sent_at = NOW(), email_started_at = NULL, email_attempts = $email_attempts WHERE email_id = $email_id");
+        // The message is out: its attachment copies are not kept (they are only needed to send it).
+        if ($queue_attachments) {
+            mysqli_query($mysqli, "DELETE FROM email_queue_attachments WHERE attachment_email_id = $email_id");
+        }
     } catch (\Throwable $e) {
         // email_failed_at starts the back-off clock (5, 15, 60, 240 minutes - MailQueuePolicy::BACKOFF_MINUTES).
         mysqli_query($mysqli, "UPDATE email_queue SET email_status = 2, email_failed_at = NOW(), email_started_at = NULL, email_attempts = $email_attempts WHERE email_id = $email_id");
