@@ -46,7 +46,7 @@ final class ApiScopes
     public const ACTIONS = ['read', 'write', 'delete'];
 
     /** Routes no integration client may use, whatever it holds (person-bound; see the class comment). */
-    public const DENIED_ROUTES = ['credentials', 'me', 'notifications', 'approvals', 'endpoint_devices', 'service_catalog', 'workflow_tasks'];
+    public const DENIED_ROUTES = ['credentials', 'me', 'notifications', 'approvals', 'endpoint_devices', 'service_catalog', 'workflow_tasks', 'automation_rules'];
 
     /**
      * Which role-module name (api_has_module_permission) is satisfied by which resources. A module check inside an endpoint asks "may

@@ -742,5 +742,8 @@ class WorkflowService
         }
         $newStatus = array_filter($tasks, static fn ($t) => $t['status'] === 'skipped') ? 'completed_with_exceptions' : 'completed';
         mysqli_query($this->mysqli, "UPDATE workflow_runs SET status = '$newStatus', completed_at = NOW() WHERE run_id = $runId AND status = 'in_progress'");
+        if (mysqli_affected_rows($this->mysqli) === 1) {
+            LifecycleEvents::offboarded($this->mysqli, $runId, $this->gateway());
+        }
     }
 }

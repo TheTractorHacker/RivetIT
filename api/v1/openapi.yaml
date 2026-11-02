@@ -61,6 +61,7 @@ tags:
   - name: Profile
   - name: Appointments
   - name: Notifications
+  - name: Automation
   - name: Alerts
   - name: Diagnostics
   - name: Integration
@@ -1749,6 +1750,187 @@ paths:
           description: Lost a race - the approval was decided in the meantime
         '422':
           description: Validation error (bad kind/id/decision, or a reject without a comment)
+  /automation_rules:
+    get:
+      tags: [Automation]
+      summary: List event rules
+      description: >
+        Administrators only, user token only (an integration client gets 403). The webhook signing secret is never returned
+        (action_config.has_secret says whether one is set).
+      parameters:
+        - {name: q, in: query, schema: {type: string}, description: Matches name or trigger event}
+        - {name: trigger_event, in: query, schema: {type: string}}
+        - {name: action_type, in: query, schema: {type: string}}
+        - {name: enabled, in: query, schema: {type: string, enum: ['0', '1']}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200':
+          description: Rules, ordered by event then priority
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules: {type: array, items: {$ref: '#/components/schemas/AutomationRule'}}
+                  total: {type: integer}
+                  limit: {type: integer}
+                  offset: {type: integer}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Automation]
+      summary: Create an event rule
+      description: >
+        The same validation as the Event rules editor. action_config is the action's input (see docs/AUTOMATION.md, "Rules over the API"):
+        e.g. send_mail {to_type, subject, body, address|user_id}, notify_chat {destination, message}, run_script {script_id, run_as_user_id, params, timeout_s}.
+        Risky actions (run_script, create_odoo_user, entra_*) can be saved but do nothing until their switch / integration is set up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AutomationRuleInput'}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {type: object, properties: {rule: {$ref: '#/components/schemas/AutomationRule'}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {description: Validation error (the message names the problem)}
+  /automation_rules/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+    get:
+      tags: [Automation]
+      summary: One event rule, with its last run and run counts
+      responses:
+        '200':
+          description: The rule
+          content:
+            application/json:
+              schema: {type: object, properties: {rule: {$ref: '#/components/schemas/AutomationRule'}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Automation]
+      summary: Replace an event rule (name, trigger_event, action_type and action_config are required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AutomationRuleInput'}
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: {type: object, properties: {rule: {$ref: '#/components/schemas/AutomationRule'}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {description: Validation error}
+    patch:
+      tags: [Automation]
+      summary: Change some fields of an event rule (omitted fields, including action_config, are kept)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AutomationRuleInput'}
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: {type: object, properties: {rule: {$ref: '#/components/schemas/AutomationRule'}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {description: Validation error}
+    delete:
+      tags: [Automation]
+      summary: Delete an event rule (its run log rows stay)
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: {type: object, properties: {deleted: {type: boolean}, rule_id: {type: integer}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /automation_rules/runs:
+    get:
+      tags: [Automation]
+      summary: The rule run log
+      parameters:
+        - {name: rule_id, in: query, schema: {type: integer}}
+        - {name: status, in: query, schema: {type: string, enum: [ok, failed, throttled, loop_blocked, skipped]}}
+        - {name: event, in: query, schema: {type: string}}
+        - {name: failed, in: query, schema: {type: string, enum: ['1']}, description: Failed runs only}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200':
+          description: Runs, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: {type: array, items: {$ref: '#/components/schemas/AutomationRun'}}
+                  total: {type: integer}
+                  counts: {type: object, additionalProperties: {type: integer}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /automation_rules/runs/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}, description: Run id}
+    get:
+      tags: [Automation]
+      summary: One run
+      responses:
+        '200':
+          description: The run
+          content:
+            application/json:
+              schema: {type: object, properties: {run: {$ref: '#/components/schemas/AutomationRun'}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /automation_rules/retry/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}, description: Id of the FAILED run to repeat}
+    post:
+      tags: [Automation]
+      summary: Run a failed run again by hand
+      description: >
+        Uses the event the failed run kept and creates a new run (source "manual", retry_of_run_id = this run). Refused with 409 when the run did not fail,
+        kept no event, its rule is gone or off, or a retry of it already succeeded.
+      responses:
+        '200':
+          description: The new run's result (status may still be failed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string}
+                  ok: {type: boolean}
+                  message: {type: string}
+                  run_id: {type: integer}
+                  retry_of_run_id: {type: integer}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {description: Cannot be run again (the message says why)}
+  /automation_rules/meta:
+    get:
+      tags: [Automation]
+      summary: Events, actions, condition operators and enrichment fields the editor offers
+      responses:
+        '200':
+          description: Metadata
+          content:
+            application/json:
+              schema: {type: object}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /service_catalog:
     get:
       tags: [Mobile]
@@ -2849,6 +3031,52 @@ components:
         checklist: {type: object, nullable: true}
         kb: {type: object, properties: {popular: {type: array, items: {type: object}}, recent: {type: array, items: {type: object}}}}
         unread_notifications: {type: integer}
+    AutomationRule:
+      type: object
+      properties:
+        rule_id: {type: integer}
+        name: {type: string}
+        trigger_event: {type: string, example: ticket.created}
+        conditions: {type: object, nullable: true, description: '{mode: all|any, conditions: [{field, op, value} | {mode, conditions: [...]}]}'}
+        conditions_valid: {type: boolean}
+        action_type: {type: string, enum: [create_ticket, send_webhook, notify_user, start_workflow, set_ticket_field, add_ticket_note, assign_ticket, send_mail, create_task, run_script, create_odoo_user, notify_chat, entra_disable_account, entra_add_to_groups]}
+        action_config: {type: object}
+        is_enabled: {type: boolean}
+        priority: {type: integer}
+        stop_on_match: {type: boolean}
+        rate_limit_per_min: {type: integer}
+        created_at: {type: string}
+        imported_from_legacy_rule_id: {type: integer, nullable: true}
+        summary: {type: string}
+    AutomationRuleInput:
+      type: object
+      properties:
+        name: {type: string, maxLength: 200}
+        trigger_event: {type: string, example: certificate.expiring}
+        conditions: {type: object, nullable: true}
+        action_type: {type: string}
+        action_config: {type: object}
+        is_enabled: {type: boolean}
+        priority: {type: integer, minimum: 1, maximum: 9999}
+        stop_on_match: {type: boolean}
+        rate_limit_per_min: {type: integer, minimum: 1, maximum: 1000}
+    AutomationRun:
+      type: object
+      properties:
+        run_id: {type: integer}
+        rule_id: {type: integer}
+        event_type: {type: string}
+        status: {type: string, enum: [ok, failed, throttled, loop_blocked, skipped]}
+        message: {type: string}
+        duration_ms: {type: integer}
+        chain_depth: {type: integer}
+        created_at: {type: string}
+        attempt: {type: integer, description: Which try of the job queue this was (1-3)}
+        max_attempts: {type: integer}
+        source: {type: string, enum: [event, retry, manual]}
+        retry_of_run_id: {type: integer, nullable: true}
+        retried_by_run_id: {type: integer, nullable: true}
+        can_rerun: {type: boolean}
     IntegrationError:
       type: object
       properties:

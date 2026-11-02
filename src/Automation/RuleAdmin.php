@@ -227,28 +227,70 @@ final class RuleAdmin
         return true;
     }
 
+    /** Whether automation_rule_runs has the retry columns (DB 2.6.220). */
+    public static function hasRetryColumns(\mysqli $mysqli): bool
+    {
+        $res = @mysqli_query($mysqli, "SHOW COLUMNS FROM automation_rule_runs LIKE 'context_json'");
+
+        return (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+
     /**
      * Run history of one rule, newest first. @return array{rows:list<array<string,mixed>>,total:int,counts:array<string,int>}
-     * Rows carry: run_id, event_type, status, message, duration_ms, chain_depth, created_at, age (seconds).
+     * Rows carry: run_id, rule_id, event_type, status, message, duration_ms, chain_depth, created_at, age (seconds), and (after DB 2.6.220)
+     * attempt (which try of the queue's MAX_ATTEMPTS), max_attempts, source (event|retry|manual), retry_of_run_id, retried_by_run_id (a later run that repeated it),
+     * can_rerun (failed, kept its event, not yet repeated successfully).
      */
     public static function history(\mysqli $mysqli, int $ruleId, bool $failedOnly = false, int $limit = 50, int $offset = 0): array
+    {
+        return self::runs($mysqli, ['rule_id' => $ruleId, 'failed_only' => $failedOnly], $limit, $offset);
+    }
+
+    /**
+     * Run log across rules. $f: rule_id (int, 0 = all), status (one of RuleEngine::STATUSES or ''), failed_only (bool), event (exact event id or '').
+     * @param array<string,mixed> $f @return array{rows:list<array<string,mixed>>,total:int,counts:array<string,int>}
+     */
+    public static function runs(\mysqli $mysqli, array $f = [], int $limit = 50, int $offset = 0): array
     {
         $out = ['rows' => [], 'total' => 0, 'counts' => []];
         if (!self::tableExists($mysqli, 'automation_rule_runs')) {
             return $out;
         }
-        $res = mysqli_query($mysqli, 'SELECT status, COUNT(*) FROM automation_rule_runs WHERE rule_id = ' . $ruleId . ' GROUP BY status');
+        $retry = self::hasRetryColumns($mysqli);
+        $ruleId = (int) ($f['rule_id'] ?? 0);
+        $base = $ruleId > 0 ? 'rule_id = ' . $ruleId : '1=1';
+        $res = mysqli_query($mysqli, 'SELECT status, COUNT(*) FROM automation_rule_runs WHERE ' . $base . ' GROUP BY status');
         while ($res && ($r = mysqli_fetch_row($res))) {
             $out['counts'][(string) $r[0]] = (int) $r[1];
         }
-        $where = 'rule_id = ' . $ruleId . ($failedOnly ? " AND status = 'failed'" : '');
+        $where = $base;
+        if ((int) ($f['run_id'] ?? 0) > 0) {
+            $where .= ' AND run_id = ' . (int) $f['run_id'];
+        }
+        $status = (string) ($f['status'] ?? '');
+        if (!empty($f['failed_only'])) {
+            $status = 'failed';
+        }
+        if ($status !== '' && in_array($status, RuleEngine::STATUSES, true)) {
+            $where .= " AND status = '" . $status . "'";
+        }
+        if (($f['event'] ?? '') !== '') {
+            $where .= " AND event_type = '" . mysqli_real_escape_string($mysqli, (string) $f['event']) . "'";
+        }
         $out['total'] = (int) (mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM automation_rule_runs WHERE $where"))[0] ?? 0);
         $limit = max(1, min(200, $limit));
         $offset = max(0, $offset);
-        $res = mysqli_query($mysqli, "SELECT run_id, event_type, status, message, duration_ms, chain_depth, created_at, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age FROM automation_rule_runs WHERE $where ORDER BY run_id DESC LIMIT $limit OFFSET $offset");
+        $extra = $retry ? ', attempt, trigger_source, retry_of_run_id, (context_json IS NOT NULL) AS has_context, (SELECT MIN(r2.run_id) FROM automation_rule_runs r2 WHERE r2.retry_of_run_id = automation_rule_runs.run_id) AS retried_by, (SELECT COUNT(*) FROM automation_rule_runs r3 WHERE r3.retry_of_run_id = automation_rule_runs.run_id AND r3.status = \'ok\') AS retry_ok' : '';
+        $res = mysqli_query($mysqli, "SELECT run_id, rule_id, event_type, status, message, duration_ms, chain_depth, created_at, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age$extra FROM automation_rule_runs WHERE $where ORDER BY run_id DESC LIMIT $limit OFFSET $offset");
         while ($res && ($r = mysqli_fetch_assoc($res))) {
-            $out['rows'][] = ['run_id' => (int) $r['run_id'], 'event_type' => $r['event_type'], 'status' => $r['status'], 'message' => (string) $r['message'],
+            $row = ['run_id' => (int) $r['run_id'], 'rule_id' => (int) $r['rule_id'], 'event_type' => $r['event_type'], 'status' => $r['status'], 'message' => (string) $r['message'],
                 'duration_ms' => (int) $r['duration_ms'], 'chain_depth' => (int) $r['chain_depth'], 'created_at' => $r['created_at'], 'age' => max(0, (int) $r['age'])];
+            if ($retry) {
+                $row += ['attempt' => (int) $r['attempt'], 'max_attempts' => RuleEngine::MAX_ATTEMPTS, 'source' => (string) $r['trigger_source'], 'retry_of_run_id' => $r['retry_of_run_id'] === null ? null : (int) $r['retry_of_run_id'],
+                    'retried_by_run_id' => $r['retried_by'] === null ? null : (int) $r['retried_by'],
+                    'can_rerun' => $r['status'] === 'failed' && (int) $r['has_context'] === 1 && (int) $r['retry_ok'] === 0];
+            }
+            $out['rows'][] = $row;
         }
 
         return $out;

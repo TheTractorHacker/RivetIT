@@ -249,7 +249,7 @@
     var wrap = el('div', 'table-responsive');
     var tbl = el('table', 'table table-sm er-hist-table');
     var thead = el('thead'); var tr = el('tr');
-    ['When', 'Event', 'Status', 'Message', 'Took'].forEach(function (t) { tr.appendChild(el('th', null, t, { scope: 'col' })); });
+    ['When', 'Event', 'Status', 'Message', 'Took', 'Retry'].forEach(function (t) { tr.appendChild(el('th', null, t, { scope: 'col' })); });
     thead.appendChild(tr); tbl.appendChild(thead);
     var tb = el('tbody'); tbl.appendChild(tb); wrap.appendChild(tbl);
     var more = el('button', 'btn btn-outline-secondary mt-2', 'Load more', { type: 'button', hidden: 'hidden' });
@@ -271,9 +271,34 @@
           var row = el('tr');
           var t = el('td', 'text-nowrap'); t.appendChild(el('div', null, r.created_at)); t.appendChild(el('div', 'small text-muted', ago(r.age))); row.appendChild(t);
           row.appendChild(el('td', null, r.event_type));
-          var s = el('td'); s.appendChild(statusBadge(r.status)); row.appendChild(s);
+          var s = el('td'); s.appendChild(statusBadge(r.status));
+          if (r.attempt > 1) {
+            // the job queue's own retries: "try 2 of 3"; the last one is the queue giving up
+            s.appendChild(el('div', 'small text-muted', 'try ' + r.attempt + ' of ' + r.max_attempts + (r.status === 'failed' && r.attempt >= r.max_attempts ? ' (gave up)' : '')));
+          }
+          if (r.source === 'manual') { s.appendChild(el('div', 'small text-muted', 'run again by hand, repeats #' + r.retry_of_run_id)); }
+          row.appendChild(s);
           row.appendChild(el('td', 'er-hist-msg', r.message));
           row.appendChild(el('td', 'text-nowrap', r.duration_ms + ' ms'));
+          var ra = el('td', 'text-nowrap');
+          if (r.status === 'failed') {
+            if (r.retried_by_run_id) { ra.appendChild(el('span', 'small text-muted', 'repeated as #' + r.retried_by_run_id)); }
+            if (r.can_rerun) {
+              var rb = el('button', 'btn btn-sm btn-outline-secondary', 'Run again', { type: 'button' });
+              rb.addEventListener('click', function () {
+                RivetDialog.confirm('Run this rule again with the same event? It will do what the rule does, for real.', { title: 'Run again', okText: 'Run again', variant: 'danger' }).then(function (ok) {
+                  if (!ok) { return; }
+                  rb.disabled = true;
+                  api('rerun', { run_id: r.run_id }, true).then(function (x) {
+                    toast('Run #' + r.run_id + ' repeated: ' + x.status + (x.message ? ' - ' + x.message : ''), x.status === 'ok' ? 'ok' : 'bad');
+                    load(true);
+                  }, function (e) { rb.disabled = false; toast(e.message, 'bad'); });
+                });
+              });
+              ra.appendChild(rb);
+            } else if (!r.retried_by_run_id) { ra.appendChild(el('span', 'small text-muted', 'event not kept')); }
+          }
+          row.appendChild(ra);
           tb.appendChild(row);
         });
         offset += h.rows.length;

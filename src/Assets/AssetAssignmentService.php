@@ -46,6 +46,43 @@ class AssetAssignmentService
             $stmt->bind_param('iii', $assetId, $newContactId, $changedByUserId);
             $stmt->execute();
             $stmt->close();
+            $this->emitAssigned($assetId, $newContactId, $currentContactId, $changedByUserId);
+        }
+    }
+
+    /**
+     * asset.assigned for event rules and webhooks: an asset was handed to a person (first assignment or a change of person). Never throws: a rule or
+     * webhook problem must not break the assignment that caused it. The payload carries ids and names only; the automation engine adds department,
+     * location and asset type for conditions (PayloadEnricher).
+     */
+    private function emitAssigned(int $assetId, int $contactId, ?int $previousContactId, ?int $byUserId): void
+    {
+        try {
+            if (!function_exists('rivetEmitEvent')) {
+                require_once dirname(__DIR__, 2) . '/includes/event_bus.php';
+            }
+            $stmt = $this->mysqli->prepare('SELECT asset_name, asset_type, asset_client_id FROM assets WHERE asset_id = ?');
+            $stmt->bind_param('i', $assetId);
+            $stmt->execute();
+            $a = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$a) {
+                return;
+            }
+            $previous = $GLOBALS['mysqli'] ?? null;
+            $GLOBALS['mysqli'] = $this->mysqli; // the bus works on the global connection
+            try {
+                \rivetEmitEvent('asset.assigned', ['asset_id' => $assetId, 'asset_name' => (string) $a['asset_name'], 'asset_type' => (string) $a['asset_type'], 'client_id' => (int) $a['asset_client_id'],
+                    'contact_id' => $contactId, 'previous_contact_id' => (int) $previousContactId, 'assigned_by_user_id' => (int) $byUserId]);
+            } finally {
+                if ($previous === null) {
+                    unset($GLOBALS['mysqli']);
+                } else {
+                    $GLOBALS['mysqli'] = $previous;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('asset.assigned not emitted: ' . $e->getMessage());
         }
     }
 

@@ -3,7 +3,9 @@
 namespace ITFlow\Workflow;
 
 /**
- * Employee lifecycle events: employee.hired, employee.terminated, employee.role_changed and employee.transferred.
+ * Employee lifecycle events: employee.hired, employee.terminated, employee.role_changed and employee.transferred, plus (issue #33)
+ * employee.created and employee.disabled.
+ * (employee.offboarded is raised by WorkflowService when an offboarding workflow run completes; see offboarded().)
  *
  * Detection is a pure comparison of a person's row before and after a change (detect()), called from every place that changes
  * employment data: the contact edit form, the people import and the Odoo directory sync. Events are recorded as audit events,
@@ -91,6 +93,47 @@ class LifecycleEvents
         return $events;
     }
 
+    /** Employment statuses that mean the person's accounts should be off: employee.disabled is raised when a record moves INTO one of these. */
+    public const DISABLED_STATUSES = ['suspended', 'terminated', 'archived'];
+
+    /**
+     * The events added by the automation engine, next to detect():
+     *   employee.created   a person record was just created (any status);
+     *   employee.disabled  the status moved into suspended / terminated / archived from something else.
+     * @param array<string,mixed>|null $before null for a brand-new person
+     * @return list<string>
+     */
+    public static function detectExtra(?array $before, array $after): array
+    {
+        $events = [];
+        if ($before === null) {
+            $events[] = 'employee.created';
+        }
+        $status = strtolower(trim((string) ($after['contact_employment_status'] ?? '')));
+        $old = $before === null ? null : strtolower(trim((string) ($before['contact_employment_status'] ?? '')));
+        if ($old !== null && in_array($status, self::DISABLED_STATUSES, true) && !in_array($old, self::DISABLED_STATUSES, true)) {
+            $events[] = 'employee.disabled';
+        }
+
+        return $events;
+    }
+
+    /** Raised when an offboarding workflow run completes (all required tasks resolved). Not gated by auto-start: a run only exists because someone (or a rule) started it. */
+    public static function offboarded(\mysqli $mysqli, int $runId, ActionGateway $gateway): void
+    {
+        try {
+            $res = mysqli_query($mysqli, "SELECT r.run_id, r.contact_id, r.status, c.contact_client_id FROM workflow_runs r JOIN contacts c ON c.contact_id = r.contact_id WHERE r.run_id = $runId AND r.type = 'offboarding'");
+            $r = $res ? mysqli_fetch_assoc($res) : null;
+            if (!$r) {
+                return;
+            }
+            $gateway->audit('employee.offboarded', null, 'contact', (int) $r['contact_id'], 'completed', 'An offboarding workflow was completed', [
+                'contact_id' => (int) $r['contact_id'], 'client_id' => (int) $r['contact_client_id'], 'run_id' => (int) $r['run_id'], 'run_status' => (string) $r['status']]);
+        } catch (\Throwable $e) {
+            error_log('employee.offboarded skipped: ' . $e->getMessage());
+        }
+    }
+
     private static function isDate(string $v): bool
     {
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 && $v !== '0000-00-00';
@@ -113,12 +156,24 @@ class LifecycleEvents
                 return [];
             }
             $events = self::detect($before, $after);
+            // employee.created / employee.disabled are only raised when something listens (an enabled event rule or a webhook naming them), so an install
+            // without such a rule sees exactly the events it always did.
+            $extra = self::detectExtra($before, $after);
+            if ($extra) {
+                $heard = \ITFlow\Automation\CronEmitters::listeningTo($mysqli, $extra);
+                $events = array_merge($events, array_values(array_filter($extra, static fn (string $e): bool => !empty($heard[$e]))));
+            }
             if ($events) {
                 $gateway ??= new LiveActionGateway($mysqli);
                 foreach ($events as $event) {
-                    $summary = ['employee.hired' => 'A new employee start was detected', 'employee.terminated' => 'An employee departure was detected',
-                        'employee.role_changed' => 'A job title change was detected', 'employee.transferred' => 'A department transfer was detected'][$event] ?? 'An employee change was detected';
-                    $gateway->audit($event, null, 'contact', $contactId, 'detected', $summary, [
+                    $gateway->audit($event, null, 'contact', $contactId, 'detected', match ($event) {
+                        'employee.hired' => 'A new employee start was detected',
+                        'employee.created' => 'A new person record was created',
+                        'employee.disabled' => 'A person record was suspended, terminated or archived',
+                        'employee.role_changed' => 'A job title change was detected',
+                        'employee.transferred' => 'A department transfer was detected',
+                        default => 'An employee departure was detected',
+                    }, [
                         'contact_id' => $contactId,
                         'client_id' => (int) $after['contact_client_id'],
                         'employment_status' => (string) $after['contact_employment_status'],

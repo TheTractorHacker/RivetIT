@@ -34,7 +34,7 @@ if (!class_exists(RuleEngine::class) || !rivetTableExists($mysqli, 'automation_r
 }
 $a = (string) ($_GET['a'] ?? $_POST['a'] ?? '');
 $is_post = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
-if (in_array($a, ['preview', 'check', 'test', 'run_now', 'toggle', 'duplicate', 'reorder'], true)) {
+if (in_array($a, ['preview', 'check', 'test', 'run_now', 'toggle', 'duplicate', 'reorder', 'rerun'], true)) {
     $token = $_POST['csrf_token'] ?? '';
     if (!$is_post || !is_string($token) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $token)) {
         $fail('Your session token is no longer valid. Reload the page and try again.', 403);
@@ -287,6 +287,16 @@ switch ($a) {
         $h['ok'] = true;
         $h['rule'] = ['id' => $id, 'name' => $rule['name'], 'trigger' => $rule['trigger_event'], 'rate' => (int) ($rule['rate_limit_per_min'] ?? RuleEngine::DEFAULT_RATE)];
         $reply($h);
+
+        // no break
+    case 'rerun':
+        try {
+            $res = $engine->rerun(intval($_POST['run_id'] ?? 0), (int) $session_user_id);
+        } catch (\InvalidArgumentException $e) {
+            $fail($e->getMessage(), 409);
+        }
+        logAction('Automation', 'Edit', "$session_name ran event rule run #" . intval($_POST['run_id'] ?? 0) . ' again: ' . $res['status']);
+        $reply(['ok' => true, 'status' => $res['status'], 'message' => $res['message'], 'run_id' => $res['run_id']]);
 
         // no break
     case 'toggle':

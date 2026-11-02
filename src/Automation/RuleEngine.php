@@ -22,6 +22,10 @@ final class RuleEngine
     public const MAX_DEPTH = 3;
     public const DEFAULT_RATE = 30;
     public const STATUSES = ['ok', 'failed', 'throttled', 'loop_blocked', 'skipped'];
+    /** The job queue tries a rule's action this many times (rivetEmitEvent enqueues with maxAttempts 3) before it gives up. */
+    public const MAX_ATTEMPTS = 3;
+    /** Event contexts bigger than this (JSON bytes) are not kept on a failed run, so such a run cannot be re-run by hand. */
+    public const MAX_STORED_CONTEXT = 60000;
 
     /** @var array{id:string,depth:int,rules:list<int>}|null the chain of the rule currently executing */
     private static ?array $active = null;
@@ -72,6 +76,18 @@ final class RuleEngine
 
     // ---------------------------------------------------------------- matching
 
+    /** Whether any enabled rule listens for this event (so enrichment and matching can be skipped when nobody does). */
+    public function listens(string $event): bool
+    {
+        $stmt = mysqli_prepare($this->mysqli, 'SELECT 1 FROM automation_rules WHERE trigger_event = ? AND is_enabled = 1 LIMIT 1');
+        mysqli_stmt_bind_param($stmt, 's', $event);
+        mysqli_stmt_execute($stmt);
+        $found = mysqli_fetch_row(mysqli_stmt_get_result($stmt)) !== null;
+        mysqli_stmt_close($stmt);
+
+        return $found;
+    }
+
     /** @return list<array<string,mixed>> */
     public function matching(string $event, array $context): array
     {
@@ -97,13 +113,18 @@ final class RuleEngine
 
     // ---------------------------------------------------------------- running
 
-    /** @return array{rule_id:int, ok:bool, status:string, message:string} */
-    public function run(int $ruleId, string $event, array $context): array
+    /**
+     * @param int $attempt which try of the job queue this is (1 = first); $source 'event' (the bus), 'retry' (the queue) or 'manual' (an administrator re-ran it);
+     *                     $retryOf the failed run a manual re-run repeats. A manual re-run is not rate limited (a person asked for it) but keeps the loop guard.
+     * @return array{rule_id:int, ok:bool, status:string, message:string, run_id:int}
+     */
+    public function run(int $ruleId, string $event, array $context, int $attempt = 1, string $source = 'event', ?int $retryOf = null): array
     {
         $rule = $this->find($ruleId);
         if ($rule === null || (int) $rule['is_enabled'] !== 1) {
-            return ['rule_id' => $ruleId, 'ok' => true, 'status' => 'skipped', 'message' => 'rule is gone or disabled; skipped'];
+            return ['rule_id' => $ruleId, 'ok' => true, 'status' => 'skipped', 'message' => 'rule is gone or disabled; skipped', 'run_id' => 0];
         }
+        $meta = $this->runMeta = ['attempt' => max(1, min(127, $attempt)), 'source' => $attempt > 1 && $source === 'event' ? 'retry' : $source, 'retry_of' => $retryOf, 'context' => $context];
         $chain = self::chainOf($context);
         if (in_array($ruleId, $chain['rules'], true)) {
             return $this->finish($rule, $event, $chain, 'loop_blocked', 'blocked: this rule already ran earlier in the same chain of events (it would trigger itself)', 0);
@@ -112,7 +133,7 @@ final class RuleEngine
             return $this->finish($rule, $event, $chain, 'loop_blocked', 'blocked: ' . self::MAX_DEPTH . ' rules already ran in this chain of events', 0);
         }
         $limit = max(1, (int) ($rule['rate_limit_per_min'] ?? self::DEFAULT_RATE));
-        if ($this->recentRuns($ruleId) >= $limit) {
+        if ($source !== 'manual' && $this->recentRuns($ruleId) >= $limit) {
             return $this->finish($rule, $event, $chain, 'throttled', "throttled: more than $limit runs in the last minute", 0);
         }
         $action = ActionRegistry::get((string) $rule['action_type']);
@@ -135,28 +156,46 @@ final class RuleEngine
         } finally {
             self::$active = $previous;
         }
+        $this->runMeta = $meta; // an action may have run other rules in this same object (no job queue): the log row is THIS run's
 
         return $this->finish($rule, $event, $chain, $status, $message, (int) round((microtime(true) - $t0) * 1000));
     }
 
-    /** Writes the run log, and the audit trail row the older "Recent activity" list reads. @return array{rule_id:int, ok:bool, status:string, message:string} */
+    /** Writes the run log, and the audit trail row the older "Recent activity" list reads. @return array{rule_id:int, ok:bool, status:string, message:string, run_id:int} */
     private function finish(array $rule, string $event, array $chain, string $status, string $message, int $ms): array
     {
         $ruleId = (int) $rule['rule_id'];
         $message = mb_substr($message, 0, 500);
         if ($status === 'throttled' && $this->recentThrottleLogged($ruleId)) {
             // one "throttled" row per minute is enough; a flood must not fill the log
-            return ['rule_id' => $ruleId, 'ok' => true, 'status' => $status, 'message' => $message];
+            return ['rule_id' => $ruleId, 'ok' => true, 'status' => $status, 'message' => $message, 'run_id' => 0];
         }
+        $runId = 0;
         try {
             if (rivetTableExistsSafe($this->mysqli, 'automation_rule_runs')) {
                 $actions = json_encode([['action' => $rule['action_type'], 'ok' => $status === 'ok', 'message' => $message]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 $matched = 1;
                 $depth = $chain['depth'];
                 $cid = $chain['id'];
-                $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO automation_rule_runs (rule_id, event_type, matched, status, actions_json, message, duration_ms, chain_id, chain_depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                mysqli_stmt_bind_param($stmt, 'isisssisi', $ruleId, $event, $matched, $status, $actions, $message, $ms, $cid, $depth);
+                if ($this->hasRetryColumns()) {
+                    // a failed run keeps the event it ran with (without the causal chain) so it can be re-run by hand
+                    $ctxJson = null;
+                    if ($status === 'failed') {
+                        $keep = array_filter((array) ($this->runMeta['context'] ?? []), static fn ($k): bool => !str_starts_with((string) $k, '_chain.'), ARRAY_FILTER_USE_KEY);
+                        $enc = json_encode($keep, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+                        $ctxJson = is_string($enc) && strlen($enc) <= self::MAX_STORED_CONTEXT ? $enc : null;
+                    }
+                    $attempt = (int) ($this->runMeta['attempt'] ?? 1);
+                    $source = (string) ($this->runMeta['source'] ?? 'event');
+                    $retryOf = $this->runMeta['retry_of'] ?? null;
+                    $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO automation_rule_runs (rule_id, event_type, matched, status, actions_json, message, duration_ms, chain_id, chain_depth, context_json, attempt, trigger_source, retry_of_run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                    mysqli_stmt_bind_param($stmt, 'isisssisisisi', $ruleId, $event, $matched, $status, $actions, $message, $ms, $cid, $depth, $ctxJson, $attempt, $source, $retryOf);
+                } else {
+                    $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO automation_rule_runs (rule_id, event_type, matched, status, actions_json, message, duration_ms, chain_id, chain_depth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                    mysqli_stmt_bind_param($stmt, 'isisssisi', $ruleId, $event, $matched, $status, $actions, $message, $ms, $cid, $depth);
+                }
                 mysqli_stmt_execute($stmt);
+                $runId = (int) mysqli_insert_id($this->mysqli);
                 mysqli_stmt_close($stmt);
             }
             // Written straight to the audit table (not through the after-log hook) so a rule's own record can never trigger rules again.
@@ -173,7 +212,67 @@ final class RuleEngine
         }
 
         // throttled / loop_blocked are decisions, not failures: they must not be retried by the job queue
-        return ['rule_id' => $ruleId, 'ok' => $status !== 'failed', 'status' => $status, 'message' => $message];
+        return ['rule_id' => $ruleId, 'ok' => $status !== 'failed', 'status' => $status, 'message' => $message, 'run_id' => $runId];
+    }
+
+    /** @var array<string,mixed> attempt / source / retry_of / context of the run in progress (for the run log row) */
+    private array $runMeta = [];
+    private ?bool $retryColumns = null;
+
+    /** Whether automation_rule_runs has the 2.6.220 columns (so code deployed before the update still logs runs). */
+    private function hasRetryColumns(): bool
+    {
+        if ($this->retryColumns === null) {
+            $res = @mysqli_query($this->mysqli, "SHOW COLUMNS FROM automation_rule_runs LIKE 'context_json'");
+            $this->retryColumns = (bool) ($res && mysqli_num_rows($res) > 0);
+        }
+
+        return $this->retryColumns;
+    }
+
+    /**
+     * Runs a FAILED run again by hand (Event rules > History > Run again, or POST /api/v1/automation_rules/runs/{id}/retry). Uses the event the run was
+     * made with, as a new run (source 'manual', retry_of = the failed run). Refused when the run did not fail, kept no event (it was too big, or predates
+     * the update), the rule is gone or off, or a later retry of it already succeeded (so a double click cannot repeat a ticket or an email).
+     * @return array{rule_id:int, ok:bool, status:string, message:string, run_id:int} @throws \InvalidArgumentException with a message safe to show an administrator
+     */
+    public function rerun(int $runId, ?int $byUserId = null): array
+    {
+        if (!$this->hasRetryColumns()) {
+            throw new \InvalidArgumentException('Run the database update first.');
+        }
+        $stmt = mysqli_prepare($this->mysqli, 'SELECT * FROM automation_rule_runs WHERE run_id = ?');
+        mysqli_stmt_bind_param($stmt, 'i', $runId);
+        mysqli_stmt_execute($stmt);
+        $run = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$run) {
+            throw new \InvalidArgumentException('That run no longer exists.');
+        }
+        if ($run['status'] !== 'failed') {
+            throw new \InvalidArgumentException('Only a failed run can be run again.');
+        }
+        $ctx = json_decode((string) ($run['context_json'] ?? ''), true);
+        if (!is_array($ctx)) {
+            throw new \InvalidArgumentException('This run did not keep its event (it is older than the update, or the event was too large), so it cannot be run again. Trigger the event again instead.');
+        }
+        $rule = $this->find((int) $run['rule_id']);
+        if ($rule === null || (int) $rule['is_enabled'] !== 1) {
+            throw new \InvalidArgumentException('The rule is deleted or switched off. Switch it on first.');
+        }
+        $done = mysqli_fetch_row(mysqli_query($this->mysqli, 'SELECT run_id FROM automation_rule_runs WHERE retry_of_run_id = ' . $runId . " AND status = 'ok' LIMIT 1"));
+        if ($done) {
+            throw new \InvalidArgumentException('This run was already repeated successfully (run #' . (int) $done[0] . ').');
+        }
+        $ctx = array_map(static fn ($v): string => is_scalar($v) ? (string) $v : '', $ctx);
+        $result = $this->run((int) $run['rule_id'], (string) $run['event_type'], $ctx, 1, 'manual', $runId);
+        try {
+            $this->gateway->audit('automation.rule_rerun', $byUserId, 'automation_rule', (int) $run['rule_id'], 'rerun', mb_substr("Run #$runId of rule '" . $rule['name'] . "' repeated by hand: " . $result['status'], 0, 480), ['rule_id' => (int) $run['rule_id'], 'run_id' => $runId, 'new_run_id' => $result['run_id']]);
+        } catch (\Throwable $e) {
+            // the audit row is best effort
+        }
+
+        return $result;
     }
 
     private function recentRuns(int $ruleId): int

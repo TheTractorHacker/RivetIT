@@ -137,6 +137,16 @@ final class RuleForm
                 return ['to_type' => $s('cfg_mail_to'), 'address' => $s('cfg_mail_address'), 'user_id' => intval($s('cfg_mail_user')), 'subject' => $s('cfg_mail_subject'), 'body' => $s('cfg_mail_body')];
             case 'create_task':
                 return ['name' => $s('cfg_task_name'), 'assignee_id' => intval($s('cfg_task_assignee')), 'due_days' => intval($s('cfg_task_due_days'))];
+            case 'run_script':
+                return ['script_id' => intval($s('cfg_rs_script')), 'run_as_user_id' => intval($s('cfg_rs_user')), 'params' => $s('cfg_rs_params'), 'timeout_s' => intval($s('cfg_rs_timeout'))];
+            case 'create_odoo_user':
+                return ['groups' => $s('cfg_odoo_groups')];
+            case 'notify_chat':
+                return ['destination' => $s('cfg_chat_dest'), 'message' => $s('cfg_chat_message')];
+            case 'entra_disable_account':
+                return ['revoke_sessions' => $s('cfg_entra_revoke', '1') === '1' ? 1 : 0];
+            case 'entra_add_to_groups':
+                return ['groups' => $s('cfg_entra_groups')];
         }
 
         return [];
@@ -165,9 +175,30 @@ final class RuleForm
                 return ['cfg_mail_to' => $cfg['to_type'] ?? 'assignee', 'cfg_mail_address' => $cfg['address'] ?? '', 'cfg_mail_user' => (int) ($cfg['user_id'] ?? 0), 'cfg_mail_subject' => $cfg['subject'] ?? '', 'cfg_mail_body' => $cfg['body'] ?? ''];
             case 'create_task':
                 return ['cfg_task_name' => $cfg['name'] ?? '', 'cfg_task_assignee' => (int) ($cfg['assignee_id'] ?? 0), 'cfg_task_due_days' => (int) ($cfg['due_days'] ?? 0)];
+            case 'run_script':
+                $lines = [];
+                foreach ((array) ($cfg['params'] ?? []) as $k => $v) {
+                    $lines[] = $k . '=' . $v;
+                }
+
+                return ['cfg_rs_script' => (int) ($cfg['script_id'] ?? 0), 'cfg_rs_user' => (int) ($cfg['run_as_user_id'] ?? 0), 'cfg_rs_params' => implode("\n", $lines), 'cfg_rs_timeout' => (int) ($cfg['timeout_s'] ?? 0)];
+            case 'create_odoo_user':
+                return ['cfg_odoo_groups' => implode("\n", (array) ($cfg['groups'] ?? []))];
+            case 'notify_chat':
+                return ['cfg_chat_dest' => $cfg['destination'] ?? '', 'cfg_chat_message' => $cfg['message'] ?? ''];
+            case 'entra_disable_account':
+                return ['cfg_entra_revoke' => !array_key_exists('revoke_sessions', $cfg) || !empty($cfg['revoke_sessions']) ? '1' : '0'];
+            case 'entra_add_to_groups':
+                return ['cfg_entra_groups' => (string) ($cfg['groups'] ?? '')];
         }
 
         return [];
+    }
+
+    /** A stored action config back to the input its validate() accepts (used by the API when a PATCH keeps the action). @param array<string,mixed> $cfg @return array<string,mixed> */
+    public static function storedToInput(string $action, array $cfg): array
+    {
+        return self::actionInput($action, self::configToForm($action, $cfg));
     }
 
     /**

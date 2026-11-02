@@ -36,6 +36,18 @@ final class RuleSummary
         'employee.terminated' => 'an employee is terminated',
         'employee.role_changed' => "an employee's job title changes",
         'employee.transferred' => 'an employee moves to another department',
+        'employee.created' => 'a person record is created',
+        'employee.disabled' => 'a person is suspended, terminated or archived',
+        'employee.offboarded' => 'an employee is offboarded (the offboarding workflow completes)',
+        'asset.assigned' => 'an asset is assigned to a person',
+        'asset.offline' => 'an asset goes offline',
+        'asset.online' => 'an asset comes back online',
+        'certificate.expiring' => 'a certificate is about to expire',
+        'credential.rotation_due' => 'a credential is due for rotation',
+        'schedule.hourly' => 'every hour',
+        'schedule.daily' => 'every day',
+        'schedule.weekly' => 'every week',
+        'schedule.monthly' => 'every month',
         'workflow.action_failed' => 'a workflow action fails',
         'workflow.completed' => 'a workflow is completed',
         'catalog.request_approved' => 'a catalog request is approved',
@@ -70,7 +82,7 @@ final class RuleSummary
     public static function describe(array $rule, array $lookups = []): string
     {
         $event = trim((string) ($rule['trigger_event'] ?? ''));
-        $out = 'When ' . ($event === '' ? '(choose an event)' : self::triggerPhrase($event, $lookups));
+        $out = ($event !== '' && str_starts_with($event, 'schedule.') ? 'Every ' : 'When ') . ($event === '' ? '(choose an event)' : (str_starts_with($event, 'schedule.') ? substr(self::triggerPhrase($event, $lookups), 6) : self::triggerPhrase($event, $lookups)));
         $model = ConditionEvaluator::normalize($rule['condition'] ?? $rule['condition_json'] ?? null);
         if ($model === null) {
             $out .= ', and the conditions are not valid (the rule never fires)';
@@ -262,6 +274,20 @@ final class RuleSummary
                 $due = (int) ($cfg['due_days'] ?? 0);
 
                 return 'add the task "' . self::clip((string) ($cfg['name'] ?? ''), 50) . '" to the ticket' . ((int) ($cfg['assignee_id'] ?? 0) > 0 ? ' for ' . $agent($cfg['assignee_id']) : '') . ($due > 0 ? " (due in $due day" . ($due === 1 ? '' : 's') . ')' : '');
+            case 'run_script':
+                $n = count((array) ($cfg['params'] ?? []));
+
+                return 'run RMM library script #' . (int) ($cfg['script_id'] ?? 0) . ' on the device as ' . $agent($cfg['run_as_user_id'] ?? 0) . ($n ? " with $n fixed parameter" . ($n === 1 ? '' : 's') : '');
+            case 'create_odoo_user':
+                return 'create an Odoo user for the person';
+            case 'notify_chat':
+                return 'send a chat message to "' . ($cfg['destination'] ?? '') . '"' . (($m = trim((string) ($cfg['message'] ?? ''))) !== '' ? ': "' . self::clip($m, 50) . '"' : '');
+            case 'entra_disable_account':
+                return "disable the person's Entra account" . (!array_key_exists('revoke_sessions', $cfg) || !empty($cfg['revoke_sessions']) ? ' and revoke their sessions' : '');
+            case 'entra_add_to_groups':
+                $g = preg_split('/\R/', (string) ($cfg['groups'] ?? ''), -1, PREG_SPLIT_NO_EMPTY);
+
+                return 'add the person to ' . count($g) . ' Entra group' . (count($g) === 1 ? '' : 's');
         }
 
         return $type === '' ? '(choose what to do)' : 'run "' . $type . '"';
