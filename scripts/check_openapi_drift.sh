@@ -54,6 +54,8 @@ sed -E 's#^/([^/]+).*#\1#' "$tmp/openapi_paths" | sort -u > "$tmp/openapi_res"
 {
   grep -oE "case '[^']+':"        "$INDEX" | sed -E "s/case '([^']+)':/\1/"
   grep -oE "resource === '[^']+'" "$INDEX" | sed -E "s/.*'([^']+)'/\1/"
+  # resources routed through `in_array($resource, ['a', 'b'], true)` (employee portal endpoints)
+  grep -F 'in_array($resource, [' "$INDEX" | grep -F portal_auth | grep -oE "'[a-z_-]+'" | tr -d "'"
 } | sort -u > "$tmp/router_res_all"
 # Filtered set used for check B (drop known aliases / sub-only routes).
 cp "$tmp/router_res_all" "$tmp/router_res_filtered"
