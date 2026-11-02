@@ -501,6 +501,16 @@ $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 
                 </li>
                 <?php } ?>
 
+                <?php
+                // Notifications (the employee's own feed). A real portal contact only; the badge counts unread items.
+                if (intval($session_contact_id) > 0) {
+                    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/PortalFeed.php';
+                    $portal_feed_unread = (new \ITFlow\Portal\PortalFeed($mysqli))->unreadCount(intval($session_contact_id), intval($session_client_id)); ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php if ($portal_nav_page == "notifications.php") {echo "active";} ?>" href="/client/notifications.php">Notifications<?php if ($portal_feed_unread > 0) { ?> <span class="badge text-bg-danger" aria-label="<?= intval($portal_feed_unread) ?> unread"><?= intval($portal_feed_unread) ?></span><?php } ?></a>
+                </li>
+                <?php } ?>
+
                 <?php if ($config_module_enable_kb == 1) { ?>
                     <li class="nav-item">
                         <a class="nav-link <?php if (basename($_SERVER['PHP_SELF']) == "kb_articles.php" || basename($_SERVER['PHP_SELF']) == "kb_article.php") {echo "active";} ?>" href="/client/kb_articles.php">Knowledge Base</a>

@@ -214,6 +214,14 @@ $portal_training_on = intval($config_module_enable_training ?? 0) === 1 && !empt
 // No billing queries or tiles: this edition has no billing/invoicing/quoting (page files stay on disk for the MSP fork).
 ?>
 
+<?php
+// Employees get one calm home page (announcements, what do you need, my requests, my devices, help articles): the stat tiles only
+// repeat what those cards already say, so they are shown to department administrators only.
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+$portal_eh_sections = \ITFlow\Portal\EmployeeHome::parseSections($config_portal_home_sections ?? null);
+$portal_employee_view = !$portal_is_tech && count($portal_eh_sections) > 0;
+?>
+<?php if (!$portal_employee_view) { ?>
 <!-- Stat cards -->
 <div class="portal-stats portal-stagger">
 
@@ -249,14 +257,12 @@ $portal_training_on = intval($config_module_enable_training ?? 0) === 1 && !empt
     <?php } ?>
 
 </div>
+<?php } ?>
 
 <?php
 // Employee view: contacts who are not department administrators get the employee home (own requests, devices, approvals,
 // checklist, training, request search) in place of the department-oriented cards below; administrators keep the original
 // page and get the extra sections underneath it. Sections an administrator switched off (Settings > Portal) are skipped.
-require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
-$portal_eh_sections = \ITFlow\Portal\EmployeeHome::parseSections($config_portal_home_sections ?? null);
-$portal_employee_view = !$portal_is_tech && count($portal_eh_sections) > 0;
 if ($portal_employee_view) {
     $eh_skip = [];
     require __DIR__ . '/includes/employee_home.php';

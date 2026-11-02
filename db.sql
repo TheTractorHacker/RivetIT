@@ -5030,7 +5030,7 @@ CREATE TABLE `settings` (
   `config_avg_resolution_exclude_projects` tinyint(1) NOT NULL DEFAULT 1,
   `config_dashboard_avg_resolution_enable` tinyint(1) NOT NULL DEFAULT 1,
   `config_module_enable_intune` tinyint(1) NOT NULL DEFAULT 0,
-  `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog',
+  `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog,announcements,kb',
   `config_portal_onboarding_requests` tinyint(1) NOT NULL DEFAULT 0,
   `config_portal_onboarding_template_id` int(11) NOT NULL DEFAULT 0,
   `config_entra_allow_writes` tinyint(1) NOT NULL DEFAULT 0,
@@ -11424,4 +11424,54 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_files` (
   UNIQUE KEY `uniq_version_name` (`version`,`name`),
   UNIQUE KEY `uniq_storage` (`storage_name`),
   KEY `idx_current` (`name`,`is_current`,`active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Employee portal (issue #32): announcements, DB 2.6.221
+CREATE TABLE IF NOT EXISTS `portal_announcements` (
+  `announcement_id` int(11) NOT NULL AUTO_INCREMENT,
+  `announcement_title` varchar(200) NOT NULL,
+  `announcement_body` text NOT NULL,
+  `announcement_severity` varchar(10) NOT NULL DEFAULT 'info',
+  `announcement_client_id` int(11) NOT NULL DEFAULT 0,
+  `announcement_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `announcement_publish_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `announcement_expires_at` datetime DEFAULT NULL,
+  `announcement_created_by` int(11) NOT NULL DEFAULT 0,
+  `announcement_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `announcement_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `announcement_archived_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`announcement_id`),
+  KEY `idx_announcement_scope` (`announcement_client_id`,`announcement_archived_at`,`announcement_publish_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Employee portal: knowledge base views (Popular), DB 2.6.222
+CREATE TABLE IF NOT EXISTS `kb_article_views` (
+  `view_id` int(11) NOT NULL AUTO_INCREMENT,
+  `view_article_id` int(11) NOT NULL,
+  `view_contact_id` int(11) NOT NULL DEFAULT 0,
+  `view_client_id` int(11) NOT NULL DEFAULT 0,
+  `view_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`view_id`),
+  KEY `idx_kb_view_article_at` (`view_article_id`,`view_at`),
+  KEY `idx_kb_view_contact_at` (`view_contact_id`,`view_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Employee portal: employee API tokens and notification feed read marker, DB 2.6.223
+CREATE TABLE IF NOT EXISTS `portal_api_tokens` (
+  `token_id` int(11) NOT NULL AUTO_INCREMENT,
+  `token_hash` char(64) NOT NULL,
+  `token_user_id` int(11) NOT NULL,
+  `token_contact_id` int(11) NOT NULL,
+  `token_name` varchar(100) NOT NULL DEFAULT '',
+  `token_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `token_last_used_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`token_id`),
+  UNIQUE KEY `uniq_portal_token_hash` (`token_hash`),
+  KEY `idx_portal_token_user` (`token_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `portal_feed_state` (
+  `feed_contact_id` int(11) NOT NULL,
+  `feed_seen_at` datetime NOT NULL,
+  PRIMARY KEY (`feed_contact_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

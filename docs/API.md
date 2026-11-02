@@ -556,6 +556,22 @@ Integration-client token with scope `directory:read` only; not available to user
 |---|---|---|
 | POST | `/crash-reports` | Report a mobile app crash (logged to App Logs under `mobile_crash`). Public — see [Authentication](#authentication). |
 
+### Employee portal (mobile view of the department portal)
+
+Separate sign-in for department-portal logins (employees). The token comes from `POST /portal_auth`, is stored hashed in `portal_api_tokens`, and works
+only on the endpoints below; staff tokens do not work here and employee tokens do not work anywhere else. Every response is scoped to the token's own
+contact and department. All are read-only except marking the feed read. **UNVERIFIED LIVE**: covered by `tests/employee_portal_i32.php` on a scratch install only.
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/portal_auth` | `{username, password, totp_code?, device_name?}` returns `{token, contact}`, or `{requires_2fa:true}`. Local-password logins only; 5 failures lock for 5 minutes |
+| DELETE | `/portal_auth` | Sign this device out |
+| GET | `/portal_home` | Announcements, open requests, devices, approvals waiting, checklist, popular/recent help articles, unread count |
+| GET | `/portal_devices`, `/portal_devices/{id}` | My devices (OS, warranty, last seen, restart pending); another person's device is 404 |
+| GET | `/portal_checklist` | My onboarding/offboarding checklist (null when none) |
+| GET | `/portal_announcements` | Published announcements for all departments or mine |
+| GET / POST | `/portal_notifications` | My feed; `POST {"action":"mark_read"}` |
+
 ### Public
 
 | Method | Path | Description |

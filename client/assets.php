@@ -43,6 +43,49 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
         <?php } ?>
     </div>
 
+<?php
+if ($assets_scope === 'mine') {
+    // One card per device with the facts an employee asks about (OS, last seen, warranty). Read-only; no credentials, IPs or notes.
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+    $my_devices = (new \ITFlow\Portal\EmployeeHome($mysqli))->myDeviceDetails(intval($session_contact_id), intval($session_client_id));
+    ?>
+    <div class="row g-3" id="my-devices">
+        <?php if (!$my_devices) { ?>
+            <div class="col-12"><div class="card portal-card"><div class="card-body"><div class="portal-empty"><i class="fas fa-laptop" aria-hidden="true"></i>No devices are assigned to you.</div></div></div></div>
+        <?php }
+        foreach ($my_devices as $d) {
+            [$seen_class, $seen_text] = \ITFlow\Portal\EmployeeHome::seenLabel($d);
+            [$war_class, $war_text] = \ITFlow\Portal\EmployeeHome::warrantyLabel($d); ?>
+            <div class="col-lg-6 col-md-12">
+                <div class="card portal-card h-100 portal-device" data-asset-id="<?= intval($d['id']) ?>">
+                    <div class="card-header d-flex align-items-center justify-content-between gap-2">
+                        <h4 class="card-title mb-0"><span class="portal-card-chip"><i class="fas fa-desktop" aria-hidden="true"></i></span><?= nullable_htmlentities($d['name']) ?></h4>
+                        <a class="btn btn-sm btn-outline-secondary text-nowrap" href="ticket_add.php?asset_id=<?= intval($d['id']) ?>"><i class="fas fa-fw fa-life-ring me-1" aria-hidden="true"></i>Report a problem</a>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($d['description'] !== '') { ?><p class="text-secondary mb-2"><?= nullable_htmlentities($d['description']) ?></p><?php } ?>
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 text-secondary fw-normal">Type</dt><dd class="col-7"><?= nullable_htmlentities($d['type']) ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Make and model</dt><dd class="col-7"><?= nullable_htmlentities(trim($d['make'] . ' ' . $d['model'])) ?: '-' ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Serial number</dt><dd class="col-7"><?= nullable_htmlentities($d['serial']) ?: '-' ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Operating system</dt><dd class="col-7"><?= $d['os'] !== null ? nullable_htmlentities($d['os']) : '-' ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Status</dt><dd class="col-7"><?= nullable_htmlentities($d['status']) ?: '-' ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Last seen</dt><dd class="col-7"><span class="text-<?= $seen_class ?>"><?= nullable_htmlentities($seen_text) ?></span><?php if ($d['reboot_pending']) { ?> <span class="badge text-bg-warning">Restart needed</span><?php } ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">Warranty</dt><dd class="col-7"><span class="badge text-bg-<?= $war_class ?>"><?= nullable_htmlentities($war_text) ?></span></dd>
+                            <dt class="col-5 text-secondary fw-normal">Purchased</dt><dd class="col-7"><?= $d['purchase_date'] ? nullable_htmlentities($d['purchase_date']) : '-' ?></dd>
+                            <dt class="col-5 text-secondary fw-normal">In service since</dt><dd class="col-7"><?= $d['install_date'] ? nullable_htmlentities($d['install_date']) : '-' ?></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        <?php } ?>
+    </div>
+<?php
+    require_once "includes/footer.php";
+    exit;
+}
+?>
+
     <div class="row">
 
         <div class="col-md-12">

@@ -649,6 +649,20 @@ if (isset($_POST['edit_my_contact_details'])) {
 
 }
 
+// Mark my notification feed as read. Keyed on the session contact only; sticky items (an approval waiting on you) stay unread.
+if (isset($_POST['mark_feed_read'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    if ($session_contact_id > 0) {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/PortalFeed.php';
+        (new \ITFlow\Portal\PortalFeed($mysqli))->markRead(intval($session_contact_id));
+    }
+
+    redirect('notifications.php');
+
+}
+
 // HR-initiated onboarding: a manager (or department administrator) asks for a new hire to be set up. Off unless
 // config_portal_onboarding_requests = 1. Everything is decided here, not on the form: who may ask (EmployeeHome::canRequestOnboarding),
 // which department (always the requester's own), which managers are acceptable, and whether it has already been done.

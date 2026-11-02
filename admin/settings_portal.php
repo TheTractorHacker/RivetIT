@@ -11,8 +11,9 @@ $portal_templates = $portal_ready ? $eh->onboardingTemplates() : [];
 ?>
 
 <div class="card">
-    <div class="card-header py-3">
+    <div class="card-header py-3 d-flex align-items-center">
         <h3 class="card-title"><i class="fas fa-fw fa-user-circle me-2"></i>Employee portal</h3>
+        <a href="portal_announcements.php" class="btn btn-sm btn-outline-secondary ms-auto"><i class="fas fa-bullhorn me-1"></i>Announcements</a>
     </div>
     <div class="card-body">
         <?php if (!$portal_ready) { ?>

@@ -24,6 +24,8 @@ class EmployeeHome
         'onboarding' => 'My onboarding / offboarding checklist',
         'training'   => 'My training due',
         'catalog'    => 'Request something (search, popular, recent)',
+        'announcements' => 'Announcements',
+        'kb'         => 'Help articles (popular and recently updated)',
     ];
 
     public function __construct(private \mysqli $db)
@@ -276,6 +278,179 @@ class EmployeeHome
 
         return ['status' => $existing ? 'existing' : 'created', 'contact_id' => $contactId, 'run_id' => $runId, 'needs_ticket' => $needsTicket,
             'message' => $existing ? 'Onboarding was already requested for this person.' : 'Onboarding requested.'];
+    }
+
+    /**
+     * Devices assigned to this contact with the facts an employee cares about: OS, status, warranty (and how long is left), install date and
+     * when the device was last seen (the built-in endpoint agent's last check-in or the RMM link's last sync, whichever is newer). No
+     * credentials, IPs, notes, logged-in user or inventory dump.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function myDeviceDetails(int $contactId, int $clientId): array
+    {
+        if ($contactId <= 0 || $clientId <= 0) {
+            return [];
+        }
+        $rows = $this->rows("SELECT a.asset_id, a.asset_name, a.asset_description, a.asset_type, a.asset_make, a.asset_model, a.asset_serial, a.asset_os,
+                a.asset_status, a.asset_purchase_date, a.asset_warranty_expire, a.asset_install_date, a.asset_uri_client, NOW() AS db_now,
+                (SELECT MAX(d.last_checkin_at) FROM endpoint_agent_devices d WHERE d.asset_id = a.asset_id AND d.revoked_at IS NULL AND d.retired_at IS NULL) AS agent_seen,
+                (SELECT d.pending_reboot FROM endpoint_agent_devices d WHERE d.asset_id = a.asset_id AND d.revoked_at IS NULL AND d.retired_at IS NULL ORDER BY d.last_checkin_at DESC LIMIT 1) AS agent_reboot,
+                (SELECT MAX(l.last_seen) FROM asset_rmm_links l WHERE l.asset_id = a.asset_id) AS rmm_seen,
+                (SELECT l.os_name FROM asset_rmm_links l WHERE l.asset_id = a.asset_id AND l.os_name IS NOT NULL AND l.os_name <> '' ORDER BY l.last_seen DESC LIMIT 1) AS rmm_os
+            FROM assets a WHERE a.asset_contact_id = $contactId AND a.asset_client_id = $clientId AND a.asset_archived_at IS NULL
+            ORDER BY a.asset_name ASC");
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = self::deviceFacts($r);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Turns a raw device row into the display/API shape. Pure (takes "now" so a test can pin it).
+     *
+     * @param array<string,mixed> $r
+     * @return array<string,mixed>
+     */
+    public static function deviceFacts(array $r, ?int $now = null): array
+    {
+        // "Now" is the database clock when the row carries it (db_now), so PHP and database time zones can never disagree.
+        $now ??= isset($r['db_now']) && strtotime((string) $r['db_now']) !== false ? strtotime((string) $r['db_now']) : time();
+        $seenCandidates = array_filter([(string) ($r['agent_seen'] ?? ''), (string) ($r['rmm_seen'] ?? '')], static fn($v) => $v !== '' && strtotime($v) !== false);
+        $lastSeen = $seenCandidates ? max($seenCandidates) : null;
+        $seenAge = $lastSeen !== null ? max(0, $now - strtotime($lastSeen)) : null;
+        $seenState = $seenAge === null ? 'unknown' : ($seenAge <= 900 ? 'online' : ($seenAge <= 3 * 86400 ? 'recent' : 'stale'));
+
+        $warranty = (string) ($r['asset_warranty_expire'] ?? '');
+        $warrantyDays = null;
+        $warrantyState = 'unknown';
+        if ($warranty !== '' && strtotime($warranty) !== false) {
+            $warrantyDays = (int) floor((strtotime($warranty . ' 23:59:59') - $now) / 86400);
+            $warrantyState = $warrantyDays < 0 ? 'expired' : ($warrantyDays <= 60 ? 'expiring' : 'ok');
+        }
+        $os = trim((string) ($r['asset_os'] ?? ''));
+        if ($os === '') {
+            $os = trim((string) ($r['rmm_os'] ?? ''));
+        }
+
+        return [
+            'id' => (int) $r['asset_id'],
+            'name' => (string) $r['asset_name'],
+            'description' => (string) ($r['asset_description'] ?? ''),
+            'type' => (string) ($r['asset_type'] ?? ''),
+            'make' => (string) ($r['asset_make'] ?? ''),
+            'model' => (string) ($r['asset_model'] ?? ''),
+            'serial' => (string) ($r['asset_serial'] ?? ''),
+            'os' => $os !== '' ? $os : null,
+            'status' => (string) ($r['asset_status'] ?? ''),
+            'purchase_date' => ($r['asset_purchase_date'] ?? null) ?: null,
+            'install_date' => ($r['asset_install_date'] ?? null) ?: null,
+            'warranty_expires' => $warranty !== '' ? $warranty : null,
+            'warranty_days_left' => $warrantyDays,
+            'warranty_state' => $warrantyState,
+            'last_seen' => $lastSeen,
+            'seen_state' => $seenState,
+            'seen_age_s' => $seenAge,
+            'reboot_pending' => isset($r['agent_reboot']) && $r['agent_reboot'] !== null ? ((int) $r['agent_reboot'] === 1) : null,
+        ];
+    }
+
+    /** Short "last seen" wording for a deviceFacts() row: [bootstrap text colour, text]. @param array<string,mixed> $d @return array{0:string,1:string} */
+    public static function seenLabel(array $d, ?int $now = null): array
+    {
+        if (empty($d['last_seen']) || ($d['seen_state'] ?? 'unknown') === 'unknown') {
+            return ['secondary', 'Not reporting'];
+        }
+        $age = isset($d['seen_age_s']) ? (int) $d['seen_age_s'] : max(0, ($now ?? time()) - strtotime((string) $d['last_seen']));
+        if ($d['seen_state'] === 'online') {
+            return ['success', 'Online now'];
+        }
+        if ($age < 86400) {
+            return ['success', 'Seen today'];
+        }
+        $days = (int) floor($age / 86400);
+
+        return [$d['seen_state'] === 'stale' ? 'warning' : 'secondary', 'Last seen ' . $days . ' day' . ($days === 1 ? '' : 's') . ' ago'];
+    }
+
+    /** Warranty wording for a deviceFacts() row: [bootstrap colour, text]. @param array<string,mixed> $d @return array{0:string,1:string} */
+    public static function warrantyLabel(array $d): array
+    {
+        return match ($d['warranty_state'] ?? 'unknown') {
+            'expired' => ['danger', 'Warranty ended ' . $d['warranty_expires']],
+            'expiring' => ['warning', 'Warranty ends in ' . (int) $d['warranty_days_left'] . ' day' . ((int) $d['warranty_days_left'] === 1 ? '' : 's')],
+            'ok' => ['success', 'In warranty until ' . $d['warranty_expires']],
+            default => ['secondary', 'No warranty date'],
+        };
+    }
+
+    /** Help articles this department's employees may read (client visible, company-wide or their own department, not archived). */
+    private function kbVisible(int $clientId): string
+    {
+        return "a.kb_article_client_visible = 1 AND a.kb_article_archived_at IS NULL AND a.kb_article_client_id IN (0, " . max(0, $clientId) . ")";
+    }
+
+    /** Most read articles in the last $days days. @return list<array<string,mixed>> */
+    public function popularArticles(int $clientId, int $limit = 5, int $days = 30): array
+    {
+        if ($clientId <= 0) {
+            return [];
+        }
+        $limit = max(1, min(25, $limit));
+        $days = max(1, min(365, $days));
+
+        try {
+            return $this->rows("SELECT a.kb_article_id, a.kb_article_title, COUNT(v.view_id) AS read_count
+            FROM kb_article_views v JOIN kb_articles a ON a.kb_article_id = v.view_article_id
+            WHERE v.view_at >= NOW() - INTERVAL $days DAY AND " . $this->kbVisible($clientId) . "
+            GROUP BY a.kb_article_id, a.kb_article_title ORDER BY read_count DESC, MAX(v.view_at) DESC, a.kb_article_id DESC LIMIT $limit");
+        } catch (\Throwable $e) {
+            return []; // kb_article_views not migrated yet (DB 2.6.222)
+        }
+    }
+
+    /** Newest and recently updated articles. @return list<array<string,mixed>> */
+    public function recentArticles(int $clientId, int $limit = 5): array
+    {
+        if ($clientId <= 0) {
+            return [];
+        }
+        $limit = max(1, min(25, $limit));
+
+        return $this->rows("SELECT a.kb_article_id, a.kb_article_title, COALESCE(a.kb_article_updated_at, a.kb_article_created_at) AS changed_at
+            FROM kb_articles a WHERE " . $this->kbVisible($clientId) . "
+            ORDER BY changed_at DESC, a.kb_article_id DESC LIMIT $limit");
+    }
+
+    /**
+     * Counts one read of a help article (only when the article is visible to the reader). The same contact reading the same article again
+     * inside an hour is not counted twice. Old rows are pruned now and then so the table stays small.
+     */
+    public function recordKbView(int $articleId, int $contactId, int $clientId): bool
+    {
+        if ($articleId <= 0 || $contactId <= 0 || $clientId <= 0) {
+            return false;
+        }
+        $visible = $this->rows("SELECT a.kb_article_id FROM kb_articles a WHERE a.kb_article_id = $articleId AND " . $this->kbVisible($clientId) . " LIMIT 1");
+        if (!$visible) {
+            return false;
+        }
+        try {
+            $dup = $this->rows("SELECT view_id FROM kb_article_views WHERE view_article_id = $articleId AND view_contact_id = $contactId AND view_at >= NOW() - INTERVAL 1 HOUR LIMIT 1");
+            if ($dup) {
+                return false;
+            }
+            $this->db->query("INSERT INTO kb_article_views SET view_article_id = $articleId, view_contact_id = $contactId, view_client_id = $clientId");
+            if (random_int(1, 50) === 1) {
+                $this->db->query("DELETE FROM kb_article_views WHERE view_at < NOW() - INTERVAL 180 DAY LIMIT 1000");
+            }
+        } catch (\Throwable $e) {
+            return false; // kb_article_views not migrated yet (DB 2.6.222)
+        }
+
+        return true;
     }
 
     /** @return list<array<string,mixed>> */
