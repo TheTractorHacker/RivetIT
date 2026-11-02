@@ -54,6 +54,8 @@ if (isset($_POST['approve_people_import'])) {
 
     $service = new PersonImportService($mysqli);
     $summary = $service->commit($approvedRows, $session_user_id);
+    $createdIds = $summary['created_ids'] ?? [];
+    unset($summary['created_ids']); // not part of the stored/audited summary
 
     $resultsJson = mysqli_real_escape_string($mysqli, json_encode($summary));
     $filenameSql = mysqli_real_escape_string($mysqli, $preview['filename']);
@@ -82,7 +84,16 @@ if (isset($_POST['approve_people_import'])) {
 
     unset($_SESSION['people_import_preview']);
 
-    flash_alert("Import complete: {$summary['created']} created, {$summary['updated']} updated, $skippedCount skipped");
+    // Optional: start one workflow template for everyone this import created (bulk onboarding). Same checks as the Start button.
+    $bulkNote = '';
+    $bulkTemplateId = intval($_POST['bulk_workflow_template_id'] ?? 0);
+    if ($bulkTemplateId > 0 && $createdIds) {
+        $bulk = (new \ITFlow\Workflow\BulkOnboarding($mysqli))->commit($bulkTemplateId, array_map(static fn ($id) => ['contact_id' => $id, 'status' => 'ready', 'answers' => []], $createdIds), (int) $session_user_id);
+        $bulkNote = " Workflow: {$bulk['started']} started, {$bulk['skipped']} skipped, {$bulk['failed']} problem(s)" . ($bulk['messages'] ? ' (' . nullable_htmlentities(implode('; ', array_slice($bulk['messages'], 0, 3))) . ')' : '') . '.';
+        \ITFlow\Audit\AuditService::record('workflow.bulk_started', $session_user_id, 'workflow_template', $bulkTemplateId, 'started', "$session_name started a workflow for {$bulk['started']} people created by a people import", ['run_ids' => $bulk['run_ids']]);
+    }
+
+    flash_alert("Import complete: {$summary['created']} created, {$summary['updated']} updated, $skippedCount skipped." . $bulkNote);
 
     redirect('people_import.php');
 }

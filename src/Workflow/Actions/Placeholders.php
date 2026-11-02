@@ -15,8 +15,10 @@ final class Placeholders
 
     public static function render(string $template, array $vars, string $mode = 'text'): string
     {
-        return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/', static function (array $m) use ($vars, $mode): string {
-            if (!in_array($m[1], self::NAMES, true)) {
+        return preg_replace_callback('/\{\{\s*([a-z_]+|var\.[a-z][a-z0-9_]{0,29})\s*\}\}/', static function (array $m) use ($vars, $mode): string {
+            // {{var.laptop}} is an answer given on the onboarding form; it renders only when this run has that answer.
+            $known = in_array($m[1], self::NAMES, true) || (self::isVariable($m[1]) && array_key_exists($m[1], $vars));
+            if (!$known) {
                 return $m[0]; // an unknown name stays visible instead of silently vanishing
             }
             $value = (string) ($vars[$m[1]] ?? '');
@@ -31,8 +33,14 @@ final class Placeholders
     /** Names used in $template that are not known placeholders (for validation). @return string[] */
     public static function unknown(string $template): array
     {
-        preg_match_all('/\{\{\s*([a-zA-Z_]+)\s*\}\}/', $template, $m);
+        preg_match_all('/\{\{\s*([a-zA-Z_]+|var\.[a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/', $template, $m);
 
-        return array_values(array_unique(array_filter($m[1], static fn ($n) => !in_array($n, self::NAMES, true))));
+        return array_values(array_unique(array_filter($m[1], static fn ($n) => !in_array($n, self::NAMES, true) && !self::isVariable($n))));
+    }
+
+    /** {{var.name}}: an onboarding-form answer. Whether the template defines it is checked when the run starts. */
+    public static function isVariable(string $name): bool
+    {
+        return preg_match('/^var\.[a-z][a-z0-9_]{0,29}$/', $name) === 1;
     }
 }

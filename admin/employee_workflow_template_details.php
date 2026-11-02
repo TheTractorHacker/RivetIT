@@ -27,7 +27,8 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
 <div class="card mb-3">
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title me-auto"><i class="fas fa-fw fa-tasks me-2"></i><?= nullable_htmlentities($template['name']) ?>
-            <span class="badge <?= $template['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?> ms-2"><?= ucfirst($template['type']) ?></span>
+            <span class="badge <?= ['onboarding' => 'text-bg-success', 'offboarding' => 'text-bg-danger'][$template['type']] ?? 'text-bg-info' ?> ms-2"><?= ucwords(str_replace('_', ' ', $template['type'])) ?></span>
+            <?php if (!$template['is_active']) { ?><span class="badge text-bg-secondary">inactive</span><?php } ?>
         </h3>
         <div class="dropdown dropleft text-center me-2">
             <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
@@ -51,6 +52,34 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
     <?php } ?>
 </div>
 
+<?php $tmpl_defs = \ITFlow\Workflow\TemplateVariables::definitions($template['variables_json'] ?? null); if ($tmpl_defs) { ?>
+<div class="card mb-3">
+    <div class="card-body py-2 small">
+        <strong>Onboarding form:</strong>
+        <?php foreach ($tmpl_defs as $d) { ?><span class="badge text-bg-light text-secondary"><?= nullable_htmlentities($d['label']) ?> <code>{{var.<?= nullable_htmlentities($d['name']) ?>}}</code></span> <?php } ?>
+    </div>
+</div>
+<?php } ?>
+
+<?php $presets = \ITFlow\Workflow\LifecyclePresets::forType($template['type']); if ($presets) { ?>
+<div class="card mb-3">
+    <div class="card-header py-2"><h5 class="card-title mb-0">Add a built-in preset</h5></div>
+    <div class="card-body">
+        <form action="post.php" method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <input type="hidden" name="workflow_template_id" value="<?= $workflow_template_id ?>">
+            <div class="col-md-6">
+                <select class="form-select" name="preset" id="presetSelect">
+                    <?php foreach ($presets as $pk => $p) { ?><option value="<?= nullable_htmlentities($pk) ?>"><?= nullable_htmlentities($p['label']) ?> &mdash; <?= nullable_htmlentities($p['description']) ?></option><?php } ?>
+                </select>
+            </div>
+            <div class="col-md-3"><button type="submit" name="add_workflow_preset" class="btn btn-outline-primary"><i class="fas fa-plus me-2"></i>Add preset tasks</button></div>
+            <div class="col-12 small text-muted">Adds ready-made tasks you can then edit. A task with the same title already in the template is not added twice.</div>
+        </form>
+    </div>
+</div>
+<?php } ?>
+
 <div class="card mb-3">
     <div class="card-header py-2">
         <h5 class="card-title">Tasks</h5>
@@ -59,7 +88,8 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
         <?php if (!$task_rows) { ?>
             <p class="text-muted">No tasks yet - add the first one below.</p>
         <?php } else { ?>
-        <table class="table table-sm table-hover">
+        <div class="table-responsive">
+        <table class="table table-sm table-hover" style="min-width:640px">
             <thead>
                 <tr>
                     <th style="width:60px"></th>
@@ -94,6 +124,8 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
                         <?php if ($task['task_type'] === 'approval') { ?><span class="badge text-bg-info">approval</span><?php } ?>
                         <?php if ($task['task_type'] === 'action') { ?><span class="badge text-bg-info">automated: <?= nullable_htmlentities($action_labels[$task['action_type']] ?? $task['action_type']) ?></span><?php } ?>
                         <?php if ($task['instructions']) { ?><div class="text-muted small"><?= nullable_htmlentities($task['instructions']) ?></div><?php } ?>
+                        <?php if ($task['delay_days'] !== null) { ?><div class="small text-info"><i class="far fa-clock me-1"></i>Runs <?= intval($task['delay_days']) ?> days after the <?= nullable_htmlentities($anchor_labels[$task['due_anchor']] ?? '') ?></div><?php } ?>
+                        <?php if (!empty($task['condition_json'])) { ?><div class="small text-secondary"><i class="fas fa-filter me-1"></i><?= nullable_htmlentities(\ITFlow\Workflow\TaskCondition::describe($task['condition_json'])) ?></div><?php } ?>
                     </td>
                     <td><?= nullable_htmlentities($task['category']) ?></td>
                     <td><?= nullable_htmlentities($task['assignee_name'] ?: $task['default_owner']) ?></td>
@@ -113,6 +145,7 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
                 <?php } ?>
             </tbody>
         </table>
+        </div>
         <?php } ?>
 
         <hr>

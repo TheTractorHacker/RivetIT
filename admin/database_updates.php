@@ -12342,3 +12342,39 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
+
+    if ($rivetit_db_version() == '2.6.210') {
+        // DB 2.6.216: employee lifecycle automation (issue #31), part 1: more workflow types, onboarding variables, conditional and delayed tasks.
+        //
+        // workflow_templates.type / workflow_runs.type   gain role_change and transfer (the new employee.role_changed / employee.transferred events)
+        // workflow_templates.variables_json              the questions asked when a run is started (onboarding form), JSON list
+        // workflow_templates.preset_key                  set on a template installed from a built-in checklist preset, so installing twice is a no-op
+        // workflow_runs.variables_json                   the answers given when the run was started
+        // workflow_template_tasks.delay_days             an automated task waits this many days after it becomes ready (schedule account archive in 30 days)
+        // workflow_template_tasks.condition_json         the task only exists on runs for people matching (department, title, a variable)
+        // workflow_run_tasks.run_after                   when a delayed task may run; status 'scheduled' until then (cron/workflow_cron.php runs it)
+        //
+        // Additive and idempotent; a template that uses none of this behaves exactly as before.
+        mysqli_query($mysqli, "ALTER TABLE `workflow_templates` MODIFY COLUMN `type` enum('onboarding','offboarding','role_change','transfer') NOT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_runs` MODIFY COLUMN `type` enum('onboarding','offboarding','role_change','transfer') NOT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_templates`
+            ADD COLUMN IF NOT EXISTS `variables_json` text DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `preset_key` varchar(40) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_runs` ADD COLUMN IF NOT EXISTS `variables_json` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_template_tasks`
+            ADD COLUMN IF NOT EXISTS `delay_days` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `condition_json` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks`
+            MODIFY COLUMN `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected','scheduled') NOT NULL DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS `run_after` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD INDEX IF NOT EXISTS `idx_run_task_scheduled` (`status`,`run_after`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.216'");
+    }
+
+    if ($rivetit_db_version() == '2.6.216') {
+        // DB 2.6.217: employee lifecycle automation (issue #31), part 2: the switch for the Odoo provision / disable actions.
+        // settings.config_lifecycle_odoo_actions   0 = the two Odoo actions send nothing (default); 1 = they may write to the configured Odoo.
+        // Odoo is a live production system for most installs, so this is a separate, deliberate opt-in.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_odoo_actions` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.217'");
+    }

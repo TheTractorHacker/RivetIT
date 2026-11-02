@@ -138,6 +138,7 @@ $admin_loose_crumbs = [
     'ticket_automation_log.php' => ['Ticket automation', '/admin/ticket_automation.php', 'Run log'],
     'settings_mail_templates.php' => ['Ticketing', '/admin/settings_ticket.php', 'Email templates'],
     'people_import.php'        => ['Tags & categories', '/admin/catalog_setup.php', 'People import'],
+    'bulk_onboarding.php'      => ['Tags & categories', '/admin/catalog_setup.php', 'Start workflows for many people'],
     'portal_users.php'         => ['All settings', '/admin/settings.php', 'Department logins'],
 ];
 if (empty($admin_area_crumb_done) && !isset($admin_settings_labels[$admin_settings_page]) && isset($admin_loose_crumbs[$admin_settings_page])) {

@@ -21,6 +21,8 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
     $roles = mysqli_query($mysqli, "SELECT role_id, role_name FROM user_roles WHERE role_archived_at IS NULL ORDER BY role_name");
     $role_rows = $roles ? mysqli_fetch_all($roles, MYSQLI_ASSOC) : [];
     $type = $task['task_type'] ?? 'manual';
+    $cond = json_decode((string) ($task['condition_json'] ?? ''), true) ?: [];
+    $cond_text = $cond ? \ITFlow\Workflow\TaskCondition::describe($task['condition_json']) : '';
     ?>
     <div class="row" id="<?= $uid ?>">
         <div class="col-md-4 form-group">
@@ -119,10 +121,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
         <div class="col-md-4 form-group">
             <label>Action</label>
             <select class="form-control" name="action_type">
-                <?php foreach (\ITFlow\Workflow\TaskActionRunner::labels() as $k => $label) {
-                    if ($k === 'disable_contact_login' && $template_type !== 'offboarding') { continue; }
-                    if (in_array($k, ['entra_disable_account'], true) && $template_type !== 'offboarding') { continue; }
-                    if (in_array($k, ['entra_create_account', 'entra_add_to_groups'], true) && $template_type !== 'onboarding') { continue; } ?>
+                <?php foreach (\ITFlow\Workflow\TaskActionRunner::labelsFor($template_type) as $k => $label) { ?>
                     <option value="<?= $h($k) ?>" <?= ($task['action_type'] ?? '') === $k ? 'selected' : '' ?>><?= $h($label) ?></option>
                 <?php } ?>
             </select>
@@ -196,11 +195,82 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
                 <option value="0" <?= isset($cfg['revoke_sessions']) && empty($cfg['revoke_sessions']) ? 'selected' : '' ?>>Disable sign-in only</option>
             </select>
         </div>
+        <div class="col-md-12 small text-muted"><strong>Licences and mailbox</strong> (also need the Entra setting above). Licence SKU IDs are GUIDs, one per line (Microsoft 365 admin centre or Graph <code>subscribedSkus</code>). The mailbox automatic reply needs the <code>MailboxSettings.ReadWrite</code> permission.</div>
+        <div class="col-md-6 form-group">
+            <label>Licence SKU IDs</label>
+            <textarea class="form-control" name="cfg_skus" rows="2" maxlength="2000"><?= $h($cfg['skus'] ?? '') ?></textarea>
+        </div>
+        <div class="col-md-6 form-group">
+            <label>Automatic reply message</label>
+            <textarea class="form-control" name="cfg_reply" rows="2" maxlength="1000"><?= $h(($task['action_type'] ?? '') === 'entra_set_auto_reply' ? ($cfg['message'] ?? '') : '') ?></textarea>
+        </div>
+        <div class="col-md-12 small text-muted"><strong>Devices</strong>: assigning takes one unassigned device of the person's own department with the stock status; collecting returns every device assigned to the person. Statuses must exist under Administration &gt; Tags &amp; Categories.</div>
+        <div class="col-md-2 form-group">
+            <label>Asset ID <span class="text-muted small">(optional)</span></label>
+            <input type="number" class="form-control" name="cfg_asset_id" min="0" value="<?= $h($cfg['asset_id'] ?? '') ?>">
+        </div>
+        <div class="col-md-3 form-group">
+            <label>Device type / types</label>
+            <input type="text" class="form-control" name="cfg_asset_type" maxlength="300" placeholder="Laptop" value="<?= $h(($cfg['asset_type'] ?? '') ?: ($cfg['asset_types'] ?? '')) ?>">
+        </div>
+        <div class="col-md-3 form-group">
+            <label>Stock status</label>
+            <input type="text" class="form-control" name="cfg_from_status" maxlength="100" placeholder="Ready to Deploy" value="<?= $h($cfg['from_status'] ?? '') ?>">
+        </div>
+        <div class="col-md-3 form-group">
+            <label>Status after</label>
+            <input type="text" class="form-control" name="cfg_to_status" maxlength="100" placeholder="Deployed / Ready to Deploy" value="<?= $h($cfg['to_status'] ?? '') ?>">
+        </div>
+        <div class="col-md-12 small text-muted"><strong>Identity systems</strong> (Active Directory, VPN, Okta, Google Workspace): there is no live connector in this build yet, so these tasks fail safely into a manual task. They are here so the template can be designed now.</div>
+        <div class="col-md-3 form-group">
+            <label>System</label>
+            <select class="form-control" name="cfg_system">
+                <?php foreach (\ITFlow\Workflow\Connectors\ConnectorRegistry::labels() as $k => $l) { ?><option value="<?= $h($k) ?>" <?= ($cfg['system'] ?? '') === $k ? 'selected' : '' ?>><?= $h($l) ?></option><?php } ?>
+            </select>
+        </div>
+        <div class="col-md-4 form-group">
+            <label>Account name</label>
+            <input type="text" class="form-control" name="cfg_identifier" maxlength="200" placeholder="{{employee_email}}" value="<?= $h($cfg['identifier'] ?? '') ?>">
+        </div>
+        <div class="col-md-5 form-group">
+            <label>Groups <span class="text-muted small">(create only, one per line)</span></label>
+            <textarea class="form-control" name="cfg_conn_groups" rows="1" maxlength="2000"><?= $h(($task['action_type'] ?? '') === 'connector_provision' ? ($cfg['groups'] ?? '') : '') ?></textarea>
+        </div>
         <div class="col-md-4 form-group">
             <label>Webhook event name</label>
             <input type="text" class="form-control" name="cfg_event" maxlength="110" placeholder="workflow.task_webhook" value="<?= $h($cfg['event'] ?? '') ?>">
         </div>
     </div>
+    <div class="row" data-wtf-show="action" data-wtf-group="<?= $uid ?>">
+        <div class="col-md-3 form-group">
+            <label>Delay (days)</label>
+            <input type="number" class="form-control" name="delay_days" min="0" max="3650" placeholder="none" value="<?= $h($task['delay_days'] ?? '') ?>">
+        </div>
+        <div class="col-md-9 small text-muted pt-4">Run no earlier than this many days after the &ldquo;Counted from&rdquo; date above (workflow start, start date or end date; with no date on the person, the workflow start). Until then the task shows as <em>scheduled</em>; you can run it early or skip it to cancel it. Example: archive the account 30 days after the end date.</div>
+    </div>
+
+    <details class="mb-2" <?= $cond_text !== '' ? 'open' : '' ?>>
+        <summary class="small text-muted">Only for some people (conditions)<?= $cond_text !== '' ? ': ' . $h($cond_text) : '' ?></summary>
+        <div class="row mt-2">
+            <div class="col-md-3 form-group">
+                <label>Departments <span class="text-muted small">(one per line)</span></label>
+                <textarea class="form-control" name="cond_departments" rows="2" maxlength="1000"><?= $h(implode("\n", $cond['departments'] ?? [])) ?></textarea>
+            </div>
+            <div class="col-md-3 form-group">
+                <label>Job title contains <span class="text-muted small">(one per line)</span></label>
+                <textarea class="form-control" name="cond_titles" rows="2" maxlength="1000"><?= $h(implode("\n", $cond['titles'] ?? [])) ?></textarea>
+            </div>
+            <div class="col-md-3 form-group">
+                <label>Employee types <span class="text-muted small">(comma separated)</span></label>
+                <input type="text" class="form-control" name="cond_types" maxlength="200" placeholder="employee, contractor" value="<?= $h(implode(', ', $cond['employee_types'] ?? [])) ?>">
+            </div>
+            <div class="col-md-3 form-group">
+                <label>Form answers <span class="text-muted small">(<code>field = a, b</code> per line)</span></label>
+                <textarea class="form-control" name="cond_vars" rows="2" maxlength="1000" placeholder="needs_laptop = yes"><?= $h(implode("\n", array_map(static fn ($n, $v) => $n . ' = ' . implode(', ', $v), array_keys($cond['variables'] ?? []), $cond['variables'] ?? []))) ?></textarea>
+            </div>
+            <div class="col-12 small text-muted">The task is copied onto a run only when the person matches every box that is filled in; otherwise it does not exist on that run. Leave all empty for every run.</div>
+        </div>
+    </details>
     <script<?= !empty($csp_nonce) ? ' nonce="' . $h($csp_nonce) . '"' : '' ?>>
     (function () {
         var sel = document.querySelector('[data-wtf-type="<?= $uid ?>"]');
@@ -220,7 +290,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
 /** Reads the form values posted by workflowTaskFields() into the array TemplateTaskService expects. */
 function workflowTaskInputFromPost(array $post): array
 {
-    return [
+    $in = [
         'title' => $post['title'] ?? '',
         'category' => $post['category'] ?? '',
         'default_owner' => $post['default_owner'] ?? '',
@@ -240,7 +310,31 @@ function workflowTaskInputFromPost(array $post): array
             'to' => $post['cfg_to'] ?? 'employee', 'address' => $post['cfg_address'] ?? '', 'body' => $post['cfg_body'] ?? '',
             'message' => $post['cfg_message'] ?? '', 'user_id' => $post['cfg_user_id'] ?? 0, 'event' => $post['cfg_event'] ?? '',
             'upn' => $post['cfg_upn'] ?? '', 'display_name' => $post['cfg_display_name'] ?? '', 'enabled' => $post['cfg_enabled'] ?? 0,
-            'groups' => $post['cfg_groups'] ?? '', 'revoke_sessions' => $post['cfg_revoke_sessions'] ?? 1,
+            'groups' => ($post['action_type'] ?? '') === 'connector_provision' ? ($post['cfg_conn_groups'] ?? '') : ($post['cfg_groups'] ?? ''), 'revoke_sessions' => $post['cfg_revoke_sessions'] ?? 1,
+            'skus' => $post['cfg_skus'] ?? '', 'asset_id' => $post['cfg_asset_id'] ?? 0, 'asset_type' => $post['cfg_asset_type'] ?? '', 'asset_types' => $post['cfg_asset_type'] ?? '',
+            'from_status' => $post['cfg_from_status'] ?? '', 'to_status' => $post['cfg_to_status'] ?? '', 'system' => $post['cfg_system'] ?? '', 'identifier' => $post['cfg_identifier'] ?? '',
         ],
+        'delay_days' => $post['delay_days'] ?? '',
+        'condition' => workflowConditionFromPost($post),
     ];
+    if (($post['action_type'] ?? '') === 'entra_set_auto_reply') {
+        $in['action_config']['message'] = $post['cfg_reply'] ?? ''; // the automatic reply text has its own box; cfg_message is the notification text
+    }
+
+    return $in;
+}
+
+/** The "only for some people" boxes as TaskCondition input. Form answers: one "field = a, b" per line. */
+function workflowConditionFromPost(array $post): array
+{
+    $vars = [];
+    foreach (preg_split('/[\r\n]+/', (string) ($post['cond_vars'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $line) {
+        if (strpos($line, '=') === false) {
+            continue;
+        }
+        [$name, $vals] = array_map('trim', explode('=', $line, 2));
+        $vars[strtolower($name)] = preg_split('/[,;]+/', $vals, -1, PREG_SPLIT_NO_EMPTY);
+    }
+
+    return ['departments' => (string) ($post['cond_departments'] ?? ''), 'titles' => (string) ($post['cond_titles'] ?? ''), 'employee_types' => (string) ($post['cond_types'] ?? ''), 'variables' => $vars];
 }

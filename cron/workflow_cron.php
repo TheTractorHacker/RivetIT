@@ -31,4 +31,13 @@ require_once "../vendor/autoload.php";
 $workflow_cron_gateway = new \ITFlow\Workflow\LiveActionGateway($mysqli);
 $workflow_cron_result = (new \ITFlow\Workflow\ReminderService($mysqli, $workflow_cron_gateway))->run();
 
+// Delayed automated tasks ("archive the account 30 days after the end date") whose date has come run now.
+try {
+    $workflow_cron_released = (new \ITFlow\Workflow\WorkflowService($mysqli, $workflow_cron_gateway))->releaseDueScheduled();
+} catch (\Throwable $e) {
+    $workflow_cron_released = 0;
+    error_log('workflow cron: scheduled tasks not released: ' . $e->getMessage()); // column missing before DB 2.6.216: Update App before Update Database
+}
+echo "Scheduled workflow tasks released: $workflow_cron_released\n";
+
 echo "Workflow reminders: {$workflow_cron_result['due_soon']} due soon, {$workflow_cron_result['overdue']} overdue, {$workflow_cron_result['recovered']} interrupted action(s) handed to a person.\n";

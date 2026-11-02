@@ -26,6 +26,8 @@ ob_start();
             <select class="form-control select2" name="type" required>
                 <option value="onboarding">Onboarding</option>
                 <option value="offboarding">Offboarding</option>
+                <option value="role_change">Role change</option>
+                <option value="transfer">Department transfer</option>
             </select>
         </div>
 

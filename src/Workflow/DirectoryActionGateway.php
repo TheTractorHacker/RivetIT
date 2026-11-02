@@ -27,4 +27,13 @@ interface DirectoryActionGateway
      * $expectedDepartment is the contact's department; the Entra account must carry the same department attribute (IT-9).
      */
     public function entraAddToGroups(string $email, array $groupIds, int $runTaskId, string $expectedDepartment = ''): string;
+
+    /**
+     * Add and/or remove Microsoft 365 licences (SKU GUIDs) on the person's Entra account, same department check as the other Entra changes.
+     * @param string[] $addSkus @param string[] $removeSkus @return string result for the log
+     */
+    public function entraChangeLicenses(string $email, array $addSkus, array $removeSkus, int $runTaskId, string $expectedDepartment = ''): string;
+
+    /** Turn on the mailbox automatic reply (out of office) with this message. Needs MailboxSettings.ReadWrite. @return string result for the log */
+    public function entraSetAutoReply(string $email, string $message, int $runTaskId, string $expectedDepartment = ''): string;
 }

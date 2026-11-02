@@ -155,6 +155,38 @@ final class EntraAccountService
         return "$email: " . $this->addGroups($user->externalId, $email, $groupIds);
     }
 
+    /** @param string[] $addSkus @param string[] $removeSkus */
+    public function changeLicenses(string $email, array $addSkus, array $removeSkus, string $expectedDepartment = ''): string
+    {
+        $user = $this->graph->findUserByEmail($email);
+        if ($user === null) {
+            throw new \RuntimeException("no Entra account found for $email; no licence was changed");
+        }
+        self::assertSameDepartment($user, $expectedDepartment, $email);
+        $add = self::cleanGroupIds($addSkus);   // SKU ids are GUIDs too
+        $remove = self::cleanGroupIds($removeSkus);
+        if (!$add && !$remove) {
+            throw new \RuntimeException('no licence SKU was given; nothing was changed');
+        }
+        $this->graph->assignLicense($user->externalId, $add, $remove);
+        ($this->audit)('entra.licenses_changed', 'updated', "Microsoft 365 licences changed for $email (" . count($add) . ' added, ' . count($remove) . ' removed)', ['target' => $email, 'added' => $add, 'removed' => $remove]);
+
+        return "$email: " . count($add) . ' licence(s) assigned, ' . count($remove) . ' removed';
+    }
+
+    public function setAutoReply(string $email, string $message, string $expectedDepartment = ''): string
+    {
+        $user = $this->graph->findUserByEmail($email);
+        if ($user === null) {
+            throw new \RuntimeException("no Entra account found for $email; the automatic reply was not set");
+        }
+        self::assertSameDepartment($user, $expectedDepartment, $email);
+        $this->graph->setAutomaticReply($user->externalId, $message);
+        ($this->audit)('entra.auto_reply_set', 'updated', "Mailbox automatic reply turned on for $email", ['target' => $email]);
+
+        return "$email: automatic reply turned on";
+    }
+
     private function addGroups(string $userId, string $label, array $groupIds): string
     {
         if (!$groupIds) {

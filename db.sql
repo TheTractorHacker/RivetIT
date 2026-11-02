@@ -5130,6 +5130,7 @@ CREATE TABLE `settings` (
   `config_update_notify_last_at` datetime DEFAULT NULL,
   `config_mail_template_header_html` mediumtext DEFAULT NULL,
   `config_mail_template_footer_html` mediumtext DEFAULT NULL,
+  `config_lifecycle_odoo_actions` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -9626,13 +9627,15 @@ DROP TABLE IF EXISTS `workflow_templates`;
 CREATE TABLE `workflow_templates` (
   `workflow_template_id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
-  `type` enum('onboarding','offboarding') NOT NULL,
+  `type` enum('onboarding','offboarding','role_change','transfer') NOT NULL,
   `description` text DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_by` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `archived_at` datetime DEFAULT NULL,
+  `variables_json` text DEFAULT NULL,
+  `preset_key` varchar(40) DEFAULT NULL,
   PRIMARY KEY (`workflow_template_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -9663,6 +9666,8 @@ CREATE TABLE `workflow_template_tasks` (
   `approver_role_id` int(11) DEFAULT NULL,
   `action_type` varchar(40) DEFAULT NULL,
   `action_config` text DEFAULT NULL,
+  `delay_days` int(11) DEFAULT NULL,
+  `condition_json` text DEFAULT NULL,
   PRIMARY KEY (`template_task_id`),
   KEY `idx_template_task_template` (`workflow_template_id`,`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9679,12 +9684,13 @@ CREATE TABLE `workflow_runs` (
   `run_id` int(11) NOT NULL AUTO_INCREMENT,
   `workflow_template_id` int(11) DEFAULT NULL,
   `contact_id` int(11) NOT NULL,
-  `type` enum('onboarding','offboarding') NOT NULL,
+  `type` enum('onboarding','offboarding','role_change','transfer') NOT NULL,
   `status` enum('in_progress','completed_with_exceptions','completed','cancelled','paused') NOT NULL DEFAULT 'in_progress',
   `started_by` int(11) DEFAULT NULL,
   `started_at` datetime NOT NULL DEFAULT current_timestamp(),
   `completed_at` datetime DEFAULT NULL,
   `notes` text DEFAULT NULL,
+  `variables_json` text DEFAULT NULL,
   PRIMARY KEY (`run_id`),
   KEY `idx_workflow_runs_contact` (`contact_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9706,7 +9712,7 @@ CREATE TABLE `workflow_run_tasks` (
   `default_owner` varchar(100) DEFAULT NULL,
   `required` tinyint(1) NOT NULL DEFAULT 1,
   `sort_order` int(11) NOT NULL DEFAULT 0,
-  `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected') NOT NULL DEFAULT 'pending',
+  `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected','scheduled') NOT NULL DEFAULT 'pending',
   `completed_by` int(11) DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
   `skip_reason` varchar(500) DEFAULT NULL,
@@ -9733,9 +9739,11 @@ CREATE TABLE `workflow_run_tasks` (
   `secret_result_enc` text DEFAULT NULL,
   `secret_user_id` int(11) DEFAULT NULL,
   `secret_expires_at` datetime DEFAULT NULL,
+  `run_after` datetime DEFAULT NULL,
   PRIMARY KEY (`run_task_id`),
   KEY `idx_run_task_run` (`run_id`,`sort_order`),
-  KEY `idx_run_task_due` (`status`,`due_at`)
+  KEY `idx_run_task_due` (`status`,`due_at`),
+  KEY `idx_run_task_scheduled` (`status`,`run_after`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -16,7 +16,7 @@ class StartWorkflowRule
     public const LABEL = 'Start an employee workflow';
 
     /** The event that fits each template type; a rule on one of these events must pick the matching template type. */
-    private const EVENT_TYPE = ['employee.hired' => 'onboarding', 'employee.terminated' => 'offboarding'];
+    private const EVENT_TYPE = ['employee.hired' => 'onboarding', 'employee.terminated' => 'offboarding', 'employee.role_changed' => 'role_change', 'employee.transferred' => 'transfer'];
 
     /** @return array{template_id:int} @throws \InvalidArgumentException with a message safe to show an administrator */
     public static function validateConfig(\mysqli $mysqli, array $config, string $triggerEvent): array
@@ -119,7 +119,7 @@ class StartWorkflowRule
         if ($runId === null) {
             return 'skipped: ' . $template['name'] . ' is already open for this person';
         }
-        $gateway->audit($template['type'] === 'onboarding' ? 'workflow.onboarding_started' : 'workflow.offboarding_started', null, 'contact', $contactId, 'started', 'Event rule started ' . $template['name'], ['run_id' => $runId, 'template_id' => $templateId, 'trigger' => $event]);
+        $gateway->audit('workflow.' . $template['type'] . '_started', null, 'contact', $contactId, 'started', 'Event rule started ' . $template['name'], ['run_id' => $runId, 'template_id' => $templateId, 'trigger' => $event]);
 
         return 'started ' . $template['name'] . " (run #$runId)";
     }
