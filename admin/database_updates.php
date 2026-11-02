@@ -12342,3 +12342,52 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
+
+    if ($rivetit_db_version() == '2.6.210') {
+        // DB 2.6.226: Automation engine, issue #33. Six new rule actions (run_script, create_odoo_user, notify_chat and the three Entra actions)
+        // and the link from an imported rule to the ticket_automation_rules row it came from (the old rule is never changed or removed).
+        // automation_rules.source_legacy_id   ticket_automation_rules.rule_id this rule was imported from; NULL for rules made in the editor. Unique: import twice = once.
+        mysqli_query($mysqli, "ALTER TABLE `automation_rules`
+            MODIFY `action_type` enum('create_ticket','send_webhook','notify_user','start_workflow','set_ticket_field','add_ticket_note','assign_ticket','send_mail','create_task','run_script','create_odoo_user','notify_chat','entra_disable_account','entra_add_to_groups') NOT NULL,
+            ADD COLUMN IF NOT EXISTS `source_legacy_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `automation_rules` ADD UNIQUE INDEX IF NOT EXISTS `uq_automation_rules_legacy` (`source_legacy_id`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.226'");
+    }
+
+    if ($rivetit_db_version() == '2.6.226') {
+        // DB 2.6.227: the run log can be retried. A run keeps the (size-capped) event context it ran with, which attempt it was and whether it
+        // is a retry of an earlier failed run, so an administrator can see the queue's retries and run a failed rule again by hand.
+        mysqli_query($mysqli, "ALTER TABLE `automation_rule_runs`
+            ADD COLUMN IF NOT EXISTS `context_json` mediumtext DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `attempt` tinyint(4) NOT NULL DEFAULT 1,
+            ADD COLUMN IF NOT EXISTS `trigger_source` varchar(12) NOT NULL DEFAULT 'event',
+            ADD COLUMN IF NOT EXISTS `retry_of_run_id` bigint(20) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `automation_rule_runs` ADD INDEX IF NOT EXISTS `idx_automation_runs_retry` (`retry_of_run_id`)");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.227'");
+    }
+
+    if ($rivetit_db_version() == '2.6.227') {
+        // DB 2.6.228: once-only marks for the events cron raises (asset offline, certificate expiring, credential rotation due, scheduled ticks),
+        // the same idea as automation_sla_marks but for any entity. (kind, entity_id, mark) is announced once.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `automation_emit_marks` (
+            `kind` varchar(40) NOT NULL,
+            `entity_id` varchar(64) NOT NULL,
+            `mark` varchar(64) NOT NULL,
+            `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`kind`,`entity_id`,`mark`),
+            KEY `idx_automation_emit_marks_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.228'");
+    }
+
+    if ($rivetit_db_version() == '2.6.228') {
+        // DB 2.6.229: switches for the risky automation actions (both OFF) and how early certificates are announced.
+        // settings.config_automation_run_script_enabled   1 = the "Run an RMM script" rule action may dispatch jobs
+        // settings.config_automation_odoo_user_enabled    1 = the "Create an Odoo user" rule action may run (needs an Odoo write gateway; none ships)
+        // settings.config_automation_cert_days            a certificate.expiring event is raised when a certificate is this many days from expiring (and again at 7 and 1)
+        mysqli_query($mysqli, "ALTER TABLE `settings`
+            ADD COLUMN IF NOT EXISTS `config_automation_run_script_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_automation_odoo_user_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `config_automation_cert_days` int(11) NOT NULL DEFAULT 30");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.229'");
+    }
