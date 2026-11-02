@@ -9,6 +9,71 @@ turned out to be fixed since they were first seen have been dropped. File and li
 commit, but lines drift, so search for the surrounding code if a number no longer matches. "Not rendered" means
 the claim comes from markup and needs a visual check.
 
+## Re-verification status (beta 26.10.80, DB 2.6.210)
+
+Re-checked by reading the current code in the `beta-i29b` worktree (origin/beta d798e3054). This was a code
+read, not a live run: nothing below was exercised against a running instance in this pass. The original list
+below is kept as written (it describes `main` at 26.10.14); the Status column here is the current answer.
+
+| Area | Item | Status |
+|---|---|---|
+| Highest priority | 1 installer skips migrations (`setup/index.php:583-587` now stamps the `db.sql` marker version and runs the rest) | already fixed |
+| Highest priority | 3 log retention 0 (`admin/post/settings_security.php:146` "0 keeps everything", compliance floor) | already fixed |
+| Highest priority | 4 Department Type wiped (`COALESCE(?, client_type)`), 5 People Import (location lookup includes `department_sites`), 6 IR reset limited to `user_type = 1` | already fixed |
+| Highest priority | 2 credentials CSV needs only Read | owned by the security/permissions agent |
+| Security and permissions | all items | see the issue #29 status table in the Security and permissions section below |
+| Tickets | `&` in category group headers/counts (counts keyed on the raw label) | already fixed |
+| Tickets | Force Reoccur Three Days/Biweekly (`recurring_ticket.php:193-205,338-350`) | already fixed |
+| Tickets | category group with sub-categories not selectable (`ticketCategoryOptions` uses optgroups; a childless group is an option) | already fixed |
+| Tickets | system notes log one minute (all system notes now `00:00:00`) | already fixed |
+| Tickets | `ticket_onsite` unreachable (`ticket_edit_schedule.php` linked from `agent/ticket.php:553,712`) | already fixed |
+| Tickets | Share with all agents below Full (checkbox only shown at Full, `ticket_saved_view_add.php:53`) | already fixed |
+| Tickets | Resolved remapped to Closed | by design (documented in `agent/post/ticket.php:1126-1129`) |
+| Tickets | `ticket_history` never displayed | already fixed (rendered from `agent/ticket.php:405`) |
+| Tickets | Email Sent shown without SMTP (flag now requires SMTP host/provider) | already fixed |
+| Tickets | "(v2)"/"(v1)" titles and stray "To-do" text | not reproducible (no match in `agent/`) |
+| Tickets | `problem.php` falls back to internal id | already fixed (`findTicketIdForLinking` returns 0) |
+| Tickets | Recurring ticket form has Assets tab | already fixed |
+| Tickets | "Assigned" status lookup | already fixed (`ticketCreationStatusCandidates` is explicit; fallback is by design) |
+| Tickets | automation `escalate` label, settings parser filename | already fixed |
+| Tickets | mail queue red bin marks Failed | by design (flash now says "cancelled and marked as failed") |
+| Projects and calendar | event click, department field name (`client_id`), repeat control removed, CSP `font-src`, `initialView` | already fixed |
+| Projects and calendar | archived project Delete permission check (`lookupUserPermission(...) >= 3`) | already fixed |
+| Projects and calendar | template task estimates copied; project delete releases tickets/tasks/milestones | already fixed |
+| Projects and calendar | closed ticket to No-Department project; task un-tick after Kanban; list task bar counts; `?archived=1` default status | not re-run; archived default handled (`projects.php:26-27`); the rest unconfirmed, needs a live test |
+| Projects and calendar | task template delete looked up `tags` | already fixed (`getFieldById('task_templates', ...)`) |
+| Departments and people | Location pickers ignore shared sites | already fixed (all pickers join `department_sites`) |
+| Departments and people | restore note key, workflow redirect, CSV export access/archived | already fixed |
+| Departments and people | no UI to move a person between departments | needs decision (feature, not a bug) |
+| Departments and people | CRM leftovers with CRM off | already fixed (both cards gated on `config_module_enable_crm`) |
+| Departments and people | `config_destructive_deletes_enable` has no writer | already fixed (Admin > Security setting) |
+| Departments and people | bulk department email filter/no-box behaviour | not confirmed, needs a live test |
+| Infrastructure | location dropdowns, rack Model field (`name="model"`), contract permission, vendor_details, KB Delete gating, KB import title, portal credential tokens | already fixed |
+| Infrastructure | Firewall/Router assets in no tab | already fixed (Network tab, `agent/assets.php:127`) |
+| Infrastructure | domain expiry overwrite, license seat links | already fixed for domain; software seat-link behaviour not re-run |
+| Infrastructure | OTP element id collision | already fixed (`agent/js/credential_show_otp_via_id.js` targets the clicked trigger) |
+| Infrastructure | Company-wide vendors need `module_financial` | needs decision (permission model) |
+| Infrastructure | Bulk Transfer copies and archives original | by design (documented behaviour) |
+| Infrastructure | credential History `title=""` markup | already fixed (`strip_tags` on escaped values) |
+| Infrastructure | TinyMCE image upload tab | by design (deliberately disabled in the file) |
+| Training | achievements "once the Learning Center launches" text | already fixed (no match) |
+| Training | kiosk Origin vs `config_base_url` | by design |
+| Training | New License Devices tab header | not reproducible from markup (`text-white` on a dark header); needs a visual check |
+| Endpoints | Connect on Sophos/Action1 (`method_exists` guard), Sophos alert `vendor_warning` shown, `config_comet_auto_ticket` read, `metrics_ingest.php` present, Docker supervisord runs mail queue and parser | already fixed |
+| Endpoints | RMM critical figure, script categories, "agents" wording | already fixed |
+| Reports | Day-by-Day label/default, credential rotation archived, hub wording | already fixed |
+| Reports | CSAT note vs rating date, Waiting on Employee tile | not re-run; needs decision on wording |
+| Roles/settings | Reporting text, Activate on archived user, API key Secret column, roles.php ", " join, user CSV, rows-per-page options (now 5/10/20/50/100/500), header Light override, `contacts.php` role check, Invoices start page, passkey message | already fixed |
+| Roles/settings | session length minimum vs stored defaults | not re-run; needs decision |
+| Roles/settings | Departments date range "1970" display | not reproducible by code read; needs a browser check |
+| Roles/settings | `admin/category.php` opens on Expense | by design (first tab); the 1440 px tab overlap is unconfirmed (not rendered) |
+| Roles/settings | REBRANDING.md telemetry paragraph | by design (it records that the upstream code was removed) |
+| Roles/settings | portal/guest `bg-dark` card titles | already fixed where checked (`text-white` on the headings); contrast not rendered |
+
+Net result of this pass: no source change was needed for any item I could confirm. The remaining items marked
+"needs a live test", "needs decision" or "needs a visual check" were not changed because a code read cannot show
+they are real.
+
 ## Highest priority: data loss, exposed secrets, broken fresh installs
 
 1. **Browser installer skips database migrations.** `setup/index.php:567` stamps `LATEST_DATABASE_VERSION`
