@@ -147,6 +147,7 @@ Rules that matter to an integrator:
   Method decides the action: `GET`/`HEAD` need read; `POST`, `PUT`, `PATCH` need write; `DELETE` needs delete. `write` does not include `read`, `delete` does not include `write`.
   `directory:read` is the only scope that opens `/employees` and `/departments`, and it opens nothing else. A route needs its scope in the token; removing a scope from the
   client takes effect at the next request, and so does revoking the client or the secret that issued the token. A token for a client holding many scopes is large (about 2 KB); ask for fewer with the `scope` parameter if a proxy limits header size.
+- The service catalog (`/service_catalog`: categories, items with their request forms, raising a request) is described in `openapi.yaml` and `docs/MOBILE_API.md`; `POST` calls `ServiceCatalogService::createRequest()`, the same entry point a chat integration uses.
 - Person-bound routes are never available to a client, whatever it holds: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`.
   A client may also hold the `sso` capability (OpenID Connect sign-in to the QMS, `docs/integrations/qms-sso.md`); it is not an API scope,
   is never issued in a token here, and an SSO token or ID token is refused on every `/api/v1` route.

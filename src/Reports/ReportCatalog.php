@@ -39,6 +39,7 @@ final class ReportCatalog
             'time_by_tech'           => ['label' => 'Time by Technician',           'module' => 'module_support',   'params' => $year + $month],
             'technician_performance' => ['label' => 'Technician Performance',       'module' => 'module_support',   'params' => $dates],
             'csat'                   => ['label' => 'Customer Satisfaction',        'module' => 'module_support',   'params' => $dates],
+            'service_catalog'        => ['label' => 'Service Catalog Requests',     'module' => 'module_support',   'params' => $dates],
             'rmm_health'             => ['label' => 'RMM Health',                   'module' => 'module_support',   'params' => $dates],
             'credential_rotation'    => ['label' => 'Credential rotation',          'module' => 'module_credential', 'params' => $days],
             'credential_rotation_v2' => ['label' => 'Credential rotation due',      'module' => 'module_credential', 'params' => $days],

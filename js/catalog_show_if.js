@@ -1,6 +1,6 @@
 /*
  * Conditional fields on service catalog request forms. Wrappers carry data-catalog-key and, when conditional,
- * data-show-if='{"field":..,"op":"equals|in|not_empty","value":..}'. A hidden field is disabled so it is not posted
+ * data-show-if='{"field":..,"op":"equals|in|not_empty","value":..}' (or a compound {"match":"all|any","rules":[..]}). A hidden field is disabled so it is not posted
  * and not validated by the browser. This only mirrors ServiceCatalogService::showIfMet(); the server decides.
  */
 (function () {
@@ -9,6 +9,15 @@
 
     function answer(wrap) {
         if (!wrap || wrap.hidden) { return ''; }
+        if (wrap.hasAttribute('data-catalog-table')) {
+            // A repeating table answers with its number of non-blank rows ('' when none), like the server.
+            var trs = wrap.querySelectorAll('[data-catalog-table-row]'), n = 0;
+            for (var r = 0; r < trs.length; r++) {
+                var ins = trs[r].querySelectorAll('input');
+                for (var k = 0; k < ins.length; k++) { if (String(ins[k].value || '').trim() !== '') { n++; break; } }
+            }
+            return n > 0 ? String(n) : '';
+        }
         var c = control(wrap);
         if (!c) { return ''; }
         if (c.type === 'checkbox') { return c.checked ? 'Yes' : ''; }
@@ -20,6 +29,20 @@
         if (rule.op === 'in') { return Array.isArray(rule.value) && rule.value.map(String).indexOf(v) !== -1; }
         if (rule.op === 'not_empty') { return v !== ''; }
         return true;
+    }
+
+    // A rule is one {field, op, value} or a compound {match: 'all'|'any', rules: [...]} (mirrors ServiceCatalogService::showIfMet).
+    function ruleMet(rule, wrap) {
+        if (rule && Array.isArray(rule.rules)) {
+            var any = rule.match === 'any';
+            for (var i = 0; i < rule.rules.length; i++) {
+                var m = ruleMet(rule.rules[i], wrap);
+                if (any && m) { return true; }
+                if (!any && !m) { return false; }
+            }
+            return !any;
+        }
+        return met(rule, answer(sibling(wrap, rule.field)));
     }
 
     function sibling(wrap, key) {
@@ -36,7 +59,7 @@
         for (var i = 0; i < wraps.length; i++) {
             var w = wraps[i], rule;
             try { rule = JSON.parse(w.getAttribute('data-show-if')); } catch (e) { continue; }
-            var show = met(rule, answer(sibling(w, rule.field)));
+            var show = ruleMet(rule, w);
             w.hidden = !show;
             var cs = w.querySelectorAll('input, select, textarea');
             for (var j = 0; j < cs.length; j++) { cs[j].disabled = !show; }

@@ -38,3 +38,53 @@ if (isset($_POST['decide_service_catalog_request'])) {
     redirect();
 
 }
+
+// Out of office: the signed-in agent hands their approvals to a colleague for a period. Always scoped to the signed-in user.
+if (isset($_POST['add_service_catalog_delegation'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support');
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+
+    $delegate_user_id = intval($_POST['delegate_user_id'] ?? 0);
+    $result = $catalog_service->addDelegation(
+        intval($session_user_id),
+        $delegate_user_id,
+        trim((string) ($_POST['delegate_from'] ?? '')),
+        trim((string) ($_POST['delegate_to'] ?? '')),
+        (string) ($_POST['delegate_note'] ?? '')
+    );
+
+    if ($result['ok']) {
+        logAction("Service Catalog", "Edit", "$session_name set an out-of-office approval delegate (user $delegate_user_id)", 0, $result['id']);
+        flash_alert('Out-of-office delegate saved');
+    } else {
+        flash_alert(nullable_htmlentities($result['error']), 'danger');
+    }
+
+    redirect();
+
+}
+
+if (isset($_POST['delete_service_catalog_delegation'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_support');
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
+    $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
+
+    $delegation_id = intval($_POST['delegation_id'] ?? 0);
+    if ($catalog_service->deleteDelegation($delegation_id, intval($session_user_id))) {
+        logAction("Service Catalog", "Edit", "$session_name ended an out-of-office approval delegation", 0, $delegation_id);
+        flash_alert('Delegation ended');
+    }
+
+    redirect();
+
+}
+

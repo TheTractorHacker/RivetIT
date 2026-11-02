@@ -12342,3 +12342,68 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
+
+    if ($rivetit_db_version() == '2.6.210') {
+        // DB 2.6.211: service catalog (issue #30) - visual categories, computed risk, risk-based routing, parallel approval groups.
+        // Everything is additive and inert by default: items keep no category (they show under "Other"), no risk rules (the risk score stays
+        // the fixed number it was), every approval step keeps the full 0-100 risk band and its own stage (no parallel group), and requests
+        // already waiting keep their rows (step_id NULL = the one branch they always had).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_categories` (
+          `category_id` int(11) NOT NULL AUTO_INCREMENT,
+          `name` varchar(100) NOT NULL,
+          `description` varchar(500) DEFAULT NULL,
+          `icon` varchar(100) DEFAULT NULL,
+          `sort_order` int(11) NOT NULL DEFAULT 0,
+          `is_active` tinyint(1) NOT NULL DEFAULT 1,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`category_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items` ADD COLUMN IF NOT EXISTS `catalog_category_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items` ADD INDEX IF NOT EXISTS `idx_catalog_item_category` (`catalog_category_id`)");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_risk_rules` (
+          `rule_id` int(11) NOT NULL AUTO_INCREMENT,
+          `catalog_item_id` int(11) NOT NULL,
+          `field_key` varchar(64) NOT NULL,
+          `op` varchar(12) NOT NULL DEFAULT 'equals',
+          `value` varchar(400) DEFAULT NULL,
+          `points` int(11) NOT NULL DEFAULT 0,
+          `sort_order` int(11) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`rule_id`),
+          KEY `idx_catalog_risk_item` (`catalog_item_id`,`sort_order`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_approval_steps`
+            ADD COLUMN IF NOT EXISTS `risk_min` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `risk_max` int(11) NOT NULL DEFAULT 100");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_requests` ADD COLUMN IF NOT EXISTS `risk_breakdown` text DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_request_approvals` ADD COLUMN IF NOT EXISTS `step_id` int(11) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.211'");
+    }
+
+    if ($rivetit_db_version() == '2.6.211') {
+        // DB 2.6.212: service catalog approver delegation (out of office), reminders, escalation and timeouts (issue #30).
+        // All off by default: every item gets 0 hours (= no reminder / escalation / timeout), and the worker only runs when
+        // settings.config_catalog_approval_cron is switched on by an administrator (Administration > Service Catalog).
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `service_catalog_delegations` (
+          `delegation_id` int(11) NOT NULL AUTO_INCREMENT,
+          `user_id` int(11) NOT NULL,
+          `delegate_user_id` int(11) NOT NULL,
+          `starts_at` datetime NOT NULL,
+          `ends_at` datetime NOT NULL,
+          `note` varchar(200) DEFAULT NULL,
+          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+          PRIMARY KEY (`delegation_id`),
+          KEY `idx_catalog_delegation_user` (`user_id`,`ends_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_items`
+            ADD COLUMN IF NOT EXISTS `reminder_after_hours` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `escalate_after_hours` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `expire_after_hours` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `service_catalog_request_approvals`
+            ADD COLUMN IF NOT EXISTS `delegated_from_user_id` int(11) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `is_escalation` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `escalated_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `last_reminded_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `reminder_count` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_catalog_approval_cron` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.212'");
+    }

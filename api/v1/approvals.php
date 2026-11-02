@@ -87,7 +87,7 @@ if ($method === 'GET') {
             $values = json_decode((string) $a['field_values'], true);
             $fields = [];
             foreach (is_array($values) ? $values : [] as $v) {
-                $fields[] = ['label' => (string) ($v['label'] ?? ''), 'value' => (string) ($v['value'] ?? '')];
+                $fields[] = ['label' => (string) ($v['label'] ?? ''), 'value' => ($v['type'] ?? '') === 'table' ? \ITFlow\ITSM\ServiceCatalogService::tableValueText((string) ($v['value'] ?? '')) : (string) ($v['value'] ?? '')];
             }
             $items[] = [
                 'kind'         => 'catalog_request',

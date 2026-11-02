@@ -294,6 +294,29 @@
     .portal-request-go { opacity: 1; transform: none; }
 }
 
+/* ---- Request Something: category tiles (service catalog categories) ---------- */
+.portal-cattiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .75rem; margin-bottom: 1.1rem; }
+.portal-cattile {
+    display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; text-align: left;
+    padding: .9rem 1rem; cursor: pointer; font: inherit;
+    background: var(--if-surface); color: var(--if-ink); border: 1px solid var(--if-border); border-radius: var(--card-radius, 14px);
+    box-shadow: var(--if-shadow);
+    transition: transform var(--if-dur-ui) var(--if-ease-out), box-shadow var(--if-dur-ui) var(--if-ease-out), border-color var(--if-dur-ui) var(--if-ease-out), background-color var(--if-dur-ui) var(--if-ease-out);
+}
+.portal-cattile:hover { transform: translateY(-2px); box-shadow: var(--if-shadow-md); border-color: rgba(var(--color-accent-rgb), .6); }
+.portal-cattile:focus-visible { outline: 2px solid rgba(var(--color-accent-rgb), .9); outline-offset: 2px; }
+.portal-cattile.is-active { border-color: var(--color-accent); background: rgba(var(--color-accent-rgb), .1); }
+.portal-cattile-icon { width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: rgba(var(--color-accent-rgb), .14); color: var(--color-accent); }
+.portal-cattile.is-active .portal-cattile-icon { background: var(--color-accent); color: #fff; }
+.portal-cattile-name { font-weight: 650; font-size: .95rem; line-height: 1.2; overflow-wrap: anywhere; }
+.portal-cattile-desc { color: var(--if-muted); font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+.portal-cattile-count { color: var(--if-muted); font-size: .75rem; }
+.portal-filterbar .portal-cattiles { flex: 1 1 100%; margin-bottom: 0; order: 2; }
+.portal-request-table { width: 100%; }
+@media (max-width: 575.98px) {
+    .portal-cattiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* ---- Calmer colours: primary button, ticket list rail, status/count chips ---- */
 .portal-ui .btn-primary {
     background-color: color-mix(in srgb, var(--color-accent) 78%, #1b2a33);

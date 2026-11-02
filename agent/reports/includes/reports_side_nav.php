@@ -88,6 +88,12 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                             <span class="nav-link-title">Customer Satisfaction</span>
                         </a>
                     </li>
+                    <li class="nav-item<?php if ($current_page == "service_catalog.php") { echo " active"; } ?>">
+                        <a href="/agent/reports/service_catalog.php" class="nav-link<?php if ($current_page == "service_catalog.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-concierge-bell"></i></span>
+                            <span class="nav-link-title">Service Catalog Requests</span>
+                        </a>
+                    </li>
                     <li class="nav-item<?php if ($current_page == "rmm_health.php") { echo " active"; } ?>">
                         <a href="/agent/reports/rmm_health.php" class="nav-link<?php if ($current_page == "rmm_health.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-heartbeat"></i></span>

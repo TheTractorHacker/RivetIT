@@ -5130,6 +5130,7 @@ CREATE TABLE `settings` (
   `config_update_notify_last_at` datetime DEFAULT NULL,
   `config_mail_template_header_html` mediumtext DEFAULT NULL,
   `config_mail_template_footer_html` mediumtext DEFAULT NULL,
+  `config_catalog_approval_cron` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -9824,8 +9825,13 @@ CREATE TABLE `service_catalog_items` (
   `auto_approve_below` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `catalog_category_id` int(11) DEFAULT NULL,
+  `reminder_after_hours` int(11) NOT NULL DEFAULT 0,
+  `escalate_after_hours` int(11) NOT NULL DEFAULT 0,
+  `expire_after_hours` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`catalog_item_id`),
-  KEY `ticket_category_id` (`ticket_category_id`)
+  KEY `ticket_category_id` (`ticket_category_id`),
+  KEY `idx_catalog_item_category` (`catalog_category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -9866,6 +9872,8 @@ CREATE TABLE `service_catalog_approval_steps` (
   `approver_type` varchar(20) NOT NULL DEFAULT 'user',
   `approver_id` int(11) DEFAULT NULL,
   `mode` varchar(10) NOT NULL DEFAULT 'any',
+  `risk_min` int(11) NOT NULL DEFAULT 0,
+  `risk_max` int(11) NOT NULL DEFAULT 100,
   PRIMARY KEY (`step_id`),
   KEY `idx_catalog_step_item` (`catalog_item_id`,`step_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9892,6 +9900,7 @@ CREATE TABLE `service_catalog_requests` (
   `rejection_reason` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `decided_at` datetime DEFAULT NULL,
+  `risk_breakdown` text DEFAULT NULL,
   PRIMARY KEY (`request_id`),
   UNIQUE KEY `uq_catalog_request_ticket` (`ticket_id`),
   KEY `idx_catalog_request_item` (`catalog_item_id`),
@@ -9917,10 +9926,75 @@ CREATE TABLE `service_catalog_request_approvals` (
   `comment` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `decided_at` datetime DEFAULT NULL,
+  `step_id` int(11) DEFAULT NULL,
+  `delegated_from_user_id` int(11) DEFAULT NULL,
+  `is_escalation` tinyint(1) NOT NULL DEFAULT 0,
+  `escalated_at` datetime DEFAULT NULL,
+  `last_reminded_at` datetime DEFAULT NULL,
+  `reminder_count` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`approval_id`),
   KEY `idx_catalog_approval_request` (`request_id`,`step_order`),
   KEY `idx_catalog_approval_user` (`approver_user_id`,`status`),
   KEY `idx_catalog_approval_contact` (`approver_contact_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_categories`
+--
+
+DROP TABLE IF EXISTS `service_catalog_categories`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_categories` (
+  `category_id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `description` varchar(500) DEFAULT NULL,
+  `icon` varchar(100) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_risk_rules`
+--
+
+DROP TABLE IF EXISTS `service_catalog_risk_rules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_risk_rules` (
+  `rule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `catalog_item_id` int(11) NOT NULL,
+  `field_key` varchar(64) NOT NULL,
+  `op` varchar(12) NOT NULL DEFAULT 'equals',
+  `value` varchar(400) DEFAULT NULL,
+  `points` int(11) NOT NULL DEFAULT 0,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`rule_id`),
+  KEY `idx_catalog_risk_item` (`catalog_item_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `service_catalog_delegations`
+--
+
+DROP TABLE IF EXISTS `service_catalog_delegations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `service_catalog_delegations` (
+  `delegation_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `delegate_user_id` int(11) NOT NULL,
+  `starts_at` datetime NOT NULL,
+  `ends_at` datetime NOT NULL,
+  `note` varchar(200) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`delegation_id`),
+  KEY `idx_catalog_delegation_user` (`user_id`,`ends_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
