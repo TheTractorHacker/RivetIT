@@ -30,6 +30,7 @@ $GLOBALS['sent_mail'] = []; $GLOBALS['sent_notify'] = [];
 function addToMailQueue(array $mails) { foreach ($mails as $m) { $GLOBALS['sent_mail'][] = $m; } }
 function notifyUser($uid, $type, $msg, $url = '', $client = 0, $ticket = 0) { $GLOBALS['sent_notify'][] = [$uid, $msg]; }
 $config_ticket_from_email = 'noreply@example.test'; $config_ticket_from_name = 'Test';
+require __DIR__ . '/../vendor/autoload.php'; // ServiceCatalogService now calls ITFlow\Chat\ChatNotifier (issue #36)
 require __DIR__ . '/../src/ITSM/ServiceCatalogService.php';
 use ITFlow\ITSM\ServiceCatalogService as S;
 $svc = new S($mysqli);

@@ -41,6 +41,8 @@ class FakeGw implements ActionGateway, DirectoryActionGateway {
     public function entraDisableAccount(string $email, bool $revoke, int $runTaskId, string $dept = ''): string { $this->calls[] = ['entra_disable', $email, $revoke, $dept]; return "disabled $email"; }
     public function entraCreateAccount(array $spec, int $runTaskId): string { $this->calls[] = ['entra_create']; return 'created'; }
     public function entraAddToGroups(string $email, array $groupIds, int $runTaskId, string $dept = ''): string { $this->calls[] = ['entra_groups', $email, $groupIds, $dept]; return 'added'; }
+    public function entraChangeLicenses(string $email, array $addSkus, array $removeSkus, int $runTaskId, string $dept = ''): string { $this->calls[] = ['entra_licenses', $email, $addSkus, $removeSkus, $dept]; return 'licenses changed'; }
+    public function entraSetAutoReply(string $email, string $message, int $runTaskId, string $dept = ''): string { $this->calls[] = ['entra_autoreply', $email]; return 'auto reply set'; }
     public function count(string $k): int { return count(array_filter($this->calls, fn($c) => $c[0] === $k)); }
     public function reset(): void { $this->calls = []; }
 }

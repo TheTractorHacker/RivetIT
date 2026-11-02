@@ -147,8 +147,8 @@ $old->query("INSERT INTO workflow_runs SET contact_id=1, type='offboarding'");
 define('CURRENT_DATABASE_VERSION', '2.6.210');
 $runUpgrade = static function (mysqli $conn): void { $mysqli = $conn; require $GLOBALS['ROOT'] . '/admin/database_updates.php'; };
 $runUpgrade($old);
-ok(q1($old, 'SELECT config_current_database_version FROM settings') === '2.6.214', 'upgrade lands on 2.6.214', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
-ok(LATEST_DATABASE_VERSION === '2.6.214', 'includes/database_version.php says 2.6.214');
+ok(q1($old, 'SELECT config_current_database_version FROM settings') === '2.6.231', 'upgrade from 2.6.210 runs the whole chain and lands on 2.6.231', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
+ok(LATEST_DATABASE_VERSION === '2.6.231', 'includes/database_version.php says 2.6.231');
 ok(q1($old, 'SELECT name FROM workflow_templates') === 'keep me' && q1($old, 'SELECT type FROM workflow_runs') === 'offboarding', 'existing rows survive the upgrade');
 foreach (['workflow_templates', 'workflow_template_tasks', 'workflow_runs', 'workflow_run_tasks'] as $t) {
     $a = $old->query("SHOW CREATE TABLE `$t`")->fetch_row()[1];
@@ -161,8 +161,8 @@ $sa = (string) $old->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS W
 $sb = trim((string) $rootRun("SELECT COLUMN_TYPE, COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$freshDb' AND TABLE_NAME='settings' AND COLUMN_NAME='config_lifecycle_odoo_actions'"));
 ok($sa === 'tinyint(1)' && str_contains($sb, 'tinyint(1)') && str_contains($sb, "\t0"), 'settings.config_lifecycle_odoo_actions: tinyint(1) default 0 in both');
 $cols = q($old, "SELECT COLUMN_NAME, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$oldDb' AND TABLE_NAME='settings' AND COLUMN_NAME='config_lifecycle_odoo_actions'");
-$lastOld = q1($old, "SELECT MAX(ORDINAL_POSITION) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$oldDb' AND TABLE_NAME='settings'");
-ok($cols && (int) $cols[0]['ORDINAL_POSITION'] === (int) $lastOld, 'the new settings column is the last one (same place as in db.sql)');
+$posFresh = trim((string) $rootRun("SELECT ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$freshDb' AND TABLE_NAME='settings' AND COLUMN_NAME='config_lifecycle_odoo_actions'"));
+ok($cols && (int) $cols[0]['ORDINAL_POSITION'] > 0 && str_contains($posFresh, (string) $cols[0]['ORDINAL_POSITION']), 'the new settings column is in the same place as in db.sql (other issues add settings columns after it in the merged chain)');
 $runUpgrade($old);
 ok(q1($old, 'SELECT COUNT(*) FROM workflow_templates') === '1', 'rerunning the upgrade is a no-op that keeps data');
 $old->close();

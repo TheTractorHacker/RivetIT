@@ -1630,7 +1630,9 @@ class ServiceCatalogService
             }
         }
         // Chat (Slack / Teams): an Approve / Deny message to approvers who linked their chat account. No-op unless "actions from chat" is on.
-        \ITFlow\Chat\ChatNotifier::approvalRequested($this->db, 'catalog_request', intval($req['request_id']));
+        if (class_exists(\ITFlow\Chat\ChatNotifier::class)) {
+            \ITFlow\Chat\ChatNotifier::approvalRequested($this->db, 'catalog_request', intval($req['request_id']));
+        }
     }
 
     private function notifyOutcome(array $req, bool $approved, string $reason): void
