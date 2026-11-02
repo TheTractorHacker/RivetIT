@@ -104,7 +104,7 @@ $ok(TeamsKeys::fetch("http://127.0.0.1:$port/teams/openid-evil") === null, 'a me
 // ======================================================= 3. fixtures for connector / bot
 foreach (['chat_threads', 'chat_identities', 'slack_interactive_seen', 'ticket_replies', 'tickets', 'service_catalog_request_approvals', 'service_catalog_requests', 'service_catalog_approval_steps', 'service_catalog_fields', 'service_catalog_items', 'kb_articles', 'contacts',
     'user_client_permissions', 'user_role_permissions', 'modules', 'users', 'ticket_statuses', 'clients', 'webhooks', 'logs'] as $t) { $q("DELETE FROM $t"); }
-$q("DELETE FROM settings WHERE company_id = 1"); $q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.243', config_ticket_prefix = 'TCK-', config_ticket_next_number = 500");
+$q("DELETE FROM settings WHERE company_id = 1"); $q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.229', config_ticket_prefix = 'TCK-', config_ticket_next_number = 500");
 foreach ([[1, 'New'], [2, 'Open'], [3, 'On Hold'], [5, 'Closed']] as [$id, $n]) { $q("INSERT INTO ticket_statuses SET ticket_status_id = $id, ticket_status_name = '$n', ticket_status_color = '#000', ticket_status_active = 1"); }
 $q("INSERT INTO clients SET client_id = 1, client_name = 'Dept A'"); $q("INSERT INTO clients SET client_id = 2, client_name = 'Dept B'");
 $q("INSERT INTO user_roles (role_id, role_name, role_is_admin, role_type) VALUES (1, 'Admin', 1, 1), (2, 'Tech', 0, 1) ON DUPLICATE KEY UPDATE role_is_admin = VALUES(role_is_admin)");

@@ -4,7 +4,7 @@ Everything in issue #36 was built and tested against local mocks and locally sig
 **Nothing has talked to a real Slack workspace, a real Azure Bot or a Teams tenant.** Use a test workspace/tenant and a test department. Tick each item; note failures.
 
 ## 0. Before you start
-- [ ] Run **Update database** (DB 2.6.243). Open Administration > Settings > Chat: it shows the four URLs and every switch OFF.
+- [ ] Run **Update database** (DB 2.6.229). Open Administration > Settings > Chat: it shows the four URLs and every switch OFF.
 - [ ] Base URL is the public https address (the manifest refuses http).
 - [ ] The web server forwards `/slack_events.php`, `/slack_commands.php`, `/slack_interactive.php`, `/teams_bot.php` like `comet_webhook.php` (root-level PHP files; check the live nginx rules allow them).
 

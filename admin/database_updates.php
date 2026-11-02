@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.241: Slack / Teams chat (issue #36), part 1: settings. Every behaviour switch is OFF by default, the two secrets are
+    if ($rivetit_db_version() == '2.6.226') {
+        // DB 2.6.227: Slack / Teams chat (issue #36), part 1: settings. Every behaviour switch is OFF by default, the two secrets are
         // stored encrypted (encryptSetting), nothing changes until an administrator turns a switch on in Administration > Chat.
         //   config_slack_signing_secret   Slack app Signing Secret for the Events API, slash commands and interactivity (encrypted)
         //   config_chat_two_way_enabled   ticket threads in a chat channel <-> ticket replies
@@ -12372,11 +12372,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             ADD COLUMN IF NOT EXISTS `config_teams_app_secret` text DEFAULT NULL,
             ADD COLUMN IF NOT EXISTS `config_teams_tenant_id` varchar(64) NOT NULL DEFAULT '',
             ADD COLUMN IF NOT EXISTS `config_teams_link_by_email` tinyint(1) NOT NULL DEFAULT 0");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.241'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.227'");
     }
 
-    if ($rivetit_db_version() == '2.6.241') {
-        // DB 2.6.242: chat identity map and ticket threads.
+    if ($rivetit_db_version() == '2.6.227') {
+        // DB 2.6.228: chat identity map and ticket threads.
         //   chat_identities  an explicit link from a Slack / Teams user to an agent (identity_user_id) or a portal contact (identity_contact_id);
         //                    an explicit link always wins over the email fallback. One external user maps to one row.
         //   chat_threads     one chat thread (a Slack thread_ts, or a Teams conversation) per ticket and platform, plus how far the ticket's replies
@@ -12409,16 +12409,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             UNIQUE KEY `uq_chat_thread` (`thread_platform`,`thread_channel_id`,`thread_ref`),
             KEY `idx_chat_thread_ticket` (`thread_ticket_id`,`thread_platform`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.228'");
     }
 
-    if ($rivetit_db_version() == '2.6.242') {
-        // DB 2.6.243: chat_kv, a small key/value cache (the Bot Framework signing keys fetched for Teams JWT validation, with their fetch time).
+    if ($rivetit_db_version() == '2.6.228') {
+        // DB 2.6.229: chat_kv, a small key/value cache (the Bot Framework signing keys fetched for Teams JWT validation, with their fetch time).
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `chat_kv` (
             `kv_key` varchar(64) NOT NULL,
             `kv_value` mediumtext DEFAULT NULL,
             `kv_updated_at` datetime NOT NULL DEFAULT current_timestamp(),
             PRIMARY KEY (`kv_key`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.229'");
     }
