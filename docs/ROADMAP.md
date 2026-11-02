@@ -170,16 +170,16 @@ access. CAB, change calendar and release management are U even at Halo.
 | Capability | Freshservice | Jira Service Management | RivetIT now |
 |---|---|---|---|
 | Searchable service catalog and self-service portal | Yes; catalog also reachable from Slack or Teams | Yes: Help Center, configurable portals, request types | Yes. Recent/trending and per-item request forms and approvals added in 26.10 (migration 2.6.133) |
-| Request forms | Forms per catalog item | Dynamic forms with conditional show/hide, validation, tables | Per-item fields (text, textarea, select, checkbox, date, number); **no conditional logic or tables yet** |
+| Request forms | Forms per catalog item; shared and auto-populated fields | Dynamic forms with conditional show/hide, validation, tables | Per-item fields plus show-if on earlier answers (migration 2.6.140, `docs/SERVICE_CATALOG.md`); **no tables or multi-condition rules** |
 | Approvals | Automated approvals; onboarding sends forms to managers | Approval workflows by change type, risk and CAB; group authority; auto-approve low-risk changes | Ordered steps (any/all), risk score with auto-approve threshold, manager approver, inbox. **No CAB or change calendar** |
 | Onboarding and lifecycle | HR + IT onboarding: requests from the portal, forms to managers and employees, progress tracking, reminders, bulk onboarding | Via automation and request types (not verified in detail) | Dependencies, due dates, reminders, approval and action tasks, dry-run, hire/termination triggers (26.10, migration 2.6.134). **No bulk onboarding, no HR-initiated portal request yet** |
-| Automation | Workflow Automator, Supervisor Rules, Orchestration Center (Okta, Azure AD, AWS, Slack) | Rules with out-of-the-box templates | Event rules + lifecycle actions (ticket, mail, notify, webhook, disable contact login). **No directory-account actions (Entra/Okta) yet** |
-| Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | One-way Slack and Teams notifications with routing filters (migration 2.6.135). **No two-way sync, no virtual agent, no interactive buttons** |
-| Assets and CMDB | CMDB and asset management | Assets (Premium/Enterprise): link assets and CIs to requests, incidents, problems, changes | Assets + Intune; relationship graph between items is not built |
+| Automation | Workflow Automator, Supervisor Rules, Orchestration Center (Okta, Azure AD, AWS, Slack) | Rules with out-of-the-box templates | Event rules + lifecycle actions (ticket, mail, notify, webhook, disable contact login, Entra create/disable/add-to-groups, default off, mock-tested). **No Okta** |
+| Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | Slack and Teams notifications with routing filters (migration 2.6.135); optional Slack interactive buttons (mock-tested only). **No two-way sync, no virtual agent** |
+| Assets and CMDB | CMDB and asset management | Assets (Premium/Enterprise): link assets and CIs to requests, incidents, problems, changes | Assets + Intune + typed entity links (depends_on, runs_on, supported_by) with impact traversal. **No discovery-based CMDB** |
 
-Gaps worth scheduling, in order of value: conditional logic in catalog forms; HR-initiated onboarding request from the
-portal; directory actions (create/disable Entra account) in lifecycle workflows; interactive Slack/Teams actions and
-two-way sync (needs a signing-secret endpoint or bot); CAB and a change calendar. RivetIT priorities remain the
+Full 2026-11-01 comparison with sources and a prioritized list: `docs/COMPETITOR_RESEARCH_FRESHSERVICE_JSM.md`. Gaps worth scheduling, in order
+of value: CAB and a change calendar; in-app AI (summary, reply, triage); HR-initiated onboarding request plus bulk upload; major incident flow;
+OLA objects and on-call rota; two-way chat; change impact from entity links. RivetIT priorities remain the
 Master Plan phases 5, 13, 14, 15.
 
 Sources: [Freshservice service catalog](https://www.freshworks.com/freshservice/it-service-desk/it-service-catalog-management/),
@@ -243,4 +243,4 @@ Still open:
 1. Confirm the RivetMSP target is `/var/www/itflow.foleyit.com` (live) and that `itflow_msp` / `itflow-msp` are stale copies.
 2. Inspect the `?` cells in §3 against the RivetMSP code (automation rules, accounting sync, SSO).
 3. Where does the shared core live (Composer path repo, separate git repo, or vendored)?
-4. Research RivetIT's ITSM competitors (Freshservice, JSM) if you want a RivetIT-side matrix.
+4. ~~Research Freshservice and JSM~~ Done 2026-11-01: `docs/COMPETITOR_RESEARCH_FRESHSERVICE_JSM.md`. Decide whether to schedule its gap list.
