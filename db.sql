@@ -1484,6 +1484,26 @@ CREATE TABLE `email_queue` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `email_queue_attachments`
+--
+
+DROP TABLE IF EXISTS `email_queue_attachments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `email_queue_attachments` (
+  `attachment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `attachment_email_id` int(11) NOT NULL,
+  `attachment_filename` varchar(150) NOT NULL,
+  `attachment_mime` varchar(100) NOT NULL DEFAULT 'application/octet-stream',
+  `attachment_content` longblob NOT NULL,
+  `attachment_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`attachment_id`),
+  KEY `attachment_email_id` (`attachment_email_id`),
+  CONSTRAINT `email_queue_attachments_ibfk_1` FOREIGN KEY (`attachment_email_id`) REFERENCES `email_queue` (`email_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Email Templates (DB 2.6.186): customizable subject/body for the client/technician-facing mail events this app sends,
 -- previously hardcoded HTML strings duplicated across several call sites. includes/mail_templates.php.
 --
@@ -9355,6 +9375,44 @@ CREATE TABLE `report_exports` (
   PRIMARY KEY (`export_id`),
   UNIQUE KEY `export_token_hash` (`export_token_hash`),
   KEY `export_expires_at` (`export_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `report_recipient_groups`
+--
+
+DROP TABLE IF EXISTS `report_recipient_groups`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `report_recipient_groups` (
+  `group_id` int(11) NOT NULL AUTO_INCREMENT,
+  `group_name` varchar(100) NOT NULL,
+  `group_recipients` text NOT NULL,
+  `group_created_by` int(11) DEFAULT NULL,
+  `group_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`group_id`),
+  UNIQUE KEY `group_name` (`group_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `report_schedule_targets`
+--
+
+DROP TABLE IF EXISTS `report_schedule_targets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `report_schedule_targets` (
+  `target_id` int(11) NOT NULL AUTO_INCREMENT,
+  `target_schedule_id` int(11) NOT NULL,
+  `target_group_id` int(11) NOT NULL,
+  `target_saved_report_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`target_id`),
+  UNIQUE KEY `target_unique` (`target_schedule_id`,`target_group_id`),
+  KEY `target_group_id` (`target_group_id`),
+  CONSTRAINT `report_schedule_targets_ibfk_1` FOREIGN KEY (`target_schedule_id`) REFERENCES `report_schedules` (`schedule_id`) ON DELETE CASCADE,
+  CONSTRAINT `report_schedule_targets_ibfk_2` FOREIGN KEY (`target_group_id`) REFERENCES `report_recipient_groups` (`group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

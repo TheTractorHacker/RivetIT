@@ -2097,7 +2097,7 @@ function getTechnicianPerformanceReport(mysqli $mysqli, $date_from, $date_to, $c
     // always calls this with $client_id = null (company-wide). ticket_replies carries no
     // client column of its own, so it's joined to tickets only when scoping is active.
     $client_clause         = $client_id !== null ? reportClientClause($client_id, 'ticket_client_id') : \ITFlow\Reports\ReportScope::clause('ticket_client_id');
-    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND " . reportClientIn($client_id, 'trt.ticket_client_id') : (\ITFlow\Reports\ReportScope::isRestricted() ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
+    $client_join_ticket_id = $client_id !== null ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id AND " . reportClientIn($client_id, 'trt.ticket_client_id') : (\ITFlow\Reports\ReportScope::isRestricted() || \ITFlow\Reports\ReportFilters::active() !== [] ? " JOIN tickets trt ON trt.ticket_id = tr.ticket_reply_ticket_id" . \ITFlow\Reports\ReportScope::clause('trt.ticket_client_id') : '');
 
     $hpd = defined('REPORT_CAPACITY_HOURS_PER_DAY') ? REPORT_CAPACITY_HOURS_PER_DAY : 8;
     $business_days    = report_business_days($date_from, $date_to);
@@ -3110,7 +3110,27 @@ function addToMailQueue($data) {
             mysqli_stmt_bind_param($stmt, 'ssssssssii', $recipient, $recipient_name, $from, $from_name, $subject, $body, $cal_str, $message_id, $ticket_id_param, $auto);
         }
         mysqli_stmt_execute($stmt);
+        $queued_email_id = (int) mysqli_insert_id($mysqli);
         mysqli_stmt_close($stmt);
+
+        // Optional attachments (scheduled PDF reports): [['filename' => ..., 'mime' => ..., 'content' => bytes], ...], stored in
+        // email_queue_attachments (DB 2.6.231) and attached by cron/mail_queue.php when the message is sent.
+        if ($queued_email_id > 0 && !empty($email['attachments']) && is_array($email['attachments'])) {
+            foreach (array_slice($email['attachments'], 0, 5) as $att) {
+                $att_name = substr(preg_replace('/[^A-Za-z0-9._ -]+/', '_', basename((string) ($att['filename'] ?? 'attachment'))), 0, 150);
+                $att_mime = preg_match('#^[a-z0-9.+-]+/[a-z0-9.+-]+$#i', (string) ($att['mime'] ?? '')) ? (string) $att['mime'] : 'application/octet-stream';
+                $att_content = (string) ($att['content'] ?? '');
+                if ($att_content === '' || strlen($att_content) > 10 * 1024 * 1024) {
+                    continue;
+                }
+                $att_stmt = mysqli_prepare($mysqli, "INSERT INTO email_queue_attachments (attachment_email_id, attachment_filename, attachment_mime, attachment_content) VALUES (?, ?, ?, ?)");
+                $att_null = null;
+                mysqli_stmt_bind_param($att_stmt, 'issb', $queued_email_id, $att_name, $att_mime, $att_null);
+                mysqli_stmt_send_long_data($att_stmt, 3, $att_content);
+                mysqli_stmt_execute($att_stmt);
+                mysqli_stmt_close($att_stmt);
+            }
+        }
     }
 
     return true;
