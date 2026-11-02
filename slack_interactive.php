@@ -3,8 +3,11 @@
  * Slack interactivity endpoint (the "Request URL" under Interactivity & Shortcuts in your Slack app):
  *   https://<your RivetIT host>/slack_interactive.php
  * Public by nature (Slack calls it), so it authenticates every request itself: Slack signing secret (X-Slack-Signature, v0 HMAC-SHA256,
- * 5 minute window, constant-time compare), single use per signature, then the Slack user must map to an active agent who opted in
- * (see src/Webhooks/SlackInteractive.php). Like comet_webhook.php it needs no nginx rule: it is an ordinary root-level PHP file.
+ * 5 minute window, constant-time compare) from Administration > Chat or from a Slack webhook destination, single use per signature, then the Slack
+ * user must map to an active agent (an explicit link, or the opt-in confirmed-email match; see src/Chat/ChatIdentity.php).
+ * Handles: the Acknowledge / Assign to me buttons (src/Webhooks/SlackInteractive.php) and, when switched on, status / priority / reply / approve / deny
+ * actions, the ticket-creation modal and the message / global shortcuts (src/Chat/SlackApp.php).
+ * Like comet_webhook.php it needs no nginx rule: it is an ordinary root-level PHP file.
  * It answers 401 with no detail to anything that is not a valid Slack request, and never writes a payload or token to a log.
  */
 
@@ -31,13 +34,13 @@ if ($raw === false || strlen($raw) > \ITFlow\Webhooks\SlackInteractive::MAX_BODY
     exit;
 }
 
-$interactive = new \ITFlow\Webhooks\SlackInteractive($mysqli);
-$webhook = $interactive->destinationFor((string) ($_SERVER['HTTP_X_SLACK_REQUEST_TIMESTAMP'] ?? ''), $raw, (string) ($_SERVER['HTTP_X_SLACK_SIGNATURE'] ?? ''), time());
-if ($webhook === null) {
+$auth = \ITFlow\Chat\SlackAuth::authenticate($mysqli, (string) ($_SERVER['HTTP_X_SLACK_REQUEST_TIMESTAMP'] ?? ''), $raw, (string) ($_SERVER['HTTP_X_SLACK_SIGNATURE'] ?? ''), time());
+if ($auth === null) {
     http_response_code(401);
     echo '{}';
     exit;
 }
+$interactive = new \ITFlow\Webhooks\SlackInteractive($mysqli);
 if (!$interactive->claimOnce((string) $_SERVER['HTTP_X_SLACK_SIGNATURE'])) {
     // A replay of a request that was already handled: say so, do nothing.
     echo json_encode(['response_type' => 'ephemeral', 'text' => 'This request was already handled.']);
@@ -53,13 +56,15 @@ if (!is_array($payload)) {
 }
 
 try {
-    $result = $interactive->handle($webhook, $payload);
+    $app = new \ITFlow\Chat\SlackApp($mysqli);
+    $result = $app->interaction($auth['webhook'], $payload);
 } catch (\Throwable $e) {
     error_log('slack_interactive: ' . get_class($e));
-    $result = ['text' => 'Something went wrong; nothing was changed.', 'acted' => false];
+    $result = ['text' => 'Something went wrong; nothing was changed.', 'acted' => false, 'body' => null, 'replace' => false];
 }
 
 if ($result['text'] !== null && is_string($payload['response_url'] ?? null)) {
-    \ITFlow\Webhooks\SlackInteractive::respond($payload['response_url'], $result['text']);
+    \ITFlow\Webhooks\SlackInteractive::respond($payload['response_url'], $result['text'], !empty($result['replace']));
 }
-echo json_encode(['ok' => true]);
+// A modal submission is answered in the HTTP body (errors / clear); everything else is acknowledged.
+echo json_encode($result['body'] ?? ['ok' => true]);

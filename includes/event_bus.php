@@ -135,6 +135,19 @@ function rivetEmitEvent(string $event, array $data): void
                 }
             }
         }
+
+        // 3. Chat ticket threads (Slack / Teams two-way). Off unless "two-way" is on in Administration > Chat; a ticket's new replies are posted into its thread.
+        if (($event === 'ticket.created' || $event === 'ticket.replied') && (int) ($data['ticket_id'] ?? 0) > 0 && rivetTableExists($mysqli, 'chat_threads')) {
+            $chatOn = mysqli_fetch_row(mysqli_query($mysqli, 'SELECT config_chat_two_way_enabled FROM settings WHERE company_id = 1'));
+            if ($chatOn && (int) $chatOn[0] === 1) {
+                if ($jobs !== null) {
+                    $jobs->enqueue('chat.sync', ['event' => $event, 'ticket_id' => (int) $data['ticket_id']], null, 'webhook', 0, 3);
+                    $queued = true;
+                } else {
+                    \ITFlow\Chat\ChatNotifier::handleEvent($mysqli, $event, ['ticket_id' => (int) $data['ticket_id']]);
+                }
+            }
+        }
     } catch (\Throwable $e) {
         error_log('rivetEmitEvent(' . $event . ') skipped: ' . $e->getMessage());
     }
@@ -232,6 +245,13 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
         }
 
         return ['http_status' => $r['http_status'], 'duration_ms' => $r['duration_ms']];
+    });
+
+    // Slack / Teams ticket threads: post a ticket / its new replies into the chat thread (src/Chat/ChatNotifier.php).
+    $worker->register('chat.sync', static function (array $p) use ($mysqli) {
+        \ITFlow\Chat\ChatNotifier::handleEvent($mysqli, (string) ($p['event'] ?? ''), ['ticket_id' => (int) ($p['ticket_id'] ?? 0)]);
+
+        return ['ticket_id' => (int) ($p['ticket_id'] ?? 0)];
     });
 
     $worker->register('automation.action', static function (array $p) use ($mysqli) {

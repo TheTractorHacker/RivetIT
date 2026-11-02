@@ -140,10 +140,16 @@ final class SlackInteractive
         }
 
         $notLinked = ("Your Slack account isn't linked to a " . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . " agent, so nothing was changed. Use the Open ticket button and sign in.");
-        if ((int) ($cfg['config_slack_link_by_email'] ?? 0) !== 1) {
-            return ['text' => $notLinked, 'acted' => false];
+        $slackUserId = (string) ($payload['user']['id'] ?? '');
+        $agentId = null;
+        try {
+            // An explicit link (Administration > Chat) wins; otherwise the opt-in confirmed-email match (config_slack_link_by_email).
+            $who = (new \ITFlow\Chat\ChatIdentity($this->mysqli, new \ITFlow\Chat\ChatSettings($this->mysqli), $this->userLookup))->resolve('slack', $payloadTeam, $slackUserId);
+            $agentId = $who !== null && $who['kind'] === 'agent' ? (int) $who['user_id'] : null;
+        } catch (\Throwable $e) {
+            // chat tables not migrated yet: the original behaviour
+            $agentId = (int) ($cfg['config_slack_link_by_email'] ?? 0) === 1 ? $this->agentForSlackUser($slackUserId, (string) ($cfg['config_slack_bot_token'] ?? ''), $payloadTeam) : null;
         }
-        $agentId = $this->agentForSlackUser((string) ($payload['user']['id'] ?? ''), (string) ($cfg['config_slack_bot_token'] ?? ''), $payloadTeam);
         if ($agentId === null) {
             return ['text' => $notLinked, 'acted' => false];
         }
@@ -186,10 +192,10 @@ final class SlackInteractive
     }
 
     /**
-     * Slack user id -> agent id, or null. Only through a confirmed email address Slack reports for that exact user, and only when
-     * exactly one active agent has it. A name, a display name or anything in the payload itself is never used.
+     * The email address Slack itself confirms for this exact user, or null. Null for anything doubtful: no bot token, a malformed id, Slack
+     * saying no, a bot / deleted / guest / stranger, a different workspace than the request's, an unconfirmed or missing address.
      */
-    public function agentForSlackUser(string $slackUserId, string $encryptedBotToken, string $payloadTeamId): ?int
+    public function verifiedEmailForSlackUser(string $slackUserId, string $encryptedBotToken, string $payloadTeamId): ?string
     {
         if (!preg_match('/^[UW][A-Z0-9]{4,20}$/', $slackUserId)) {
             return null;
@@ -210,6 +216,20 @@ final class SlackInteractive
         }
         $email = strtolower(trim((string) ($user['profile']['email'] ?? '')));
         if (($user['is_email_confirmed'] ?? false) !== true || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return $email;
+    }
+
+    /**
+     * Slack user id -> agent id, or null. Only through a confirmed email address Slack reports for that exact user, and only when
+     * exactly one active agent has it. A name, a display name or anything in the payload itself is never used.
+     */
+    public function agentForSlackUser(string $slackUserId, string $encryptedBotToken, string $payloadTeamId): ?int
+    {
+        $email = $this->verifiedEmailForSlackUser($slackUserId, $encryptedBotToken, $payloadTeamId);
+        if ($email === null) {
             return null;
         }
         $stmt = mysqli_prepare($this->mysqli, 'SELECT user_id FROM users WHERE LOWER(user_email) = ? AND user_type = 1 AND user_status = 1 AND user_archived_at IS NULL');
@@ -324,7 +344,7 @@ final class SlackInteractive
      * Post the ephemeral answer to the interaction's response_url. Only a Slack host is accepted (and the usual public-address vetting
      * applies); a failure is ignored, the click itself has already been handled.
      */
-    public static function respond(string $responseUrl, string $text): bool
+    public static function respond(string $responseUrl, string $text, bool $replace = false): bool
     {
         $host = strtolower((string) parse_url($responseUrl, PHP_URL_HOST));
         $isSlack = $host === 'slack.com' || str_ends_with($host, '.slack.com');
@@ -332,7 +352,7 @@ final class SlackInteractive
         if (!$isSlack && !$testLocal) {
             return false;
         }
-        $json = json_encode(['response_type' => 'ephemeral', 'replace_original' => false, 'text' => ChatFormatter::slackEscape($text)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $json = json_encode(['response_type' => 'ephemeral', 'replace_original' => $replace, 'text' => ChatFormatter::slackEscape($text)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $r = ChatDelivery::post($responseUrl, (string) $json);
 
         return $r['error'] === null && $r['status'] !== null && $r['status'] >= 200 && $r['status'] < 300;
