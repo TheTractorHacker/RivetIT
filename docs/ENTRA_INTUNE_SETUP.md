@@ -71,7 +71,7 @@ The Intune device sync keeps running on every cron tick as before.
 Groups, licenses and Intune details share one interval (6 hours to a week, default daily). Every one of these writes only to RivetIT's own tables
 (plus, for the directory sync, departments and contacts exactly as before). Nothing is ever written to Microsoft.
 
-Email changes: from DB 2.6.236 the directory sync remembers which Entra user each contact came from (`microsoft_directory_users`). A mailbox rename
+Email changes: from DB 2.6.225 the directory sync remembers which Entra user each contact came from (`microsoft_directory_users`). A mailbox rename
 therefore updates the contact it belongs to instead of creating a second contact. Contacts that existed before are linked the first time they match by email.
 
 ## Sync status, previews (dry run) and Full resync

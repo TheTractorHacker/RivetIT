@@ -34,7 +34,7 @@ use ITFlow\Directory\FieldMapping;
  * group-to-department mapping UI of its own) — left as a documented
  * limitation for a future version, not silently half-built here.
  *
- * LATER ADDITION (DB 2.6.236): microsoft_directory_users now links each Entra object id to its contact, which gives the "already-linked"
+ * LATER ADDITION (DB 2.6.225): microsoft_directory_users now links each Entra object id to its contact, which gives the "already-linked"
  * fast path described below (a renamed mailbox updates the contact, outcome 'updated') and lets a delta sync find users deleted in Entra. The text
  * below describes the original design and still applies to a user that has no link yet.
  *
@@ -272,7 +272,7 @@ class MicrosoftDirectoryMapper
         // must still find and reactivate that same contact — filtering to
         // non-archived here made a re-enabled employee's next sync silently
         // create a second contact with the same email instead.
-        // Step 1 (DB 2.6.236): the contact this Entra user was linked to on an earlier run, found by the Entra object id, so a changed
+        // Step 1 (DB 2.6.225): the contact this Entra user was linked to on an earlier run, found by the Entra object id, so a changed
         // mailbox address updates that contact instead of making a second one. Only when the link table exists and the contact still exists.
         $entra_id = trim((string) ($user['id'] ?? ''));
         $linked = $entra_id !== '' ? $this->linkedContactId($entra_id) : 0;
@@ -315,7 +315,7 @@ class MicrosoftDirectoryMapper
         return 'created';
     }
 
-    /** Does microsoft_directory_users exist (DB 2.6.236)? Checked once per mapper; before the migration there are simply no links. */
+    /** Does microsoft_directory_users exist (DB 2.6.225)? Checked once per mapper; before the migration there are simply no links. */
     private function hasLinkTable(): bool
     {
         if ($this->linkTable === null) {

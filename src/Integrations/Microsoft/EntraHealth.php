@@ -12,7 +12,7 @@ use ITFlow\Recovery\SyncWatch;
  *     and on expiry, and clears them when the secret is renewed;
  *   - Admin > Update > Checks and Admin > Server status: one line each, so a connection that is about to break shows up where the
  *     administrator already looks. Nothing here talks to Microsoft or changes data except the alert bookkeeping.
- * Every read is defensive: before DB 2.6.236 there is no expiry column and nothing throws.
+ * Every read is defensive: before DB 2.6.225 there is no expiry column and nothing throws.
  */
 final class EntraHealth
 {

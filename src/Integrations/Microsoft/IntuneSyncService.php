@@ -89,7 +89,7 @@ final class IntuneSyncService
         return $fail($message, $code, $logId);
     }
 
-    /** intune_sync_log.dry_run exists from DB 2.6.236; before it, a preview simply is not flagged. */
+    /** intune_sync_log.dry_run exists from DB 2.6.225; before it, a preview simply is not flagged. */
     private static function markDryRun(\mysqli $db, int $logId): void
     {
         try {

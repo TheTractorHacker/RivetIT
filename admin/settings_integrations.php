@@ -84,7 +84,7 @@ $ms_error_labels = [
     'bad_response' => 'Unexpected response', 'time_limit' => 'Time limit reached', 'other' => 'Error',
 ];
 $ms_last_test_error_code = nullable_htmlentities($row_ms['last_test_error_code'] ?? '');
-// Entra sync schedule / incremental / extras (DB 2.6.236, 2.6.237; every switch is off by default) and the client-secret expiry.
+// Entra sync schedule / incremental / extras (DB 2.6.225, 2.6.226; every switch is off by default) and the client-secret expiry.
 $ms_cron_enabled = intval($row_ms['directory_cron_enabled'] ?? 0);
 $ms_cron_interval = intval($row_ms['directory_cron_interval_min'] ?? 360) ?: 360;
 $ms_delta_enabled = intval($row_ms['directory_delta_enabled'] ?? 0);

@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.236: Entra directory sync, incremental and scheduled (issue #35). Additive and idempotent; EVERYTHING is off by default.
+    if ($rivetit_db_version() == '2.6.224') {
+        // DB 2.6.225: Entra directory sync, incremental and scheduled (issue #35). Additive and idempotent; EVERYTHING is off by default.
         //
         // microsoft_integrations  directory_cron_enabled / directory_cron_interval_min  opt-in scheduled directory sync from cron (off)
         //                         directory_delta_enabled  use Graph delta queries (incremental) instead of a full user list (off)
@@ -12386,11 +12386,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             UNIQUE KEY `uniq_entra_user` (`microsoft_integration_id`,`entra_id`),
             KEY `contact_id` (`contact_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.225'");
     }
 
-    if ($rivetit_db_version() == '2.6.236') {
-        // DB 2.6.237: Entra groups, licenses (SKUs), Intune compliance policy states and detected apps (issue #35). Additive and idempotent; off by default.
+    if ($rivetit_db_version() == '2.6.225') {
+        // DB 2.6.226: Entra groups, licenses (SKUs), Intune compliance policy states and detected apps (issue #35). Additive and idempotent; off by default.
         //
         // microsoft_integrations  groups_sync_enabled / licenses_sync_enabled / intune_details_enabled  (all off), extras_interval_min (how often cron runs them)
         // asset_intune_links      details_synced_at  (which devices had their policy states / apps read longest ago; the next run starts there)
@@ -12492,5 +12492,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             KEY `asset_id` (`asset_id`),
             KEY `app_name` (`app_name`(100))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.226'");
     }

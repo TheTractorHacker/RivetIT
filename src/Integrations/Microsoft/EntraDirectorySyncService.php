@@ -7,7 +7,7 @@ namespace ITFlow\Integrations\Microsoft;
  * all of them lock, log, classify errors and count the same way.
  *
  * Modes:
- *   full   every user is read (GET /users), as before DB 2.6.236. Used when "Incremental sync" is off, on "Full resync", and as the fallback.
+ *   full   every user is read (GET /users), as before DB 2.6.225. Used when "Incremental sync" is off, on "Full resync", and as the fallback.
  *   delta  Graph delta query (/users/delta). The first round returns every user plus a delta link, which is saved; later rounds return
  *          only users that changed (and ids of users deleted in Entra). An invalid or expired token (Graph 410 / syncStateNotFound) makes the
  *          run start over as a full round and take a fresh token, and the log says so.

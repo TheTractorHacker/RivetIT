@@ -372,10 +372,10 @@ $upd('enabled=0');
 $ok(EntraHealth::checks($db) === [] && EntraHealth::watch($db) === 'off', 'integration disabled: no checks, no alerts');
 $upd('enabled=1');
 require_once __DIR__ . '/../includes/update_checks.php';
-$uc = updateChecks(dirname(__DIR__), '2.6.237', '2.6.237', $db);
+$uc = updateChecks(dirname(__DIR__), '2.6.226', '2.6.226', $db);
 $ids = array_column($uc, 'id');
 $ok(in_array('entra_secret', $ids, true) || in_array('exec', $ids, true) || in_array('git', $ids, true), 'Update > Checks includes the Entra lines (or git/exec are unavailable here)', implode(',', $ids));
-$ok(!in_array('entra_secret', array_column(updateChecks(dirname(__DIR__), '2.6.237', '2.6.237'), 'id'), true), 'without a database handle the Update checks are unchanged');
+$ok(!in_array('entra_secret', array_column(updateChecks(dirname(__DIR__), '2.6.226', '2.6.226'), 'id'), true), 'without a database handle the Update checks are unchanged');
 // Server status
 $ss = new ITFlow\Ops\ServerStatus($db, dirname(__DIR__));
 $labels = [];

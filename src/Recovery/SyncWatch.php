@@ -138,7 +138,7 @@ final class SyncWatch
         return $res('ok', 'last run ' . self::human($nowTs - $lastStart) . ' ago');
     }
 
-    /** Does this sync log have the dry_run column (DB 2.6.236 / 2.6.237)? Cached per table; false on any doubt, so nothing breaks before the migration. */
+    /** Does this sync log have the dry_run column (DB 2.6.225 / 2.6.226)? Cached per table; false on any doubt, so nothing breaks before the migration. */
     private static function hasDryRunColumn(\mysqli $db, string $table): bool
     {
         static $cache = [];

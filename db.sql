@@ -11445,7 +11445,7 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_files` (
   KEY `idx_current` (`name`,`is_current`,`active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Entra / Intune sync (issue #35), DB 2.6.236 and 2.6.237
+-- Entra / Intune sync (issue #35), DB 2.6.225 and 2.6.226
 CREATE TABLE IF NOT EXISTS `microsoft_directory_users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `microsoft_integration_id` int(11) NOT NULL,

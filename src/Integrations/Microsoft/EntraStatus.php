@@ -5,7 +5,7 @@ namespace ITFlow\Integrations\Microsoft;
 /**
  * Read-only data for the Entra / Intune sync status page (admin/entra_status.php): per sync its switch, schedule, last real run, last preview
  * (dry run), counts, classified error and when the next scheduled run is due. No Graph calls, no writes. Every query is defensive: before
- * DB 2.6.236 / 2.6.237 the missing tables or columns simply give "never run".
+ * DB 2.6.225 / 2.6.226 the missing tables or columns simply give "never run".
  */
 final class EntraStatus
 {

@@ -515,7 +515,7 @@ if (isset($_GET['asset_id'])) {
             </div>
         </div>
         <?php
-        // Compliance policy states and detected apps (Entra / Intune "details" sync, DB 2.6.237; off unless an administrator switched it on). Cached rows only.
+        // Compliance policy states and detected apps (Entra / Intune "details" sync, DB 2.6.226; off unless an administrator switched it on). Cached rows only.
         $intune_pol = [];
         $intune_apps = [];
         if (!empty($intune_link['details_synced_at'])) {
