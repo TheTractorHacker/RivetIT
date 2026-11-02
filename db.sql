@@ -11813,6 +11813,9 @@ CREATE TABLE `chat_identities` (
   UNIQUE KEY `uq_chat_identity` (`identity_platform`,`identity_team_id`,`identity_external_id`),
   KEY `idx_chat_identity_user` (`identity_user_id`),
   KEY `idx_chat_identity_contact` (`identity_contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 --
 -- Table structure for table `quality_departments`
 --
@@ -11848,6 +11851,24 @@ CREATE TABLE `chat_threads` (
   PRIMARY KEY (`thread_id`),
   UNIQUE KEY `uq_chat_thread` (`thread_platform`,`thread_channel_id`,`thread_ref`),
   KEY `idx_chat_thread_ticket` (`thread_ticket_id`,`thread_platform`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `chat_kv`
+--
+
+DROP TABLE IF EXISTS `chat_kv`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chat_kv` (
+  `kv_key` varchar(64) NOT NULL,
+  `kv_value` mediumtext DEFAULT NULL,
+  `kv_updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`kv_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+--
 -- Table structure for table `quality_error_log`
 --
 
@@ -11871,17 +11892,6 @@ CREATE TABLE `quality_error_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `chat_kv`
---
-
-DROP TABLE IF EXISTS `chat_kv`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `chat_kv` (
-  `kv_key` varchar(64) NOT NULL,
-  `kv_value` mediumtext DEFAULT NULL,
-  `kv_updated_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`kv_key`)
 -- Table structure for table `quality_features`
 --
 
