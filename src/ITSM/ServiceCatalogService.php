@@ -1267,8 +1267,12 @@ class ServiceCatalogService
     /** Is the reminder / escalation / timeout worker switched on? Off by default; the column may not exist before DB 2.6.212. */
     public static function timeoutsEnabled(\mysqli $db): bool
     {
-        $res = @$db->query("SELECT config_catalog_approval_cron FROM settings WHERE company_id = 1");
-        $row = $res ? $res->fetch_row() : null;
+        try {
+            $res = $db->query("SELECT config_catalog_approval_cron FROM settings WHERE company_id = 1");
+            $row = $res ? $res->fetch_row() : null;
+        } catch (\Throwable $e) {
+            return false; // the column does not exist yet (database not updated)
+        }
         return $row && intval($row[0]) === 1;
     }
 
