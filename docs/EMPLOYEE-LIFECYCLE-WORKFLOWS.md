@@ -91,7 +91,7 @@ or paused) of that template, further events start nothing. `employee.hired` can 
 * **`employee.transferred`** is raised when a person moves from one department to another (a first placement is not a transfer). A rule starts a **department transfer** template.
   A leaver (termination pending / terminated) never also raises these two.
 
-The **Microsoft and Google directory syncs raise all four events** (DB 2.6.216 changes nothing for them, the hook is code): a pre-hire whose account is now enabled is a hire, a disabled / suspended account is a departure, a changed Entra job title or department is a role change / transfer. They are recorded only when "Start workflows automatically" is on, and a brand-new person created by a sync counts as a hire only with a start date near today, so the first large sync stays quiet. A second identical sync raises nothing. Verified with fixtures against a scratch database; **not run against a real Entra tenant or Google Workspace**.
+The **Microsoft and Google directory syncs raise all four events** (DB 2.6.213 changes nothing for them, the hook is code): a pre-hire whose account is now enabled is a hire, a disabled / suspended account is a departure, a changed Entra job title or department is a role change / transfer. They are recorded only when "Start workflows automatically" is on, and a brand-new person created by a sync counts as a hire only with a start date near today, so the first large sync stays quiet. A second identical sync raises nothing. Verified with fixtures against a scratch database; **not run against a real Entra tenant or Google Workspace**.
 
 ## Role change and transfer workflows
 
@@ -116,7 +116,7 @@ An automated task can have **Delay (days)**: it runs no earlier than N days afte
 | Archive the record and portal login | offboarding | Archives the contact and their client-portal login (not a delete). The primary contact of a department is refused. | Use with Delay for "30 days after the end date". |
 | Entra: assign / remove Microsoft 365 licences | assign: onboarding, role change, transfer; remove: offboarding, role change, transfer | `assignLicense` for SKU GUIDs. | Same gate as the other Entra actions (the "Allow ... to change Entra accounts" setting, the department check). The user needs a usage location for an add. |
 | Entra: set the mailbox automatic reply | offboarding | PATCH `mailboxSettings` automatic replies on, message as written (placeholder values from the directory are HTML-escaped). | Needs the `MailboxSettings.ReadWrite` application permission. |
-| Odoo: create / archive the employee | onboarding / offboarding | Creates `hr.employee` (unless the work email exists) / sets `active=false` (never unlink). | **Off unless Administration > Employee Workflow Templates > "Allow workflows to create / archive employees in Odoo" is ticked** (settings.config_lifecycle_odoo_actions, DB 2.6.217). Odoo is a live system: verified against an in-process mock only. |
+| Odoo: create / archive the employee | onboarding / offboarding | Creates `hr.employee` (unless the work email exists) / sets `active=false` (never unlink). | **Off unless Administration > Employee Workflow Templates > "Allow workflows to create / archive employees in Odoo" is ticked** (settings.config_lifecycle_odoo_actions, DB 2.6.214). Odoo is a live system: verified against an in-process mock only. |
 | Identity system: create / disable the account (Active Directory, VPN, Okta, Google Workspace) | onboarding / offboarding | Calls the system's connector (`src/Workflow/Connectors/IdentityConnector`). | **The four connectors are stubs**: they refuse with "not connected" so the task becomes a manual task. A real connector implements `IdentityConnector` (idempotent, never deletes, never returns a password) and is registered with `ConnectorRegistry::register()`. |
 
 ## Built-in presets and bulk start
@@ -131,7 +131,7 @@ Verified in `tests/lifecycle_automation_test.php` against a scratch database, a 
 
 ## Database
 
-Migration 2.6.216 adds the role_change / transfer types, `variables_json`, `preset_key`, `delay_days`, `condition_json`, `run_after` and the `scheduled` task status; 2.6.217 adds `settings.config_lifecycle_odoo_actions`.
+Migration 2.6.213 adds the role_change / transfer types, `variables_json`, `preset_key`, `delay_days`, `condition_json`, `run_after` and the `scheduled` task status; 2.6.214 adds `settings.config_lifecycle_odoo_actions`.
 
 Migration 2.6.134 adds the columns to `workflow_template_tasks` and `workflow_run_tasks`, the `paused` run status, the
 `workflow_task_log` table, `start_workflow` in `automation_rules.action_type`, and `settings.config_lifecycle_auto_start`.

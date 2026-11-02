@@ -36,7 +36,7 @@ try {
     $workflow_cron_released = (new \ITFlow\Workflow\WorkflowService($mysqli, $workflow_cron_gateway))->releaseDueScheduled();
 } catch (\Throwable $e) {
     $workflow_cron_released = 0;
-    error_log('workflow cron: scheduled tasks not released: ' . $e->getMessage()); // column missing before DB 2.6.216: Update App before Update Database
+    error_log('workflow cron: scheduled tasks not released: ' . $e->getMessage()); // column missing before DB 2.6.213: Update App before Update Database
 }
 echo "Scheduled workflow tasks released: $workflow_cron_released\n";
 

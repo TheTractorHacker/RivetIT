@@ -72,7 +72,7 @@ if (isset($_POST['save_lifecycle_settings'])) {
 
     $on = isset($_POST['lifecycle_auto_start']) ? 1 : 0;
     mysqli_query($mysqli, "UPDATE settings SET config_lifecycle_auto_start = $on WHERE company_id = 1");
-    // The Odoo provision / disable actions are a separate opt-in (Odoo is a live system); the column exists from DB 2.6.217.
+    // The Odoo provision / disable actions are a separate opt-in (Odoo is a live system); the column exists from DB 2.6.214.
     if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_lifecycle_odoo_actions'")) > 0) {
         $odoo = isset($_POST['lifecycle_odoo_actions']) ? 1 : 0;
         $before_odoo = (int) mysqli_fetch_row(mysqli_query($mysqli, 'SELECT config_lifecycle_odoo_actions FROM settings WHERE company_id = 1'))[0];

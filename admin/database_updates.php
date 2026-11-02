@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.216: employee lifecycle automation (issue #31), part 1: more workflow types, onboarding variables, conditional and delayed tasks.
+    if ($rivetit_db_version() == '2.6.212') {
+        // DB 2.6.213: employee lifecycle automation (issue #31), part 1: more workflow types, onboarding variables, conditional and delayed tasks.
         //
         // workflow_templates.type / workflow_runs.type   gain role_change and transfer (the new employee.role_changed / employee.transferred events)
         // workflow_templates.variables_json              the questions asked when a run is started (onboarding form), JSON list
@@ -12368,13 +12368,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             MODIFY COLUMN `status` enum('pending','completed','skipped','blocked','running','action_failed','rejected','scheduled') NOT NULL DEFAULT 'pending',
             ADD COLUMN IF NOT EXISTS `run_after` datetime DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `workflow_run_tasks` ADD INDEX IF NOT EXISTS `idx_run_task_scheduled` (`status`,`run_after`)");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.216'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.213'");
     }
 
-    if ($rivetit_db_version() == '2.6.216') {
-        // DB 2.6.217: employee lifecycle automation (issue #31), part 2: the switch for the Odoo provision / disable actions.
+    if ($rivetit_db_version() == '2.6.213') {
+        // DB 2.6.214: employee lifecycle automation (issue #31), part 2: the switch for the Odoo provision / disable actions.
         // settings.config_lifecycle_odoo_actions   0 = the two Odoo actions send nothing (default); 1 = they may write to the configured Odoo.
         // Odoo is a live production system for most installs, so this is a separate, deliberate opt-in.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_odoo_actions` tinyint(1) NOT NULL DEFAULT 0");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.217'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.214'");
     }

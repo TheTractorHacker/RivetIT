@@ -1,6 +1,6 @@
 <?php
 /*
- * Employee lifecycle automation (issue #31, DB 2.6.216 / 2.6.217): role-change and transfer workflows and events, device actions,
+ * Employee lifecycle automation (issue #31, DB 2.6.213 / 2.6.214): role-change and transfer workflows and events, device actions,
  * delayed (scheduled) tasks, conditional tasks, onboarding form variables, directory-sync events, bulk onboarding, built-in presets,
  * Odoo / Entra licence + mailbox / identity-connector actions (all against mocks).
  *
@@ -147,8 +147,8 @@ $old->query("INSERT INTO workflow_runs SET contact_id=1, type='offboarding'");
 define('CURRENT_DATABASE_VERSION', '2.6.210');
 $runUpgrade = static function (mysqli $conn): void { $mysqli = $conn; require $GLOBALS['ROOT'] . '/admin/database_updates.php'; };
 $runUpgrade($old);
-ok(q1($old, 'SELECT config_current_database_version FROM settings') === '2.6.217', 'upgrade lands on 2.6.217', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
-ok(LATEST_DATABASE_VERSION === '2.6.217', 'includes/database_version.php says 2.6.217');
+ok(q1($old, 'SELECT config_current_database_version FROM settings') === '2.6.214', 'upgrade lands on 2.6.214', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
+ok(LATEST_DATABASE_VERSION === '2.6.214', 'includes/database_version.php says 2.6.214');
 ok(q1($old, 'SELECT name FROM workflow_templates') === 'keep me' && q1($old, 'SELECT type FROM workflow_runs') === 'offboarding', 'existing rows survive the upgrade');
 foreach (['workflow_templates', 'workflow_template_tasks', 'workflow_runs', 'workflow_run_tasks'] as $t) {
     $a = $old->query("SHOW CREATE TABLE `$t`")->fetch_row()[1];
