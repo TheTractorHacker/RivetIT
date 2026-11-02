@@ -1,10 +1,10 @@
 <?php
 
 /*
- * Renders one report headlessly, as one user, and prints CSV or email HTML on stdout. CLI only.
+ * Renders one report headlessly, as one user, and prints CSV, email HTML or a PDF on stdout. CLI only.
  * Spawned by cron/report_scheduler.php (one child per schedule, so a report's own exit() cannot end the cron run):
  *
- *   php scripts/report_render.php --user=ID --report=KEY --format=csv|html [--params=BASE64(JSON)]
+ *   php scripts/report_render.php --user=ID --report=KEY --format=csv|html|pdf [--params=BASE64(JSON)]
  *
  * It loads the owner's real session globals (role, department restrictions), then includes the report page in
  * agent/reports/ with RIVETIT_REPORT_HEADLESS set, so the page enforces its own module permission and applies the
@@ -27,8 +27,8 @@ $fail = static function (string $msg): void {
 $uid = (int) ($opts['user'] ?? 0);
 $key = (string) ($opts['report'] ?? '');
 $format = (string) ($opts['format'] ?? 'csv');
-if ($uid <= 0 || !preg_match('/^[a-z0-9_]+$/', $key) || !in_array($format, ['csv', 'html'], true)) {
-    $fail('usage: report_render.php --user=ID --report=KEY --format=csv|html [--params=BASE64]');
+if ($uid <= 0 || !preg_match('/^[a-z0-9_]+$/', $key) || !in_array($format, ['csv', 'html', 'pdf'], true)) {
+    $fail('usage: report_render.php --user=ID --report=KEY --format=csv|html|pdf [--params=BASE64]');
 }
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
@@ -70,7 +70,7 @@ require_once $root . '/includes/load_company_settings.php';
 require_once $root . '/includes/load_global_settings.php';
 
 ob_start();
-register_shutdown_function(static function () use ($format, $key) {
+register_shutdown_function(static function () use ($format, $key, $params, $mysqli) {
     $csvSent = !empty($GLOBALS['report_csv_sent']);
     $out = '';
     while (ob_get_level() > 0) {
@@ -101,6 +101,11 @@ register_shutdown_function(static function () use ($format, $key) {
     if ($rows === []) {
         fwrite(STDERR, "report produced no tabular data\n");
         exit(2);
+    }
+    if ($format === 'pdf') {
+        // Binary on stdout; the scheduler attaches it to the email (ReportScheduler, mail queue attachments).
+        echo \ITFlow\Reports\ReportPdf::forReport($key, $rows, $mysqli, $params);
+        return;
     }
     echo ReportExport::emailHtmlFromRows((string) ReportCatalog::label($key), $rows);
 });

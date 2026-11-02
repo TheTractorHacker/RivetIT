@@ -5,6 +5,10 @@
 // permission is still enforced against the owner's role below, exactly like an interactive request.
 $report_headless = defined('RIVETIT_REPORT_HEADLESS') && PHP_SAPI === 'cli';
 
+// Universal report filters (department, location, technician, category, priority, status, asset): the values this report declares in
+// ReportCatalog are validated and become a SQL fragment that ReportScope::clause() appends to every ticket/asset query of the page.
+\ITFlow\Reports\ReportFilters::activate(\ITFlow\Reports\ReportCatalog::keyFromScript($_SERVER['SCRIPT_NAME'] ?? ''), $_GET);
+
 if ($report_headless) {
     enforceUserPermission('module_reporting');
     $report_export_csv = (isset($_GET['export']) && $_GET['export'] === 'csv');
@@ -26,10 +30,41 @@ if ($report_headless) {
     // download and exit. Report pages that implement their own export block check this flag; every other report
     // page falls back to exporting the tables it rendered (see report_export_fallback() below).
     $report_export_csv = (isset($_GET['export']) && $_GET['export'] === 'csv');
-    $report_print_view = (!$report_export_csv && isset($_GET['print']) && $_GET['print'] === '1');
+    // ?export=pdf: the same tables as the CSV, drawn as a PDF file (src/Reports/ReportPdf.php). The page runs without chrome, its own
+    // CSV block does not fire ($report_export_csv stays false), and the rendered tables become the PDF at shutdown.
+    $report_export_pdf = (isset($_GET['export']) && $_GET['export'] === 'pdf');
+    $report_print_view = (!$report_export_csv && !$report_export_pdf && isset($_GET['print']) && $_GET['print'] === '1');
     $report_key = \ITFlow\Reports\ReportCatalog::keyFromScript($_SERVER['SCRIPT_NAME'] ?? '');
 
-    if ($report_export_csv) {
+    if ($report_export_pdf && $report_key !== null) {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/filter_header.php';
+        ob_start();
+        register_shutdown_function(function () use ($report_key, $mysqli) {
+            if (http_response_code() >= 300) { // a denial or redirect page: show it as it is
+                while (ob_get_level() > 0) { ob_end_flush(); }
+                return;
+            }
+            $html = '';
+            while (ob_get_level() > 0) { $html = ob_get_clean() . $html; }
+            try {
+                $rows = \ITFlow\Reports\ReportExport::fromHtml($html);
+                $pdf = \ITFlow\Reports\ReportPdf::forReport($report_key, $rows, $mysqli, $_GET);
+            } catch (\Throwable $e) {
+                http_response_code(500);
+                header('Content-Type: text/plain; charset=UTF-8');
+                echo 'The PDF could not be created.';
+                if (function_exists('logApp')) { logApp('Reports', 'error', 'PDF export of ' . $report_key . ' failed: ' . $e->getMessage()); }
+                return;
+            }
+            if (!headers_sent()) {
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment; filename="' . \ITFlow\Reports\ReportExport::filename($report_key . '_' . date('Y-m-d'), 'pdf') . '"');
+                header('Cache-Control: no-store, no-cache, must-revalidate');
+                header('X-Content-Type-Options: nosniff');
+            }
+            echo $pdf;
+        });
+    } elseif ($report_export_csv) {
         require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/filter_header.php';
         if ($report_key !== null) {
             ob_start(); // page output, converted to CSV at shutdown unless the page streamed its own CSV

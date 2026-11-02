@@ -7,14 +7,9 @@ require_once "includes/inc_all_reports.php";
 <?php
 $reports_show_technical = ($config_module_enable_ticketing == 1 && lookupUserPermission('module_support') >= 1);
 if ($reports_show_technical) {
-    $reports_open_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
+    $reports_kpis = \ITFlow\Reports\ReportKpis::headline($mysqli);
     $reports_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
     $reports_opened_today = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE DATE(ticket_created_at) = CURDATE()" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
-    $reports_csat_avg = null;
-    if (!empty($config_ticket_csat_enable)) {
-        $reports_csat_avg_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT AVG(ticket_csat_rating) AS v FROM tickets WHERE ticket_csat_rated_at >= NOW() - INTERVAL 30 DAY" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')));
-        $reports_csat_avg = $reports_csat_avg_row['v'] !== null ? round(floatval($reports_csat_avg_row['v']), 2) : null;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +37,8 @@ if ($reports_show_technical) {
     $report_catalog_technical[] = ['technician_performance.php',  'fas fa-user-clock',    'Technician Performance',   'Utilization, tickets closed and handle time.'];
     $report_catalog_technical[] = ['csat.php',                    'fas fa-star',          'Customer Satisfaction',    'Ratings, trend and per-technician CSAT.'];
     $report_catalog_technical[] = ['rmm_health.php',              'fas fa-heartbeat',     'RMM Health',               'Alert volume, severity and noisiest devices.'];
+    $report_catalog_technical[] = ['sla_breach_aging.php',        'fas fa-stopwatch',     'SLA Breach and Aging',     'Missed response and resolution targets, and how overdue open tickets are.'];
+    $report_catalog_technical[] = ['ticket_backlog.php',          'fas fa-layer-group',   'Ticket Backlog',           'Open tickets by age, status, technician and week.'];
     $report_catalog_technical[] = ['client_ticket_time_detail.php', 'fas fa-history',     'Department Time Detail Audit',    'Every time entry behind a department&rsquo;s hours.'];
     $report_catalog_technical[] = ['included_issues.php',         'fas fa-house-user',    'Included Support Issues', 'Remote and onsite hours included per department.'];
 }
@@ -49,12 +46,15 @@ if (lookupUserPermission('module_credential') >= 1) {
     $report_catalog_technical[] = ['credential_rotation.php',     'fas fa-key',           'Credential rotation',      'Credentials not changed in the rotation window.'];
     $report_catalog_technical[] = ['credential_rotation_v2.php',  'fas fa-history',       'Credential rotation due',  'Credentials overdue, or due for rotation soon.'];
 }
+if (lookupUserPermission('module_assets') >= 1) {
+    $report_catalog_technical[] = ['asset_lifecycle.php',         'fas fa-laptop-medical', 'Asset Lifecycle and Warranty', 'Warranty expiry, device age and replacement candidates.'];
+}
 if (!empty($report_catalog_technical)) {
     $report_catalog[] = ['title' => 'Technical', 'items' => $report_catalog_technical];
 }
 
 $report_catalog[] = ['title' => 'Delivery', 'items' => [
-    ['schedules.php', 'fas fa-paper-plane', 'Scheduled Reports', 'Reports emailed on a recurring schedule.'],
+    ['schedules.php', 'fas fa-paper-plane', 'Scheduled Reports', 'Reports emailed on a schedule as a summary, CSV, tables or an attached PDF, per recipient group.'],
 ]];
 
 
@@ -100,12 +100,15 @@ render_page_header(
         <?php if ($reports_show_technical) { ?>
             <?php // Tints are semantic, and only one thing on this row is actually wrong:
                   // open/opened-today are neutral counts, unassigned is the alarm. ?>
-            <?php render_stat_card('Open Tickets', (string) $reports_open_tickets, 'fas fa-life-ring', 'info', '/agent/reports/ticket_summary.php'); ?>
-            <?php render_stat_card('Unassigned Tickets', (string) $reports_unassigned_tickets, 'fas fa-user-slash', 'danger', '/agent/reports/service_desk.php'); ?>
-            <?php render_stat_card('Opened Today', (string) $reports_opened_today, 'fas fa-calendar-day', 'slate', '/agent/reports/ticket_summary.php'); ?>
+            <?php render_stat_card('Open Tickets', (string) $reports_kpis['open'], 'fas fa-life-ring', 'info', '/agent/reports/ticket_backlog.php'); ?>
+            <?php render_stat_card('Mean Resolution Time (30 days)', \ITFlow\Reports\ReportKpis::durationText($reports_kpis['mean_resolution_hours']), 'fas fa-hourglass-half', 'slate', '/agent/reports/technician_performance.php'); ?>
+            <?php render_stat_card('SLA Compliance (30 days)', $reports_kpis['sla_compliance_pct'] !== null ? $reports_kpis['sla_compliance_pct'] . '%' : '—', 'fas fa-stopwatch', ($reports_kpis['sla_compliance_pct'] !== null && $reports_kpis['sla_compliance_pct'] < 90) ? 'danger' : 'success', '/agent/reports/sla_breach_aging.php'); ?>
+            <?php render_stat_card('Tickets This Month', (string) $reports_kpis['tickets_this_month'], 'fas fa-calendar-alt', 'slate', '/agent/reports/ticket_summary.php'); ?>
             <?php if (!empty($config_ticket_csat_enable)) { ?>
-            <?php render_stat_card('CSAT (30 days)', $reports_csat_avg !== null ? $reports_csat_avg . '/5' : '—', 'fas fa-star', 'warning', '/agent/reports/csat.php'); ?>
+            <?php render_stat_card('User Satisfaction (30 days)', $reports_kpis['csat_avg'] !== null ? $reports_kpis['csat_avg'] . '/5' : '—', 'fas fa-star', 'warning', '/agent/reports/csat.php'); ?>
             <?php } ?>
+            <?php render_stat_card('Unassigned Tickets', (string) $reports_unassigned_tickets, 'fas fa-user-slash', 'danger', '/agent/reports/ticket_backlog.php'); ?>
+            <?php render_stat_card('Opened Today', (string) $reports_opened_today, 'fas fa-calendar-day', 'slate', '/agent/reports/ticket_summary.php'); ?>
         <?php } ?>
     </div>
 </div>

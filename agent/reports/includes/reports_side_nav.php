@@ -41,7 +41,7 @@ $current_page = basename($_SERVER["PHP_SELF"]);
         <div class="collapse navbar-collapse" id="sidebar-menu">
             <ul class="navbar-nav pt-lg-2">
 
-                <?php if (($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) || lookupUserPermission("module_credential") >= 1) { ?>
+                <?php if (($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) || lookupUserPermission("module_credential") >= 1 || lookupUserPermission("module_assets") >= 1) { ?>
                     <li class="nav-item nav-section-title">TECHNICAL</li>
                 <?php } ?>
                 <?php if ($config_module_enable_ticketing && lookupUserPermission("module_support") >= 1) { ?>
@@ -104,6 +104,26 @@ $current_page = basename($_SERVER["PHP_SELF"]);
                         <a href="/agent/reports/included_issues.php" class="nav-link<?php if ($current_page == "included_issues.php") { echo " active"; } ?>">
                             <span class="nav-link-icon"><i class="fas fa-house-user"></i></span>
                             <span class="nav-link-title">Included Support Issues</span>
+                        </a>
+                    </li>
+                    <li class="nav-item<?php if ($current_page == "sla_breach_aging.php") { echo " active"; } ?>">
+                        <a href="/agent/reports/sla_breach_aging.php" class="nav-link<?php if ($current_page == "sla_breach_aging.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-stopwatch"></i></span>
+                            <span class="nav-link-title">SLA Breach and Aging</span>
+                        </a>
+                    </li>
+                    <li class="nav-item<?php if ($current_page == "ticket_backlog.php") { echo " active"; } ?>">
+                        <a href="/agent/reports/ticket_backlog.php" class="nav-link<?php if ($current_page == "ticket_backlog.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-layer-group"></i></span>
+                            <span class="nav-link-title">Ticket Backlog</span>
+                        </a>
+                    </li>
+                <?php } ?>
+                <?php if (lookupUserPermission("module_assets") >= 1) { ?>
+                    <li class="nav-item<?php if ($current_page == "asset_lifecycle.php") { echo " active"; } ?>">
+                        <a href="/agent/reports/asset_lifecycle.php" class="nav-link<?php if ($current_page == "asset_lifecycle.php") { echo " active"; } ?>">
+                            <span class="nav-link-icon"><i class="fas fa-laptop-medical"></i></span>
+                            <span class="nav-link-title">Asset Lifecycle and Warranty</span>
                         </a>
                     </li>
                 <?php } ?>

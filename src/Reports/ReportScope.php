@@ -42,7 +42,15 @@ final class ReportScope
     /** " AND col IN (1,2)" for the session, or ''. */
     public static function clause(string $column): string
     {
-        return self::clauseFor(self::sessionIds(), $column);
+        $sql = self::clauseFor(self::sessionIds(), $column);
+        // The universal report filters (ReportFilters) ride on the same call: any ticket query that already applies the department
+        // scope also applies the filters the current report declared, and nothing else ever has an active filter.
+        if (substr($column, -16) === 'ticket_client_id') {
+            $sql .= ReportFilters::ticketClause($column);
+        } elseif (substr($column, -15) === 'asset_client_id') {
+            $sql .= ReportFilters::assetClause($column);
+        }
+        return $sql;
     }
 
     public static function clauseFor(?array $ids, string $column): string
