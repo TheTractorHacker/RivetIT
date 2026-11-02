@@ -159,6 +159,22 @@ if ($resource === 'panel_enroll' || $resource === 'panel_me' || $resource === 'p
     exit;
 }
 
+// Employee (department portal) endpoints: sign-in and the read-only employee views for the mobile app. Their token is a portal_api_tokens row
+// (a department-portal login, user_type 2), never an api_tokens row, so it works here and nowhere else, and a staff token does not work here.
+// Routed above the staff Bearer parsing for the same reason as the device blocks above. Each handler authenticates and scopes itself
+// (includes/portal_api.php): to the token's own contact and department.
+if (in_array($resource, ['portal_auth', 'portal_home', 'portal_devices', 'portal_checklist', 'portal_announcements', 'portal_notifications'], true)) {
+    if ($resource === 'portal_auth' && $method !== 'DELETE') {
+        // Same posture as /auth: a tight per-IP limit that fails closed if Redis is down, so the throttle cannot be lifted by taking Redis away.
+        if (!api_rate_limit('portal_auth_ip:' . getIP(), 30, 60, true)) {
+            header('Retry-After: ' . api_rate_limit_retry_after());
+            api_error(429, 'Rate limit exceeded');
+        }
+    }
+    require __DIR__ . '/' . $resource . '.php';
+    exit;
+}
+
 // Build host endpoints (Agent updates > Local build): authenticated ONLY by a build host token, never by an API key. Routed above the Bearer parsing and the pre-auth body read.
 if ($resource === 'build_host') {
     require __DIR__ . '/build_host.php';

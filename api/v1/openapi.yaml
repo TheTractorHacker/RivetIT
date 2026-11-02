@@ -42,6 +42,7 @@ tags:
   - name: Auth
   - name: Endpoint agent
   - name: Mobile
+  - name: Employee portal
   - name: Dashboard
   - name: Tickets
   - name: Ticket Meta
@@ -2460,8 +2461,171 @@ paths:
         '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
         '403': {$ref: '#/components/responses/IntegrationForbidden'}
         '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /portal_auth:
+    post:
+      tags: [Employee portal]
+      summary: Employee sign-in (department portal login)
+      description: >
+        Signs in a department-portal login (local password, same rules as the web portal sign-in: active, not archived, contact and department
+        not archived, portal switched on, 2FA honoured). Returns a token for the /portal_* endpoints only; it is not a staff token and staff tokens
+        do not work there. Five failures lock the login for five minutes. Single sign-on accounts cannot use this. A login that needs 2FA answers
+        `{requires_2fa: true}` until `totp_code` is sent; an account that must enrol in 2FA gets 403 (set it up in the web portal).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string, description: The portal login email}
+                password: {type: string}
+                totp_code: {type: string}
+                device_name: {type: string}
+      responses:
+        '200':
+          description: Signed in (token) or 2FA needed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: {type: string}
+                  requires_2fa: {type: boolean}
+                  contact: {type: object, properties: {id: {type: integer}, name: {type: string}, department_id: {type: integer}}}
+        '400': {description: username and password required}
+        '401': {description: Invalid credentials or 2FA code}
+        '403': {description: 2FA enrolment required}
+        '429': {description: Too many attempts}
+    delete:
+      tags: [Employee portal]
+      summary: Sign this device out (revokes the employee token)
+      security: [{portalBearer: []}]
+      responses:
+        '200': {description: Signed out}
+  /portal_home:
+    get:
+      tags: [Employee portal]
+      summary: The employee home in one call
+      description: Announcements, open requests, devices, approvals waiting (count), checklist, popular and recent help articles and the unread notification count. Scoped to the token's contact and department.
+      security: [{portalBearer: []}]
+      responses:
+        '200': {description: Employee home, content: {application/json: {schema: {$ref: '#/components/schemas/PortalHome'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /portal_devices:
+    get:
+      tags: [Employee portal]
+      summary: My devices
+      description: Devices assigned to the employee with OS, status, warranty (date, days left, state), last seen (agent check-in or RMM link) and restart pending. No credentials, IPs or notes.
+      security: [{portalBearer: []}]
+      responses:
+        '200': {description: Devices, content: {application/json: {schema: {type: object, properties: {devices: {type: array, items: {$ref: '#/components/schemas/PortalDevice'}}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /portal_devices/{id}:
+    get:
+      tags: [Employee portal]
+      summary: One of my devices
+      security: [{portalBearer: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: Device, content: {application/json: {schema: {type: object, properties: {device: {$ref: '#/components/schemas/PortalDevice'}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {description: Not assigned to the caller (or no such asset)}
+  /portal_checklist:
+    get:
+      tags: [Employee portal]
+      summary: My onboarding / offboarding checklist
+      description: Read-only; no instructions, automation settings or errors, and automated (action) tasks are left out. `checklist` is null when the employee has none.
+      security: [{portalBearer: []}]
+      responses:
+        '200':
+          description: Checklist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklist:
+                    nullable: true
+                    type: object
+                    properties:
+                      type: {type: string, enum: [onboarding, offboarding]}
+                      status: {type: string}
+                      template: {type: string}
+                      done: {type: integer}
+                      total: {type: integer}
+                      tasks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: {type: integer}
+                            title: {type: string}
+                            owner: {type: string}
+                            state: {type: string, enum: [todo, not_started, awaiting_approval, done]}
+                            required: {type: boolean}
+                            due_at: {type: string, nullable: true}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /portal_announcements:
+    get:
+      tags: [Employee portal]
+      summary: Announcements for the employee
+      description: Published, not expired, for all departments or the caller's own department. Plain text body.
+      security: [{portalBearer: []}]
+      responses:
+        '200': {description: Announcements, content: {application/json: {schema: {type: object, properties: {announcements: {type: array, items: {$ref: '#/components/schemas/PortalAnnouncement'}}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /portal_notifications:
+    get:
+      tags: [Employee portal]
+      summary: My notification feed
+      description: Announcements, replies and closures on the employee's requests, approvals waiting, due checklist tasks and device warranties running out. Built from existing data; nothing is sent.
+      security: [{portalBearer: []}]
+      responses:
+        '200':
+          description: Feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread: {type: integer}
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: {type: string}
+                        type: {type: string, enum: [announcement, reply, closed, approval, task, warranty]}
+                        title: {type: string}
+                        detail: {type: string}
+                        link: {type: string}
+                        at: {type: string}
+                        sticky: {type: boolean}
+                        unread: {type: boolean}
+                        severity: {type: string, enum: [info, important, urgent]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Employee portal]
+      summary: Mark the feed as read
+      description: Sticky items (an approval waiting, a due task, a warranty ending) stay unread until dealt with.
+      security: [{portalBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [action], properties: {action: {type: string, enum: [mark_read]}}}
+      responses:
+        '200': {description: Marked, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, unread: {type: integer}}}}}}
+        '422': {description: Unknown action}
 components:
   securitySchemes:
+    portalBearer:
+      type: http
+      scheme: bearer
+      description: Employee token from POST /portal_auth (a department-portal login). Works only on the /portal_* endpoints.
     integrationClient:
       type: oauth2
       description: >
@@ -2642,6 +2806,49 @@ components:
       description: not_found (unknown, unpublished or not servable; the two are not distinguished)
       content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
   schemas:
+    PortalAnnouncement:
+      type: object
+      properties:
+        id: {type: integer}
+        title: {type: string}
+        body: {type: string, description: Plain text}
+        severity: {type: string, enum: [info, important, urgent]}
+        pinned: {type: boolean}
+        all_departments: {type: boolean}
+        published_at: {type: string}
+        expires_at: {type: string, nullable: true}
+    PortalDevice:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        description: {type: string}
+        type: {type: string}
+        make: {type: string}
+        model: {type: string}
+        serial: {type: string}
+        os: {type: string, nullable: true}
+        status: {type: string}
+        purchase_date: {type: string, nullable: true}
+        install_date: {type: string, nullable: true}
+        warranty_expires: {type: string, nullable: true}
+        warranty_days_left: {type: integer, nullable: true}
+        warranty_state: {type: string, enum: [ok, expiring, expired, unknown]}
+        last_seen: {type: string, nullable: true}
+        seen_state: {type: string, enum: [online, recent, stale, unknown]}
+        seen_age_s: {type: integer, nullable: true}
+        reboot_pending: {type: boolean, nullable: true}
+    PortalHome:
+      type: object
+      properties:
+        contact: {type: object, properties: {id: {type: integer}, name: {type: string}, department_id: {type: integer}}}
+        announcements: {type: array, items: {$ref: '#/components/schemas/PortalAnnouncement'}}
+        open_requests: {type: array, items: {type: object, properties: {id: {type: integer}, number: {type: string}, subject: {type: string}, status: {type: string}, updated_at: {type: string, nullable: true}}}}
+        devices: {type: array, items: {$ref: '#/components/schemas/PortalDevice'}}
+        approvals_waiting: {type: integer}
+        checklist: {type: object, nullable: true}
+        kb: {type: object, properties: {popular: {type: array, items: {type: object}}, recent: {type: array, items: {type: object}}}}
+        unread_notifications: {type: integer}
     IntegrationError:
       type: object
       properties:

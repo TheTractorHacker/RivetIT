@@ -43,6 +43,7 @@ $settings_groups = [
             ['Email Templates', 'Customize the ticket and portal emails sent to clients.', 'settings_mail_templates.php', 'fa-envelope-open-text'],
             ['Identity provider', 'Set up portal single sign-on.', 'identity_provider.php', 'fa-fingerprint', (bool) $config_client_portal_enable],
             ['Employee portal', 'Home page sections and onboarding requests.', 'settings_portal.php', 'fa-user-circle', (bool) $config_client_portal_enable],
+            ['Portal announcements', 'Notices shown on the employee portal home page.', 'portal_announcements.php', 'fa-bullhorn', (bool) $config_client_portal_enable],
             ['Portal preview', 'See the department portal as a user.', 'portal_preview.php', 'fa-eye', (bool) $config_client_portal_enable],
             ['Remote MCP', ('Let AI tools read ' . htmlspecialchars(APP_NAME) . ' through your sign-in provider.'), 'settings_mcp.php', 'fa-plug'],
         ],

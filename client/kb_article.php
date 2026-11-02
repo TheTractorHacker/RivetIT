@@ -64,6 +64,11 @@ $row = mysqli_fetch_assoc($sql_kb_article);
 
 if ($row) {
     $kb_article_id = intval($row['kb_article_id']);
+    // Counts the read for the employee home "Popular" list (a real portal contact only; the admin preview has no contact).
+    if (!empty($session_contact_id) && empty($portal_preview_active)) {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+        (new \ITFlow\Portal\EmployeeHome($mysqli))->recordKbView($kb_article_id, intval($session_contact_id), intval($session_client_id));
+    }
     $kb_article_title = nullable_htmlentities($row['kb_article_title']);
     /* Repoint every KB media URL at the PORTAL's own serve endpoint,
      * client/kb_media.php.

@@ -17,6 +17,26 @@ $eh_on = \ITFlow\Portal\EmployeeHome::parseSections($config_portal_home_sections
 $eh_skip = $eh_skip ?? [];
 $eh_show = static fn(string $k): bool => in_array($k, $GLOBALS['eh_on'], true) && !in_array($k, $GLOBALS['eh_skip'], true);
 
+// Announcements: notices from the administrators for everyone or for this department (plain text, escaped)
+if ($eh_show('announcements')) {
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/Announcements.php';
+    $eh_announcements = (new \ITFlow\Portal\Announcements($mysqli))->visibleFor($eh_client, 4);
+    $eh_sev_class = ['info' => 'info', 'important' => 'warning', 'urgent' => 'danger'];
+    $eh_sev_icon = ['info' => 'fa-info-circle', 'important' => 'fa-exclamation-circle', 'urgent' => 'fa-exclamation-triangle'];
+    if ($eh_announcements) { ?>
+<div class="mb-4" id="announcements">
+    <?php foreach ($eh_announcements as $eh_a) {
+        $eh_sev = isset($eh_sev_class[$eh_a['announcement_severity']]) ? $eh_a['announcement_severity'] : 'info'; ?>
+        <div class="alert alert-<?= $eh_sev_class[$eh_sev] ?> mb-2" role="<?= $eh_sev === 'urgent' ? 'alert' : 'status' ?>">
+            <div class="fw-bold"><i class="fas <?= $eh_sev_icon[$eh_sev] ?> me-2" aria-hidden="true"></i><?= nullable_htmlentities($eh_a['announcement_title']) ?><?php if ($eh_a['announcement_pinned']) { ?> <i class="fas fa-thumbtack small ms-1" title="Pinned" aria-hidden="true"></i><?php } ?></div>
+            <div class="portal-announcement-body"><?= nl2br(nullable_htmlentities($eh_a['announcement_body'])) ?></div>
+            <div class="small text-secondary mt-1"><?= nullable_htmlentities(timeAgo($eh_a['announcement_publish_at'])) ?></div>
+        </div>
+    <?php } ?>
+</div>
+<?php } } ?>
+
+<?php
 // Request something: search + Popular + Recent
 if ($eh_show('catalog')) {
     $eh_catalog = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
@@ -49,7 +69,7 @@ if ($eh_show('catalog')) {
 <?php
 $eh_approvals = $eh_show('approvals') ? $eh->waitingOnMe($eh_cid, $eh_client) : [];
 $eh_requests = $eh_show('requests') ? $eh->myOpenRequests($eh_cid, $eh_client, 5) : [];
-$eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
+$eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : [];
 ?>
 
 <div class="row g-3 mb-4">
@@ -97,10 +117,14 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
                     <?php if (!$eh_devices) { ?>
                         <li class="list-group-item"><div class="portal-empty"><i class="fas fa-laptop" aria-hidden="true"></i>No devices are assigned to you.</div></li>
                     <?php }
-                    foreach ($eh_devices as $d) { ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-fw fa-desktop text-secondary me-2" aria-hidden="true"></i><?= nullable_htmlentities($d['asset_name']) ?> <span class="text-secondary">(<?= nullable_htmlentities($d['asset_type']) ?>)</span></span>
-                            <a class="btn btn-sm btn-outline-secondary" href="ticket_add.php?asset_id=<?= intval($d['asset_id']) ?>">Report a problem</a>
+                    foreach ($eh_devices as $d) {
+                        [$eh_seen_class, $eh_seen_text] = \ITFlow\Portal\EmployeeHome::seenLabel($d); ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                            <span>
+                                <i class="fas fa-fw fa-desktop text-secondary me-2" aria-hidden="true"></i><?= nullable_htmlentities($d['name']) ?> <span class="text-secondary">(<?= nullable_htmlentities($d['type']) ?>)</span>
+                                <span class="d-block small text-secondary ms-4"><?= $d['os'] !== null ? nullable_htmlentities($d['os']) . ' &middot; ' : '' ?><span class="text-<?= $eh_seen_class ?>"><?= nullable_htmlentities($eh_seen_text) ?></span></span>
+                            </span>
+                            <a class="btn btn-sm btn-outline-secondary text-nowrap" href="ticket_add.php?asset_id=<?= intval($d['id']) ?>">Report a problem</a>
                         </li>
                     <?php } ?>
                 </ul>
@@ -108,6 +132,35 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
         </div>
     </div>
     <?php } ?>
+
+    <?php if ($eh_show('kb') && intval($config_module_enable_kb ?? 0) === 1) {
+        $eh_kb_popular = $eh->popularArticles($eh_client, 5, 30);
+        $eh_kb_recent = $eh->recentArticles($eh_client, 5);
+        if ($eh_kb_popular || $eh_kb_recent) { ?>
+    <div class="col-lg-12 col-md-12" id="help-articles">
+        <div class="card portal-card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-book" aria-hidden="true"></i></span>Help articles</h3>
+                <a href="kb_articles.php" class="btn btn-sm btn-outline-primary">Browse all</a>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <?php foreach ([['Popular this month', 'fa-fire', $eh_kb_popular], ['New and updated', 'fa-history', $eh_kb_recent]] as [$eh_kb_title, $eh_kb_icon, $eh_kb_rows]) {
+                        if (!$eh_kb_rows) { continue; } ?>
+                        <div class="col-md-6">
+                            <div class="small text-secondary mb-2"><i class="fas <?= $eh_kb_icon ?> me-1" aria-hidden="true"></i><?= $eh_kb_title ?></div>
+                            <ul class="list-unstyled mb-0">
+                                <?php foreach ($eh_kb_rows as $eh_k) { ?>
+                                    <li class="mb-1"><a href="kb_article.php?id=<?= intval($eh_k['kb_article_id']) ?>"><?= nullable_htmlentities($eh_k['kb_article_title']) ?></a></li>
+                                <?php } ?>
+                            </ul>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php } } ?>
 
     <?php if ($eh_show('approvals') && ($eh_approvals || $eh->isManager($eh_cid, $eh_client))) { ?>
     <div class="col-lg-6 col-md-12">
@@ -137,7 +190,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
     if ($eh_show('onboarding')) {
         $eh_check = $eh->myChecklist($eh_cid, $eh_client);
         if ($eh_check) { ?>
-    <div class="col-lg-6 col-md-12">
+    <div class="col-lg-6 col-md-12" id="checklist">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h3>
