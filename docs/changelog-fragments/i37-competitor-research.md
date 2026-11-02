@@ -1,1 +1,0 @@
-Docs: added COMPETITOR_RESEARCH_FRESHSERVICE_JSM.md (Freshservice and Jira Service Management feature matrix, sourced 2026-11-01, prioritized gaps) and refreshed ROADMAP section 3.6 and open question 4. No code or database changes.
