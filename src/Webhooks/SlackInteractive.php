@@ -160,12 +160,26 @@ final class SlackInteractive
             return ['text' => 'That ticket is closed.', 'acted' => false];
         }
 
+        return $this->performAction('slack', $actionId, $ticket, $agentId);
+    }
+
+    /**
+     * Do the ticket action for an agent who has already been authenticated and authorised by the caller (shared by Slack and Teams).
+     *
+     * @param string $channel 'slack' or 'teams' (only used in the note, audit event and label)
+     * @param array<string,mixed> $ticket a row from loadTicket()
+     * @return array{text:?string,acted:bool}
+     */
+    public function performAction(string $channel, string $actionId, array $ticket, int $agentId): array
+    {
+        $via = $channel === 'teams' ? 'Teams' : 'Slack';
+        $ticketId = (int) $ticket['ticket_id'];
         $agentName = (string) mysqli_fetch_row(mysqli_query($this->mysqli, "SELECT user_name FROM users WHERE user_id = $agentId"))[0];
         $label = $ticket['ticket_prefix'] . $ticket['ticket_number'];
 
         if ($actionId === ChatFormatter::ACTION_ACK) {
-            $this->note($ticketId, $agentId, "Acknowledged in Slack by $agentName.");
-            ($this->audit)('ticket.slack_acknowledged', $agentId, 'ticket', $ticketId, 'acknowledged', "Ticket $label acknowledged from Slack by $agentName", ['ticket_id' => $ticketId, 'via' => 'slack']);
+            $this->note($ticketId, $agentId, "Acknowledged in $via by $agentName.");
+            ($this->audit)("ticket.{$channel}_acknowledged", $agentId, 'ticket', $ticketId, 'acknowledged', "Ticket $label acknowledged from $via by $agentName", ['ticket_id' => $ticketId, 'via' => $channel]);
 
             return ['text' => "Acknowledged $label.", 'acted' => true];
         }
@@ -182,8 +196,8 @@ final class SlackInteractive
         mysqli_stmt_bind_param($stmt, 'iii', $agentId, $status, $ticketId);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        $this->note($ticketId, $agentId, "Ticket assigned to $agentName from Slack.");
-        ($this->audit)('ticket.slack_assigned', $agentId, 'ticket', $ticketId, 'assigned', "Ticket $label assigned to $agentName from Slack", ['ticket_id' => $ticketId, 'via' => 'slack']);
+        $this->note($ticketId, $agentId, "Ticket assigned to $agentName from $via.");
+        ($this->audit)("ticket.{$channel}_assigned", $agentId, 'ticket', $ticketId, 'assigned', "Ticket $label assigned to $agentName from $via", ['ticket_id' => $ticketId, 'via' => $channel]);
         if (function_exists('rivetEmitEvent') && function_exists('getWebhookTicketPayload')) {
             \rivetEmitEvent('ticket.assigned', \getWebhookTicketPayload($ticketId));
         }
@@ -215,7 +229,18 @@ final class SlackInteractive
             return null; // a member of some other workspace (shared channel)
         }
         $email = strtolower(trim((string) ($user['profile']['email'] ?? '')));
-        if (($user['is_email_confirmed'] ?? false) !== true || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (($user['is_email_confirmed'] ?? false) !== true) {
+            return null;
+        }
+
+        return $this->agentForEmail($email);
+    }
+
+    /** Email -> agent id, only when the address is valid and exactly one active agent has it (portal logins, disabled or archived agents never match). */
+    public function agentForEmail(string $email): ?int
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
 
@@ -267,7 +292,7 @@ final class SlackInteractive
         return (bool) mysqli_fetch_row(mysqli_query($this->mysqli, "SELECT 1 FROM user_client_permissions WHERE user_id = $userId AND client_id = $clientId LIMIT 1"));
     }
 
-    private function loadTicket(int $id): ?array
+    public function loadTicket(int $id): ?array
     {
         $row = mysqli_fetch_assoc(mysqli_query($this->mysqli, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_client_id, ticket_assigned_to, ticket_status, ticket_closed_at FROM tickets WHERE ticket_id = $id"));
 

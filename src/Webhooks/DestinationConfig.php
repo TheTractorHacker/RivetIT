@@ -567,19 +567,19 @@ final class DestinationConfig
             $extra['template_encoding'] = $enc;
         }
 
-        // ---- signing secret (HMAC key; for Slack, the app's Signing Secret; Teams carries none)
+        // ---- signing secret (HMAC key; for Slack, the app's Signing Secret; for Teams, the shared token that authenticates the interactive-action relay)
         $rawSecret = isset($post['webhook_secret']) && is_scalar($post['webhook_secret']) ? trim((string) $post['webhook_secret']) : '';
         $secretEnc = null;   // null = leave the column alone
         $keepKind = $editing && ChatFormatter::normalizeType($existing['webhook_type'] ?? '') === $type;
-        if ($type === ChatFormatter::TYPE_TEAMS) {
-            $secretEnc = '';
+        if ($type === ChatFormatter::TYPE_TEAMS && $rawSecret !== '' && strlen($rawSecret) < 20) {
+            $errors[] = 'The interactive-action token must be at least 20 characters (use Generate).';
         } elseif ($rawSecret !== '') {
             if (strlen($rawSecret) > 200 || preg_match('/[\x00-\x1F\x7F]/', $rawSecret)) {
                 $errors[] = 'The signing secret is not valid (200 characters, no line breaks).';
             } else {
                 $secretEnc = self::encrypt((function_exists('cleanInput') ? (string) cleanInput($rawSecret) : $rawSecret));
             }
-        } elseif ($editing && (!$keepKind || ($type === ChatFormatter::TYPE_SLACK && isset($post['webhook_secret_clear'])))) {
+        } elseif ($editing && (!$keepKind || (ChatFormatter::isChatType($type) && isset($post['webhook_secret_clear'])))) {
             $secretEnc = '';
         } elseif (!$editing) {
             $secretEnc = '';

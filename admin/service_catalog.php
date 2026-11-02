@@ -5,6 +5,7 @@ $sort = "sort_order";
 $order = "ASC";
 
 require_once "includes/inc_all_admin.php";
+require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
 
 $sql = mysqli_query(
     $mysqli,
@@ -140,7 +141,8 @@ $catalog_worker_on = \ITFlow\ITSM\ServiceCatalogService::timeoutsEnabled($mysqli
                                         <?php if ($icon) { ?><i class="fas fa-fw <?php echo $icon; ?> me-2"></i><?php } ?><?php echo $name; ?>
                                         <?php if ($description) { ?><div><small class="text-secondary"><?php echo $description; ?></small></div><?php } ?>
                                     </a>
-                                    <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning" title="Risk score <?= intval($row['risk_score']) ?>">Approval</span><?php } ?>
+                                    <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning">Approval</span><?php } ?>
+                                    <?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($row['risk_score'])) ?>
                                 </td>
                                 <td><small><?php echo $ticket_subject_template ?: '<span class="text-secondary">&mdash;</span>'; ?></small></td>
                                 <td><?php echo nullable_htmlentities($row['catalog_category_name'] ?? '') ?: '<span class="text-secondary">&mdash;</span>'; ?></td>

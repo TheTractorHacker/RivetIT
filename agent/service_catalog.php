@@ -99,11 +99,12 @@ $catalog_fa = function ($icon, $fallback) { $i = preg_replace('/[^a-z0-9-]/', ''
                                     <h5 class="card-title"><i class="fas fa-fw <?= $icon ?> me-2 text-primary"></i><?= $name ?></h5>
                                     <?php if ($description) { ?><p class="card-text text-secondary small"><?= $description ?></p><?php } ?>
                                 </div>
-                                <?php if ($category_name || $default_priority || intval($row['requires_approval'])) { ?>
+                                <?php if ($category_name || $default_priority || intval($row['requires_approval']) || intval($row['risk_score'])) { ?>
                                     <div class="card-footer">
                                         <?php if ($category_name) { ?><span class="badge text-bg-secondary"><?= $category_name ?></span><?php } ?>
                                         <?php if ($default_priority) { ?><span class="badge text-bg-light"><?= $default_priority ?> Priority</span><?php } ?>
                                         <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning">Needs approval</span><?php } ?>
+                                        <?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($row['risk_score'])) ?>
                                     </div>
                                 <?php } ?>
                             </button>

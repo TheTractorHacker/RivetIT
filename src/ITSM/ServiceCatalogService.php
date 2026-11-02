@@ -864,6 +864,33 @@ class ServiceCatalogService
      *
      * @param array<string,mixed> $item  a service_catalog_items row
      */
+    /**
+     * Banding for the admin-set risk score (0-100, 0 = not rated). One place so every view labels it the same way.
+     *
+     * @return array{label:string,class:string,score:int}
+     */
+    public static function riskLevel(int $score): array
+    {
+        $score = max(0, min(100, $score));
+        if ($score === 0) {
+            return ['label' => 'Not rated', 'class' => 'secondary', 'score' => 0];
+        }
+        if ($score < 34) {
+            return ['label' => 'Low', 'class' => 'success', 'score' => $score];
+        }
+        return $score < 67 ? ['label' => 'Medium', 'class' => 'warning', 'score' => $score] : ['label' => 'High', 'class' => 'danger', 'score' => $score];
+    }
+
+    /** Escaped "Risk 42 (Medium)" badge, or '' when the item is not rated. */
+    public static function riskBadgeHtml(int $score): string
+    {
+        $r = self::riskLevel($score);
+        if ($r['score'] === 0) {
+            return '';
+        }
+        return '<span class="badge text-bg-' . $r['class'] . '" title="Risk score ' . $r['score'] . ' of 100">Risk ' . $r['score'] . ' (' . htmlspecialchars($r['label'], ENT_QUOTES, 'UTF-8') . ')</span>';
+    }
+
     public function needsApproval(array $item, ?int $stepCount = null): bool
     {
         if (empty($item['requires_approval'])) {
@@ -1682,6 +1709,10 @@ class ServiceCatalogService
         $out = '<div class="card mb-3" id="catalogRequestDetails"><div class="card-body"><h5 class="mb-3">Request details';
         if ($statusText !== '') {
             $out .= ' <span class="badge text-bg-' . $statusClass . ' ms-2">' . $h($statusText) . '</span>';
+        }
+        $risk = self::riskBadgeHtml(intval($req['risk_score'] ?? 0));
+        if ($risk !== '') {
+            $out .= ' ' . $risk;
         }
         $out .= '</h5>';
         if ($values) {
