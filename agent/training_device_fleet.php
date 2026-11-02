@@ -142,10 +142,21 @@ render_page_header(
                         </div>
                         <div class="col-md-6 d-flex gap-2 flex-wrap">
                             <button type="button" class="btn btn-primary" id="trf-dl-profile"><i class="fab fa-apple me-2" aria-hidden="true"></i>Download .mobileconfig</button>
-                            <?php if ($tr_data['can_assets']) { ?><button type="button" class="btn btn-outline-primary" id="trf-dl-csv"><i class="fas fa-file-csv me-2" aria-hidden="true"></i>Per-device URLs (CSV)</button><?php } ?>
+                            <?php if ($tr_data['can_assets']) { ?><button type="button" class="btn btn-outline-primary" id="trf-dl-csv"><i class="fas fa-file-csv me-2" aria-hidden="true"></i>Per-device URLs and profiles</button><?php } ?>
                         </div>
                     </div>
-                    <div class="form-hint">The profile is a managed Web Clip: Full Screen, not removable, with the kiosk icon inside it. The CSV has one URL per tablet in Assets for this department, with that serial already filled in - for an MDM that cannot expand a macro.</div>
+                    <div id="trf-pick" class="border rounded p-2 mb-2" hidden>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <strong class="me-auto">Choose tablets</strong>
+                            <label class="form-check mb-0"><input type="checkbox" class="form-check-input" id="trf-pick-all" checked><span class="form-check-label">All</span></label>
+                        </div>
+                        <div id="trf-pick-list" class="trf-pick-list" style="max-height:14rem;overflow:auto"></div>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button type="button" class="btn btn-outline-primary" id="trf-pick-csv"><i class="fas fa-file-csv me-2" aria-hidden="true"></i>Download CSV</button>
+                            <button type="button" class="btn btn-primary" id="trf-pick-zip"><i class="fab fa-apple me-2" aria-hidden="true"></i>Download a .mobileconfig per iPad (ZIP)</button>
+                        </div>
+                    </div>
+                    <div class="form-hint">The profile is a managed Web Clip: Full Screen, not removable, with the kiosk icon inside it. "Per-device URLs and profiles" lists the tablets in Assets for this department: pick some, then download a CSV (device name and start URL) or one Web Clip profile per iPad, each with its own serial already in the URL - for an MDM that cannot expand a macro.</div>
                 </div>
             </div>
             <div class="card">
