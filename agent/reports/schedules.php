@@ -18,6 +18,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
 use ITFlow\Reports\ReportCatalog;
 use ITFlow\Reports\ReportScheduler;
 use ITFlow\Reports\SavedReports;
+use ITFlow\Reports\RecipientGroups;
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/report_schedule_policy.php';
 
 enforceUserPermission('module_reporting');
@@ -50,11 +51,51 @@ $can_schedule_report = function ($key) {
     return $module === null || lookupUserPermission($module) >= 1;
 };
 $schedule_scope_sql = $session_is_admin ? '' : ' AND schedule_owner_user_id = ' . intval($session_user_id);
-$valid_frequencies = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
-$valid_formats = ['summary' => 'Headline summary (email)', 'csv' => 'CSV download link (7 days)', 'tables' => 'Report tables in the email'];
+$valid_frequencies = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly', 'quarterly' => 'Quarterly'];
+$valid_formats = ['summary' => 'Headline summary (email)', 'csv' => 'CSV download link (7 days)', 'tables' => 'Report tables in the email', 'pdf' => 'PDF attached to the email'];
 $can_module_row = static fn (string $key): bool => (ReportCatalog::module($key) === null) || lookupUserPermission(ReportCatalog::module($key)) >= 1;
 
 // ---- Add a schedule -------------------------------------------------------
+// ---- Recipient groups -----------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_group'])) {
+    validateCSRFToken($_POST['csrf_token'] ?? '');
+    if (!$can_manage_schedules) {
+        $schedule_deny();
+    }
+    enforceUserPermission('module_reporting', 2);
+    $res = RecipientGroups::create($mysqli, intval($session_user_id), (string) ($_POST['group_name'] ?? ''), (string) ($_POST['group_recipients'] ?? ''),
+        report_schedule_staff_emails($mysqli), report_schedule_allowlist($mysqli));
+    if (is_int($res)) {
+        logAction("Report Schedule", "Create", "Created report recipient group #$res");
+        $_SESSION['alert_type'] = 'success';
+        $_SESSION['alert_message'] = 'Recipient group added.';
+    } else {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = $res;
+    }
+    header('Location: schedules.php');
+    exit;
+}
+
+if (isset($_GET['delete_group'])) {
+    validateCSRFToken($_GET['csrf_token'] ?? '');
+    enforceUserPermission('module_reporting', 2);
+    if (!$can_manage_schedules) {
+        $schedule_deny();
+    }
+    $gid = intval($_GET['delete_group']);
+    if (RecipientGroups::delete($mysqli, $gid, intval($session_user_id), (bool) $session_is_admin)) {
+        logAction("Report Schedule", "Delete", "Deleted report recipient group #$gid");
+        $_SESSION['alert_type'] = 'success';
+        $_SESSION['alert_message'] = 'Recipient group deleted.';
+    } else {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = 'Only the person who created a group, or an administrator, can delete it.';
+    }
+    header('Location: schedules.php');
+    exit;
+}
+
 // ---- Administrator-approved external recipients ---------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_allowed_recipients'])) {
     validateCSRFToken($_POST['csrf_token'] ?? '');
@@ -101,6 +142,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
     // Recipients must be active staff addresses or addresses an administrator approved; anything else is refused.
     [$valid_emails, $refused_emails] = report_schedule_filter_recipients($recipients, report_schedule_staff_emails($mysqli), report_schedule_allowlist($mysqli));
 
+    // Group targets: group_target[GID]=1 with an optional group_view[GID] = a saved view that group receives instead of the schedule's own report.
+    $group_targets = [];
+    $group_error = '';
+    foreach ((array) ($_POST['group_target'] ?? []) as $gid => $on) {
+        $gid = intval($gid);
+        if ($gid <= 0 || !RecipientGroups::get($mysqli, $gid)) {
+            continue;
+        }
+        $gv = intval($_POST['group_view'][$gid] ?? 0);
+        if ($gv > 0) {
+            $gview = SavedReports::get($mysqli, $gv);
+            if (!$gview || !SavedReports::canView($gview, $session_user_id) || !$can_module_row($gview['saved_report_key'])) {
+                $group_error = 'You cannot use one of the saved views you picked for a group.';
+                break;
+            }
+        }
+        $group_targets[$gid] = $gv;
+    }
+
     if (!isset($valid_formats[$delivery])
         || ($delivery === 'summary' && (!isset($schedulable[$report]) || $saved_view_id > 0))
         || ($delivery !== 'summary' && (!ReportCatalog::exists($report) || !$can_module_row($report)))
@@ -116,9 +176,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
     } elseif (!isset($valid_frequencies[$frequency])) {
         $_SESSION['alert_type'] = 'danger';
         $_SESSION['alert_message'] = 'Please choose a valid frequency.';
-    } elseif (empty($valid_emails)) {
+    } elseif ($group_error !== '') {
         $_SESSION['alert_type'] = 'danger';
-        $_SESSION['alert_message'] = 'Please enter at least one valid recipient email address.';
+        $_SESSION['alert_message'] = $group_error;
+    } elseif ($delivery === 'summary' && $group_targets) {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = 'Recipient groups need a CSV, tables or PDF delivery (the headline summary has no per-group views).';
+    } elseif (empty($valid_emails) && !$group_targets) {
+        $_SESSION['alert_type'] = 'danger';
+        $_SESSION['alert_message'] = 'Please enter at least one valid recipient email address, or choose a recipient group.';
     } else {
         $report_esc     = mysqli_real_escape_string($mysqli, $report);
         $frequency_esc  = mysqli_real_escape_string($mysqli, $frequency);
@@ -133,8 +199,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
             "INSERT INTO report_schedules (schedule_report, schedule_frequency, schedule_recipients, schedule_active, schedule_saved_report_id, schedule_format, schedule_owner_user_id)
              VALUES ('$report_esc', '$frequency_esc', '$recipients_esc', 1, $saved_db, '$format_db', $owner_db)");
 
+        $new_schedule_id = (int) mysqli_insert_id($mysqli);
+        if ($group_targets && $new_schedule_id > 0) {
+            RecipientGroups::setTargets($mysqli, $new_schedule_id, $group_targets);
+        }
+
         if (function_exists('logAction')) {
-            logAction("Report Schedule", "Create", "Scheduled '" . (ReportCatalog::label($report) ?? $report) . "' ($frequency, $delivery) to " . implode(', ', $valid_emails));
+            logAction("Report Schedule", "Create", "Scheduled '" . (ReportCatalog::label($report) ?? $report) . "' ($frequency, $delivery) to " . implode(', ', $valid_emails) . ($group_targets ? ' and ' . count($group_targets) . ' recipient group(s)' : ''));
         }
 
         $_SESSION['alert_type'] = 'success';
@@ -193,6 +264,7 @@ $sql_schedules = mysqli_query($mysqli,
      WHERE 1 = 1 " . str_replace('schedule_owner_user_id', 'rs.schedule_owner_user_id', $schedule_scope_sql) . "
      ORDER BY rs.schedule_created_at DESC");
 
+$recipient_groups = RecipientGroups::all($mysqli);
 $my_views = SavedReports::listFor($mysqli, $session_user_id, null, static fn ($m) => $m === '' || lookupUserPermission($m) >= 1);
 $all_reports = ReportCatalog::definitions();
 
@@ -207,8 +279,9 @@ $all_reports = ReportCatalog::definitions();
         <div class="px-3 pt-3 pb-1">
             <small class="text-muted">
                 Each active schedule emails its report to the recipients at the selected cadence. A <b>headline summary</b> is a short table of key figures;
-                <b>CSV</b> emails a link to download the report's export (the link expires after <?php echo intval(ReportScheduler::EXPIRY_DAYS); ?> days, the file is not attached because the mail queue cannot carry attachments);
-                <b>tables in the email</b> puts the report's tables in the message. CSV and table schedules run as the person who created them, so that person's department restrictions apply.
+                <b>CSV</b> emails a link to download the report's export (the link expires after <?php echo intval(ReportScheduler::EXPIRY_DAYS); ?> days);
+                <b>PDF</b> attaches the report to the email as a PDF file; <b>tables in the email</b> puts the report's tables in the message. CSV, PDF and table schedules run as the person who created them, so that person's department restrictions apply.
+                <b>Recipient groups</b> let one schedule send a different saved view to each group.
                 Delivery runs from the <?= nullable_htmlentities(APP_NAME) ?> cron; a schedule is sent again once its frequency has elapsed since the last send.
             </small>
         </div>
@@ -228,7 +301,7 @@ $all_reports = ReportCatalog::definitions();
                         <?php } ?>
                     </optgroup>
                     <?php if ($my_views) { ?>
-                    <optgroup label="Saved views (CSV or tables only)">
+                    <optgroup label="Saved views (CSV, PDF or tables only)">
                         <?php foreach ($my_views as $v) { ?>
                             <option value="v:<?php echo intval($v['saved_report_id']); ?>"><?php echo nullable_htmlentities($v['saved_report_name'] . ' - ' . ReportCatalog::label($v['saved_report_key'])); ?></option>
                         <?php } ?>
@@ -254,12 +327,70 @@ $all_reports = ReportCatalog::definitions();
             </div>
             <div class="col-md-3 col-8 mb-2">
                 <label class="mb-1">Recipients</label>
-                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com" required>
+                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com (or choose groups below)">
             </div>
             <div class="col-md-2 col-4 mb-2">
                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-fw fa-plus me-1"></i>Add</button>
             </div>
+            <?php if ($recipient_groups) { ?>
+            <div class="col-12 mb-2">
+                <div class="fw-bold mb-1">Also send to recipient groups <span class="text-muted fw-normal">(CSV, PDF or tables; each group can receive a different saved view)</span></div>
+                <div class="row g-2">
+                    <?php foreach ($recipient_groups as $g) { $gid = intval($g['group_id']); ?>
+                        <div class="col-md-4 col-12">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check mb-0 text-nowrap">
+                                    <input class="form-check-input" type="checkbox" name="group_target[<?php echo $gid; ?>]" value="1" id="gt-<?php echo $gid; ?>">
+                                    <label class="form-check-label" for="gt-<?php echo $gid; ?>"><?php echo nullable_htmlentities($g['group_name']); ?></label>
+                                </div>
+                                <select class="form-control form-control-sm" name="group_view[<?php echo $gid; ?>]" aria-label="Saved view for <?php echo nullable_htmlentities($g['group_name']); ?>">
+                                    <option value="0">Same report as above</option>
+                                    <?php foreach ($my_views as $v) { ?>
+                                        <option value="<?php echo intval($v['saved_report_id']); ?>"><?php echo nullable_htmlentities($v['saved_report_name']); ?></option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+            <?php } ?>
         </form>
+
+        <!-- Recipient groups -->
+        <div class="px-3 pb-3">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rpt-groups"><i class="fas fa-fw fa-users me-1"></i>Recipient groups (<?php echo count($recipient_groups); ?>)</button>
+            <div class="collapse mt-2" id="rpt-groups">
+                <form method="post" class="row g-2 align-items-end mb-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <input type="hidden" name="add_group" value="1">
+                    <div class="col-md-3 col-12"><label class="mb-1" for="grp-name">Group name</label><input type="text" id="grp-name" class="form-control form-control-sm" name="group_name" maxlength="100" required placeholder="Executives"></div>
+                    <div class="col-md-6 col-12"><label class="mb-1" for="grp-rcpt">Recipients</label><input type="text" id="grp-rcpt" class="form-control form-control-sm" name="group_recipients" required placeholder="cio@example.com, coo@example.com"></div>
+                    <div class="col-md-3 col-12"><button type="submit" class="btn btn-sm btn-primary w-100"><i class="fas fa-fw fa-plus me-1"></i>Add group</button></div>
+                </form>
+                <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Group</th><th>Recipients</th><th>In schedules</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                    <?php if (!$recipient_groups) { ?><tr><td colspan="4" class="text-muted text-center">No recipient groups yet.</td></tr><?php } ?>
+                    <?php foreach ($recipient_groups as $g) { ?>
+                        <tr>
+                            <td><?php echo nullable_htmlentities($g['group_name']); ?></td>
+                            <td class="small"><?php echo nullable_htmlentities($g['group_recipients']); ?></td>
+                            <td><?php echo intval($g['used_by']); ?></td>
+                            <td class="text-end">
+                                <?php if ($session_is_admin || intval($g['group_created_by']) === intval($session_user_id)) { ?>
+                                <a class="btn btn-sm btn-outline-danger confirm-link" href="schedules.php?delete_group=<?php echo intval($g['group_id']); ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"><i class="fas fa-fw fa-trash"></i> Delete</a>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                    <?php } ?>
+                    </tbody>
+                </table>
+                </div>
+                <small class="text-muted">Addresses must be active agents or administrator-approved recipients. Deleting a group removes it from every schedule that used it.</small>
+            </div>
+        </div>
         <?php } else { ?>
         <div class="px-3 py-2"><span class="text-muted">You can see the schedules; adding, pausing or deleting one needs Reporting modify access.</span></div>
         <?php } ?>
@@ -304,7 +435,8 @@ $all_reports = ReportCatalog::definitions();
                             if (!empty($row['saved_report_name'])) {
                                 $report_name .= ' - view: ' . $row['saved_report_name'];
                             }
-                            $delivery_label = ReportScheduler::usesDataPath($row) ? ($row['schedule_format'] === 'csv' ? 'CSV link' : 'Tables in email') : 'Headline summary';
+                            $delivery_label = ReportScheduler::usesDataPath($row) ? (['csv' => 'CSV link', 'pdf' => 'PDF attached'][$row['schedule_format']] ?? 'Tables in email') : 'Headline summary';
+                            $row_targets = ReportScheduler::targets($mysqli, $schedule_id);
                             $frequency   = $valid_frequencies[$row['schedule_frequency']] ?? ucfirst((string) $row['schedule_frequency']);
                             $active      = intval($row['schedule_active']) === 1;
                             $last_sent   = !empty($row['schedule_last_sent']) ? nullable_htmlentities($row['schedule_last_sent']) : '<span class="text-muted">Never</span>';
@@ -315,7 +447,13 @@ $all_reports = ReportCatalog::definitions();
                             <td><?php echo nullable_htmlentities($report_name); ?></td>
                             <td><?php echo nullable_htmlentities($delivery_label); ?></td>
                             <td><?php echo nullable_htmlentities($frequency); ?></td>
-                            <td><?php echo nullable_htmlentities($row['schedule_recipients']); ?></td>
+                            <td>
+                                <?php echo nullable_htmlentities($row['schedule_recipients']); ?>
+                                <?php foreach ($row_targets as $rt) {
+                                    $rt_view = !empty($rt['target_saved_report_id']) ? SavedReports::get($mysqli, intval($rt['target_saved_report_id'])) : null; ?>
+                                    <div class="small"><i class="fas fa-fw fa-users text-muted"></i> <?php echo nullable_htmlentities($rt['group_name']); ?><?php echo $rt_view ? ' &rarr; ' . nullable_htmlentities($rt_view['saved_report_name']) : ''; ?></div>
+                                <?php } ?>
+                            </td>
                             <td><?php echo nullable_htmlentities($row['owner_name'] ?? ''); ?></td>
                             <td>
                                 <?php if ($active) { ?>

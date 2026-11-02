@@ -63,6 +63,7 @@ $scheduler_intervals = [
     'daily'   => '+1 day',
     'weekly'  => '+7 day',
     'monthly' => '+1 month',
+    'quarterly' => '+3 month',
 ];
 
 $scheduler_now    = date('Y-m-d H:i:s');
@@ -70,7 +71,7 @@ $scheduler_queued = 0;
 $scheduler_sent_schedules = 0;
 
 // Data schedules (a saved view, or a CSV): rendered as the schedule owner in a child process and delivered as a
-// table email or an expiring CSV download link. See src/Reports/ReportScheduler.php for why a link, not an attachment.
+// table email, an expiring CSV download link, or a PDF attached to the email (mail queue attachments, DB 2.6.231).
 $scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
     'render' => static function (array $sched, string $key, array $params, string $format) {
         $cmd = [PHP_BINARY, dirname(__DIR__) . '/scripts/report_render.php', '--user=' . (int) $sched['schedule_owner_user_id'],
@@ -108,6 +109,14 @@ $scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
         return ['ok' => true, 'content' => $out];
     },
     'mail'       => static function (array $messages) { addToMailQueue($messages); },
+    // Recipient policy (pentest IT-8) re-checked at send time for every data schedule and every recipient group.
+    'filter_recipients' => static function (string $list) use ($scheduler_staff_emails, $scheduler_allowlist) {
+        [$allowed, $refused] = report_schedule_filter_recipients($list, $scheduler_staff_emails, $scheduler_allowlist);
+        if (!empty($refused) && function_exists('logApp')) {
+            logApp("Cron", "warning", "Report scheduler dropped " . count($refused) . " recipient(s) that are not agent or approved addresses");
+        }
+        return $allowed;
+    },
     'from_email' => $scheduler_from_email,
     'from_name'  => $scheduler_from_name,
     'base_url'   => $config_base_url ?? '',
@@ -116,7 +125,7 @@ $scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
 $scheduler_queued += $scheduler_data['emails'];
 $scheduler_sent_schedules += $scheduler_data['ok'];
 
-$res = mysqli_query($mysqli, "SELECT * FROM report_schedules WHERE schedule_active = 1");
+$res = mysqli_query($mysqli, "SELECT rs.*, EXISTS(SELECT 1 FROM report_schedule_targets t WHERE t.target_schedule_id = rs.schedule_id) AS has_targets FROM report_schedules rs WHERE rs.schedule_active = 1");
 while ($sched = mysqli_fetch_assoc($res)) {
     if (\ITFlow\Reports\ReportScheduler::usesDataPath($sched)) {
         continue; // handled above

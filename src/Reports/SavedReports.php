@@ -115,6 +115,7 @@ final class SavedReports
         mysqli_query($db, "DELETE FROM saved_reports WHERE saved_report_id = " . (int) $id);
         // A schedule that pointed at the view keeps running as the plain report rather than silently emailing nothing.
         mysqli_query($db, "UPDATE report_schedules SET schedule_saved_report_id = NULL WHERE schedule_saved_report_id = " . (int) $id);
+        mysqli_query($db, "UPDATE report_schedule_targets SET target_saved_report_id = NULL WHERE target_saved_report_id = " . (int) $id);
         return true;
     }
 }
