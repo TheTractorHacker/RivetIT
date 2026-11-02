@@ -178,6 +178,10 @@ final class ChatFormatter
         if ($buttons) {
             $blocks[] = ['type' => 'actions', 'elements' => $buttons];
         }
+        // Status / priority / Reply controls (src/Chat/ChatBlocks.php), only on a real ticket message of a destination that can receive the answer.
+        if (!empty($opts['controls']) && is_array($opts['controls']) && $d['ticket_id'] > 0 && !$d['test']) {
+            $blocks[] = ['type' => 'actions', 'elements' => array_slice($opts['controls'], 0, 5)];
+        }
 
         $fallback = $d['headline'] . ': ' . $d['title'];
         foreach ($d['facts'] as [$k, $v]) {

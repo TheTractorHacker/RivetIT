@@ -30,6 +30,8 @@ final class ColumnRegistry
             'config_outlook_cal_client_secret', 'config_imap_password', 'config_backup_s3_secret_key', 'config_backup_passphrase',
             'config_comet_admin_pass', 'config_comet_totp_secret', 'config_comet_webhook_secret', 'config_oidc_client_secret',
             'config_kb_media_key', 'config_training_youtube_api_key', 'config_redis_password',
+            // Slack / Teams chat (issue #36): the Slack app signing secret and the Azure Bot client secret.
+            'config_slack_signing_secret', 'config_teams_app_secret',
             // The RMM external metric store (RivetCore 1.0.0-rc.11, off by default): the endpoint URLs and the bearer token, sealed with encryptSetting().
             'config_rmm_extstore_write_url', 'config_rmm_extstore_read_url', 'config_rmm_extstore_token',
         ] as $c) {

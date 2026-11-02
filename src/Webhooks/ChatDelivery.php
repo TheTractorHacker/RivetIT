@@ -163,6 +163,25 @@ final class ChatDelivery
         return $opts;
     }
 
+    /** Status / priority / Reply controls for a Slack ticket message; [] unless "actions from chat" is on (Administration > Chat). */
+    private static function ticketControls(\mysqli $mysqli, array $data): array
+    {
+        try {
+            if (!(new \ITFlow\Chat\ChatSettings($mysqli))->actions()) {
+                return [];
+            }
+            $names = [];
+            $res = mysqli_query($mysqli, "SELECT ticket_status_name FROM ticket_statuses WHERE ticket_status_active = 1 AND LOWER(ticket_status_name) NOT IN ('closed','resolved') ORDER BY ticket_status_id ASC LIMIT 20");
+            while ($res && ($r = mysqli_fetch_row($res))) {
+                $names[] = (string) $r[0];
+            }
+
+            return \ITFlow\Chat\ChatBlocks::ticketControls((int) $data['ticket_id'], (string) ($data['ticket_status'] ?? ''), (string) ($data['ticket_priority'] ?? ''), $names);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     /**
      * Deliver one event to a chat destination row and log the attempt.
      *
@@ -182,7 +201,11 @@ final class ChatDelivery
         $url = function_exists('decryptSetting') ? decryptSetting((string) $row['webhook_url']) : (string) $row['webhook_url'];
         // A Slack destination with a signing secret gets interactive buttons (the answer can then be verified); nothing else does.
         $interactive = $type === ChatFormatter::TYPE_SLACK && function_exists('decryptSetting') && decryptSetting((string) ($row['webhook_secret'] ?? '')) !== '';
-        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + ['test' => $test, 'interactive' => $interactive]);
+        $extra = ['test' => $test, 'interactive' => $interactive];
+        if ($interactive && !$test && (int) ($data['ticket_id'] ?? 0) > 0) {
+            $extra['controls'] = self::ticketControls($mysqli, $data);
+        }
+        $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + $extra);
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         $start = microtime(true);

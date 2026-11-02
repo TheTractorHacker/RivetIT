@@ -5155,6 +5155,20 @@ CREATE TABLE `settings` (
   `config_automation_run_script_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_automation_odoo_user_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_automation_cert_days` int(11) NOT NULL DEFAULT 30,
+  `config_slack_signing_secret` text DEFAULT NULL,
+  `config_chat_two_way_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_chat_commands_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_chat_actions_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_chat_virtual_agent_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_chat_mirror_internal` tinyint(1) NOT NULL DEFAULT 0,
+  `config_chat_thread_reply_type` varchar(10) NOT NULL DEFAULT 'internal',
+  `config_chat_slack_channel_id` varchar(32) NOT NULL DEFAULT '',
+  `config_chat_default_client_id` int(11) NOT NULL DEFAULT 0,
+  `config_teams_bot_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `config_teams_app_id` varchar(64) NOT NULL DEFAULT '',
+  `config_teams_app_secret` text DEFAULT NULL,
+  `config_teams_tenant_id` varchar(64) NOT NULL DEFAULT '',
+  `config_teams_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -11776,3 +11790,63 @@ CREATE TABLE IF NOT EXISTS `intune_device_apps` (
   KEY `app_name` (`app_name`(100))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Table structure for table `chat_identities`
+--
+
+DROP TABLE IF EXISTS `chat_identities`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chat_identities` (
+  `identity_id` int(11) NOT NULL AUTO_INCREMENT,
+  `identity_platform` varchar(10) NOT NULL,
+  `identity_team_id` varchar(64) NOT NULL DEFAULT '',
+  `identity_external_id` varchar(128) NOT NULL,
+  `identity_user_id` int(11) NOT NULL DEFAULT 0,
+  `identity_contact_id` int(11) NOT NULL DEFAULT 0,
+  `identity_created_by` int(11) NOT NULL DEFAULT 0,
+  `identity_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`identity_id`),
+  UNIQUE KEY `uq_chat_identity` (`identity_platform`,`identity_team_id`,`identity_external_id`),
+  KEY `idx_chat_identity_user` (`identity_user_id`),
+  KEY `idx_chat_identity_contact` (`identity_contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `chat_threads`
+--
+
+DROP TABLE IF EXISTS `chat_threads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chat_threads` (
+  `thread_id` int(11) NOT NULL AUTO_INCREMENT,
+  `thread_platform` varchar(10) NOT NULL,
+  `thread_team_id` varchar(64) NOT NULL DEFAULT '',
+  `thread_channel_id` varchar(128) NOT NULL,
+  `thread_ref` varchar(128) NOT NULL,
+  `thread_service_url` varchar(255) NOT NULL DEFAULT '',
+  `thread_ticket_id` int(11) NOT NULL,
+  `thread_last_reply_id` int(11) NOT NULL DEFAULT 0,
+  `thread_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`thread_id`),
+  UNIQUE KEY `uq_chat_thread` (`thread_platform`,`thread_channel_id`,`thread_ref`),
+  KEY `idx_chat_thread_ticket` (`thread_ticket_id`,`thread_platform`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `chat_kv`
+--
+
+DROP TABLE IF EXISTS `chat_kv`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chat_kv` (
+  `kv_key` varchar(64) NOT NULL,
+  `kv_value` mediumtext DEFAULT NULL,
+  `kv_updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`kv_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;

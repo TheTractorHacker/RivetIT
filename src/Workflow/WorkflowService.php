@@ -718,6 +718,8 @@ class WorkflowService
         foreach ($this->approverUserIds($task, $contact) as $uid) {
             $this->gateway()->notifyUser($uid, 'Workflow', $message, 'workflow_run.php?run_id=' . (int) $task['run_id'] . '&approval_task=' . (int) $task['run_task_id'], (int) ($contact['contact_client_id'] ?? 0), (int) ($contact['contact_id'] ?? 0));
         }
+        // Chat (Slack / Teams): an Approve / Deny message to approvers who linked their chat account. No-op unless "actions from chat" is on.
+        \ITFlow\Chat\ChatNotifier::approvalRequested($this->mysqli, 'workflow_task', (int) $task['run_task_id']);
     }
 
     private function resumeIfNothingRejected(int $runId): void

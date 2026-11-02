@@ -3064,3 +3064,29 @@ can all inherit the same design system and interaction patterns.
 The objective is not simply to make ITFlow prettier.
 
 The objective is to evolve it into a coherent **Internal IT Operations Platform** with a modern design system, reusable UI components, strong security controls, clean workflows, and long-term maintainability.
+
+---
+
+## Appendix: Slack and Microsoft Teams chat requirements (issue #36)
+
+Requirements the chat integration must keep meeting. Each is covered by `tests/chat_integration.php` or `tests/chat_teams.php` unless marked live-only.
+
+**Security**
+- C1. Every inbound Slack request is verified (v0 HMAC-SHA256, constant time, 5 minute window) and single-use; failure is a bare 401.
+- C2. Every inbound Teams request carries a Bot Framework JWT: RS256 only, issuer api.botframework.com, audience = our App ID, valid window, `serviceurl` claim equal to the activity's, key endorsed for the channel, keys fetched only from the Bot Framework host. (Live: real key set.)
+- C3. Identity is never read from a payload. An explicit link (Administration > Chat) wins; email matching is OFF by default, needs Slack-confirmed / pinned-tenant directory email, and never overrides a link, even a link to a disabled agent.
+- C4. Chat can do nothing the web app would refuse: support-module rights, department scoping, closed tickets untouched, closing/resolving never offered, approvals only by the addressed approver (no administrator override from chat).
+- C5. Secrets (signing secret, bot token, Teams client secret) are encrypted settings, never shown back, logged or put in a message.
+- C6. Outbound calls are SSRF-safe (https, public addresses, pinned connection, no redirects, size cap); Teams service URLs must be Microsoft Bot Connector hosts.
+- C7. User text is never markup or a mention (Slack plain_text + entity escaping, Teams Markdown escaping, ticket text HTML-escaped).
+
+**Behaviour**
+- C8. Everything is OFF by default, each capability has its own switch (two-way, commands, actions, virtual agent, Teams bot, email matching, mirror internal notes).
+- C9. Two-way: new tickets become a thread; public and customer replies follow into it; a linked agent's thread reply becomes an internal note (or a public reply, setting); nothing is echoed back; a failed post is retried, never skipped; internal notes are not mirrored unless enabled.
+- C10. `/ticket new|status|set|reply|approvals|ask`, a ticket modal and a message shortcut (Slack); the same text grammar and Adaptive Cards in Teams.
+- C11. Approval requests reach approvers who linked chat with Approve / Deny that decide through the same service as the web and mobile app.
+- C12. The virtual agent searches the knowledge base and service catalog with the asker's visibility (contacts: client-visible only) and can open a ticket or a catalog request.
+- C13. Other modules call `ChatActions` (do something as a chat user) and `ChatNotifier` (tell a user or a thread); neither knows platform payloads.
+- C14. Admin generates the Slack app manifest and the Teams app package from the install's own URL.
+- C15. (Live-only) Slack and Teams deliver real events to our endpoints from the internet; Teams proactive messages need the user to have messaged the bot once.
+

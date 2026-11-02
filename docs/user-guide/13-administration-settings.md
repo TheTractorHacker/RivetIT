@@ -303,3 +303,8 @@ Scheduled scripts the server needs:
 
 - [Administration: Ticketing, Automation and Organising Data](13b-administration-ticketing-and-automation.md)
 - [Service Desk](03-service-desk.md)
+
+### Chat (Slack and Microsoft Teams)
+
+**Settings > Chat** turns on two-way ticket threads, the `/ticket` command, actions from chat, the virtual agent and the Teams bot (all off by default), stores the Slack and Teams secrets encrypted, links chat users to agents or contacts, and downloads the Slack app manifest and the Teams app package. See `docs/SLACK_TEAMS_SETUP.md` and `docs/CHAT_LIVE_VERIFICATION.md`.
+

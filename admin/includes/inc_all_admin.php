@@ -62,6 +62,7 @@ $admin_settings_labels = [
     'settings_calendar_sync.php' => 'Calendar sync',
     'settings_webhooks.php' => 'Webhooks',
     'settings_webhook_guides.php' => 'Webhook guides',
+    'settings_chat.php' => 'Chat',
     'webhook_new.php' => 'Webhooks',
     'webhook_edit.php' => 'Webhooks',
     'settings_ai.php' => 'AI',
