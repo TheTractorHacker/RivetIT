@@ -334,8 +334,15 @@ $k_name = static fn(array $c): string => $k_names[(int) ($c['course_id'] ?? 0)] 
 
 $counts = is_array($summary['counts'] ?? null) ? $summary['counts'] : [];
 $k_kb = false;
+$k_quality = false;
 try {
     $k_kb = intval($config_module_enable_kb ?? 0) === 1 && \ITFlow\Training\Kiosk\Learn\KbAccess::clientId($db, $cid) !== null;
+    // Quality on a shared screen (issue #52): the link exists only while the module and its "kiosk" feature are on and this person's department is enabled.
+    try {
+        $k_quality = \ITFlow\Quality\QualityConfig::moduleOn($db) && !empty(\ITFlow\Quality\QualityConfig::features($db)['kiosk']) && \ITFlow\Quality\QualityConfig::access($db, $cid)['ok'];
+    } catch (\Throwable $e) {
+        $k_quality = false;
+    }
 } catch (\Throwable $e) {
     error_log('Kiosk me.php kb: ' . get_class($e));
 }
@@ -350,6 +357,7 @@ $k_page = [
         'today' => $today->format('Y-m-d'),
         'records' => $records,
         'kb' => $k_kb,
+        'quality' => $k_quality,
         'counts' => [
             'completed' => (int) ($counts['completed'] ?? 0),
             'in_progress' => count($runs),

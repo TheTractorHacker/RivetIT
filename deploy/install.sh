@@ -1086,6 +1086,8 @@ EOF
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_kiosk_cron.php '0-59/10 * * * *' "${training_log}"
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '*/10 * * * *' "${training_log}" '--task=odoo'
     ensure_cron_job "${cron_file}" "${APP_DIR}" training_worker.php '40 5 * * *' "${training_log}" '--task=daily'
+    # Quality module (issue #52): QMS health check, signed event queue and delivery. Exits at once while the module is off or not set up.
+    ensure_cron_job "${cron_file}" "${APP_DIR}" quality_worker.php '*/5 * * * *' "${training_log}"
     chmod 644 "${cron_file}"
     chown root:root "${cron_file}"
     success "Installed system cron entry: ${cron_file} (log: ${cron_log})"

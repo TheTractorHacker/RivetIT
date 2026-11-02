@@ -51,6 +51,20 @@ require_once "includes/inc_all_admin.php";
             </div>
             <?php } ?>
 
+            <?php
+            // Quality (issue #52): the switch for the whole integration with the quality management system. Offered once the 2.6.261 tables exist.
+            require_once dirname(__DIR__) . '/vendor/autoload.php';
+            if (\ITFlow\Quality\QualityConfig::ready($mysqli)) { $quality_on = \ITFlow\Quality\QualityConfig::moduleOn($mysqli); ?>
+            <div class="form-group">
+                <input type="hidden" name="quality_present" value="1">
+                <div class="form-check form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="config_module_enable_quality" <?php if ($quality_on) { echo "checked"; } ?> value="1" id="customSwitchQuality">
+                    <label class="form-check-label" for="customSwitchQuality">Show Quality (quality system integration)</label>
+                </div>
+                <small class="form-text text-muted">Employee and manager Quality pages in the department portal, linked to your separate quality management system. Off by default; set it up under <a href="/admin/quality.php">Quality</a> first. Turning it off hides the pages and stops synchronization but keeps every setting; Training is not affected.</small>
+            </div>
+            <?php } ?>
+
             <div class="form-group">
                 <div class="form-check form-check form-switch">
                     <input type="checkbox" class="form-check-input" name="config_module_enable_live_chat" <?php if ($config_module_enable_live_chat == 1) { echo "checked"; } ?> value="1" id="customSwitch3d">

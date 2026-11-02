@@ -200,6 +200,9 @@ $TECH_UID = $mkUser('Tom Tech', 'tech', $TECH_ROLE);
 foreach (['oidc_codes', 'oidc_tokens', 'oidc_pending', 'oidc_events', 'oidc_client_config', 'oidc_signing_keys'] as $tbl) { $mysqli->query("DELETE FROM $tbl"); }
 $mysqli->query("DELETE FROM integration_clients WHERE client_name LIKE 'OIDC TEST%'");
 OidcConfig::saveSettings($mysqli, true, 480, 300, 300, 1);
+// The Quality module (#52 phase 1): the provider only signs people in while the module is on and their department is enabled.
+\ITFlow\Quality\QualityConfig::setModule($mysqli, true);
+\ITFlow\Quality\QualityConfig::setDepartments($mysqli, [$CLIENT_DEPT], 1);
 
 $made = IntegrationAuth::createClient($mysqli, 'OIDC TEST Datum', null, ['sso'], '', null, 1, true, []);
 $CLIENT_UID = $made['client_uid']; $CLIENT_SECRET = $made['secret']; $CLIENT_ID = $made['client_id'];
@@ -431,6 +434,13 @@ $mysqli->query("INSERT INTO user_settings (user_id, user_config_force_mfa) VALUE
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $ck]);
 t('administrator-required 2FA not enrolled yet: refused', $r['status'] === 403 && events('policy:mfa_enrollment_required') >= 1);
 $mysqli->query("UPDATE user_settings SET user_config_force_mfa = 0 WHERE user_id = $USER_ID");
+// (Checked at the policy level here: this suite is close to the per-address cap on authorize refusals. tests/quality_module.php covers the HTTP refusals.)
+\ITFlow\Quality\QualityConfig::setDepartments($mysqli, [], 1);
+t('department not enabled for Quality: refused (department_not_enabled)', QualityAccessPolicy::allows($CONTACT_ID, $mysqli) === ['ok' => false, 'reason' => 'department_not_enabled']);
+\ITFlow\Quality\QualityConfig::setDepartments($mysqli, [$CLIENT_DEPT], 1);
+\ITFlow\Quality\QualityConfig::setModule($mysqli, false);
+t('Quality module off: refused (module_disabled)', QualityAccessPolicy::allows($CONTACT_ID, $mysqli) === ['ok' => false, 'reason' => 'module_disabled']);
+\ITFlow\Quality\QualityConfig::setModule($mysqli, true);
 t('policy: eligible contact is allowed again', QualityAccessPolicy::allows($CONTACT_ID, $mysqli) === ['ok' => true, 'reason' => 'ok']);
 t('policy: unknown contact refused', QualityAccessPolicy::allows(999999, $mysqli)['ok'] === false);
 
@@ -542,7 +552,7 @@ t('policy: live administrator allowed; user id 0 / unknown refused', QualityAcce
 echo "-- (b) non-administrators\n";
 $techS = agentSession($TECH_UID);
 $r = http('GET', '/oidc/authorize?' . authq(), ['cookie' => $techS]);
-t('technician (non-admin role) agent session: refused, no redirect, audited policy:not_administrator', $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code=') && events('policy:not_administrator') >= 1);
+t('technician (non-admin role) agent session: refused, no redirect, audited policy:not_administrator', $r['status'] === 403 && $r['loc'] === null && !str_contains($r['body'], 'code=') && events('policy:not_administrator') >= 1, 'status ' . $r['status'] . ' loc ' . ($r['loc'] ?? '-') . ' events ' . json_encode(q('SELECT oev_reason r, COUNT(*) n FROM oidc_events GROUP BY oev_reason')));
 t('technician refusal audit row carries the negative principal', (int) q('SELECT COUNT(*) n FROM oidc_events WHERE oev_reason = ? AND oev_contact_id = ?', 'si', ['policy:not_administrator', -$TECH_UID])[0]['n'] >= 1);
 $mysqli->query("UPDATE users SET user_role_id = 0 WHERE user_id = $TECH_UID");
 t('agent with no role at all: refused', http('GET', '/oidc/authorize?' . authq(), ['cookie' => $techS])['status'] === 403);

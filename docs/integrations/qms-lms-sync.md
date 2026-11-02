@@ -60,7 +60,7 @@ and `overdue` is derived. When the assignment closes, `completion_id` points at 
 
 ## 3. Completion (RivetIT -> QMS)
 
-Poll `GET /lms/completions?updated_since=<last sync>` (webhooks come in a later PR and are only hints). Each record has:
+Poll `GET /lms/completions?updated_since=<last sync>`. With the Quality module and *Send events to the QMS* on, RivetIT also sends `lms.completion.recorded` / `lms.completion.corrected` (signed, see `docs/QUALITY_CONTRACT.md` 7.3) as hints; polling stays the backstop. Each record has:
 
 `course_id` and `course_revision` (the revision the learner completed), `assignment_id` and `assignment.external_ref`, `completed_on`,
 `result` (`passed`; RivetIT only records successful completions), `score_pct` and `pass_mark_pct`, `expires_on` (the **recertification

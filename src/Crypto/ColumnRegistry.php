@@ -57,6 +57,8 @@ final class ColumnRegistry
             ['mailboxes', 'mailbox_id', ['mailbox_imap_password_enc', 'mailbox_oauth_refresh_token_enc', 'mailbox_oauth_access_token_enc']],
             ['workflow_run_tasks', 'run_task_id', ['secret_result_enc']],
             ['endpoint_agent_settings', 'id', ['signing_private_key_enc', 'mesh_login_key_enc']],
+            // The Quality module (#52, DB 2.6.261): the QMS client secret, the two HMAC signing secrets and the cached QMS access token, all sealed with encryptSetting() (generic context).
+            ['quality_settings', 'qs_id', ['qs_client_secret_enc', 'qs_outbound_secret_enc', 'qs_inbound_secret_enc', 'qs_token_enc']],
         ] as [$table, $pk, $cols]) {
             foreach ($cols as $c) {
                 $specs[] = new ColumnSpec($table, $pk, $c);

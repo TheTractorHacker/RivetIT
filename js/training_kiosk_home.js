@@ -95,6 +95,14 @@
         ]));
     }
 
+    if (P.quality) {
+        root.appendChild(el('a', { class: 'kl-kblink', href: '/kiosk/quality.php' }, [
+            el('span', { class: 'kl-kblink__icon', 'aria-hidden': 'true' }, icon('fa-clipboard-check')),
+            el('span', { class: 'kl-kblink__text' }, [el('strong', { text: t('quality.open') }), el('span', { class: 'kl-muted', text: t('quality.open_sub') })]),
+            icon('fa-chevron-right')
+        ]));
+    }
+
     // ---------------------------------------------------------------- course cards
     function kindLine(c) {
         if (c.kind === 'document') {

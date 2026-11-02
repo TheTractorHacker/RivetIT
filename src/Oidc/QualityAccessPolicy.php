@@ -15,13 +15,11 @@ namespace ITFlow\Oidc;
  *   - the department portal itself is switched on (a switched-off portal also ends portal sessions);
  *   - not blocked at the portal's own "enroll two-factor first" gate (an administrator-required 2FA that is not set up yet).
  *
- * PHASE 1 HOOK (not built yet - do NOT invent these settings here): when the Quality module lands (docs/integrations/qms-overview.md,
- * "Module switch" and "Who can use it") this function is the ONE place to add:
- *   1. the module switch  settings.config_module_enable_quality = 1       -> reason 'module_disabled'
- *   2. the department list quality_departments contains the contact's department (contacts.contact_client_id)  -> reason 'department_not_enabled'
- *   3. the portal role gate  contacts.contact_portal_role / the feature flag, if Quality is restricted to roles   -> reason 'role_not_allowed'
- * Nothing else needs to change: authorize, token and userinfo all call allows() and audit whatever reason it returns.
- * The marked block below is where those checks go.
+ * QUALITY MODULE GATE (built, #52 phase 1): before anything else, allows() requires settings.config_module_enable_quality = 1 (reason 'module_disabled')
+ * and, for a department person, that the person's department (contacts.contact_client_id) is enabled for Quality (reason 'department_not_enabled';
+ * see ITFlow\Quality\QualityConfig::access()). Administrators are refused only by the module switch: they have no department. Both are read from the
+ * database on every call, so switching Quality off or removing a department takes effect at the next authorize, token and userinfo call.
+ * eligible() is the same contact rules WITHOUT the provider switch, used when RivetIT itself calls the QMS for a person (ITFlow\Quality\UserContext).
  *
  * Reasons are short codes for the audit log; the person only ever sees a generic message.
  */
@@ -37,17 +35,38 @@ final class QualityAccessPolicy
         if (!OidcConfig::load($db)['enabled']) {
             return ['ok' => false, 'reason' => 'provider_disabled'];
         }
+        // The Quality module switch applies to everybody, administrators included.
+        if (!\ITFlow\Quality\QualityConfig::moduleOn($db)) {
+            return ['ok' => false, 'reason' => 'module_disabled'];
+        }
 
         // An administrator signs in as themselves, not as a department person (see allowsAdministrator()).
         if ($contactId < 0) {
             return self::allowsAdministrator(self::administratorUserId($contactId), $db);
         }
+        return self::eligible($contactId, $db);
+    }
 
-        // ---- PHASE 1 HOOK: Quality module switch and per-department gate go here (see the class comment). --------------------------
-
+    /**
+     * The contact rules without the SSO provider switch: a department person who is an active, enabled portal user in an active department whose
+     * department is enabled for Quality. Used by allows() and by ITFlow\Quality\UserContext (RivetIT calling the QMS for a person).
+     *
+     * @return array{ok:bool, reason:string}
+     */
+    public static function eligible(int $contactId, ?\mysqli $db = null): array
+    {
+        $db ??= $GLOBALS['mysqli'] ?? null;
+        if (!$db instanceof \mysqli) {
+            return ['ok' => false, 'reason' => 'no_database'];
+        }
         if ($contactId <= 0) {
             return ['ok' => false, 'reason' => 'contact_not_found'];
         }
+        $gate = \ITFlow\Quality\QualityConfig::access($db, $contactId);
+        if (!$gate['ok']) {
+            return ['ok' => false, 'reason' => $gate['reason']];
+        }
+
         $st = $db->prepare('SELECT c.contact_archived_at, c.contact_employment_status, c.contact_user_id,
                 u.user_id, u.user_type, u.user_status, u.user_archived_at, u.user_token,
                 cl.client_archived_at, cl.client_status,

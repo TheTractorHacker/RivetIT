@@ -17,7 +17,7 @@ function ak_other_scopes(): array
         'lms:completions:read' => 'Training: read completions',
         'lms:evidence:read' => 'Training: download completion evidence files',
         'directory:read' => 'Directory: read employees and departments',
-        'quality:events' => 'Quality events (reserved, not served yet)',
+        'quality:events' => 'Quality events (signed events from the QMS)',
         'sso' => 'Single sign-on (OpenID Connect); addresses are set under Single sign-on provider',
     ];
 }

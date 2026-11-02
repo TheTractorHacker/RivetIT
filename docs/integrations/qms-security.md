@@ -1,6 +1,6 @@
 # QMS integration: security
 
-Targets: OWASP ASVS Level 2, OWASP API Security Top 10, NIST SSDF, least privilege. Status: design; the machine credentials (PR 1 of #52) and the SSO provider (#55) are implemented.
+Targets: OWASP ASVS Level 2, OWASP API Security Top 10, NIST SSDF, least privilege. Status: implemented on the RivetIT side: machine credentials (PR 1 of #52), the SSO provider (#55), and the Quality module (module switch, QMS client, per-user context, signed events, portal and kiosk pages).
 
 ## Machine credentials (integration clients)
 
@@ -36,6 +36,17 @@ Employee-facing requests to the QMS carry the person's identity (Odoo employee I
 - Evidence downloads stream through PHP after the same check. No filesystem paths or direct URLs are exposed.
 - Errors are structured (`code`, `message`, `correlation_id`) and never include stack traces, SQL, hostnames or secrets.
 - Directory endpoints return only fields the QMS needs: name, work email, job title, department and Odoo ids, employment status. No PIN, phone, address, photo or notes. An integration access token reaches a route only if it holds that route's scope (`lms:*` on `/lms`, `directory:read` on `/employees` and `/departments`, `api:<resource>:read|write|delete` on the general API); `directory:read` grants nothing on `/lms` and no `lms:*` scope grants the directory. A QMS client should hold only its `lms:*` / `directory:read` scopes.
+
+## Quality module (built)
+
+- **One switch, enforced on the server.** `settings.config_module_enable_quality` (default 0) is read from the database on every request by the portal pages, the kiosk page, `POST /api/v1/integrations/qms/events` (`503 module_disabled`), the cron worker (exits), the SSO policy (`module_disabled`, administrators included) and the navigation. Hiding a link is only a convenience. Switching off keeps settings, mappings and history and does not touch the LMS.
+- **QMS address.** `QmsUrl::vet()` on save and before every call: https only, no credentials/query/fragment, path of plain characters, public addresses plus administrator-listed internal networks (RivetCore `UrlPolicy`), loopback/link-local/metadata never; the connection is pinned to the vetted addresses (DNS rebinding), redirects are never followed, response size capped at 1 MiB, the token address must be on the same host. Links the QMS returns are shown only when `https` on the QMS's own host (no `javascript:`, no off-site links).
+- **Machine credential.** OAuth 2.0 client credentials (`client_secret_basic`); the client secret, both signing secrets and the cached access token are sealed with `encryptSetting()` and registered in `ColumnRegistry` for key rotation; secrets are write-only on the admin page and never logged (the error log scrubs bearer tokens, secrets, signatures and URL queries).
+- **Per-user context.** Employee and manager requests carry `X-Rivet-User-Context`, an ES256 JWT (typ `rivetit-user-context+jwt`, audience = the QMS address, 60 seconds, `jti`), signed with the SSO provider's key, naming the person (Odoo employee id, RivetIT id), department and role (`employee`/`manager`). The client refuses a `/me` or `/quality` request without one and refuses to send one on a system call; a context is never issued for a person who is not eligible right now (module off, department not enabled, inactive, not a portal user). The department and the manager role come from the contact's own record, never from the request. The QMS authorizes per person (`docs/QUALITY_CONTRACT.md` section 3).
+- **Events.** HMAC-SHA256 over `"<t>.<body>"` with one secret per direction; constant-time compare; 5 minute window; replay table `quality_inbound_events` (UNIQUE source + id; same id with a different body is `409`); 64 KiB cap; scope `quality:events` is also required inbound. Outbound events carry identifiers only, have deterministic ids, retry with backoff and dead-letter after 8 attempts.
+- **Re-authentication.** Acknowledging a document or answering an action needs a sign-in younger than the configured age or the password again (5 misses lock it for that sign-in); the kiosk requires the PIN (`PinGate::stepUp`).
+- **Shared screens.** The kiosk shows counts, required training and document titles only; corrective actions never render there; the portal pages are refused for kiosk-flagged sessions.
+- **Authorization tests.** `tests/quality_module.php` covers module off, department not enabled, wrong scope, missing context, forged audience, other-department session, non-manager, CSRF, replay, bad signature, stale and future timestamps, oversized and wrong-type bodies, ambiguous ids and name-only matching.
 
 ## Portal access
 

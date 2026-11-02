@@ -203,12 +203,12 @@ ob_start();
                     <?php if ($session_is_admin) { ?>
                         <a href="/admin/" class="dropdown-item"><i class="fas fa-fw fa-user-shield me-2"></i>Administration</a>
                         <?php
-                        // Single sign-on to Quality for administrators (QualityAccessPolicy decides at /oidc/authorize): shown only while the provider is on,
+                        // Single sign-on to Quality for administrators (QualityAccessPolicy decides at /oidc/authorize): shown only while the Quality module and the provider are on,
                         // the setting allows administrators and a Quality login address is saved.
                         $nav_quality_url = null;
                         try {
                             require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
-                            if (\ITFlow\Oidc\OidcConfig::load($mysqli)['allow_admins']) {
+                            if (\ITFlow\Quality\QualityConfig::moduleOn($mysqli) && \ITFlow\Oidc\OidcConfig::load($mysqli)['allow_admins']) {
                                 $nav_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
                             }
                         } catch (\Throwable) {

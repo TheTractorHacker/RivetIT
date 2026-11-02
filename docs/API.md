@@ -141,7 +141,7 @@ Rules that matter to an integrator:
 - **Department scope.** On the general API the scope applies exactly as it did to the old API keys (all / one / several departments; a restricted client with none reaches nothing; list endpoints, by-id reads, search, KB, relationships and reports are filtered). Resources that hold no department data (for example ticket categories, company-wide KB articles) are reachable by any client holding their scope. A client is limited to the departments chosen when it is created (a department is a RivetIT client/department; a person belongs to the department on their record), or holds the explicit choice **All departments**. A client restricted to no department sees nothing. Records outside the scope are indistinguishable from records that do not exist: a by-id read is 404, lists are filtered, and a create for an employee or course outside it answers 422 `employee_not_found` / `course_not_found`. A course is in scope when it has a live requirement rule for an allowed department (or for everyone), a rule naming a person of an allowed department, or an assignment or completion of such a person; the `departments` and `requirements` of a course list only what touches the allowed departments.
 - **A token reaches a route only if it holds that route's scope** (deny by default, no wildcard, no implication between scopes); a route with no scope answers 403. It never acts as a user.
   A user token is not accepted on `/lms`, `/employees` or `/departments` (401).
-- Scopes: `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read` (`quality:events` is reserved for later), and, for the general API,
+- Scopes: `lms:read`, `lms:assign`, `lms:completions:read`, `lms:evidence:read`, `directory:read`, `quality:events` (inbound QMS events only), and, for the general API,
   **`api:<resource>:read`, `api:<resource>:write`, `api:<resource>:delete`** per resource: `alerts`, `appointments`, `assets`, `clients`, `contacts`, `contracts`, `dashboard`, `kb`, `milestones`,
   `outtakes`, `projects`, `relationships`, `reports`, `search`, `tasks`, `ticket_attachments`, `ticket_categories`, `ticket_views`, `tickets` (also `/statuses`) and `worksheets` (also `tickets/charges`).
   Method decides the action: `GET`/`HEAD` need read; `POST`, `PUT`, `PATCH` need write; `DELETE` needs delete. `write` does not include `read`, `delete` does not include `write`.
@@ -549,6 +549,14 @@ Integration-client token with scope `directory:read` only; not available to user
 | GET | `/employees/{id}` | `directory:read` | One employee. |
 | GET | `/departments` | `directory:read` | Departments (clients; CRM leads excluded), ascending id. Archived and inactive departments stay with `active: false`. Fields: `id`, `odoo_department_id`, `name`, `parent_id`, `head_employee_id`, `status`, `active`, `updated_at`. |
 | GET | `/departments/{id}` | `directory:read` | One department. |
+
+### Integration (Quality events)
+
+Integration-client token with scope `quality:events` only. Not available to user tokens or API keys without the scope; served only while the Quality module is on and *Accept events from the QMS* is on (otherwise `503 module_disabled`). Full contract: [QUALITY_CONTRACT.md](QUALITY_CONTRACT.md).
+
+| Method | Path | Scope | Description |
+|---|---|---|---|
+| POST | `/integrations/qms/events` | `quality:events` | A signed event from the QMS. Body: JSON envelope `{"id","type","schema_version":1,"occurred_at","data"}` (at most 64 KiB). Header `X-Rivet-Signature-V2: t=<unix>,v1=<hex hmac-sha256 of "<t>.<body>" with the inbound secret>`; 5 minute window. Types `qms.employee.mapped`, `qms.department.mapped`, `qms.sync.requested`, `qms.requirement.changed`; unknown types are acknowledged as ignored. `200 {"status":"processed"\|"ignored"\|"duplicate"}`; `401 invalid_signature`; `403 insufficient_scope`; `409 event_id_reuse`; `413`; `415`; `422`; `503 module_disabled`. A repeated event id is acknowledged and not processed again. |
 
 ### Diagnostics
 

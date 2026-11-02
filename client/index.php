@@ -429,19 +429,34 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
                 <a href="training.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>Training</a>
             <?php } ?>
             <?php
-            // Single sign-on to the QMS (issue #55): only while the SSO provider is on and a client with a login address is registered, never on a shared (kiosk) screen.
-            // The address was checked when the administrator saved it. In the admin preview there is no department person, but the previewing administrator
-            // may open Quality as themselves (QualityAccessPolicy decides at /oidc/authorize), so the button is shown there too.
+            // Quality (issue #52): the department person's own Quality pages, only when the module is on, their department is enabled and a page is switched on.
+            $portal_quality_home = null;
+            if (empty($portal_preview_active) && empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
+                try {
+                    $portal_quality_home = \ITFlow\Quality\QualityConfig::portalAccess($mysqli, intval($session_contact_id ?? 0), intval($session_client_id ?? 0));
+                } catch (\Throwable $e) {
+                    $portal_quality_home = null;
+                }
+            }
+            if ($portal_quality_home !== null && $portal_quality_home['pages']) { ?>
+                <a href="quality.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>Quality</a>
+            <?php } ?>
+            <?php
+            // Single sign-on to the QMS (issue #55): only while the Quality module is on, the SSO provider is on and a client with a login address is registered, never on a shared
+            // (kiosk) screen. A department person also needs their department enabled for Quality (QualityAccessPolicy decides again at /oidc/authorize). In the admin preview
+            // there is no department person, but the previewing administrator may open Quality as themselves (switched off with "Let administrators open Quality").
             $portal_quality_url = null;
             if (empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
-                $portal_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
+                if (\ITFlow\Quality\QualityConfig::moduleOn($mysqli) && ($portal_quality_home !== null || !empty($portal_preview_active))) {
+                    $portal_quality_url = \ITFlow\Oidc\PortalResume::openQualityUrl($mysqli);
+                }
                 if (!empty($portal_preview_active) && !\ITFlow\Oidc\OidcConfig::load($mysqli)['allow_admins']) {
                     $portal_quality_url = null;   // the previewing person is an administrator, and administrators are switched off
                 }
             }
             if ($portal_quality_url !== null) { ?>
-                <a href="<?= nullable_htmlentities($portal_quality_url) ?>" class="portal-tile" rel="noopener noreferrer"><span class="portal-tile-icon"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>Open Quality</a>
+                <a href="<?= nullable_htmlentities($portal_quality_url) ?>" class="portal-tile" rel="noopener noreferrer"><span class="portal-tile-icon"><i class="fas fa-external-link-alt" aria-hidden="true"></i></span>Open Quality system</a>
             <?php } ?>
             <?php if ($portal_is_tech) { ?>
                 <a href="assets.php" class="portal-tile"><span class="portal-tile-icon"><i class="fas fa-desktop" aria-hidden="true"></i></span>Assets</a>

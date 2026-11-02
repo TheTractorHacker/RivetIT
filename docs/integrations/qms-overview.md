@@ -1,6 +1,6 @@
 # QMS integration: overview
 
-Status: design, approved direction 2026-10-28. Tracking issue: #52. Nothing here is implemented yet; the checklist at the end is the source of truth for progress.
+Status: built on the RivetIT side (issues #52 and #55), everything off by default. The checklist at the end is the source of truth for progress; what needs the real QMS is marked there. Setup: [qms-configuration.md](qms-configuration.md). What the QMS must implement: `docs/QUALITY_CONTRACT.md`.
 
 ## Purpose
 
@@ -58,14 +58,27 @@ Module toggle pattern (Training), role permission rows, `rivetEmitEvent` and the
 - [x] Audit of the codebase
 - [x] UI mockup approved (content only; real pages use RivetIT styles)
 - [x] Architecture, credential design, hub decision (this document)
-- [ ] API contract and OpenAPI (`qms-api-contract.md`) agreed with the QMS repository
-- [ ] Phase 1: module switch, admin settings page, portal route and nav gating, cron gating (no agent navigation)
-- [ ] Phase 2: integration clients and token endpoint
-- [x] Single sign-on provider (#55): RivetIT as an OpenID Connect provider for the QMS (`qms-sso.md`). The Quality module switch and department gate plug into `QualityAccessPolicy` in Phase 1
-- [ ] Phase 3: QMS API client and connection health
-- [ ] Phase 4: LMS API (courses, assignments, completions, evidence), idempotency
-- [ ] Phase 5: employees and departments API, Odoo ID mapping, incremental sync
-- [ ] Phase 6: inbound and outbound events, replay protection, resync, reconciliation
-- [ ] Phase 7: employee and manager department portal pages
-- [ ] Phase 8: kiosk workflows
-- [ ] Phase 9: tests, remaining docs, end-to-end check with the QMS
+- [x] API contract (`qms-api-contract.md`, `docs/QUALITY_CONTRACT.md`, OpenAPI). *Agreement with the QMS repository is still to be confirmed by its owner.*
+- [x] Phase 1: module switch (`settings.config_module_enable_quality`, DB 2.6.261), admin settings page (Administration > Quality), portal route and navigation gating, cron gating, API route gating (no agent navigation). Role module `module_quality` is deliberately not added: only administrators reach the settings page.
+- [x] Phase 2: integration clients and token endpoint (PR 1 of #52)
+- [x] Single sign-on provider (#55): RivetIT as an OpenID Connect provider for the QMS (`qms-sso.md`); the Quality module switch and the department list are enforced in `QualityAccessPolicy`
+- [x] Phase 3: QMS API client (`src/Quality/QmsClient.php`): pinned HTTPS, client credentials, per-user signed context, bounded retries, correlation ids, pagination; connection test and health on the admin page
+- [x] Phase 4: LMS API (courses, assignments, completions, evidence), idempotency (PR 1 of #52)
+- [x] Phase 5: employees and departments API, Odoo ID mapping, incremental sync (`qms-directory-sync.md`)
+- [x] Phase 6: outbound signed events with outbox, retry, dead letter, replay and reconciliation; inbound receiver with signature, replay protection and ID mapping; sync health; integration error log (DB 2.6.262)
+- [x] Phase 7: employee and manager department portal pages with the "QMS unavailable" state
+- [x] Phase 8: kiosk page (counts, required training, document acknowledgment with PIN; no corrective-action details)
+- [x] Phase 9: tests (`tests/quality_module.php`, `tests/quality_ssrf.php`, mock QMS `tests/support/mock_qms.php`), docs
+- [ ] End-to-end check against the real QMS (Datum). Needs the Datum side, see the go-live checklist in `qms-configuration.md`.
+
+## Where things are
+
+| Piece | Where |
+|---|---|
+| Module switch, settings, gate | `src/Quality/QualityConfig.php`, `settings.config_module_enable_quality`, `quality_settings`, `quality_features`, `quality_departments` |
+| QMS client, address vetting | `src/Quality/QmsClient.php`, `src/Quality/QmsUrl.php` |
+| Per-user context | `src/Quality/UserContext.php` |
+| Portal views | `client/quality.php`, `client/quality_manage.php`, `client/quality_action.php`, `src/Quality/QualityService.php`, `src/Quality/Reauth.php` |
+| Kiosk | `kiosk/quality.php`, `src/Training/Kiosk/Strings/quality.php` |
+| Events | `src/Quality/Outbox.php`, `src/Quality/SyncWorker.php`, `src/Quality/InboundEvents.php`, `api/v1/quality_events.php`, `cron/quality_worker.php` |
+| Health and log | `src/Quality/SyncHealth.php`, `src/Quality/QualityLog.php`, `admin/quality.php`, `admin/post/quality.php` |
