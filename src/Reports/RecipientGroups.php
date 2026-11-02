@@ -42,8 +42,12 @@ final class RecipientGroups
         $list = implode(', ', $ok);
         $stmt = mysqli_prepare($db, "INSERT INTO report_recipient_groups (group_name, group_recipients, group_created_by) VALUES (?, ?, ?)");
         mysqli_stmt_bind_param($stmt, 'ssi', $name, $list, $userId);
-        if (!@mysqli_stmt_execute($stmt)) {
-            return mysqli_errno($db) === 1062 ? 'A group with that name already exists.' : 'Could not save the group.';
+        try {
+            if (!mysqli_stmt_execute($stmt)) {
+                return mysqli_errno($db) === 1062 ? 'A group with that name already exists.' : 'Could not save the group.';
+            }
+        } catch (\mysqli_sql_exception $e) { // PHP 8.1+ throws by default; 1062 = duplicate group name
+            return $e->getCode() === 1062 ? 'A group with that name already exists.' : 'Could not save the group.';
         }
         return (int) mysqli_insert_id($db);
     }
@@ -56,8 +60,12 @@ final class RecipientGroups
     public static function all(\mysqli $db): array
     {
         $out = [];
-        $res = mysqli_query($db, "SELECT g.*, u.user_name AS creator_name, (SELECT COUNT(*) FROM report_schedule_targets t WHERE t.target_group_id = g.group_id) AS used_by
-            FROM report_recipient_groups g LEFT JOIN users u ON u.user_id = g.group_created_by ORDER BY g.group_name");
+        try {
+            $res = mysqli_query($db, "SELECT g.*, u.user_name AS creator_name, (SELECT COUNT(*) FROM report_schedule_targets t WHERE t.target_group_id = g.group_id) AS used_by
+                FROM report_recipient_groups g LEFT JOIN users u ON u.user_id = g.group_created_by ORDER BY g.group_name");
+        } catch (\mysqli_sql_exception $e) {
+            return []; // DB 2.6.232 not applied yet
+        }
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $out[] = $r;
         }

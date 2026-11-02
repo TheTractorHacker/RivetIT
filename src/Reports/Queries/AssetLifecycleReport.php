@@ -46,7 +46,7 @@ final class AssetLifecycleReport
                 SUM(a.asset_warranty_expire IS NOT NULL AND a.asset_warranty_expire < '$today') AS expired,
                 SUM(a.asset_warranty_expire >= '$today' AND a.asset_warranty_expire <= DATE_ADD('$today', INTERVAL $windowDays DAY)) AS expiring,
                 SUM($born IS NOT NULL AND $born <= DATE_SUB('$today', INTERVAL $ageYears YEAR)) AS aged
-             FROM assets a LEFT JOIN clients c ON c.client_id = a.asset_client_id WHERE $where GROUP BY a.asset_client_id, c.client_name ORDER BY (expired + expiring) DESC, cnt DESC LIMIT 25");
+             FROM assets a LEFT JOIN clients c ON c.client_id = a.asset_client_id WHERE $where GROUP BY a.asset_client_id, c.client_name ORDER BY SUM(a.asset_warranty_expire <= DATE_ADD('$today', INTERVAL $windowDays DAY)) DESC, cnt DESC LIMIT 25");
         while ($res && ($x = mysqli_fetch_assoc($res))) {
             $byClient[] = ['label' => (string) $x['label'], 'count' => (int) $x['cnt'], 'expired' => (int) $x['expired'], 'expiring' => (int) $x['expiring'], 'aged' => (int) $x['aged']];
         }

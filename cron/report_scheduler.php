@@ -125,7 +125,7 @@ $scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
 $scheduler_queued += $scheduler_data['emails'];
 $scheduler_sent_schedules += $scheduler_data['ok'];
 
-$res = mysqli_query($mysqli, "SELECT rs.*, EXISTS(SELECT 1 FROM report_schedule_targets t WHERE t.target_schedule_id = rs.schedule_id) AS has_targets FROM report_schedules rs WHERE rs.schedule_active = 1");
+$res = \ITFlow\Reports\ReportScheduler::activeSchedules($mysqli);
 while ($sched = mysqli_fetch_assoc($res)) {
     if (\ITFlow\Reports\ReportScheduler::usesDataPath($sched)) {
         continue; // handled above

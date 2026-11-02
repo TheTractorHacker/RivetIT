@@ -54,8 +54,6 @@ $raw = is_file($out) ? file_get_contents($out) : '';
 $ok(strlen($raw) > $pdf ? true : strlen($raw) > 1000, 'a message was captured by the listener (' . strlen($raw) . ' bytes)');
 $parsed = null;
 if ($raw !== '') {
-    $tmp = $out;
-    $php = new \PHPMailer\PHPMailer\PHPMailer();
     // minimal MIME walk without extra libraries: find the attachment part and decode its base64 body
     if (preg_match('/Content-Type: application\/pdf;[^\r\n]*\r\n(?:[^\r\n]+\r\n)*?\r\n([A-Za-z0-9+\/=\r\n]+)\r\n--/s', $raw, $m)) {
         $parsed = base64_decode(preg_replace('/\s+/', '', $m[1]));

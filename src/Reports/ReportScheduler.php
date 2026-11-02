@@ -92,7 +92,7 @@ final class ReportScheduler
         $sum = ['processed' => 0, 'ok' => 0, 'failed' => 0, 'emails' => 0];
         self::purgeExpired($db);
 
-        $res = mysqli_query($db, "SELECT rs.*, EXISTS(SELECT 1 FROM report_schedule_targets t WHERE t.target_schedule_id = rs.schedule_id) AS has_targets FROM report_schedules rs WHERE rs.schedule_active = 1");
+        $res = self::activeSchedules($db);
         while ($s = mysqli_fetch_assoc($res)) {
             if (!self::usesDataPath($s) || !self::isDue($s, $now)) {
                 continue;
@@ -115,13 +115,34 @@ final class ReportScheduler
         return $sum;
     }
 
+    /**
+     * Active schedules with a has_targets flag. Falls back to the plain query when report_schedule_targets does not exist yet (code deployed
+     * before Update Database ran), so the cron keeps sending the schedules it could always send.
+     */
+    public static function activeSchedules(\mysqli $db): \mysqli_result
+    {
+        try {
+            $res = mysqli_query($db, "SELECT rs.*, EXISTS(SELECT 1 FROM report_schedule_targets t WHERE t.target_schedule_id = rs.schedule_id) AS has_targets FROM report_schedules rs WHERE rs.schedule_active = 1");
+        } catch (\mysqli_sql_exception $e) { // PHP 8.1+ throws by default
+            $res = false;
+        }
+        if ($res === false) {
+            $res = mysqli_query($db, "SELECT rs.*, 0 AS has_targets FROM report_schedules rs WHERE rs.schedule_active = 1");
+        }
+        return $res;
+    }
+
     /** Targets of a schedule: each is a recipient group and the saved view that group receives (null = the schedule's own report/view). */
     public static function targets(\mysqli $db, int $scheduleId): array
     {
         $out = [];
-        $res = mysqli_query($db, "SELECT t.target_group_id, t.target_saved_report_id, g.group_name, g.group_recipients
-            FROM report_schedule_targets t JOIN report_recipient_groups g ON g.group_id = t.target_group_id
-            WHERE t.target_schedule_id = " . (int) $scheduleId . " ORDER BY g.group_name");
+        try {
+            $res = mysqli_query($db, "SELECT t.target_group_id, t.target_saved_report_id, g.group_name, g.group_recipients
+                FROM report_schedule_targets t JOIN report_recipient_groups g ON g.group_id = t.target_group_id
+                WHERE t.target_schedule_id = " . (int) $scheduleId . " ORDER BY g.group_name");
+        } catch (\mysqli_sql_exception $e) {
+            return []; // tables of DB 2.6.232 not there yet
+        }
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $out[] = $r;
         }

@@ -4,6 +4,7 @@
  * with and without the universal filters and the department restriction. "Now" is fixed (2026-10-15 12:00:00) so the numbers are exact.
  */
 require __DIR__ . '/i34_bootstrap.php';
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);   // the application's own mode: a bad query THROWS here instead of returning false and passing quietly
 require_once __DIR__ . '/../includes/sla_functions.php';
 rpt_extract_functions(['ticketResolutionColumnExists', 'ticketResolutionStartSql', 'ticketResolutionEndSql', 'ticketResolvedOnlySql']);
 use ITFlow\Reports\Queries\AssetLifecycleReport;
@@ -125,6 +126,7 @@ $ast(['asset_name' => 'printer', 'asset_type' => 'Printer', 'asset_client_id' =>
 $ast(['asset_name' => 'gone', 'asset_type' => 'Laptop', 'asset_client_id' => 1, 'asset_warranty_expire' => '2020-01-01', 'asset_archived_at' => '2026-01-01 00:00:00']);
 $a = AssetLifecycleReport::data($mysqli, 90, 5, '2026-10-15');
 $ok($a['totals'] === ['assets' => 4, 'warranty_expired' => 1, 'warranty_expiring' => 1, 'no_warranty_date' => 1, 'no_purchase_date' => 1, 'aged' => 1], 'Assets totals (archived excluded): ' . json_encode($a['totals']));
+$ok(array_column($a['by_client'], 'label') === ['Acme', 'Globex'] && $a['by_client'][0]['expired'] === 1 && $a['by_client'][0]['expiring'] === 1, 'Assets by department, most warranty trouble first');
 $ok(array_column($a['assets'], 'asset_name') === ['old laptop', 'new laptop'], 'Assets list: expired first, then expiring: ' . json_encode(array_column($a['assets'], 'asset_name')));
 $ok((int) $a['assets'][0]['days_left'] < 0 && (int) $a['assets'][1]['days_left'] === 17, 'Assets: days left computed (expired negative, 17 for 2026-11-01)');
 $tp = array_column($a['by_type'], null, 'label');

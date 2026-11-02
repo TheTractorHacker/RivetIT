@@ -4,6 +4,7 @@
  * getTechnicianPerformanceReport, getCsatReport) through ReportScope::clause(), without those helpers changing. Scratch database.
  */
 require __DIR__ . '/i34_bootstrap.php';
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);   // the application's own mode: a bad query THROWS here instead of returning false and passing quietly
 require_once __DIR__ . '/../includes/sla_functions.php';
 rpt_extract_functions(['ticketResolutionColumnExists', 'ticketResolutionStartSql', 'ticketResolutionEndSql', 'ticketResolvedOnlySql', 'reportClientIn', 'reportClientClause', 'report_business_days',
     'getServiceDeskReport', 'getTicketDayBreakdownReport', 'getCsatAggregateByGroup', 'getTechnicianPerformanceReport', 'getCsatReport']);

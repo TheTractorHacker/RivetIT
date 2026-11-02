@@ -413,9 +413,13 @@ function deliverQueueRow(array $row): bool {
 
     // Attachments queued with this message (none for almost every email; the table exists from DB 2.6.231).
     $queue_attachments = [];
-    $att_res = @mysqli_query($mysqli, "SELECT attachment_filename, attachment_mime, attachment_content FROM email_queue_attachments WHERE attachment_email_id = $email_id ORDER BY attachment_id");
-    while ($att_res && ($att_row = mysqli_fetch_assoc($att_res))) {
-        $queue_attachments[] = $att_row;
+    try {
+        $att_res = mysqli_query($mysqli, "SELECT attachment_filename, attachment_mime, attachment_content FROM email_queue_attachments WHERE attachment_email_id = $email_id ORDER BY attachment_id");
+        while ($att_res && ($att_row = mysqli_fetch_assoc($att_res))) {
+            $queue_attachments[] = $att_row;
+        }
+    } catch (\mysqli_sql_exception $e) {
+        // table not created yet (code deployed before Update Database): send the message without attachments, as before
     }
 
     try {

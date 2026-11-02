@@ -1,7 +1,7 @@
 <?php
 /*
  * Report toolbar, shown above every catalogued report page by inc_all_reports.php:
- * saved views (restore / save the current filters), Export CSV, Print / PDF, shortcut to scheduling.
+ * saved views (restore / save the current filters), filters panel (universal report filters), Export CSV, Download PDF, Print, shortcut to scheduling.
  * Not rendered in CSV or headless mode. $report_key and $report_print_view come from inc_all_reports.php.
  */
 
@@ -59,7 +59,7 @@ $tb_views = SavedReports::listFor($mysqli, intval($session_user_id), $report_key
         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#rpt-save-view"><i class="fas fa-fw fa-save me-1"></i>Save this view</button>
         <a class="btn btn-sm btn-outline-secondary" href="/agent/reports/saved_views.php"><i class="fas fa-fw fa-list me-1"></i>Manage</a>
 
-        <span class="ms-auto d-flex gap-2">
+        <span class="ms-auto d-flex flex-wrap gap-2">
             <a class="btn btn-sm btn-success" href="<?php echo nullable_htmlentities($tb_csv_url); ?>"><i class="fas fa-fw fa-file-csv me-1"></i>Export CSV</a>
             <a class="btn btn-sm btn-outline-secondary" href="<?php echo nullable_htmlentities($tb_pdf_url); ?>"><i class="fas fa-fw fa-file-pdf me-1"></i>Download PDF</a>
             <a class="btn btn-sm btn-outline-secondary" href="<?php echo nullable_htmlentities($tb_print_url); ?>" target="_blank" rel="noopener"><i class="fas fa-fw fa-print me-1"></i>Print</a>

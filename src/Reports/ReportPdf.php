@@ -131,6 +131,9 @@ final class ReportPdf
 
         $budget = self::MAX_ROWS;
         foreach ($tables as $t) {
+            if ($pdf->GetY() > $pdf->getPageHeight() - 50) { // keep a caption together with the start of its table
+                $pdf->AddPage();
+            }
             if ($t['caption'] !== '') {
                 $pdf->SetFont('dejavusans', 'B', 10);
                 $pdf->SetTextColor(22, 35, 42);

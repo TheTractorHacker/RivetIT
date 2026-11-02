@@ -5,18 +5,16 @@
 // permission is still enforced against the owner's role below, exactly like an interactive request.
 $report_headless = defined('RIVETIT_REPORT_HEADLESS') && PHP_SAPI === 'cli';
 
-// Universal report filters (department, location, technician, category, priority, status, asset): the values this report declares in
-// ReportCatalog are validated and become a SQL fragment that ReportScope::clause() appends to every ticket/asset query of the page.
-\ITFlow\Reports\ReportFilters::activate(\ITFlow\Reports\ReportCatalog::keyFromScript($_SERVER['SCRIPT_NAME'] ?? ''), $_GET);
-
 if ($report_headless) {
     enforceUserPermission('module_reporting');
+    \ITFlow\Reports\ReportFilters::activate(\ITFlow\Reports\ReportCatalog::keyFromScript($_SERVER['SCRIPT_NAME'] ?? ''), $_GET); // universal report filters (ReportFilters): validated, then appended by ReportScope::clause()
     $report_export_csv = (isset($_GET['export']) && $_GET['export'] === 'csv');
     require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/filter_header.php';
 } else {
     require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
     require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';
     require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/check_login.php';
+    \ITFlow\Reports\ReportFilters::activate(\ITFlow\Reports\ReportCatalog::keyFromScript($_SERVER['SCRIPT_NAME'] ?? ''), $_GET); // universal report filters (ReportFilters): validated, then appended by ReportScope::clause()
     // Buffer the page (roles audit P1h) so a permission check that runs after the shell is printed can still
     // answer HTTP 403 (itflow_render_denied); PHP flushes this buffer when the page ends.
     ob_start();

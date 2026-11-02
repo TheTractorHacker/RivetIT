@@ -67,7 +67,10 @@ $g1 = RecipientGroups::create($mysqli, 5, 'Executives', 'cio@example.com, COO@ex
 $g2 = RecipientGroups::create($mysqli, 5, 'Service desk', 'lead@example.com; tech@example.com', $staff, []);
 $ok(is_int($g1) && is_int($g2), 'two groups created');
 $ok(RecipientGroups::get($mysqli, $g1)['group_recipients'] === 'cio@example.com, coo@example.com', 'group recipients are normalised (lower case, comma list)');
-$ok(is_string(RecipientGroups::create($mysqli, 5, 'Executives', 'cio@example.com', $staff, [])), 'duplicate group name refused');
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);   // the application's mode (PHP 8.1+ default): errors THROW
+$dup = RecipientGroups::create($mysqli, 5, 'Executives', 'cio@example.com', $staff, []);
+mysqli_report(MYSQLI_REPORT_OFF);
+$ok(is_string($dup) && strpos($dup, 'already exists') !== false, 'duplicate group name refused with a message (also when mysqli throws)');
 $ok(is_string(RecipientGroups::create($mysqli, 5, 'Bad', 'cio@example.com, stranger@evil.example', $staff, [])) && strpos(RecipientGroups::create($mysqli, 5, 'Bad', 'stranger@evil.example', $staff, []), 'stranger@evil.example') !== false, 'a group with an address outside the recipient policy is refused and names it');
 $ok(is_string(RecipientGroups::create($mysqli, 5, '  ', 'cio@example.com', $staff, [])) && is_string(RecipientGroups::create($mysqli, 5, 'Empty', 'not an email', $staff, [])), 'empty name / no valid address refused');
 $ok(is_int(RecipientGroups::create($mysqli, 5, 'Partner', 'x@partner.example', $staff, ['@partner.example'])), 'an administrator-approved domain is accepted');
@@ -162,6 +165,19 @@ $ok($atts[1]['attachment_mime'] === 'application/octet-stream', 'a malformed mim
 $ok((int) $one("SELECT COUNT(*) FROM email_queue_attachments WHERE attachment_email_id = " . (int) $one("SELECT email_id FROM email_queue WHERE email_subject = 'plain'")) === 0, 'a message without attachments stores none');
 $q("DELETE FROM email_queue WHERE email_id = $mid");
 $ok((int) $one("SELECT COUNT(*) FROM email_queue_attachments") === 0, 'removing the queued message removes its attachments');
+
+// ---- code deployed before Update Database: no targets table yet, the cron still runs the schedules it always could
+$reset();
+$ins("schedule_report='csat', schedule_frequency='daily', schedule_recipients='a@example.com', schedule_format='csv', schedule_owner_user_id=5");
+$q("RENAME TABLE report_schedule_targets TO report_schedule_targets_hold");
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);   // PHP 8.1+ default: a missing table THROWS
+$sum = ReportScheduler::runDue($mysqli, $deps(fn() => ['ok' => true, 'content' => 'x']));
+$vdel = SavedReports::create($mysqli, 5, 'csat', 'tmp', [], false);
+$ok(SavedReports::delete($mysqli, $vdel, 5, false), 'deleting a saved view does not fatal without the targets table either');
+$ok(ReportScheduler::targets($mysqli, 1) === [] && RecipientGroups::all($mysqli) !== null, 'targets() / groups list degrade to empty');
+mysqli_report(MYSQLI_REPORT_OFF);
+$q("RENAME TABLE report_schedule_targets_hold TO report_schedule_targets");
+$ok($sum['processed'] === 1 && $sum['ok'] === 1 && count($sent) === 1, 'without the 2.6.232 tables the cron path still sends ordinary schedules (no fatal)');
 
 foreach (['report_schedules', 'report_exports', 'saved_reports', 'report_recipient_groups', 'email_queue'] as $t) { $q("DELETE FROM $t"); }
 echo $fails ? "\n$fails FAILED\n" : "\nALL PASSED\n";
