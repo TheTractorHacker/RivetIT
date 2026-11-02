@@ -523,6 +523,23 @@ In-app notifications, including an SSE stream for live delivery.
 | POST | `/notifications/read-all` | Mark all notifications read/dismissed |
 | GET | `/notifications/stream` | Server-Sent Events stream of new notifications |
 
+### Automation (event rules)
+
+Administrators only, with a **user** API token (an integration client gets 403). The same rules, validation and run log as Administration > Event rules; details and the per-action `action_config` fields in [AUTOMATION.md](AUTOMATION.md). The webhook signing secret is never returned.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/automation_rules` | List rules (`q`, `trigger_event`, `action_type`, `enabled=0\|1`, `limit` up to 200, `offset`) |
+| POST | `/automation_rules` | Create a rule: `{name, trigger_event, conditions?, action_type, action_config, is_enabled?, priority?, stop_on_match?, rate_limit_per_min?}` (422 with the reason when invalid) |
+| GET | `/automation_rules/{id}` | One rule, with its last run and run counts |
+| PUT | `/automation_rules/{id}` | Replace a rule (`name`, `trigger_event`, `action_type`, `action_config` required) |
+| PATCH | `/automation_rules/{id}` | Change some fields; omitted fields (including `action_config`) are kept |
+| DELETE | `/automation_rules/{id}` | Delete a rule (its run log rows stay) |
+| GET | `/automation_rules/runs` | The run log (`rule_id`, `status`, `event`, `failed=1`, `limit`, `offset`); each run has `attempt` (of `max_attempts`), `source` (`event`/`retry`/`manual`), `retry_of_run_id`, `retried_by_run_id`, `can_rerun` |
+| GET | `/automation_rules/runs/{run_id}` | One run |
+| POST | `/automation_rules/retry/{run_id}` | Run a failed run again with the event it kept (409 with the reason when it cannot) |
+| GET | `/automation_rules/meta` | Events, actions (with `risky` / `needs_ticket_event`), condition operators, enrichment fields and the state of the risky-action switches |
+
 ### Integration (LMS)
 
 Integration-client token only (see [API keys](#api-keys-machine-credentials-for-the-whole-api)); not available to user tokens. Every endpoint below is filtered by the client's department scope; outside it, an id answers 404 exactly like an unknown id.

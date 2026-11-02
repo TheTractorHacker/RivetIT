@@ -184,6 +184,38 @@ $title = $state['rule_id'] ? 'Edit rule' : ($recipe ? 'New rule from a recipe' :
                         <div class="row g-2"><div class="col-md-6"><label class="form-label" for="cfg_task_assignee">Assign task to</label><select class="form-select" id="cfg_task_assignee" name="cfg_task_assignee"><option value="0">(nobody)</option><?php foreach ($agents as $uid => $un) { ?><option value="<?= (int) $uid ?>" <?= $sel('cfg_task_assignee', $uid) ?>><?= $h($un) ?></option><?php } ?></select></div>
                             <div class="col-md-6"><label class="form-label" for="cfg_task_due_days">Due in (days, 0 = no date)</label><input class="form-control" type="number" id="cfg_task_due_days" name="cfg_task_due_days" min="0" max="365" value="<?= (int) $val('cfg_task_due_days', 0) ?>"></div></div>
                     </div>
+                    <div class="er-act-box" data-for="run_script">
+                        <?php $rs_on = \ITFlow\Automation\Actions\RunScriptAction::enabled($mysqli); ?>
+                        <div class="alert alert-<?= $rs_on ? 'info' : 'warning' ?> py-2 small"><?= $rs_on ? 'Scripts are allowed for rules. The device must be named by the event (an <code>rmm.*</code> event, which carries <code>device_id</code>). The job is created as the technician below, so their permissions and the RMM approval rules apply.' : 'Rules may not run RMM scripts yet: switch on &ldquo;Allow rules to run RMM scripts&rdquo; at the top of <a href="automation.php">Administration &rarr; Automation</a>. You can save and test the rule meanwhile.' ?></div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4"><label class="form-label" for="cfg_rs_script">Library script id</label><input class="form-control" type="number" min="1" id="cfg_rs_script" name="cfg_rs_script" value="<?= (int) $val('cfg_rs_script', 0) ?: '' ?>"></div>
+                            <div class="col-md-8"><label class="form-label" for="cfg_rs_user">Run as technician</label><select class="form-select" id="cfg_rs_user" name="cfg_rs_user"><option value="0">-</option><?php foreach ($agents as $uid => $un) { ?><option value="<?= (int) $uid ?>" <?= $sel('cfg_rs_user', $uid) ?>><?= $h($un) ?></option><?php } ?></select></div>
+                        </div>
+                        <div class="mb-2"><label class="form-label" for="cfg_rs_params">Fixed parameters <span class="text-muted">(one name=value per line; not templated)</span></label><textarea class="form-control font-monospace" id="cfg_rs_params" name="cfg_rs_params" rows="3" maxlength="4000"><?= $h($val('cfg_rs_params')) ?></textarea></div>
+                        <div><label class="form-label" for="cfg_rs_timeout">Timeout in seconds <span class="text-muted">(blank = the script's own)</span></label><input class="form-control" type="number" min="0" max="86400" id="cfg_rs_timeout" name="cfg_rs_timeout" value="<?= (int) $val('cfg_rs_timeout', 0) ?: '' ?>"></div>
+                    </div>
+                    <div class="er-act-box" data-for="create_odoo_user">
+                        <?php $od_on = \ITFlow\Automation\Actions\CreateOdooUserAction::enabled($mysqli); ?>
+                        <div class="alert alert-warning py-2 small">Not live: the Odoo connection is read only and no write connection ships, so this action fails with a clear message when it runs (and a test only describes it). <?= $od_on ? 'The switch is on.' : 'It is also switched off under <a href="automation.php">Administration &rarr; Automation</a>.' ?> The login and name come from the person&rsquo;s record, never from the event.</div>
+                        <label class="form-label" for="cfg_odoo_groups">Odoo groups <span class="text-muted">(external ids, one per line, e.g. base.group_user)</span></label>
+                        <textarea class="form-control font-monospace" id="cfg_odoo_groups" name="cfg_odoo_groups" rows="3" maxlength="2000"><?= $h($val('cfg_odoo_groups')) ?></textarea>
+                    </div>
+                    <div class="er-act-box" data-for="notify_chat">
+                        <?php $chat_dest = \ITFlow\Automation\ChatNotifierRegistry::get()->destinations(); ?>
+                        <div class="alert alert-<?= $chat_dest ? 'info' : 'warning' ?> py-2 small"><?= $chat_dest ? 'Chat sender installed.' : 'No chat sender is installed yet, so this rule can be saved and tested but sends nothing until one is registered (see docs/AUTOMATION.md, &ldquo;Chat integration point&rdquo;).' ?></div>
+                        <div class="mb-2"><label class="form-label" for="cfg_chat_dest">Destination</label><input class="form-control" id="cfg_chat_dest" name="cfg_chat_dest" maxlength="60" list="er-chat-dests" value="<?= $h($val('cfg_chat_dest')) ?>" placeholder="e.g. it-alerts">
+                            <datalist id="er-chat-dests"><?php foreach ($chat_dest as $k => $l) { ?><option value="<?= $h($k) ?>"><?= $h($l) ?></option><?php } ?></datalist></div>
+                        <div><label class="form-label" for="cfg_chat_message">Message</label><textarea class="form-control" id="cfg_chat_message" name="cfg_chat_message" rows="3" maxlength="1000" data-er-template="text" placeholder="e.g. Certificate {certificate_name} expires in {days_left} days"><?= $h($val('cfg_chat_message')) ?></textarea></div>
+                    </div>
+                    <div class="er-act-box" data-for="entra_disable_account">
+                        <div class="alert alert-info py-2 small">Acts on the person the event is about, using the email on their record. Needs &ldquo;Allow <?= $h(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> to change Entra accounts&rdquo; (Administration &rarr; Integrations &rarr; Directory Sync); with it off nothing is sent. The account is never deleted.</div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="cfg_entra_revoke" value="1" id="cfg_entra_revoke" <?= $val('cfg_entra_revoke', '1') === '1' ? 'checked' : '' ?>><label class="form-check-label" for="cfg_entra_revoke">Also revoke their sign-in sessions</label></div>
+                    </div>
+                    <div class="er-act-box" data-for="entra_add_to_groups">
+                        <div class="alert alert-info py-2 small">Adds the person&rsquo;s existing Entra account to groups. Same switch and department check as the workflow step.</div>
+                        <label class="form-label" for="cfg_entra_groups">Group Object IDs <span class="text-muted">(one per line)</span></label>
+                        <textarea class="form-control font-monospace" id="cfg_entra_groups" name="cfg_entra_groups" rows="3" maxlength="4000"><?= $h($val('cfg_entra_groups')) ?></textarea>
+                    </div>
                 </div>
             </div>
         </section>

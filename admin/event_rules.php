@@ -54,6 +54,11 @@ $action_meta = [
     'assign_ticket' => ['fa-user-check', 'Assign the ticket to one technician, or rotate through several.'],
     'send_mail' => ['fa-envelope', "Queue an email to the assigned technician, the ticket's contact, a technician or a fixed address."],
     'create_task' => ['fa-tasks', 'Add a task (checklist item) to the ticket, optionally assigned and with a due date.'],
+    'run_script' => ['fa-terminal', 'Queue an RMM library script on the device the event is about (runs as a technician you choose; off until switched on under Automation).'],
+    'create_odoo_user' => ['fa-user-plus', 'Create an Odoo user for the person (off, and no Odoo write connection ships; for testing a rule shape only).'],
+    'notify_chat' => ['fa-comment-dots', 'Send a Slack or Teams message through the chat sender (needs a chat sender to be installed).'],
+    'entra_disable_account' => ['fa-user-lock', "Disable the person's Microsoft Entra account and revoke their sessions (never deletes). Needs the Entra write switch."],
+    'entra_add_to_groups' => ['fa-users-cog', "Add the person's existing Entra account to groups. Needs the Entra write switch."],
 ];
 $rule_actions = ActionRegistry::labels();
 $lookups = RuleAdmin::lookups($mysqli);

@@ -5,6 +5,7 @@ require_once "../includes/event_bus.php";
 use ITFlow\Automation\RuleEngine;
 use ITFlow\Automation\RuleView;
 use ITFlow\Automation\TicketRuleView;
+use ITFlow\Automation\LegacyRuleImporter;
 
 $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 $csrf = $_SESSION['csrf_token'];
@@ -15,6 +16,9 @@ $has_runs = rivetTableExists($mysqli, 'automation_rule_runs');
 $msp = class_exists('\RivetMSP\Core\CoreBridge');
 $switch_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM settings LIKE 'config_automation_enabled'")) > 0;
 $switch_on = rivetCoreModuleOn('core.automation.enabled');
+$extras_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM settings LIKE 'config_automation_cert_days'")) > 0;
+$extras = $extras_ready ? mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_automation_run_script_enabled AS run_script, config_automation_odoo_user_enabled AS odoo_user, config_automation_cert_days AS cert_days FROM settings WHERE company_id = 1')) : null;
+$has_retry = $ready && $has_runs && \ITFlow\Automation\RuleAdmin::hasRetryColumns($mysqli);
 ?>
 
 <div class="card mb-3">
@@ -35,6 +39,24 @@ $switch_on = rivetCoreModuleOn('core.automation.enabled');
             </span>
         </form>
         <?php if (!$switch_on) { ?><div class="alert alert-warning mt-3 mb-0"><i class="fas fa-pause-circle me-1"></i>Automation rules are <strong>off</strong>: event rules will not run until this is switched on.</div><?php } ?>
+    </div>
+</div>
+
+<div class="card mb-3" id="automation-switches">
+    <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-shield-alt me-2"></i>Action switches</h4></div>
+    <div class="card-body">
+        <?php if (!$extras_ready) { ?><p class="text-muted mb-0">Run the database update to get these switches.</p><?php } else { ?>
+        <form action="post.php" method="post" class="row g-3 align-items-end">
+            <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+            <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="automation_run_script_enabled" name="automation_run_script_enabled" value="1" <?= !empty($extras['run_script']) ? 'checked' : '' ?>><label class="form-check-label" for="automation_run_script_enabled">Allow rules to run RMM scripts</label></div>
+                <div class="form-text">Off by default. A rule&rsquo;s &ldquo;Run an RMM script&rdquo; action does nothing until this is on. Jobs run as the technician the rule names, under the RMM approval rules.</div></div>
+            <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="automation_odoo_user_enabled" name="automation_odoo_user_enabled" value="1" <?= !empty($extras['odoo_user']) ? 'checked' : '' ?>><label class="form-check-label" for="automation_odoo_user_enabled">Allow rules to create Odoo users</label></div>
+                <div class="form-text">Off by default, and no Odoo write connection ships with this version, so even when on the action stops with a message.</div></div>
+            <div class="col-md-2"><label class="form-label" for="automation_cert_days">Certificate warning (days)</label><input class="form-control" type="number" min="1" max="365" id="automation_cert_days" name="automation_cert_days" value="<?= (int) ($extras['cert_days'] ?? 30) ?>">
+                <div class="form-text">First <code>certificate.expiring</code> event; again at 7, 1 and 0.</div></div>
+            <div class="col-md-2"><button class="btn btn-primary" name="set_automation_extras" type="submit">Save</button></div>
+        </form>
+        <?php } ?>
     </div>
 </div>
 
@@ -107,6 +129,35 @@ $switch_on = rivetCoreModuleOn('core.automation.enabled');
     </table></div>
 </div>
 
+<?php $legacy = $ready ? LegacyRuleImporter::report($mysqli) : []; ?>
+<div class="card mb-3" id="legacy-import">
+    <div class="card-header py-3"><h4 class="card-title mb-0">Move ticket rules to event rules</h4></div>
+    <div class="card-body">
+        <p class="text-muted small">Where an event rule does the same job, you can import a copy. Copies are created <strong>switched off</strong>; the ticket rule is never changed and keeps running, so review the copy, switch it on, then switch the old rule off so the two do not both act. Most ticket rules scan tickets by age on every cron pass; event rules react to single events, so those have no equivalent and are listed with the reason.</p>
+        <?php if (!$legacy) { ?><p class="text-muted mb-0">No ticket rules to move.</p><?php } else { ?>
+        <form action="post.php" method="post">
+            <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>">
+            <div class="table-responsive"><table class="table table-sm align-middle mb-2">
+                <thead><tr><th style="width:2.5rem"></th><th>Ticket rule</th><th>Becomes</th><th>Notes</th></tr></thead>
+                <tbody>
+                <?php foreach ($legacy as $l) { ?>
+                    <tr>
+                        <td><?php if ($l['importable'] && $l['imported_rule_id'] === null) { ?><input class="form-check-input" type="checkbox" name="legacy_ids[]" value="<?= (int) $l['legacy_id'] ?>" aria-label="Import <?= $h($l['name']) ?>"><?php } ?></td>
+                        <td><strong><?= $h($l['name']) ?></strong><div class="small text-muted"><?= $h($l['trigger']) ?></div></td>
+                        <td><?php if ($l['imported_rule_id'] !== null) { ?><a href="event_rules.php?edit=<?= (int) $l['imported_rule_id'] ?>">Imported as event rule #<?= (int) $l['imported_rule_id'] ?></a>
+                            <?php } elseif ($l['importable']) { ?>Event rule on <code><?= $h($l['event']) ?></code> <span class="badge text-bg-success">can import</span>
+                            <?php } else { ?><span class="badge text-bg-secondary">stays a ticket rule</span><?php } ?></td>
+                        <td class="small text-muted"><?= $h($l['reason']) ?><?php foreach ($l['notes'] as $n) { ?><div><?= $h($n) ?></div><?php } ?></td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table></div>
+            <button class="btn btn-primary btn-sm" name="import_legacy_rules" type="submit"><i class="fas fa-file-import me-1"></i>Import selected as event rules (switched off)</button>
+        </form>
+        <?php } ?>
+    </div>
+</div>
+
 <?php } elseif ($tab === 'workflows') {
     $wf_ready = rivetTableExists($mysqli, 'workflow_templates');
     $tpl = [];
@@ -152,6 +203,14 @@ $switch_on = rivetCoreModuleOn('core.automation.enabled');
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $rows[] = $r;
         }
+    }
+    $retried = [];
+    if ($has_retry && $rows) {
+        // failed runs that a later run already repeated successfully (so "Run again" is not offered twice)
+        $res = mysqli_query($mysqli, "SELECT retry_of_run_id, MIN(run_id) FROM automation_rule_runs WHERE retry_of_run_id IS NOT NULL AND status = 'ok' GROUP BY retry_of_run_id");
+        while ($res && ($r = mysqli_fetch_row($res))) {
+            $retried[(int) $r[0]] = (int) $r[1];
+        }
     } ?>
 <div class="card mb-3">
     <div class="card-header py-3"><h4 class="card-title mb-0">Run log <?= $f_rule ? '<span class="text-muted small">for rule #' . $f_rule . ' (<a href="automation.php?tab=log">all rules</a>)</span>' : '' ?></h4></div>
@@ -165,18 +224,31 @@ $switch_on = rivetCoreModuleOn('core.automation.enabled');
         </form>
     </div>
     <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-        <thead><tr><th>When</th><th>Rule</th><th>Event</th><th>Result</th><th>What happened</th><th class="text-end">Time</th></tr></thead>
+        <thead><tr><th>When</th><th>Rule</th><th>Event</th><th>Result</th><th>What happened</th><th class="text-end">Time</th><th></th></tr></thead>
         <tbody>
-        <?php if (!$has_runs) { ?><tr><td colspan="6" class="text-center text-muted py-3">Run the database update first.</td></tr>
-        <?php } elseif (!$rows) { ?><tr><td colspan="6" class="text-center text-muted py-3">Nothing has run yet.</td></tr><?php } ?>
+        <?php if (!$has_runs) { ?><tr><td colspan="7" class="text-center text-muted py-3">Run the database update first.</td></tr>
+        <?php } elseif (!$rows) { ?><tr><td colspan="7" class="text-center text-muted py-3">Nothing has run yet.</td></tr><?php } ?>
         <?php foreach ($rows as $r) { ?>
             <tr>
                 <td class="text-nowrap text-secondary"><?= $h($r['created_at']) ?></td>
                 <td><a href="event_rules.php?edit=<?= (int) $r['rule_id'] ?>"><?= $h($r['rule_name'] ?? ('rule #' . $r['rule_id'] . ' (deleted)')) ?></a></td>
                 <td><code><?= $h($r['event_type']) ?></code><?= (int) $r['chain_depth'] > 0 ? ' <span class="badge text-bg-light" title="Triggered by another rule">chain ' . (int) $r['chain_depth'] . '</span>' : '' ?></td>
-                <td><span class="badge text-bg-<?= $r['status'] === 'ok' ? 'success' : ($r['status'] === 'failed' ? 'danger' : 'warning') ?>"><?= $h($r['status']) ?></span></td>
+                <td><span class="badge text-bg-<?= $r['status'] === 'ok' ? 'success' : ($r['status'] === 'failed' ? 'danger' : 'warning') ?>"><?= $h($r['status']) ?></span>
+                    <?php if ($has_retry && (int) $r['attempt'] > 1) { ?><div class="small text-muted">try <?= (int) $r['attempt'] ?> of <?= (int) RuleEngine::MAX_ATTEMPTS ?><?= $r['status'] === 'failed' && (int) $r['attempt'] >= RuleEngine::MAX_ATTEMPTS ? ' (gave up)' : '' ?></div><?php } ?>
+                    <?php if ($has_retry && ($r['trigger_source'] ?? '') === 'manual') { ?><div class="small text-muted">run again by hand<?= $r['retry_of_run_id'] ? ', repeats #' . (int) $r['retry_of_run_id'] : '' ?></div><?php } ?></td>
                 <td class="small"><?= $h($r['message']) ?></td>
                 <td class="text-end small text-nowrap"><?= (int) $r['duration_ms'] ?> ms</td>
+                <td class="text-end">
+                    <?php if ($has_retry && $r['status'] === 'failed') {
+                        $repeated = isset($retried[(int) $r['run_id']]);
+                        if ($repeated) { ?><span class="small text-muted">repeated as #<?= (int) $retried[(int) $r['run_id']] ?></span>
+                        <?php } elseif ($r['context_json'] !== null) { ?>
+                        <form action="post.php" method="post" class="d-inline" data-confirm-submit="Run this rule again with the same event? It will do what the rule does, for real.">
+                            <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>"><input type="hidden" name="run_id" value="<?= (int) $r['run_id'] ?>">
+                            <button class="btn btn-sm btn-outline-secondary" name="rerun_automation_run" type="submit">Run again</button>
+                        </form>
+                        <?php } else { ?><span class="small text-muted">event not kept</span><?php } } ?>
+                </td>
             </tr>
         <?php } ?>
         </tbody>
