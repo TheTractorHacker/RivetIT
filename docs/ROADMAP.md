@@ -174,12 +174,12 @@ access. CAB, change calendar and release management are U even at Halo.
 | Approvals | Automated approvals; onboarding sends forms to managers | Approval workflows by change type, risk and CAB; group authority; auto-approve low-risk changes | Ordered steps (any/all), risk score with auto-approve threshold, manager approver, inbox. **No CAB or change calendar** |
 | Onboarding and lifecycle | HR + IT onboarding: requests from the portal, forms to managers and employees, progress tracking, reminders, bulk onboarding | Via automation and request types (not verified in detail) | Dependencies, due dates, reminders, approval and action tasks, dry-run, hire/termination triggers (26.10, migration 2.6.134). **No bulk onboarding, no HR-initiated portal request yet** |
 | Automation | Workflow Automator, Supervisor Rules, Orchestration Center (Okta, Azure AD, AWS, Slack) | Rules with out-of-the-box templates | Event rules + lifecycle actions (ticket, mail, notify, webhook, disable contact login). **No directory-account actions (Entra/Okta) yet** |
-| Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | One-way Slack and Teams notifications with routing filters (migration 2.6.135). **No two-way sync, no virtual agent, no interactive buttons** |
+| Chat | Virtual agent in Slack and Teams | Two-way sync of Slack/Teams conversations with tickets | Slack and Teams notifications with routing filters (2.6.135); Slack buttons (2.6.140); and, all OFF by default (DB 2.6.241-243, issue #36): Slack Events API two-way ticket threads, `/ticket` command, ticket modal and message shortcut, status / priority / reply and approve / deny actions, identity links, KB + catalog virtual agent, Slack manifest and Teams app package generators, and a Teams Bot Framework endpoint. **Proven against local mocks only; Teams bot and all Slack parts unverified live** (`docs/CHAT_LIVE_VERIFICATION.md`) |
 | Assets and CMDB | CMDB and asset management | Assets (Premium/Enterprise): link assets and CIs to requests, incidents, problems, changes | Assets + Intune; relationship graph between items is not built |
 
 Gaps worth scheduling, in order of value: conditional logic in catalog forms; HR-initiated onboarding request from the
-portal; directory actions (create/disable Entra account) in lifecycle workflows; interactive Slack/Teams actions and
-two-way sync (needs a signing-secret endpoint or bot); CAB and a change calendar. RivetIT priorities remain the
+portal; directory actions (create/disable Entra account) in lifecycle workflows; (done locally, awaiting live verification: interactive Slack/Teams actions and
+two-way sync); CAB and a change calendar. RivetIT priorities remain the
 Master Plan phases 5, 13, 14, 15.
 
 Sources: [Freshservice service catalog](https://www.freshworks.com/freshservice/it-service-desk/it-service-catalog-management/),
@@ -225,7 +225,7 @@ Sequenced so each phase is shippable alone. Effort: S under 1 week, M 1-3 weeks,
 (AI moved up in urgency: Syncro ships a write-capable MCP server and Halo ships AI triage in the base price.)
 - In-app ticket summarize/reply/triage using the Claude API.
 - Remote MCP port with the read-only tool set; write tools later, with approvals.
-- Teams/Slack notifications; SMS.
+- [x] Teams/Slack notifications; two-way chat, commands, actions and virtual agent built behind switches (issue #36, unverified live); [ ] SMS.
 - M365 license and Pax8 sync.
 
 ### Phase 6: RivetIT-specific roadmap (continues in parallel)

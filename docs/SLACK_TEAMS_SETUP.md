@@ -4,7 +4,7 @@ RivetIT can post ticket and platform events into a Slack channel or a Microsoft 
 **Administration > Webhooks** page, the same event list and the same job queue (with the same retry schedule) as every other
 webhook; you choose the **Slack** or **Microsoft Teams** platform card in Add Webhook instead of a generic one.
 
-Status: tested against local mock servers only (the interactive buttons too). It has not been run against a real Slack workspace or Teams tenant.
+Status: tested against local mock servers only (webhooks, buttons, Events API, commands, modals, Teams bot). It has not been run against a real Slack workspace or Teams tenant. Work through `docs/CHAT_LIVE_VERIFICATION.md` before relying on any of it.
 
 ## What it does
 
@@ -84,16 +84,30 @@ Tested against local mocks only (`tests/slack_interactive.php`, including a real
   not followed and TLS is verified.
 - Outgoing messages are not signed (Slack and Teams do not verify one). The optional Slack Signing Secret is for verifying Slack's *interactive requests to RivetIT*, see above.
 
+## Two-way chat, commands, actions, virtual agent (Administration > Chat)
+
+Everything below is **off by default** and configured on **Administration > Settings > Chat**, which also shows the exact URLs and builds the app files for you.
+
+1. **Create the Slack app from a manifest.** On the Chat page press *Download manifest*, then api.slack.com/apps > Create New App > *From an app manifest* > paste. It sets the interactivity, events and `/ticket` URLs and the scopes. Install the app, then copy the **Signing Secret** and the **Bot User OAuth Token** into the Chat page.
+2. **Link people.** Under *Identity links* enter a Slack member ID (profile > three dots > Copy member ID) and pick the agent (or a contact's email). A link always wins. Optionally turn on the confirmed-email fallback (only for a workspace you control).
+3. **Turn on what you want.**
+   - *Two-way ticket threads*: needs the channel ID. New tickets are posted there as a thread, public and customer replies follow, and a linked agent's reply in the thread becomes an internal note (or a public reply: no email is sent from chat). Internal notes are mirrored only if you also tick that.
+   - *Slash command, form and shortcuts*: `/ticket new [client=<id>] [priority=High] <subject>` (no subject opens a form), `/ticket status <ticket>`, the "New ticket" global shortcut and "Create ticket from message".
+   - *Actions from chat*: status, priority and Reply on ticket messages (needs a signing secret on the destination), `/ticket set|reply|approvals`, and Approve / Deny direct messages to approvers who linked chat. Closing a ticket is never offered; an administrator cannot override an approval from chat.
+   - *Virtual agent*: DM the bot or mention it; it searches the knowledge base and service catalog and can open a ticket or request a catalog item without required questions.
+4. Rights are the person's own: support-module write access and department access, as in the web app. A contact (portal user) can only raise and follow their own tickets and see client-visible articles.
+
+## Microsoft Teams bot (UNVERIFIED LIVE)
+
+Needs an Azure Bot registration: create an *Azure Bot* (single tenant), copy its App ID and a client secret, set its messaging endpoint to `https://<host>/teams_bot.php`, enable the Teams channel. Enter App ID, tenant ID and secret on the Chat page, switch the bot on, download the **Teams app package**, and upload it in Teams. Every request must carry a valid Bot Framework token for your App ID; other tenants are ignored when the tenant ID is set. The bot answers the same commands as text (`new ...`, `status ...`, `set ...`, `approvals`), shows Adaptive Cards with Approve / Deny, and a ticket made in a conversation keeps mirroring replies back into it when two-way is on. Proactive messages (approval requests) only reach people who have messaged the bot once.
+
 ## Not included
 
-- **Teams interactive cards.** Buttons that call back into RivetIT need a Microsoft **Bot Framework / Azure Bot registration** (a bot identity, its
-  messaging endpoint, token validation); a Workflows webhook cannot receive clicks. That is a separate product to build and operate and is **not**
-  done. Teams cards have an **Open ticket** link only.
-- **Two-way sync** (replying in Slack or Teams to add a ticket reply, or mirroring channel conversation) and a **virtual agent / chat bot** are not included.
-- Slash commands and Slack modals/shortcuts are not included.
-- Teams messages go one way, from RivetIT to the channel. Slack rate limits (HTTP 429) are handled by the normal retry schedule.
+- Teams channel-wide conversation sync (a reply typed in a channel thread is not matched to a ticket; use `reply <ticket> <text>`) and Teams card actions on webhook (Workflows) messages.
+- Emailing the customer from a chat reply; closing / resolving from chat; administrator override of approvals from chat; contact (manager) approvers receive no chat prompt.
+- Everything above has only been exercised against mocks.
 
 ## Tests
 
 `tests/slack_interactive.php` (signature, replay, buttons, user mapping, the real endpoint), `tests/chat_webhooks.php` (formatter, routing, URL vetting, delivery and the event bus against `tests/mock/slack_webhook.php`) and
-`tests/e2e/chat_webhooks.py` (the real web pages). Both need a scratch database; see the header of each file.
+`tests/e2e/chat_webhooks.py` (the real web pages), `tests/chat_integration.php` (Slack: signed requests, events, commands, interactivity, identity, rights, threads, virtual agent, manifest, real endpoints) and `tests/chat_teams.php` (Teams: JWT against a mocked JWKS, connector, bot, package, real endpoint). All need a scratch database; see the header of each file.

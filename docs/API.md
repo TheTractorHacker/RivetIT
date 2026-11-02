@@ -189,6 +189,19 @@ Everything else requires an API key's access token or a user bearer token.
 
 ---
 
+### Inbound chat endpoints (Slack and Teams)
+
+These are not part of `/api/v1/` (no bearer token, no OpenAPI entry): they are called by Slack and by the Microsoft Bot Framework Service and authenticate every request themselves. All are off until switched on in Administration > Chat. Setup: `docs/SLACK_TEAMS_SETUP.md`.
+
+| Path | Caller | Authentication | Purpose |
+|---|---|---|---|
+| `POST /slack_interactive.php` | Slack | `X-Slack-Signature` v0 HMAC, 5 min window, single use | Buttons, selects, modals, shortcuts |
+| `POST /slack_events.php` | Slack | same | Events API: thread replies, DMs, mentions |
+| `POST /slack_commands.php` | Slack | same | `/ticket` slash command (ephemeral answer) |
+| `POST /teams_bot.php` | Bot Framework | `Authorization: Bearer` JWT (RS256, issuer, audience, serviceurl) | Teams bot activities |
+
+All answer `401 {}` for anything unauthenticated, `405` for non-POST and `413` for oversized bodies. Services other code can call: `ITFlow\Chat\ChatActions` (ticket and approval actions as a chat user) and `ITFlow\Chat\ChatNotifier` (`sendToUser`, `approvalRequested`, ticket threads).
+
 ## Conventions
 
 These shapes are consistent across the whole API; per-endpoint deviations
