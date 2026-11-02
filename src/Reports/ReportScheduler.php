@@ -7,10 +7,10 @@ namespace ITFlow\Reports;
  *
  * Delivery: "csv" stores the file in report_exports (database, not the web root) and emails a link with a random 256-bit token (only its
  * SHA-256 is stored; the link expires after EXPIRY_DAYS and is served by guest/report_download.php). "pdf" renders the report as a PDF
- * (ReportPdf, TCPDF) and attaches it: the mail queue carries attachments since DB 2.6.231 (email_queue_attachments, removed once the
+ * (ReportPdf, TCPDF) and attaches it: the mail queue carries attachments since DB 2.6.223 (email_queue_attachments, removed once the
  * message is sent). "html"/"tables" put the report's tables straight into the email body.
  *
- * Targets (DB 2.6.232): a schedule may have recipient-group targets, each a group plus the saved view that group receives. Each
+ * Targets (DB 2.6.224): a schedule may have recipient-group targets, each a group plus the saved view that group receives. Each
  * target is rendered and delivered separately; a failing target is reported in the status without resending the others.
  *
  * The report is rendered by scripts/report_render.php in a child process AS the schedule owner, so the owner's role
@@ -141,7 +141,7 @@ final class ReportScheduler
                 FROM report_schedule_targets t JOIN report_recipient_groups g ON g.group_id = t.target_group_id
                 WHERE t.target_schedule_id = " . (int) $scheduleId . " ORDER BY g.group_name");
         } catch (\mysqli_sql_exception $e) {
-            return []; // tables of DB 2.6.232 not there yet
+            return []; // tables of DB 2.6.224 not there yet
         }
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $out[] = $r;

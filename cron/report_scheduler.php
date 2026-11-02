@@ -71,7 +71,7 @@ $scheduler_queued = 0;
 $scheduler_sent_schedules = 0;
 
 // Data schedules (a saved view, or a CSV): rendered as the schedule owner in a child process and delivered as a
-// table email, an expiring CSV download link, or a PDF attached to the email (mail queue attachments, DB 2.6.231).
+// table email, an expiring CSV download link, or a PDF attached to the email (mail queue attachments, DB 2.6.223).
 $scheduler_data = \ITFlow\Reports\ReportScheduler::runDue($mysqli, [
     'render' => static function (array $sched, string $key, array $params, string $format) {
         $cmd = [PHP_BINARY, dirname(__DIR__) . '/scripts/report_render.php', '--user=' . (int) $sched['schedule_owner_user_id'],

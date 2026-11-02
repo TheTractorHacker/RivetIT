@@ -118,7 +118,7 @@ final class SavedReports
         try {
             mysqli_query($db, "UPDATE report_schedule_targets SET target_saved_report_id = NULL WHERE target_saved_report_id = " . (int) $id);
         } catch (\mysqli_sql_exception $e) {
-            // DB 2.6.232 not applied yet: there are no targets
+            // DB 2.6.224 not applied yet: there are no targets
         }
         return true;
     }

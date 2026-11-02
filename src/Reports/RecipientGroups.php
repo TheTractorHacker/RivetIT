@@ -5,7 +5,7 @@ namespace ITFlow\Reports;
 require_once dirname(__DIR__, 2) . '/includes/report_schedule_policy.php';
 
 /**
- * Report recipient groups and schedule targets (DB 2.6.232).
+ * Report recipient groups and schedule targets (DB 2.6.224).
  *
  * A group is a named list of addresses ("Executives", "Service desk leads"). A schedule can have several targets, each a group plus the
  * saved view that group receives, so one schedule sends the executive summary to one group and the technician view to another.
@@ -64,7 +64,7 @@ final class RecipientGroups
             $res = mysqli_query($db, "SELECT g.*, u.user_name AS creator_name, (SELECT COUNT(*) FROM report_schedule_targets t WHERE t.target_group_id = g.group_id) AS used_by
                 FROM report_recipient_groups g LEFT JOIN users u ON u.user_id = g.group_created_by ORDER BY g.group_name");
         } catch (\mysqli_sql_exception $e) {
-            return []; // DB 2.6.232 not applied yet
+            return []; // DB 2.6.224 not applied yet
         }
         while ($res && ($r = mysqli_fetch_assoc($res))) {
             $out[] = $r;

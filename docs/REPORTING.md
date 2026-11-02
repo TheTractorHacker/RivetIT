@@ -21,7 +21,7 @@ Master Plan phase 14. Everything here is additive: existing reports render as be
 
 Tables (migration 2.6.138): `saved_reports`, `report_exports`, `dashboard_layouts`, and new `report_schedules` columns
 `schedule_saved_report_id`, `schedule_format`, `schedule_owner_user_id`, `schedule_last_run_at`, `schedule_last_status`.
-Migration 2.6.231: `email_queue_attachments` (files that travel with a queued email). Migration 2.6.232: `report_recipient_groups`,
+Migration 2.6.223: `email_queue_attachments` (files that travel with a queued email). Migration 2.6.224: `report_recipient_groups`,
 `report_schedule_targets` (a schedule's group + saved view pairs).
 
 ## Saved views
@@ -84,14 +84,14 @@ to the hub and side menu. Nothing else is needed for saved views, schedules, CSV
 
 `schedule_frequency`: daily, weekly, monthly, **quarterly** (3 months). `schedule_format`: `html` = the original headline summary (unchanged), `csv` = download
 link, `tables` = the report's tables in the email body, **`pdf` = the report as a PDF attached to the email**. The mail queue
-(`email_queue`) can carry attachments since DB 2.6.231: `addToMailQueue()` accepts `'attachments' => [['filename', 'mime', 'content']]`, stores them in
+(`email_queue`) can carry attachments since DB 2.6.223: `addToMailQueue()` accepts `'attachments' => [['filename', 'mime', 'content']]`, stores them in
 `email_queue_attachments`, `cron/mail_queue.php` attaches them when it sends and deletes the copies once the message is out (the foreign key also
 removes them if the queue row is deleted). Limits: 5 attachments per message, 10 MB each, a scheduled PDF over 8 MB fails the run with a clear status. A CSV
 schedule stores the file in `report_exports` and emails `https://<base url>/guest/report_download.php?t=<token>`. The token is 256 random bits; only its
 SHA-256 is stored; the link expires after 7 days and expired rows are purged on each scheduler run. Anyone holding the link can download the
 file, so the email says not to forward it.
 
-**Recipient groups and targets (DB 2.6.232).** On Scheduled Reports, *Recipient groups* holds named address lists. When adding a CSV, PDF or tables schedule you can tick
+**Recipient groups and targets (DB 2.6.224).** On Scheduled Reports, *Recipient groups* holds named address lists. When adding a CSV, PDF or tables schedule you can tick
 groups and pick, for each, a saved view; one schedule then sends the executive view to one group and the technician view to another. A schedule
 may have its own recipients, groups, or both. Each target is rendered and mailed separately. If some succeed and others fail the schedule counts as sent (so the successes are not
 repeated) and its status names the failures; if all fail it is retried at the next run. Deleting a saved view makes its targets fall back to the schedule's own

@@ -177,7 +177,7 @@ $ok(SavedReports::delete($mysqli, $vdel, 5, false), 'deleting a saved view does 
 $ok(ReportScheduler::targets($mysqli, 1) === [] && RecipientGroups::all($mysqli) !== null, 'targets() / groups list degrade to empty');
 mysqli_report(MYSQLI_REPORT_OFF);
 $q("RENAME TABLE report_schedule_targets_hold TO report_schedule_targets");
-$ok($sum['processed'] === 1 && $sum['ok'] === 1 && count($sent) === 1, 'without the 2.6.232 tables the cron path still sends ordinary schedules (no fatal)');
+$ok($sum['processed'] === 1 && $sum['ok'] === 1 && count($sent) === 1, 'without the 2.6.224 tables the cron path still sends ordinary schedules (no fatal)');
 
 foreach (['report_schedules', 'report_exports', 'saved_reports', 'report_recipient_groups', 'email_queue'] as $t) { $q("DELETE FROM $t"); }
 echo $fails ? "\n$fails FAILED\n" : "\nALL PASSED\n";

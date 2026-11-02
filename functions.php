@@ -3114,7 +3114,7 @@ function addToMailQueue($data) {
         mysqli_stmt_close($stmt);
 
         // Optional attachments (scheduled PDF reports): [['filename' => ..., 'mime' => ..., 'content' => bytes], ...], stored in
-        // email_queue_attachments (DB 2.6.231) and attached by cron/mail_queue.php when the message is sent.
+        // email_queue_attachments (DB 2.6.223) and attached by cron/mail_queue.php when the message is sent.
         if ($queued_email_id > 0 && !empty($email['attachments']) && is_array($email['attachments'])) {
             foreach (array_slice($email['attachments'], 0, 5) as $att) {
                 $att_name = substr(preg_replace('/[^A-Za-z0-9._ -]+/', '_', basename((string) ($att['filename'] ?? 'attachment'))), 0, 150);

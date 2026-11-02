@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.231: issue #34 reporting. Scheduled PDF reports are attached to the email, so the mail queue can now carry attachments.
+    if ($rivetit_db_version() == '2.6.222') {
+        // DB 2.6.223: issue #34 reporting. Scheduled PDF reports are attached to the email, so the mail queue can now carry attachments.
         // One row per file, deleted with its email (ON DELETE CASCADE) and by the mailer as soon as the message is sent.
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `email_queue_attachments` (
             `attachment_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -12357,11 +12357,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             KEY `attachment_email_id` (`attachment_email_id`),
             CONSTRAINT `email_queue_attachments_ibfk_1` FOREIGN KEY (`attachment_email_id`) REFERENCES `email_queue` (`email_id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.231'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.223'");
     }
 
-    if ($rivetit_db_version() == '2.6.231') {
-        // DB 2.6.232: issue #34 reporting. Recipient groups, and schedule targets that send a different saved view to each group.
+    if ($rivetit_db_version() == '2.6.223') {
+        // DB 2.6.224: issue #34 reporting. Recipient groups, and schedule targets that send a different saved view to each group.
         // report_recipient_groups.group_recipients is a comma list, validated against the staff/approved-recipient policy when saved AND when sent.
         // report_schedule_targets: one schedule can carry several targets (group + saved view). A schedule with no targets behaves as before.
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `report_recipient_groups` (
@@ -12384,5 +12384,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             CONSTRAINT `report_schedule_targets_ibfk_1` FOREIGN KEY (`target_schedule_id`) REFERENCES `report_schedules` (`schedule_id`) ON DELETE CASCADE,
             CONSTRAINT `report_schedule_targets_ibfk_2` FOREIGN KEY (`target_group_id`) REFERENCES `report_recipient_groups` (`group_id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.232'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.224'");
     }

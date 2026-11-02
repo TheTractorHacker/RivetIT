@@ -411,7 +411,7 @@ function deliverQueueRow(array $row): bool {
         mysqli_query($mysqli, "UPDATE email_queue SET email_message_id = '$mid_esc' WHERE email_id = $email_id");
     }
 
-    // Attachments queued with this message (none for almost every email; the table exists from DB 2.6.231).
+    // Attachments queued with this message (none for almost every email; the table exists from DB 2.6.223).
     $queue_attachments = [];
     try {
         $att_res = mysqli_query($mysqli, "SELECT attachment_filename, attachment_mime, attachment_content FROM email_queue_attachments WHERE attachment_email_id = $email_id ORDER BY attachment_id");
