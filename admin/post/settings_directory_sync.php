@@ -64,9 +64,21 @@ if (isset($_POST['save_microsoft_integration'])) {
     $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT microsoft_integration_id FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
 
     $secret_sql = '';
+    $expiry_sql = '';
     if (!empty($_POST['client_secret'])) {
         $secret_enc = mysqli_real_escape_string($mysqli, encryptSetting(trim($_POST['client_secret'])));
         $secret_sql = ", client_secret_enc = '$secret_enc'";
+        // The recorded expiry belonged to the OLD secret: forget it unless a new date comes with this form.
+        $expiry_sql = ", secret_expires_at = NULL, secret_expiry_source = NULL";
+    }
+    // The connection form carries the expiry date of the client secret (the Intune tab's slim form does not, and then leaves it alone).
+    if (isset($_POST['secret_expires_at'])) {
+        $posted_expiry = trim((string) $_POST['secret_expires_at']);
+        if ($posted_expiry === '') {
+            $expiry_sql = ", secret_expires_at = NULL, secret_expiry_source = NULL";
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $posted_expiry) && strtotime($posted_expiry) !== false) {
+            $expiry_sql = ", secret_expires_at = '" . mysqli_real_escape_string($mysqli, $posted_expiry) . "', secret_expiry_source = 'manual'";
+        }
     }
 
     if ($existing) {
@@ -75,10 +87,14 @@ if (isset($_POST['save_microsoft_integration'])) {
         $prev_ms = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT tenant_id, client_id FROM microsoft_integrations WHERE microsoft_integration_id = $id"));
         if ($secret_sql !== '' || ($prev_ms && ($prev_ms['tenant_id'] !== $tenant_id || $prev_ms['client_id'] !== $client_id))) {
             $secret_sql .= ", token_cache_enc = NULL, token_expires_at = NULL";
+            // A different tenant has its own users: the saved delta token is meaningless there.
+            if ($prev_ms && $prev_ms['tenant_id'] !== $tenant_id) {
+                $secret_sql .= ", directory_delta_link = NULL, directory_delta_at = NULL";
+            }
         }
-        mysqli_query($mysqli, "UPDATE microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql WHERE microsoft_integration_id = $id");
+        mysqli_query($mysqli, "UPDATE microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql $expiry_sql WHERE microsoft_integration_id = $id");
     } else {
-        mysqli_query($mysqli, "INSERT INTO microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql");
+        mysqli_query($mysqli, "INSERT INTO microsoft_integrations SET tenant_id = '$tenant_id', client_id = '$client_id', enabled = $enabled, intune_sync_enabled = $intune_sync_enabled, directory_sync_enabled = $directory_sync_enabled $secret_sql $expiry_sql");
     }
 
     logAction("Settings", "Edit", "$session_name updated the Microsoft/Entra integration settings");
@@ -103,6 +119,8 @@ if (isset($_POST['test_microsoft_integration'])) {
     $features = [];
     if (!empty($row['directory_sync_enabled'])) { $features[] = 'users'; }
     if (!empty($row['intune_sync_enabled'])) { $features[] = 'devices'; }
+    if (!empty($row['groups_sync_enabled'])) { $features[] = 'groups'; }
+    if (!empty($row['licenses_sync_enabled'])) { $features[] = 'licenses'; }
     $client = \ITFlow\Integrations\Microsoft\GraphClientFactory::forRow($mysqli, $row, time() + 60);
     $result = $client->testConnection($features);
 
@@ -122,7 +140,7 @@ if (isset($_POST['test_microsoft_integration'])) {
 // GraphClient/tenant/client/secret sync_intune_devices already uses - Directory
 // Sync and Device Sync are two independent on/off switches (directory_sync_enabled
 // vs intune_sync_enabled) against the one connection.
-if (isset($_POST['sync_microsoft_directory'])) {
+if (isset($_POST['sync_microsoft_directory']) || isset($_POST['preview_microsoft_directory']) || isset($_POST['fullresync_microsoft_directory'])) {
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 3);
@@ -147,49 +165,105 @@ if (isset($_POST['sync_microsoft_directory'])) {
         redirect();
     }
 
-    // Guard against overlapping runs - same 60-second running-lock pattern
-    // sync_intune_devices/sync_odoo_directory already use.
-    $recent = mysqli_fetch_assoc(mysqli_query($mysqli,
-        "SELECT id FROM microsoft_directory_sync_log WHERE microsoft_integration_id=$id
-         AND started_at > DATE_SUB(NOW(), INTERVAL 60 SECOND) AND status='running' LIMIT 1"
-    ));
-    if ($recent) {
-        flash_alert('A sync is already running. Please wait 60 seconds.', 'error');
-        redirect();
-    }
+    // Same service as cron: overlapping-run lock, sync log, delta (incremental) or full read, dry run, classified errors, shared token cache.
+    $dry = isset($_POST['preview_microsoft_directory']);
+    $full = isset($_POST['fullresync_microsoft_directory']);
+    $run = \ITFlow\Integrations\Microsoft\EntraDirectorySyncService::run($mysqli, $row, $session_user_id, 180, ['dry_run' => $dry, 'force_full' => $full]);
 
-    $client = \ITFlow\Integrations\Microsoft\GraphClientFactory::forRow($mysqli, $row, time() + 180);
-    $mapper = new MicrosoftDirectoryMapper($mysqli, $id, $session_user_id);
-    $log_id = $mapper->startSyncLog();
-
-    try {
-        // One Graph call serves both passes - MicrosoftDirectoryMapper::syncDepartments()
-        // reads each user's own `department` string field (see its class docblock
-        // "DEPARTMENTS" - v1 has no separate Entra group-membership call).
-        $users = $client->getUsers();
-        $deptStats = $mapper->syncDepartments($users);
-        $empStats = $mapper->syncEmployees($users, $deptStats['idMap']);
-
-        $mapper->finishSyncLog($log_id, $deptStats, $empStats);
-
-        // Training: departments this sync created, renamed or archived get their department job group in step, and
-        // people it moved between departments are reconciled now (as the Odoo sync does), not at the nightly cron.
-        // Guarded like every Training hook here: module on, schema ready, never fails the sync.
-        try { if (($config_module_enable_training ?? 0) == 1 && class_exists(\ITFlow\Training\People\DepartmentGroups::class)) { \ITFlow\Training\People\DepartmentGroups::afterDirectorySync(\ITFlow\Training\Core\Access::ctx($mysqli)); } }
-        catch (\Throwable $e) { error_log('Training: after the directory sync, failed: ' . $e->getMessage()); }
-
-        logAction("Settings", "Edit", "$session_name synced Microsoft directory: departments {$deptStats['created']} created/{$deptStats['updated']} updated/{$deptStats['matched']} matched, employees {$empStats['created']} created/{$empStats['updated']} updated/{$empStats['matched']} matched");
-        flash_alert("Microsoft directory sync complete: departments {$deptStats['created']} created, {$deptStats['updated']} updated; employees {$empStats['created']} created, {$empStats['updated']} updated");
-    } catch (\RuntimeException $e) {
-        mysqli_query($mysqli, "UPDATE microsoft_directory_sync_log SET finished_at=NOW(), status='failed', errors='" .
-            mysqli_real_escape_string($mysqli, $e->getMessage()) . "' WHERE id=$log_id");
-        flash_alert($e->getMessage(), 'error');
+    if ($run['stats'] !== null) {
+        $st = $run['stats'];
+        logAction("Settings", "Edit", "$session_name " . ($dry ? 'previewed' : ($full ? 'fully re-synced' : 'synced')) . " Microsoft directory ({$st['mode']}): departments {$st['departments']['created']} created/{$st['departments']['updated']} updated/{$st['departments']['matched']} matched, employees {$st['employees']['created']} created/{$st['employees']['updated']} updated/{$st['employees']['matched']} matched" . ($st['users_removed'] ? ", {$st['users_removed']} archived (deleted in Entra)" : ''));
+        flash_alert(nullable_htmlentities($run['message']), $run['ok'] ? 'success' : 'error');
+    } else {
+        logAction("Settings", "Edit", "$session_name ran a Microsoft directory sync that failed" . ($run['error_code'] ? " ({$run['error_code']})" : ""));
+        flash_alert(nullable_htmlentities($run['message']), 'error');
     }
 
     redirect();
 }
 
-if (isset($_POST['sync_intune_devices'])) {
+// Scheduled sync, incremental (delta) sync and the extra syncs (groups, licenses). All OFF unless ticked. Administrators with client-module access.
+if (isset($_POST['save_entra_sync_settings'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    $cron = isset($_POST['directory_cron_enabled']) ? 1 : 0;
+    $delta = isset($_POST['directory_delta_enabled']) ? 1 : 0;
+    $groups = isset($_POST['groups_sync_enabled']) ? 1 : 0;
+    $licenses = isset($_POST['licenses_sync_enabled']) ? 1 : 0;
+    $interval = max(15, min(10080, intval($_POST['directory_cron_interval_min'] ?? 360)));
+    $extras = max(60, min(10080, intval($_POST['extras_interval_min'] ?? 1440)));
+    $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT microsoft_integration_id, directory_delta_enabled FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
+    if (!$existing) {
+        flash_alert('Save the Microsoft connection first.', 'error');
+        redirect();
+    }
+    $id = intval($existing['microsoft_integration_id']);
+    // Switching incremental sync off drops the saved token, so switching it on later starts clean.
+    $drop = (!$delta && !empty($existing['directory_delta_enabled'])) ? ', directory_delta_link = NULL, directory_delta_at = NULL' : '';
+    mysqli_query($mysqli, "UPDATE microsoft_integrations SET directory_cron_enabled = $cron, directory_delta_enabled = $delta, groups_sync_enabled = $groups, licenses_sync_enabled = $licenses, directory_cron_interval_min = $interval, extras_interval_min = $extras $drop WHERE microsoft_integration_id = $id");
+    logAction('Settings', 'Edit', "$session_name changed the Entra sync schedule: directory cron " . ($cron ? "on every $interval min" : 'off') . ', incremental ' . ($delta ? 'on' : 'off') . ', groups ' . ($groups ? 'on' : 'off') . ', licenses ' . ($licenses ? 'on' : 'off'));
+    flash_alert('Entra sync schedule saved');
+    redirect();
+}
+
+if (isset($_POST['save_intune_details_setting'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    $on = isset($_POST['intune_details_enabled']) ? 1 : 0;
+    $existing = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT microsoft_integration_id FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
+    if (!$existing) {
+        flash_alert('Save the Microsoft connection first.', 'error');
+        redirect();
+    }
+    mysqli_query($mysqli, "UPDATE microsoft_integrations SET intune_details_enabled = $on WHERE microsoft_integration_id = " . intval($existing['microsoft_integration_id']));
+    logAction('Settings', 'Edit', "$session_name " . ($on ? 'enabled' : 'disabled') . ' Intune compliance policy and app detail sync');
+    flash_alert($on ? 'Intune compliance and app detail sync is on' : 'Intune compliance and app detail sync is off');
+    redirect();
+}
+
+// "Sync now" / "Preview" for groups, licenses and Intune details. Button value = "<kind>" or "<kind>:dry".
+if (isset($_POST['run_entra_extra'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    [$extra_kind, $extra_mode] = array_pad(explode(':', (string) $_POST['run_entra_extra'], 2), 2, '');
+    $extra_dry = $extra_mode === 'dry';
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
+    if (!$row || empty($row['enabled']) || empty($row['client_secret_enc'])) {
+        flash_alert('Save and enable the Microsoft connection first.', 'error');
+        redirect();
+    }
+    $switch = ['groups' => 'groups_sync_enabled', 'licenses' => 'licenses_sync_enabled', 'intune_details' => 'intune_details_enabled'][$extra_kind] ?? null;
+    if ($switch === null) {
+        flash_alert('Unknown sync.', 'error');
+        redirect();
+    }
+    if (empty($row[$switch]) || ($extra_kind === 'intune_details' && empty($row['intune_sync_enabled']))) {
+        flash_alert('Switch this sync on (and save) before running it.', 'error');
+        redirect();
+    }
+    $run = \ITFlow\Integrations\Microsoft\EntraExtrasSync::run($mysqli, $extra_kind, $row, $session_user_id, 120, ['dry_run' => $extra_dry]);
+    logAction('Settings', 'Edit', "$session_name ran an Entra $extra_kind sync" . ($extra_dry ? ' as a preview' : '') . ($run['ok'] ? '' : ' that failed' . ($run['error_code'] ? " ({$run['error_code']})" : '')));
+    flash_alert(nullable_htmlentities($run['message']), $run['ok'] ? 'success' : 'error');
+    redirect();
+}
+
+// Look the client secret's expiry up in Entra (needs the optional Application.Read.All permission).
+if (isset($_POST['check_entra_secret_expiry'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 3);
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM microsoft_integrations ORDER BY microsoft_integration_id DESC LIMIT 1"));
+    if (!$row || empty($row['client_secret_enc'])) {
+        flash_alert('Save a tenant ID, client ID, and client secret first.', 'error');
+        redirect();
+    }
+    $res = \ITFlow\Integrations\Microsoft\EntraScheduler::refreshSecretExpiry($mysqli, $row);
+    logAction('Settings', 'Edit', "$session_name looked up the Entra client secret expiry: " . ($res['ok'] ? $res['message'] : 'failed'));
+    flash_alert(nullable_htmlentities($res['ok'] ? 'Client secret ' . $res['message'] : $res['message']), $res['ok'] ? 'success' : 'warning');
+    redirect();
+}
+
+if (isset($_POST['sync_intune_devices']) || isset($_POST['preview_intune_devices'])) {
 
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 3);
@@ -215,11 +289,13 @@ if (isset($_POST['sync_intune_devices'])) {
     }
 
     // Same service as cron: overlapping-run lock, sync log, 120 s time limit, classified errors, shared token cache.
-    $run = \ITFlow\Integrations\Microsoft\IntuneSyncService::run($mysqli, $row, $session_user_id, 120);
+    // "Preview" runs the same sync inside a transaction that is rolled back: real counts, nothing changed.
+    $intune_dry = isset($_POST['preview_intune_devices']);
+    $run = \ITFlow\Integrations\Microsoft\IntuneSyncService::run($mysqli, $row, $session_user_id, 120, [], $intune_dry);
 
     if ($run['stats'] !== null) {
         $stats = $run['stats'];
-        logAction("Settings", "Edit", "$session_name synced Intune devices: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
+        logAction("Settings", "Edit", "$session_name " . ($intune_dry ? 'previewed' : 'synced') . " Intune devices: {$stats['created']} created, {$stats['updated']} updated, {$stats['matched']} matched, {$stats['skipped']} skipped");
         flash_alert(nullable_htmlentities($run['message']), $run['ok'] ? 'success' : 'error');
     } else {
         logAction("Settings", "Edit", "$session_name ran an Intune device sync that failed" . ($run['error_code'] ? " ({$run['error_code']})" : ""));

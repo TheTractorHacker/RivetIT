@@ -180,6 +180,12 @@ final class ServerStatus
             }
         } catch (\Throwable) {}
         try {
+            // Entra / Intune connection: client-secret expiry and stalled or failing syncs (only when one is configured and enabled).
+            foreach (\ITFlow\Integrations\Microsoft\EntraHealth::checks($this->db) as $c) {
+                $out[] = self::c($c['status'] === 'info' ? 'ok' : $c['status'], $c['title'], $c['detail'] . ($c['fix'] !== '' && $c['status'] !== 'ok' ? ' ' . $c['fix'] : ''));
+            }
+        } catch (\Throwable) {}
+        try {
             $r = $this->db->query("SELECT status, COUNT(*) AS n FROM integration_jobs GROUP BY status");
             $counts = [];
             while ($r && ($row = $r->fetch_assoc())) $counts[$row['status']] = (int) $row['n'];

@@ -4,7 +4,7 @@ namespace ITFlow\Recovery;
 
 /**
  * The recovery watcher run by cron/cron.php (or, when the main cron is off, cron/backup_cron.php): stale-backup alert,
- * failed/stale integration-sync alerts, a "the restore drill has stopped running" alert, and housekeeping of the logs it owns.
+ * failed/stale integration-sync alerts, the Entra client-secret expiry alert, a "the restore drill has stopped running" alert, and housekeeping of the logs it owns.
  * Each alert is de-duplicated per 6 hours (RecoveryAlerts). Safe to call every cron tick; the work is a handful of indexed reads.
  */
 final class RecoveryWatch
@@ -22,6 +22,11 @@ final class RecoveryWatch
             $out['sync'] = SyncWatch::run($db, $rmmModuleOn);
         } catch (\Throwable $e) {
             $out['sync'] = 'error: ' . $e->getMessage();
+        }
+        try {
+            $out['entra_secret'] = \ITFlow\Integrations\Microsoft\EntraHealth::watch($db);
+        } catch (\Throwable $e) {
+            $out['entra_secret'] = 'error: ' . $e->getMessage();
         }
         try {
             $out['drill'] = self::watchDrill($db);

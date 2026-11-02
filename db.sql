@@ -9626,6 +9626,18 @@ CREATE TABLE `microsoft_integrations` (
   `last_test_error_code` varchar(40) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `directory_cron_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `directory_cron_interval_min` int(11) NOT NULL DEFAULT 360,
+  `directory_delta_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `directory_delta_link` text DEFAULT NULL,
+  `directory_delta_at` datetime DEFAULT NULL,
+  `secret_expires_at` date DEFAULT NULL,
+  `secret_expiry_source` varchar(10) DEFAULT NULL,
+  `secret_expiry_checked_at` datetime DEFAULT NULL,
+  `groups_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `licenses_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `intune_details_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `extras_interval_min` int(11) NOT NULL DEFAULT 1440,
   PRIMARY KEY (`microsoft_integration_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -10299,6 +10311,7 @@ CREATE TABLE `asset_intune_links` (
   `raw_data_json` longtext DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `details_synced_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `asset_integration` (`asset_id`,`microsoft_integration_id`),
   KEY `intune_device_id` (`intune_device_id`)
@@ -10325,6 +10338,7 @@ CREATE TABLE `intune_sync_log` (
   `errors` text DEFAULT NULL,
   `error_code` varchar(40) DEFAULT NULL,
   `triggered_by` int(11) DEFAULT 0,
+  `dry_run` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -10563,6 +10577,11 @@ CREATE TABLE `microsoft_directory_sync_log` (
   `employees_skipped` int(11) DEFAULT 0,
   `errors` text DEFAULT NULL,
   `triggered_by` int(11) DEFAULT 0,
+  `error_code` varchar(40) DEFAULT NULL,
+  `sync_mode` varchar(10) DEFAULT NULL,
+  `dry_run` tinyint(1) NOT NULL DEFAULT 0,
+  `users_seen` int(11) NOT NULL DEFAULT 0,
+  `users_removed` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -11642,3 +11661,118 @@ CREATE TABLE IF NOT EXISTS `portal_feed_state` (
   `feed_seen_at` datetime NOT NULL,
   PRIMARY KEY (`feed_contact_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+-- Entra / Intune sync (issue #35), DB 2.6.225 and 2.6.226
+CREATE TABLE IF NOT EXISTS `microsoft_directory_users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `entra_id` varchar(64) NOT NULL,
+  `contact_id` int(11) DEFAULT NULL,
+  `user_principal_name` varchar(255) DEFAULT NULL,
+  `mail` varchar(255) DEFAULT NULL,
+  `display_name` varchar(255) DEFAULT NULL,
+  `department` varchar(255) DEFAULT NULL,
+  `account_enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `removed_at` datetime DEFAULT NULL,
+  `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_entra_user` (`microsoft_integration_id`,`entra_id`),
+  KEY `contact_id` (`contact_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `entra_sync_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `kind` varchar(20) NOT NULL,
+  `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `finished_at` datetime DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'running',
+  `items_seen` int(11) NOT NULL DEFAULT 0,
+  `items_created` int(11) NOT NULL DEFAULT 0,
+  `items_updated` int(11) NOT NULL DEFAULT 0,
+  `items_removed` int(11) NOT NULL DEFAULT 0,
+  `items_skipped` int(11) NOT NULL DEFAULT 0,
+  `errors` text DEFAULT NULL,
+  `error_code` varchar(40) DEFAULT NULL,
+  `dry_run` tinyint(1) NOT NULL DEFAULT 0,
+  `triggered_by` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `integration_kind` (`microsoft_integration_id`,`kind`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `entra_groups` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `entra_id` varchar(64) NOT NULL,
+  `display_name` varchar(255) NOT NULL DEFAULT '',
+  `description` varchar(500) DEFAULT NULL,
+  `mail` varchar(255) DEFAULT NULL,
+  `group_kind` varchar(20) NOT NULL DEFAULT 'security',
+  `member_count` int(11) NOT NULL DEFAULT 0,
+  `members_synced_at` datetime DEFAULT NULL,
+  `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_entra_group` (`microsoft_integration_id`,`entra_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `entra_group_members` (
+  `group_id` int(11) NOT NULL,
+  `entra_user_id` varchar(64) NOT NULL,
+  PRIMARY KEY (`group_id`,`entra_user_id`),
+  KEY `entra_user_id` (`entra_user_id`),
+  CONSTRAINT `entra_group_members_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `entra_groups` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `entra_licenses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `sku_id` varchar(64) NOT NULL,
+  `sku_part_number` varchar(100) NOT NULL DEFAULT '',
+  `friendly_name` varchar(150) NOT NULL DEFAULT '',
+  `capability_status` varchar(20) DEFAULT NULL,
+  `units_enabled` int(11) NOT NULL DEFAULT 0,
+  `units_suspended` int(11) NOT NULL DEFAULT 0,
+  `units_warning` int(11) NOT NULL DEFAULT 0,
+  `units_consumed` int(11) NOT NULL DEFAULT 0,
+  `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_entra_sku` (`microsoft_integration_id`,`sku_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `entra_user_licenses` (
+  `microsoft_integration_id` int(11) NOT NULL,
+  `entra_user_id` varchar(64) NOT NULL,
+  `sku_id` varchar(64) NOT NULL,
+  PRIMARY KEY (`microsoft_integration_id`,`entra_user_id`,`sku_id`),
+  KEY `sku_id` (`sku_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `intune_device_compliance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `intune_device_id` varchar(100) NOT NULL,
+  `asset_id` int(11) DEFAULT NULL,
+  `policy_name` varchar(255) NOT NULL DEFAULT '',
+  `policy_state` varchar(30) NOT NULL DEFAULT '',
+  `setting_count` int(11) NOT NULL DEFAULT 0,
+  `user_principal_name` varchar(255) DEFAULT NULL,
+  `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `device` (`microsoft_integration_id`,`intune_device_id`),
+  KEY `asset_id` (`asset_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `intune_device_apps` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `microsoft_integration_id` int(11) NOT NULL,
+  `intune_device_id` varchar(100) NOT NULL,
+  `asset_id` int(11) DEFAULT NULL,
+  `app_name` varchar(255) NOT NULL DEFAULT '',
+  `app_version` varchar(100) DEFAULT NULL,
+  `publisher` varchar(255) DEFAULT NULL,
+  `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `device` (`microsoft_integration_id`,`intune_device_id`),
+  KEY `asset_id` (`asset_id`),
+  KEY `app_name` (`app_name`(100))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+

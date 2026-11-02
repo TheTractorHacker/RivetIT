@@ -299,6 +299,8 @@ Endpoints → **Intune Devices** lists devices managed in Microsoft Intune that 
 
 The Intune menu item needs only Departments access, so it also shows for technicians.
 
+**Preview, schedule and status (administrator).** Administration → **Entra / Intune sync status** shows, for each Entra and Intune sync, when it last ran, what it did, the reason in words if it failed (for example *Admin consent missing*), and when it runs next. **Preview** next to **Sync Now** does the whole run inside a transaction that is rolled back, so you see the real counts and nothing changes. Extra, optional syncs are all off until you switch them on: running the Entra directory sync from the schedule, an incremental (changes-only) sync, Entra groups, license counts, and per-device compliance policies and detected apps (shown on the asset page). Enter the date your client secret expires next to the secret: the administrators are told 30 days and 7 days before, and when it has expired. Live behaviour with a real tenant is not yet verified; follow the checklist in docs/ENTRA_INTUNE_SETUP.md for the first run.
+
 ## UniFi
 
 UniFi has no page in the agent menu. It fills other areas: **Assets** and **Network** (access points, switches and gateways), **Credentials** (Wi-Fi networks that have a password, named "Wi-Fi: " and the network name) and **Networks** (VLANs and subnets).

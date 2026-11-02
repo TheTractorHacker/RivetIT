@@ -84,6 +84,19 @@ $ms_error_labels = [
     'bad_response' => 'Unexpected response', 'time_limit' => 'Time limit reached', 'other' => 'Error',
 ];
 $ms_last_test_error_code = nullable_htmlentities($row_ms['last_test_error_code'] ?? '');
+// Entra sync schedule / incremental / extras (DB 2.6.225, 2.6.226; every switch is off by default) and the client-secret expiry.
+$ms_cron_enabled = intval($row_ms['directory_cron_enabled'] ?? 0);
+$ms_cron_interval = intval($row_ms['directory_cron_interval_min'] ?? 360) ?: 360;
+$ms_delta_enabled = intval($row_ms['directory_delta_enabled'] ?? 0);
+$ms_delta_at = nullable_htmlentities($row_ms['directory_delta_at'] ?? '');
+$ms_groups_enabled = intval($row_ms['groups_sync_enabled'] ?? 0);
+$ms_licenses_enabled = intval($row_ms['licenses_sync_enabled'] ?? 0);
+$ms_details_enabled = intval($row_ms['intune_details_enabled'] ?? 0);
+$ms_extras_interval = intval($row_ms['extras_interval_min'] ?? 1440) ?: 1440;
+$ms_secret_expires = (string) ($row_ms['secret_expires_at'] ?? '');
+$ms_secret_state = \ITFlow\Integrations\Microsoft\EntraHealth::secretState($ms_secret_expires, time());
+$ms_secret_badges = ['none' => ['secondary', 'no date recorded'], 'ok' => ['success', 'valid'], 'warn' => ['warning', 'expires soon'], 'crit' => ['danger', 'expires within 7 days'], 'expired' => ['danger', 'expired']];
+$ms_schema_ready = array_key_exists('directory_cron_enabled', $row_ms) || $row_ms === [];
 
 $row_odoo = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM odoo_integrations ORDER BY odoo_integration_id DESC LIMIT 1")) ?: [];
 $odoo_id = intval($row_odoo['odoo_integration_id'] ?? 0);
@@ -1761,6 +1774,13 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     <label>Client Secret</label>
                     <input type="password" class="form-control" name="client_secret" placeholder="<?= $ms_has_secret ? 'Stored - leave blank to keep current' : 'Enter client secret' ?>" autocomplete="new-password">
                 </div>
+                <?php if ($ms_schema_ready) { ?>
+                <div class="form-group">
+                    <label>Client secret expires on <span class="badge text-bg-<?= $ms_secret_badges[$ms_secret_state['state']][0] ?> ms-1"><?= nullable_htmlentities($ms_secret_badges[$ms_secret_state['state']][1]) ?></span></label>
+                    <input type="date" class="form-control" name="secret_expires_at" value="<?= nullable_htmlentities($ms_secret_expires) ?>">
+                    <small class="text-muted">Optional but recommended: the administrators get an alert 30 days and 7 days before it expires, and when it has. Saving a new secret clears the old date. <button type="submit" name="check_entra_secret_expiry" value="1" class="btn btn-link btn-sm p-0 align-baseline">Look up expiry in Entra</button> (needs the optional <code>Application.Read.All</code> permission).</small>
+                </div>
+                <?php } ?>
                 <div class="form-check form-switch mb-3">
                     <input type="checkbox" class="form-check-input" name="enabled" value="1" id="msEnabled" <?= $ms_enabled ? 'checked' : '' ?>>
                     <label class="form-check-label" for="msEnabled">Enabled</label>
@@ -1780,7 +1800,9 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <button type="submit" name="test_microsoft_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
                 <?php if ($ms_enabled && $ms_directory_sync_enabled && $ms_has_secret): ?>
                 <button type="submit" name="sync_microsoft_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
+                <button type="submit" name="preview_microsoft_directory" value="1" class="btn btn-outline-secondary"><i class="fas fa-eye me-2"></i>Preview</button>
                 <?php endif; ?>
+                <a class="btn btn-link" href="/admin/entra_status.php"><i class="fas fa-chart-line me-1"></i>Sync status</a>
             </form>
 
             <hr>
@@ -1800,6 +1822,77 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
             </form>
         </div>
     </div>
+
+    <?php if ($ms_schema_ready) { ?>
+    <div class="card mb-3" id="entra-schedule">
+        <div class="card-header py-2 d-flex align-items-center">
+            <h3 class="card-title me-auto"><i class="fas fa-fw fa-clock me-2"></i>Entra scheduled and incremental sync</h3>
+            <a class="btn btn-sm btn-outline-secondary" href="/admin/entra_status.php">Sync status</a>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Everything below is <strong>off by default</strong> and only reads from Microsoft. Nothing runs from cron until you switch it on and save. The Intune device sync keeps its own
+                schedule (the Device Sync tab). Live behaviour is unverified: use <strong>Preview</strong> on the sync status page first.
+            </p>
+            <form action="post.php" method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="directory_cron_enabled" value="1" id="msCronEnabled" <?= $ms_cron_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msCronEnabled">Run the directory sync automatically (needs "Sync users from Entra ID" above)</label>
+                </div>
+                <div class="row g-2 mb-3 ms-0 align-items-center">
+                    <div class="col-auto"><label class="col-form-label" for="msCronInterval">How often</label></div>
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm" name="directory_cron_interval_min" id="msCronInterval">
+                            <?php foreach ([60 => 'every hour', 180 => 'every 3 hours', 360 => 'every 6 hours', 720 => 'every 12 hours', 1440 => 'once a day'] as $mins => $lab) { ?>
+                                <option value="<?= $mins ?>" <?= $ms_cron_interval === $mins ? 'selected' : '' ?>><?= $lab ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="directory_delta_enabled" value="1" id="msDeltaEnabled" <?= $ms_delta_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msDeltaEnabled">Incremental sync (Graph delta query)</label>
+                </div>
+                <small class="text-muted d-block mb-3">
+                    The first run reads every user and saves a delta token<?= $ms_delta_at !== '' ? ' (saved ' . $ms_delta_at . ')' : '' ?>; later runs read only what changed, and a user deleted in Entra is archived the way a disabled one is.
+                    If Microsoft says the token is no longer valid, the run starts over with a full read by itself. Off: every run reads every user.
+                </small>
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="groups_sync_enabled" value="1" id="msGroupsEnabled" <?= $ms_groups_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msGroupsEnabled">Sync Entra groups and their members</label>
+                </div>
+                <small class="text-muted d-block mb-2">Needs the <code>Group.Read.All</code> Application permission with admin consent.</small>
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="licenses_sync_enabled" value="1" id="msLicensesEnabled" <?= $ms_licenses_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msLicensesEnabled">Sync license SKUs and who holds them</label>
+                </div>
+                <small class="text-muted d-block mb-2">Needs <code>Organization.Read.All</code> (counts) and the <code>User.Read.All</code> already granted for the directory sync (assignments).</small>
+                <div class="row g-2 mb-3 ms-0 align-items-center">
+                    <div class="col-auto"><label class="col-form-label" for="msExtrasInterval">Groups, licenses and Intune details run</label></div>
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm" name="extras_interval_min" id="msExtrasInterval">
+                            <?php foreach ([360 => 'every 6 hours', 720 => 'every 12 hours', 1440 => 'once a day', 10080 => 'once a week'] as $mins => $lab) { ?>
+                                <option value="<?= $mins ?>" <?= $ms_extras_interval === $mins ? 'selected' : '' ?>><?= $lab ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" name="save_entra_sync_settings" value="1" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save schedule</button>
+                <?php if ($ms_enabled && $ms_has_secret) { ?>
+                    <?php if ($ms_groups_enabled) { ?>
+                        <button type="submit" name="run_entra_extra" value="groups" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Sync groups</button>
+                        <button type="submit" name="run_entra_extra" value="groups:dry" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye me-1"></i>Preview groups</button>
+                    <?php } ?>
+                    <?php if ($ms_licenses_enabled) { ?>
+                        <button type="submit" name="run_entra_extra" value="licenses" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Sync licenses</button>
+                        <button type="submit" name="run_entra_extra" value="licenses:dry" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye me-1"></i>Preview licenses</button>
+                    <?php } ?>
+                <?php } ?>
+            </form>
+        </div>
+    </div>
+    <?php } ?>
 
     <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center">
@@ -1877,6 +1970,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     <tr>
                         <th class="ps-3">Started</th>
                         <th>Status</th>
+                        <th>Mode</th>
                         <th>Departments</th>
                         <th>Employees</th>
                         <th>Errors</th>
@@ -1889,10 +1983,11 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 ?>
                     <tr>
                         <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
-                        <td><span class="badge <?= $ms_dir_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td><span class="badge <?= $ms_dir_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span><?php if (!empty($lr['dry_run'])) { ?> <span class="badge text-bg-info">preview</span><?php } ?></td>
+                        <td class="text-muted small"><?= nullable_htmlentities((string) ($lr['sync_mode'] ?? '')) ?><?= isset($lr['users_seen']) && (int) $lr['users_seen'] > 0 ? ', ' . (int) $lr['users_seen'] . ' users' : '' ?><?= !empty($lr['users_removed']) ? ', ' . (int) $lr['users_removed'] . ' removed' : '' ?></td>
                         <td class="text-muted small"><?= intval($lr['departments_created']) ?> created / <?= intval($lr['departments_updated']) ?> updated / <?= intval($lr['departments_matched']) ?> matched / <?= intval($lr['departments_skipped']) ?> skipped</td>
                         <td class="text-muted small"><?= intval($lr['employees_created']) ?> created / <?= intval($lr['employees_updated']) ?> updated / <?= intval($lr['employees_matched']) ?> matched / <?= intval($lr['employees_skipped']) ?> skipped</td>
-                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= nullable_htmlentities($lr['errors']) ?></td>
+                        <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= !empty($lr['error_code']) ? '<strong>' . nullable_htmlentities($ms_error_labels[$lr['error_code']] ?? 'Error') . '.</strong> ' : '' ?><?= nullable_htmlentities($lr['errors']) ?></td>
                     </tr>
                 <?php endwhile; ?>
                 </tbody>
@@ -2221,9 +2316,30 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 <button type="submit" name="save_microsoft_integration" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
                 <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret): ?>
                 <button type="submit" name="sync_intune_devices" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Sync Now</button>
-                <small class="text-muted ms-2">Runs now with a 2 minute limit; the result is shown above and in Recent Intune Syncs.</small>
+                <button type="submit" name="preview_intune_devices" value="1" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye me-1"></i>Preview</button>
+                <small class="text-muted ms-2">Runs now with a 2 minute limit; Preview changes nothing. The result is shown above and in Recent Intune Syncs.</small>
                 <?php endif; ?>
+                <a class="btn btn-link btn-sm" href="/admin/entra_status.php"><i class="fas fa-chart-line me-1"></i>Sync status</a>
             </form>
+            <?php if ($ms_schema_ready) { ?>
+            <hr>
+            <form action="post.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" name="intune_details_enabled" value="1" id="msIntuneDetails" <?= $ms_details_enabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="msIntuneDetails">Also read compliance policy states and detected apps per device</label>
+                </div>
+                <small class="text-muted d-block mb-2">
+                    Off by default. One extra pair of Graph calls per device, so each run reads up to <?= (int) \ITFlow\Integrations\Microsoft\EntraExtrasSync::MAX_DEVICE_DETAIL_READS ?> devices (never-read first, then the oldest) on the schedule set on the
+                    Directory Sync tab. Uses the same <code>DeviceManagementManagedDevices.Read.All</code> permission. Shown on the device and on the sync status page.
+                </small>
+                <button type="submit" name="save_intune_details_setting" value="1" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i>Save</button>
+                <?php if ($ms_enabled && $ms_intune_sync_enabled && $ms_has_secret && $ms_details_enabled) { ?>
+                    <button type="submit" name="run_entra_extra" value="intune_details" class="btn btn-success btn-sm"><i class="fas fa-sync me-1"></i>Read details now</button>
+                    <button type="submit" name="run_entra_extra" value="intune_details:dry" class="btn btn-outline-secondary btn-sm"><i class="fas fa-eye me-1"></i>Preview</button>
+                <?php } ?>
+            </form>
+            <?php } ?>
         </div>
     </div>
 
@@ -2259,7 +2375,7 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                 ?>
                     <tr>
                         <td class="ps-3 text-muted small"><?= nullable_htmlentities($lr['started_at']) ?></td>
-                        <td><span class="badge <?= $intune_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span></td>
+                        <td><span class="badge <?= $intune_log_badge[$lr['status']] ?? 'text-bg-secondary' ?>"><?= nullable_htmlentities($lr['status']) ?></span><?php if (!empty($lr['dry_run'])) { ?> <span class="badge text-bg-info">preview</span><?php } ?></td>
                         <td><?= intval($lr['devices_created']) ?></td>
                         <td><?= intval($lr['devices_updated']) ?></td>
                         <td><?= intval($lr['devices_matched']) ?></td>

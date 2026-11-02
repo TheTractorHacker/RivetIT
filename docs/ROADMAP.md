@@ -43,7 +43,7 @@ Found in RivetIT `agent/`, absent from RivetMSP `agent/`.
 | Service catalog | `service_catalog` | Maps to billable MSP service offerings and ticket templates | M | Connect to `products`/`services` so a catalog item can price. Done in the Internal IT tree (issue #30): categories, risk routing, parallel approvals, delegation and timeouts, catalog report |
 | KB v2 | `kb_article_versions`, `kb_media`, `kb_embed`, `kb_progress`, attachments | Version history and review dates; client-visible articles | M | Mostly self-contained |
 | Certificate and domain detail pages | `certificate_details`, `domain_details` | Expiry monitoring is core documentation (Hudu/IT Glue parity) | S | |
-| Intune devices | `intune_devices` | Microsoft-shop MSPs; pairs with RMM | M | Per-client tenants, not one tenant: needs a new credential model |
+| Intune devices | `intune_devices` | Microsoft-shop MSPs; pairs with RMM | M | Per-client tenants, not one tenant: needs a new credential model. **Plan** (not built; issue #35): nullable `microsoft_integrations.client_id` (NULL = global), every reader takes an integration id (the Entra services already do), schedulers loop per row, created contacts/assets get that client instead of a department, one status row per client; see docs/ENTRA_INTUNE_SETUP.md |
 | Workflow runs (lifecycle checklists) | `workflow_run`, workflow templates | Client onboarding/offboarding runbooks per client | M | Reframe "employee" as "client user" |
 | Remote MCP + audit pipeline | `mcp_server/`, `src/Redis` | AI/agent access with audit and rate limits; differentiator | M | Off by default; read-only first |
 | Redis cache, health endpoints, Cron Manager, Server status | `health/`, admin pages | Operability for a live multi-client box | S | `health/live.php` and `ready.php` are trivial wins |
@@ -100,7 +100,7 @@ dates there. RivetMSP column: Y have, P partial, N missing, **?** not yet inspec
 | Draft invoice review before publishing | ? | C | U | Med |
 | QuickBooks Online sync | ? | C, **one-way** Syncro to QBO; payments optionally back | C named, depth U | **High** |
 | Xero sync | ? | C, one-way; customers, inventory, invoices, payments, POs | C named, depth U | **High** (you chose both; QBO first) |
-| Pax8 / license billing | N | C Pax8; M365 license billing on Team plan | C Pax8 subscriptions, usage, daily sync | Med |
+| Pax8 / license billing | P (M365 license counts and who holds which SKU are synced read-only, issue #35, mock-verified; no billing, no Pax8) | C Pax8; M365 license billing on Team plan | C Pax8 subscriptions, usage, daily sync | Med |
 | Purchase orders, inventory | P | C POs and restocking | U | Med |
 | Client portal, white-label | P | C; custom domain, SSO, chatbot listed on roadmap (U if shipped) | C branded portal, child tickets, log ticket from asset | **High** |
 | Agent / portal SSO | ? | roadmap U | C Entra, SAML, Okta, ADFS | **High** |
@@ -227,12 +227,12 @@ Sequenced so each phase is shippable alone. Effort: S under 1 week, M 1-3 weeks,
 - In-app ticket summarize/reply/triage using the Claude API.
 - Remote MCP port with the read-only tool set; write tools later, with approvals.
 - Teams/Slack notifications; SMS.
-- M365 license and Pax8 sync.
+- M365 license sync: **done in code 2026-11-01** (issue #35: license SKUs, consumed/purchased, per-user assignments, `entra_licenses`; read-only, UNVERIFIED LIVE). Pax8 sync and license billing are still open.
 
 ### Phase 6: RivetIT-specific roadmap (continues in parallel)
 - RMM module in RivetCore: the built-in endpoint agent's server side runs on `rivet/rivet-core` 1.0.0-rc.5 since DB 2.6.150 (module switch, thin REST bridges, adapters in `src/Core/Adapter/Endpoint/`); the asset page RMM panel and the Agent Fleet page (rivet-core `docs/rmm/ASSET_PAGE_REDESIGN.md`, task T10a, Phase 0 scope) are built on it; next are T10b (the same panel in RivetMSP, after its adoption of the module) and the Phase 1 follow-ups the redesign needs data for (live polling document, check state history, software inventory, per-device thresholds, Activity tab). See `docs/ENDPOINT_AGENT.md` section 7.
 - Master Plan phases 5, 13, 14, 15 (portal, lifecycle, reporting, automation).
-- Live Entra/Intune and Odoo sync once credentials exist.
+- Live Entra/Intune and Odoo sync once credentials exist. **Entra/Intune: code complete 2026-11-01 (issue #35), awaiting the live verification checklist in `docs/ENTRA_INTUNE_SETUP.md`**: scheduled directory sync (opt-in), delta (incremental) sync with full fallback, previews (dry run), Entra groups, license SKUs, Intune compliance policy states and detected apps, client-secret expiry alerts, stalled-sync watch, health lines on Update/Server checks, sync status page. Tested only against `tests/mock/graph_mock.php`. Per-client tenants for the MSP edition remain open (plan in the Intune devices row above). Odoo is separate.
 
 ---
 

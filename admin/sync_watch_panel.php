@@ -1,6 +1,6 @@
 <?php
 /*
- * Integration sync watch: the state the recovery watcher sees for every enabled RMM / Intune / UniFi integration
+ * Integration sync watch: the state the recovery watcher sees for every enabled RMM / Intune / UniFi / ManageEngine MDM integration and the scheduled Entra syncs
  * (healthy, failing, stale, dormant, muted), when it last ran, how often it is expected to, why it alerted, and the per-integration
  * controls (Mute, Expected interval, Forget history). Included by admin/backup_recovery_panel.php; the handlers are in
  * admin/post/backup_recovery.php (action sync_watch_action). Needs $mysqli and a session CSRF token.
@@ -38,7 +38,7 @@ $sw_alert_ts = function (string $key) use ($mysqli): ?string {
     </div>
     <div class="card-body">
         <p class="text-muted small mb-2">
-            Watches every enabled RMM, Intune, UniFi and ManageEngine MDM integration through its sync log. <strong>Failing</strong>: its last
+            Watches every enabled RMM, Intune, UniFi and ManageEngine MDM integration, and the scheduled Entra directory sync and Entra groups/licenses/Intune-details syncs (only while their schedule is switched on), through its sync log. A preview (dry run) never counts as a run. <strong>Failing</strong>: its last
             <?= (int) RecoverySettings::get($mysqli, 'sync_error_threshold') ?> runs all ended in a real error. <strong>Stale</strong>: no run in three times its expected interval.
             <strong>Dormant</strong>: its newest run is more than <?= (int) RecoverySettings::get($mysqli, 'sync_dormant_days') ?> days old, so it is treated as no longer running and nothing is mailed.
             <strong>Muted</strong>: you silenced it. A problem is mailed at most once every <?= RecoveryAlerts::repeatHours($mysqli) ?> hours, and a recovery once.

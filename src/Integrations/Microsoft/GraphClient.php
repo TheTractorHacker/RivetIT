@@ -25,12 +25,20 @@ class GraphClient
     public const PERM_USERS = 'User.Read.All';
     public const PERM_DEVICES = 'DeviceManagementManagedDevices.Read.All';
     public const PERM_ORG = 'Organization.Read.All';
+    /** Group sync (groups and their user members). */
+    public const PERM_GROUPS = 'Group.Read.All';
+    /** subscribedSkus (license counts). Organization.Read.All is documented as sufficient; LicenseAssignment.Read.All is the narrower alternative (UNVERIFIED LIVE which one a tenant needs). */
+    public const PERM_LICENSES = 'Organization.Read.All';
+    /** Only for the optional client-secret expiry lookup (applications?$filter=appId eq ...). */
+    public const PERM_APPLICATIONS = 'Application.Read.All';
     /** Only needed for the account actions in lifecycle workflows (see docs/ENTRA_INTUNE_SETUP.md); off unless the admin enables them. */
     public const PERM_USERS_WRITE = 'User.ReadWrite.All';
     public const PERM_GROUPS_WRITE = 'Group.ReadWrite.All';
     public const PERM_MAILBOX_WRITE = 'MailboxSettings.ReadWrite';
 
     private const USER_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled,department';
+    private const USER_FULL_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled,jobTitle,mobilePhone,businessPhones,department';
+    private const DEVICE_SELECT = 'id,deviceName,serialNumber,operatingSystem,osVersion,manufacturer,model,complianceState,managementAgent,lastSyncDateTime,azureADDeviceId,userPrincipalName,enrolledDateTime,isEncrypted';
 
     private ?string $accessToken = null;
     private int $tokenExpiresAt = 0;
@@ -93,7 +101,7 @@ class GraphClient
 
     /**
      * Proves the tenant / client ID / secret (token request), lists the application permissions granted to the app (the
-     * token's `roles` claim), and probes each feature in $features ('users', 'devices') with a one-row call, so a missing
+     * token's `roles` claim), and probes each feature in $features ('users', 'devices', 'groups', 'licenses') with a one-row call, so a missing
      * admin consent is reported by name. Does not require Organization.Read.All.
      *
      * @param string[] $features
@@ -109,7 +117,8 @@ class GraphClient
         $roles = self::tokenRoles((string) $this->accessToken);
         $details = ['roles' => $roles, 'probes' => []];
         $failures = [];
-        $probes = ['users' => ['/users?$select=id&$top=1', self::PERM_USERS], 'devices' => ['/deviceManagement/managedDevices?$select=id&$top=1', self::PERM_DEVICES]];
+        $probes = ['users' => ['/users?$select=id&$top=1', self::PERM_USERS], 'devices' => ['/deviceManagement/managedDevices?$select=id&$top=1', self::PERM_DEVICES],
+            'groups' => ['/groups?$select=id&$top=1', self::PERM_GROUPS], 'licenses' => ['/subscribedSkus', self::PERM_LICENSES]];
         foreach ($features as $feature) {
             if (!isset($probes[$feature])) {
                 continue;
@@ -202,7 +211,7 @@ class GraphClient
      */
     public function getUsers(): array
     {
-        return $this->getAllPages('/users?$select=id,displayName,mail,userPrincipalName,accountEnabled,jobTitle,mobilePhone,businessPhones,department&$top=100', self::PERM_USERS);
+        return $this->getAllPages('/users?$select=' . self::USER_FULL_SELECT . '&$top=100', self::PERM_USERS);
     }
 
     /**
@@ -214,7 +223,122 @@ class GraphClient
      */
     public function listAllManagedDevices(): array
     {
-        return $this->getAllPages('/deviceManagement/managedDevices?$select=id,deviceName,serialNumber,operatingSystem,osVersion,manufacturer,model,complianceState,managementAgent,lastSyncDateTime,azureADDeviceId,userPrincipalName,enrolledDateTime,isEncrypted&$top=100', self::PERM_DEVICES);
+        return $this->getAllPages('/deviceManagement/managedDevices?$select=' . self::DEVICE_SELECT . '&$top=100', self::PERM_DEVICES);
+    }
+
+    // ----- incremental (delta) directory read, groups, licenses, Intune detail, secret expiry (all read-only) -------------
+
+    /**
+     * Incremental user read with a Graph delta query. Without $deltaLink this starts a delta round (every user is returned, plus a
+     * delta link for next time); with the delta link saved by a previous round only users changed since then come back. Users that
+     * were deleted come back as `@removed` and are returned in 'removed' (ids), not in 'items'.
+     * An invalid or expired delta token throws GraphException::DELTA_RESET: the caller falls back to a full sync and starts over.
+     *
+     * @return array{items:array[],removed:string[],delta_link:?string,incremental:bool}
+     */
+    public function usersDelta(?string $deltaLink = null): array
+    {
+        $path = ($deltaLink !== null && $deltaLink !== '') ? $deltaLink : '/users/delta?$select=' . self::USER_FULL_SELECT;
+        $newLink = null;
+        $rows = $this->getAllPages($path, self::PERM_USERS, $newLink);
+        $items = [];
+        $removed = [];
+        foreach ($rows as $r) {
+            if (isset($r['@removed'])) {
+                $removed[] = (string) ($r['id'] ?? '');
+            } else {
+                $items[] = $r;
+            }
+        }
+
+        return ['items' => $items, 'removed' => array_values(array_filter($removed, static fn ($v) => $v !== '')), 'delta_link' => $newLink, 'incremental' => $deltaLink !== null && $deltaLink !== ''];
+    }
+
+    /** All groups (id, name, description, mail, type flags). Needs Group.Read.All. @return array[] */
+    public function listGroups(): array
+    {
+        return $this->getAllPages('/groups?$select=id,displayName,description,mail,mailEnabled,securityEnabled,groupTypes&$top=100', self::PERM_GROUPS);
+    }
+
+    /** Ids of the USER members of one group (nested groups and devices are not followed). Needs Group.Read.All. @return string[] */
+    public function listGroupUserIds(string $groupId): array
+    {
+        $rows = $this->getAllPages('/groups/' . rawurlencode($groupId) . '/members/microsoft.graph.user?$select=id&$top=100', self::PERM_GROUPS);
+
+        return array_values(array_filter(array_map(static fn ($r) => (string) ($r['id'] ?? ''), $rows), static fn ($v) => $v !== ''));
+    }
+
+    /** The tenant's license SKUs with purchased/consumed counts (/subscribedSkus). @return array[] */
+    public function listSubscribedSkus(): array
+    {
+        return $this->getAllPages('/subscribedSkus', self::PERM_LICENSES);
+    }
+
+    /** Every user's assigned license SKU ids, as [userId => [skuId, ...]] (only users that have at least one). Needs User.Read.All. @return array<string,string[]> */
+    public function listUserLicenseAssignments(): array
+    {
+        $rows = $this->getAllPages('/users?$select=id,assignedLicenses&$top=500', self::PERM_USERS);
+        $out = [];
+        foreach ($rows as $r) {
+            $skus = [];
+            foreach ((array) ($r['assignedLicenses'] ?? []) as $l) {
+                if (!empty($l['skuId'])) {
+                    $skus[] = (string) $l['skuId'];
+                }
+            }
+            if ($skus !== [] && !empty($r['id'])) {
+                $out[(string) $r['id']] = $skus;
+            }
+        }
+
+        return $out;
+    }
+
+    /** One device's compliance policy states (policy name, state, settings in error). Part of the managedDevice permission. @return array[] */
+    public function listDeviceCompliancePolicyStates(string $managedDeviceId): array
+    {
+        return $this->getAllPages('/deviceManagement/managedDevices/' . rawurlencode($managedDeviceId) . '/deviceCompliancePolicyStates', self::PERM_DEVICES);
+    }
+
+    /** One device's detected apps (name, version, publisher). Part of the managedDevice permission. @return array[] */
+    public function listDeviceDetectedApps(string $managedDeviceId): array
+    {
+        return $this->getAllPages('/deviceManagement/managedDevices/' . rawurlencode($managedDeviceId) . '/detectedApps?$top=200', self::PERM_DEVICES);
+    }
+
+    /**
+     * When does the client secret this app signs in with expire? Looks the app registration up by its client ID and matches the
+     * secret by its 3-character hint (Graph returns the first 3 characters of each secret). Needs Application.Read.All, which is
+     * optional: without it the admin enters the expiry by hand. Returns null when the app has no password credentials.
+     *
+     * @return array{expires_at:?string,matched:bool,secrets:list<array{name:string,expires_at:?string,hint:?string}>}|null
+     */
+    public function clientSecretExpiry(): ?array
+    {
+        $filter = rawurlencode("appId eq '" . str_replace("'", "''", $this->clientId) . "'");
+        [, $body] = $this->request('GET', '/applications?$filter=' . $filter . '&$select=id,displayName,passwordCredentials&$top=2', self::PERM_APPLICATIONS);
+        $app = $this->decode($body)['value'][0] ?? null;
+        if (!is_array($app)) {
+            return null;
+        }
+        $secrets = [];
+        foreach ((array) ($app['passwordCredentials'] ?? []) as $c) {
+            $secrets[] = ['name' => (string) ($c['displayName'] ?? ''), 'expires_at' => isset($c['endDateTime']) ? (string) $c['endDateTime'] : null, 'hint' => isset($c['hint']) ? (string) $c['hint'] : null];
+        }
+        if ($secrets === []) {
+            return null;
+        }
+        $hint = substr($this->clientSecret, 0, 3);
+        foreach ($secrets as $s) {
+            if ($s['hint'] !== null && $s['hint'] !== '' && $s['hint'] === $hint) {
+                return ['expires_at' => $s['expires_at'], 'matched' => true, 'secrets' => $secrets];
+            }
+        }
+        // No hint matches (a secret added since, or hints not returned): report the earliest expiry so the warning errs on the early side.
+        $dates = array_filter(array_column($secrets, 'expires_at'));
+        sort($dates);
+
+        return ['expires_at' => $dates[0] ?? null, 'matched' => false, 'secrets' => $secrets];
     }
 
     // ----- account writes (off unless the admin enabled 'Allow RivetIT to change Entra accounts') -------------------------
@@ -349,8 +473,9 @@ class GraphClient
      *
      * @return array[]
      */
-    private function getAllPages(string $path, string $permission): array
+    private function getAllPages(string $path, string $permission, ?string &$deltaLink = null): array
     {
+        $deltaLink = null;
         $items = [];
         $seen = [];
         $pages = 0;
@@ -371,6 +496,9 @@ class GraphClient
             }
             $next = $data['@odata.nextLink'] ?? null;
             $path = is_string($next) && $next !== '' ? $next : null;
+            if (isset($data['@odata.deltaLink']) && is_string($data['@odata.deltaLink']) && $data['@odata.deltaLink'] !== '') {
+                $deltaLink = $data['@odata.deltaLink'];
+            }
         }
 
         return $items;
@@ -511,6 +639,9 @@ class GraphClient
         $msg = is_array($data) ? (string) ($data['error']['message'] ?? '') : '';
         $short = trim(strtok($msg !== '' ? $msg : substr($body, 0, 200), "\r\n"));
 
+        if ($status === 410 || in_array($code, ['syncStateNotFound', 'resyncRequired', 'syncStateInvalid'], true)) {
+            return new GraphException('The saved delta token is no longer valid (' . ($code !== '' ? $code : "HTTP $status") . '); a full sync is needed.', GraphException::DELTA_RESET, $status);
+        }
         if ($status === 401) {
             return new GraphException('Microsoft Graph rejected the access token (HTTP 401): ' . $short, GraphException::AUTH_FAILED, 401);
         }
