@@ -34,6 +34,10 @@ use ITFlow\Directory\FieldMapping;
  * group-to-department mapping UI of its own) — left as a documented
  * limitation for a future version, not silently half-built here.
  *
+ * LATER ADDITION (DB 2.6.236): microsoft_directory_users now links each Entra object id to its contact, which gives the "already-linked"
+ * fast path described below (a renamed mailbox updates the contact, outcome 'updated') and lets a delta sync find users deleted in Entra. The text
+ * below describes the original design and still applies to a user that has no link yet.
+ *
  * MATCHING, NO LINK TABLE — the fixed contract does not define
  * client_microsoft_links / contact_microsoft_links tables (unlike Odoo's
  * real client_odoo_links / contact_odoo_links, or Google's equivalents),
@@ -102,6 +106,7 @@ class MicrosoftDirectoryMapper
     private int $microsoftIntegrationId;
     private int $triggeredBy;
     private ?array $clientDefaults = null;
+    private ?bool $linkTable = null;
 
     public function __construct($mysqli, int $microsoftIntegrationId, int $triggeredBy = 0)
     {
@@ -267,6 +272,23 @@ class MicrosoftDirectoryMapper
         // must still find and reactivate that same contact — filtering to
         // non-archived here made a re-enabled employee's next sync silently
         // create a second contact with the same email instead.
+        // Step 1 (DB 2.6.236): the contact this Entra user was linked to on an earlier run, found by the Entra object id, so a changed
+        // mailbox address updates that contact instead of making a second one. Only when the link table exists and the contact still exists.
+        $entra_id = trim((string) ($user['id'] ?? ''));
+        $linked = $entra_id !== '' ? $this->linkedContactId($entra_id) : 0;
+        if ($linked > 0) {
+            $other = mysqli_fetch_assoc(mysqli_query($m, "SELECT contact_id FROM contacts WHERE contact_email='$email_esc' AND contact_id<>$linked LIMIT 1"));
+            $cur = mysqli_fetch_assoc(mysqli_query($m, "SELECT contact_email FROM contacts WHERE contact_id=$linked"));
+            $email_changed = $cur && strcasecmp((string) $cur['contact_email'], $email) !== 0 && !$other;
+            $set = $mapped_set_sql;
+            if ($email_changed) {
+                $set = ($set !== '' ? "$set, " : '') . "contact_email='$email_esc'";
+            }
+            $this->applyEmployeeFields($linked, $name_esc, $employment_status, $active, $contact_client_id, $set);
+            $this->recordLink($user, $linked);
+            return $email_changed ? 'updated' : 'matched';
+        }
+
         $matched = mysqli_fetch_assoc(mysqli_query(
             $m,
             "SELECT contact_id FROM contacts WHERE contact_email='$email_esc' LIMIT 1"
@@ -275,6 +297,7 @@ class MicrosoftDirectoryMapper
         if ($matched) {
             $contact_id = intval($matched['contact_id']);
             $this->applyEmployeeFields($contact_id, $name_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
+            $this->recordLink($user, $contact_id);
             return 'matched';
         }
 
@@ -287,8 +310,88 @@ class MicrosoftDirectoryMapper
              contact_employment_status='$employment_status', contact_archived_at=$archived_sql,
              contact_created_at=NOW()" . ($mapped_set_sql !== '' ? ", $mapped_set_sql" : '')
         );
+        $this->recordLink($user, intval(mysqli_insert_id($m)));
 
         return 'created';
+    }
+
+    /** Does microsoft_directory_users exist (DB 2.6.236)? Checked once per mapper; before the migration there are simply no links. */
+    private function hasLinkTable(): bool
+    {
+        if ($this->linkTable === null) {
+            $r = @mysqli_query($this->mysqli, "SHOW TABLES LIKE 'microsoft_directory_users'");
+            $this->linkTable = $r && mysqli_num_rows($r) > 0;
+        }
+
+        return $this->linkTable;
+    }
+
+    private function linkedContactId(string $entraId): int
+    {
+        if (!$this->hasLinkTable()) {
+            return 0;
+        }
+        $e = mysqli_real_escape_string($this->mysqli, $entraId);
+        $row = mysqli_fetch_assoc(mysqli_query($this->mysqli,
+            "SELECT c.contact_id FROM microsoft_directory_users l JOIN contacts c ON c.contact_id = l.contact_id
+             WHERE l.microsoft_integration_id={$this->microsoftIntegrationId} AND l.entra_id='$e' LIMIT 1"));
+
+        return $row ? intval($row['contact_id']) : 0;
+    }
+
+    /** Remember which contact an Entra user maps to (and what Entra said about them), so later runs and delta removals can find it. */
+    private function recordLink(array $user, int $contactId): void
+    {
+        $entraId = trim((string) ($user['id'] ?? ''));
+        if ($entraId === '' || $contactId <= 0 || !$this->hasLinkTable()) {
+            return;
+        }
+        $upn = (string) ($user['userPrincipalName'] ?? '');
+        $mail = (string) ($user['mail'] ?? '');
+        $name = (string) ($user['displayName'] ?? '');
+        $dept = (string) ($user['department'] ?? '');
+        $enabled = !empty($user['accountEnabled']) ? 1 : 0;
+        $stmt = mysqli_prepare($this->mysqli,
+            'INSERT INTO microsoft_directory_users (microsoft_integration_id, entra_id, contact_id, user_principal_name, mail, display_name, department, account_enabled, removed_at, last_seen_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NOW())
+             ON DUPLICATE KEY UPDATE contact_id = VALUES(contact_id), user_principal_name = VALUES(user_principal_name), mail = VALUES(mail),
+                display_name = VALUES(display_name), department = VALUES(department), account_enabled = VALUES(account_enabled), removed_at = NULL, last_seen_at = NOW()');
+        if (!$stmt) {
+            return;
+        }
+        mysqli_stmt_bind_param($stmt, 'isissssi', $this->microsoftIntegrationId, $entraId, $contactId, $upn, $mail, $name, $dept, $enabled);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+
+    /**
+     * Users that Graph's delta query reported as deleted in Entra. For each one this run knows (a link row with a contact), the contact is
+     * treated exactly like a disabled account: employment status 'terminated' and archived (never deleted). Unknown ids are ignored.
+     *
+     * @param string[] $entraIds
+     * @return int how many contacts were affected
+     */
+    public function applyRemovedUsers(array $entraIds): int
+    {
+        if (!$this->hasLinkTable()) {
+            return 0;
+        }
+        $n = 0;
+        foreach ($entraIds as $id) {
+            $e = mysqli_real_escape_string($this->mysqli, (string) $id);
+            $row = mysqli_fetch_assoc(mysqli_query($this->mysqli,
+                "SELECT id, contact_id FROM microsoft_directory_users WHERE microsoft_integration_id={$this->microsoftIntegrationId} AND entra_id='$e' LIMIT 1"));
+            if (!$row) {
+                continue;
+            }
+            if (!empty($row['contact_id'])) {
+                mysqli_query($this->mysqli, "UPDATE contacts SET contact_employment_status='terminated', contact_archived_at=COALESCE(contact_archived_at, NOW()) WHERE contact_id=" . intval($row['contact_id']));
+                $n++;
+            }
+            mysqli_query($this->mysqli, "UPDATE microsoft_directory_users SET removed_at=NOW(), account_enabled=0 WHERE id=" . intval($row['id']));
+        }
+
+        return $n;
     }
 
     private function applyEmployeeFields(int $contactId, string $nameEsc, string $employmentStatus, bool $active, int $contactClientId, string $mappedSetSql): void

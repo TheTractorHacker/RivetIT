@@ -12342,3 +12342,155 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
+
+    if ($rivetit_db_version() == '2.6.210') {
+        // DB 2.6.236: Entra directory sync, incremental and scheduled (issue #35). Additive and idempotent; EVERYTHING is off by default.
+        //
+        // microsoft_integrations  directory_cron_enabled / directory_cron_interval_min  opt-in scheduled directory sync from cron (off)
+        //                         directory_delta_enabled  use Graph delta queries (incremental) instead of a full user list (off)
+        //                         directory_delta_link / directory_delta_at  the saved delta token (cleared by "Full resync" or when Graph says it is invalid)
+        //                         secret_expires_at / secret_expiry_source / secret_expiry_checked_at  client-secret expiry (typed in, or looked up from Entra)
+        // microsoft_directory_sync_log  error_code, sync_mode (full | delta), dry_run, users_seen, users_removed
+        // intune_sync_log         dry_run
+        // microsoft_directory_users  Entra user id <-> contact link (so a renamed mailbox updates the contact instead of making a second one,
+        //                            and a user deleted in Entra can be found again by an incremental sync)
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations`
+            ADD COLUMN IF NOT EXISTS `directory_cron_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `directory_cron_interval_min` int(11) NOT NULL DEFAULT 360,
+            ADD COLUMN IF NOT EXISTS `directory_delta_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `directory_delta_link` text DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `directory_delta_at` datetime DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `secret_expires_at` date DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `secret_expiry_source` varchar(10) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `secret_expiry_checked_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_directory_sync_log`
+            ADD COLUMN IF NOT EXISTS `error_code` varchar(40) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `sync_mode` varchar(10) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS `dry_run` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `users_seen` int(11) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `users_removed` int(11) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `intune_sync_log` ADD COLUMN IF NOT EXISTS `dry_run` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `microsoft_directory_users` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `entra_id` varchar(64) NOT NULL,
+            `contact_id` int(11) DEFAULT NULL,
+            `user_principal_name` varchar(255) DEFAULT NULL,
+            `mail` varchar(255) DEFAULT NULL,
+            `display_name` varchar(255) DEFAULT NULL,
+            `department` varchar(255) DEFAULT NULL,
+            `account_enabled` tinyint(1) NOT NULL DEFAULT 1,
+            `removed_at` datetime DEFAULT NULL,
+            `last_seen_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_entra_user` (`microsoft_integration_id`,`entra_id`),
+            KEY `contact_id` (`contact_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
+    }
+
+    if ($rivetit_db_version() == '2.6.236') {
+        // DB 2.6.237: Entra groups, licenses (SKUs), Intune compliance policy states and detected apps (issue #35). Additive and idempotent; off by default.
+        //
+        // microsoft_integrations  groups_sync_enabled / licenses_sync_enabled / intune_details_enabled  (all off), extras_interval_min (how often cron runs them)
+        // asset_intune_links      details_synced_at  (which devices had their policy states / apps read longest ago; the next run starts there)
+        // entra_sync_log          one row per groups / licenses / intune_details run (counts, error code, dry run)
+        // entra_groups, entra_group_members, entra_licenses, entra_user_licenses, intune_device_compliance, intune_device_apps
+        mysqli_query($mysqli, "ALTER TABLE `microsoft_integrations`
+            ADD COLUMN IF NOT EXISTS `groups_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `licenses_sync_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `intune_details_enabled` tinyint(1) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS `extras_interval_min` int(11) NOT NULL DEFAULT 1440");
+        mysqli_query($mysqli, "ALTER TABLE `asset_intune_links` ADD COLUMN IF NOT EXISTS `details_synced_at` datetime DEFAULT NULL");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entra_sync_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `kind` varchar(20) NOT NULL,
+            `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+            `finished_at` datetime DEFAULT NULL,
+            `status` varchar(20) NOT NULL DEFAULT 'running',
+            `items_seen` int(11) NOT NULL DEFAULT 0,
+            `items_created` int(11) NOT NULL DEFAULT 0,
+            `items_updated` int(11) NOT NULL DEFAULT 0,
+            `items_removed` int(11) NOT NULL DEFAULT 0,
+            `items_skipped` int(11) NOT NULL DEFAULT 0,
+            `errors` text DEFAULT NULL,
+            `error_code` varchar(40) DEFAULT NULL,
+            `dry_run` tinyint(1) NOT NULL DEFAULT 0,
+            `triggered_by` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `integration_kind` (`microsoft_integration_id`,`kind`,`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entra_groups` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `entra_id` varchar(64) NOT NULL,
+            `display_name` varchar(255) NOT NULL DEFAULT '',
+            `description` varchar(500) DEFAULT NULL,
+            `mail` varchar(255) DEFAULT NULL,
+            `group_kind` varchar(20) NOT NULL DEFAULT 'security',
+            `member_count` int(11) NOT NULL DEFAULT 0,
+            `members_synced_at` datetime DEFAULT NULL,
+            `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_entra_group` (`microsoft_integration_id`,`entra_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entra_group_members` (
+            `group_id` int(11) NOT NULL,
+            `entra_user_id` varchar(64) NOT NULL,
+            PRIMARY KEY (`group_id`,`entra_user_id`),
+            KEY `entra_user_id` (`entra_user_id`),
+            CONSTRAINT `entra_group_members_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `entra_groups` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entra_licenses` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `sku_id` varchar(64) NOT NULL,
+            `sku_part_number` varchar(100) NOT NULL DEFAULT '',
+            `friendly_name` varchar(150) NOT NULL DEFAULT '',
+            `capability_status` varchar(20) DEFAULT NULL,
+            `units_enabled` int(11) NOT NULL DEFAULT 0,
+            `units_suspended` int(11) NOT NULL DEFAULT 0,
+            `units_warning` int(11) NOT NULL DEFAULT 0,
+            `units_consumed` int(11) NOT NULL DEFAULT 0,
+            `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_entra_sku` (`microsoft_integration_id`,`sku_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `entra_user_licenses` (
+            `microsoft_integration_id` int(11) NOT NULL,
+            `entra_user_id` varchar(64) NOT NULL,
+            `sku_id` varchar(64) NOT NULL,
+            PRIMARY KEY (`microsoft_integration_id`,`entra_user_id`,`sku_id`),
+            KEY `sku_id` (`sku_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `intune_device_compliance` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `intune_device_id` varchar(100) NOT NULL,
+            `asset_id` int(11) DEFAULT NULL,
+            `policy_name` varchar(255) NOT NULL DEFAULT '',
+            `policy_state` varchar(30) NOT NULL DEFAULT '',
+            `setting_count` int(11) NOT NULL DEFAULT 0,
+            `user_principal_name` varchar(255) DEFAULT NULL,
+            `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `device` (`microsoft_integration_id`,`intune_device_id`),
+            KEY `asset_id` (`asset_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `intune_device_apps` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `microsoft_integration_id` int(11) NOT NULL,
+            `intune_device_id` varchar(100) NOT NULL,
+            `asset_id` int(11) DEFAULT NULL,
+            `app_name` varchar(255) NOT NULL DEFAULT '',
+            `app_version` varchar(100) DEFAULT NULL,
+            `publisher` varchar(255) DEFAULT NULL,
+            `synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `device` (`microsoft_integration_id`,`intune_device_id`),
+            KEY `asset_id` (`asset_id`),
+            KEY `app_name` (`app_name`(100))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+    }

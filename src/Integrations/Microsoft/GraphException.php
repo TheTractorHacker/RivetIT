@@ -27,6 +27,8 @@ class GraphException extends \RuntimeException
     public const TIME_LIMIT = 'time_limit';
     /** An account change was attempted while 'Allow RivetIT to change Entra accounts' is off. Nothing was sent. */
     public const WRITES_DISABLED = 'writes_disabled';
+    /** A delta (incremental) token is no longer valid (HTTP 410 / syncStateNotFound / resyncRequired): the caller must do a full sync and take a new token. */
+    public const DELTA_RESET = 'delta_reset';
     public const OTHER = 'other';
 
     public function __construct(

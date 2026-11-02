@@ -223,7 +223,7 @@ class IntuneAssetMapper {
         return intval(mysqli_insert_id($m));
     }
 
-    public function finishSyncLog(int $logId, array $stats): void {
+    public function finishSyncLog(int $logId, array $stats, bool $touchLastSync = true): void {
         $m      = $this->mysqli;
         $status = empty($stats['errors']) ? 'success' : 'failed';
         $errors = mysqli_real_escape_string($m, implode('; ', $stats['errors']));
@@ -236,8 +236,10 @@ class IntuneAssetMapper {
              WHERE id=$logId"
         );
 
-        mysqli_query($m,
-            "UPDATE microsoft_integrations SET last_sync_at = NOW() WHERE microsoft_integration_id = {$this->microsoftIntegrationId}"
-        );
+        if ($touchLastSync) {
+            mysqli_query($m,
+                "UPDATE microsoft_integrations SET last_sync_at = NOW() WHERE microsoft_integration_id = {$this->microsoftIntegrationId}"
+            );
+        }
     }
 }
