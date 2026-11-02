@@ -48,7 +48,7 @@ Found in RivetIT `agent/`, absent from RivetMSP `agent/`.
 | Remote MCP + audit pipeline | `mcp_server/`, `src/Redis` | AI/agent access with audit and rate limits; differentiator | M | Off by default; read-only first |
 | Redis cache, health endpoints, Cron Manager, Server status | `health/`, admin pages | Operability for a live multi-client box | S | `health/live.php` and `ready.php` are trivial wins |
 | OpenID Connect portal SSO | `OPENID_CONNECT_PORTAL.md` | Client portal sign-in without passwords | M | MSP already has per-client portal logins; map to contacts |
-| IT dashboard | `it_dashboard` | Needs a rework into an MSP ops dashboard (SLA, queue, utilization) | M | Check against MSP `dashboard` first |
+| IT dashboard | `it_dashboard` | Needs a rework into an MSP ops dashboard (SLA, queue, utilization) | M | Check against MSP `dashboard` first. **Done in RivetIT for reporting (issue #34, 2026-11):** headline KPI row on the reports hub, SLA Breach and Aging, Ticket Backlog and Asset Lifecycle reports, universal filters, PDF export and PDF / quarterly / per-group schedules (`docs/REPORTING.md`); porting these to the MSP tree is still open |
 | Design system (Tabler shell) | see `MSP_DESIGN_PORT_PLAN.md` | UI parity; MSP still on AdminLTE 4 | L | Already planned; blocked on clearing the 31 uncommitted MSP files |
 
 ### Port later or adapt heavily
@@ -109,7 +109,7 @@ dates there. RivetMSP column: Y have, P partial, N missing, **?** not yet inspec
 | Teams / Slack | ? | U | C both | Med |
 | SMS | N | U | U | Low until verified |
 | Mobile app | Y (Android) | C | C (limited; links out to web) | n/a |
-| Technician utilization reports, Power BI | P | C | U | Med |
+| Technician utilization reports, Power BI | P (utilization report, filters, PDF and scheduled delivery done in #34; Power BI views exist; Power BI live connection unverified) | C | U | Med |
 | Zapier / public API | Y API | C both | U | Low |
 
 ### 3.2 AI

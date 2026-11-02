@@ -163,6 +163,9 @@ The hub only lists reports you may open, and finance reports appear only when th
 | **Technician Performance** | Utilization, tickets closed and handling time per technician | Date range | CSV, Print |
 | **Customer Satisfaction** | How do people rate our service? | Date range | CSV, Print |
 | **RMM Health** | Which monitored devices raise the most alerts? | Date range | Print |
+| **SLA Breach and Aging** | Which tickets missed their response or resolution target, and how overdue are the open ones? | Date range, filters | CSV, PDF, Print |
+| **Ticket Backlog** | What is open now, how old is it, and how is the backlog trending? | Trend length, filters | CSV, PDF, Print |
+| **Asset Lifecycle and Warranty** | Which warranties have ended or are about to, and which devices are due for replacement? | Warranty window, replacement age, department, location | CSV, PDF, Print |
 | **Credential rotation** | Which credentials have not changed lately? | Days | Print |
 | **Credential rotation due** | Which credentials are overdue or due soon? | Days ahead | Print |
 | **Scheduled Reports** | Who gets which report by email? | — | — |
@@ -181,9 +184,13 @@ Most reports share the same **Date range** control.
 
 ### Export and print
 
-- **Export CSV** downloads the numbers behind the report as a spreadsheet-ready file (UTF-8, opens in Excel). The file name includes the report and the dates, for example `service_desk_2026-01-06_to_2026-09-29.csv`. It is only the main table of each report: the monthly series for **Service Desk & SLA**, the month list for **Tickets**, one row per day for **Day by Day**, one row per technician for **Technician Performance**, and one row per rating for **Customer Satisfaction**.
-- **Print** opens the browser's print dialog. The menus, filters and buttons are hidden on paper. Choose *Save as PDF* in that dialog to make a PDF.
-- Reports without **Export CSV** (**Tickets by Department**, **Time by Technician**, **RMM Health** and the credential reports) can only be printed.
+- **Export CSV** downloads the numbers behind the report as a spreadsheet-ready file (UTF-8, opens in Excel). The file name includes the report and the dates, for example `service_desk_2026-01-06_to_2026-09-29.csv`. Reports that draw several tables export all of them, one after another.
+- **Download PDF** makes a PDF on the server from the same tables, with the report name, the date range and the filters used, page numbers and a header row that repeats on every page. It always agrees with the CSV and the screen.
+- **Print** opens the browser's print dialog. The menus, filters and buttons are hidden on paper.
+
+### Filters on every ticket report
+
+The **Filters** button in the toolbar opens a panel with **Department**, **Location**, **Technician**, **Category**, **Priority**, **Status** and **Asset** (the asset report offers Department and Location). Pick what you need and click **Apply**; the button shows how many filters are active and **Clear** removes them. Filters combine with the date range, are kept when you save a view, and are printed on the PDF. They can only narrow what you may already see: a user limited to some departments never sees others, whatever filter is chosen.
 
 ### Who can open reports
 
@@ -193,11 +200,11 @@ Most reports share the same **Date range** control.
 
 **Reporting** is a simple on/off permission in the role editor. The built-in **Technician** role does not have it, so technicians never see **Reports** in the sidebar. To grant it, open the user menu → **Administration** → **Roles**, edit the role and switch **Reporting** on. It opens every report the role's other permissions allow.
 
-Reports are company-wide. They do not apply the department restrictions that limit what a person sees on the Dashboard and in lists, so give Reporting only to people who may see all departments' numbers.
+Reports respect department restrictions: a person limited to some departments sees only those departments' tickets and assets. Reports about company-wide money or settings (none of the reports above) are refused to restricted people. Scheduled reports run as the person who created them, so the same limits apply.
 
 ## Scheduled reports
 
-A schedule emails a short summary table of one report to a list of people on a fixed rhythm. It is a headline summary (a few key figures), not the full report and not an attachment. Recipients are told to sign in for the interactive report.
+A schedule sends a report to a list of people on a fixed rhythm. Choose how it arrives: a **headline summary** (a few key figures in the email), **tables in the email**, a **CSV download link** (valid for 7 days), or a **PDF attached to the email**. A schedule can also use one of your **saved views**, so the filters you saved are the ones that are sent.
 
 ![The Scheduled and Emailed Reports page](images/reports/18-schedules.png)
 
@@ -207,11 +214,15 @@ A schedule emails a short summary table of one report to a list of people on a f
 
 1. Open **Reports** → **Scheduled Reports**.
 2. Choose the **Report** (1). The list offers **Service Desk & SLA**, **Technician Performance**, **Ticket Summary** and **CSAT**. It also contains finance entries that do nothing useful unless the accounting module is on.
-3. Choose the **Frequency** (2): **Daily**, **Weekly** or **Monthly**.
-4. Type the **Recipients** (3). Use email addresses separated by commas, semicolons or spaces. They can be anyone, inside or outside the company; they do not have to be RivetIT users. Invalid entries are dropped, and at least one valid address is required.
+3. Choose the **Frequency** (2): **Daily**, **Weekly**, **Monthly** or **Quarterly** (every three months).
+4. Type the **Recipients** (3). Use email addresses separated by commas, semicolons or spaces. They must be active RivetIT agents or addresses an administrator approved under *Approved external recipients*; anything else is refused. You can leave this empty if you pick at least one recipient group (below).
 5. Click **Add** (4). The schedule starts as **Active** and has never been sent (*Last sent: Never*).
 
-The email is a table of headline figures for the current month or year (for example opened, resolved, open now and SLA percentages for **Service Desk & SLA**). The subject reads *<Company name> report: <report name> (<date>)*.
+### Recipient groups: a different view for each audience
+
+Under the form, **Recipient groups** holds named lists such as *Executives* or *Service desk leads*. Add a group with a name and addresses, then tick it in **Also send to recipient groups** when you add a schedule and pick the saved view that group should receive (or keep the schedule's own report). One schedule can therefore send the executive summary to one group and the technician view to another. If one group's report fails (for example a saved view was deleted) the others are still sent and the schedule's status names the group that failed.
+
+A headline summary email is a table of figures for the current month or year (for example opened, resolved, open now and SLA percentages for **Service Desk & SLA**). The subject reads *<Company name> report: <report name> (<date>)*.
 
 ### Pause, resume or delete
 
@@ -219,11 +230,11 @@ In the list (5), **Pause** stops a schedule without losing it and turns the butt
 
 ### When does it send?
 
-The scheduler runs from RivetIT's cron job, which the installer sets to run every five minutes. On each run, an active schedule is sent when it has never been sent, or when its frequency has passed since **Last sent** (one day, seven days or one month). So the send time drifts to whenever the cron job first runs after the interval. Emails go into the mail queue and are delivered by your outgoing mail settings.
+The scheduler runs from RivetIT's cron job, which the installer sets to run every five minutes. On each run, an active schedule is sent when it has never been sent, or when its frequency has passed since **Last sent** (one day, seven days, one month or three months). So the send time drifts to whenever the cron job first runs after the interval. Emails go into the mail queue and are delivered by your outgoing mail settings.
 
 This depends on services outside the page: turn on **Enable Cron Job** under Administration → Settings → Notifications, make sure the server runs the cron entry, and configure outgoing mail under Administration → Settings → Mail. In the demo instance no mail server is connected, so the schedules are shown but nothing is sent.
 
-Anyone who can open Reports can add, pause or delete schedules; there is no separate permission. Keep in mind that a schedule sends company-wide figures to whatever addresses are typed in.
+Anyone who can open Reports can see the schedules; adding, pausing or deleting one needs Reporting modify access, and a schedule can only be changed by the person who created it or an administrator. Recipient addresses are checked again every time cron sends.
 
 ## Tips and good practice
 

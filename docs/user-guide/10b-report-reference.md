@@ -211,6 +211,36 @@ Set **Days** (default 90). The table lists each credential whose password last c
 
 Set **Days ahead** (default 30). It lists credentials that have a rotation date on or before today plus that many days, soonest first. Overdue dates carry a red **(overdue)** badge. **Last Rotated** shows *never* when no rotation has been recorded. Click a credential name to open its details in a pop-up. Credentials without a rotation date never appear. Set the date in the credential's **Rotation Due** field. Only **Print** is available.
 
+## SLA Breach and Aging
+
+**Answers:** which tickets created in the date range missed a response or resolution target, how compliant each priority, technician and department is, and how long the open ones have been overdue.
+
+**Filters:** date range (default this month) and the universal filters (department, location, technician, category, priority, status, asset).
+
+**How to read it.** Only tickets that carry an SLA target count; SLA-exempt categories are left out. A ticket *breached* when its first response came after the response target, or it has no response and the target has passed, or it was resolved after the resolution target, or it is still open and the target has passed. An open ticket whose clock is paused (waiting on the customer, for example) is not counted as overdue. **SLA compliance** is the share of those tickets with no breach. **Overdue aging** buckets the open breached tickets by how long ago they should have been answered or resolved (under 4 hours, 4 to 24 hours, 1 to 3 days, 3 to 7 days, over 7 days). The last table lists the breached tickets, open ones first, with a link to each.
+
+**Export:** CSV, PDF, Print.
+
+## Ticket Backlog
+
+**Answers:** what is open right now, how old it is, who holds it, and whether the backlog is growing.
+
+**Filters:** trend length (4 to 52 weeks) and the universal filters.
+
+**How to read it.** *Open* means neither resolved nor closed. The snapshot tables show open tickets by age, status, priority, technician (including **Unassigned**) and department, each with the age in days of the oldest ticket. **Weekly backlog trend** gives, for each week ending on the day shown, the tickets opened, the tickets closed and the backlog at the end of the week. The last table lists the 25 oldest open tickets.
+
+**Export:** CSV, PDF, Print.
+
+## Asset Lifecycle and Warranty
+
+**Answers:** which warranties have ended or end soon, and which devices are old enough to replace.
+
+**Filters:** warranty window (30 to 365 days), replacement age (3 to 10 years), department and location. Needs access to Assets.
+
+**How to read it.** Age counts from the purchase date, or the install date when there is no purchase date. *Warranty expired* means the recorded end date is in the past; *expiring* means it falls inside the window. Assets with no warranty date or no purchase date are counted so you can see how complete the data is. The last table lists every asset whose warranty has ended or ends within the window, plus the devices older than the replacement age.
+
+**Export:** CSV, PDF, Print.
+
 ## Tips and good practice
 
 - Note the range line before quoting a figure, and export the CSV when you need to show your working.
