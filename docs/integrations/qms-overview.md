@@ -59,13 +59,13 @@ Module toggle pattern (Training), role permission rows, `rivetEmitEvent` and the
 - [x] UI mockup approved (content only; real pages use RivetIT styles)
 - [x] Architecture, credential design, hub decision (this document)
 - [x] API contract (`qms-api-contract.md`, `docs/QUALITY_CONTRACT.md`, OpenAPI). *Agreement with the QMS repository is still to be confirmed by its owner.*
-- [x] Phase 1: module switch (`settings.config_module_enable_quality`, DB 2.6.261), admin settings page (Administration > Quality), portal route and navigation gating, cron gating, API route gating (no agent navigation). Role module `module_quality` is deliberately not added: only administrators reach the settings page.
+- [x] Phase 1: module switch (`settings.config_module_enable_quality`, DB 2.6.230), admin settings page (Administration > Quality), portal route and navigation gating, cron gating, API route gating (no agent navigation). Role module `module_quality` is deliberately not added: only administrators reach the settings page.
 - [x] Phase 2: integration clients and token endpoint (PR 1 of #52)
 - [x] Single sign-on provider (#55): RivetIT as an OpenID Connect provider for the QMS (`qms-sso.md`); the Quality module switch and the department list are enforced in `QualityAccessPolicy`
 - [x] Phase 3: QMS API client (`src/Quality/QmsClient.php`): pinned HTTPS, client credentials, per-user signed context, bounded retries, correlation ids, pagination; connection test and health on the admin page
 - [x] Phase 4: LMS API (courses, assignments, completions, evidence), idempotency (PR 1 of #52)
 - [x] Phase 5: employees and departments API, Odoo ID mapping, incremental sync (`qms-directory-sync.md`)
-- [x] Phase 6: outbound signed events with outbox, retry, dead letter, replay and reconciliation; inbound receiver with signature, replay protection and ID mapping; sync health; integration error log (DB 2.6.262)
+- [x] Phase 6: outbound signed events with outbox, retry, dead letter, replay and reconciliation; inbound receiver with signature, replay protection and ID mapping; sync health; integration error log (DB 2.6.231)
 - [x] Phase 7: employee and manager department portal pages with the "QMS unavailable" state
 - [x] Phase 8: kiosk page (counts, required training, document acknowledgment with PIN; no corrective-action details)
 - [x] Phase 9: tests (`tests/quality_module.php`, `tests/quality_ssrf.php`, mock QMS `tests/support/mock_qms.php`), docs

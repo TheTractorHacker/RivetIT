@@ -4,7 +4,7 @@ Everything is **off** until you switch it on. The pages, the event endpoint, the
 
 ## Before you start
 
-1. Take the database update (DB 2.6.261 and 2.6.262): Administration > Update > Update Database. It only adds tables and a column; nothing is switched on.
+1. Take the database update (DB 2.6.230 and 2.6.231): Administration > Update > Update Database. It only adds tables and a column; nothing is switched on.
 2. The department portal must be on (Settings > Portal), people must have portal logins, and the Training module must be on if you want assignments and completions to flow.
 3. Ask the QMS team for: its address, a client id and secret for RivetIT (the QMS token endpoint), and where to enter RivetIT's verification and signing secrets.
 4. If the QMS is on a private network, list that network under Administration > Webhooks > Allowed internal networks. Loopback, link-local and cloud-metadata addresses are never allowed.

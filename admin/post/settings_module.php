@@ -18,7 +18,7 @@ if (isset($_POST['edit_module_settings'])) {
     $config_module_enable_training = intval($_POST['config_module_enable_training'] ?? 0);
     $training_sql = !empty($config_training_schema_ready) ? ", config_module_enable_training = $config_module_enable_training" : "";
 
-    // Quality (issue #52): written only when the form carried the field (a stale form must not switch it off) and the 2.6.261 tables exist.
+    // Quality (issue #52): written only when the form carried the field (a stale form must not switch it off) and the 2.6.230 tables exist.
     require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
     if (($_POST['quality_present'] ?? '') === '1' && \ITFlow\Quality\QualityConfig::ready($mysqli)) {
         $old_quality = \ITFlow\Quality\QualityConfig::moduleOn($mysqli);

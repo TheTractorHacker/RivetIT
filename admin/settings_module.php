@@ -52,7 +52,7 @@ require_once "includes/inc_all_admin.php";
             <?php } ?>
 
             <?php
-            // Quality (issue #52): the switch for the whole integration with the quality management system. Offered once the 2.6.261 tables exist.
+            // Quality (issue #52): the switch for the whole integration with the quality management system. Offered once the 2.6.230 tables exist.
             require_once dirname(__DIR__) . '/vendor/autoload.php';
             if (\ITFlow\Quality\QualityConfig::ready($mysqli)) { $quality_on = \ITFlow\Quality\QualityConfig::moduleOn($mysqli); ?>
             <div class="form-group">

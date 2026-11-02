@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.261: the Quality module (#52), part 1. Everything is OFF: no switch is on, no URL, secret or department is set, no feature is enabled.
+    if ($rivetit_db_version() == '2.6.229') {
+        // DB 2.6.230: the Quality module (#52), part 1. Everything is OFF: no switch is on, no URL, secret or department is set, no feature is enabled.
         // settings.config_module_enable_quality   the module switch (Settings > Modules and Administration > Quality). Off = portal pages, API route, cron all stop.
         // quality_settings          one row (qs_id = 1): QMS address, machine credential, signing secrets, intervals, last test result (a side table because
         //                           `settings` is near the MariaDB row-size limit). qs_client_secret_enc / qs_*_secret_enc / qs_token_enc are encryptSetting() output.
@@ -12408,11 +12408,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
   KEY `idx_qel_at` (`qel_at`),
   KEY `idx_qel_area` (`qel_area`,`qel_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.261'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.230'");
     }
 
-    if ($rivetit_db_version() == '2.6.261') {
-        // DB 2.6.262: the Quality module (#52), part 2: events, replay protection, cursors and the QMS ID map. Additive and idempotent.
+    if ($rivetit_db_version() == '2.6.230') {
+        // DB 2.6.231: the Quality module (#52), part 2: events, replay protection, cursors and the QMS ID map. Additive and idempotent.
         // quality_outbox            events RivetIT sends to the QMS (HMAC-signed, versioned). qo_event_id is a deterministic id (type + resource + revision), so
         //                           producing the same change twice never queues it twice. Status: pending -> delivered, or dead after the attempt cap (replay from the admin page).
         // quality_inbound_events    events the QMS sent us. UNIQUE (source, event id) is the replay protection; a duplicate is acknowledged and not processed twice.
@@ -12471,5 +12471,5 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
   PRIMARY KEY (`qm_entity`,`qm_rivetit_id`),
   UNIQUE KEY `uniq_qm_qms` (`qm_entity`,`qm_qms_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.262'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.231'");
     }

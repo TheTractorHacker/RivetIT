@@ -29,7 +29,7 @@ $q_guard = static function () use ($session_is_admin, $mysqli, $q_back): void {
         $q_back();
     }
     if (!QualityConfig::ready($mysqli)) {
-        flash_alert('The database has not been updated for Quality yet (DB 2.6.261). Run Administration > Update > Update Database.', 'danger');
+        flash_alert('The database has not been updated for Quality yet (DB 2.6.230). Run Administration > Update > Update Database.', 'danger');
         $q_back();
     }
 };

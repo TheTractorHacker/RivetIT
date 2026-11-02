@@ -45,7 +45,7 @@ if ($q_ready) {
             Setup steps are in <code>docs/integrations/qms-configuration.md</code>; the contract the QMS must implement is <code>docs/QUALITY_CONTRACT.md</code>.</p>
 
 <?php if (!$q_ready) { ?>
-        <div class="alert alert-warning mb-0">The database has not been updated for Quality yet (needs DB 2.6.261). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
+        <div class="alert alert-warning mb-0">The database has not been updated for Quality yet (needs DB 2.6.230). Take a backup, then run <strong>Administration &gt; Update &gt; Update Database</strong>.</div>
 <?php } else { ?>
 
 <?php if (is_array($q_new_secret)) { ?>

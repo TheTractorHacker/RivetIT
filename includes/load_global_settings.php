@@ -185,7 +185,7 @@ $config_module_enable_intune = intval($row['config_module_enable_intune'] ?? 0);
 // $config_training_schema_ready lets admin/post/settings_module.php skip the column until 2.6.91 has run.
 $config_module_enable_training = intval($row['config_module_enable_training'] ?? 0);
 $config_training_schema_ready  = is_array($row) && array_key_exists('config_module_enable_training', $row);
-$config_module_enable_quality  = intval($row['config_module_enable_quality'] ?? 0);   // Quality module switch (DB 2.6.261); the code asks ITFlow\Quality\QualityConfig::moduleOn(), which re-reads it
+$config_module_enable_quality  = intval($row['config_module_enable_quality'] ?? 0);   // Quality module switch (DB 2.6.230); the code asks ITFlow\Quality\QualityConfig::moduleOn(), which re-reads it
 
 // Employee self-service portal (2.6.137). ?? defaults mirror the column defaults; NULL sections = not migrated = every section on.
 $config_portal_home_sections = $row['config_portal_home_sections'] ?? null;
