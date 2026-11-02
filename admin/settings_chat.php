@@ -40,7 +40,7 @@ $secret_state = static fn (string $col): string => $cfg->rawSecret($col) !== '' 
     .chat-url span { flex: 0 0 15rem; max-width: 100%; color: var(--if-muted, var(--tblr-secondary)); font-size: .875rem; }
     .chat-url code { word-break: break-all; }
     .chat-switch small { display: block; margin: .1rem 0 .75rem 2.5rem; color: var(--if-muted, var(--tblr-secondary)); }
-    .chat-tag { font-size: .75rem; }
+    .chat-tag { font-size: .75rem; white-space: normal; text-align: left; }
     @media (max-width: 575.98px) { .chat-url span { flex-basis: 100%; } }
 </style>
 
