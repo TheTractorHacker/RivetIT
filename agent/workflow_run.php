@@ -52,7 +52,7 @@ $status_badge = [
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title me-auto">
             <i class="fas fa-fw fa-tasks me-2"></i><?= nullable_htmlentities($run['contact_name']) ?>
-            <span class="badge <?= $run['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?> ms-2"><?= ucfirst($run['type']) ?></span>
+            <span class="badge <?= ['onboarding' => 'text-bg-success', 'offboarding' => 'text-bg-danger'][$run['type']] ?? 'text-bg-info' ?> ms-2"><?= ucwords(str_replace('_', ' ', $run['type'])) ?></span>
             <span class="badge <?= $status_badge ?>"><?= ucwords(str_replace('_', ' ', $run['status'])) ?></span>
         </h3>
         <a href="contact_details.php?contact_id=<?= intval($run['contact_id']) ?>&client_id=<?= $client_id ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-left me-1"></i>Back to Contact</a>
@@ -80,7 +80,7 @@ $status_badge = [
     </div>
     <div class="card-body">
         <?php foreach ($tasks as $task) {
-            $is_open = in_array($task['status'], ['pending', 'blocked', 'running', 'action_failed', 'rejected'], true);
+            $is_open = in_array($task['status'], ['pending', 'blocked', 'running', 'action_failed', 'rejected', 'scheduled'], true);
             $due_state = $is_open ? \ITFlow\Workflow\DueDateResolver::state($task['due_at'], $now_ts) : null;
             $dep_titles = [];
             foreach (\ITFlow\Workflow\DependencyGraph::parse($task['depends_on']) as $dep_id) {
@@ -95,6 +95,8 @@ $status_badge = [
                         <i class="fas fa-minus-circle text-warning fa-lg"></i>
                     <?php } elseif ($task['status'] === 'blocked') { ?>
                         <i class="fas fa-lock text-secondary fa-lg" title="Waiting on other tasks"></i>
+                    <?php } elseif ($task['status'] === 'scheduled') { ?>
+                        <i class="far fa-calendar-alt text-info fa-lg" title="Scheduled"></i>
                     <?php } elseif ($task['status'] === 'running') { ?>
                         <i class="fas fa-cog fa-spin text-primary fa-lg" title="Running"></i>
                     <?php } elseif ($task['status'] === 'action_failed' || $task['status'] === 'rejected') { ?>
@@ -118,6 +120,7 @@ $status_badge = [
                         <?php if ($task['due_at']) { ?>
                             <span class="badge <?= $due_state === 'overdue' ? 'text-bg-danger' : ($due_state === 'due_soon' ? 'text-bg-warning' : 'text-bg-light text-secondary') ?>"><i class="far fa-clock me-1"></i><?= $due_state === 'overdue' ? 'Overdue &middot; ' : ($due_state === 'due_soon' ? 'Due soon &middot; ' : 'Due ') ?><?= nullable_htmlentities($task['due_at']) ?></span>
                         <?php } ?>
+                        <?php if ($task['status'] === 'scheduled') { ?><span class="badge text-bg-info"><i class="far fa-calendar-alt me-1"></i>Scheduled for <?= nullable_htmlentities($task['run_after']) ?></span><?php } ?>
                         <?php if ($task['status'] === 'blocked') { ?><span class="text-muted">Waiting for: <?= nullable_htmlentities(implode(', ', $dep_titles)) ?></span><?php } ?>
                     </div>
                     <?php if ($task['task_type'] === 'approval' && $task['status'] !== 'blocked') { ?>
@@ -163,6 +166,14 @@ $status_badge = [
                         <?php if ($session_is_admin) { ?>
                         <button type="button" class="btn btn-sm btn-outline-warning" title="Skip the approval (administrators only)" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
                         <?php } ?>
+                    <?php } elseif ($task['status'] === 'scheduled') { ?>
+                        <form action="post.php" method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="run_task_id" value="<?= intval($task['run_task_id']) ?>">
+                            <input type="hidden" name="run_id" value="<?= $run_id ?>">
+                            <button type="submit" name="run_scheduled_workflow_task_now" class="btn btn-sm btn-outline-primary" title="Run it now instead of waiting"><i class="fas fa-play"></i></button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-warning" title="Skip (cancels the scheduled action)" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
                     <?php } elseif ($task['status'] === 'blocked' || $task['status'] === 'running') { ?>
                         <span class="text-muted small"><?= $task['status'] === 'blocked' ? 'Blocked' : 'Running' ?></span>
                     <?php } elseif ($task['status'] === 'rejected') { ?>
@@ -199,7 +210,7 @@ $status_badge = [
                             <button type="submit" name="reopen_workflow_run_task" class="btn btn-sm btn-light" title="Reopen"><i class="fas fa-undo"></i></button>
                         </form>
                     <?php } ?>
-                    <?php if (in_array($task['status'], ['pending', 'action_failed', 'rejected'], true) && ($task['task_type'] !== 'approval' || $session_is_admin)) { ?>
+                    <?php if (in_array($task['status'], ['pending', 'action_failed', 'rejected', 'scheduled'], true) && ($task['task_type'] !== 'approval' || $session_is_admin)) { ?>
                         <div class="modal fade" id="skipTaskModal<?= intval($task['run_task_id']) ?>">
                             <div class="modal-dialog">
                                 <div class="modal-content">

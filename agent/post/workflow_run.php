@@ -154,6 +154,26 @@ if (isset($_POST['retry_workflow_run_task'])) {
     redirect("workflow_run.php?run_id=$run_id");
 }
 
+if (isset($_POST['run_scheduled_workflow_task_now'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    enforceUserPermission('module_client', 2);
+
+    $run_id = intval($_POST['run_id']);
+    $run = loadWorkflowRunOrDie($mysqli, $run_id);
+    $run_task_id = intval($_POST['run_task_id']);
+    $service = workflowServiceForTask($mysqli, $run_id, $run_task_id);
+
+    try {
+        $ok = $service->runScheduledNow($run_task_id, $session_user_id);
+        logAction("Contact", "Edit", "$session_name ran a scheduled workflow action early for {$run['contact_name']}", intval($run['contact_client_id']), intval($run['contact_id']));
+        flash_alert($ok ? 'The scheduled action ran' : 'The action failed; see the log below', $ok ? 'success' : 'error');
+    } catch (\DomainException $e) {
+        flash_alert($e->getMessage(), 'error');
+    }
+
+    redirect("workflow_run.php?run_id=$run_id");
+}
+
 if (isset($_POST['cancel_workflow_run'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_client', 2);

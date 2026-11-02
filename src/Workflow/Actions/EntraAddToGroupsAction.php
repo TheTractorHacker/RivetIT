@@ -22,6 +22,11 @@ class EntraAddToGroupsAction extends AbstractEntraAction
         return 'onboarding';
     }
 
+    public function templateTypes(): array
+    {
+        return ['onboarding', 'role_change', 'transfer'];
+    }
+
     public function validate(array $config): array
     {
         return ['upn' => $this->text($config, 'upn', 200, false, 'user principal name') ?: '{{employee_email}}', 'groups' => implode("\n", $this->groupsFrom($config, true))];

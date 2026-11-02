@@ -1565,11 +1565,17 @@ if (isset($_POST['start_employee_workflow'])) {
         redirect();
     }
 
+    require_once __DIR__ . '/../includes/workflow_variable_fields.php';
     $service = new \ITFlow\Workflow\WorkflowService($mysqli);
-    $run_id = $service->startRun($workflow_template_id, $contact_id, $session_user_id);
+    try {
+        $run_id = $service->startRun($workflow_template_id, $contact_id, $session_user_id, false, workflowVariablesFromRequest($_POST));
+    } catch (\InvalidArgumentException $e) {
+        flash_alert(nullable_htmlentities($e->getMessage()), 'error'); // an unanswered or invalid onboarding-form question
+        redirect();
+    }
 
     \ITFlow\Audit\AuditService::record(
-        $template['type'] === 'onboarding' ? 'workflow.onboarding_started' : 'workflow.offboarding_started',
+        'workflow.' . $template['type'] . '_started',
         $session_user_id,
         'contact',
         $contact_id,

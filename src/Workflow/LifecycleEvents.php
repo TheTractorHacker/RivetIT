@@ -3,7 +3,7 @@
 namespace ITFlow\Workflow;
 
 /**
- * Employee lifecycle events: employee.hired and employee.terminated.
+ * Employee lifecycle events: employee.hired, employee.terminated, employee.role_changed and employee.transferred.
  *
  * Detection is a pure comparison of a person's row before and after a change (detect()), called from every place that changes
  * employment data: the contact edit form, the people import and the Odoo directory sync. Events are recorded as audit events,
@@ -31,7 +31,7 @@ class LifecycleEvents
     /** The columns detect() compares. @return array<string,mixed>|null null when the person does not exist (yet) */
     public static function snapshot(\mysqli $mysqli, int $contactId): ?array
     {
-        $res = mysqli_query($mysqli, "SELECT contact_id, contact_client_id, contact_employment_status, contact_start_date, contact_expected_end_date, contact_employee_type FROM contacts WHERE contact_id = $contactId");
+        $res = mysqli_query($mysqli, "SELECT contact_id, contact_client_id, contact_employment_status, contact_start_date, contact_expected_end_date, contact_employee_type, contact_title FROM contacts WHERE contact_id = $contactId");
         $row = $res ? mysqli_fetch_assoc($res) : null;
 
         return $row ?: null;
@@ -72,6 +72,22 @@ class LifecycleEvents
             }
         }
 
+        // Role change: the job title changes from one real title to another (a first title being filled in is not a change).
+        // Transfer: the person moves from one department to another (being placed in a department for the first time is not a transfer).
+        // Neither fires for someone who is leaving or not yet active, so a departure never also looks like a transfer.
+        if ($before !== null && !in_array($status, self::LEAVING, true) && !in_array($status, ['archived'], true)) {
+            $t0 = mb_strtolower(trim((string) ($before['contact_title'] ?? '')));
+            $t1 = mb_strtolower(trim((string) ($after['contact_title'] ?? '')));
+            if ($t0 !== '' && $t1 !== '' && $t0 !== $t1) {
+                $events[] = 'employee.role_changed';
+            }
+            $d0 = (int) ($before['contact_client_id'] ?? 0);
+            $d1 = (int) ($after['contact_client_id'] ?? 0);
+            if ($d0 > 0 && $d1 > 0 && $d0 !== $d1) {
+                $events[] = 'employee.transferred';
+            }
+        }
+
         return $events;
     }
 
@@ -100,13 +116,18 @@ class LifecycleEvents
             if ($events) {
                 $gateway ??= new LiveActionGateway($mysqli);
                 foreach ($events as $event) {
-                    $gateway->audit($event, null, 'contact', $contactId, 'detected', $event === 'employee.hired' ? 'A new employee start was detected' : 'An employee departure was detected', [
+                    $summary = ['employee.hired' => 'A new employee start was detected', 'employee.terminated' => 'An employee departure was detected',
+                        'employee.role_changed' => 'A job title change was detected', 'employee.transferred' => 'A department transfer was detected'][$event] ?? 'An employee change was detected';
+                    $gateway->audit($event, null, 'contact', $contactId, 'detected', $summary, [
                         'contact_id' => $contactId,
                         'client_id' => (int) $after['contact_client_id'],
                         'employment_status' => (string) $after['contact_employment_status'],
                         'employee_type' => (string) $after['contact_employee_type'],
                         'start_date' => (string) ($after['contact_start_date'] ?? ''),
                         'end_date' => (string) ($after['contact_expected_end_date'] ?? ''),
+                        'job_title' => (string) ($after['contact_title'] ?? ''),
+                        'previous_job_title' => (string) ($before['contact_title'] ?? ''),
+                        'previous_client_id' => (int) ($before['contact_client_id'] ?? 0),
                     ]);
                 }
             }

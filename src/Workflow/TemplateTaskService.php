@@ -92,6 +92,16 @@ class TemplateTaskService
             $actionConfig = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
+        $delay = null;
+        $delayRaw = trim((string) ($in['delay_days'] ?? ''));
+        if ($type === 'action' && $delayRaw !== '' && $delayRaw !== '0') {
+            if (!preg_match('/^\d{1,4}$/', $delayRaw) || (int) $delayRaw > 3650) {
+                throw new \InvalidArgumentException('The delay must be a whole number of days (1 to 3650).');
+            }
+            $delay = (int) $delayRaw;
+        }
+        $condition = TaskCondition::normalize($in['condition'] ?? null);
+
         return [
             'title' => $title,
             'category' => mb_substr(trim((string) ($in['category'] ?? '')), 0, 100) ?: null,
@@ -108,6 +118,8 @@ class TemplateTaskService
             'approver_role_id' => $approverRole,
             'action_type' => $actionType,
             'action_config' => $actionConfig,
+            'delay_days' => $delay,
+            'condition_json' => $condition,
         ];
     }
 
@@ -122,9 +134,9 @@ class TemplateTaskService
         $c = $this->normalize($templateId, 0, $in);
         $sort = (int) mysqli_fetch_row(mysqli_query($this->mysqli, "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM workflow_template_tasks WHERE workflow_template_id = $templateId"))[0];
         $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO workflow_template_tasks
-            (workflow_template_id, title, category, default_owner, instructions, required, sort_order, task_type, depends_on, assignee_user_id, due_offset_days, due_anchor, approver_type, approver_user_id, approver_role_id, action_type, action_config)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'issssiissiissiiss', $templateId, $c['title'], $c['category'], $c['default_owner'], $c['instructions'], $c['required'], $sort, $c['task_type'], $c['depends_on'], $c['assignee_user_id'], $c['due_offset_days'], $c['due_anchor'], $c['approver_type'], $c['approver_user_id'], $c['approver_role_id'], $c['action_type'], $c['action_config']);
+            (workflow_template_id, title, category, default_owner, instructions, required, sort_order, task_type, depends_on, assignee_user_id, due_offset_days, due_anchor, approver_type, approver_user_id, approver_role_id, action_type, action_config, delay_days, condition_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        mysqli_stmt_bind_param($stmt, 'issssiissiissiissis', $templateId, $c['title'], $c['category'], $c['default_owner'], $c['instructions'], $c['required'], $sort, $c['task_type'], $c['depends_on'], $c['assignee_user_id'], $c['due_offset_days'], $c['due_anchor'], $c['approver_type'], $c['approver_user_id'], $c['approver_role_id'], $c['action_type'], $c['action_config'], $c['delay_days'], $c['condition_json']);
         mysqli_stmt_execute($stmt);
         $id = (int) mysqli_insert_id($this->mysqli);
         mysqli_stmt_close($stmt);
@@ -139,9 +151,9 @@ class TemplateTaskService
             throw new \InvalidArgumentException('Task not found in this template.');
         }
         $c = $this->normalize($templateId, $templateTaskId, $in);
-        $stmt = mysqli_prepare($this->mysqli, 'UPDATE workflow_template_tasks SET title = ?, category = ?, default_owner = ?, instructions = ?, required = ?, task_type = ?, depends_on = ?, assignee_user_id = ?, due_offset_days = ?, due_anchor = ?, approver_type = ?, approver_user_id = ?, approver_role_id = ?, action_type = ?, action_config = ?
+        $stmt = mysqli_prepare($this->mysqli, 'UPDATE workflow_template_tasks SET title = ?, category = ?, default_owner = ?, instructions = ?, required = ?, task_type = ?, depends_on = ?, assignee_user_id = ?, due_offset_days = ?, due_anchor = ?, approver_type = ?, approver_user_id = ?, approver_role_id = ?, action_type = ?, action_config = ?, delay_days = ?, condition_json = ?
             WHERE template_task_id = ? AND workflow_template_id = ?');
-        mysqli_stmt_bind_param($stmt, 'ssssissiissiissii', $c['title'], $c['category'], $c['default_owner'], $c['instructions'], $c['required'], $c['task_type'], $c['depends_on'], $c['assignee_user_id'], $c['due_offset_days'], $c['due_anchor'], $c['approver_type'], $c['approver_user_id'], $c['approver_role_id'], $c['action_type'], $c['action_config'], $templateTaskId, $templateId);
+        mysqli_stmt_bind_param($stmt, 'ssssissiissiissisii', $c['title'], $c['category'], $c['default_owner'], $c['instructions'], $c['required'], $c['task_type'], $c['depends_on'], $c['assignee_user_id'], $c['due_offset_days'], $c['due_anchor'], $c['approver_type'], $c['approver_user_id'], $c['approver_role_id'], $c['action_type'], $c['action_config'], $c['delay_days'], $c['condition_json'], $templateTaskId, $templateId);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
     }

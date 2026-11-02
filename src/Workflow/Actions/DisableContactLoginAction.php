@@ -17,6 +17,11 @@ class DisableContactLoginAction extends AbstractAction
         return "Disable the employee's portal login";
     }
 
+    public function templateTypes(): array
+    {
+        return ['offboarding'];
+    }
+
     public function validate(array $config): array
     {
         return [];

@@ -34,6 +34,8 @@ final class RuleSummary
         'vault.credential_revealed' => 'a stored credential is revealed',
         'employee.hired' => 'an employee is hired',
         'employee.terminated' => 'an employee is terminated',
+        'employee.role_changed' => "an employee's job title changes",
+        'employee.transferred' => 'an employee moves to another department',
         'workflow.action_failed' => 'a workflow action fails',
         'workflow.completed' => 'a workflow is completed',
         'catalog.request_approved' => 'a catalog request is approved',

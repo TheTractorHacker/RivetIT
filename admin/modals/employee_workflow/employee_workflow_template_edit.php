@@ -35,6 +35,8 @@ ob_start();
             <select class="form-control select2" name="type" required>
                 <option value="onboarding" <?= $type === 'onboarding' ? 'selected' : '' ?>>Onboarding</option>
                 <option value="offboarding" <?= $type === 'offboarding' ? 'selected' : '' ?>>Offboarding</option>
+                <option value="role_change" <?= $type === 'role_change' ? 'selected' : '' ?>>Role change</option>
+                <option value="transfer" <?= $type === 'transfer' ? 'selected' : '' ?>>Department transfer</option>
             </select>
         </div>
 
@@ -42,6 +44,25 @@ ob_start();
             <label>Description</label>
             <textarea class="form-control" name="description" rows="3" placeholder="What this template is for / when to use it"><?= $description ?></textarea>
         </div>
+
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_active" value="1" id="tmplActive" <?= !empty($row['is_active']) ? 'checked' : '' ?>>
+            <label class="form-check-label" for="tmplActive">Active (can be started, and chosen by event rules)</label>
+        </div>
+
+        <h6 class="mb-1">Onboarding form <span class="text-muted small">(optional)</span></h6>
+        <p class="text-muted small mb-2">Questions asked when someone starts this workflow. Use an answer as <code>{{var.field_name}}</code> in action text, or to include a task only for some answers (task option &ldquo;Only when&rdquo;). Field names: lower-case letters, digits and underscores.</p>
+        <?php
+        $defs = \ITFlow\Workflow\TemplateVariables::definitions($row['variables_json'] ?? null);
+        for ($i = 0; $i < 6; $i++) { $d = $defs[$i] ?? ['name' => '', 'label' => '', 'type' => 'text', 'required' => false, 'default' => '', 'options' => []]; ?>
+        <div class="row g-1 mb-1">
+            <div class="col-4 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][name]" placeholder="field_name" maxlength="30" value="<?= nullable_htmlentities($d['name']) ?>"></div>
+            <div class="col-8 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][label]" placeholder="Question" maxlength="100" value="<?= nullable_htmlentities($d['label'] === $d['name'] ? '' : $d['label']) ?>"></div>
+            <div class="col-5 col-md-2"><select class="form-select form-select-sm" name="vars[<?= $i ?>][type]"><?php foreach (\ITFlow\Workflow\TemplateVariables::TYPES as $k => $l) { ?><option value="<?= $k ?>" <?= $d['type'] === $k ? 'selected' : '' ?>><?= $l ?></option><?php } ?></select></div>
+            <div class="col-7 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][options]" placeholder="Choices (comma separated)" maxlength="400" value="<?= nullable_htmlentities(implode(', ', $d['options'])) ?>"></div>
+            <div class="col-12 col-md-1"><label class="small text-nowrap"><input type="checkbox" name="vars[<?= $i ?>][required]" value="1" <?= $d['required'] ? 'checked' : '' ?>> Required</label></div>
+        </div>
+        <?php } ?>
     </div>
     <div class="modal-footer">
         <button type="submit" name="edit_employee_workflow_template" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save changes</button>

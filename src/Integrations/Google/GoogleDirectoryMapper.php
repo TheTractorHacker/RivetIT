@@ -295,9 +295,16 @@ class GoogleDirectoryMapper
             "SELECT contact_id FROM contacts WHERE contact_email='" . mysqli_real_escape_string($m, $email) . "' LIMIT 1"
         ));
 
+        // Lifecycle events: see MicrosoftDirectoryMapper::syncEmployee(). Only when 'Start workflows automatically' is on.
+        $lifecycle = \ITFlow\Workflow\LifecycleEvents::enabled($m);
+
         if ($matched) {
             $contact_id = intval($matched['contact_id']);
+            $lifecycleBefore = $lifecycle ? \ITFlow\Workflow\LifecycleEvents::snapshot($m, $contact_id) : null;
             $this->applyEmployeeFields($contact_id, $fullName, $mappedTargets, $employment_status, !$suspended, $contact_client_id);
+            if ($lifecycle && $lifecycleBefore !== null) {
+                \ITFlow\Workflow\LifecycleEvents::afterChange($m, $contact_id, $lifecycleBefore);
+            }
             return 'matched';
         }
 
@@ -321,6 +328,9 @@ class GoogleDirectoryMapper
         $setParts[] = 'contact_created_at=NOW()';
 
         mysqli_query($m, 'INSERT INTO contacts SET ' . implode(', ', $setParts));
+        if ($lifecycle) {
+            \ITFlow\Workflow\LifecycleEvents::afterChange($m, intval(mysqli_insert_id($m)), null);
+        }
 
         return 'created';
     }

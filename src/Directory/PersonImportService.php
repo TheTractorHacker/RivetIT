@@ -191,6 +191,7 @@ class PersonImportService
     {
         $created = 0;
         $updated = 0;
+        $createdIds = [];
 
         foreach ($approvedRows as $row) {
             $raw = $row['raw'];
@@ -246,12 +247,15 @@ class PersonImportService
                         contact_start_date = $startDate, contact_manager_id = $managerId,
                         contact_location_id = $locationId, contact_client_id = $clientId"
                 );
-                \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, (int) $this->mysqli->insert_id, null);
+                $newId = (int) $this->mysqli->insert_id;
+                \ITFlow\Workflow\LifecycleEvents::afterChange($this->mysqli, $newId, null);
+                $createdIds[] = $newId;
                 $created++;
             }
         }
 
-        return ['created' => $created, 'updated' => $updated];
+        // created_ids: the new people, for "start a workflow for everyone this import created" (BulkOnboarding). Callers keep it out of the stored summary.
+        return ['created' => $created, 'updated' => $updated, 'created_ids' => $createdIds];
     }
 
     private function findClientIdByName(string $name): ?int

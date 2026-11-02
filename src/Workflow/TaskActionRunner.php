@@ -3,6 +3,16 @@
 namespace ITFlow\Workflow;
 
 use ITFlow\Workflow\Actions\ActionInterface;
+use ITFlow\Workflow\Actions\ArchiveContactAction;
+use ITFlow\Workflow\Actions\AssignAssetAction;
+use ITFlow\Workflow\Actions\CollectAssetAction;
+use ITFlow\Workflow\Actions\ConnectorDeprovisionAction;
+use ITFlow\Workflow\Actions\ConnectorProvisionAction;
+use ITFlow\Workflow\Actions\EntraAssignLicenseAction;
+use ITFlow\Workflow\Actions\EntraRemoveLicenseAction;
+use ITFlow\Workflow\Actions\EntraSetAutoReplyAction;
+use ITFlow\Workflow\Actions\OdooDisableEmployeeAction;
+use ITFlow\Workflow\Actions\OdooProvisionEmployeeAction;
 use ITFlow\Workflow\Actions\CreateTicketAction;
 use ITFlow\Workflow\Actions\AbstractEntraAction;
 use ITFlow\Workflow\Actions\DisableContactLoginAction;
@@ -42,7 +52,24 @@ class TaskActionRunner
     public static function defaultActions(): array
     {
         return [new CreateTicketAction(), new SendMailAction(), new NotifyUserAction(), new SendWebhookAction(), new DisableContactLoginAction(),
-            new EntraDisableAccountAction(), new EntraCreateAccountAction(), new EntraAddToGroupsAction()];
+            new EntraDisableAccountAction(), new EntraCreateAccountAction(), new EntraAddToGroupsAction(),
+            new EntraAssignLicenseAction(), new EntraRemoveLicenseAction(), new EntraSetAutoReplyAction(),
+            new AssignAssetAction(), new CollectAssetAction(), new ArchiveContactAction(),
+            new OdooProvisionEmployeeAction(), new OdooDisableEmployeeAction(),
+            new ConnectorProvisionAction(), new ConnectorDeprovisionAction()];
+    }
+
+    /** @return array<string,string> action_type => label for the actions usable in a template of this type (the template editor's list) */
+    public static function labelsFor(string $templateType): array
+    {
+        $out = [];
+        foreach (self::defaultActions() as $a) {
+            if (in_array($templateType, $a->templateTypes(), true)) {
+                $out[$a->type()] = $a->label();
+            }
+        }
+
+        return $out;
     }
 
     /** @return array<string,string> action_type => label (for the template editor); needs no database */
@@ -74,12 +101,9 @@ class TaskActionRunner
         if (is_string($config)) {
             $config = json_decode($config, true);
         }
-        if ($type === 'disable_contact_login' && $templateType !== 'offboarding') {
-            throw new \InvalidArgumentException('Disabling a login is only available in offboarding templates.');
-        }
-
-        if ($this->actions[$type] instanceof AbstractEntraAction && $this->actions[$type]->templateType() !== $templateType) {
-            throw new \InvalidArgumentException('That Entra action is only available in ' . $this->actions[$type]->templateType() . ' templates.');
+        $allowed = $this->actions[$type]->templateTypes();
+        if (!in_array($templateType, $allowed, true)) {
+            throw new \InvalidArgumentException('"' . $this->actions[$type]->label() . '" is only available in ' . implode(' / ', $allowed) . ' templates.');
         }
 
         return $this->actions[$type]->validate(is_array($config) ? $config : []);
@@ -101,7 +125,7 @@ class TaskActionRunner
      * Placeholder values and ids for one person. @param array<string,mixed> $contact row from loadContact()
      * @return array<string,mixed>
      */
-    public static function contextFor(array $contact, string $templateName, string $taskTitle, int $runId, int $runTaskId): array
+    public static function contextFor(array $contact, string $templateName, string $taskTitle, int $runId, int $runTaskId, array $answers = []): array
     {
         return [
             'contact_id' => (int) ($contact['contact_id'] ?? 0),
@@ -120,7 +144,8 @@ class TaskActionRunner
                 'template_name' => $templateName,
                 'run_id' => (string) $runId,
                 'task_title' => $taskTitle,
-            ],
+            ] + \ITFlow\Workflow\TemplateVariables::asPlaceholders($answers),
+            'answers' => $answers,
         ];
     }
 
@@ -128,7 +153,7 @@ class TaskActionRunner
     public static function loadContact(\mysqli $mysqli, int $contactId): ?array
     {
         $stmt = mysqli_prepare($mysqli, 'SELECT c.contact_id, c.contact_name, c.contact_email, c.contact_title, c.contact_start_date, c.contact_expected_end_date,
-                c.contact_client_id, c.contact_user_id, c.contact_manager_id, cl.client_name, m.contact_name AS manager_name, m.contact_email AS manager_email, m.contact_user_id AS manager_user_id
+                c.contact_client_id, c.contact_user_id, c.contact_manager_id, c.contact_employee_type, cl.client_name, m.contact_name AS manager_name, m.contact_email AS manager_email, m.contact_user_id AS manager_user_id
             FROM contacts c
             LEFT JOIN clients cl ON cl.client_id = c.contact_client_id
             LEFT JOIN contacts m ON m.contact_id = c.contact_manager_id
@@ -154,14 +179,15 @@ class TaskActionRunner
             return false;
         }
 
-        $task = mysqli_fetch_assoc(mysqli_query($this->mysqli, "SELECT t.*, r.contact_id, wt.name AS template_name
+        $task = mysqli_fetch_assoc(mysqli_query($this->mysqli, "SELECT t.*, r.contact_id, r.variables_json AS run_variables, wt.name AS template_name
             FROM workflow_run_tasks t
             JOIN workflow_runs r ON r.run_id = t.run_id
             LEFT JOIN workflow_templates wt ON wt.workflow_template_id = r.workflow_template_id
             WHERE t.run_task_id = $runTaskId"));
         $runId = (int) $task['run_id'];
         $contact = self::loadContact($this->mysqli, (int) $task['contact_id']) ?? [];
-        $ctx = self::contextFor($contact + ['contact_id' => (int) $task['contact_id']], (string) $task['template_name'], (string) $task['title'], $runId, $runTaskId);
+        $answers = json_decode((string) ($task['run_variables'] ?? ''), true);
+        $ctx = self::contextFor($contact + ['contact_id' => (int) $task['contact_id']], (string) $task['template_name'], (string) $task['title'], $runId, $runTaskId, is_array($answers) ? $answers : []);
         $type = (string) $task['action_type'];
         $config = json_decode((string) $task['action_config'], true);
         $config = is_array($config) ? $config : [];

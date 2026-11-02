@@ -1,6 +1,6 @@
 # Employee lifecycle workflows
 
-Onboarding and offboarding workflows are checklists tied to a person. A template (Administration > Tags & Categories >
+Onboarding, offboarding, role-change and department-transfer workflows are checklists tied to a person. A template (Administration > Tags & Categories >
 Employee Workflow Templates) is a list of tasks; starting it for a person copies the tasks onto a run, so editing a template
 later never changes a run already in progress. A template that uses none of the options below behaves exactly like the
 original flat checklist.
@@ -87,9 +87,51 @@ starts the chosen template for the person the event is about. It is idempotent: 
 or paused) of that template, further events start nothing. `employee.hired` can only start an onboarding template and
 `employee.terminated` an offboarding template.
 
-The Microsoft and Google directory syncs do not raise these events yet.
+* **`employee.role_changed`** is raised when a person's job title changes from one real title to another (filling in a first title is not a change). A rule starts a **role change** template.
+* **`employee.transferred`** is raised when a person moves from one department to another (a first placement is not a transfer). A rule starts a **department transfer** template.
+  A leaver (termination pending / terminated) never also raises these two.
+
+The **Microsoft and Google directory syncs raise all four events** (DB 2.6.213 changes nothing for them, the hook is code): a pre-hire whose account is now enabled is a hire, a disabled / suspended account is a departure, a changed Entra job title or department is a role change / transfer. They are recorded only when "Start workflows automatically" is on, and a brand-new person created by a sync counts as a hire only with a start date near today, so the first large sync stays quiet. A second identical sync raises nothing. Verified with fixtures against a scratch database; **not run against a real Entra tenant or Google Workspace**.
+
+## Role change and transfer workflows
+
+Template types: Onboarding, Offboarding, **Role change**, **Department transfer**. Starter templates are available under the template list (installed inactive). Typical tasks: update group memberships (Entra: add to groups, licences), collect or assign a device, update building access, notify the manager. After a transfer the Entra department attribute may still be the old one until the directory is updated; the Entra actions refuse an account whose department does not match the person's (the IT-9 check), so such a task becomes a manual task rather than touching a wrong account.
+
+## Onboarding form (variables) and conditional tasks
+
+On the template (Edit > Onboarding form) add up to 12 questions (text, yes/no, choose one, date; optionally required, with a default). The person starting the workflow answers them (on the person's page, the dry-run page, or as columns in a bulk CSV); answers are stored on the run and available as `{{var.field_name}}` in action text, always escaped. Automation (event rules) cannot ask: it takes the defaults, and a required question without a default is left empty.
+
+A task can be limited **"Only for some people"**: departments, job-title words, employee types, and form answers. A task whose condition the person does not meet is not copied onto that run at all (nothing to skip); a task that waited for it simply stops waiting. The dry run lists the tasks left out and why, and updates as you change an answer.
+
+## Delayed tasks
+
+An automated task can have **Delay (days)**: it runs no earlier than N days after the "Counted from" date (workflow start, employee start date or end date). Until then it is shown as **scheduled**; `cron/workflow_cron.php` (every 15 minutes) releases it. On the run page an agent can **run it now** or **skip it** (which cancels it for good). A scheduled task cannot be ticked off by hand. Cancelled and paused runs never fire scheduled tasks. A run is not complete while a required scheduled task is waiting. Scheduled tasks are not listed by `GET /api/v1/workflow_tasks.php` (it lists tasks a person can work).
+
+## More actions
+
+| Action | Template types | Does | Notes |
+|---|---|---|---|
+| Assign a device | any | Takes one unassigned, non-archived asset of the given type and stock status (default "Ready to Deploy") from the person's own department, links it to the person, sets the status (default "Deployed"), writes asset history and an audit event. Or assigns a specific asset ID of the same department. | One UPDATE claims the asset, so two workflows cannot take the same laptop. Running it again assigns no second device. No stock: becomes a manual task. Statuses must exist under Tags & Categories. |
+| Collect devices | any | Unlinks every device assigned to the person (optionally only some types), sets the status (default "Ready to Deploy"), history and audit. | |
+| Archive the record and portal login | offboarding | Archives the contact and their client-portal login (not a delete). The primary contact of a department is refused. | Use with Delay for "30 days after the end date". |
+| Entra: assign / remove Microsoft 365 licences | assign: onboarding, role change, transfer; remove: offboarding, role change, transfer | `assignLicense` for SKU GUIDs. | Same gate as the other Entra actions (the "Allow ... to change Entra accounts" setting, the department check). The user needs a usage location for an add. |
+| Entra: set the mailbox automatic reply | offboarding | PATCH `mailboxSettings` automatic replies on, message as written (placeholder values from the directory are HTML-escaped). | Needs the `MailboxSettings.ReadWrite` application permission. |
+| Odoo: create / archive the employee | onboarding / offboarding | Creates `hr.employee` (unless the work email exists) / sets `active=false` (never unlink). | **Off unless Administration > Employee Workflow Templates > "Allow workflows to create / archive employees in Odoo" is ticked** (settings.config_lifecycle_odoo_actions, DB 2.6.214). Odoo is a live system: verified against an in-process mock only. |
+| Identity system: create / disable the account (Active Directory, VPN, Okta, Google Workspace) | onboarding / offboarding | Calls the system's connector (`src/Workflow/Connectors/IdentityConnector`). | **The four connectors are stubs**: they refuse with "not connected" so the task becomes a manual task. A real connector implements `IdentityConnector` (idempotent, never deletes, never returns a password) and is registered with `ConnectorRegistry::register()`. |
+
+## Built-in presets and bulk start
+
+Template page > **Add a built-in preset**: Notify the manager (email), Phone extension, Building access (manager approval, then the badge task), Assign a laptop from stock, Collect equipment, Archive the record 30 days after the end date. A preset adds ordinary tasks you can edit; adding twice adds nothing. The template list can install an inactive **starter template** per type. No preset contains an Entra, Odoo or connector action.
+
+**Start for many people** (Administration > Employee Workflow Templates): paste email addresses or upload a CSV (`email` column, plus one column per onboarding-form question), preview, confirm. At most 200 per batch; a person with the workflow open is skipped; ambiguous or missing emails are reported, not guessed; the commit re-checks every row. The **People import** also offers "start an onboarding workflow for the people this import created" (a template with required questions is refused there; use the bulk page).
+
+## What is verified, and what is not
+
+Verified in `tests/lifecycle_automation_test.php` against a scratch database, a local Graph mock and an in-process Odoo mock: migrations, conditions, variables, scheduling, device actions, events and start rules, directory-sync events (fixtures), bulk start, presets. **UNVERIFIED LIVE:** the Entra actions (the original three plus licences and mailbox) on a real tenant; the Odoo actions on a real Odoo (the JSON-2 `create` / `write` call shapes follow Odoo's documented API but have not been run); all four identity connectors (stubs); the Microsoft / Google syncs raising events on a real directory. Slack / Teams approvals for workflow tasks are not built: they need the interactive Slack/Teams endpoint (issue #36).
 
 ## Database
+
+Migration 2.6.213 adds the role_change / transfer types, `variables_json`, `preset_key`, `delay_days`, `condition_json`, `run_after` and the `scheduled` task status; 2.6.214 adds `settings.config_lifecycle_odoo_actions`.
 
 Migration 2.6.134 adds the columns to `workflow_template_tasks` and `workflow_run_tasks`, the `paused` run status, the
 `workflow_task_log` table, `start_workflow` in `automation_rules.action_type`, and `settings.config_lifecycle_auto_start`.

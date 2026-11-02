@@ -28,6 +28,7 @@ class GraphClient
     /** Only needed for the account actions in lifecycle workflows (see docs/ENTRA_INTUNE_SETUP.md); off unless the admin enables them. */
     public const PERM_USERS_WRITE = 'User.ReadWrite.All';
     public const PERM_GROUPS_WRITE = 'Group.ReadWrite.All';
+    public const PERM_MAILBOX_WRITE = 'MailboxSettings.ReadWrite';
 
     private const USER_SELECT = 'id,displayName,mail,userPrincipalName,accountEnabled,department';
 
@@ -288,6 +289,28 @@ class GraphClient
         }
 
         return true;
+    }
+
+    /**
+     * Adds and/or removes licences (SKU GUIDs). Needs User.ReadWrite.All; the user must have a usage location for an add (Graph says so).
+     * @param string[] $add @param string[] $remove
+     */
+    public function assignLicense(string $userId, array $add, array $remove): void
+    {
+        $body = json_encode([
+            'addLicenses' => array_map(static fn (string $sku): array => ['skuId' => $sku, 'disabledPlans' => []], array_values($add)),
+            'removeLicenses' => array_values($remove),
+        ]);
+        $this->writeRequest('POST', '/users/' . rawurlencode($userId) . '/assignLicense', self::PERM_USERS_WRITE, $body);
+    }
+
+    /** Turns the mailbox automatic reply on for everyone (internal and external) with $message. Needs MailboxSettings.ReadWrite. */
+    public function setAutomaticReply(string $userId, string $message): void
+    {
+        $body = json_encode(['automaticRepliesSetting' => [
+            'status' => 'alwaysEnabled', 'externalAudience' => 'all', 'internalReplyMessage' => $message, 'externalReplyMessage' => $message,
+        ]], JSON_UNESCAPED_UNICODE);
+        $this->writeRequest('PATCH', '/users/' . rawurlencode($userId) . '/mailboxSettings', self::PERM_MAILBOX_WRITE, $body);
     }
 
     /** Find one user by UPN, then by mail. Null when none; throws when the mail address matches more than one user. */

@@ -84,6 +84,16 @@ $preview = $_SESSION['people_import_preview'] ?? null;
 
             <form action="post.php" method="post" autocomplete="off" class="d-inline">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+ <?php $bulk_templates = mysqli_fetch_all(mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL AND type = 'onboarding' ORDER BY name"), MYSQLI_ASSOC); if ($bulk_templates && $createCount > 0) { ?>
+                <div class="mb-3" style="max-width:520px">
+                    <label class="form-label" for="bulkWf">Also start an onboarding workflow for the <?= $createCount ?> new person(s)</label>
+                    <select class="form-select" id="bulkWf" name="bulk_workflow_template_id">
+                        <option value="0">No, just import</option>
+                        <?php foreach ($bulk_templates as $bt) { ?><option value="<?= intval($bt['workflow_template_id']) ?>"><?= nullable_htmlentities($bt['name']) ?></option><?php } ?>
+                    </select>
+                    <div class="form-text">Only people created by this import, not existing people that were updated. A template with a required onboarding-form question cannot be started this way: use <a href="bulk_onboarding.php">Start for many people</a>.</div>
+                </div>
+                <?php } ?>
                 <button type="submit" name="approve_people_import" class="btn btn-primary text-bold" <?= ($createCount + $updateCount) === 0 ? 'disabled' : '' ?>>
                     <i class="fas fa-check me-2"></i>Approve &amp; Import <?= $createCount + $updateCount ?> Row(s)
                 </button>

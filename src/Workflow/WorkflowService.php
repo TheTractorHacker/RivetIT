@@ -80,12 +80,17 @@ class WorkflowService
      * (in progress or paused) of this template; the check and the insert happen under a lock on the person's row, so two
      * events arriving together cannot start two runs.
      */
-    public function startRun(int $templateId, int $contactId, ?int $startedByUserId, bool $onlyIfNone = false): int
+    public function startRun(int $templateId, int $contactId, ?int $startedByUserId, bool $onlyIfNone = false, array $variables = []): int
     {
         $template = $this->one('SELECT * FROM workflow_templates WHERE workflow_template_id = ?', 'i', [$templateId]);
         if (!$template) {
             throw new \InvalidArgumentException("Workflow template $templateId not found");
         }
+        // The onboarding form. A person starting the run must answer the required questions; automation (onlyIfNone) cannot ask, so it
+        // takes the defaults. Checked before anything is written.
+        $answers = TemplateVariables::resolve(TemplateVariables::definitions($template['variables_json'] ?? null), $variables, !$onlyIfNone);
+        $answersJson = $answers ? json_encode($answers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+        $person = TaskActionRunner::loadContact($this->mysqli, $contactId) ?? [];
 
         mysqli_begin_transaction($this->mysqli);
         try {
@@ -96,8 +101,8 @@ class WorkflowService
                 return 0;
             }
 
-            $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO workflow_runs (workflow_template_id, contact_id, type, started_by) VALUES (?, ?, ?, ?)');
-            mysqli_stmt_bind_param($stmt, 'iisi', $templateId, $contactId, $template['type'], $startedByUserId);
+            $stmt = mysqli_prepare($this->mysqli, 'INSERT INTO workflow_runs (workflow_template_id, contact_id, type, started_by, variables_json) VALUES (?, ?, ?, ?, ?)');
+            mysqli_stmt_bind_param($stmt, 'iisis', $templateId, $contactId, $template['type'], $startedByUserId, $answersJson);
             mysqli_stmt_execute($stmt);
             $runId = (int) mysqli_insert_id($this->mysqli);
             mysqli_stmt_close($stmt);
@@ -105,12 +110,17 @@ class WorkflowService
             $contact = $this->one('SELECT contact_start_date, contact_expected_end_date FROM contacts WHERE contact_id = ?', 'i', [$contactId]) ?? [];
             $runStartedAt = (string) mysqli_fetch_row(mysqli_query($this->mysqli, "SELECT started_at FROM workflow_runs WHERE run_id = $runId"))[0];
 
-            $templateTasks = $this->all('SELECT * FROM workflow_template_tasks WHERE workflow_template_id = ? ORDER BY sort_order ASC, template_task_id ASC', 'i', [$templateId]);
+            // Tasks with a "only for ..." condition that this person does not meet are not copied at all; a dependency on one of them is
+            // dropped below, the same way a dependency on a deleted task is.
+            $templateTasks = array_values(array_filter(
+                $this->all('SELECT * FROM workflow_template_tasks WHERE workflow_template_id = ? ORDER BY sort_order ASC, template_task_id ASC', 'i', [$templateId]),
+                static fn (array $t): bool => TaskCondition::matches($t['condition_json'] ?? null, $person, $answers)
+            ));
             $map = []; // template_task_id => run_task_id
             $insert = mysqli_prepare($this->mysqli, "INSERT INTO workflow_run_tasks
                 (run_id, template_task_id, title, instructions, category, default_owner, required, sort_order, task_type, assignee_user_id, due_at,
-                 approver_type, approver_user_id, approver_role_id, approval_status, action_type, action_config)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                 approver_type, approver_user_id, approver_role_id, approval_status, action_type, action_config, run_after)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             foreach ($templateTasks as $task) {
                 $tid = (int) $task['template_task_id'];
                 $required = (int) $task['required'];
@@ -124,7 +134,12 @@ class WorkflowService
                 $approval = $type === 'approval' ? 'pending' : null;
                 $actionType = $type === 'action' ? $task['action_type'] : null;
                 $actionConfig = $type === 'action' ? $task['action_config'] : null;
-                mysqli_stmt_bind_param($insert, 'iissssiisissiisss', $runId, $tid, $task['title'], $task['instructions'], $task['category'], $task['default_owner'], $required, $sort, $type, $assignee, $due, $approverType, $approverUser, $approverRole, $approval, $actionType, $actionConfig);
+                // A delayed automated task: not before N days after the anchor (workflow start, start date or end date). Shown as 'scheduled'
+                // once it is otherwise ready; cron/workflow_cron.php releases it.
+                $runAfter = $type === 'action' && $task['delay_days'] !== null && (int) $task['delay_days'] > 0
+                    ? DueDateResolver::resolve((int) $task['delay_days'], (string) ($task['due_anchor'] ?? 'run'), $contact['contact_start_date'] ?? null, $contact['contact_expected_end_date'] ?? null, $runStartedAt)
+                    : null;
+                mysqli_stmt_bind_param($insert, 'iissssiisissiissss', $runId, $tid, $task['title'], $task['instructions'], $task['category'], $task['default_owner'], $required, $sort, $type, $assignee, $due, $approverType, $approverUser, $approverRole, $approval, $actionType, $actionConfig, $runAfter);
                 mysqli_stmt_execute($insert);
                 $map[$tid] = (int) mysqli_insert_id($this->mysqli);
             }
@@ -157,9 +172,9 @@ class WorkflowService
     }
 
     /** Idempotent start for automation: null when this person already has an open run of this template. */
-    public function startRunIfNone(int $templateId, int $contactId, ?int $startedByUserId): ?int
+    public function startRunIfNone(int $templateId, int $contactId, ?int $startedByUserId, array $variables = []): ?int
     {
-        $id = $this->startRun($templateId, $contactId, $startedByUserId, true);
+        $id = $this->startRun($templateId, $contactId, $startedByUserId, true, $variables);
 
         return $id > 0 ? $id : null;
     }
@@ -175,9 +190,9 @@ class WorkflowService
      * Dry run of startRun(): what would happen, in what order, with due dates resolved and what each action would do.
      * Strictly read-only: it writes nothing, queues nothing and sends nothing.
      *
-     * @return array{template: array<string,mixed>, contact: array<string,mixed>, tasks: list<array<string,mixed>>, warnings: list<string>}
+     * @return array{template: array<string,mixed>, contact: array<string,mixed>, tasks: list<array<string,mixed>>, warnings: list<string>, excluded: list<array{title:string,reason:string}>, variables: array<string,string>}
      */
-    public function previewRun(int $templateId, int $contactId): array
+    public function previewRun(int $templateId, int $contactId, array $variables = []): array
     {
         $template = $this->one('SELECT * FROM workflow_templates WHERE workflow_template_id = ?', 'i', [$templateId]);
         $contact = TaskActionRunner::loadContact($this->mysqli, $contactId);
@@ -185,7 +200,19 @@ class WorkflowService
             throw new \InvalidArgumentException('Template or person not found');
         }
         $now = (string) mysqli_fetch_row(mysqli_query($this->mysqli, 'SELECT NOW()'))[0];
-        $rows = $this->all('SELECT * FROM workflow_template_tasks WHERE workflow_template_id = ? ORDER BY sort_order ASC, template_task_id ASC', 'i', [$templateId]);
+        $defs = TemplateVariables::definitions($template['variables_json'] ?? null);
+        $answers = TemplateVariables::resolve($defs, $variables, false);
+        $allRows = $this->all('SELECT * FROM workflow_template_tasks WHERE workflow_template_id = ? ORDER BY sort_order ASC, template_task_id ASC', 'i', [$templateId]);
+        $rows = [];
+        $excluded = [];
+        foreach ($allRows as $r) {
+            $why = TaskCondition::why($r['condition_json'] ?? null, $contact, $answers);
+            if ($why === null) {
+                $rows[] = $r;
+            } else {
+                $excluded[] = ['title' => (string) $r['title'], 'reason' => $why];
+            }
+        }
         $byId = [];
         foreach ($rows as $r) {
             $byId[(int) $r['template_task_id']] = $r;
@@ -219,7 +246,7 @@ class WorkflowService
             $deps = array_values(array_filter(DependencyGraph::parse($r['depends_on'] ?? null), static fn ($d) => isset($byId[$d])));
             $what = '';
             if ($type === 'action') {
-                $ctx = TaskActionRunner::contextFor($contact, (string) $template['name'], (string) $r['title'], 0, 0);
+                $ctx = TaskActionRunner::contextFor($contact, (string) $template['name'], (string) $r['title'], 0, 0, $answers);
                 $what = $runner->describe((string) $r['action_type'], $r['action_config'], $ctx);
                 if (!$runner->has((string) $r['action_type'])) {
                     $warnings[] = 'Task "' . $r['title'] . '" uses an unknown action.';
@@ -240,6 +267,9 @@ class WorkflowService
                 'due_anchor' => (string) ($r['due_anchor'] ?? 'run'),
                 'assignee' => $this->userName($r['assignee_user_id'] !== null ? (int) $r['assignee_user_id'] : 0) ?: (string) $r['default_owner'],
                 'what' => $what,
+                'run_after' => $type === 'action' && $r['delay_days'] !== null && (int) $r['delay_days'] > 0
+                    ? DueDateResolver::resolve((int) $r['delay_days'], (string) ($r['due_anchor'] ?? 'run'), $contact['contact_start_date'] ?? null, $contact['contact_expected_end_date'] ?? null, $now)
+                    : null,
             ];
             if (($r['due_anchor'] ?? 'run') === 'start' && $r['due_offset_days'] !== null && empty($contact['contact_start_date'])) {
                 $warnings[] = 'Task "' . $r['title'] . '" is due relative to the start date, but this person has none; it falls back to the run start.';
@@ -260,7 +290,7 @@ class WorkflowService
         }
         unset($t);
 
-        return ['template' => $template, 'contact' => $contact, 'tasks' => $tasks, 'warnings' => $warnings];
+        return ['template' => $template, 'contact' => $contact, 'tasks' => $tasks, 'warnings' => $warnings, 'excluded' => $excluded, 'variables' => $answers];
     }
 
     private function userName(int $userId): string
@@ -366,6 +396,9 @@ class WorkflowService
         if ($t['status'] === 'running') {
             throw new \DomainException('This automated task is running right now.');
         }
+        if ($t['status'] === 'scheduled' && $verb === 'completed') {
+            throw new \DomainException('This automated task is scheduled for ' . $t['run_after'] . '. Run it now, or skip it to cancel it.');
+        }
         if ($t['status'] === 'rejected') {
             throw new \DomainException('This approval was rejected. Reopen it to ask again.');
         }
@@ -375,7 +408,7 @@ class WorkflowService
     public function reopenTask(int $runTaskId): void
     {
         $t = $this->task($runTaskId);
-        if (in_array($t['status'], ['pending', 'blocked', 'running'], true)) {
+        if (in_array($t['status'], ['pending', 'blocked', 'running', 'scheduled'], true)) {
             return;
         }
         $extra = '';
@@ -609,6 +642,11 @@ class WorkflowService
             if (!$run || in_array($run['status'], ['cancelled', 'paused'], true)) {
                 return;
             }
+            // A delayed action that is otherwise ready waits for its date (shown as 'scheduled'); the cron releases it.
+            mysqli_query($this->mysqli, "UPDATE workflow_run_tasks SET status = 'scheduled' WHERE run_id = $runId AND status = 'pending' AND task_type = 'action' AND attempts = 0 AND run_after IS NOT NULL AND run_after > NOW()");
+            if (mysqli_affected_rows($this->mysqli) > 0) {
+                $changed = true;
+            }
             foreach ($this->all("SELECT run_task_id FROM workflow_run_tasks WHERE run_id = ? AND status = 'pending' AND task_type = 'action' AND attempts = 0 ORDER BY sort_order, run_task_id", 'i', [$runId]) as $r) {
                 $this->runner()->run((int) $r['run_task_id'], null);
                 $changed = true;
@@ -627,6 +665,51 @@ class WorkflowService
                 return;
             }
         }
+    }
+
+    /**
+     * Releases delayed automated tasks whose date has come (cron/workflow_cron.php). Each task is claimed with one UPDATE, so two
+     * cron runs never release the same task twice. Cancelled and paused runs keep their tasks scheduled.
+     * @return int tasks released
+     */
+    public function releaseDueScheduled(int $limit = 200): int
+    {
+        $n = 0;
+        $rows = $this->all("SELECT t.run_task_id, t.run_id FROM workflow_run_tasks t JOIN workflow_runs r ON r.run_id = t.run_id AND r.status = 'in_progress'
+            WHERE t.status = 'scheduled' AND t.run_after <= NOW() ORDER BY t.run_after, t.run_task_id LIMIT " . max(1, $limit));
+        $runs = [];
+        foreach ($rows as $r) {
+            $id = (int) $r['run_task_id'];
+            mysqli_query($this->mysqli, "UPDATE workflow_run_tasks SET status = 'pending' WHERE run_task_id = $id AND status = 'scheduled' AND run_after <= NOW()");
+            if (mysqli_affected_rows($this->mysqli) === 1) {
+                $n++;
+                $runs[(int) $r['run_id']] = true;
+            }
+        }
+        foreach (array_keys($runs) as $runId) {
+            $this->advance($runId);
+            $this->refreshRunStatus($runId);
+        }
+
+        return $n;
+    }
+
+    /** "Run it now" on a scheduled task. @throws \DomainException */
+    public function runScheduledNow(int $runTaskId, ?int $userId): bool
+    {
+        $t = $this->task($runTaskId);
+        if ($t['status'] !== 'scheduled') {
+            throw new \DomainException('That task is not scheduled.');
+        }
+        if (in_array($t['run_status'], ['cancelled', 'paused'], true)) {
+            throw new \DomainException('This workflow is ' . $t['run_status'] . '.');
+        }
+        $this->runner()->log((int) $t['run_id'], $runTaskId, 'run_now', $t['action_type'], true, 0, 'scheduled task released early by an agent', $userId);
+        mysqli_query($this->mysqli, "UPDATE workflow_run_tasks SET status = 'pending', run_after = NOW() WHERE run_task_id = $runTaskId AND status = 'scheduled'");
+        $ok = $this->runner()->run($runTaskId, $userId);
+        $this->afterResolve((int) $t['run_id']);
+
+        return $ok;
     }
 
     private function notifyApprovers(array $task, array $contact): void

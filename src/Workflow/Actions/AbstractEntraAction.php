@@ -12,6 +12,11 @@ abstract class AbstractEntraAction extends AbstractAction
     /** Which template type may use the action: 'onboarding' or 'offboarding'. */
     abstract public function templateType(): string;
 
+    public function templateTypes(): array
+    {
+        return [$this->templateType()];
+    }
+
     /** @param array<string,mixed> $config */
     protected function upnFrom(array $config, array $ctx): string
     {
@@ -49,6 +54,12 @@ abstract class AbstractEntraAction extends AbstractAction
         }
 
         return $clean;
+    }
+
+    /** @param array<string,mixed> $config @return string[] licence SKU GUIDs */
+    protected function skus(array $config): array
+    {
+        return EntraAccountService::cleanGroupIds($config['skus'] ?? '');
     }
 
     protected function cleanName(string $s): string

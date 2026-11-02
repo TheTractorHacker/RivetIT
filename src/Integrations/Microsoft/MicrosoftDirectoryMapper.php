@@ -272,9 +272,17 @@ class MicrosoftDirectoryMapper
             "SELECT contact_id FROM contacts WHERE contact_email='$email_esc' LIMIT 1"
         ));
 
+        // Lifecycle events (employee.hired / terminated / role_changed / transferred) are detected by comparing the person before and after
+        // the sync wrote them; only when 'Start workflows automatically' is on (LifecycleEvents::enabled), so a sync never starts surprise workflows.
+        $lifecycle = \ITFlow\Workflow\LifecycleEvents::enabled($m);
+
         if ($matched) {
             $contact_id = intval($matched['contact_id']);
+            $lifecycleBefore = $lifecycle ? \ITFlow\Workflow\LifecycleEvents::snapshot($m, $contact_id) : null;
             $this->applyEmployeeFields($contact_id, $name_esc, $employment_status, $active, $contact_client_id, $mapped_set_sql);
+            if ($lifecycle && $lifecycleBefore !== null) {
+                \ITFlow\Workflow\LifecycleEvents::afterChange($m, $contact_id, $lifecycleBefore);
+            }
             return 'matched';
         }
 
@@ -287,6 +295,10 @@ class MicrosoftDirectoryMapper
              contact_employment_status='$employment_status', contact_archived_at=$archived_sql,
              contact_created_at=NOW()" . ($mapped_set_sql !== '' ? ", $mapped_set_sql" : '')
         );
+        if ($lifecycle) {
+            // A brand-new person counts as a hire only with a start date near today (LifecycleEvents::detect), so the first big sync is quiet.
+            \ITFlow\Workflow\LifecycleEvents::afterChange($m, intval(mysqli_insert_id($m)), null);
+        }
 
         return 'created';
     }

@@ -76,7 +76,7 @@ if (isset($_GET['contact_id'])) {
 
     // Master-plan Phase 9: employee lifecycle workflows for this person
     $sql_workflow_runs = mysqli_query($mysqli, "SELECT * FROM workflow_runs WHERE contact_id = $contact_id ORDER BY started_at DESC");
-    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
+    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
 
     // Master-plan Phase 2: per-person change history. Merges the two logging
     // systems that already record events against a contact rather than adding
@@ -368,7 +368,7 @@ if (isset($_GET['contact_id'])) {
                 </div>
                 <div class="card-body">
                     <?php if (mysqli_num_rows($sql_workflow_runs) === 0) { ?>
-                        <p class="text-muted mb-2">No onboarding/offboarding workflow has been started for this person.</p>
+                        <p class="text-muted mb-2">No lifecycle workflow (onboarding, offboarding, role change, transfer) has been started for this person.</p>
                     <?php } else { ?>
                         <?php while ($run = mysqli_fetch_assoc($sql_workflow_runs)) {
                             $run_status_badge = [
@@ -381,7 +381,7 @@ if (isset($_GET['contact_id'])) {
                         ?>
                             <div class="mt-1">
                                 <a href="workflow_run.php?run_id=<?= intval($run['run_id']) ?>">
-                                    <span class="badge <?= $run['type'] === 'onboarding' ? 'text-bg-success' : 'text-bg-danger' ?>"><?= ucfirst($run['type']) ?></span>
+                                    <span class="badge <?= ['onboarding' => 'text-bg-success', 'offboarding' => 'text-bg-danger', 'role_change' => 'text-bg-info', 'transfer' => 'text-bg-info'][$run['type']] ?? 'text-bg-secondary' ?>"><?= ucwords(str_replace('_', ' ', $run['type'])) ?></span>
                                 </a>
                                 <span class="badge <?= $run_status_badge ?>"><?= ucwords(str_replace('_', ' ', $run['status'])) ?></span>
                                 <span class="text-secondary small">started <?= date('Y-m-d', strtotime($run['started_at'])) ?></span>
@@ -391,18 +391,40 @@ if (isset($_GET['contact_id'])) {
 
                     <?php if (mysqli_num_rows($sql_workflow_templates) > 0) { ?>
                         <hr>
-                        <form action="post.php" method="post" class="d-flex gap-2">
+                        <?php require_once __DIR__ . '/includes/workflow_variable_fields.php'; $wf_templates = mysqli_fetch_all($sql_workflow_templates, MYSQLI_ASSOC); ?>
+                        <form action="post.php" method="post" class="d-flex gap-2 flex-wrap" id="startWorkflowForm">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
-                            <select class="form-control form-control-sm select2" name="workflow_template_id" style="max-width:250px" required>
+                            <select class="form-control form-control-sm select2" name="workflow_template_id" id="wfTemplateSelect" style="max-width:250px" required>
                                 <option value="">Select workflow</option>
-                                <?php while ($tmpl = mysqli_fetch_assoc($sql_workflow_templates)) { ?>
-                                    <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
+                                <?php foreach ($wf_templates as $tmpl) { ?>
+                                    <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucwords(str_replace('_', ' ', $tmpl['type'])) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
                                 <?php } ?>
                             </select>
+                            <?php foreach ($wf_templates as $tmpl) { $wf_defs = \ITFlow\Workflow\TemplateVariables::definitions($tmpl['variables_json']); if (!$wf_defs) { continue; } ?>
+                                <fieldset class="w-100 border rounded p-2 wf-vars" data-template="<?= intval($tmpl['workflow_template_id']) ?>" hidden disabled>
+                                    <legend class="small text-muted w-auto px-1 mb-1">Onboarding form</legend>
+                                    <?php workflowVariableFields($wf_defs, [], 'wv' . intval($tmpl['workflow_template_id'])); ?>
+                                </fieldset>
+                            <?php } ?>
                             <button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary js-skip-csrf" title="Dry run: shows what would happen without starting anything"><i class="fas fa-eye me-1"></i>Preview</button>
                             <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button>
                         </form>
+                        <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+                        (function () {
+                            var sel = document.getElementById('wfTemplateSelect');
+                            if (!sel) { return; }
+                            function sync() {
+                                document.querySelectorAll('#startWorkflowForm .wf-vars').forEach(function (fs) {
+                                    var on = fs.getAttribute('data-template') === sel.value;
+                                    fs.hidden = !on; fs.disabled = !on;
+                                });
+                            }
+                            sel.addEventListener('change', sync);
+                            if (window.jQuery) { window.jQuery(sel).on('change', sync); }
+                            sync();
+                        })();
+                        </script>
                     <?php } else { ?>
                         <hr>
                         <small class="text-muted">No workflow templates exist yet - create one under Admin &gt; Employee Workflow Templates.</small>

@@ -4,6 +4,12 @@ namespace ITFlow\Workflow\Actions;
 
 abstract class AbstractAction implements ActionInterface
 {
+    /** Template types this action may be used in (the editor hides it elsewhere and saving refuses it). */
+    public function templateTypes(): array
+    {
+        return ['onboarding', 'offboarding', 'role_change', 'transfer'];
+    }
+
     /** @param array<string,mixed> $config */
     protected function text(array $config, string $key, int $max, bool $required, string $label): string
     {
