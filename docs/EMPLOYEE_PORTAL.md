@@ -22,26 +22,26 @@ Sections an administrator turns off disappear (eight keys: `requests`, `approval
 - **Profile** (`client/profile.php`). Read-only title, manager, department, location, start date and a devices summary. The only editable fields are **phone and mobile**; the handler (`edit_my_contact_details`) updates the session contact only, accepts digits, spaces and `+ ( ) - . x #`, and ignores everything else posted.
 - **Request onboarding** (`client/onboarding_request.php`), see below.
 
-## Announcements (DB 2.6.221)
+## Announcements (DB 2.6.215)
 
 Administration > Settings > Portal announcements (`admin/portal_announcements.php`, administrators only, audit-logged). Title, plain-text body (escaped on output, never HTML), importance (information / important / urgent), who sees it (all departments or one department), publish and expiry time (blank = now / never) and pin. Employees see what is published, not expired and not removed, for all departments or their own, pinned and urgent first, at the top of the home page. A department id of 0 (admin preview) sees only the all-department ones. Invalid input (bad or impossible dates, expiry before publish, unknown department or importance, over-long text) is refused with a message and saves nothing.
 
-## Help articles and device facts (DB 2.6.222)
+## Help articles and device facts (DB 2.6.216)
 
 - Home **Help articles** (needs the Knowledge Base module): Popular = most read in the last 30 days, New and updated = newest changes. Only articles the portal already lets that contact read (client visible, company-wide or their department, not archived). Reads are counted in `kb_article_views` when a real contact opens `kb_article.php` (once per contact per article per hour; rows older than 180 days are pruned). A company-wide article's count includes reads from every department; only the aggregate is shown.
 - **My devices** (`assets.php`, employees): a card per device with type, make/model, serial, OS (asset OS, else the RMM link's), status, warranty (date and days left; in warranty / ends soon (60 days) / ended), purchase and in-service dates, and **last seen** (newest of the built-in agent's last check-in and the RMM link's last sync) with "Restart needed" when the agent reports it. No notes, IPs, credentials or logged-in user.
 
-## Notification feed (DB 2.6.223)
+## Notification feed (DB 2.6.217)
 
 `client/notifications.php` plus a badge on the nav. Built from existing data, nothing is sent: announcements, staff replies and closures on the contact's own requests (30 days), approvals waiting on them, checklist tasks due within 3 days or overdue, and device warranties ending within 60 days (or ended in the last 30). **Mark all as read** (`mark_feed_read` in `client/post.php`, keyed on the session contact) stores a time in `portal_feed_state`; "sticky" items (approval, due task, warranty) stay unread until dealt with.
 
-## Employee API (DB 2.6.223) - UNVERIFIED LIVE
+## Employee API (DB 2.6.217) - UNVERIFIED LIVE
 
 `api/v1/portal_auth`, `portal_home`, `portal_devices[/id]`, `portal_checklist`, `portal_announcements`, `portal_notifications` (see `docs/API.md`, `api/v1/openapi.yaml`). A portal login signs in with `POST /portal_auth` and gets a token stored hashed in `portal_api_tokens`; it never touches `api_tokens`, so it cannot reach any staff endpoint and a staff token cannot reach these. Each request re-checks that the login is active, not archived, the portal is on and the contact and department are not archived; tokens idle for 90 days expire; sign-out revokes. Single sign-on accounts have no local password and cannot use it. No mobile app screens use it yet (the Android/iOS apps are separate repos).
 
 ## Verifying live (what Blake must do)
 
-Everything above was exercised on a scratch install only (`tests/employee_portal_i32.php`, `tests/browser/employee_portal_i32_smoke.mjs`). On beta / mwa after the update (migration 2.6.137 carries the earlier portal settings; 2.6.221-2.6.224 are new):
+Everything above was exercised on a scratch install only (`tests/employee_portal_i32.php`, `tests/browser/employee_portal_i32_smoke.mjs`). On beta / mwa after the update (migration 2.6.137 carries the earlier portal settings; 2.6.215-2.6.218 are new):
 
 1. Apply the database update; check Settings > Employee portal shows eight sections and Portal announcements opens.
 2. Sign in to the portal as a real employee (not an administrator) and a real department administrator; confirm the home pages, one announcement for all departments and one for a single department, Help articles, My devices with a device that has an agent, and the notification badge.
@@ -73,6 +73,6 @@ Before the migration runs, the portal reads these as "all sections on, onboardin
 
 ## Tests
 
-`php tests/employee_portal_i32.php` (scratch database plus a throwaway `php -S` server for the API; runs `tests/browser/employee_portal_i32_seed.php` first): announcements validation and scoping, help articles, device facts, the feed, the employee API and migrations 2.6.221-2.6.224. `tests/browser/employee_portal_i32_smoke.mjs`: real-browser check of the home, announcements admin page, feed and devices at 1280px and 390px, light and dark.
+`php tests/employee_portal_i32.php` (scratch database plus a throwaway `php -S` server for the API; runs `tests/browser/employee_portal_i32_seed.php` first): announcements validation and scoping, help articles, device facts, the feed, the employee API and migrations 2.6.215-2.6.218. `tests/browser/employee_portal_i32_smoke.mjs`: real-browser check of the home, announcements admin page, feed and devices at 1280px and 390px, light and dark.
 
 `php tests/employee_portal.php` (scratch database, see the header of the file): scoping between employees and departments, Mine filters, checklist and profile exposure, who may request onboarding, validation, idempotence, template and ticket paths, migration idempotence.

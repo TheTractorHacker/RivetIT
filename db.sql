@@ -11426,7 +11426,7 @@ CREATE TABLE IF NOT EXISTS `endpoint_agent_linux_files` (
   KEY `idx_current` (`name`,`is_current`,`active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Employee portal (issue #32): announcements, DB 2.6.221
+-- Employee portal (issue #32): announcements, DB 2.6.215
 CREATE TABLE IF NOT EXISTS `portal_announcements` (
   `announcement_id` int(11) NOT NULL AUTO_INCREMENT,
   `announcement_title` varchar(200) NOT NULL,
@@ -11444,7 +11444,7 @@ CREATE TABLE IF NOT EXISTS `portal_announcements` (
   KEY `idx_announcement_scope` (`announcement_client_id`,`announcement_archived_at`,`announcement_publish_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Employee portal: knowledge base views (Popular), DB 2.6.222
+-- Employee portal: knowledge base views (Popular), DB 2.6.216
 CREATE TABLE IF NOT EXISTS `kb_article_views` (
   `view_id` int(11) NOT NULL AUTO_INCREMENT,
   `view_article_id` int(11) NOT NULL,
@@ -11456,7 +11456,7 @@ CREATE TABLE IF NOT EXISTS `kb_article_views` (
   KEY `idx_kb_view_contact_at` (`view_contact_id`,`view_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Employee portal: employee API tokens and notification feed read marker, DB 2.6.223
+-- Employee portal: employee API tokens and notification feed read marker, DB 2.6.217
 CREATE TABLE IF NOT EXISTS `portal_api_tokens` (
   `token_id` int(11) NOT NULL AUTO_INCREMENT,
   `token_hash` char(64) NOT NULL,

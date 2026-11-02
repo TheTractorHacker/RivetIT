@@ -3,7 +3,7 @@
 namespace ITFlow\Portal;
 
 /**
- * Employee portal announcements (DB 2.6.221). A row is shown to every department (announcement_client_id = 0) or to one department.
+ * Employee portal announcements (DB 2.6.215). A row is shown to every department (announcement_client_id = 0) or to one department.
  * Reads for the portal take the signed-in contact's department from the session, never from the request. The body is plain text:
  * it is escaped on output and never treated as HTML, so an announcement cannot carry script.
  */
@@ -190,7 +190,7 @@ class Announcements
                 $out[] = $r;
             }
         } catch (\Throwable $e) {
-            return []; // table not migrated yet (DB 2.6.221): nothing to show, never a broken page
+            return []; // table not migrated yet (DB 2.6.215): nothing to show, never a broken page
         }
 
         return $out;

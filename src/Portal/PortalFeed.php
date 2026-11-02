@@ -109,7 +109,7 @@ class PortalFeed
         try {
             $this->db->query("INSERT INTO portal_feed_state SET feed_contact_id = $contactId, feed_seen_at = NOW() ON DUPLICATE KEY UPDATE feed_seen_at = NOW()");
         } catch (\Throwable $e) {
-            // portal_feed_state not migrated yet (DB 2.6.223)
+            // portal_feed_state not migrated yet (DB 2.6.217)
         }
     }
 

@@ -407,7 +407,7 @@ class EmployeeHome
             WHERE v.view_at >= NOW() - INTERVAL $days DAY AND " . $this->kbVisible($clientId) . "
             GROUP BY a.kb_article_id, a.kb_article_title ORDER BY read_count DESC, MAX(v.view_at) DESC, a.kb_article_id DESC LIMIT $limit");
         } catch (\Throwable $e) {
-            return []; // kb_article_views not migrated yet (DB 2.6.222)
+            return []; // kb_article_views not migrated yet (DB 2.6.216)
         }
     }
 
@@ -447,7 +447,7 @@ class EmployeeHome
                 $this->db->query("DELETE FROM kb_article_views WHERE view_at < NOW() - INTERVAL 180 DAY LIMIT 1000");
             }
         } catch (\Throwable $e) {
-            return false; // kb_article_views not migrated yet (DB 2.6.222)
+            return false; // kb_article_views not migrated yet (DB 2.6.216)
         }
 
         return true;

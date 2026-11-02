@@ -3,7 +3,7 @@
  * Issue #32 employee portal additions on a SCRATCH database (and a throwaway php -S server for the API):
  *   announcements (validation, department/all scoping, schedule/expiry/archive), KB popular + recent (visibility, dedupe), richer device facts,
  *   the notification feed (unread, sticky, mark read, scoping), the employee API (sign-in rules, token separation, scoping, 404 for other people's
- *   devices, lockout, 2FA prompt, disabled login / portal off), and migrations 2.6.221-2.6.224 (re-run changes nothing).
+ *   devices, lockout, 2FA prompt, disabled login / portal off), and migrations 2.6.215-2.6.218 (re-run changes nothing).
  * Needs a throwaway database holding this app's schema (import db.sql) AND a config.php pointing at that same database (the API runs the real
  * code through config.php):
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=rivetit_scratch_x RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/employee_portal_i32.php
@@ -117,17 +117,17 @@ $ok($feed->items(0, 1) === [] && $feed->items(21, 0) === [] && $feed->items(21, 
 $q("INSERT INTO ticket_replies SET ticket_reply = 'later', ticket_reply_type = 'Public', ticket_reply_by = 1, ticket_reply_ticket_id = 51, ticket_reply_created_at = NOW() + INTERVAL 1 SECOND");
 $ok(count(array_filter($feed->items(21, 1), fn($i) => $i['unread'] && $i['type'] === 'reply')) === 1, 'a reply after the read marker is unread again');
 
-// ---------------------------------------------------------------- migrations 2.6.221-2.6.224
+// ---------------------------------------------------------------- migrations 2.6.215-2.6.218
 $cols = fn() => (int) $one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('portal_announcements','kb_article_views','portal_api_tokens','portal_feed_state')");
 $ok($cols() === 4, 'the four new tables exist');
 $q("UPDATE settings SET config_current_database_version = '2.6.210', config_portal_home_sections = 'requests,devices'");
-define('LATEST_DATABASE_VERSION', '2.6.224'); define('CURRENT_DATABASE_VERSION', '2.6.210');
+define('LATEST_DATABASE_VERSION', '2.6.218'); define('CURRENT_DATABASE_VERSION', '2.6.210');
 require $root . '/admin/database_updates.php';
-$ok($one("SELECT config_current_database_version FROM settings") === '2.6.224' && $cols() === 4, 're-running the 2.6.221-2.6.224 blocks changes nothing but the version');
+$ok($one("SELECT config_current_database_version FROM settings") === '2.6.218' && $cols() === 4, 're-running the 2.6.215-2.6.218 blocks changes nothing but the version');
 $ok($one("SELECT config_portal_home_sections FROM settings") === 'requests,devices,announcements,kb', 'an install that chose its sections gets announcements and kb added');
 $q("UPDATE settings SET config_current_database_version = '2.6.210', config_portal_home_sections = ''");
-$q("UPDATE settings SET config_current_database_version = '2.6.223'");
-require $root . '/admin/database_updates.php';   // (the closure re-reads the version: 2.6.223 -> 2.6.224)
+$q("UPDATE settings SET config_current_database_version = '2.6.217'");
+require $root . '/admin/database_updates.php';   // (the closure re-reads the version: 2.6.217 -> 2.6.218)
 $ok($one("SELECT config_portal_home_sections FROM settings") === '', 'an install with every section off stays off');
 $ok(strpos((string) $one("SELECT column_default FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'settings' AND column_name = 'config_portal_home_sections'"), 'announcements,kb') !== false, 'column default includes the new sections');
 $q("UPDATE settings SET config_portal_home_sections = 'requests,approvals,devices,onboarding,training,catalog,announcements,kb'");

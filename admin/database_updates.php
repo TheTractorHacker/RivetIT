@@ -12343,8 +12343,8 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.210'");
     }
 
-    if ($rivetit_db_version() == '2.6.210') {
-        // DB 2.6.221 (issue #32, employee portal): announcements. One row is shown to every department (announcement_client_id = 0) or to
+    if ($rivetit_db_version() == '2.6.214') {
+        // DB 2.6.215 (issue #32, employee portal): announcements. One row is shown to every department (announcement_client_id = 0) or to
         // one department (the client id). Plain text body (escaped on output, never trusted as HTML). Additive and idempotent.
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `portal_announcements` (
             `announcement_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -12362,11 +12362,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             PRIMARY KEY (`announcement_id`),
             KEY `idx_announcement_scope` (`announcement_client_id`,`announcement_archived_at`,`announcement_publish_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.221'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.215'");
     }
 
-    if ($rivetit_db_version() == '2.6.221') {
-        // DB 2.6.222 (issue #32): knowledge base views from the portal, so the employee home can show Popular (most read in 30 days).
+    if ($rivetit_db_version() == '2.6.215') {
+        // DB 2.6.216 (issue #32): knowledge base views from the portal, so the employee home can show Popular (most read in 30 days).
         // One row per article opened by a signed-in contact. Additive and idempotent.
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `kb_article_views` (
             `view_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -12378,11 +12378,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             KEY `idx_kb_view_article_at` (`view_article_id`,`view_at`),
             KEY `idx_kb_view_contact_at` (`view_contact_id`,`view_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.222'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.216'");
     }
 
-    if ($rivetit_db_version() == '2.6.222') {
-        // DB 2.6.223 (issue #32): employee API. portal_api_tokens holds the sign-in tokens of the employee API (api/v1/portal_*), one row per
+    if ($rivetit_db_version() == '2.6.216') {
+        // DB 2.6.217 (issue #32): employee API. portal_api_tokens holds the sign-in tokens of the employee API (api/v1/portal_*), one row per
         // device, SHA-256 hash only; they are NOT api_tokens rows and never work on the staff API. portal_feed_state remembers when a contact
         // last marked their notification feed as read. Additive and idempotent.
         mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `portal_api_tokens` (
@@ -12402,15 +12402,15 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             `feed_seen_at` datetime NOT NULL,
             PRIMARY KEY (`feed_contact_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.223'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.217'");
     }
 
-    if ($rivetit_db_version() == '2.6.223') {
-        // DB 2.6.224 (issue #32): two new employee home sections, "announcements" and "kb" (popular and recent help articles). A fresh
+    if ($rivetit_db_version() == '2.6.217') {
+        // DB 2.6.218 (issue #32): two new employee home sections, "announcements" and "kb" (popular and recent help articles). A fresh
         // install gets them from the new column default; an install that already chose its sections gets them added unless it had switched
         // every section off (an empty list keeps meaning "show the original home page"). Idempotent.
         mysqli_query($mysqli, "ALTER TABLE `settings` MODIFY `config_portal_home_sections` varchar(120) NOT NULL DEFAULT 'requests,approvals,devices,onboarding,training,catalog,announcements,kb'");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_portal_home_sections` = CONCAT(`config_portal_home_sections`, ',announcements') WHERE `config_portal_home_sections` <> '' AND NOT FIND_IN_SET('announcements', `config_portal_home_sections`)");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_portal_home_sections` = CONCAT(`config_portal_home_sections`, ',kb') WHERE `config_portal_home_sections` <> '' AND NOT FIND_IN_SET('kb', `config_portal_home_sections`)");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.224'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.218'");
     }
