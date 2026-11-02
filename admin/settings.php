@@ -56,6 +56,7 @@ $settings_groups = [
             ['Remote access (MeshCentral) setup', 'Step-by-step help to connect your MeshCentral server, create the device group, trust its certificate and test Remote on a device.', 'settings_mesh_wizard.php', 'fa-desktop'],
             ['Calendar sync', 'Connect Outlook calendars.', 'settings_calendar_sync.php', 'fa-calendar-alt'],
             ['Webhooks', 'Send events to other systems.', 'settings_webhooks.php', 'fa-satellite-dish'],
+            ['Chat', 'Slack and Teams: two-way tickets, commands, actions, virtual agent.', 'settings_chat.php', 'fa-comments'],
             ['AI', 'Configure AI features.', 'settings_ai.php', 'fa-robot'],
             ['Telemetry', 'Manage usage data sharing.', 'settings_telemetry.php', 'fa-chart-line'],
         ],
