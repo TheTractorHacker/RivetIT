@@ -27,7 +27,7 @@ if ($sso_tables_ok) {
             department portal presses <strong>Open Quality</strong> and lands in Datum already signed in. RivetIT only shares a stable person id (and, if you allow it,
             the display name). Setup steps and the checks Datum must make are in <code>docs/integrations/qms-sso.md</code>.</p>
 
-        <?php $sso_admin_url = $sso_tables_ok ? OidcConfig::portalLoginUrl($mysqli) : null;
+        <?php $sso_admin_url = ($sso_tables_ok && \ITFlow\Quality\QualityConfig::moduleOn($mysqli)) ? OidcConfig::portalLoginUrl($mysqli) : null;
         if ($sso_admin_url !== null) { ?>
             <p><a href="<?php echo nullable_htmlentities($sso_admin_url); ?>" class="btn btn-primary" rel="noopener noreferrer"><i class="fas fa-fw fa-clipboard-check me-2"></i>Open Quality as administrator</a>
                 <span class="text-muted ms-2">Signs you in as yourself (an administrator, no department). Each use is logged below.</span></p>

@@ -2490,6 +2490,8 @@ CREATE TABLE `oidc_provider_settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+INSERT IGNORE INTO `oidc_provider_settings` (`ops_id`) VALUES (1);
+
 --
 -- Table structure for table `oidc_signing_keys`
 --
@@ -5169,6 +5171,7 @@ CREATE TABLE `settings` (
   `config_teams_app_secret` text DEFAULT NULL,
   `config_teams_tenant_id` varchar(64) NOT NULL DEFAULT '',
   `config_teams_link_by_email` tinyint(1) NOT NULL DEFAULT 0,
+  `config_module_enable_quality` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -11810,6 +11813,18 @@ CREATE TABLE `chat_identities` (
   UNIQUE KEY `uq_chat_identity` (`identity_platform`,`identity_team_id`,`identity_external_id`),
   KEY `idx_chat_identity_user` (`identity_user_id`),
   KEY `idx_chat_identity_contact` (`identity_contact_id`)
+--
+-- Table structure for table `quality_departments`
+--
+
+DROP TABLE IF EXISTS `quality_departments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_departments` (
+  `qd_client_id` int(11) NOT NULL,
+  `qd_enabled_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qd_enabled_by_user_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`qd_client_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -11833,6 +11848,25 @@ CREATE TABLE `chat_threads` (
   PRIMARY KEY (`thread_id`),
   UNIQUE KEY `uq_chat_thread` (`thread_platform`,`thread_channel_id`,`thread_ref`),
   KEY `idx_chat_thread_ticket` (`thread_ticket_id`,`thread_platform`)
+-- Table structure for table `quality_error_log`
+--
+
+DROP TABLE IF EXISTS `quality_error_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_error_log` (
+  `qel_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `qel_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qel_area` varchar(20) NOT NULL,
+  `qel_code` varchar(60) NOT NULL,
+  `qel_message` varchar(500) NOT NULL,
+  `qel_correlation_id` varchar(64) DEFAULT NULL,
+  `qel_http_status` smallint(6) DEFAULT NULL,
+  `qel_contact_id` int(11) DEFAULT NULL,
+  `qel_resource` varchar(80) DEFAULT NULL,
+  PRIMARY KEY (`qel_id`),
+  KEY `idx_qel_at` (`qel_at`),
+  KEY `idx_qel_area` (`qel_area`,`qel_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -11848,5 +11882,146 @@ CREATE TABLE `chat_kv` (
   `kv_value` mediumtext DEFAULT NULL,
   `kv_updated_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`kv_key`)
+-- Table structure for table `quality_features`
+--
+
+DROP TABLE IF EXISTS `quality_features`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_features` (
+  `qf_key` varchar(40) NOT NULL,
+  `qf_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `qf_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`qf_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT IGNORE INTO `quality_features` (`qf_key`) VALUES ('tasks'), ('documents'), ('training'), ('actions'), ('notifications'), ('history'), ('reports'), ('kiosk');
+
+--
+-- Table structure for table `quality_id_map`
+--
+
+DROP TABLE IF EXISTS `quality_id_map`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_id_map` (
+  `qm_entity` enum('employee','department') NOT NULL,
+  `qm_rivetit_id` int(11) NOT NULL,
+  `qm_odoo_id` varchar(40) DEFAULT NULL,
+  `qm_qms_id` varchar(64) NOT NULL,
+  `qm_updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`qm_entity`,`qm_rivetit_id`),
+  UNIQUE KEY `uniq_qm_qms` (`qm_entity`,`qm_qms_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `quality_inbound_events`
+--
+
+DROP TABLE IF EXISTS `quality_inbound_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_inbound_events` (
+  `qi_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `qi_source` varchar(30) NOT NULL,
+  `qi_event_id` varchar(64) NOT NULL,
+  `qi_type` varchar(60) NOT NULL,
+  `qi_payload_hash` char(64) NOT NULL,
+  `qi_status` enum('received','processed','ignored','failed') NOT NULL DEFAULT 'received',
+  `qi_error` varchar(300) DEFAULT NULL,
+  `qi_received_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qi_processed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`qi_id`),
+  UNIQUE KEY `uniq_qi_event` (`qi_source`,`qi_event_id`),
+  KEY `idx_qi_received` (`qi_received_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `quality_outbox`
+--
+
+DROP TABLE IF EXISTS `quality_outbox`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_outbox` (
+  `qo_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `qo_event_id` char(36) NOT NULL,
+  `qo_type` varchar(60) NOT NULL,
+  `qo_resource_type` varchar(30) NOT NULL,
+  `qo_resource_id` varchar(40) NOT NULL,
+  `qo_revision` int(11) NOT NULL DEFAULT 0,
+  `qo_payload` text NOT NULL,
+  `qo_status` enum('pending','delivered','dead') NOT NULL DEFAULT 'pending',
+  `qo_attempts` smallint(6) NOT NULL DEFAULT 0,
+  `qo_next_attempt_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qo_last_http_status` smallint(6) DEFAULT NULL,
+  `qo_last_error` varchar(300) DEFAULT NULL,
+  `qo_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `qo_delivered_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`qo_id`),
+  UNIQUE KEY `uniq_qo_event` (`qo_event_id`),
+  KEY `idx_qo_due` (`qo_status`,`qo_next_attempt_at`),
+  KEY `idx_qo_resource` (`qo_resource_type`,`qo_resource_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `quality_settings`
+--
+
+DROP TABLE IF EXISTS `quality_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_settings` (
+  `qs_id` tinyint(4) NOT NULL DEFAULT 1,
+  `qs_qms_url` varchar(500) DEFAULT NULL,
+  `qs_token_url` varchar(500) DEFAULT NULL,
+  `qs_client_id` varchar(190) DEFAULT NULL,
+  `qs_client_secret_enc` text DEFAULT NULL,
+  `qs_scope` varchar(255) NOT NULL DEFAULT 'quality:read quality:write',
+  `qs_outbound_secret_enc` text DEFAULT NULL,
+  `qs_inbound_secret_enc` text DEFAULT NULL,
+  `qs_token_enc` text DEFAULT NULL,
+  `qs_token_expires_at` datetime DEFAULT NULL,
+  `qs_all_departments` tinyint(1) NOT NULL DEFAULT 0,
+  `qs_events_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `qs_inbound_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `qs_sync_interval_minutes` smallint(6) NOT NULL DEFAULT 5,
+  `qs_reconcile_interval_hours` smallint(6) NOT NULL DEFAULT 24,
+  `qs_reauth_minutes` smallint(6) NOT NULL DEFAULT 15,
+  `qs_connect_timeout_s` smallint(6) NOT NULL DEFAULT 3,
+  `qs_total_timeout_s` smallint(6) NOT NULL DEFAULT 10,
+  `qs_last_test_at` datetime DEFAULT NULL,
+  `qs_last_test_ok` tinyint(1) DEFAULT NULL,
+  `qs_last_test_ms` int(11) DEFAULT NULL,
+  `qs_last_test_message` varchar(300) DEFAULT NULL,
+  `qs_last_ok_at` datetime DEFAULT NULL,
+  `qs_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `qs_updated_by_user_id` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`qs_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT IGNORE INTO `quality_settings` (`qs_id`) VALUES (1);
+
+--
+-- Table structure for table `quality_sync_state`
+--
+
+DROP TABLE IF EXISTS `quality_sync_state`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quality_sync_state` (
+  `qss_stream` varchar(40) NOT NULL,
+  `qss_cursor` varchar(64) DEFAULT NULL,
+  `qss_last_run_at` datetime DEFAULT NULL,
+  `qss_last_ok_at` datetime DEFAULT NULL,
+  `qss_last_full_at` datetime DEFAULT NULL,
+  `qss_last_error` varchar(300) DEFAULT NULL,
+  `qss_events_total` bigint(20) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`qss_stream`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

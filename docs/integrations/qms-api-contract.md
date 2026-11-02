@@ -1,6 +1,6 @@
 # QMS integration: API contract (draft v1)
 
-Status: draft for agreement with the QMS repository. **Implemented in RivetIT (PR 1 of #52):** `POST /oauth/token` and everything under `/lms`; the tables below say where shipped behaviour differs from the first draft. Also implemented (#55): the OpenID Connect provider below. Not built yet: employees and departments, events/webhooks, `POST /integrations/qms/events`, and the RivetIT-side QMS client. Base paths: RivetIT `/api/v1`, QMS `/api/v1`. All JSON, UTF-8, HTTPS. Versioned by path; breaking changes get `/v2`.
+Status: implemented in RivetIT. **The exact list of what the QMS must provide is `docs/QUALITY_CONTRACT.md`** (this page keeps the RivetIT-side endpoints and the history). Implemented: `POST /oauth/token`, everything under `/lms`, `/employees` and `/departments`, the OpenID Connect provider (#55), `POST /integrations/qms/events`, signed outbound events, and the RivetIT-side QMS client with the per-user context. Base paths: RivetIT `/api/v1`, QMS `/api/v1`. All JSON, UTF-8, HTTPS. Versioned by path; breaking changes get `/v2`.
 
 ## Conventions (both directions)
 
@@ -29,7 +29,7 @@ A client is limited to the departments chosen when it is created (a department i
 | `GET /lms/completions/{id}/evidence` | `lms:evidence:read` | **Built.** Streamed as an attachment after the web endpoint's visibility check (`EvidenceStore::canServe` with a service context); 404 if none, not allowed, or the file is missing |
 | `GET /employees`, `GET /employees/{id}` | `directory:read` | **Built.** id (RivetIT contact id), **odoo_employee_id** (the identity key), name, **work_email**, job_title, **department_id** (one department per person; the draft's `department_ids` list does not exist because a contact has a single `contact_client_id`), odoo_department_id, manager_id, employment_status, **active** (false = terminated or archived, deprovision), updated_at. Filters department_id, odoo_employee_id, updated_since. Name and work email were added to the draft's list at Datum's request; no phone, PIN, address, photo or notes. See [qms-directory-sync.md](qms-directory-sync.md) |
 | `GET /departments`, `GET /departments/{id}` | `directory:read` | **Built.** id (the `clients.client_id`), odoo_department_id, name, parent_id, head_employee_id, status (`active`, `inactive`, `on_hold`, `archived`), **active**, updated_at. Archived and inactive departments stay in the feed (tombstones); a CRM lead is not a department |
-| `POST /integrations/qms/events` | `quality:events` | *Not built yet.* inbound QMS events (signed) |
+| `POST /integrations/qms/events` | `quality:events` | **Built.** Inbound QMS events, additionally HMAC-signed (`X-Rivet-Signature-V2`) with the inbound secret; replay table, 64 KiB cap; `503 module_disabled` while Quality is off. Types `qms.employee.mapped`, `qms.department.mapped`, `qms.sync.requested`, `qms.requirement.changed`. See QUALITY_CONTRACT.md 7.4 |
 
 ## RivetIT identity provider (consumed by the QMS; OpenID Connect)
 
@@ -45,14 +45,14 @@ Implemented in #55. Not under `/api/v1`: the endpoints live at the issuer root a
 
 The ID token carries `iss`, `aud` (client id), `sub` (Odoo employee id, or `rivetit:<contact id>` when not linked), `rivetit_id`, `iat`, `nbf`, `exp` (5 minutes), `auth_time`, `nonce`, `amr`, `jti`, `at_hash`, and `name` on request. The `sso` capability is not an API scope: `POST /oauth/token` above never issues it, and an SSO token is refused on every `/api/v1` route.
 
-## QMS endpoints (consumed by RivetIT; proposed, to agree)
+## QMS endpoints (consumed by RivetIT; built on the RivetIT side, to be implemented by the QMS)
 
-`GET /me/quality/tasks`, `GET /me/quality/documents`, `POST /me/quality/documents/{id}/acknowledgments`, `GET /me/quality/training`, `GET /quality/actions`, `GET /quality/actions/{id}`, `POST /quality/actions/{id}/responses`, `GET /quality/reports/summary`, `GET /integrations/health`. The `/me/` routes act for the person in the signed per-user context; the QMS enforces its own authorization on every one.
+`GET /integrations/health`; employee: `GET /me/quality/{tasks,actions,documents,training,notifications,history}`, `POST /me/quality/documents/{id}/acknowledgments`, `POST /quality/actions/{id}/responses`; manager: `GET /quality/reports/summary`, `GET /quality/actions`, `GET /quality/tasks?status=overdue`, `GET /quality/training/compliance`, `GET /quality/documents/acknowledgments?status=pending`. Every `/me` and `/quality` route requires the signed per-user context (`X-Rivet-User-Context`, ES256, `typ` `rivetit-user-context+jwt`) and the QMS authorizes per person from it; a service token alone is refused. Fields, claims, errors and test vectors: `docs/QUALITY_CONTRACT.md`.
 
 ## Events (RivetIT -> QMS, and QMS -> RivetIT where noted)
 
 Envelope: `{"id":"uuid","type":"...","schema_version":1,"occurred_at":"RFC3339","source":"rivetit","resource":{"type":"...","id":"..."},"data":{...}}`.
-Types: `lms.assignment.created`, `lms.assignment.updated`, `lms.completion.recorded`, `lms.completion.corrected`, `employee.updated`, `employee.deactivated`, `department.updated`. Signed as in the security doc. Receivers must treat events as hints and re-fetch the resource.
+Types: `lms.assignment.created`, `lms.assignment.updated`, `lms.completion.recorded`, `lms.completion.corrected`, `employee.updated`, `employee.deactivated`, `department.updated`. Signed as in the security doc. Receivers must treat events as hints and re-fetch the resource. Built: RivetIT queues them (`quality_outbox`) and delivers to the QMS at `POST /integrations/rivetit/events`; the data of each type, the signature and the retry rules are in QUALITY_CONTRACT.md section 7.
 
 ## Example: assignment request
 
@@ -64,4 +64,4 @@ Idempotency-Key: 6c1d2d0e-9c9e-4a3e-9f58-2a1f6c7e1d11
 
 ## Open points for the QMS repository
 
-Agree the per-user context format, event envelope, `qms_id` ownership, health payload and the `/me/` routes; confirm it can verify RivetIT-signed assertions and store the Odoo employee ID.
+The RivetIT side of every point below is built to `docs/QUALITY_CONTRACT.md`; the QMS owner confirms: the per-user context format (ES256 JWT, section 3), the event envelope and signature (7), `qms_id` ownership (events `qms.employee.mapped`), the health payload and the `/me/` and `/quality/` routes, and that it stores the Odoo employee ID.

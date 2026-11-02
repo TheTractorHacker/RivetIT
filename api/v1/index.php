@@ -225,7 +225,7 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
     $integration_client = $int_auth['client'];
     $integration_scopes = $int_auth['scopes'];
     $int_directory = ($resource === 'employees' || $resource === 'departments');
-    if ($int_directory || $resource === 'lms') {
+    if ($int_directory || $resource === 'lms' || $resource === 'integrations') {
         // /lms, /employees and /departments are served by lms.php / directory.php, which apply their own lms:* / directory:read scopes and
         // department scope. They use no $api_user_id, no session user and no user permissions.
         if (!api_rate_limit('int:' . (int) $integration_client['client_id'], 600, 60)) {
@@ -235,6 +235,11 @@ if (preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $im) && \ITFlow\Integration\I
         if ($int_directory) {
             // The directory routes use $segments from the resource on ($segments[0] = employees|departments).
             require __DIR__ . '/directory.php';
+            exit;
+        }
+        if ($resource === 'integrations') {
+            // POST /integrations/qms/events (scope quality:events): signed events from the QMS (issue #52). Served by quality_events.php.
+            require __DIR__ . '/quality_events.php';
             exit;
         }
         require __DIR__ . '/lms.php';
@@ -289,8 +294,8 @@ if ($integration_client === null && !$api_user_id && !empty($_SERVER['HTTP_X_API
     header('WWW-Authenticate: Bearer');
     api_error(401, \ITFlow\Integration\LegacyKeys::MSG_REMOVED);
 }
-if ($integration_client === null && ($resource === 'lms' || $resource === 'employees' || $resource === 'departments')) {
-    // /lms, /employees and /departments accept integration access tokens only; no user token or session is ever honoured here.
+if ($integration_client === null && ($resource === 'lms' || $resource === 'employees' || $resource === 'departments' || $resource === 'integrations')) {
+    // /lms, /employees, /departments and /integrations accept integration access tokens only; no user token or session is ever honoured here.
     \ITFlow\Integration\ApiResponse::error(401, 'unauthorized', 'A valid integration access token is required.');
 }
 

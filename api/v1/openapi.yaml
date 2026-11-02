@@ -2643,6 +2643,43 @@ paths:
         '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
         '403': {$ref: '#/components/responses/IntegrationForbidden'}
         '404': {$ref: '#/components/responses/IntegrationNotFound'}
+  /integrations/qms/events:
+    post:
+      tags: [Integration]
+      summary: Signed event from the QMS
+      description: |
+        Scope `quality:events`. Served only while the Quality module and "Accept events from the QMS" are on (otherwise `503 module_disabled`). The request must ALSO carry
+        `X-Rivet-Signature-V2: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>" with the inbound signing secret>`; the timestamp must be within 5 minutes
+        (and not more than 1 minute ahead). The body is a JSON object of at most 64 KiB with `id` (8 to 64 characters, unique per event), `type`, `schema_version` (1),
+        `occurred_at` and `data`. A repeat of an event id with the same body is acknowledged as `duplicate` and not processed again; the same id with a different body is
+        `409 event_id_reuse`. Types: `qms.employee.mapped` (`qms_id` plus `rivetit_id` or `odoo_employee_id`; never matched by name), `qms.department.mapped`
+        (`qms_id`, `rivetit_id`), `qms.sync.requested` (`streams`), `qms.requirement.changed` (`external_ref`); an unknown type is recorded as `ignored`.
+      security: [{integrationAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, type, schema_version, occurred_at, data]
+              properties:
+                id: {type: string, example: "0f8a3c52-6b1e-4d27-9a64-3d1f0c9e7b21"}
+                type: {type: string, example: qms.employee.mapped}
+                schema_version: {type: integer, example: 1}
+                occurred_at: {type: string, example: "2026-11-01T14:03:22Z"}
+                data: {type: object, example: {qms_id: "p-2291", odoo_employee_id: "1842"}}
+      parameters:
+        - {name: X-Rivet-Signature-V2, in: header, required: true, schema: {type: string, example: "t=1793500000,v1=eb6c6837bb9f51d8a510764647b54f5b154e6457a0876faad02f7dec3bc7dabe"}}
+      responses:
+        '200': {description: Accepted, content: {application/json: {schema: {type: object, properties: {status: {type: string, enum: [processed, ignored, duplicate]}, id: {type: string}}}}}}
+        '400': {$ref: '#/components/responses/IntegrationBadRequest'}
+        '401': {$ref: '#/components/responses/IntegrationUnauthorized'}
+        '403': {$ref: '#/components/responses/IntegrationForbidden'}
+        '409': {description: The event id was already used with a different body}
+        '413': {description: Body larger than 64 KiB}
+        '415': {description: Send application/json}
+        '422': {description: Unsupported schema_version, or the event could not be applied (unknown or ambiguous person or department)}
+        '503': {description: The Quality module (or inbound events) is switched off}
   /portal_auth:
     post:
       tags: [Employee portal]
@@ -2824,7 +2861,7 @@ components:
             lms:completions:read: Read training completions
             lms:evidence:read: Download completion evidence files
             directory:read: Read the employee and department directory
-            quality:events: Reserved
+            quality:events: Send signed Quality events from the QMS (POST /integrations/qms/events)
           api:alerts:read: Read alerts
           api:alerts:write: Write alerts
           api:alerts:delete: Delete alerts

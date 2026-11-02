@@ -537,6 +537,23 @@ $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 
                     </li>
                 <?php } ?>
 
+                <?php
+                // Quality (issue #52): the link exists only for a department person whose department is enabled, with the module on and at least one page switched on.
+                // The pages check all of this again on the server; this only decides whether to show the link.
+                $portal_quality = null;
+                if (empty($portal_preview_active) && empty($_SESSION['kiosk_session']) && empty($_SESSION['kiosk_device']) && empty($_SESSION['is_kiosk'])) {
+                    try {
+                        $portal_quality = \ITFlow\Quality\QualityConfig::portalAccess($mysqli, intval($session_contact_id ?? 0), intval($session_client_id ?? 0));
+                    } catch (\Throwable $e) {
+                        $portal_quality = null;
+                    }
+                }
+                if ($portal_quality !== null && $portal_quality['pages']) { ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php if (in_array(basename($_SERVER['PHP_SELF']), ['quality.php', 'quality_manage.php'], true)) {echo "active";} ?>" href="/client/quality.php">Quality</a>
+                    </li>
+                <?php } ?>
+
                 <?php if ($config_module_enable_itdoc && ($session_contact_primary == 1 || $session_contact_is_technical_contact)) { ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle <?php echo in_array($portal_nav_page, $portal_resource_pages, true) ? 'active' : ''; ?>" href="#" id="navbarDropdown2" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

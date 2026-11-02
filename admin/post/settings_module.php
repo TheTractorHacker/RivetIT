@@ -18,6 +18,17 @@ if (isset($_POST['edit_module_settings'])) {
     $config_module_enable_training = intval($_POST['config_module_enable_training'] ?? 0);
     $training_sql = !empty($config_training_schema_ready) ? ", config_module_enable_training = $config_module_enable_training" : "";
 
+    // Quality (issue #52): written only when the form carried the field (a stale form must not switch it off) and the 2.6.230 tables exist.
+    require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+    if (($_POST['quality_present'] ?? '') === '1' && \ITFlow\Quality\QualityConfig::ready($mysqli)) {
+        $old_quality = \ITFlow\Quality\QualityConfig::moduleOn($mysqli);
+        $new_quality = intval($_POST['config_module_enable_quality'] ?? 0) === 1;
+        if ($old_quality !== $new_quality) {
+            \ITFlow\Quality\QualityConfig::setModule($mysqli, $new_quality);
+            \ITFlow\Audit\AuditService::record('quality.module_toggled', $session_user_id, 'settings', 1, $new_quality ? 'enabled' : 'disabled');
+        }
+    }
+
     $config_module_enable_mcp = isset($_POST['config_module_enable_mcp']) && $_POST['config_module_enable_mcp'] === '1' ? 1 : 0;
     $mcp_sql = !empty($config_mcp_schema_ready) ? ", config_module_enable_mcp = $config_module_enable_mcp" : "";
 
