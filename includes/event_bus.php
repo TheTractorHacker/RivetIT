@@ -126,6 +126,10 @@ function rivetEmitEvent(string $event, array $data): void
             }
             $context = \RivetCore\Automation\EventContext::flatten($autoData + ['event' => $event]);
             $engine = new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli));
+            if ($engine->listens($event)) {
+                // department / location / asset type / user group of what the event is about, so rules can use them in conditions (read only, nothing is overwritten)
+                $context = \ITFlow\Automation\PayloadEnricher::enrich($mysqli, $context);
+            }
             foreach ($engine->matching($event, $context) as $rule) {
                 if ($jobs !== null) {
                     $jobs->enqueue('automation.action', ['rule_id' => (int) $rule['rule_id'], 'event' => $event, 'context' => $context], null, 'automation', 0, 3);
@@ -234,8 +238,8 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
         return ['http_status' => $r['http_status'], 'duration_ms' => $r['duration_ms']];
     });
 
-    $worker->register('automation.action', static function (array $p) use ($mysqli) {
-        $res = rivetRunAutomationRule($mysqli, (int) ($p['rule_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['context'] ?? []));
+    $worker->register('automation.action', static function (array $p, array $job = []) use ($mysqli) {
+        $res = rivetRunAutomationRule($mysqli, (int) ($p['rule_id'] ?? 0), (string) ($p['event'] ?? ''), (array) ($p['context'] ?? []), max(1, (int) ($job['attempts'] ?? 1)));
         if (!$res['ok']) {
             throw new \RuntimeException($res['message']);
         }
@@ -249,9 +253,9 @@ function rivetRegisterJobHandlers(\RivetCore\Jobs\JobWorker $worker, $mysqli): v
 }
 
 /** Execute one event rule's action now (loop guard, rate limit and run log included). @return array{rule_id:int, ok:bool, message:string} */
-function rivetRunAutomationRule($mysqli, int $ruleId, string $event, array $context): array
+function rivetRunAutomationRule($mysqli, int $ruleId, string $event, array $context, int $attempt = 1): array
 {
-    $r = (new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli)))->run($ruleId, $event, $context);
+    $r = (new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli)))->run($ruleId, $event, $context, $attempt);
 
     return ['rule_id' => $r['rule_id'], 'ok' => $r['ok'], 'message' => $r['message']];
 }

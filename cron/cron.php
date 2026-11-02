@@ -952,6 +952,15 @@ try {
     error_log('SLA events skipped: ' . $e->getMessage());
 }
 
+// Events that are just time passing (asset offline, certificate expiring, credential rotation due, schedule.hourly/daily/weekly/monthly) for event rules and webhooks.
+// Only for events something listens to. Never fatal.
+try {
+    require_once dirname(__DIR__) . '/includes/event_bus.php';
+    \ITFlow\Automation\CronEmitters::run($mysqli, 'rivetEmitEvent');
+} catch (\Throwable $e) {
+    error_log('Automation clock events skipped: ' . $e->getMessage());
+}
+
 /*
  * ###############################################################################################################
  *  TICKET AUTOMATION RULES
