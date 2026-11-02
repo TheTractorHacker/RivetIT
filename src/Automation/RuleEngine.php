@@ -219,7 +219,7 @@ final class RuleEngine
     private array $runMeta = [];
     private ?bool $retryColumns = null;
 
-    /** Whether automation_rule_runs has the 2.6.227 columns (so code deployed before the update still logs runs). */
+    /** Whether automation_rule_runs has the 2.6.220 columns (so code deployed before the update still logs runs). */
     private function hasRetryColumns(): bool
     {
         if ($this->retryColumns === null) {

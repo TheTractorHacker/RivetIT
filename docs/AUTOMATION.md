@@ -139,12 +139,12 @@ duration), can show failed runs only, and shows throttled and loop-blocked rows.
 
 **Recipes** (`RuleRecipes`) prefill the editor and are offered only when their event is emitted by this edition, their action exists and (for status conditions) the installation has the ticket status they name.
 
-## Database (issue #33: migrations 2.6.226 - 2.6.229)
+## Database (issue #33: migrations 2.6.219 - 2.6.222)
 
-* 2.6.226: `automation_rules.action_type` gains `run_script`, `create_odoo_user`, `notify_chat`, `entra_disable_account`, `entra_add_to_groups`; `automation_rules.source_legacy_id` (unique) links an imported rule to its legacy rule.
-* 2.6.227: `automation_rule_runs` gains `context_json`, `attempt`, `trigger_source`, `retry_of_run_id` (+ index).
-* 2.6.228: `automation_emit_marks (kind, entity_id, mark)`, the once-only memory of the events cron raises.
-* 2.6.229: `settings.config_automation_run_script_enabled` (0), `config_automation_odoo_user_enabled` (0), `config_automation_cert_days` (30).
+* 2.6.219: `automation_rules.action_type` gains `run_script`, `create_odoo_user`, `notify_chat`, `entra_disable_account`, `entra_add_to_groups`; `automation_rules.source_legacy_id` (unique) links an imported rule to its legacy rule.
+* 2.6.220: `automation_rule_runs` gains `context_json`, `attempt`, `trigger_source`, `retry_of_run_id` (+ index).
+* 2.6.221: `automation_emit_marks (kind, entity_id, mark)`, the once-only memory of the events cron raises.
+* 2.6.222: `settings.config_automation_run_script_enabled` (0), `config_automation_odoo_user_enabled` (0), `config_automation_cert_days` (30).
 
 All idempotent. Code deployed before the update still logs runs (the engine checks for the new columns).
 

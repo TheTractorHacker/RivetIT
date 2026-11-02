@@ -227,7 +227,7 @@ final class RuleAdmin
         return true;
     }
 
-    /** Whether automation_rule_runs has the retry columns (DB 2.6.227). */
+    /** Whether automation_rule_runs has the retry columns (DB 2.6.220). */
     public static function hasRetryColumns(\mysqli $mysqli): bool
     {
         $res = @mysqli_query($mysqli, "SHOW COLUMNS FROM automation_rule_runs LIKE 'context_json'");
@@ -237,7 +237,7 @@ final class RuleAdmin
 
     /**
      * Run history of one rule, newest first. @return array{rows:list<array<string,mixed>>,total:int,counts:array<string,int>}
-     * Rows carry: run_id, rule_id, event_type, status, message, duration_ms, chain_depth, created_at, age (seconds), and (after DB 2.6.227)
+     * Rows carry: run_id, rule_id, event_type, status, message, duration_ms, chain_depth, created_at, age (seconds), and (after DB 2.6.220)
      * attempt (which try of the queue's MAX_ATTEMPTS), max_attempts, source (event|retry|manual), retry_of_run_id, retried_by_run_id (a later run that repeated it),
      * can_rerun (failed, kept its event, not yet repeated successfully).
      */

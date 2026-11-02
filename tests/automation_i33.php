@@ -83,7 +83,7 @@ $q("INSERT INTO assets SET asset_id = 3300, asset_name = 'LAPTOP-FIN-1', asset_t
 $q("INSERT INTO assets SET asset_id = 3301, asset_name = 'SRV-1', asset_type = 'Server', asset_client_id = 3300");
 
 // ================================================================ 1. schema facts
-$ok(version_compare((string) $one('SELECT config_current_database_version FROM settings WHERE company_id=1'), '2.6.229', '>='), 'database is at 2.6.229 or later');
+$ok(version_compare((string) $one('SELECT config_current_database_version FROM settings WHERE company_id=1'), '2.6.222', '>='), 'database is at 2.6.222 or later');
 $ok($one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name='automation_rule_runs' AND column_name IN ('context_json','attempt','trigger_source','retry_of_run_id')") == 4, 'run log has the retry columns');
 $ok($one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name='automation_emit_marks'") == 1, 'automation_emit_marks exists');
 $ok($one("SELECT config_automation_run_script_enabled + config_automation_odoo_user_enabled FROM settings WHERE company_id=1") == 0, 'the risky action switches default to OFF');
