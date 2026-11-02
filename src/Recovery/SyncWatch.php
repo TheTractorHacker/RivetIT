@@ -4,7 +4,9 @@ namespace ITFlow\Recovery;
 
 /**
  * Alerts for integration syncs that stopped running or keep failing: RMM (rmm_sync_log), Intune (intune_sync_log), UniFi
- * (unifi_sync_log) and ManageEngine MDM (mdm_sync_log). Per integration the watcher is in one of five states:
+ * (unifi_sync_log), ManageEngine MDM (mdm_sync_log), the scheduled Entra directory sync (microsoft_directory_sync_log, only while its cron
+ * switch is on) and the Entra groups / licenses / Intune detail syncs (entra_sync_log, only while one of them is on). Preview (dry run) rows
+ * are ignored everywhere: a preview must never make a stalled sync look alive. Per integration the watcher is in one of five states:
  *
  *   ok       (shown as "healthy") ran recently and is not failing
  *   stale    no run in 3x its expected interval
@@ -136,6 +138,19 @@ final class SyncWatch
         return $res('ok', 'last run ' . self::human($nowTs - $lastStart) . ' ago');
     }
 
+    /** Does this sync log have the dry_run column (DB 2.6.236 / 2.6.237)? Cached per table; false on any doubt, so nothing breaks before the migration. */
+    private static function hasDryRunColumn(\mysqli $db, string $table): bool
+    {
+        static $cache = [];
+        $key = spl_object_id($db) . ':' . $table;
+        if (!array_key_exists($key, $cache)) {
+            $r = @mysqli_query($db, "SHOW COLUMNS FROM `$table` LIKE 'dry_run'");
+            $cache[$key] = $r && mysqli_num_rows($r) > 0;
+        }
+
+        return $cache[$key];
+    }
+
     public static function human(int $seconds): string
     {
         $seconds = max(0, $seconds);
@@ -166,6 +181,12 @@ final class SyncWatch
                 $rmmModuleOn ? "SELECT id, name, UNIX_TIMESTAMP(created_at) AS created FROM rmm_integrations WHERE enabled = 1 AND (type IS NULL OR type <> 'rivetit_agent')" : null],
             ['intune', 'Intune', 'intune_sync_log', 'microsoft_integration_id',
                 "SELECT microsoft_integration_id AS id, 'Microsoft 365' AS name, NULL AS created FROM microsoft_integrations WHERE enabled = 1 AND intune_sync_enabled = 1"],
+            // Scheduled Entra directory sync: watched only when an administrator switched the cron run on (a manual-only sync is never "stale").
+            // Its expected interval is the configured one (expected_min), unless overridden.
+            ['entra', 'Entra directory', 'microsoft_directory_sync_log', 'microsoft_integration_id',
+                "SELECT microsoft_integration_id AS id, 'Microsoft 365 directory' AS name, NULL AS created, directory_cron_interval_min AS expected_min FROM microsoft_integrations WHERE enabled = 1 AND directory_sync_enabled = 1 AND directory_cron_enabled = 1"],
+            ['entrax', 'Entra groups/licenses/Intune details', 'entra_sync_log', 'microsoft_integration_id',
+                "SELECT microsoft_integration_id AS id, 'Microsoft 365 extras' AS name, NULL AS created, extras_interval_min AS expected_min FROM microsoft_integrations WHERE enabled = 1 AND (groups_sync_enabled = 1 OR licenses_sync_enabled = 1 OR (intune_details_enabled = 1 AND intune_sync_enabled = 1))"],
             ['unifi', 'UniFi', 'unifi_sync_log', 'integration_id',
                 'SELECT id, name, UNIX_TIMESTAMP(created_at) AS created FROM unifi_integrations WHERE enabled = 1'],
             // ManageEngine MDM: its own expected interval is the integration's configured sync interval (expected_min), used unless an administrator overrides it.
@@ -185,7 +206,8 @@ final class SyncWatch
                 $since = $forgotten !== null ? ' AND started_at >= FROM_UNIXTIME(' . $forgotten . ')' : '';
                 $runs = [];
                 $sched = [];
-                $q = @mysqli_query($db, "SELECT status, errors, triggered_by, UNIX_TIMESTAMP(started_at) AS s, UNIX_TIMESTAMP(finished_at) AS f FROM `$logTable` WHERE `$idCol` = $id$since ORDER BY id DESC LIMIT 10");
+                $noDry = self::hasDryRunColumn($db, $logTable) ? ' AND dry_run = 0' : '';
+                $q = @mysqli_query($db, "SELECT status, errors, triggered_by, UNIX_TIMESTAMP(started_at) AS s, UNIX_TIMESTAMP(finished_at) AS f FROM `$logTable` WHERE `$idCol` = $id$since$noDry ORDER BY id DESC LIMIT 10");
                 while ($q && ($r = mysqli_fetch_assoc($q))) {
                     $runs[] = ['status' => (string) $r['status'], 'error' => $r['errors'], 'started' => (int) $r['s'], 'finished' => $r['f'] === null ? null : (int) $r['f']];
                     if ((int) $r['triggered_by'] === 0) {

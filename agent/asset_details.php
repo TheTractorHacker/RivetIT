@@ -514,6 +514,51 @@ if (isset($_GET['asset_id'])) {
                 </div>
             </div>
         </div>
+        <?php
+        // Compliance policy states and detected apps (Entra / Intune "details" sync, DB 2.6.237; off unless an administrator switched it on). Cached rows only.
+        $intune_pol = [];
+        $intune_apps = [];
+        if (!empty($intune_link['details_synced_at'])) {
+            try {
+                $intune_dev_esc = mysqli_real_escape_string($mysqli, (string) $intune_link['intune_device_id']);
+                $intune_int_id = (int) $intune_link['microsoft_integration_id'];
+                $q = mysqli_query($mysqli, "SELECT policy_name, policy_state, setting_count FROM intune_device_compliance WHERE microsoft_integration_id = $intune_int_id AND intune_device_id = '$intune_dev_esc' ORDER BY policy_name");
+                while ($q && ($r = mysqli_fetch_assoc($q))) { $intune_pol[] = $r; }
+                $q = mysqli_query($mysqli, "SELECT app_name, app_version, publisher FROM intune_device_apps WHERE microsoft_integration_id = $intune_int_id AND intune_device_id = '$intune_dev_esc' ORDER BY app_name LIMIT 500");
+                while ($q && ($r = mysqli_fetch_assoc($q))) { $intune_apps[] = $r; }
+            } catch (\Throwable $e) { $intune_pol = []; $intune_apps = []; }
+        }
+        if ($intune_pol || $intune_apps): ?>
+        <div class="card card-dark mb-2">
+            <div class="card-body py-2 px-3">
+                <?php if ($intune_pol): ?>
+                <div class="small text-muted mb-1">Compliance policies (read <?= nullable_htmlentities($intune_link['details_synced_at']) ?>)</div>
+                <div class="mb-2">
+                    <?php foreach ($intune_pol as $pol):
+                        $pol_state = strtolower((string) $pol['policy_state']);
+                        $pol_badge = $pol_state === 'compliant' ? 'text-bg-success' : (in_array($pol_state, ['noncompliant', 'error', 'conflict'], true) ? 'text-bg-danger' : 'text-bg-secondary'); ?>
+                        <span class="badge <?= $pol_badge ?> me-1 mb-1" title="<?= (int) $pol['setting_count'] ?> settings"><?= nullable_htmlentities($pol['policy_name']) ?>: <?= nullable_htmlentities($pol['policy_state']) ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <?php if ($intune_apps): ?>
+                <details>
+                    <summary class="small"><?= count($intune_apps) ?> detected apps</summary>
+                    <div class="table-responsive mt-1" style="max-height:260px;overflow:auto">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>App</th><th>Version</th><th>Publisher</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($intune_apps as $app): ?>
+                                <tr><td><?= nullable_htmlentities($app['app_name']) ?></td><td class="text-muted"><?= nullable_htmlentities($app['app_version']) ?></td><td class="text-muted"><?= nullable_htmlentities($app['publisher']) ?></td></tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
 
         <?php

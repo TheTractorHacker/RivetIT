@@ -23,7 +23,7 @@ $git_log_raw = shell_exec("git log HEAD.." . escapeshellarg(RELEASE_REMOTE . '/'
 $channel_status = $updates->channel_status;
 $channels = releaseChannels();
 
-$update_checks = updateChecks(dirname(__DIR__), defined('CURRENT_DATABASE_VERSION') ? (string) CURRENT_DATABASE_VERSION : null, (string) LATEST_DATABASE_VERSION);
+$update_checks = updateChecks(dirname(__DIR__), defined('CURRENT_DATABASE_VERSION') ? (string) CURRENT_DATABASE_VERSION : null, (string) LATEST_DATABASE_VERSION, $mysqli);
 $check_problems = count(array_filter($update_checks, static fn($c) => $c['status'] === 'fail'));
 $check_warnings = count(array_filter($update_checks, static fn($c) => $c['status'] === 'warn'));
 

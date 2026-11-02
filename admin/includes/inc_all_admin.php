@@ -57,6 +57,7 @@ $admin_settings_labels = [
     'settings_redis.php' => 'Redis',
     'portal_preview.php' => 'Portal preview',
     'settings_integrations.php' => 'Integrations',
+    'entra_status.php' => 'Entra / Intune sync status',
     'settings_calendar_sync.php' => 'Calendar sync',
     'settings_webhooks.php' => 'Webhooks',
     'settings_webhook_guides.php' => 'Webhook guides',

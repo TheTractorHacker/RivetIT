@@ -1315,6 +1315,28 @@ if ($ms_integration_row) {
 
 /*
  * ###############################################################################################################
+ *  ENTRA DIRECTORY / GROUPS / LICENSES / INTUNE DETAILS (issue #35). Every part is its own opt-in switch on the Microsoft connection
+ *  (Administration > Integrations > Directory Sync), all OFF by default; each honors its own saved interval (cron.php runs more often).
+ *  Same services as the Sync Now buttons: lock, sync log, time limit, classified errors, shared token cache. Read-only towards Microsoft.
+ * ###############################################################################################################
+ */
+try {
+    $entra_sql = mysqli_query($mysqli, "SELECT * FROM microsoft_integrations WHERE enabled=1 AND client_secret_enc IS NOT NULL AND client_secret_enc <> '' ORDER BY microsoft_integration_id DESC LIMIT 1");
+    $entra_row = $entra_sql ? mysqli_fetch_assoc($entra_sql) : null;
+    if ($entra_row) {
+        if (!class_exists(\ITFlow\Integrations\Microsoft\EntraScheduler::class)) {
+            require_once dirname(__DIR__) . '/vendor/autoload.php';
+        }
+        foreach (\ITFlow\Integrations\Microsoft\EntraScheduler::run($mysqli, $entra_row, time()) as $entra_line) {
+            logApp("Cron", $entra_line['level'], $entra_line['text']);
+        }
+    }
+} catch (\Throwable $e) {
+    logApp("Cron", "error", "Entra scheduled sync failed: " . $e->getMessage());
+}
+
+/*
+ * ###############################################################################################################
  *  MANAGEENGINE MDM DEVICE SYNC (read-only; off until an administrator saves a connection and switches it on)
  *  Honors the saved sync interval (cron.php runs more often than that); same service as the Sync now button.
  * ###############################################################################################################

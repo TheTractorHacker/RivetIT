@@ -35,7 +35,7 @@ function updateCheckWebUser(): string
 }
 
 /** @return list<array{id:string,title:string,status:string,detail:string,fix:string}> */
-function updateChecks(string $dir, ?string $currentDbVersion = null, ?string $latestDbVersion = null): array
+function updateChecks(string $dir, ?string $currentDbVersion = null, ?string $latestDbVersion = null, ?\mysqli $db = null): array
 {
     $dir = rtrim($dir, '/');
     $user = updateCheckWebUser();
@@ -200,12 +200,24 @@ function updateChecks(string $dir, ?string $currentDbVersion = null, ?string $la
 
     // 9. Composer: informational. The release ships its vendor/ folder, so the server does not need it to update.
     $composer = trim((string) @shell_exec('command -v composer 2>/dev/null'));
+    $entra_checks = [];
+    if ($db !== null) {
+        // 10. Entra / Intune connection (only when one is configured and enabled): client-secret expiry and stalled / failing syncs.
+        try {
+            $entra_checks = \ITFlow\Integrations\Microsoft\EntraHealth::checks($db);
+        } catch (\Throwable) {
+        }
+    }
     if (!is_file($dir . '/vendor/autoload.php')) {
         $add('vendor', 'PHP libraries are present', 'fail', 'vendor/autoload.php is missing.', 'Run: composer install --no-dev (as the app owner) in ' . $dir . ', or restore vendor/ from the release.');
     } elseif ($composer === '') {
         $add('vendor', 'PHP libraries are present', 'info', 'The libraries are in place. Composer is not installed, which is fine: the release ships vendor/.');
     } else {
         $add('vendor', 'PHP libraries are present', 'ok', 'The libraries are in place and Composer is available (' . $composer . ').');
+    }
+
+    foreach ($entra_checks as $c) {
+        $add($c['id'], $c['title'], $c['status'], $c['detail'], $c['fix']);
     }
 
     return $checks;
