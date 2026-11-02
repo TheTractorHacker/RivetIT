@@ -124,7 +124,7 @@ foreach ([['reason', 'Reason', 'text', '', 1], ['qty', 'Quantity', 'number', '',
 $ok($c === 200 && count($j['items']) === 2, 'catalog GET lists active items only');
 $laptop = $j['items'][0] ?? [];
 $ok(($laptop['id'] ?? 0) === 1 && $laptop['name'] === 'New laptop' && $laptop['requires_approval'] === true && $laptop['risk_score'] === 5 && $laptop['icon'] === 'fa-laptop', 'catalog item shape + types');
-$ok(count($laptop['fields']) === 6 && array_keys($laptop['fields'][0]) === ['key', 'label', 'type', 'options', 'required', 'placeholder', 'show_if', 'columns'], 'catalog field shape (key,label,type,options,required,placeholder,show_if + additive columns from issue #30)');
+$ok(count($laptop['fields']) === 6 && array_keys($laptop['fields'][0]) === ['key', 'label', 'type', 'options', 'columns', 'required', 'placeholder', 'show_if'], 'catalog field shape (key,label,type,options,required,placeholder,show_if + additive columns from issue #30)');
 $ok($laptop['fields'][0]['required'] === true && $laptop['fields'][0]['show_if'] === null && $laptop['fields'][2]['options'] === ['Standard', 'Power'], 'required bool, show_if null, select options array');
 $ok($j['items'][1]['icon'] === 'fa-ticket-alt' && $j['items'][1]['requires_approval'] === false && $j['items'][1]['fields'] === [], 'icon default, no-form item');
 $ok($j['popular'] === [] && $j['recent'] === [], 'popular/recent empty before any request');
