@@ -83,8 +83,8 @@ if (!$tac_ready) { ?>
                     <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($tac_csrf); ?>">
                     <input type="hidden" name="version" value="<?php echo intval($tac_version); ?>">
                     <label class="form-label visually-hidden" for="taCertSignature">Signature image</label>
-                    <div class="input-group">
-                        <input type="file" class="form-control" id="taCertSignature" name="cert_signature" accept="image/png,image/jpeg" required>
+                    <div class="input-group flex-nowrap">
+                        <input type="file" class="form-control" style="width: 1%; min-width: 0;" id="taCertSignature" name="cert_signature" data-upload-enhanced="1" accept="image/png,image/jpeg" required>
                         <button type="submit" name="ta_cert_signature" value="1" class="btn btn-outline-primary"><i class="fas fa-upload me-2" aria-hidden="true"></i>Upload</button>
                     </div>
                     <div class="form-text">PNG or JPEG, at most 2 MB and 2400 × 1200 pixels. A transparent PNG looks best; it is resized to fit 1200 × 400.</div>
