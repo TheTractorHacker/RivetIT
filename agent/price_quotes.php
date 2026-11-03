@@ -29,6 +29,11 @@ if (isset($_GET['client_id'])) {
 // Perms
 enforceUserPermission('module_client');
 
+// Optional status filter (from the pipeline strip); whitelisted, never interpolated raw.
+$pq_statuses = ['Draft', 'Sent', 'Accepted', 'Declined'];
+$pq_status = (isset($_GET['status']) && in_array($_GET['status'], $pq_statuses, true)) ? $_GET['status'] : '';
+$pq_status_query = $pq_status ? "AND price_quote_status = '$pq_status'" : '';
+
 $sql = mysqli_query(
     $mysqli,
     "SELECT SQL_CALC_FOUND_ROWS price_quotes.*, clients.client_name FROM price_quotes
@@ -37,10 +42,26 @@ $sql = mysqli_query(
     AND (price_quote_title LIKE '%$q%' OR price_quote_description LIKE '%$q%' OR client_name LIKE '%$q%')
     $client_query
     $access_permission_query
+    $pq_status_query
     ORDER BY $sort $order LIMIT $record_from, $record_to"
 );
 
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
+
+// Pipeline strip: count and value per status for the quotes this user can see (archived view excluded).
+$pq_pipe = [];
+foreach ($pq_statuses as $st) { $pq_pipe[$st] = ['n' => 0, 'value' => 0.0]; }
+$pq_rs = mysqli_query($mysqli, "SELECT price_quote_status AS st, COUNT(DISTINCT price_quote_id) AS n, COALESCE(SUM(price_quote_item_quantity * price_quote_item_unit_price), 0) AS v
+    FROM price_quotes
+    LEFT JOIN clients ON clients.client_id = price_quote_client_id
+    LEFT JOIN price_quote_items ON price_quote_item_price_quote_id = price_quote_id
+    WHERE price_quote_archived_at IS NULL $client_query $access_permission_query
+    GROUP BY price_quote_status");
+while ($pr = mysqli_fetch_assoc($pq_rs)) {
+    if (isset($pq_pipe[$pr['st']])) { $pq_pipe[$pr['st']] = ['n' => intval($pr['n']), 'value' => floatval($pr['v'])]; }
+}
+$pq_any = array_sum(array_column($pq_pipe, 'n')) > 0;
+$suppress_filter_empty = true;
 
 $price_quote_status_colors = [
     'Draft'    => 'secondary',
@@ -70,6 +91,7 @@ $price_quote_status_colors = [
                 <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
             <?php } ?>
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
+            <?php if ($pq_status) { ?><input type="hidden" name="status" value="<?= htmlspecialchars($pq_status) ?>"><?php } ?>
             <div class="row">
                 <div class="col-md-4">
                     <div class="input-group mb-3 mb-md-0">
@@ -77,7 +99,7 @@ $price_quote_status_colors = [
                             echo stripslashes(nullable_htmlentities($q));
                         } ?>" placeholder="Search Quotes">
                         <div class="input-group-append">
-                            <button class="btn btn-dark"><i class="fa fa-search"></i></button>
+                            <button class="btn btn-primary" aria-label="Search"><i class="fa fa-search"></i></button>
                         </div>
                     </div>
                 </div>
@@ -99,7 +121,22 @@ $price_quote_status_colors = [
                 </div>
             </div>
         </form>
-        <hr>
+        <?php if ($pq_any && !$archived) { ?>
+        <div class="row g-2 my-3" id="quotePipeline">
+            <?php foreach ($pq_pipe as $st => $d) { $c = $price_quote_status_colors[$st]; ?>
+            <div class="col-6 col-lg-3">
+                <a href="?<?= $client_url ?>status=<?= $pq_status === $st ? '' : urlencode($st) ?>" class="card card-body py-2 text-decoration-none <?= $pq_status === $st ? 'border-' . $c : '' ?>" style="border-left:4px solid var(--tblr-<?= $c ?>, #888)">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <span class="text-secondary text-uppercase small"><?= $st ?></span>
+                        <span class="fw-bold fs-4"><?= $d['n'] ?></span>
+                    </div>
+                    <div class="small text-secondary"><?= numfmt_format_currency($currency_format, $d['value'], $session_company_currency) ?> quoted</div>
+                </a>
+            </div>
+            <?php } ?>
+        </div>
+        <?php if ($pq_status) { ?><p class="small text-secondary mb-2">Showing <?= htmlspecialchars($pq_status) ?> quotes. <a href="?<?= $client_url ?>">Show all</a></p><?php } ?>
+        <?php } else { ?><hr><?php } ?>
 
         <div class="table-responsive">
             <table class="table table-striped table-borderless table-hover">
@@ -195,6 +232,24 @@ $price_quote_status_colors = [
                 </tbody>
             </table>
         </div>
+        <?php if ($num_rows[0] == 0) {
+            $pq_filtered = $pq_status || trim((string) ($q ?? '')) !== ''; ?>
+            <div class="text-center py-5">
+                <i class="fas fa-file-invoice-dollar fa-2x text-secondary mb-3 d-block opacity-50"></i>
+                <?php if ($pq_filtered) { ?>
+                    <p class="mb-2">No quotes match this filter.</p>
+                    <a class="btn btn-sm btn-outline-secondary" href="?<?= $client_url ?>">Clear filter</a>
+                <?php } elseif ($archived) { ?>
+                    <p class="mb-0 text-secondary">No archived quotes.</p>
+                <?php } else { ?>
+                    <p class="fw-semibold mb-1">No price quotes yet</p>
+                    <p class="text-secondary mb-3">Give a department a price in minutes: pick the department, add line items, then mark it Sent and track Accepted or Declined here.</p>
+                    <?php if (lookupUserPermission("module_client") >= 2) { ?>
+                    <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/price_quote/price_quote_add.php?<?= $client_url ?>"><i class="fas fa-plus me-2"></i>Create the first quote</button>
+                    <?php } ?>
+                <?php } ?>
+            </div>
+        <?php } ?>
         <?php require_once "../includes/filter_footer.php"; ?>
     </div>
 </div>
