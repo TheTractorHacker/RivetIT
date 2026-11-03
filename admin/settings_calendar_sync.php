@@ -6,9 +6,10 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 ?>
 
 <!-- ── Credentials Card ─────────────────────────────────────── -->
-<div class="card">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fab fa-microsoft me-2"></i>Outlook connection</h3>
+        <?php if ($configured): ?><span class="badge text-bg-success ms-2">Credentials saved</span><?php else: ?><span class="badge text-bg-warning ms-2">Needs setup</span><?php endif; ?>
     </div>
     <div class="card-body">
 
@@ -72,7 +73,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 
 <!-- ── Bulk Sync Card ───────────────────────────────────────── -->
 <?php if ($configured) { ?>
-<div class="card">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-sync-alt me-2"></i>Sync appointments to Outlook</h3>
     </div>
@@ -111,7 +112,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
 </style>
 
 <!-- ── Setup Guide Card ────────────────────────────────────── -->
-<div class="card">
+<div class="card mb-3">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-book me-2"></i>Setup Guide</h3>
     </div>

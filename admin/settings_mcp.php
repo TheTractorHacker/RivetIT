@@ -462,4 +462,5 @@ location = /.well-known/oauth-authorization-server {
 
 <?php } ?>
 
+<?php require __DIR__ . '/includes/section_index.php'; ?>
 <?php require_once "../includes/footer.php";
