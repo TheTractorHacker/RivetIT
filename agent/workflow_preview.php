@@ -41,7 +41,10 @@ $type_labels = ['manual' => 'Manual', 'approval' => 'Approval', 'action' => 'Aut
             <p class="text-muted">This template has no tasks.</p>
         <?php } else { ?>
         <table class="table table-sm">
-            <thead><tr><th>#</th><th>Task</th><th>Type</th><th>Starts</th><th>Waits for</th><th>Due</th><th>Assigned to</th><th>What would happen</th></tr></thead>
+            <?php // Hide the two free-text columns when no task has anything to say in them (a wall of blank cells reads as broken).
+            $_has_waits = false; $_has_what = false;
+            foreach ($preview['tasks'] as $_pt) { if (!empty($_pt['depends_on_titles'])) { $_has_waits = true; } if (trim((string) ($_pt['what'] ?? '')) !== '') { $_has_what = true; } } ?>
+            <thead><tr><th>#</th><th>Task</th><th>Type</th><th>Starts</th><?php if ($_has_waits) { ?><th>Waits for</th><?php } ?><th>Due</th><th>Assigned to</th><?php if ($_has_what) { ?><th>What would happen</th><?php } ?></tr></thead>
             <tbody>
             <?php foreach ($preview['tasks'] as $t) { ?>
                 <tr>
@@ -49,10 +52,10 @@ $type_labels = ['manual' => 'Manual', 'approval' => 'Approval', 'action' => 'Aut
                     <td><strong><?= nullable_htmlentities($t['title']) ?></strong><?= $t['required'] ? '' : ' <span class="badge text-bg-light text-secondary">optional</span>' ?></td>
                     <td><?= nullable_htmlentities($type_labels[$t['type']] ?? $t['type']) ?></td>
                     <td><?= $t['starts'] === 'ready' ? '<span class="badge text-bg-primary">ready</span>' : '<span class="badge text-bg-secondary">blocked</span>' ?></td>
-                    <td class="small"><?= nullable_htmlentities(implode(', ', $t['depends_on_titles'])) ?></td>
+                    <?php if ($_has_waits) { ?><td class="small"><?= nullable_htmlentities(implode(', ', $t['depends_on_titles'])) ?></td><?php } ?>
                     <td class="small text-nowrap"><?= $t['due_at'] ? nullable_htmlentities($t['due_at']) : '<span class="text-muted">none</span>' ?></td>
                     <td class="small"><?= nullable_htmlentities($t['assignee']) ?></td>
-                    <td class="small"><?= nullable_htmlentities($t['what']) ?></td>
+                    <?php if ($_has_what) { ?><td class="small"><?= nullable_htmlentities($t['what']) ?></td><?php } ?>
                 </tr>
             <?php } ?>
             </tbody>
