@@ -89,6 +89,45 @@ if (isset($_POST['save_lifecycle_settings'])) {
     redirect('employee_workflow_templates.php');
 }
 
+if (isset($_POST['save_okta_settings'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    if (empty($session_is_admin)) {
+        flash_alert(WORDING_ROLECHECK_FAILED, 'error');
+        redirect('employee_workflow_templates.php');
+    }
+
+    if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_lifecycle_okta_actions'")) === 0) {
+        flash_alert('Run the database update first.', 'error');
+        redirect('employee_workflow_templates.php');
+    }
+    $domain = strtolower(trim((string) ($_POST['okta_domain'] ?? '')));
+    if ($domain !== '' && !\ITFlow\Workflow\Connectors\OktaConnector::validDomain($domain)) {
+        flash_alert('Enter the Okta domain as a bare host name such as example.okta.com (no https://, port or path).', 'error');
+        redirect('employee_workflow_templates.php');
+    }
+    $before = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_lifecycle_okta_actions AS a, config_lifecycle_okta_domain AS d, (config_lifecycle_okta_token IS NOT NULL AND config_lifecycle_okta_token <> \'\') AS t FROM settings WHERE company_id = 1')) ?: [];
+    $on = isset($_POST['lifecycle_okta_actions']) ? 1 : 0;
+    $token = trim((string) ($_POST['okta_token'] ?? ''));
+    $token_sql = '';
+    $token_note = 'unchanged';
+    if (isset($_POST['okta_clear_token'])) {
+        $token_sql = ", config_lifecycle_okta_token = NULL";
+        $token_note = 'removed';
+    } elseif ($token !== '') {
+        $token_sql = ", config_lifecycle_okta_token = '" . mysqli_real_escape_string($mysqli, encryptSetting($token)) . "'";
+        $token_note = 'replaced';
+    }
+    $domain_sql = mysqli_real_escape_string($mysqli, $domain);
+    mysqli_query($mysqli, "UPDATE settings SET config_lifecycle_okta_actions = $on, config_lifecycle_okta_domain = " . ($domain === '' ? 'NULL' : "'$domain_sql'") . "$token_sql WHERE company_id = 1");
+
+    // Never the token, not even masked.
+    rivetAudit('settings.lifecycle_okta_changed', (int) $session_user_id, 'settings', 'config_lifecycle_okta_actions', 'update', 'Okta workflow actions ' . ($on ? 'allowed' : 'not allowed') . ', API token ' . $token_note, ['allowed_before' => (int) ($before['a'] ?? 0), 'allowed_after' => $on, 'domain_changed' => (string) ($before['d'] ?? '') !== $domain, 'token' => $token_note]);
+    logAction("Settings", "Edit", "$session_name saved the Okta workflow settings (actions " . ($on ? 'on' : 'off') . ", token $token_note)");
+    flash_alert('Okta settings saved');
+    redirect('employee_workflow_templates.php');
+}
+
 if (isset($_POST['add_workflow_preset'])) {
 
     validateCSRFToken($_POST['csrf_token']);

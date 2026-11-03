@@ -33,6 +33,14 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
 
 `GET /api/v1/service_catalog.php` returns `{"categories":[{"id","name","description","icon"}],"items":[{"id","name","description","icon","category_id","requires_approval","risk_score","fields":[{"key","label","type","options","columns","required","placeholder","show_if"}]}],"popular":[ids],"recent":[ids]}`. Active items and categories only; an item with `category_id` null belongs to "Other". `popular` is the top five of the last 30 days, `recent` the caller's last five distinct items. `type` is `text|textarea|select|checkbox|date|number|table`; `options` is only filled for `select`, `columns` (`[{"label","type":"text|number|date"}]`) only for `table`, whose answer is a list of rows (at most 25), each a list of cells in column order or an object keyed by the column label. `show_if` is `null` (always visible), a rule `{"field":"<earlier key>","op":"equals|in|not_empty","value":...}`, or a compound rule `{"match":"all|any","rules":[rule,...]}` of up to three; a hidden field is never required and any answer sent for it is ignored by the server. `risk_score` is the item's base score: the score of a request is computed on the server (base plus the item's risk rules) and decides auto-approval and which approval chain applies. An older app that does not know the `table` type should treat the question as unsupported (a required table cannot be answered from it).
 
+**Answering a `table` question** (the answer is a JSON array, validated by `ServiceCatalogService::validateTable`, the same code as the web form):
+
+```json
+{"catalog_item_id":40,"client_id":1,"answers":{"who":"Sam","gear":[["Laptop",2,"2026-12-01"],{"Item":"Dock","Qty":1},["Cable",null,null]]}}
+```
+
+Each row is a list in column order or an object keyed by the column label; cells may be strings, JSON numbers or booleans, and `null` (or a missing cell) is an empty cell. A row with every cell empty is dropped. At most 25 non-empty rows (`422` above that), cells at most 200 characters, `number` columns must be numeric and `date` columns `Y-m-d`; a required table needs at least one row. A string, a nested array in a cell, or a row that is not a list/object is `422` with the question named. An optional table may be omitted or sent as `[]`. An answer for a key the item does not define is ignored. Stored requests and `GET /approvals` show the table as readable text (one line per row), never raw JSON. Covered by `tests/mobile_api.php`.
+
 `POST` with `{"catalog_item_id":1,"answers":{"reason":"Need it","qty":2,"rush":true},"client_id":1}` returns `201 {"ok":true,"ticket_id":41,"status":"created"|"pending_approval"}`. Validation is `ServiceCatalogService::validateInput` (required, number, date `Y-m-d`, select choice, 500/5000 length). Answers for keys that are not defined fields are ignored and never stored. JSON booleans and numbers are accepted for checkbox and number fields. The caller is the requester (`ticket_created_by`, `requested_by_user_id`); the ticket contact is the client's primary contact (none when `client_id` is null/0, an internal request). `403` when the department is outside the caller's access, `404` unknown or inactive item, `422` validation (`error` is the messages joined, `errors` the list).
 
 ```sh
@@ -65,3 +73,9 @@ An approval request keeps its recipients and message; only the identifiers are n
 ## Tests
 
 `tests/mobile_api.php` runs real HTTP against a throwaway `php -S` and real API tokens on a scratch database (see the header of the file).
+
+## HR requests (portal requests waiting for HR)
+
+`GET /api/v1/hr_requests.php?status=pending` (also `approved`, `rejected`, `cancelled`) returns `{"items":[{"id","type":"onboarding|offboarding|role_change","status","client_id","department","requested_by","subject","subject_contact_id","effective_date","details":{...},"requested_at","decided_at","decision_comment","run_id","templates":[{"id","name"}]}],"counts":{"total":N}}`, newest first, at most 100, only departments the caller may access. `templates` (pending requests only) are the active workflow templates of the request's type.
+
+`POST` with `{"id":7,"decision":"approve","template_id":3,"comment":"ok"}` starts that workflow and returns `{"ok":true,"status":"approved","run_id":12}`; `{"id":7,"decision":"reject","comment":"Not this quarter"}` returns `{"ok":true,"status":"rejected","run_id":null}` and starts nothing (`comment` is required to reject). `403` without Departments edit access or with an API key (user tokens only), `404` unknown or outside the caller's departments (one answer), `409` already decided or decided by someone else a moment earlier, `422` validation (no or wrong template, the person has left). Off with the portal switch: the list is still readable, but requests only arrive while *Allow HR requests from the portal* is on. See docs/EMPLOYEE-LIFECYCLE-WORKFLOWS.md.

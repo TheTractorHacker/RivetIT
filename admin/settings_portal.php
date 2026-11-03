@@ -52,6 +52,15 @@ $portal_templates = $portal_ready ? $eh->onboardingTemplates() : [];
 
             <hr>
 
+            <h5 class="mb-1">HR requests</h5>
+            <p class="text-muted">Lets managers and department administrators ask HR to start an onboarding, offboarding or role-change workflow from the portal. Every request waits in <a href="/agent/hr_requests.php">Service desk &gt; HR requests</a> for an agent with Departments edit access; nothing starts, and no person's record changes, until it is approved. Off by default.</p>
+            <div class="form-check form-switch mb-3">
+                <input type="checkbox" class="form-check-input" name="hr_requests" value="1" id="portal_hr" <?= intval($config_portal_hr_requests ?? 0) === 1 ? 'checked' : '' ?> <?= !empty($config_portal_hr_ready) ? '' : 'disabled' ?>>
+                <label class="form-check-label" for="portal_hr">Allow HR requests from the portal<?= !empty($config_portal_hr_ready) ? '' : ' (run the database update first)' ?></label>
+            </div>
+
+            <hr>
+
             <button type="submit" name="edit_portal_settings" class="btn btn-primary text-bold" <?= $portal_ready ? '' : 'disabled' ?>><i class="fas fa-check me-2"></i>Save</button>
         </form>
     </div>

@@ -221,7 +221,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
             <label>Status after</label>
             <input type="text" class="form-control" name="cfg_to_status" maxlength="100" placeholder="Deployed / Ready to Deploy" value="<?= $h($cfg['to_status'] ?? '') ?>">
         </div>
-        <div class="col-md-12 small text-muted"><strong>Identity systems</strong> (Active Directory, VPN, Okta, Google Workspace): there is no live connector in this build yet, so these tasks fail safely into a manual task. They are here so the template can be designed now.</div>
+        <div class="col-md-12 small text-muted"><strong>Identity systems</strong> (Active Directory, VPN, Okta, Google Workspace): only <strong>Okta</strong> has a connector (create, disable, add to groups), and it is off until an administrator saves the Okta domain and API token and ticks &ldquo;Allow workflows to change Okta&rdquo; on the Employee Workflow Templates page. The other systems have no connector yet; their tasks fail safely into a manual task.</div>
         <div class="col-md-3 form-group">
             <label>System</label>
             <select class="form-control" name="cfg_system">
@@ -233,8 +233,8 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
             <input type="text" class="form-control" name="cfg_identifier" maxlength="200" placeholder="{{employee_email}}" value="<?= $h($cfg['identifier'] ?? '') ?>">
         </div>
         <div class="col-md-5 form-group">
-            <label>Groups <span class="text-muted small">(create only, one per line)</span></label>
-            <textarea class="form-control" name="cfg_conn_groups" rows="1" maxlength="2000"><?= $h(($task['action_type'] ?? '') === 'connector_provision' ? ($cfg['groups'] ?? '') : '') ?></textarea>
+            <label>Groups <span class="text-muted small">(create and add-to-groups, one per line: name or id)</span></label>
+            <textarea class="form-control" name="cfg_conn_groups" rows="1" maxlength="2000"><?= $h(in_array(($task['action_type'] ?? ''), ['connector_provision', 'connector_add_groups'], true) ? ($cfg['groups'] ?? '') : '') ?></textarea>
         </div>
         <div class="col-md-4 form-group">
             <label>Webhook event name</label>
@@ -310,7 +310,7 @@ function workflowTaskInputFromPost(array $post): array
             'to' => $post['cfg_to'] ?? 'employee', 'address' => $post['cfg_address'] ?? '', 'body' => $post['cfg_body'] ?? '',
             'message' => $post['cfg_message'] ?? '', 'user_id' => $post['cfg_user_id'] ?? 0, 'event' => $post['cfg_event'] ?? '',
             'upn' => $post['cfg_upn'] ?? '', 'display_name' => $post['cfg_display_name'] ?? '', 'enabled' => $post['cfg_enabled'] ?? 0,
-            'groups' => ($post['action_type'] ?? '') === 'connector_provision' ? ($post['cfg_conn_groups'] ?? '') : ($post['cfg_groups'] ?? ''), 'revoke_sessions' => $post['cfg_revoke_sessions'] ?? 1,
+            'groups' => in_array(($post['action_type'] ?? ''), ['connector_provision', 'connector_add_groups'], true) ? ($post['cfg_conn_groups'] ?? '') : ($post['cfg_groups'] ?? ''), 'revoke_sessions' => $post['cfg_revoke_sessions'] ?? 1,
             'skus' => $post['cfg_skus'] ?? '', 'asset_id' => $post['cfg_asset_id'] ?? 0, 'asset_type' => $post['cfg_asset_type'] ?? '', 'asset_types' => $post['cfg_asset_type'] ?? '',
             'from_status' => $post['cfg_from_status'] ?? '', 'to_status' => $post['cfg_to_status'] ?? '', 'system' => $post['cfg_system'] ?? '', 'identifier' => $post['cfg_identifier'] ?? '',
         ],

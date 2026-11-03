@@ -500,6 +500,13 @@ $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 
                     <a class="nav-link <?php if ($portal_nav_page == "onboarding_request.php") {echo "active";} ?>" href="/client/onboarding_request.php">Request onboarding</a>
                 </li>
                 <?php } ?>
+                <?php
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/HrRequests.php';
+                if (empty($portal_preview_active) && intval($config_portal_hr_requests ?? 0) === 1 && \ITFlow\Portal\HrRequests::available($mysqli) && (new \ITFlow\Portal\HrRequests($mysqli))->canRequest(true, intval($session_contact_id), intval($session_client_id), $portal_nav_is_admin)) { ?>
+                <li class="nav-item">
+                    <a class="nav-link <?php if ($portal_nav_page == "hr_request.php") {echo "active";} ?>" href="/client/hr_request.php">HR requests</a>
+                </li>
+                <?php } ?>
 
                 <?php
                 // Notifications (the employee's own feed). A real portal contact only; the badge counts unread items.

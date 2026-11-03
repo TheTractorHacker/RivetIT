@@ -423,6 +423,48 @@ $ok($c === 403 && strpos($rawb, 'PNG') === false, 'download of an attachment on 
 [$c, , $j] = http('GET', '/api/v1/tickets/500', $T['t1']);
 $ok($c === 200 && $j['attachments_count'] === intval($one("SELECT COUNT(*) FROM ticket_attachments WHERE ticket_attachment_ticket_id=500")), 'ticket detail carries attachments_count');
 
+// ------------------------------------------------------------------ catalog: the "table" question type over the mobile API (issue #30 follow-up)
+$q("INSERT INTO service_catalog_items SET catalog_item_id=40, name='Onboarding kit', description='Hardware list', ticket_subject_template='Kit', default_priority='low', requires_approval=1, risk_score=0, sort_order=4");
+$q("INSERT INTO service_catalog_approval_steps SET catalog_item_id=40, step_order=1, approver_type='user', approver_id=10, mode='any'");
+$q("INSERT INTO service_catalog_fields SET catalog_item_id=40, field_key='who', label='For', field_type='text', options='', is_required=1, sort_order=1");
+$q("INSERT INTO service_catalog_fields SET catalog_item_id=40, field_key='gear', label='Hardware', field_type='table', options='" . $db->real_escape_string("Item|text\nQty|number\nNeeded by|date") . "', is_required=1, sort_order=2");
+$q("INSERT INTO service_catalog_fields SET catalog_item_id=40, field_key='extra', label='Extras', field_type='table', options='" . $db->real_escape_string("Item|text") . "', is_required=0, sort_order=3");
+[$c, , $j] = http('GET', '/api/v1/service_catalog.php', $T['t2']);
+$kit = null; foreach ($j['items'] as $it) { if ($it['id'] === 40) { $kit = $it; } }
+$gear = $kit ? $kit['fields'][1] : [];
+$ok($kit && $gear['type'] === 'table' && $gear['required'] === true && $gear['options'] === [] && $gear['columns'] === [['label' => 'Item', 'type' => 'text'], ['label' => 'Qty', 'type' => 'number'], ['label' => 'Needed by', 'type' => 'date']], 'catalog GET: a table field carries its typed columns (and no select options)');
+$kitFor = fn($who, $gear, $extra = null) => ['catalog_item_id' => 40, 'answers' => ['who' => $who, 'gear' => $gear] + ($extra === null ? [] : ['extra' => $extra]), 'client_id' => 1];
+$rows = [['Laptop', 2, '2026-12-01'], ['Dock', '1', ''], ['', '', '']]; // the last row is blank and is dropped
+[$c, , $j] = $post($T['t2'], $kitFor('Sam', $rows));
+$ok($c === 201 && $j['status'] === 'pending_approval', 'table answer as a list of rows (numbers as JSON numbers) is accepted: 201');
+$stored = json_decode((string) $one("SELECT field_values FROM service_catalog_requests ORDER BY request_id DESC LIMIT 1"), true);
+$tv = null; foreach ($stored as $v) { if ($v['key'] === 'gear') { $tv = json_decode($v['value'], true); } }
+$ok($tv === ['cols' => ['Item', 'Qty', 'Needed by'], 'rows' => [['Laptop', '2', '2026-12-01'], ['Dock', '1', '']]], 'table stored as {cols,rows}: blank row dropped, numbers as text');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Item' => 'Monitor', 'Qty' => 3, 'Needed by' => '2026-12-02']]));
+$ok($c === 201, 'rows may be objects keyed by the column label');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Cable', null, null]]));
+$ok($c === 201, 'a JSON null cell is an empty cell, not an error');
+[$c, , $j] = $post($T['t2'], $kitFor('Sam', []));
+$ok($c === 422 && strpos(json_encode($j), 'Hardware') !== false, 'required table with no rows -> 422 naming the question');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Laptop', 'two', '']])); $ok($c === 422, 'number column enforced inside a table -> 422');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Laptop', 1, '2026-13-45']])); $ok($c === 422, 'date column enforced inside a table -> 422');
+[$c] = $post($T['t2'], $kitFor('Sam', [['x' . str_repeat('y', 250), 1, '']])); $ok($c === 422, 'cell longer than 200 characters -> 422');
+[$c] = $post($T['t2'], $kitFor('Sam', 'Laptop')); $ok($c === 422, 'a plain string for a table question -> 422');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Laptop', ['nested'], '']])); $ok($c === 422, 'a nested array in a cell -> 422');
+[$c] = $post($T['t2'], $kitFor('Sam', ['Laptop'])); $ok($c === 422, 'a row that is not a list/object -> 422');
+$many = []; for ($i = 0; $i < 26; $i++) { $many[] = ["Item $i", 1, '']; }
+[$c] = $post($T['t2'], $kitFor('Sam', $many)); $ok($c === 422, '26 rows -> 422 (25 at most)');
+$many = []; for ($i = 0; $i < 25; $i++) { $many[] = ["Item $i", 1, '']; }
+[$c] = $post($T['t2'], $kitFor('Sam', $many)); $ok($c === 201, '25 rows -> 201');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Laptop', 1, '']], [['Case']])); $ok($c === 201, 'an optional table may be sent too');
+[$c] = $post($T['t2'], $kitFor('Sam', [['Laptop', 1, '']], 'oops')); $ok($c === 422, 'an optional table sent as a string -> 422');
+[$c] = $post($T['t2'], ['catalog_item_id' => 1, 'answers' => ['reason' => 'x', 'gear' => [['a']]], 'client_id' => 1]); $ok($c === 201, 'a table answer for a key the item does not define is ignored, not stored');
+[$c, , $j] = http('GET', '/api/v1/approvals.php', $T['t1']);
+$kitAp = null; foreach ($j['items'] as $it) { if (strpos($it['title'], 'Onboarding kit') !== false) { $kitAp = $it; } }
+$gearTxt = ''; foreach ($kitAp['fields'] ?? [] as $f) { if ($f['label'] === 'Hardware') { $gearTxt = $f['value']; } }
+$ok($kitAp && strpos($gearTxt, 'Laptop') !== false && strpos($gearTxt, '{') === false, 'approvals list shows the table answer as readable text, not raw JSON');
+[$c] = $post($T['limited'], $kitFor('Sam', [['Laptop', 1, '']])); $ok($c === 403, 'limited login cannot post a table answer -> 403');
+
 // ------------------------------------------------------------------ clean up what the test wrote to disk
 foreach (glob("$root/uploads/tickets/500/*") as $f) { @unlink($f); } @rmdir("$root/uploads/tickets/500");
 foreach (glob("$root/uploads/tickets/501/*") ?: [] as $f) { @unlink($f); } @rmdir("$root/uploads/tickets/501");

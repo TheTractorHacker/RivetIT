@@ -485,6 +485,25 @@ $setCfg(['config_chat_actions_enabled' => 0]); $mockReset();
 $ok(ChatNotifier::approvalRequested($db, 'catalog_request', $reqA) === 0 && $mockLog() === [], 'actions OFF: no approval DM is sent');
 $setCfg(['config_chat_actions_enabled' => 1]);
 
+// A workflow approval task that becomes ready reaches the approver in chat through ChatNotifier (WorkflowService::notifyApprovers), Approve / Deny carrying workflow_task:<id>.
+$q("DELETE FROM workflow_template_tasks WHERE workflow_template_id = 900"); $q("DELETE FROM workflow_templates WHERE workflow_template_id = 900");
+$q("INSERT INTO workflow_templates SET workflow_template_id = 900, name = 'Chat approval tpl', type = 'onboarding', is_active = 1");
+$q("INSERT INTO workflow_template_tasks SET workflow_template_id = 900, title = 'Approve laptop spend', task_type = 'approval', approver_type = 'user', approver_user_id = 11, sort_order = 1, required = 1");
+$mockReset();
+$wfRun = (new \ITFlow\Workflow\WorkflowService($db, new FakeGw()))->startRun(900, 50, 10);
+$ml = array_values(array_filter($mockLog(), fn ($m) => $m['path'] === '/api/chat.postMessage'));
+$wfTask = (int) $one("SELECT run_task_id FROM workflow_run_tasks WHERE run_id = $wfRun AND task_type = 'approval'");
+$wfMsg = $ml ? json_decode($ml[0]['body'], true) : [];
+$wfAct = $wfMsg['blocks'][2]['elements'] ?? [];
+$ok(count($ml) === 1 && ($wfMsg['channel'] ?? '') === 'UBOBB' && ($wfAct[0]['value'] ?? '') === "workflow_task:$wfTask" && ($wfAct[1]['action_id'] ?? '') === 'rivet_reject', 'starting a run with an approval task DMs the approver Approve / Deny (workflow_task:<id>) through ChatNotifier');
+$setCfg(['config_chat_actions_enabled' => 0]); $mockReset();
+(new \ITFlow\Workflow\WorkflowService($db, new FakeGw()))->startRun(900, 50, 10);
+$ok($mockLog() === [], 'actions OFF: a workflow approval sends nothing to chat');
+$setCfg(['config_chat_actions_enabled' => 1]);
+$app = $newApp();
+$r = $app->interaction(null, $click('rivet_approve', "workflow_task:$wfTask", 'UBOBB'));
+$ok($r['acted'] === true && $one("SELECT approval_status FROM workflow_run_tasks WHERE run_task_id = $wfTask") === 'approved', 'the Approve button on that DM approves the workflow task');
+
 // ======================================================= 12. formatter controls
 $data = ['ticket_id' => 42, 'ticket_number' => 'T-42', 'ticket_subject' => 'Printer', 'ticket_priority' => 'High', 'ticket_status' => 'Open', 'client_name' => 'Acme'];
 $controls = ChatBlocks::ticketControls(42, 'Open', 'High', ['New', 'Open', 'On Hold']);

@@ -63,6 +63,35 @@ if (isset($_POST['import_legacy_rules'])) {
     redirect('automation.php?tab=ticket');
 }
 
+// One-click conversion of a single legacy ticket rule from the unified rules list (the same code as the bulk import: a disabled copy, the legacy rule untouched).
+if (isset($_POST['convert_legacy_rule']) || isset($_POST['switch_legacy_rule'])) {
+    validateCSRFToken($_POST['csrf_token']);
+    if (empty($session_is_admin)) {
+        flash_alert(WORDING_ROLECHECK_FAILED, 'error');
+        redirect('automation.php?tab=event');
+    }
+
+    $legacy_id = intval($_POST['legacy_id'] ?? 0);
+    if (isset($_POST['switch_legacy_rule'])) {
+        $r = \ITFlow\Automation\LegacyRuleImporter::switchOver($mysqli, $legacy_id);
+        if ($r['ok']) {
+            logAction('Automation', 'Edit', "$session_name switched legacy ticket rule #$legacy_id over to event rule #{$r['rule_id']}");
+            rivetAudit('automation.legacy_rule_switched', (int) $session_user_id, 'automation_rule', (int) $r['rule_id'], 'update', 'Legacy ticket rule #' . $legacy_id . ' turned off and its event rule turned on', ['legacy_rule_id' => $legacy_id]);
+        }
+        flash_alert(htmlspecialchars($r['message']), $r['ok'] ? 'success' : 'error');
+        redirect('automation.php?tab=event#legacy-rules');
+    }
+    $engine = new \ITFlow\Automation\RuleEngine($mysqli, new \ITFlow\Workflow\LiveActionGateway($mysqli));
+    $out = \ITFlow\Automation\LegacyRuleImporter::import($mysqli, $engine, [$legacy_id]);
+    $r = $out[0] ?? ['ok' => false, 'message' => 'Nothing to convert.', 'rule_id' => null];
+    if ($r['ok']) {
+        logAction('Automation', 'Create', "$session_name converted legacy ticket rule #$legacy_id to event rule #{$r['rule_id']} (switched off)");
+        rivetAudit('automation.rule_created', (int) $session_user_id, 'automation_rule', (int) $r['rule_id'], 'create', 'Event rule converted from legacy ticket rule #' . $legacy_id, ['legacy_rule_id' => $legacy_id]);
+    }
+    flash_alert(htmlspecialchars($r['message']), $r['ok'] ? 'success' : 'error');
+    redirect('automation.php?tab=event#legacy-rules');
+}
+
 // Run a failed rule run again from the Run log.
 if (isset($_POST['rerun_automation_run'])) {
     validateCSRFToken($_POST['csrf_token']);
