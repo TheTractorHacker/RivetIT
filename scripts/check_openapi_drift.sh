@@ -23,6 +23,8 @@
 # Paths are resolved relative to this script, so it runs from anywhere / in CI.
 
 set -uo pipefail
+# comm(1) needs byte-order sorting on both inputs; locale collation breaks it on hyphen/underscore names.
+export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
