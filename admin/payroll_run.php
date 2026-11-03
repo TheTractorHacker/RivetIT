@@ -38,6 +38,8 @@ if ($run['payroll_run_finalized_by']) {
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2">
@@ -114,7 +116,7 @@ if ($run['payroll_run_finalized_by']) {
                     <td class="text-center">
                         <?php if ($pay_type === 'hourly') { ?>
                         <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/payroll_run/payroll_run_hours_edit.php?run_id=<?= $run_id ?>&user_id=<?= intval($item['payroll_run_line_item_user_id']) ?>&period_id=<?= intval($period['payroll_period_id']) ?>">
-                            <i class="fas fa-edit"></i> Edit Hours
+                            <i class="fas fa-fw fa-edit me-1"></i> Edit Hours
                         </a>
                         <?php } ?>
                     </td>

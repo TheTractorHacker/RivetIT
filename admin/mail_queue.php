@@ -151,7 +151,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td><?php echo $email_subject; ?></td>
                                 <td><?php echo $email_status_display; ?></td>
                                 <td><?php echo $email_attempts; ?></td>
-                                <td class="text-center">
+                                <td class="text-center text-nowrap">
                                     <a class="btn btn-sm btn-secondary ajax-modal" href="#"
                                         data-modal-size="lg"
                                         data-modal-url="modals/mail_queue/mail_queue_message_view.php?id=<?= $email_id ?>">

@@ -6,6 +6,8 @@ $sql = mysqli_query($mysqli, "SELECT * FROM payroll_deduction_categories WHERE p
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-minus-circle me-2"></i>Deduction Categories</h3>
@@ -42,11 +44,11 @@ $sql = mysqli_query($mysqli, "SELECT * FROM payroll_deduction_categories WHERE p
                     <td class="text-muted"><?= $dc_desc !== '' ? $dc_desc : '—' ?></td>
                     <td class="text-center" style="white-space:nowrap;">
                         <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/payroll_deduction/payroll_deduction_edit.php?id=<?= $dc_id ?>">
-                            <i class="fas fa-edit"></i> Edit
+                            <i class="fas fa-fw fa-edit me-1"></i> Edit
                         </a>
                         <a href="post.php?delete_payroll_deduction_category=<?= $dc_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                            class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Delete
+                            <i class="fas fa-fw fa-trash me-1"></i> Delete
                         </a>
                     </td>
                 </tr>

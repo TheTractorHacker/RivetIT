@@ -60,14 +60,14 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                     </td>
                     <td class="text-center" style="white-space:nowrap;">
                         <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mail_request/mail_request_view.php?id=<?= $mr_id ?>">
-                            <i class="fas fa-eye"></i> View
+                            <i class="fas fa-fw fa-eye me-1"></i> View
                         </a>
                         <a href="#" class="btn btn-xs btn-primary ajax-modal" data-modal-url="modals/mail_request/mail_request_convert.php?id=<?= $mr_id ?>">
-                            <i class="fas fa-check"></i> Convert to Ticket
+                            <i class="fas fa-fw fa-check me-1"></i> Convert to Ticket
                         </a>
                         <a href="post.php?dismiss_mail_request=<?= $mr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                            class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Dismiss
+                            <i class="fas fa-fw fa-trash me-1"></i> Dismiss
                         </a>
                     </td>
                 </tr>
