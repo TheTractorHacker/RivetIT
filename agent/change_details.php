@@ -77,6 +77,19 @@ $linked_problems = mysqli_query(
                 <button type="button" class="btn btn-sm btn-default ajax-modal" data-modal-url="modals/change/change_edit.php?id=<?= $change_id ?>"><i class="fas fa-edit me-1"></i>Edit</button>
             </div>
             <div class="card-body">
+                <?php // Happy-path stepper: where this change is on the way to done (failed / rolled back / cancelled show as an end state).
+                $_steps = ['draft' => 'Draft', 'awaiting_approval' => 'Approval', 'approved' => 'Approved', 'scheduled' => 'Scheduled', 'in_progress' => 'In progress', 'successful' => 'Done'];
+                $_keys = array_keys($_steps);
+                $_cur = array_search($change['status'], $_keys, true);
+                $_end = $_cur === false ? ucwords(str_replace('_', ' ', $change['status'])) : ''; ?>
+                <ol class="list-unstyled d-flex flex-wrap gap-2 mb-3 p-0" aria-label="Change lifecycle">
+                    <?php $_i = 0; foreach ($_steps as $_k => $_l) { $_done = $_cur !== false ? $_i < $_cur : false; $_now = $_i === $_cur; ?>
+                        <li class="badge rounded-pill <?= $_now ? 'text-bg-primary' : ($_done ? 'text-bg-success' : 'text-bg-light border') ?>" <?= $_now ? 'aria-current="step"' : '' ?>>
+                            <i class="fas fa-fw <?= $_done ? 'fa-check' : ($_now ? 'fa-circle' : 'fa-minus') ?> me-1"></i><?= $_l ?>
+                        </li>
+                    <?php $_i++; } ?>
+                    <?php if ($_end !== '') { ?><li class="badge rounded-pill text-bg-dark" aria-current="step"><i class="fas fa-flag-checkered me-1"></i><?= $_end ?></li><?php } ?>
+                </ol>
                 <?php if ($change['reason']) { ?>
                     <h6 class="text-muted">Reason</h6>
                     <p style="white-space: pre-wrap;"><?= nullable_htmlentities($change['reason']) ?></p>
@@ -97,7 +110,7 @@ $linked_problems = mysqli_query(
                 <?php if (!empty($next_statuses)) { ?>
                     <hr>
                     <div>
-                        <?php foreach ($next_statuses as $status_value => $label) { ?>
+                        <?php $_first = true; foreach ($next_statuses as $status_value => $label) { ?>
                             <form action="post.php" method="post" class="d-inline-flex align-items-center me-1 mb-1">
                                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="change_id" value="<?= $change_id ?>">
@@ -105,8 +118,9 @@ $linked_problems = mysqli_query(
                                 <?php if ($status_value === 'scheduled') { ?>
                                     <input type="datetime-local" class="form-control form-control-sm me-1" name="scheduled_at" style="width:200px;" value="<?= $change['scheduled_at'] ? date('Y-m-d\TH:i', strtotime($change['scheduled_at'])) : '' ?>" <?= $change['scheduled_at'] ? '' : 'required' ?>>
                                 <?php } ?>
-                                <button type="submit" name="set_change_status" class="btn btn-sm btn-outline-secondary"><?= $label ?></button>
+                                <button type="submit" name="set_change_status" class="btn btn-sm <?= ($_first && $_cur !== false && (array_search($status_value, $_keys, true) !== false) && array_search($status_value, $_keys, true) > $_cur) ? 'btn-primary' : 'btn-outline-secondary' ?>"><?= $label ?></button>
                             </form>
+                        <?php if (($_cur !== false) && array_search($status_value, $_keys, true) !== false && array_search($status_value, $_keys, true) > $_cur) { $_first = false; } ?>
                         <?php } ?>
                     </div>
                 <?php } ?>

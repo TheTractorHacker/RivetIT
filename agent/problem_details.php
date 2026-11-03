@@ -73,6 +73,16 @@ $available_changes = mysqli_query(
                 <button type="button" class="btn btn-sm btn-default ajax-modal" data-modal-url="modals/problem/problem_edit.php?id=<?= $problem_id ?>"><i class="fas fa-edit me-1"></i>Edit</button>
             </div>
             <div class="card-body">
+                <?php // Lifecycle stepper: where this problem is, and what is left.
+                $_steps = ['open' => 'Open', 'investigating' => 'Investigating', 'resolved' => 'Resolved', 'closed' => 'Closed'];
+                $_cur = array_search($problem['status'], array_keys($_steps), true); ?>
+                <ol class="list-unstyled d-flex flex-wrap gap-2 mb-3 p-0" aria-label="Problem lifecycle">
+                    <?php $_i = 0; foreach ($_steps as $_k => $_l) { $_done = $_i < $_cur; $_now = $_i === $_cur; ?>
+                        <li class="badge rounded-pill <?= $_now ? 'text-bg-primary' : ($_done ? 'text-bg-success' : 'text-bg-light border') ?>" <?= $_now ? 'aria-current="step"' : '' ?>>
+                            <i class="fas fa-fw <?= $_done ? 'fa-check' : ($_now ? 'fa-circle' : 'fa-minus') ?> me-1"></i><?= $_l ?>
+                        </li>
+                    <?php $_i++; } ?>
+                </ol>
                 <?php if ($problem['description']) { ?>
                     <p style="white-space: pre-wrap;"><?= nullable_htmlentities($problem['description']) ?></p>
                 <?php } else { ?>
@@ -81,14 +91,14 @@ $available_changes = mysqli_query(
 
                 <?php if (!empty($next_statuses)) { ?>
                     <div class="mt-2">
-                        <?php foreach ($next_statuses as $status_value => $label) { ?>
+                        <?php $_first = true; foreach ($next_statuses as $status_value => $label) { ?>
                             <form action="post.php" method="post" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="problem_id" value="<?= $problem_id ?>">
                                 <input type="hidden" name="status" value="<?= $status_value ?>">
-                                <button type="submit" name="set_problem_status" class="btn btn-sm btn-outline-secondary mb-1"><?= $label ?></button>
+                                <button type="submit" name="set_problem_status" class="btn btn-sm <?= ($_first && in_array($status_value, ['investigating', 'resolved'], true)) ? 'btn-primary' : 'btn-outline-secondary' ?> mb-1"><?= $label ?></button>
                             </form>
-                        <?php } ?>
+                        <?php $_first = false; } ?>
                     </div>
                 <?php } ?>
             </div>
@@ -125,7 +135,7 @@ $available_changes = mysqli_query(
                                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                         <input type="hidden" name="problem_id" value="<?= $problem_id ?>">
                                         <input type="hidden" name="ticket_id" value="<?= intval($t['ticket_id']) ?>">
-                                        <button type="submit" name="unlink_problem_ticket" class="btn btn-sm btn-outline-danger" title="Unlink"><i class="fas fa-unlink"></i></button>
+                                        <button type="submit" name="unlink_problem_ticket" class="btn btn-sm btn-outline-danger" title="Unlink ticket" aria-label="Unlink ticket"><i class="fas fa-unlink"></i></button>
                                     </form>
                                 </td>
                             </tr>
