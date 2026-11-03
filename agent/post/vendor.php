@@ -16,12 +16,7 @@ if (isset($_POST['add_vendor_from_template'])) {
     $client_id = intval($_POST['client_id']); //Used if this vendor is under a contact otherwise its 0 for under company and or template
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 2);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 2);
-    }
+    enforceVendorPermission($client_id, 2);
 
     $vendor_template_id = intval($_POST['vendor_template_id']);
 
@@ -43,6 +38,11 @@ if (isset($_POST['add_vendor_from_template'])) {
     $sla = sanitizeInput($row['vendor_template_sla']);
     $code = sanitizeInput($row['vendor_template_code']);
     $notes = sanitizeInput($row['vendor_template_notes']);
+
+    // Company-wide vendor account numbers are finance data
+    if (!vendorCanSeeAccountNumber($client_id)) {
+        $account_number = '';
+    }
 
     // Vendor add query
     mysqli_query($mysqli,"INSERT INTO vendors SET vendor_name = '$name', vendor_description = '$description', vendor_contact_name = '$contact_name', vendor_phone_country_code = '$phone_country_code', vendor_phone = '$phone', vendor_extension = '$extension', vendor_email = '$email', vendor_website = '$website', vendor_hours = '$hours', vendor_sla = '$sla', vendor_code = '$code', vendor_account_number = '$account_number', vendor_notes = '$notes', vendor_client_id = $client_id, vendor_template_id = $vendor_template_id");
@@ -68,11 +68,11 @@ if (isset($_POST['add_vendor'])) {
     $client_id = intval($_POST['client_id']); // Used if this vendor is under a contact otherwise its 0 for under company
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 2);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 2);
+    enforceVendorPermission($client_id, 2);
+
+    // Company-wide vendor account numbers are finance data: only people with Finance access can set one
+    if (!vendorCanSeeAccountNumber($client_id)) {
+        $account_number = '';
     }
 
     mysqli_query($mysqli,"INSERT INTO vendors SET vendor_name = '$name', vendor_description = '$description', vendor_contact_name = '$contact_name', vendor_phone_country_code = '$phone_country_code', vendor_phone = '$phone', vendor_extension = '$extension', vendor_email = '$email', vendor_website = '$website', vendor_hours = '$hours', vendor_sla = '$sla', vendor_code = '$code', vendor_account_number = '$account_number', vendor_notes = '$notes', vendor_client_id = $client_id");
@@ -100,11 +100,11 @@ if (isset($_POST['edit_vendor'])) {
     $client_id = intval(getFieldById('vendors', $vendor_id, 'vendor_client_id'));
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 2);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 2);
+    enforceVendorPermission($client_id, 2);
+
+    // Without Finance access the account number is neither shown nor changed: keep what is stored
+    if (!vendorCanSeeAccountNumber($client_id)) {
+        $account_number = sanitizeInput(getFieldById('vendors', $vendor_id, 'vendor_account_number'));
     }
 
     mysqli_query($mysqli,"UPDATE vendors SET vendor_name = '$name', vendor_description = '$description', vendor_contact_name = '$contact_name', vendor_phone_country_code = '$phone_country_code', vendor_phone = '$phone', vendor_extension = '$extension', vendor_email = '$email', vendor_website = '$website', vendor_hours = '$hours', vendor_sla = '$sla', vendor_code = '$code',vendor_account_number = '$account_number', vendor_notes = '$notes', vendor_template_id = $vendor_template_id WHERE vendor_id = $vendor_id");
@@ -130,12 +130,7 @@ if (isset($_GET['archive_vendor'])) {
     $client_id = intval($row['vendor_client_id']);
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 2);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 2);
-    }
+    enforceVendorPermission($client_id, 2);
 
     mysqli_query($mysqli,"UPDATE vendors SET vendor_archived_at = NOW() WHERE vendor_id = $vendor_id");
 
@@ -160,12 +155,7 @@ if(isset($_GET['restore_vendor'])){
     $client_id = intval($row['vendor_client_id']);
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 2);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 2);
-    }
+    enforceVendorPermission($client_id, 2);
 
     mysqli_query($mysqli,"UPDATE vendors SET vendor_archived_at = NULL WHERE vendor_id = $vendor_id");
 
@@ -191,12 +181,7 @@ if (isset($_GET['delete_vendor'])) {
     $vendor_template_id = intval($row['vendor_template_id']);
 
     // Permission check
-    if ($client_id) {
-        enforceUserPermission('module_client', 3);
-        enforceClientAccess();
-    } else {
-        enforceUserPermission('module_financial', 3);
-    }
+    enforceVendorPermission($client_id, 3);
 
     // If its a template reset all vendors based off this template to no template base
     if ($vendor_template_id > 0) {
@@ -234,12 +219,7 @@ if (isset($_POST['bulk_archive_vendors'])) {
             $client_id = intval($row['vendor_client_id']);
 
             // Permission check
-            if ($client_id) {
-                enforceUserPermission('module_client', 2);
-                enforceClientAccess();
-            } else {
-                enforceUserPermission('module_financial', 2);
-            }
+            enforceVendorPermission($client_id, 2);
 
             mysqli_query($mysqli,"UPDATE vendors SET vendor_archived_at = NOW() WHERE vendor_id = $vendor_id");
 
@@ -277,12 +257,7 @@ if (isset($_POST['bulk_restore_vendors'])) {
             $client_id = intval($row['vendor_client_id']);
 
             // Permission check
-            if ($client_id) {
-                enforceUserPermission('module_client', 2);
-                enforceClientAccess();
-            } else {
-                enforceUserPermission('module_financial', 2);
-            }
+            enforceVendorPermission($client_id, 2);
 
             mysqli_query($mysqli,"UPDATE vendors SET vendor_archived_at = NULL WHERE vendor_id = $vendor_id");
 
@@ -322,12 +297,7 @@ if (isset($_POST['bulk_delete_vendors'])) {
             $vendor_template_id = intval($row['vendor_template_id']);
 
             // Permission check
-            if ($client_id) {
-                enforceUserPermission('module_client', 3);
-                enforceClientAccess();
-            } else {
-                enforceUserPermission('module_financial', 3);
-            }
+            enforceVendorPermission($client_id, 3);
 
             // If its a template reset all vendors based off this template to no template base
             if ($vendor_template_id > 0) {

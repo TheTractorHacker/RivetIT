@@ -54,6 +54,7 @@ ob_start();
                     </div>
                 </div>
 
+<?php if (vendorCanSeeAccountNumber($client_id)) { ?>
                 <div class="form-group">
                     <label>Account Number</label>
                     <div class="input-group">
@@ -63,6 +64,7 @@ ob_start();
                         <input type="text" class="form-control" name="account_number" placeholder="Account number" maxlength="200">
                     </div>
                 </div>
+<?php } ?>
 
                 <div class="form-group">
                     <label>Account Manager</label>

@@ -8,12 +8,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_id = $vendor_id
 
 $row = mysqli_fetch_assoc($sql);
 $client_id = intval($row['vendor_client_id']);
-if ($client_id) {
-    enforceUserPermission('module_client', 2);
-    enforceClientAccess($client_id);
-} else {
-    enforceUserPermission('module_financial', 2);
-}
+enforceVendorPermission($client_id, 2);
 
 $vendor_name = nullable_htmlentities($row['vendor_name']);
 $vendor_description = nullable_htmlentities($row['vendor_description']);
@@ -83,6 +78,7 @@ ob_start();
                     </div>
                 </div>
 
+<?php if (vendorCanSeeAccountNumber($client_id)) { ?>
                 <div class="form-group">
                     <label>Account Number</label>
                     <div class="input-group">
@@ -92,6 +88,7 @@ ob_start();
                         <input type="text" class="form-control" name="account_number" placeholder="Account number" maxlength="200" value="<?php echo $vendor_account_number; ?>">
                     </div>
                 </div>
+<?php } ?>
 
                 <div class="form-group">
                     <label>Account Manager</label>

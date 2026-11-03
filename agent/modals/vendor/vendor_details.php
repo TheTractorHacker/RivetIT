@@ -8,12 +8,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_id = $vendor_id
 
 $row = mysqli_fetch_assoc($sql);
 $client_id = intval($row['vendor_client_id']);
-if ($client_id) {
-    enforceUserPermission('module_client');
-    enforceClientAccess($client_id);
-} else {
-    enforceUserPermission('module_financial');
-}
+enforceVendorPermission($client_id, 1);
 
 $name = sanitizeInput($row['vendor_name']);
 $description = sanitizeInput($row['vendor_description']);
@@ -53,7 +48,9 @@ ob_start();
             <h6 class="text-secondary"><i class="fas fa-info-circle me-2"></i>Vendor Details</h6>
             <div class="row">
                 <div class="col-sm-6">
+                    <?php if (vendorCanSeeAccountNumber($client_id)) { ?>
                     <div><strong>Account Number:</strong> <?php echo getFallback($account_number); ?></div>
+                    <?php } ?>
                     <div><strong>Hours:</strong> <?php echo getFallback($hours); ?></div>
                     <div><strong>SLA:</strong> <?php echo getFallback($sla); ?></div>
                 </div>
