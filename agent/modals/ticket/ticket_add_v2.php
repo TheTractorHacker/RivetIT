@@ -66,13 +66,8 @@ ob_start();
             <li class="nav-item">
                 <a class="nav-link active" data-bs-toggle="pill" href="#pills-add-details"><i class="fa fa-fw fa-life-ring me-2"></i>Details</a>
             </li>
-            <?php if (!$contact_id) { ?>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="pill" href="#pills-add-contacts"><i class="fa fa-fw fa-users me-2"></i>Contact</a>
-                </li>
-            <?php } ?>
             <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pills-add-relationships"><i class="fa fa-fw fa-desktop me-2"></i>Assignment</a>
+                <a class="nav-link" data-bs-toggle="pill" href="#pills-add-relationships"><i class="fa fa-fw fa-desktop me-2"></i>Asset &amp; vendor</a>
             </li>
         </ul>
 
@@ -82,8 +77,46 @@ ob_start();
             <!-- Ticket details -->
             <div class="tab-pane fade show active" id="pills-add-details">
 
+                <?php if (!$contact_id) { ?>
+                    <!-- Department first: everything below (contact, asset, location, vendor, similar tickets) depends on it. -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="changeClientSelect">Department <strong class="text-danger">*</strong></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
+                                    </div>
+                                    <select class="form-control select2" name="client_id" id="changeClientSelect" required <?php if ($client_id) { echo "disabled"; } ?>>
+                                        <option value="">Choose a department</option>
+                                        <?php
+                                        $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_lead = 0 AND client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
+                                        while ($row = mysqli_fetch_assoc($sql)) {
+                                            $client_id_select = intval($row['client_id']);
+                                            $client_name = nullable_htmlentities($row['client_name']); ?>
+                                            <option value="<?php echo $client_id_select; ?>" <?php if ($client_id == $client_id_select) {echo "selected"; } ?>><?php echo $client_name; ?></option>
+                                        <?php } ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="contactSelect">Contact</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
+                                    </div>
+                                    <select class="form-control select2" name="contact_id" id="contactSelect">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php } ?>
+
                 <div class="form-group">
-                    <label>Template</label>
+                    <label for="ticket_template_select">Template <span class="text-muted fw-normal small">(optional, fills subject and details)</span></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
@@ -123,16 +156,18 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Subject <strong class="text-danger">*</strong></label>
+                    <label for="subjectInput">Subject <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                         </div>
                         <input type="text" class="form-control" id="subjectInput" name="subject" placeholder="Subject" maxlength="500" value="<?php echo $prefill_subject; ?>" required>
                     </div>
+                    <div id="similarTickets" class="alert alert-warning py-2 px-3 mt-2 mb-0 small d-none" role="status" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
+                    <label for="detailsInput">Details</label>
                     <textarea class="form-control tinymceTicket" id="detailsInput" name="details"><?php echo $prefill_details; ?></textarea>
                 </div>
 
@@ -148,12 +183,12 @@ ob_start();
 
                     <div class="col">
                         <div class="form-group">
-                            <label>Priority <strong class="text-danger">*</strong></label>
+                            <label for="ticketPriority">Priority <strong class="text-danger">*</strong></label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-thermometer-half"></i></span>
                                 </div>
-                                <select class="form-control select2" name="priority" required>
+                                <select class="form-control select2" id="ticketPriority" name="priority" required>
                                     <option>Low</option>
                                     <option>Medium</option>
                                     <option>High</option>
@@ -164,12 +199,12 @@ ob_start();
 
                     <div class="col">
                         <div class="form-group">
-                            <label>Category</label>
+                            <label for="ticketCategory">Category</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
                                 </div>
-                                <select class="form-control select2" name="category_id">
+                                <select class="form-control select2" id="ticketCategory" name="category_id">
                                     <option value="0" <?php if (empty($config_ticket_default_category_id)) { echo "selected"; } ?>>- Not Categorized -</option>
                                     <?php echo ticketCategoryOptions($mysqli, $config_ticket_default_category_id); ?>
                                 </select>
@@ -186,12 +221,12 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Assign to</label>
+                    <label for="ticketAssignee">Assign to</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-user-check"></i></span>
                         </div>
-                        <select class="form-control select2" name="assigned_to">
+                        <select class="form-control select2" id="ticketAssignee" name="assigned_to">
                             <option value="0">- Unassigned -</option>
                             <?php
 
@@ -212,52 +247,14 @@ ob_start();
 
             </div>
 
-            <!-- Ticket client/contact -->
             <?php if ($contact_id) { ?>
                 <input type="hidden" name="contact_id" value="<?php echo $contact_id; ?>">
-            <?php } else { ?>
-                <div class="tab-pane fade" id="pills-add-contacts">
-
-                    <div class="form-group">
-                        <label>Department <strong class="text-danger">*</strong></label>
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
-                            </div>
-                            <select class="form-control select2" name="client_id" id="changeClientSelect" required <?php if ($client_id) { echo "disabled"; } ?>>
-                                <option value="">Department</option>
-                                <?php
-
-                                $sql = mysqli_query($mysqli, "SELECT * FROM clients WHERE client_lead = 0 AND client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
-                                while ($row = mysqli_fetch_assoc($sql)) {
-                                    $client_id_select = intval($row['client_id']);
-                                    $client_name = nullable_htmlentities($row['client_name']); ?>
-
-                                    <option value="<?php echo $client_id_select; ?>" <?php if ($client_id == $client_id_select) {echo "selected"; } ?>><?php echo $client_name; ?></option>
-
-                                <?php } ?>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Contact </label>
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
-                            </div>
-                            <select class="form-control select2" name="contact_id" id="contactSelect">
-                            </select>
-                        </div>
-                    </div>
-
-                </div>
             <?php } ?>
 
             <div class="tab-pane fade" id="pills-add-relationships">
 
                 <div class="form-group">
-                    <label>Asset</label>
+                    <label for="assetSelect">Asset</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-desktop"></i></span>
@@ -268,7 +265,7 @@ ob_start();
                 </div>
 
                 <div class="form-group">
-                    <label>Location</label>
+                    <label for="locationSelect">Location</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
@@ -282,7 +279,7 @@ ob_start();
 
                     <div class="col">
                         <div class="form-group">
-                            <label>Vendor</label>
+                            <label for="vendorSelect">Vendor</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
@@ -295,12 +292,12 @@ ob_start();
 
                     <div class="col">
                         <div class="form-group">
-                            <label>Vendor Ticket Number</label>
+                            <label for="vendorTicketNumber">Vendor Ticket Number</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                                 </div>
-                                <input type="text" class="form-control" name="vendor_ticket_number" placeholder="Vendor ticket number">
+                                <input type="text" class="form-control" id="vendorTicketNumber" name="vendor_ticket_number" placeholder="Vendor ticket number">
                             </div>
                         </div>
                     </div>
@@ -340,6 +337,58 @@ $(document).on('change', '#ticket_template_select', function () {
         $('#detailsInput').val(templateDetails);
     }
 });
+</script>
+
+
+<!-- Similar open tickets hint -->
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+(function () {
+    const subj = document.getElementById('subjectInput');
+    const box = document.getElementById('similarTickets');
+    const dept = document.getElementById('changeClientSelect');
+    const presetClient = <?= (int) $client_id ?>;
+    if (!subj || !box) return;
+    let timer = null, last = '';
+    function deptId() {
+        if (presetClient) return presetClient;
+        return dept ? (dept.tomselect ? dept.tomselect.getValue() : dept.value) : '';
+    }
+    function render(list) {
+        box.replaceChildren();
+        if (!list.length) { box.classList.add('d-none'); return; }
+        const head = document.createElement('div');
+        head.className = 'fw-bold mb-1';
+        head.textContent = 'Already open, is this the same issue?';
+        box.appendChild(head);
+        list.forEach(function (t) {
+            const row = document.createElement('div');
+            const a = document.createElement('a');
+            a.href = t.url; a.target = '_blank'; a.rel = 'noopener';
+            a.textContent = t.label + ' ' + t.subject;
+            row.appendChild(a);
+            const meta = document.createElement('span');
+            meta.className = 'text-muted ms-1';
+            meta.textContent = '(' + [t.status, deptId() ? '' : t.client].filter(Boolean).join(', ') + ')';
+            row.appendChild(meta);
+            box.appendChild(row);
+        });
+        box.classList.remove('d-none');
+    }
+    function check() {
+        const q = subj.value.trim();
+        const key = q + '|' + deptId();
+        if (q.length < 6) { render([]); last = ''; return; }
+        if (key === last) return;
+        last = key;
+        fetch('ajax_ticket_similar.php?q=' + encodeURIComponent(q) + '&client_id=' + encodeURIComponent(deptId() || 0), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (last === key) render(d.tickets || []); })
+            .catch(function () { render([]); });
+    }
+    subj.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(check, 400); });
+    if (dept) dept.addEventListener('change', check);
+    check();
+})();
 </script>
 
 <!-- Ticket Client/Contact JS -->

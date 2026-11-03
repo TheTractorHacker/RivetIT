@@ -19,7 +19,7 @@ ob_start();
 
 <div class="modal-header bg-dark">
     <h5 class="modal-title"><i class="fa fa-fw fa-robot me-2"></i>Editing: <strong><?php echo $model_name; ?></strong></h5>
-    <button type="button" class="close text-light" data-bs-dismiss="modal">
+    <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
 </div>
