@@ -199,4 +199,57 @@ final class LegacyRuleImporter
 
         return $out;
     }
+
+    /**
+     * The hand-over: switch the imported event rule ON and the legacy ticket rule OFF, so exactly one of the two acts from now on. Only for a rule that was
+     * imported first (the copy is what is switched on, never anything built here), and only when the legacy rule is currently on; it does not delete anything and
+     * the legacy rule can be switched back on in the ticket rule editor. @return array{ok:bool,message:string,rule_id:int|null}
+     */
+    public static function switchOver(\mysqli $m, int $legacyId): array
+    {
+        if (!self::available($m)) {
+            return ['ok' => false, 'message' => 'Run the database update first.', 'rule_id' => null];
+        }
+        $have = mysqli_fetch_row(mysqli_query($m, 'SELECT rule_id FROM automation_rules WHERE source_legacy_id = ' . (int) $legacyId));
+        if (!$have) {
+            return ['ok' => false, 'message' => 'Convert the ticket rule to an event rule first.', 'rule_id' => null];
+        }
+        $legacy = mysqli_fetch_assoc(mysqli_query($m, 'SELECT rule_id, rule_enabled FROM ticket_automation_rules WHERE rule_id = ' . (int) $legacyId));
+        if (!$legacy) {
+            return ['ok' => false, 'message' => 'That ticket rule no longer exists.', 'rule_id' => (int) $have[0]];
+        }
+        $newId = (int) $have[0];
+        mysqli_begin_transaction($m);
+        mysqli_query($m, 'UPDATE automation_rules SET is_enabled = 1 WHERE rule_id = ' . $newId);
+        mysqli_query($m, 'UPDATE ticket_automation_rules SET rule_enabled = 0 WHERE rule_id = ' . (int) $legacyId);
+        mysqli_commit($m);
+
+        return ['ok' => true, 'message' => 'Event rule #' . $newId . ' is on and the ticket rule is off.', 'rule_id' => $newId];
+    }
+
+    /**
+     * One row per legacy rule for the unified rules list: the report() fields plus the current state of both sides, so the page can say "both on" etc.
+     * @return list<array<string,mixed>>
+     */
+    public static function unifiedRows(\mysqli $m): array
+    {
+        $rows = self::report($m);
+        foreach ($rows as &$r) {
+            $r['new_enabled'] = null;
+            if ($r['imported_rule_id'] !== null) {
+                $x = mysqli_fetch_row(mysqli_query($m, 'SELECT is_enabled FROM automation_rules WHERE rule_id = ' . (int) $r['imported_rule_id']));
+                $r['new_enabled'] = $x ? (bool) $x[0] : null;
+            }
+            $r['state'] = match (true) {
+                $r['imported_rule_id'] === null => $r['importable'] ? 'convertible' : 'legacy_only',
+                $r['enabled'] && $r['new_enabled'] => 'both_on',
+                $r['enabled'] => 'converted_waiting',
+                $r['new_enabled'] => 'switched',
+                default => 'both_off',
+            };
+        }
+        unset($r);
+
+        return $rows;
+    }
 }

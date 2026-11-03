@@ -744,6 +744,59 @@ if (isset($_POST['request_onboarding'])) {
 
 }
 
+if (isset($_POST['submit_hr_request']) || isset($_POST['cancel_hr_request'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/EmployeeHome.php';
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/src/Portal/HrRequests.php';
+    $hr = new \ITFlow\Portal\HrRequests($mysqli);
+    $hr_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
+
+    // The setting, the table and "manager or department administrator" are re-checked here; nothing is taken from the form but the choices below.
+    if (!\ITFlow\Portal\HrRequests::available($mysqli) || !$hr->canRequest(intval($config_portal_hr_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $hr_is_admin)) {
+        flash_alert('You cannot make HR requests', 'danger');
+        redirect('index.php');
+    }
+
+    if (isset($_POST['cancel_hr_request'])) {
+        if ($hr->cancel(intval($_POST['hr_request_id'] ?? 0), intval($session_contact_id), intval($session_client_id))) {
+            logAction("HR Request", "Cancel", "Department contact $session_contact_name withdrew HR request " . intval($_POST['hr_request_id']), $session_client_id, intval($_POST['hr_request_id']));
+            flash_alert('Request withdrawn');
+        } else {
+            flash_alert('That request cannot be withdrawn', 'danger');
+        }
+        redirect('hr_request.php');
+    }
+
+    $hr_type = (string) ($_POST['type'] ?? '');
+    $hr_manager_ids = array_map(static fn($m) => intval($m['contact_id']), (new \ITFlow\Portal\EmployeeHome($mysqli))->departmentManagers(intval($session_client_id)));
+    if (!$hr_is_admin) {
+        $hr_manager_ids = [intval($session_contact_id)];
+    }
+    $hr_subjects = $hr->subjects(intval($session_contact_id), intval($session_client_id), $hr_is_admin);
+    $hr_titles = [];
+    foreach ($hr_subjects as $s) {
+        $hr_titles[$s['contact_id']] = $s['contact_title'];
+    }
+    $hr_v = \ITFlow\Portal\HrRequests::validate($hr_type, $_POST, $hr_manager_ids, array_column($hr_subjects, 'contact_id'), intval($session_contact_id), $hr_titles);
+    if ($hr_v['errors']) {
+        $_SESSION['hr_request_old'] = ['type' => $hr_type] + $hr_v['clean'] + array_intersect_key($_POST, array_flip(['name', 'email', 'start_date', 'title', 'manager_id', 'notes', 'subject_contact_id', 'effective_date', 'new_title']));
+        flash_alert(implode('<br>', array_map('nullable_htmlentities', $hr_v['errors'])), 'danger');
+        redirect('hr_request.php');
+    }
+
+    $hr_res = $hr->submit($hr_v['clean'], intval($session_client_id), intval($session_contact_id));
+    if ($hr_res['status'] === 'created') {
+        logAction("HR Request", "Create", "Department contact $session_contact_name sent an HR $hr_type request (#" . $hr_res['request_id'] . ")", $session_client_id, $hr_res['request_id']);
+        flash_alert(nullable_htmlentities($hr_res['message']));
+    } else {
+        flash_alert(nullable_htmlentities($hr_res['message']), $hr_res['status'] === 'duplicate' ? 'info' : 'danger');
+    }
+    redirect('hr_request.php');
+
+}
+
 if (isset($_POST['enable_portal_mfa'])) {
 
     validateCSRFToken($_POST['csrf_token']);

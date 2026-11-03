@@ -192,6 +192,8 @@ $config_portal_home_sections = $row['config_portal_home_sections'] ?? null;
 $config_portal_onboarding_requests = intval($row['config_portal_onboarding_requests'] ?? 0);
 $config_portal_onboarding_template_id = intval($row['config_portal_onboarding_template_id'] ?? 0);
 $config_portal_settings_ready = is_array($row) && array_key_exists('config_portal_onboarding_requests', $row);
+$config_portal_hr_requests = intval($row['config_portal_hr_requests'] ?? 0);   // HR-initiated portal requests (DB 2.6.242); off by default
+$config_portal_hr_ready = is_array($row) && array_key_exists('config_portal_hr_requests', $row);
 
 // Login
 $config_login_message = $row['config_login_message'];

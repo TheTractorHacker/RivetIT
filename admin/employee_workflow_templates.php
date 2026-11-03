@@ -13,6 +13,8 @@ $lifecycle_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `set
 $lifecycle_on = $lifecycle_ready && \ITFlow\Workflow\LifecycleEvents::enabled($mysqli);
 $odoo_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_lifecycle_odoo_actions'")) > 0;
 $odoo_on = $odoo_ready && (new \ITFlow\Workflow\LiveActionGateway($mysqli))->odooActionsAllowed();
+$okta_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_lifecycle_okta_actions'")) > 0;
+$okta = $okta_ready ? (mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT config_lifecycle_okta_actions, config_lifecycle_okta_domain, (config_lifecycle_okta_token IS NOT NULL AND config_lifecycle_okta_token <> \'\') AS has_token FROM settings WHERE company_id = 1')) ?: []) : [];
 $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `workflow_templates` LIKE 'preset_key'")) > 0;
 
 ?>
@@ -29,6 +31,25 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
             <div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_odoo_actions" value="1" id="lifecycle_odoo_actions" <?= $odoo_on ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_odoo_actions">Allow workflows to create / archive employees in Odoo <span class="text-muted">(off by default; Odoo is a live system)</span></label></div>
             <?php } ?>
             <button type="submit" name="save_lifecycle_settings" class="btn btn-sm btn-primary">Save</button>
+        </form>
+    </div>
+</div>
+<?php } ?>
+
+<?php if ($session_is_admin && $okta_ready) { ?>
+<div class="card mb-3">
+    <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-id-badge me-2"></i>Okta actions</h5></div>
+    <div class="card-body">
+        <p class="text-muted small">Lets a workflow create a user, suspend a user (never delete) and add a user to groups in Okta. <strong>Off by default</strong>, and it also needs the Okta domain and an API token (an Okta admin API token with only the permissions to manage users and groups). With it off nothing is sent: the task becomes a manual task. The token is stored encrypted and is never shown again; leave the box empty to keep it. Verified against a local mock only, not a real Okta org.</p>
+        <form action="post.php" method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="col-md-4"><label class="form-label small mb-1" for="okta_domain">Okta domain</label>
+                <input type="text" class="form-control form-control-sm" id="okta_domain" name="okta_domain" maxlength="253" placeholder="example.okta.com" value="<?= nullable_htmlentities($okta['config_lifecycle_okta_domain'] ?? '') ?>"></div>
+            <div class="col-md-4"><label class="form-label small mb-1" for="okta_token">API token <?= !empty($okta['has_token']) ? '<span class="badge text-bg-success">saved</span>' : '' ?></label>
+                <input type="password" class="form-control form-control-sm" id="okta_token" name="okta_token" maxlength="300" autocomplete="new-password" placeholder="<?= !empty($okta['has_token']) ? 'leave empty to keep' : 'SSWS token' ?>"></div>
+            <div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_okta_actions" value="1" id="lifecycle_okta_actions" <?= !empty($okta['config_lifecycle_okta_actions']) ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_okta_actions">Allow workflows to change Okta</label></div>
+                <?php if (!empty($okta['has_token'])) { ?><div class="form-check"><input class="form-check-input" type="checkbox" name="okta_clear_token" value="1" id="okta_clear_token"><label class="form-check-label" for="okta_clear_token">Remove the saved token</label></div><?php } ?></div>
+            <div class="col-12"><button type="submit" name="save_okta_settings" class="btn btn-sm btn-primary">Save Okta settings</button></div>
         </form>
     </div>
 </div>

@@ -147,8 +147,8 @@ $old->query("INSERT INTO workflow_runs SET contact_id=1, type='offboarding'");
 define('CURRENT_DATABASE_VERSION', '2.6.210');
 $runUpgrade = static function (mysqli $conn): void { $mysqli = $conn; require $GLOBALS['ROOT'] . '/admin/database_updates.php'; };
 $runUpgrade($old);
-ok(q1($old, 'SELECT config_current_database_version FROM settings') === '2.6.231', 'upgrade from 2.6.210 runs the whole chain and lands on 2.6.231', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
-ok(LATEST_DATABASE_VERSION === '2.6.231', 'includes/database_version.php says 2.6.231');
+ok(q1($old, 'SELECT config_current_database_version FROM settings') === LATEST_DATABASE_VERSION, 'upgrade from 2.6.210 runs the whole chain and lands on 2.6.231', (string) q1($old, 'SELECT config_current_database_version FROM settings'));
+ok(version_compare(LATEST_DATABASE_VERSION, '2.6.231', '>='), 'includes/database_version.php is at or past 2.6.231');
 ok(q1($old, 'SELECT name FROM workflow_templates') === 'keep me' && q1($old, 'SELECT type FROM workflow_runs') === 'offboarding', 'existing rows survive the upgrade');
 foreach (['workflow_templates', 'workflow_template_tasks', 'workflow_runs', 'workflow_run_tasks'] as $t) {
     $a = $old->query("SHOW CREATE TABLE `$t`")->fetch_row()[1];

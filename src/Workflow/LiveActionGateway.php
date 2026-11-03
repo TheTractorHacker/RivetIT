@@ -353,8 +353,45 @@ class LiveActionGateway implements ActionGateway, DirectoryActionGateway, Lifecy
 
     public function identityConnector(string $key): Connectors\IdentityConnector
     {
-        $this->connectors ??= $this->graphOptions['connectors'] ?? new Connectors\ConnectorRegistry();
+        $this->connectors ??= $this->graphOptions['connectors'] ?? $this->defaultConnectors();
 
         return $this->connectors->get($key);
+    }
+
+    /** The stubs, plus Okta when an administrator saved a domain and token (it still refuses until 'Allow workflows to change Okta' is on, read at call time). */
+    private function defaultConnectors(): Connectors\ConnectorRegistry
+    {
+        $registry = new Connectors\ConnectorRegistry();
+        $row = null;
+        try {
+            $res = @mysqli_query($this->mysqli, 'SELECT config_lifecycle_okta_domain, config_lifecycle_okta_token FROM settings WHERE company_id = 1');
+            $row = $res ? mysqli_fetch_row($res) : null;
+        } catch (\Throwable) {
+            $row = null; // columns missing: stays a stub
+        }
+        if ($row && (string) $row[0] !== '' && (string) $row[1] !== '') {
+            $registry->register(new Connectors\OktaConnector(
+                (string) $row[0],
+                function_exists('decryptSetting') ? (string) decryptSetting((string) $row[1]) : '',
+                fn (): bool => $this->oktaActionsAllowed(),
+                $this->graphOptions['okta_http'] ?? null,
+                fn (string $event, string $action, string $summary, array $meta) => $this->audit($event, null, 'integration', 0, $action, $summary, $meta)
+            ));
+        }
+
+        return $registry;
+    }
+
+    /** Is 'Allow workflows to change Okta' (settings.config_lifecycle_okta_actions) on? False on any doubt. */
+    public function oktaActionsAllowed(): bool
+    {
+        try {
+            $res = @mysqli_query($this->mysqli, 'SELECT config_lifecycle_okta_actions FROM settings WHERE company_id = 1');
+            $row = $res ? mysqli_fetch_row($res) : null;
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $row !== null && (int) $row[0] === 1;
     }
 }

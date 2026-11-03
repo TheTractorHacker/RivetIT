@@ -2021,6 +2021,56 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '422':
           description: Validation error or a workflow rule (blocked, needs approval, reason required, admin only)
+  /hr_requests:
+    get:
+      tags: [Mobile]
+      summary: HR requests from the employee portal
+      description: >
+        Onboarding, offboarding and role-change requests that managers and department administrators made in the portal
+        (Administration > Settings > Employee portal > HR requests). Nothing has started until a request is approved. Needs
+        Departments edit access; only requests of departments the caller may access are listed. A user token is required.
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [pending, approved, rejected, cancelled], default: pending}}
+      responses:
+        '200':
+          description: Requests, newest first (at most 100); templates lists the workflow templates that can be started for a pending request
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HrRequestList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422':
+          description: Unknown status
+    post:
+      tags: [Mobile]
+      summary: Approve or reject an HR request
+      description: >
+        approve needs template_id (an active template of the request's type) and starts that workflow through WorkflowService;
+        reject needs a comment and starts nothing. A request outside the caller's departments and an unknown id return the same 404;
+        a request that was already decided returns 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/HrRequestDecision'}
+      responses:
+        '200':
+          description: Decided; run_id is the started workflow run (approve only)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  status: {type: string, enum: [approved, rejected]}
+                  run_id: {type: integer, nullable: true}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: Already decided
+        '422':
+          description: Validation error (no template, wrong template type, reject without a comment, the person has left)
   /ticket_attachments:
     get:
       tags: [Mobile]
@@ -4795,6 +4845,47 @@ components:
         catalog_item_id: {type: integer}
         answers: {type: object, additionalProperties: true, description: "field key to value; booleans and numbers are accepted for checkbox/number fields; a table field takes a list of rows"}
         client_id: {type: integer, nullable: true}
+    HrRequestList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              type: {type: string, enum: [onboarding, offboarding, role_change]}
+              status: {type: string, enum: [pending, approved, rejected, cancelled]}
+              client_id: {type: integer}
+              department: {type: string}
+              requested_by: {type: string}
+              subject: {type: string}
+              subject_contact_id: {type: integer, nullable: true}
+              effective_date: {type: string, format: date, nullable: true}
+              details: {type: object, additionalProperties: true}
+              requested_at: {type: string}
+              decided_at: {type: string, nullable: true}
+              decision_comment: {type: string, nullable: true}
+              run_id: {type: integer, nullable: true}
+              templates:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: integer}
+                    name: {type: string}
+        counts:
+          type: object
+          properties:
+            total: {type: integer}
+    HrRequestDecision:
+      type: object
+      required: [id, decision]
+      properties:
+        id: {type: integer}
+        decision: {type: string, enum: [approve, reject]}
+        template_id: {type: integer, description: "Required to approve"}
+        comment: {type: string, maxLength: 500, description: "Required to reject; the requester sees it"}
     WorkflowTaskList:
       type: object
       properties:

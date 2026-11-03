@@ -105,6 +105,50 @@ $has_retry = $ready && $has_runs && \ITFlow\Automation\RuleAdmin::hasRetryColumn
     </table></div>
 </div>
 
+<?php $unified = ($ready && LegacyRuleImporter::available($mysqli)) ? LegacyRuleImporter::unifiedRows($mysqli) : [];
+    if ($unified) {
+        $tview = new TicketRuleView($mysqli);
+        $state_text = [
+            'convertible' => ['secondary', 'Running as a ticket rule'],
+            'legacy_only' => ['secondary', 'Running as a ticket rule'],
+            'converted_waiting' => ['warning', 'Copy ready, switched off'],
+            'both_on' => ['danger', 'Both are on'],
+            'switched' => ['success', 'Switched over'],
+            'both_off' => ['secondary', 'Both are off'],
+        ]; ?>
+<div class="card mb-3" id="legacy-rules">
+    <div class="card-header py-3"><h4 class="card-title mb-0">Older ticket rules <span class="text-muted small fw-normal">(read only here)</span></h4></div>
+    <div class="card-body pb-0"><p class="text-muted small">These run from cron and keep running exactly as before. Where an event rule can do the same job, <strong>Convert</strong> makes a copy that is <strong>switched off</strong>. Check the copy, then <strong>Switch over</strong> turns the copy on and the old rule off in one step, so the two never both act. Rules with no equivalent stay as they are, with the reason.</p></div>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Rule</th><th>When</th><th>Does</th><th>State</th><th class="text-end"></th></tr></thead>
+        <tbody>
+        <?php foreach ($unified as $u) {
+            $rule_row = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT * FROM ticket_automation_rules WHERE rule_id = ' . (int) $u['legacy_id']));
+            [$badge, $label] = $state_text[$u['state']]; ?>
+            <tr class="<?= $u['enabled'] ? '' : 'text-muted' ?>">
+                <td><strong><?= $h($u['name']) ?></strong><div class="small text-muted">ticket rule #<?= (int) $u['legacy_id'] ?> &middot; <?= $u['enabled'] ? 'on' : 'off' ?></div></td>
+                <td><span class="badge text-bg-info text-nowrap"><?= $h($tview->trigger((string) $u['trigger'])) ?></span></td>
+                <td class="small"><?php if ($rule_row) { foreach (TicketRuleView::conditionsOf($rule_row) as $c) { ?><div><?= $h($tview->condition($c)) ?></div><?php } foreach (TicketRuleView::actionsOf($rule_row) as $a) { ?><div class="fw-semibold"><?= $h($tview->action($a)) ?></div><?php } } ?></td>
+                <td><span class="badge text-bg-<?= $badge ?>"><?= $h($label) ?></span>
+                    <?php if ($u['imported_rule_id'] !== null) { ?><div class="small"><a href="event_rules.php?edit=<?= (int) $u['imported_rule_id'] ?>">Event rule #<?= (int) $u['imported_rule_id'] ?></a> (<?= $u['new_enabled'] ? 'on' : 'off' ?>)</div>
+                    <?php } elseif (!$u['importable']) { ?><div class="small text-muted"><?= $h($u['reason']) ?></div><?php } ?>
+                    <?php foreach ($u['notes'] as $n) { ?><div class="small text-muted"><?= $h($n) ?></div><?php } ?></td>
+                <td class="text-end text-nowrap">
+                    <?php if ($u['state'] === 'convertible' || $u['state'] === 'converted_waiting' || $u['state'] === 'both_on') { ?>
+                    <form action="post.php" method="post" class="d-inline"<?= $u['state'] === 'convertible' ? '' : ' data-confirm-submit="Turn the event rule on and the old ticket rule off? From now on only the event rule acts. You can turn the ticket rule back on in the ticket rule editor."' ?>>
+                        <input type="hidden" name="csrf_token" value="<?= $h($csrf) ?>"><input type="hidden" name="legacy_id" value="<?= (int) $u['legacy_id'] ?>">
+                        <?php if ($u['state'] === 'convertible') { ?><button class="btn btn-sm btn-primary" name="convert_legacy_rule" type="submit"><i class="fas fa-exchange-alt me-1"></i>Convert to event rule</button>
+                        <?php } else { ?><button class="btn btn-sm btn-outline-primary" name="switch_legacy_rule" type="submit"><i class="fas fa-random me-1"></i>Switch over</button><?php } ?>
+                    </form>
+                    <?php } ?>
+                </td>
+            </tr>
+        <?php } ?>
+        </tbody>
+    </table></div>
+</div>
+<?php } ?>
+
 <?php } elseif ($tab === 'ticket') {
     $view = new TicketRuleView($mysqli);
     $res = mysqli_query($mysqli, 'SELECT * FROM ticket_automation_rules ORDER BY rule_order ASC, rule_id ASC'); ?>

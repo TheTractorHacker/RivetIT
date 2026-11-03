@@ -739,6 +739,9 @@ class ServiceCatalogService
             $any = false;
             foreach ($cols as $ci => $col) {
                 $cell = $row[$ci] ?? $row[$col['label']] ?? $row['c' . $ci] ?? '';
+                if ($cell === null) {
+                    $cell = ''; // a JSON null (an empty cell from an app) is an empty cell, not an error
+                }
                 if (is_bool($cell)) {
                     $cell = $cell ? '1' : '0';
                 } elseif (is_int($cell) || is_float($cell)) {

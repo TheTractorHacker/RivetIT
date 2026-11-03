@@ -120,7 +120,7 @@ curl -s https://your-instance.example.com/api/v1/tickets -H "Authorization: Bear
 
 Machine clients act as a fixed, disabled, role-less service identity ("API integration service"), never as an administrator; their only
 authority is their scopes and departments (see [Acting identity](#acting-identity-of-a-machine-client)). Routes that act for a person
-answer 403 for them: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`.
+answer 403 for them: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`, `/hr_requests`.
 
 ### API keys (machine credentials for the whole API)
 
@@ -148,7 +148,7 @@ Rules that matter to an integrator:
   `directory:read` is the only scope that opens `/employees` and `/departments`, and it opens nothing else. A route needs its scope in the token; removing a scope from the
   client takes effect at the next request, and so does revoking the client or the secret that issued the token. A token for a client holding many scopes is large (about 2 KB); ask for fewer with the `scope` parameter if a proxy limits header size.
 - The service catalog (`/service_catalog`: categories, items with their request forms, raising a request) is described in `openapi.yaml` and `docs/MOBILE_API.md`; `POST` calls `ServiceCatalogService::createRequest()`, the same entry point a chat integration uses.
-- Person-bound routes are never available to a client, whatever it holds: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`.
+- Person-bound routes are never available to a client, whatever it holds: `/credentials`, `/me`, `/notifications`, `/approvals`, `/endpoint_devices`, `/service_catalog`, `/workflow_tasks`, `/hr_requests`.
   A client may also hold the `sso` capability (OpenID Connect sign-in to the QMS, `docs/integrations/qms-sso.md`); it is not an API scope,
   is never issued in a token here, and an SSO token or ID token is refused on every `/api/v1` route.
 - A client holds at most two active secrets, so rotate by adding the new secret (the old one keeps working for the overlap you

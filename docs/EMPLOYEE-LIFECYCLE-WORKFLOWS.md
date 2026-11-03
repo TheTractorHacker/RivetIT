@@ -117,7 +117,42 @@ An automated task can have **Delay (days)**: it runs no earlier than N days afte
 | Entra: assign / remove Microsoft 365 licences | assign: onboarding, role change, transfer; remove: offboarding, role change, transfer | `assignLicense` for SKU GUIDs. | Same gate as the other Entra actions (the "Allow ... to change Entra accounts" setting, the department check). The user needs a usage location for an add. |
 | Entra: set the mailbox automatic reply | offboarding | PATCH `mailboxSettings` automatic replies on, message as written (placeholder values from the directory are HTML-escaped). | Needs the `MailboxSettings.ReadWrite` application permission. |
 | Odoo: create / archive the employee | onboarding / offboarding | Creates `hr.employee` (unless the work email exists) / sets `active=false` (never unlink). | **Off unless Administration > Employee Workflow Templates > "Allow workflows to create / archive employees in Odoo" is ticked** (settings.config_lifecycle_odoo_actions, DB 2.6.214). Odoo is a live system: verified against an in-process mock only. |
-| Identity system: create / disable the account (Active Directory, VPN, Okta, Google Workspace) | onboarding / offboarding | Calls the system's connector (`src/Workflow/Connectors/IdentityConnector`). | **The four connectors are stubs**: they refuse with "not connected" so the task becomes a manual task. A real connector implements `IdentityConnector` (idempotent, never deletes, never returns a password) and is registered with `ConnectorRegistry::register()`. |
+| Identity system: create / disable the account (Active Directory, VPN, Okta, Google Workspace) | onboarding / offboarding | Calls the system's connector (`src/Workflow/Connectors/IdentityConnector`). | **Okta has a connector (below); Active Directory, VPN and Google Workspace are still stubs**: they refuse with "not connected" so the task becomes a manual task. A real connector implements `IdentityConnector` (idempotent, never deletes, never returns a password) and is registered with `ConnectorRegistry::register()`. |
+| Identity system: add the employee to groups | onboarding / role change / transfer | `GroupConnector::addToGroups()`; only Okta implements it. | Needs at least one group (name or the system's id). A connector without group support refuses and the task becomes a manual task. |
+
+### Okta (create, suspend, add to groups)
+
+`src/Workflow/Connectors/OktaConnector` talks to the Okta Management API with an SSWS API token. **Off by default.** On Administration > Employee Workflow Templates > *Okta actions* an administrator saves the Okta domain (a bare host name such as `example.okta.com`, validated), the API token (stored encrypted with `encryptSetting`, never shown again, "Remove the saved token" clears it) and ticks **Allow workflows to change Okta** (`settings.config_lifecycle_okta_actions`, DB 2.6.243). With the switch off, or no domain / token, the connector refuses with a message that names the setting, **nothing is sent to Okta**, and the task becomes a manual task. The dry-run preview never sends anything.
+
+| Action | Does |
+|---|---|
+| create | Looks the user up by login first; an existing user is reported and left alone (no second user, no group change). Otherwise creates a **STAGED** user (no password, no credentials sent) in the listed groups; only when the task says *enabled* it activates the user with `sendEmail=false`, so Okta mails nobody from a test or a typo. RivetIT never creates, sees or logs a password: the person completes setup through the org's normal activation flow. |
+| disable | **Suspends** (reversible in Okta with Unsuspend) an ACTIVE user and clears their sessions; **never deletes**. An already suspended user still gets their sessions cleared. Any other status (staged, provisioned, ...) is refused and named, so a person finishes it. An account that cannot be found is a failure, not a silent success. |
+| add to groups | Adds the existing user to each group (name must match exactly one group, or give the `00g...` id). An unknown or ambiguous name refuses **before** any change. Already a member counts as done. Nobody is ever removed. |
+
+The Okta account's `profile.department` must equal the person's department (fail closed when either is empty), the same rule as the Entra actions. Audit events: `okta.user_created`, `okta.user_disabled`, `okta.group_member_added` and `settings.lifecycle_okta_changed` (never the token). Okta errors are summarised without echoing the token or the raw body (401, 403, 429 and network errors have their own wording). **UNVERIFIED LIVE: written to Okta's documented API and tested only against an in-process mock (`tests/lifecycle_life33.php`); no real Okta org has been contacted.**
+
+**Live verification checklist for Okta (not done; needs a test Okta org and a scoped API token):**
+1. Save the domain and token with the switch OFF; start an onboarding with an Okta create task: it must become a manual task naming the setting, and the Okta System Log must show nothing.
+2. Turn the switch on. Create a test user with *enabled* off: the user is STAGED, no activation email arrives, the groups are set, no password exists.
+3. Run it again: no second user, no error.
+4. Add-to-groups with a group name, then with a duplicate-named group: the second must refuse before any change.
+5. Offboarding with the department attribute matching: the user is SUSPENDED and the session list is empty; run again: still fine. With a mismatched department: refused, user untouched.
+6. Confirm the token role can do only what is needed (read users and groups, create users, suspend, manage group membership), and that a revoked token produces the 401 wording.
+
+## HR-initiated requests from the portal
+
+Managers and department administrators can ask HR to start an **onboarding**, an **offboarding** or a **role change** from the employee portal (*HR requests*). Off by default: Administration > Settings > Employee portal > **Allow HR requests from the portal** (`settings.config_portal_hr_requests`, DB 2.6.242).
+
+* The request is only a row in `hr_workflow_requests` (status `pending`). **Nothing starts, no person is created and no record changes until an HR agent approves it.** Rejecting or withdrawing starts nothing.
+* Scoping: the department is always the requester's own. A manager can name only their direct reports; a department administrator anyone active in their department except themselves; never a leaver and never another department. `submit()` re-checks the person's department itself.
+* HR side: *Service desk > HR requests* (`agent/hr_requests.php`, also `GET/POST /api/v1/hr_requests`). Needs Departments edit access, and only requests of departments the agent may access are listed or decidable. HR picks the workflow template (an active template of the matching type), may add a note, and approves or rejects (a rejection needs a reason; the requester sees it). Approval claims the request atomically first (two agents cannot both act); if starting fails (for example the named manager has left) the claim is released and the request stays pending with the reason shown.
+* What approval does: onboarding creates the pre-hire in the requester's department with the named manager and starts the chosen template; offboarding sets the expected end date (it anchors the template's due dates) and starts the offboarding template; role change starts the role-change template and records the new title and effective date in the run's notes. **The job title is not changed behind HR's back.** Starting uses `WorkflowService::startRunIfNone`, so an open run of the same template for the same person is never doubled.
+* Every step is audited: `hr_request.submitted`, `hr_request.approved`, `hr_request.rejected`, `hr_request.cancelled`. Eligible HR agents get an in-app notification when a request arrives. No email is sent by this feature.
+
+### Approving workflow tasks from Slack / Teams
+
+A workflow approval task is offered in chat only through the existing chat layer: when the task becomes ready `WorkflowService` calls `ChatNotifier::approvalRequested($db, 'workflow_task', $id)` (the #36 interface), the approver gets an Approve / Deny message, and the click goes to `ChatActions::decideWorkflow()` which uses `WorkflowService::approveTask / rejectTask`, so every approver rule, the audit event and the "rejection pauses the run" behaviour are the web ones. Nothing is sent unless *Actions from chat* is on. HR requests (above) are not offered in chat. Covered by `tests/chat_integration.php` (mock Slack).
 
 ## Built-in presets and bulk start
 

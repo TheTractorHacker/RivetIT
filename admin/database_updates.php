@@ -12971,3 +12971,45 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.231'");
     }
+
+    if ($rivetit_db_version() == '2.6.231') {
+        // DB 2.6.242: HR-initiated requests from the employee portal (#31). Additive and idempotent.
+        // hr_workflow_requests   a manager / department administrator asks for an onboarding, offboarding or role-change workflow. NOTHING happens until an HR agent
+        //                        approves it (then the run starts through the normal WorkflowService); rejected / cancelled requests never touch a person.
+        // settings.config_portal_hr_requests   0 = the portal pages and handlers refuse (default); 1 = on.
+        mysqli_query($mysqli, "CREATE TABLE IF NOT EXISTS `hr_workflow_requests` (
+  `hr_request_id` int(11) NOT NULL AUTO_INCREMENT,
+  `hr_type` enum('onboarding','offboarding','role_change') NOT NULL,
+  `hr_client_id` int(11) NOT NULL,
+  `hr_requested_by_contact_id` int(11) NOT NULL,
+  `hr_subject_contact_id` int(11) DEFAULT NULL,
+  `hr_subject_name` varchar(200) NOT NULL DEFAULT '',
+  `hr_effective_date` date DEFAULT NULL,
+  `hr_payload` text DEFAULT NULL,
+  `hr_status` enum('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+  `hr_template_id` int(11) DEFAULT NULL,
+  `hr_run_id` int(11) DEFAULT NULL,
+  `hr_decided_by_user_id` int(11) DEFAULT NULL,
+  `hr_decided_at` datetime DEFAULT NULL,
+  `hr_decision_comment` varchar(500) DEFAULT NULL,
+  `hr_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`hr_request_id`),
+  KEY `idx_hr_status` (`hr_status`,`hr_created_at`),
+  KEY `idx_hr_client` (`hr_client_id`,`hr_status`),
+  KEY `idx_hr_requester` (`hr_requested_by_contact_id`),
+  KEY `idx_hr_subject` (`hr_subject_contact_id`,`hr_type`,`hr_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_hr_requests` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
+    }
+
+    if ($rivetit_db_version() == '2.6.242') {
+        // DB 2.6.243: Okta workflow actions (#31). Additive and idempotent. All off / empty by default.
+        // config_lifecycle_okta_actions   0 = the Okta connector refuses and sends nothing (default); 1 = workflows may create / suspend users and add them to groups.
+        // config_lifecycle_okta_domain    the org's host name (example.okta.com), validated on save.
+        // config_lifecycle_okta_token     the SSWS API token, encrypted with encryptSetting(); never shown again.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_actions` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_domain` varchar(253) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_token` text DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
+    }

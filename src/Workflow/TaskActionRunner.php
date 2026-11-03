@@ -7,6 +7,7 @@ use ITFlow\Workflow\Actions\ArchiveContactAction;
 use ITFlow\Workflow\Actions\AssignAssetAction;
 use ITFlow\Workflow\Actions\CollectAssetAction;
 use ITFlow\Workflow\Actions\ConnectorDeprovisionAction;
+use ITFlow\Workflow\Actions\ConnectorAddGroupsAction;
 use ITFlow\Workflow\Actions\ConnectorProvisionAction;
 use ITFlow\Workflow\Actions\EntraAssignLicenseAction;
 use ITFlow\Workflow\Actions\EntraRemoveLicenseAction;
@@ -56,7 +57,7 @@ class TaskActionRunner
             new EntraAssignLicenseAction(), new EntraRemoveLicenseAction(), new EntraSetAutoReplyAction(),
             new AssignAssetAction(), new CollectAssetAction(), new ArchiveContactAction(),
             new OdooProvisionEmployeeAction(), new OdooDisableEmployeeAction(),
-            new ConnectorProvisionAction(), new ConnectorDeprovisionAction()];
+            new ConnectorProvisionAction(), new ConnectorDeprovisionAction(), new ConnectorAddGroupsAction()];
     }
 
     /** @return array<string,string> action_type => label for the actions usable in a template of this type (the template editor's list) */

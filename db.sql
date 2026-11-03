@@ -5154,6 +5154,10 @@ CREATE TABLE `settings` (
   `config_mail_template_footer_html` mediumtext DEFAULT NULL,
   `config_catalog_approval_cron` tinyint(1) NOT NULL DEFAULT 0,
   `config_lifecycle_odoo_actions` tinyint(1) NOT NULL DEFAULT 0,
+  `config_lifecycle_okta_actions` tinyint(1) NOT NULL DEFAULT 0,
+  `config_lifecycle_okta_domain` varchar(253) DEFAULT NULL,
+  `config_lifecycle_okta_token` text DEFAULT NULL,
+  `config_portal_hr_requests` tinyint(1) NOT NULL DEFAULT 0,
   `config_automation_run_script_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_automation_odoo_user_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_automation_cert_days` int(11) NOT NULL DEFAULT 30,
@@ -9761,6 +9765,37 @@ CREATE TABLE `workflow_template_tasks` (
   `condition_json` text DEFAULT NULL,
   PRIMARY KEY (`template_task_id`),
   KEY `idx_template_task_template` (`workflow_template_id`,`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `hr_workflow_requests`
+--
+
+DROP TABLE IF EXISTS `hr_workflow_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `hr_workflow_requests` (
+  `hr_request_id` int(11) NOT NULL AUTO_INCREMENT,
+  `hr_type` enum('onboarding','offboarding','role_change') NOT NULL,
+  `hr_client_id` int(11) NOT NULL,
+  `hr_requested_by_contact_id` int(11) NOT NULL,
+  `hr_subject_contact_id` int(11) DEFAULT NULL,
+  `hr_subject_name` varchar(200) NOT NULL DEFAULT '',
+  `hr_effective_date` date DEFAULT NULL,
+  `hr_payload` text DEFAULT NULL,
+  `hr_status` enum('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+  `hr_template_id` int(11) DEFAULT NULL,
+  `hr_run_id` int(11) DEFAULT NULL,
+  `hr_decided_by_user_id` int(11) DEFAULT NULL,
+  `hr_decided_at` datetime DEFAULT NULL,
+  `hr_decision_comment` varchar(500) DEFAULT NULL,
+  `hr_created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`hr_request_id`),
+  KEY `idx_hr_status` (`hr_status`,`hr_created_at`),
+  KEY `idx_hr_client` (`hr_client_id`,`hr_status`),
+  KEY `idx_hr_requester` (`hr_requested_by_contact_id`),
+  KEY `idx_hr_subject` (`hr_subject_contact_id`,`hr_type`,`hr_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
