@@ -23,13 +23,16 @@ if ($eh_show('catalog')) {
     $eh_popular = $eh_catalog->trending(5, 30);
     $eh_recent = $eh_catalog->recentForContact($eh_cid, $eh_client, 5);
     ?>
-<div class="card portal-card mb-4">
+<div class="card portal-card portal-help mb-4">
     <div class="card-body">
-        <h3 class="h5 mb-3"><span class="portal-card-chip"><i class="fas fa-concierge-bell" aria-hidden="true"></i></span>What do you need?</h3>
-        <form action="service_catalog.php" method="get" class="portal-filterbar mb-2">
-            <div class="portal-search">
+        <h3 class="h5 mb-1"><span class="portal-card-chip"><i class="fas fa-life-ring" aria-hidden="true"></i></span>How can we help?</h3>
+        <p class="text-secondary small mb-3">Describe it in a few words. We will show you quick answers first, and turn it into a ticket if you still need us.</p>
+        <form action="service_catalog.php" method="get" id="portalHelpForm" class="portal-help-form mb-2" role="search">
+            <div class="portal-help-box">
                 <i class="fas fa-search" aria-hidden="true"></i>
-                <input type="search" class="form-control form-control-lg" name="q" maxlength="100" placeholder="Request something: new laptop, software, access..." aria-label="Search the service catalog" autocomplete="off">
+                <input type="search" class="form-control form-control-lg" name="q" maxlength="100" placeholder="e.g. my laptop won't connect to Wi-Fi, new starter, reset my password" aria-label="Describe what you need help with" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="portalHelpResults">
+                <a href="ticket_add.php" id="portalHelpRaise" class="btn btn-primary portal-help-raise"><i class="fas fa-ticket-alt me-2" aria-hidden="true"></i>Raise a ticket</a>
+                <div class="portal-help-results" id="portalHelpResults" role="listbox" aria-label="Suggestions" hidden></div>
             </div>
         </form>
         <?php foreach ([['Popular', 'fa-fire', $eh_popular], ['Recent', 'fa-history', $eh_recent]] as [$eh_shelf_title, $eh_shelf_icon, $eh_shelf_rows]) {

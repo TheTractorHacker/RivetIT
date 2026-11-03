@@ -39,6 +39,11 @@ if (!$catalog_item && intval($_GET['asset_id'] ?? 0) > 0) {
         $prefill_subject = 'Problem with ' . $report_device['asset_name'];
     }
 }
+// Arriving from the portal home help box: what the person typed becomes the subject (plain text, length-capped, escaped on output).
+if (!$catalog_item && $prefill_subject === '' && isset($_GET['subject']) && is_string($_GET['subject'])) {
+    $prefill_subject = trim(preg_replace('/\s+/', ' ', strip_tags($_GET['subject'])));
+    $prefill_subject = function_exists('mb_substr') ? mb_substr($prefill_subject, 0, 200) : substr($prefill_subject, 0, 200);
+}
 $prefill_priority = 'Low';
 $prefill_category = 0;
 $catalog_icon = 'fa-ticket-alt';

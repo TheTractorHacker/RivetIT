@@ -337,3 +337,21 @@
 
 /* Allowance page label column (was an inline style="", which the portal CSP drops). */
 .portal-allowance-label { min-width: 110px; }
+
+/* ===== Portal home help box (js/portal_help.js, client/help_suggest.php) ===== */
+.portal-help-box { position: relative; display: flex; align-items: center; gap: .6rem; }
+.portal-help-box > i.fa-search { position: absolute; left: 1rem; top: 1.45rem; transform: translateY(-50%); color: var(--if-muted); pointer-events: none; }
+.portal-help-box .form-control { padding-left: 2.6rem; border-radius: 999px; flex: 1 1 auto; min-height: 2.9rem; }
+.portal-help-raise { flex: none; border-radius: 999px; padding: .6rem 1.2rem; font-weight: 600; white-space: nowrap; }
+.portal-help-results { position: absolute; left: 0; right: 0; top: calc(100% + .35rem); z-index: 30; background: var(--if-surface); border: 1px solid var(--if-border-strong); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.22); padding: .4rem; max-height: 22rem; overflow-y: auto; }
+.portal-help-results[hidden] { display: none; }
+.portal-help-results .ph-section { padding: .55rem .7rem .2rem; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--if-muted); }
+.portal-help-results .ph-row { display: flex; align-items: center; gap: .75rem; padding: .5rem .7rem; border-radius: 9px; color: var(--if-ink); text-decoration: none; }
+.portal-help-results .ph-row.is-active { background: rgba(var(--if-primary-rgb), .12); box-shadow: inset 3px 0 0 var(--if-primary); }
+.portal-help-results .ph-ic { flex: none; width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--if-bg); color: var(--if-muted); }
+.portal-help-results .ph-row.is-active .ph-ic, .portal-help-results .ph-raise .ph-ic { background: var(--if-primary); color: #fff; }
+.portal-help-results .ph-tx { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.portal-help-results .ph-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-help-results .ph-sub { font-size: .78rem; color: var(--if-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 575.98px) { .portal-help-box { flex-wrap: wrap; } .portal-help-box .form-control { flex-basis: 100%; } .portal-help-raise { width: 100%; text-align: center; } .portal-help-box > i.fa-search { top: 1.45rem; } }
+.portal-card.portal-help { overflow: visible; position: relative; z-index: 5; }
