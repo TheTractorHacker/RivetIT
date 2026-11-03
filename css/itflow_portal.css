@@ -360,3 +360,6 @@
 
 /* Allowance page label column (was an inline style="", which the portal CSP drops). */
 .portal-allowance-label { min-width: 110px; }
+
+/* Portal announcements: the urgent (danger) notice text is ~3.4:1 on a dark card; lighten it to pass WCAG AA */
+:root[data-bs-theme="dark"] #announcements .alert-danger { color: #ff9b9b; --tblr-alert-color: #ff9b9b; }

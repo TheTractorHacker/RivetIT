@@ -45,7 +45,7 @@ if ($eh_show('catalog')) {
     ?>
 <div class="card portal-card mb-4">
     <div class="card-body">
-        <h3 class="h5 mb-3"><span class="portal-card-chip"><i class="fas fa-concierge-bell" aria-hidden="true"></i></span>What do you need?</h3>
+        <h2 class="h5 mb-3"><span class="portal-card-chip"><i class="fas fa-concierge-bell" aria-hidden="true"></i></span>What do you need?</h2>
         <form action="service_catalog.php" method="get" class="portal-filterbar mb-2">
             <div class="portal-search">
                 <i class="fas fa-search" aria-hidden="true"></i>
@@ -78,7 +78,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-7 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-ticket-alt" aria-hidden="true"></i></span>My open requests</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-ticket-alt" aria-hidden="true"></i></span>My open requests</h2>
                 <a href="tickets.php" class="btn btn-sm btn-outline-primary">View all</a>
             </div>
             <div class="card-body p-0">
@@ -109,7 +109,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-5 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-laptop" aria-hidden="true"></i></span>My devices</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-laptop" aria-hidden="true"></i></span>My devices</h2>
                 <a href="assets.php" class="btn btn-sm btn-outline-primary">Details</a>
             </div>
             <div class="card-body p-0">
@@ -140,7 +140,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-12 col-md-12" id="help-articles">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-book" aria-hidden="true"></i></span>Help articles</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-book" aria-hidden="true"></i></span>Help articles</h2>
                 <a href="kb_articles.php" class="btn btn-sm btn-outline-primary">Browse all</a>
             </div>
             <div class="card-body">
@@ -166,7 +166,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-6 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-check" aria-hidden="true"></i></span>Waiting on me</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-check" aria-hidden="true"></i></span>Waiting on me</h2>
                 <a href="my_approvals.php" class="btn btn-sm btn-outline-primary">Open</a>
             </div>
             <div class="card-body p-0">
@@ -193,7 +193,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-6 col-md-12" id="checklist">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h2>
                 <span class="portal-badge portal-badge--muted"><?= intval($eh_check['done']) ?> of <?= intval($eh_check['total']) ?> done</span>
             </div>
             <div class="card-body p-0">
@@ -233,7 +233,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <div class="col-lg-6 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h2>
                 <a href="training.php" class="btn btn-sm btn-outline-primary">Open</a>
             </div>
             <div class="card-body p-0">

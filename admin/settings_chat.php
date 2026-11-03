@@ -41,6 +41,9 @@ $secret_state = static fn (string $col): string => $cfg->rawSecret($col) !== '' 
     .chat-url code { word-break: break-all; }
     .chat-switch small { display: block; margin: .1rem 0 .75rem 2.5rem; color: var(--if-muted, var(--tblr-secondary)); }
     .chat-tag { font-size: .75rem; white-space: normal; text-align: left; }
+    /* amber text on the pale amber badge is about 2:1; darken it (lighten it in dark mode) to pass WCAG AA */
+    .chat-tag.text-warning { color: #8a5a00 !important; }
+    :root[data-bs-theme="dark"] .chat-tag.text-warning { color: #ffc14d !important; }
     @media (max-width: 575.98px) { .chat-url span { flex-basis: 100%; } }
 </style>
 

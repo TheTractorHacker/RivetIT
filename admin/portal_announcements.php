@@ -32,7 +32,7 @@ $sev_badge = ['info' => 'secondary', 'important' => 'warning', 'urgent' => 'dang
         <form action="post.php" method="post" autocomplete="off" id="announcement_form">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <?php if ($editing) { ?><input type="hidden" name="announcement_id" value="<?= intval($editing['announcement_id']) ?>"><?php } ?>
-            <h5 class="mb-3"><?= $editing ? 'Edit announcement' : 'New announcement' ?></h5>
+            <h4 class="mb-3 h5"><?= $editing ? 'Edit announcement' : 'New announcement' ?></h4>
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label" for="ann_title">Title</label>
