@@ -30,7 +30,7 @@ function catalog_approval_card(array $a, bool $override) {
         <div class="card-body">
             <div class="d-flex justify-content-between">
                 <h5 class="mb-1"><?= nullable_htmlentities($a['item_name']) ?></h5>
-                <span class="badge text-bg-secondary align-self-start">Risk <?= intval($a['risk_score']) ?></span>
+                <span class="align-self-start"><?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($a['risk_score'])) ?: '<span class="badge text-bg-secondary">Not rated</span>' ?></span>
             </div>
             <p class="text-secondary small mb-2">
                 <?= nullable_htmlentities($a['client_name']) ?> &middot; requested by <?= nullable_htmlentities($a['requester_name'] ?: 'an agent') ?> on <?= nullable_htmlentities($a['created_at']) ?>

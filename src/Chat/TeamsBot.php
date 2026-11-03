@@ -94,7 +94,7 @@ final class TeamsBot
         $text = trim(html_entity_decode(strip_tags($text), ENT_QUOTES, 'UTF-8'));
         $run = (new ChatCommands($this->db, $this->actions, $this->settings))->run($actor, $text, 'Teams');
         $a = $run['results']
-            ? TeamsCards::activity($run['text'], TeamsCards::results($run['heading'], $run['results']))
+            ? TeamsCards::activity($run['text'], TeamsCards::results($run['heading'], $run['results'], $this->settings->actions()))
             : TeamsCards::textActivity($run['text']);
         $reply($a);
         // A ticket made here keeps talking in this conversation (replies on it are mirrored back), when two-way is on.
@@ -121,6 +121,11 @@ final class TeamsBot
             $r = $kind === 'catalog_request' ? $this->actions->decideCatalog($actor, $id, $ap, $comment, 'Teams') : $this->actions->decideWorkflow($actor, $id, $ap, $comment, 'Teams');
 
             return $r['ok'] ? ($ap ? 'Approved: ' : 'Denied: ') . $r['text'] : $r['text'];
+        }
+        if ($what === 'request') {
+            $item = (int) ($v['item'] ?? 0);
+
+            return $item > 0 ? $this->actions->requestCatalogItem($actor, $item, 'Teams')['text'] : 'That button is not valid.';
         }
         $ticket = (int) ($v['ticket'] ?? 0);
         if ($ticket <= 0) {

@@ -75,6 +75,34 @@ without Slack confirming it, a member could claim an agent's address; RivetIT re
 
 Tested against local mocks only (`tests/slack_interactive.php`, including a real HTTP run of the endpoint); never against a real Slack workspace.
 
+## Teams interactive buttons (optional, relay required)
+
+A Teams destination that has an **interactive-action token** (Edit webhook > Generate, 20+ characters, stored encrypted) gets **Acknowledge** and
+**Assign to me** (`Action.Submit`) buttons next to **Open ticket**, with the same effect, rights and audit trail as the Slack buttons
+(`ticket.teams_acknowledged`, `ticket.teams_assigned`). Leaving the token empty keeps the card link-only.
+
+Teams has no Slack-style signing secret, and a card posted through a Workflows webhook cannot call RivetIT itself. So the click is forwarded by
+a **relay flow that you own** (Power Automate: trigger on the card's submit action, then an HTTP action). The relay sends:
+
+    POST https://<your host>/teams_interactive.php
+    X-Rivet-Teams-Token: <the destination's token>
+    X-Rivet-Timestamp: <current unix time in seconds>
+    {"rivet_action": "<data.rivet_action>", "value": "<data.value>", "user_email": "<email of the person who clicked, from Teams>"}
+
+The reply is JSON `{"ok":true,"acted":bool,"text":"..."}`; show `text` to the clicker.
+
+How a click is trusted, in order (any failure stops it, with no change):
+
+1. **Token.** Compared in constant time against every enabled Teams destination's token. No match gives HTTP 401 and no detail. The token is **not** in the
+   card, so seeing the card does not let anyone click on someone else's behalf.
+2. **Fresh and single use.** The timestamp must be within 5 minutes and each (token, timestamp, body) is accepted once (table `slack_interactive_seen`).
+3. **Who clicked.** `user_email` is believed only because the relay holds the token, and only when **exactly one active agent** has that address.
+4. **Rights.** Same as Slack: administrator or write on the support module, department access, the destination's client filter, closed tickets untouched.
+
+**Risk to understand:** the token authenticates your relay, not each person. Anyone who can edit the flow or read its token can name any agent's email,
+so keep the flow's owners to administrators, and rotate the token (Generate new) if it leaks. Tested only against a loopback receiver
+(`tests/teams_interactive.php`), never a real Teams tenant, so the exact Power Automate trigger and field names are for you to confirm.
+
 ## Security
 
 - The URL is a secret (anyone holding it can post to your channel). It is stored encrypted, is never shown again (the edit dialog
@@ -82,7 +110,7 @@ Tested against local mocks only (`tests/slack_interactive.php`, including a real
 - Only `https://` URLs to public addresses are accepted. Private, loopback, link-local (including cloud metadata) and reserved
   addresses are rejected when you save **and** again at send time; the connection is pinned to the vetted address, redirects are
   not followed and TLS is verified.
-- Outgoing messages are not signed (Slack and Teams do not verify one). The optional Slack Signing Secret is for verifying Slack's *interactive requests to RivetIT*, see above.
+- Outgoing messages are not signed (Slack and Teams do not verify one). The Teams token above authenticates the relay's requests to RivetIT. The optional Slack Signing Secret is for verifying Slack's *interactive requests to RivetIT*, see above.
 
 ## Two-way chat, commands, actions, virtual agent (Administration > Chat)
 
@@ -94,7 +122,7 @@ Everything below is **off by default** and configured on **Administration > Sett
    - *Two-way ticket threads*: needs the channel ID. New tickets are posted there as a thread, public and customer replies follow, and a linked agent's reply in the thread becomes an internal note (or a public reply: no email is sent from chat). Internal notes are mirrored only if you also tick that.
    - *Slash command, form and shortcuts*: `/ticket new [client=<id>] [priority=High] <subject>` (no subject opens a form), `/ticket status <ticket>`, the "New ticket" global shortcut and "Create ticket from message".
    - *Actions from chat*: status, priority and Reply on ticket messages (needs a signing secret on the destination), `/ticket set|reply|approvals`, and Approve / Deny direct messages to approvers who linked chat. Closing a ticket is never offered; an administrator cannot override an approval from chat.
-   - *Virtual agent*: DM the bot or mention it; it searches the knowledge base and service catalog and can open a ticket or request a catalog item without required questions.
+   - *Virtual agent*: DM the bot or mention it; it searches the knowledge base and service catalog and can open a ticket or request a catalog item without required questions. With *Actions from chat* on, catalog results carry a one-click **Request this** (Slack) / **Request** (Teams) button; the click is re-checked server side exactly like typing `request <id>`.
 4. Rights are the person's own: support-module write access and department access, as in the web app. A contact (portal user) can only raise and follow their own tickets and see client-visible articles.
 
 ## Microsoft Teams bot (UNVERIFIED LIVE)
@@ -103,9 +131,9 @@ Needs an Azure Bot registration: create an *Azure Bot* (single tenant), copy its
 
 ## Not included
 
-- Teams channel-wide conversation sync (a reply typed in a channel thread is not matched to a ticket; use `reply <ticket> <text>`) and Teams card actions on webhook (Workflows) messages.
+- Teams channel-wide conversation sync (a reply typed in a channel thread is not matched to a ticket; use `reply <ticket> <text>`). Card buttons on plain webhook (Workflows) messages work only through the relay flow above; the bot route is the direct one.
 - Emailing the customer from a chat reply; closing / resolving from chat; administrator override of approvals from chat; contact (manager) approvers receive no chat prompt.
-- Everything above has only been exercised against mocks.
+- Everything above has only been exercised against mocks. Slack rate limits (HTTP 429) are handled by the normal retry schedule.
 
 ## Tests
 

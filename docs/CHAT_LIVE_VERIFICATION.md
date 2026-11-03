@@ -17,7 +17,7 @@ Everything in issue #36 was built and tested against local mocks and locally sig
 - [ ] Switch on *Two-way*: create a ticket in the web app, it appears as a thread in the channel; reply as an agent in the web app (public) and see it in the thread; reply in the thread and see an **internal note** on the ticket; no echo of that note back into the thread.
 - [ ] Unlinked Slack user replies in a thread: they are told they are not linked, nothing changes.
 - [ ] Switch on *Actions*: ticket messages from a Slack destination with a signing secret show status / priority / Reply; each works; Closed is not offered. Create a catalog request needing your approval: you get a DM with Approve / Deny; Approve releases the ticket; a second click does nothing.
-- [ ] Switch on *Virtual agent*: DM the bot "vpn" (KB + catalog results), "ticket my screen flickers", "status <n>", mention it in a channel.
+- [ ] Switch on *Virtual agent*: DM the bot "vpn" (KB + catalog results; with *Actions* on, each catalog result has a **Request this** button that raises the request, items with required questions point to the portal), "ticket my screen flickers", "status <n>", mention it in a channel.
 - [ ] Negative: a request with a wrong signature (curl) gets 401; a request older than 5 minutes gets 401.
 - [ ] Slack returns "dispatch_failed" / timeouts never seen (answers must come within 3 s).
 
@@ -29,8 +29,17 @@ Everything in issue #36 was built and tested against local mocks and locally sig
 - [ ] Reply delivery: the bot's answers appear (token request for scope `https://api.botframework.com/.default`, then the connector `v3/conversations/{id}/activities`). Confirm your service URL host passes the allow-list (smba.trafficmanager.net etc.); add the host in `TeamsConnector::SERVICE_HOST_SUFFIXES` if a sovereign cloud uses another.
 - [ ] Approval card: after you have messaged the bot once, a catalog approval arrives as a card; Approve / Deny work.
 - [ ] Optional email fallback (needs tenant ID set): confirm the roster lookup `GET .../members/{aadObjectId}` returns the directory email; otherwise keep using explicit links.
+- [ ] Catalog search results in Teams show a **Request** button (with *Actions* on); it raises the request as the linked user.
 - [ ] Ticket made in Teams keeps mirroring public replies into that conversation (two-way on).
 - [ ] Negative: POST to `/teams_bot.php` without or with a bogus token gets 401.
+
+## 2b. Teams buttons on webhook messages via a relay (UNVERIFIED LIVE)
+- [ ] Edit a Teams webhook destination, Generate the interactive-action token. Ticket messages gain **Acknowledge** and **Assign to me** next to **Open ticket** (never on the Test message).
+- [ ] Build the relay flow (Power Automate / Logic App) that forwards the click to `/teams_interactive.php` with the token; confirm a click acknowledges / assigns as the matching agent (by email), a second use of the same request is refused, and a stale (older than 5 minutes) request is refused.
+- [ ] The token never appears in the card JSON or in delivery logs.
+
+## 2c. Service catalog risk score (issue #30)
+- [ ] A catalog item with a risk score shows **Risk n (Low/Medium/High)** in Admin > Service catalog, agent Request Something tiles, the ticket's Request details and the approval inboxes (agent and portal), at 390px and in dark mode.
 
 ## 3. Cleanup / rollback
 - [ ] Turn every switch off on the Chat page: all endpoints stop acting immediately. Remove the Slack app / Azure Bot if abandoned.

@@ -214,6 +214,16 @@ $ok(str_contains($lastText(), 'VPN access'), 'the approvals command lists what i
 $bot->handle($act('', $BOB, ['value' => ['rivet' => 'approve', 'kind' => 'catalog_request', 'id' => $reqId]]), $claim);
 $ok($one("SELECT status FROM service_catalog_requests WHERE request_id = $reqId") === 'approved' && str_contains($lastText(), 'Approved'), 'the addressed approver approves from a Teams card');
 $ok((bool) array_filter($audits, fn ($x) => $x['e'] === 'chat.approval_decided' && $x['a'] === 11), 'the Teams decision is audited with the approver as actor');
+// one-click Request on virtual agent catalog results
+$rows = [['title' => 'VPN access (say "request 2")', 'url' => null, 'snippet' => 's', 'request_item' => 2]];
+$hasReq = fn (array $card) => (bool) array_filter($card['actions'] ?? [], fn ($a) => ($a['data']['rivet'] ?? '') === 'request');
+$ok(!$hasReq(\ITFlow\Chat\TeamsCards::results('H', $rows)) && $hasReq(\ITFlow\Chat\TeamsCards::results('H', $rows, true)), 'Teams result card has a Request button only when actions are on');
+$q("INSERT INTO service_catalog_items SET catalog_item_id = 7, name = 'Plain request', is_active = 1, requires_approval = 0");
+$before = (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = 7");
+$sent = []; $bot->handle($act('', $BOB, ['value' => ['rivet' => 'request', 'item' => 0]]), $claim);
+$ok(str_contains($lastText(), 'not valid') && (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = 7") === $before, 'a malformed Request button is refused');
+$sent = []; $bot->handle($act('', $BOB, ['value' => ['rivet' => 'request', 'item' => 7]]), $claim);
+$ok((int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = 7") === $before + 1 && str_contains($lastText(), 'Plain request'), 'a linked user raises the catalog request from the Teams Request button');
 // DM memory + approval prompt over the connector
 $ok((int) $one("SELECT COUNT(*) FROM chat_threads WHERE thread_platform = 'teams' AND thread_ref = 'dm:$BOB' AND thread_ticket_id = 0") === 1, 'the personal conversation is remembered so approvals can be sent to the user');
 $bad = $act('x', $BOB); $bad['serviceUrl'] = 'https://evil.example.test/'; $bad['id'] = 'evil-1';

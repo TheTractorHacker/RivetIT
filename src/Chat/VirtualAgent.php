@@ -179,6 +179,7 @@ final class VirtualAgent
                 'title' => $r['name'] . ' (say "request ' . (int) $r['catalog_item_id'] . '")',
                 'url' => $base !== '' ? $base . ($actor['kind'] === 'contact' ? '/client/ticket_add.php?catalog_item_id=' : '/agent/service_catalog.php?catalog_item_id=') . (int) $r['catalog_item_id'] : null,
                 'snippet' => ChatBlocks::clip(trim(strip_tags((string) $r['description'])), 140),
+                'request_item' => (int) $r['catalog_item_id'],
             ];
         }
         mysqli_stmt_close($stmt);

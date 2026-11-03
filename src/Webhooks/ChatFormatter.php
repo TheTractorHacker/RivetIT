@@ -22,7 +22,7 @@ final class ChatFormatter
     public const TYPE_TEAMS = 'teams';
     public const TYPES = [self::TYPE_GENERIC, self::TYPE_SLACK, self::TYPE_TEAMS];
 
-    /** Slack button action ids handled by slack_interactive.php. */
+    /** Button action ids handled by slack_interactive.php and teams_interactive.php. */
     public const ACTION_ACK = 'rivet_ack';
     public const ACTION_ASSIGN = 'rivet_assign';
 
@@ -235,8 +235,18 @@ final class ChatFormatter
             'body' => $body,
             'msteams' => ['width' => 'Full'],
         ];
+        $actions = [];
         if ($d['url'] !== null) {
-            $card['actions'] = [['type' => 'Action.OpenUrl', 'title' => 'Open ticket', 'url' => $d['url']]];
+            $actions[] = ['type' => 'Action.OpenUrl', 'title' => 'Open ticket', 'url' => $d['url']];
+        }
+        // Interactive buttons only when the destination has an interactive-action token (opts['interactive']); never on a test message.
+        // The data carries only the action id and the ticket id: no secret ever travels in the card. See TeamsInteractive.
+        if (!empty($opts['interactive']) && $d['ticket_id'] > 0 && !$d['test']) {
+            $actions[] = ['type' => 'Action.Submit', 'title' => 'Acknowledge', 'data' => ['rivet_action' => self::ACTION_ACK, 'value' => 'ticket:' . $d['ticket_id']]];
+            $actions[] = ['type' => 'Action.Submit', 'title' => 'Assign to me', 'data' => ['rivet_action' => self::ACTION_ASSIGN, 'value' => 'ticket:' . $d['ticket_id']]];
+        }
+        if ($actions) {
+            $card['actions'] = $actions;
         }
 
         return [

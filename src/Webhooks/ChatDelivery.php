@@ -199,10 +199,12 @@ final class ChatDelivery
         }
 
         $url = function_exists('decryptSetting') ? decryptSetting((string) $row['webhook_url']) : (string) $row['webhook_url'];
-        // A Slack destination with a signing secret gets interactive buttons (the answer can then be verified); nothing else does.
-        $interactive = $type === ChatFormatter::TYPE_SLACK && function_exists('decryptSetting') && decryptSetting((string) ($row['webhook_secret'] ?? '')) !== '';
+        // A Slack destination with a signing secret, or a Teams one with an interactive-action token, gets interactive buttons
+        // (the answer can then be verified); nothing else does.
+        $interactive = ChatFormatter::isChatType($type) && function_exists('decryptSetting') && decryptSetting((string) ($row['webhook_secret'] ?? '')) !== '';
         $extra = ['test' => $test, 'interactive' => $interactive];
-        if ($interactive && !$test && (int) ($data['ticket_id'] ?? 0) > 0) {
+        // Status / priority / Reply controls are Slack Block Kit elements.
+        if ($interactive && $type === ChatFormatter::TYPE_SLACK && !$test && (int) ($data['ticket_id'] ?? 0) > 0) {
             $extra['controls'] = self::ticketControls($mysqli, $data);
         }
         $payload = ChatFormatter::format($type, $event, $data, self::formatterOptions($data) + $extra);

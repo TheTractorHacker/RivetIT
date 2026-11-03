@@ -278,16 +278,17 @@ if (!function_exists('webhookFormContext')) {
 
         if ($c['has_auth'] && !$c['auth_in_connect']) { webhookAuthBlock($c); }
 
-        if ($c['signs'] || $c['type'] === 'slack') {
+        if ($c['signs'] || $c['type'] === 'slack' || $c['type'] === 'teams') {
             $slack = $c['type'] === 'slack';
+            $teams = $c['type'] === 'teams';
             ?>
         <div class="wz-field wz-signing" data-wz-field>
             <?php webhookSecretField('webhook_secret', $uid . '-secret',
-                $slack ? 'Slack Signing Secret <small class="text-secondary">(optional; turns on the Acknowledge / Assign to me buttons)</small>' : 'Signing secret <small class="text-secondary">(HMAC-SHA256 key for the signature headers)</small>',
-                ['saved' => $c['has_secret'], 'value' => $c['gen_secret'], 'visible' => !$c['editing'] && !$slack && $c['gen_secret'] !== '', 'placeholder' => $slack ? 'Signing Secret' : 'your-secret-here', 'maxlength' => 200, 'generate' => $slack ? '' : ($c['editing'] ? 'Generate new' : 'Generate'),
-                    'help' => $slack ? '' : ($c['editing'] ? 'Generating a new secret replaces the saved one when you save; update the receiver too.' : 'Generated for you. Copy it into your receiver (n8n, your script) now: it is stored encrypted and not shown again.')]); ?>
-            <?php if ($slack && $c['has_secret']) { ?>
-            <div class="form-check mt-1"><input type="checkbox" class="form-check-input" name="webhook_secret_clear" value="1" id="<?= $uid ?>-sclear"><label class="form-check-label small" for="<?= $uid ?>-sclear">Remove the saved Signing Secret (turns the interactive buttons off)</label></div>
+                $slack ? 'Slack Signing Secret <small class="text-secondary">(optional; turns on the Acknowledge / Assign to me buttons)</small>' : ($teams ? 'Interactive-action token <small class="text-secondary">(optional; turns on the Acknowledge / Assign to me buttons, see docs/SLACK_TEAMS_SETUP.md)</small>' : 'Signing secret <small class="text-secondary">(HMAC-SHA256 key for the signature headers)</small>'),
+                ['saved' => $c['has_secret'], 'value' => $c['gen_secret'], 'visible' => !$c['editing'] && !$slack && $c['gen_secret'] !== '', 'placeholder' => $slack ? 'Signing Secret' : ($teams ? 'Leave blank for no buttons, or press Generate' : 'your-secret-here'), 'maxlength' => 200, 'generate' => $slack ? '' : ($c['editing'] ? 'Generate new' : 'Generate'),
+                    'help' => $slack ? '' : ($teams ? 'Copy it into the relay flow that forwards Teams button clicks to RivetIT. Stored encrypted and not shown again.' : ($c['editing'] ? 'Generating a new secret replaces the saved one when you save; update the receiver too.' : 'Generated for you. Copy it into your receiver (n8n, your script) now: it is stored encrypted and not shown again.'))]); ?>
+            <?php if (($slack || $teams) && $c['has_secret']) { ?>
+            <div class="form-check mt-1"><input type="checkbox" class="form-check-input" name="webhook_secret_clear" value="1" id="<?= $uid ?>-sclear"><label class="form-check-label small" for="<?= $uid ?>-sclear">Remove the saved Signing Secret / token (turns the interactive buttons off)</label></div>
             <?php } ?>
         </div>
         <?php }

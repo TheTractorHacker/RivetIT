@@ -141,7 +141,7 @@ final class SlackApp
             }
             $text = trim(preg_replace('/^@\S+\s*/', '', $text) ?? $text); // drop the leading bot mention
             $a = (new VirtualAgent($this->db, $this->actions))->answer($actor, $text);
-            $blocks = $a['results'] ? ChatBlocks::results($a['heading'], $a['results'])['blocks'] : [];
+            $blocks = $a['results'] ? ChatBlocks::results($a['heading'], $a['results'], $this->settings->actions())['blocks'] : [];
             $this->say($channel, $a['text'], $blocks, $isDm ? null : ($threadTs ?: $ts));
         }
 
@@ -195,7 +195,7 @@ final class SlackApp
         }
         $r = (new ChatCommands($this->db, $this->actions, $this->settings))->run($actor, $arg, 'Slack', '/ticket ');
 
-        return $reply($r['text'], $r['results'] ? ChatBlocks::results($r['heading'], $r['results'])['blocks'] : []);
+        return $reply($r['text'], $r['results'] ? ChatBlocks::results($r['heading'], $r['results'], $this->settings->actions())['blocks'] : []);
     }
 
     private function openNewModal(string $triggerId, array $actor, string $subject, string $details, string $channel): bool
@@ -227,7 +227,7 @@ final class SlackApp
             if (in_array($actionId, [ChatFormatter::ACTION_ACK, ChatFormatter::ACTION_ASSIGN], true)) {
                 return (new SlackInteractive($this->db))->handle($webhook ?? [], $payload) + ['body' => null, 'replace' => false];
             }
-            if (!in_array($actionId, [ChatBlocks::ACT_STATUS, ChatBlocks::ACT_PRIORITY, ChatBlocks::ACT_REPLY, ChatBlocks::ACT_APPROVE, ChatBlocks::ACT_REJECT], true)) {
+            if (!in_array($actionId, [ChatBlocks::ACT_STATUS, ChatBlocks::ACT_PRIORITY, ChatBlocks::ACT_REPLY, ChatBlocks::ACT_APPROVE, ChatBlocks::ACT_REJECT, ChatBlocks::ACT_REQUEST], true)) {
                 return $none;
             }
             if (!$this->settings->actions()) {
@@ -300,6 +300,14 @@ final class SlackApp
             $ok = ($this->opener)((string) ($payload['trigger_id'] ?? ''), ChatBlocks::replyModal((int) $t['ticket_id'], $this->actions->label($t)));
 
             return ['text' => $ok ? null : 'I could not open the reply form.', 'acted' => false, 'replace' => false];
+        }
+        if ($actionId === ChatBlocks::ACT_REQUEST) {
+            if (!preg_match('/^catalog_item:([1-9][0-9]{0,9})$/', $value, $m)) {
+                return ['text' => 'That button is not valid.', 'acted' => false, 'replace' => false];
+            }
+            $r = $this->actions->requestCatalogItem($actor, (int) $m[1], 'Slack');
+
+            return ['text' => $r['text'], 'acted' => $r['ok'], 'replace' => false];
         }
         // approve / reject
         if (!preg_match('/^(catalog_request|workflow_task):([1-9][0-9]{0,9})$/', $value, $m)) {

@@ -225,7 +225,8 @@ $slack_endpoint = ($slack_base !== '' ? (preg_match('#^https?://#i', $slack_base
             A Slack destination that has a <strong>Signing Secret</strong> (Edit webhook) gets <em>Acknowledge</em> and <em>Assign to me</em> buttons on ticket messages.
             In your Slack app, turn on <strong>Interactivity</strong> and set its Request URL to
             <code><?= nullable_htmlentities($slack_endpoint) ?></code>. Requests are verified with that Signing Secret (5 minute window, single use).
-            Teams cannot do this (Teams cards need a Bot Framework app), see docs/SLACK_TEAMS_SETUP.md.
+            Teams has its own endpoint, <code><?= nullable_htmlentities(preg_replace('#/slack_interactive\.php$#', '/teams_interactive.php', $slack_endpoint)) ?></code>, called by a relay flow you own with the destination's
+            interactive-action token (Edit webhook); see docs/SLACK_TEAMS_SETUP.md.
         </p>
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
