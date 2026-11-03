@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -33,6 +34,20 @@ if (!empty($report_export_csv)) {
     report_send_csv('ticket_summary_' . $year . '.csv', $csv_header, $csv_rows);
 }
 
+// One query for the whole year; months after the current one are "not yet" (null), not zero.
+$monthly = array_fill(1, 12, 0);
+$rs_m = mysqli_query($mysqli, "SELECT MONTH(ticket_created_at) AS m, COUNT(ticket_id) AS c FROM tickets WHERE YEAR(ticket_created_at) = $year" . \ITFlow\Reports\ReportScope::clause('ticket_client_id') . " GROUP BY MONTH(ticket_created_at)");
+while ($rm = mysqli_fetch_assoc($rs_m)) {
+    $monthly[intval($rm['m'])] = intval($rm['c']);
+}
+$cur_year = intval(date('Y'));
+$last_month = ($year < $cur_year) ? 12 : (($year == $cur_year) ? intval(date('n')) : 0);
+$largest_ticket_month = max(array_slice($monthly, 0, max(1, $last_month), true) ?: [0]);
+$total_tickets_for_all_months = array_sum($monthly);
+$month_names = [1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+$busiest = 0;
+foreach ($monthly as $mm => $cc) { if ($mm <= $last_month && $cc >= ($monthly[$busiest] ?? -1)) { $busiest = $mm; } }
+
 ?>
 
 <!-- Responsive chart helpers -->
@@ -41,13 +56,24 @@ if (!empty($report_export_csv)) {
   @media (max-width: 576px) { .chart-h-320 { height: 260px; } }
 </style>
 
+<?php
+$in_progress = ($year == $cur_year && $last_month > 1) ? $last_month : 0;   // current month is not a fair comparison yet
+$ref = $in_progress ? $last_month - 1 : $last_month;                             // last complete month
+if ($ref > 0 && $total_tickets_for_all_months > 0) {
+    $ref_c = $monthly[$ref]; $prev_c = $ref > 1 ? $monthly[$ref - 1] : null;
+    $trend = ($prev_c !== null && $prev_c > 0) ? round((($ref_c - $prev_c) / $prev_c) * 100) : null;
+    $detail = ($trend === null ? '' : ($trend >= 0 ? "Up $trend%" : 'Down ' . abs($trend) . '%') . ' on ' . $month_names[$ref - 1] . " ($prev_c). ")
+            . 'Busiest month: ' . $month_names[$busiest] . " with {$monthly[$busiest]}."
+            . ($in_progress ? ' ' . $month_names[$in_progress] . " is in progress ({$monthly[$in_progress]} so far)." : '');
+    reportHeadline('fa-chart-line', "{$month_names[$ref]}: $ref_c tickets raised" . ($trend === null ? '' : ($trend >= 0 ? ", up $trend%" : ', down ' . abs($trend) . '%')), $detail, ($trend !== null && $trend > 25) ? 'warning' : 'primary',
+        ["Total $year" => $total_tickets_for_all_months, 'Monthly average' => round(array_sum(array_slice($monthly, 0, $ref, true)) / $ref, 1)]);
+} else {
+    reportHeadline('fa-info-circle', "No tickets were raised in $year", 'Pick another year, or check the report scope.', 'secondary');
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Ticket Summary</h3>
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
     </div>
     <div class="card-body p-0">
         <!-- The select used to be the form's only child, so it stretched to the full
@@ -73,45 +99,20 @@ if (!empty($report_export_csv)) {
         </div>
 
         <div class="table-responsive-sm">
-            <table class="table table-striped">
+            <table class="table table-striped text-center mb-0">
                 <thead>
                 <tr>
-                    <th class="text-end">January</th>
-                    <th class="text-end">February</th>
-                    <th class="text-end">March</th>
-                    <th class="text-end">April</th>
-                    <th class="text-end">May</th>
-                    <th class="text-end">June</th>
-                    <th class="text-end">July</th>
-                    <th class="text-end">August</th>
-                    <th class="text-end">September</th>
-                    <th class="text-end">October</th>
-                    <th class="text-end">November</th>
-                    <th class="text-end">December</th>
-                    <th class="text-end">Total</th>
+                    <?php foreach ($month_names as $mn) { ?><th class="text-center"><?= substr($mn, 0, 3) ?></th><?php } ?>
+                    <th class="text-center">Total</th>
                 </tr>
                 </thead>
                 <tbody>
-
-                <?php
-                $total_tickets_for_all_months = 0;
-
-                for ($month = 1; $month <= 12; $month++) {
-
-                    $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month" . \ITFlow\Reports\ReportScope::clause('ticket_client_id'));
-                    $row = mysqli_fetch_assoc($sql_tickets);
-                    $tickets_for_month = intval($row['tickets_for_month']);
-
-                    if ($tickets_for_month > 0 && $tickets_for_month > $largest_ticket_month) {
-                        $largest_ticket_month = $tickets_for_month;
-                    }
-
-                    $total_tickets_for_all_months += $tickets_for_month; ?>
-                    <td class="text-end"><?php echo $tickets_for_month; ?></td>
-                <?php } ?>
-
-                <td class="text-end"><b><?php echo $total_tickets_for_all_months; ?></b></td>
-
+                <tr>
+                    <?php foreach ($monthly as $mm => $cc) { ?>
+                        <td class="<?= $mm > $last_month ? 'text-secondary' : '' ?> <?= ($mm == $busiest && $cc > 0) ? 'fw-bold' : '' ?>"><?= $mm > $last_month ? '&ndash;' : $cc ?></td>
+                    <?php } ?>
+                    <td><b><?= $total_tickets_for_all_months ?></b></td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -128,17 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var ctx = document.getElementById("tickets");
         if (!ctx) return;
 
-        var dataPoints = [
-            <?php
-            // Recompute for the chart dataset (values already gathered above, but we echo directly again)
-            for ($month = 1; $month <= 12; $month++) {
-                $sql_tickets = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS tickets_for_month FROM tickets WHERE YEAR(ticket_created_at) = $year AND MONTH(ticket_created_at) = $month" . \ITFlow\Reports\ReportScope::clause('ticket_client_id'));
-                $row = mysqli_fetch_assoc($sql_tickets);
-                $tickets_for_month = intval($row['tickets_for_month']);
-                echo "$tickets_for_month,";
-            }
-            ?>
-        ];
+        var dataPoints = <?= json_encode(array_map(function ($m) use ($monthly, $last_month) { return ($m <= $last_month && !($m == $last_month && $last_month == intval(date('n')) && $year == $cur_year && $monthly[$m] == 0)) ? $monthly[$m] : null; }, range(1, 12))) ?>;
 
         const chartAccent = (getComputedStyle(document.body).getPropertyValue('--if-primary') || '').trim() || '#007bff';
         new Chart(ctx, {
