@@ -422,7 +422,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 -
                                 <?php } ?>
                             </td>
-                            <td>
+                            <td class="text-nowrap">
                                 <?php echo $location_phone_display; ?>
                                 <?php echo $location_fax_display; ?>
                             </td>

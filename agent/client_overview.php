@@ -91,6 +91,13 @@ $last_real_event = mysqli_fetch_assoc(mysqli_query($mysqli,
      WHERE log_client_id = $client_id AND log_action != 'View'
      ORDER BY log_created_at DESC LIMIT 1"));
 
+// Latest row of ANY kind (page views included) - the same feed the Recent
+// Activity card below shows, so the tile can never contradict it.
+$last_any_event = mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT log_description, log_created_at FROM logs
+     WHERE log_client_id = $client_id
+     ORDER BY log_created_at DESC LIMIT 1"));
+
 $sql_shared_items = mysqli_query($mysqli,
     "SELECT * FROM shared_items WHERE item_client_id = $client_id AND item_active = 1 $co_support_sql ORDER BY item_created_at ASC LIMIT 5");
 
@@ -257,11 +264,23 @@ $stat_tiles[] = [
                    . ($num_expiring_45 > 0 ? '<span class="text-warning">' . $num_expiring_45 . ' within 45d</span>' : ''),
 ];
 
+if ($last_real_event) {
+    $la_text = nullable_htmlentities(timeAgo($last_real_event['log_created_at']));
+    $la_sub  = nullable_htmlentities($last_real_event['log_description']);
+} elseif ($last_any_event) {
+    // Nothing has been changed, but the department has been looked at: say so
+    // instead of "No changes yet" sitting above a Recent Activity row.
+    $la_text = 'Viewed ' . nullable_htmlentities(timeAgo($last_any_event['log_created_at']));
+    $la_sub  = 'No changes recorded yet';
+} else {
+    $la_text = 'No activity yet';
+    $la_sub  = '';
+}
 $stat_tiles[] = [
     'label' => 'Last activity',
     'icon'  => 'fa-history',
-    'text'  => $last_real_event ? nullable_htmlentities(timeAgo($last_real_event['log_created_at'])) : 'No changes yet',
-    'sub'   => $last_real_event ? nullable_htmlentities($last_real_event['log_description']) : '',
+    'text'  => $la_text,
+    'sub'   => $la_sub,
 ];
 
 // One tile body, whether or not the tile is a link.
@@ -565,8 +584,8 @@ if ($has_fav_assets || $has_fav_creds):
 <div class="row">
 
     <?php if ($has_fav_assets): ?>
-    <div class="col-md-<?= $has_fav_creds ? '6' : '12' ?>">
-        <div class="card card-dark mb-3">
+    <div class="mb-3 col-md-<?= $has_fav_creds ? '6' : '12' ?>">
+        <div class="card card-dark h-100">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-star text-warning me-2"></i>Favorite Assets</h5>
                 <a href="assets.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
@@ -599,8 +618,8 @@ if ($has_fav_assets || $has_fav_creds):
     <?php endif; ?>
 
     <?php if ($has_fav_creds): ?>
-    <div class="col-md-<?= $has_fav_assets ? '6' : '12' ?>">
-        <div class="card card-dark mb-3">
+    <div class="mb-3 col-md-<?= $has_fav_assets ? '6' : '12' ?>">
+        <div class="card card-dark h-100">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-star text-warning me-2"></i>Favorite Credentials</h5>
                 <a href="credentials.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>

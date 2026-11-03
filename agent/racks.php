@@ -31,6 +31,10 @@ $sql = mysqli_query(
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+.rack-props th{white-space:nowrap;vertical-align:top;width:1%;padding-right:1rem;color:var(--bs-secondary-color,#6c757d);font-weight:600}
+.rack-props td{vertical-align:top}
+</style>
 
 <div class="card card-dark">
     <div class="card-header py-2">
@@ -95,7 +99,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 }
 
                 ?>
-                <div class="col-md-6">
+                <div class="col-12 <?= intval($num_rows[0]) > 1 ? 'col-xxl-6' : 'col-xxl-9' ?>">
 
                     <div class="card card-dark">
                         <div class="card-header">
@@ -132,11 +136,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-lg-5 mb-3">
                                     <?php if ($rack_photo) { ?>
                                         <img class="img-thumbnail mb-3" alt="rack_photo" src="<?php echo "../uploads/clients/$client_id/$rack_photo"; ?>">
                                     <?php } ?>
-                                    <table class="table table-sm table-borderless border">
+                                    <table class="table table-sm table-borderless border rack-props">
                                         <tbody>
                                             <?php if ($rack_description) { ?>
                                                 <tr>
@@ -181,13 +185,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                     <th colspan="2">Notes</th>
                                                 </tr>
                                                 <tr>
-                                                    <td><?php echo $rack_notes; ?></td>
+                                                    <td colspan="2"><?php echo $rack_notes; ?></td>
                                                 </tr>
                                             <?php } ?>
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-lg-7">
                                     <table class="table table-sm border">
                                         <thead class="thead-dark">
                                             <tr>
