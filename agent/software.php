@@ -174,6 +174,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                 </div>
             </form>
+            <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
             <hr>
             <div class="table-responsive">
                 <table class="table table-borderless table-hover">
@@ -242,7 +243,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         }
                         if ($software_expire) {
                             $software_expire_ago = timeAgo($software_expire);
-                            $software_expire_display = "<div>$software_expire</div><div><small>$software_expire_ago</small></div>";
+                            $software_expire_display = "<div>$software_expire</div><div><small>$software_expire_ago</small>" . orgExpiryChip($row['software_expire'], 45, 7) . "</div>";
 
                             // Convert the expiry date to a timestamp
                             $software_expire_timestamp = strtotime($row['software_expire']);
