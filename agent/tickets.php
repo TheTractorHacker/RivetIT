@@ -479,7 +479,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
     </style>
     <div class="row">
         <?php if (!$client_url) { ?>
-        <div class="col-lg-2 mb-3 mb-lg-0">
+        <div class="col-lg-3 col-xxl-2 mb-3 mb-lg-0">
             <div class="card card-dark h-100">
                 <div class="card-header ticket-views-header">
                     <h3 class="card-title mt-0 mb-0">Ticket Views</h3>
@@ -563,7 +563,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             </div>
         </div>
         <?php } ?>
-        <div class="<?= $client_url ? 'col-12' : 'col-lg-10' ?>">
+        <div class="<?= $client_url ? 'col-12' : 'col-lg-9 col-xxl-10' ?>">
 
     <div class="ticket-stat-row mb-3">
         <?php

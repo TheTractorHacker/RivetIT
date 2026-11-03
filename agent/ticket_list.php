@@ -487,14 +487,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <!-- Ticket Last Response -->
                                 <td>
                                     <div title="<?php echo $ticket_reply_created_at; ?>">
-                                        <?php echo $ticket_reply_created_at_time_ago; ?>
+                                        <span class="text-nowrap"><?php echo $ticket_reply_created_at_time_ago; ?></span>
                                     </div>
                                     <div class="text-secondary"><?php echo $ticket_reply_by_display; ?></div>
                                 </td>
 
                                 <!-- Ticket Created At -->
                                 <td>
-                                    <?php echo $ticket_created_at_time_ago; ?>
+                                    <span class="text-nowrap"><?php echo $ticket_created_at_time_ago; ?></span>
                                     <br>
                                     <small class="text-secondary"><?php echo date("$config_date_format $config_time_format", strtotime($ticket_created_at)); ?></small>
                                 </td>
