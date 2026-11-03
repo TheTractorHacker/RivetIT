@@ -422,3 +422,4 @@ tr[hidden], [hidden].text-center { display: none !important; }
 .portal-ticket-meta { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
 .portal-ticket-meta dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--if-muted); font-weight: 600; }
 .portal-ticket-meta dd { margin: 0; font-size: .95rem; }
+.client-portal-nav .nav-link { white-space: nowrap; }
