@@ -286,7 +286,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <!-- Ticket Number -->
                                 <td>
                                     <a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>">
-                                        <span class="badge rounded-pill text-bg-dark p-2"><?php echo "$ticket_prefix$ticket_number"; ?></span>
+                                        <span class="badge rounded-pill text-bg-dark tk-num"><?php echo "$ticket_prefix$ticket_number"; ?></span>
                                     </a>
                                 </td>
 
@@ -519,9 +519,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
 
 <style>
 .tkt-pill-badge {
-    font-size: 13px; font-weight: 600; padding: 6px 14px;
+    font-size: 12px; font-weight: 600; padding: 4px 10px;
     white-space: nowrap; cursor: pointer; user-select: none;
+    max-width: 11rem; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
 }
+.table.table-tight > tbody > tr > td { vertical-align: middle; padding-top: .4rem; padding-bottom: .4rem; }
+.table-tight .tk-col-subject { min-width: 180px; }
+.table-tight td, .table-tight th { overflow-wrap: normal; }
+.table-tight .tk-num { font-size: 12px; padding: 5px 9px; }
 .tkt-pill-badge.dropdown-toggle::after { display: none; }
 .ticket-group-header td { border: none !important; }
 .ticket-group-header { background: var(--if-bg, #eef2f2); }

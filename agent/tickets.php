@@ -477,9 +477,9 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             padding: .35rem .5rem;
         }
     </style>
-    <div class="row">
+    <div class="row" id="ticketLayout">
         <?php if (!$client_url) { ?>
-        <div class="col-lg-3 col-xxl-2 mb-3 mb-lg-0">
+        <div class="col-lg-3 col-xxl-2 mb-3 mb-lg-0" id="ticketViewsRail">
             <div class="card card-dark h-100">
                 <div class="card-header ticket-views-header">
                     <h3 class="card-title mt-0 mb-0">Ticket Views</h3>
@@ -563,7 +563,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             </div>
         </div>
         <?php } ?>
-        <div class="<?= $client_url ? 'col-12' : 'col-lg-9 col-xxl-10' ?>">
+        <div class="<?= $client_url ? 'col-12' : 'col-lg-9 col-xxl-10' ?>" id="ticketMainCol">
 
     <div class="ticket-stat-row mb-3">
         <?php
@@ -611,7 +611,12 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                 </span>
             </h3>
             <?php if (lookupUserPermission("module_support") >= 2) { ?>
-                <div class="card-tools">
+                <div class="card-tools d-flex align-items-center gap-2">
+                    <?php if (!$client_url) { ?>
+                    <button type="button" class="btn btn-outline-secondary d-none d-lg-inline-flex align-items-center" id="ticketRailToggle" aria-pressed="false" aria-controls="ticketViewsRail" title="Hide the saved views panel to give the table the full width">
+                        <i class="fas fa-fw fa-columns me-1"></i><span class="rail-toggle-label">Hide views</span>
+                    </button>
+                    <?php } ?>
                     <div class="btn-group">
                         <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket/ticket_add_v2.php?<?= $client_url ?>" data-modal-size="lg">
                             <i class="fas fa-plus"></i><span class="d-none d-lg-inline ms-2">New Ticket</span>
@@ -866,6 +871,29 @@ if (isset($_GET["view"])) {
         </div>
     </div>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+// Collapsible saved-views rail: the ticket table gets the full width when the rail is hidden (remembered per browser).
+(function () {
+    var btn = document.getElementById('ticketRailToggle'), rail = document.getElementById('ticketViewsRail'), main = document.getElementById('ticketMainCol');
+    if (!btn || !rail || !main) return;
+    var mainCls = main.className;
+    function apply(hidden) {
+        rail.classList.toggle('d-none', hidden);
+        main.className = hidden ? 'col-12' : mainCls;
+        btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+        btn.querySelector('.rail-toggle-label').textContent = hidden ? 'Show views' : 'Hide views';
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('ticketRailHidden'); } catch (e) {}
+    // No saved choice yet: on screens narrower than ~1700px the table needs the width more than the rail does.
+    apply(saved === null ? window.innerWidth < 1700 : saved === '1');
+    btn.addEventListener('click', function () {
+        var hide = !rail.classList.contains('d-none');
+        apply(hide);
+        try { localStorage.setItem('ticketRailHidden', hide ? '1' : '0'); } catch (e) {}
+    });
+})();
+</script>
 <script src="../js/bulk_actions.js"></script>
 <script src="../js/ticket_view_filters.js?v=<?= (int) @filemtime(__DIR__ . '/../js/ticket_view_filters.js') ?>"></script>
 
