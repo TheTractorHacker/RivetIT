@@ -79,6 +79,20 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     </div>
 
     <div class="card-body">
+        <?php
+        // At-a-glance health, ignoring the filters below: last 90 days, scoped to the department when viewing one.
+        $_cs_scope = $client_url ? "AND ticket_client_id = " . intval($client_id) : '';
+        $_cs = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS n, AVG(ticket_csat_rating) AS avg_r, SUM(ticket_csat_rating >= 4) AS happy,
+            SUM(ticket_csat_rating <= " . intval($config_ticket_csat_low_rating_threshold) . " AND ticket_status != 5) AS followups
+            FROM tickets WHERE ticket_csat_rating IS NOT NULL AND ticket_csat_rated_at >= DATE_SUB(NOW(), INTERVAL 90 DAY) $_cs_scope"));
+        if ($_cs && intval($_cs['n']) > 0) { $_cs_pct = round(100 * intval($_cs['happy']) / intval($_cs['n'])); ?>
+        <div class="row g-2 mb-3">
+            <div class="col-6 col-md-3"><div class="border rounded p-2 h-100"><div class="small text-secondary text-uppercase">Average (90 days)</div><div class="fs-3 fw-bold"><?= number_format((float) $_cs['avg_r'], 1) ?> <span class="fs-6 text-secondary">/ 5</span></div></div></div>
+            <div class="col-6 col-md-3"><div class="border rounded p-2 h-100"><div class="small text-secondary text-uppercase">Satisfied (4-5)</div><div class="fs-3 fw-bold"><?= $_cs_pct ?>%</div><div class="progress" style="height:4px;"><div class="progress-bar bg-success" style="width:<?= $_cs_pct ?>%"></div></div></div></div>
+            <div class="col-6 col-md-3"><div class="border rounded p-2 h-100"><div class="small text-secondary text-uppercase">Ratings</div><div class="fs-3 fw-bold"><?= intval($_cs['n']) ?></div></div></div>
+            <div class="col-6 col-md-3"><a class="d-block border rounded p-2 h-100 text-decoration-none <?= intval($_cs['followups']) ? 'border-danger' : '' ?>" style="color:inherit;" href="?<?= $client_url ?>followup=1"><div class="small text-secondary text-uppercase">Needs follow-up</div><div class="fs-3 fw-bold <?= intval($_cs['followups']) ? 'text-danger' : '' ?>"><?= intval($_cs['followups']) ?></div></a></div>
+        </div>
+        <?php } ?>
         <form autocomplete="off">
             <?php if ($client_url) { ?>
             <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
