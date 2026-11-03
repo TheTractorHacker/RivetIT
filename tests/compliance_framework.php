@@ -133,11 +133,15 @@ $ok(empty($r['errors'] ?? []), 'RMM settings: 250 days (above the floor) is acce
 $post($admin, ['select_compliance_profile' => 1, 'profile_key' => 'contract_x']);
 
 // ------------------------------------------------------------------ restore test
-$post($admin, ['record_restore_test' => 1, 'tested_at' => gmdate('Y-m-d H:i', time() + 86400 * 2), 'who' => 'T', 'result' => 'pass', 'stores' => ['control_db']]);
+// The form takes the company time zone (docs/TIMESTAMP_DISPLAY.md), so the posted times are written in it.
+// A fixed company zone (not UTC), so the conversion is really exercised and the test does not depend on the server's default zone.
+$q("INSERT INTO settings (company_id, config_timezone) VALUES (1, 'America/Chicago') ON DUPLICATE KEY UPDATE config_timezone = 'America/Chicago'");
+$inCompanyZone = fn (int $ts): string => (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone('America/Chicago'))->format('Y-m-d H:i');
+$post($admin, ['record_restore_test' => 1, 'tested_at' => $inCompanyZone(time() + 86400 * 2), 'who' => 'T', 'result' => 'pass', 'stores' => ['control_db']]);
 $ok((int) $one('SELECT COUNT(*) FROM compliance_restore_tests') === 0, 'a restore test dated in the future is refused');
-$post($admin, ['record_restore_test' => 1, 'tested_at' => gmdate('Y-m-d H:i', time() - 3600), 'who' => 'Test Admin', 'result' => 'pass', 'stores' => ['control_db']]);
+$post($admin, ['record_restore_test' => 1, 'tested_at' => $inCompanyZone(time() - 3600), 'who' => 'Test Admin', 'result' => 'pass', 'stores' => ['control_db']]);
 $ok((int) $one('SELECT COUNT(*) FROM compliance_restore_tests') === 1, 'a restore test is recorded');
-$post($tech, ['record_restore_test' => 1, 'tested_at' => gmdate('Y-m-d H:i', time() - 3600), 'who' => 'Tech', 'result' => 'pass', 'stores' => ['control_db']]);
+$post($tech, ['record_restore_test' => 1, 'tested_at' => $inCompanyZone(time() - 3600), 'who' => 'Tech', 'result' => 'pass', 'stores' => ['control_db']]);
 $ok((int) $one('SELECT COUNT(*) FROM compliance_restore_tests') === 1, 'non-administrator: cannot record a restore test');
 $res = array_values(array_filter(ComplianceService::assess($db)->automatic, fn ($r) => $r['id'] === 'restore_test_recency'))[0] ?? null;
 // Without row counts and without the PostgreSQL store Core only WARNS (it will not call an uncompared restore proven): that is the honest answer here.
