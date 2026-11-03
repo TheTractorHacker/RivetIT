@@ -416,5 +416,6 @@ $sp = secSettingsAll($mysqli, true);
 </div>
 
 <?php
+$page_index_selector = '.card-title, h5.mb-3'; require __DIR__ . '/includes/page_index.php';
 require_once "../includes/footer.php";
 

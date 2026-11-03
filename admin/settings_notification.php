@@ -543,4 +543,5 @@ require_once "includes/inc_all_admin.php";
     </div>
 </div>
 
+<?php $page_index_selector = '.card-title, .notif-section-header'; require __DIR__ . '/includes/page_index.php'; ?>
 <?php require_once "../includes/footer.php"; ?>

@@ -410,5 +410,6 @@ if ($wh_add !== '' && Destinations::has($wh_add)) { ?>
 location.replace('webhook_new.php?dest=<?= rawurlencode($wh_add) ?>&step=connect');
 </script>
 <?php } ?>
+<?php $page_index_selector = '.card-title'; require __DIR__ . '/includes/page_index.php'; ?>
 <script src="<?= $wh_asset('js/webhook_list.js') ?>" defer></script>
 <?php require_once "../includes/footer.php"; ?>

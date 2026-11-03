@@ -10,7 +10,7 @@ require_once "includes/inc_all_admin.php";
             <form action="post.php" method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-                <h4>Project</h4>
+                <p class="text-muted">Every new project gets an ID made of the prefix and the next number, for example <code>PRJ-8</code>.</p>
 
                 <div class="form-group">
                     <label>Project Prefix</label>
@@ -20,6 +20,7 @@ require_once "includes/inc_all_admin.php";
                         </div>
                         <input type="text" class="form-control" name="config_project_prefix" placeholder="Project Prefix" value="<?php echo nullable_htmlentities($config_project_prefix); ?>" required>
                     </div>
+                    <small class="form-text text-muted">Letters shown before the number on every project.</small>
                 </div>
 
                 <div class="form-group">
