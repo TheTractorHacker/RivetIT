@@ -137,7 +137,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <tr>
                             <td class="text-nowrap"><?php echo nullable_htmlentities($row['mail_log_created_at']); ?></td>
                             <td><?php echo nullable_htmlentities($row['mailbox_name'] ?: $row['mailbox_email']) ?: '<span class="text-muted">&mdash;</span>'; ?></td>
-                            <td>
+                            <td style="overflow-wrap:anywhere;min-width:12rem;">
                                 <?php if ($row['mail_log_from_name']) { echo nullable_htmlentities($row['mail_log_from_name']) . ' '; } ?>
                                 <span class="text-muted">&lt;<?php echo nullable_htmlentities($row['mail_log_from_email']); ?>&gt;</span>
                             </td>

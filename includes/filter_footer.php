@@ -60,8 +60,8 @@ if ($total_found_rows > 5) {
             </p>
             <!--<p class="text-center mt-2"><?php echo $total_found_rows; ?></p> -->
         </div>
-        <div class="col-sm">
-            <ul class="pagination justify-content-sm-end">
+        <div class="col-sm" style="flex:2 1 0;min-width:0">
+            <ul class="pagination justify-content-sm-end flex-wrap" style="row-gap:.25rem">
 
                 <?php
 
@@ -92,7 +92,7 @@ if ($total_found_rows > 5) {
                 $next_page  = $page + 1;
 
                 if ($page > 1) {
-                    echo "<li class='page-item $prev_class'><a class='page-link' href='?$url_query_strings_page&page=$prev_page'>Prev</a></li>";
+                    echo "<li class='page-item $prev_class'><a class='page-link text-nowrap' href='?$url_query_strings_page&page=$prev_page'>Prev</a></li>";
                 }
 
                 while ($i < $total_pages) {
@@ -103,12 +103,12 @@ if ($total_found_rows > 5) {
                         } else {
                             $page_class = "";
                         }
-                        echo "<li class='page-item $page_class'><a class='page-link' href='?$url_query_strings_page&page=$i'>$i</a></li>";
+                        echo "<li class='page-item $page_class'><a class='page-link text-nowrap' href='?$url_query_strings_page&page=$i'>$i</a></li>";
                     }
                 }
 
                 if ($page <> $total_pages) {
-                    echo "<li class='page-item $next_class'><a class='page-link' href='?$url_query_strings_page&page=$next_page'>Next</a></li>";
+                    echo "<li class='page-item $next_class'><a class='page-link text-nowrap' href='?$url_query_strings_page&page=$next_page'>Next</a></li>";
                 }
 
                 ?>

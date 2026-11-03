@@ -62,7 +62,8 @@ if ($comet_users) {
 }
 ?>
 
-<!-- Summary row -->
+<!-- Summary row (hidden while Comet is unreachable: five zeros would read as "no devices, all fine") -->
+<?php if ($comet_users) { ?>
 <div class="row mb-3">
     <?php foreach ([
         ['label'=>'Total Devices', 'val'=>$total_devices,  'icon'=>'desktop',         'color'=>'primary'],
@@ -84,6 +85,7 @@ if ($comet_users) {
     </div>
     <?php endforeach; ?>
 </div>
+<?php } ?>
 
 <!-- Device table -->
 <div class="card card-dark">
@@ -97,7 +99,9 @@ if ($comet_users) {
         <?php if (!$comet_users): ?>
             <div class="text-center text-muted py-4">
                 <i class="fas fa-exclamation-triangle fa-2x mb-2 d-block"></i>
-                Could not reach Comet server. Check connection settings.
+                <div class="fw-semibold text-dark">Could not reach the Comet server</div>
+                <div class="mb-3">Device counts are hidden until a connection works. Check the server URL and credentials.</div>
+                <a href="settings_comet.php" class="btn btn-sm btn-primary text-white text-decoration-none"><i class="fas fa-cog me-1"></i>Open Comet settings</a>
             </div>
         <?php elseif (empty($device_rows)): ?>
             <div class="text-center text-muted py-4">No devices found in Comet.</div>
