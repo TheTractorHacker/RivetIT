@@ -476,6 +476,8 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
         .table-tight td, .table-tight th {
             padding: .35rem .5rem;
         }
+        /* The bulk-action row is empty until something is ticked; do not reserve a blank band for it. */
+        .ticket-filter-bar > .row.mt-1:not(:has(#bulkActionButton:not([hidden]))) { display: none; }
     </style>
     <div class="row" id="ticketLayout">
         <?php if (!$client_url) { ?>

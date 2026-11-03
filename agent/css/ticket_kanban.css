@@ -98,3 +98,6 @@
     background-color: rgba(13, 148, 136, .15);
     transition: background-color 0.2s ease;
 }
+
+/* The shared ".card + .card" spacing rule pushed every lane but the first down 16px; lanes sit side by side, so they must share one top edge. */
+#kanban-board > .kanban-column { margin-top: 0; margin-bottom: 0; }

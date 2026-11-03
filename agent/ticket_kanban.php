@@ -124,9 +124,11 @@ $kanban = array_values($statuses);
                         <span class="csat-face-display" title="<?= csatFaceLabel(intval($item['ticket_csat_rating'])) ?>"><?= csatFaceEmoji(intval($item['ticket_csat_rating'])) ?></span>
                         <?php } ?>
 
+                        <?php if (trim((string) $item['category_name']) !== '') { ?>
                         <span class="badge text-bg-secondary">
                     <?php echo $item['category_name']; ?>
                 </span>
+                        <?php } ?>
 
                         <div class="btn btn-light drag-handle-class" style="display:none;">
                             <i class="drag-handle-class fas fa-bars"></i>
