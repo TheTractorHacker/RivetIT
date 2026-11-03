@@ -63,14 +63,14 @@ $badge = $profile === RetentionPolicy::NONE ? ['No preset', 'secondary'] : [Rete
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="audit_retention_days">Audit trail retention <small class="text-secondary">(days; 0 keeps forever; a value from 1 to 89 is raised to 90, the security baseline minimum)</small></label>
+                    <label class="form-label" for="audit_retention_days">Audit trail retention <small class="text-secondary">(days)</small></label>
                     <input class="form-control" type="number" min="0" max="36500" id="audit_retention_days" name="audit_retention_days" value="<?= $audit_days ?>">
-                    <div class="form-text">Security events: sign-ins, changes to settings, and Remote MCP tool calls.</div>
+                    <div class="form-text">Security events: sign-ins, changes to settings, and Remote MCP tool calls. 0 keeps forever; 1 to 89 is raised to 90 (the security baseline minimum).</div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="log_retention_days">Activity log retention <small class="text-secondary">(days; 0 keeps forever)</small></label>
+                    <label class="form-label" for="log_retention_days">Activity log retention <small class="text-secondary">(days)</small></label>
                     <input class="form-control" type="number" min="0" max="36500" id="log_retention_days" name="log_retention_days" value="<?= $log_days ?>">
-                    <div class="form-text">The activity, app and sign-in logs, the webhook delivery log and finished background jobs. Same setting as Security &rarr; Log retention.</div>
+                    <div class="form-text">The activity, app and sign-in logs, the webhook delivery log and finished background jobs. Same setting as Security &rarr; Log retention. 0 keeps forever.</div>
                 </div>
             </div>
             <ul class="small text-muted mt-3 mb-0">
