@@ -88,7 +88,7 @@ $badge = $profile === RetentionPolicy::NONE ? ['No preset', 'secondary'] : [Rete
     <div class="card-header py-3"><h4 class="card-title mb-0"><i class="fas fa-fw fa-info-circle me-2"></i>In effect now</h4></div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-sm mb-2">
+            <table class="table table-sm mb-2 align-middle">
                 <tbody>
                     <tr><th class="w-50">Audit trail</th><td><?= nullable_htmlentities(RetentionPolicy::describeDays($audit_effective)) ?>
                         <?php if ($audit_effective !== max(0, $audit_days)) { ?><span class="badge bg-warning text-dark ms-1">raised from <?= nullable_htmlentities(RetentionPolicy::describeDays($audit_days)) ?> by the preset</span><?php } ?></td></tr>
