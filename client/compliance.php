@@ -22,6 +22,7 @@ try {
 }
 if ($shared === null) {
     ob_end_clean();
+    flash_alert('No security and compliance report has been published for you to view yet.', 'info');
     header("Location: index.php");
     exit();
 }

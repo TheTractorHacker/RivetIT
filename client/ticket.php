@@ -116,29 +116,24 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
             </div>
 
             <div class="card-body prettyContent">
-                <h5><strong>Subject:</strong> <?php echo $ticket_subject ?></h5>
-                <p>
-                    <strong>State:</strong>
-                    <span id="quickStatusColorDot" class="portal-status-dot" data-status-color="<?= nullable_htmlentities($ticket_status_color) ?>"></span>
-                    <span id="ticket-status-text"><?php echo $ticket_status ?></span><br>
-                    <strong>Priority:</strong> <?php echo $ticket_priority ?><br>
-                    <?php if (!empty($ticket_category)) { ?>
-                        <strong>Category:</strong> <?php echo $ticket_category ?><br>
-                    <?php } ?>
-
-                    <?php if (empty($ticket_closed_at)) { ?>
-
-                        <?php if ($task_count) { ?>
-                            <strong>Tasks: </strong> <?php echo $completed_task_count . " / " .$task_count ?>
-                            <br>
-                        <?php } ?>
-
-                        <?php if (!empty($ticket_assigned_to)) { ?>
-                            <strong>Assigned to: </strong> <?php echo $ticket_assigned_to ?>
-                        <?php } ?>
-
-                    <?php } ?>
-                </p>
+                <h4 class="portal-ticket-subject"><?php echo $ticket_subject ?></h4>
+                <?php
+                $pt_prio = strtolower($ticket_priority);
+                $pt_prio_mod = in_array($pt_prio, ['low', 'medium', 'high'], true) ? $pt_prio : ($pt_prio === 'critical' ? 'high' : 'medium');
+                $pt_updated = $ticket_row['ticket_updated_at'] ?? null;
+                $pt_created = $ticket_row['ticket_created_at'] ?? null;
+                ?>
+                <div class="portal-ticket-facts">
+                    <span class="portal-badge portal-badge--status"><span id="quickStatusColorDot" class="portal-status-dot" data-status-color="<?= nullable_htmlentities($ticket_status_color) ?>"></span><span id="ticket-status-text"><?php echo $ticket_status ?></span></span>
+                    <span class="portal-badge portal-badge--prio-<?php echo $pt_prio_mod; ?>"><?php echo $ticket_priority ?> priority</span>
+                    <?php if (!empty($ticket_category)) { ?><span class="portal-badge portal-badge--muted"><i class="fas fa-tag"></i><?php echo $ticket_category ?></span><?php } ?>
+                    <?php if (empty($ticket_closed_at) && $task_count) { ?><span class="portal-badge portal-badge--muted"><i class="fas fa-list-check"></i>Tasks <?php echo $completed_task_count . " / " . $task_count ?></span><?php } ?>
+                </div>
+                <dl class="portal-ticket-meta">
+                    <?php if ($pt_created) { ?><div><dt>Opened</dt><dd><?php echo nullable_htmlentities(date('M j, Y g:i A', strtotime($pt_created))); ?></dd></div><?php } ?>
+                    <div><dt>Last update</dt><dd><?php echo $pt_updated ? nullable_htmlentities(date('M j, Y g:i A', strtotime($pt_updated))) : 'No updates yet'; ?></dd></div>
+                    <?php if (empty($ticket_closed_at)) { ?><div><dt>Assigned to</dt><dd><?php echo !empty($ticket_assigned_to) ? $ticket_assigned_to : 'Waiting for the service desk to pick this up'; ?></dd></div><?php } ?>
+                </dl>
                 <hr>
                 <?php echo $ticket_details ?>
 
