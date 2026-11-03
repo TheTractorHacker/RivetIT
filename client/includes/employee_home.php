@@ -55,6 +55,44 @@ $eh_requests = $eh_show('requests') ? $eh->myOpenRequests($eh_cid, $eh_client, 5
 $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
 ?>
 
+    <?php
+    ob_start();
+    $eh_training_html = '';
+    if ($eh_show('training') && intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) {
+        $eh_due = [];
+        try {
+            require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+            require_once __DIR__ . '/training_common.php'; // same compliance engine as training.php, own rows only ($tp_mine)
+            foreach ($tp_mine as $p) {
+                if ($tp_needs_attention($p)) { $eh_due[] = $p; }
+            }
+            usort($eh_due, static fn($a, $b) => [$tp_urgency[$a['status']] ?? 9, $a['course']['name']] <=> [$tp_urgency[$b['status']] ?? 9, $b['course']['name']]);
+        } catch (\Throwable $e) {
+            $eh_due = [];
+        }
+        ?>
+        <div class="card portal-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h3>
+                <a href="training.php" class="btn btn-sm btn-outline-primary">Open</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <?php if (!$eh_due) { ?>
+                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Your training is up to date.</div></li>
+                    <?php }
+                    foreach (array_slice($eh_due, 0, 5) as $p) { [$eh_cls, $eh_txt] = $tp_badge($p); ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><?= nullable_htmlentities($p['course']['name']) ?></span>
+                            <span><?php if ($tp_when($p) !== '') { ?><span class="small text-secondary me-2"><?= nullable_htmlentities($tp_when($p)) ?></span><?php } ?><span class="badge text-bg-<?= nullable_htmlentities($eh_cls) ?>"><?= nullable_htmlentities($eh_txt) ?></span></span>
+                        </li>
+                    <?php } ?>
+                </ul>
+            </div>
+        </div>
+    <?php }
+    $eh_training_html = ob_get_clean(); ?>
+
 <div class="row g-3 mb-4">
 
     <?php if ($eh_show('requests')) { ?>
@@ -89,8 +127,8 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
     <?php } ?>
 
     <?php if ($eh_show('devices')) { ?>
-    <div class="col-lg-5 col-md-12">
-        <div class="card portal-card h-100">
+    <div class="col-lg-5 col-md-12"><div class="portal-stack">
+        <div class="card portal-card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-laptop" aria-hidden="true"></i></span>My devices</h3>
                 <a href="assets.php" class="btn btn-sm btn-outline-primary">Details</a>
@@ -109,7 +147,10 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
                 </ul>
             </div>
         </div>
-    </div>
+        <?= $eh_training_html ?>
+    </div></div>
+    <?php } elseif ($eh_training_html !== '') { ?>
+    <div class="col-lg-5 col-md-12"><div class="portal-stack"><?= $eh_training_html ?></div></div>
     <?php } ?>
 
     <?php if ($eh_show('approvals') && ($eh_approvals || $eh->isManager($eh_cid, $eh_client))) { ?>
@@ -166,41 +207,5 @@ $eh_devices = $eh_show('devices') ? $eh->myDevices($eh_cid, $eh_client) : [];
     </div>
     <?php } } ?>
 
-    <?php
-    if ($eh_show('training') && intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) {
-        $eh_due = [];
-        try {
-            require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
-            require_once __DIR__ . '/training_common.php'; // same compliance engine as training.php, own rows only ($tp_mine)
-            foreach ($tp_mine as $p) {
-                if ($tp_needs_attention($p)) { $eh_due[] = $p; }
-            }
-            usort($eh_due, static fn($a, $b) => [$tp_urgency[$a['status']] ?? 9, $a['course']['name']] <=> [$tp_urgency[$b['status']] ?? 9, $b['course']['name']]);
-        } catch (\Throwable $e) {
-            $eh_due = [];
-        }
-        ?>
-    <div class="col-lg-6 col-md-12">
-        <div class="card portal-card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h3>
-                <a href="training.php" class="btn btn-sm btn-outline-primary">Open</a>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    <?php if (!$eh_due) { ?>
-                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Your training is up to date.</div></li>
-                    <?php }
-                    foreach (array_slice($eh_due, 0, 5) as $p) { [$eh_cls, $eh_txt] = $tp_badge($p); ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><?= nullable_htmlentities($p['course']['name']) ?></span>
-                            <span><?php if ($tp_when($p) !== '') { ?><span class="small text-secondary me-2"><?= nullable_htmlentities($tp_when($p)) ?></span><?php } ?><span class="badge text-bg-<?= nullable_htmlentities($eh_cls) ?>"><?= nullable_htmlentities($eh_txt) ?></span></span>
-                        </li>
-                    <?php } ?>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <?php } ?>
 
 </div>

@@ -355,3 +355,48 @@
 .portal-help-results .ph-sub { font-size: .78rem; color: var(--if-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 575.98px) { .portal-help-box { flex-wrap: wrap; } .portal-help-box .form-control { flex-basis: 100%; } .portal-help-raise { width: 100%; text-align: center; } .portal-help-box > i.fa-search { top: 1.45rem; } }
 .portal-card.portal-help { overflow: visible; position: relative; z-index: 5; }
+
+/* ---- Phones: tables become stacked cards (js/portal_help.js adds data-label from the header) --------------------------------- */
+@media (max-width: 575.98px) {
+    .table-responsive > table.table:not(.portal-keep-table) thead { display: none; }
+    .table-responsive > table.table:not(.portal-keep-table),
+    .table-responsive > table.table:not(.portal-keep-table) tbody,
+    .table-responsive > table.table:not(.portal-keep-table) tr { display: block; width: 100%; }
+    .table-responsive > table.table:not(.portal-keep-table) tr { padding: .75rem 1rem; border-bottom: 1px solid var(--if-border); }
+    .table-responsive > table.table:not(.portal-keep-table) tr:last-child { border-bottom: 0; }
+    .table-responsive > table.table:not(.portal-keep-table) td {
+        display: flex; gap: .75rem; justify-content: space-between; align-items: baseline;
+        padding: .15rem 0; border: 0; text-align: right; white-space: normal; overflow-wrap: anywhere;
+    }
+    .table-responsive > table.table:not(.portal-keep-table) td[data-label]:not([data-label=""])::before {
+        content: attr(data-label); flex: 0 0 auto; color: var(--if-muted); font-size: .72rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .04em; text-align: left;
+    }
+    .table-responsive > table.table:not(.portal-keep-table) td[colspan] { display: block; text-align: center; }
+    .table-responsive > table.table:not(.portal-keep-table) td.portal-cell-title { display: block; text-align: left; font-weight: 600; font-size: 1rem; padding-bottom: .3rem; }
+}
+
+/* ---- Ticket list: status tabs + filter -------------------------------------------------------------------------------------- */
+.portal-tabs { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+.portal-tab { display: inline-flex; align-items: center; gap: .5rem; padding: .4rem .9rem; border-radius: 999px; border: 1px solid var(--if-border); background: var(--if-surface); color: var(--if-muted); font-weight: 500; font-size: .88rem; text-decoration: none; }
+.portal-tab:hover { color: var(--if-ink); border-color: rgba(var(--color-accent-rgb), .6); }
+.portal-tab.is-active { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.portal-tab .portal-tab-n { font-size: .75rem; font-weight: 700; padding: .05rem .45rem; border-radius: 999px; background: rgba(127, 127, 127, .18); }
+.portal-tab.is-active .portal-tab-n { background: rgba(255, 255, 255, .25); }
+.portal-tabs .portal-search { margin-left: auto; flex: 0 1 280px; }
+@media (max-width: 575.98px) { .portal-tabs .portal-search { flex: 1 1 100%; max-width: none; margin-left: 0; } }
+
+/* ---- Home: right-hand stack (devices + training) and the ticket suggestion strip -------------------------------------------- */
+.portal-stack { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
+.portal-stack > .portal-card { flex: 1 1 auto; margin: 0; }
+.portal-suggest { margin-top: .5rem; border: 1px solid var(--if-border); border-radius: 12px; background: var(--if-surface); overflow: hidden; }
+.portal-suggest[hidden] { display: none; }
+.portal-suggest .ps-head { padding: .5rem .85rem; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--if-muted); background: rgba(127, 127, 127, .08); }
+.portal-suggest a { display: flex; gap: .65rem; align-items: baseline; padding: .55rem .85rem; color: var(--if-ink); text-decoration: none; border-top: 1px solid var(--if-border); }
+.portal-suggest a:hover, .portal-suggest a:focus-visible { background: rgba(var(--color-accent-rgb), .08); }
+.portal-suggest .ps-sub { color: var(--if-muted); font-size: .8rem; margin-left: auto; white-space: nowrap; }
+.portal-train-head { flex-wrap: wrap; gap: .25rem .75rem; }
+tr[hidden], [hidden].text-center { display: none !important; }
+@media (max-width: 575.98px) { .table-responsive > table.table td.portal-cell-num { display: block; text-align: left; font-size: .8rem; color: var(--if-muted); padding: 0; } }
+.portal-cell-val { min-width: 0; }
+@media (max-width: 575.98px) { .portal-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; } .portal-stat { padding: .75rem .8rem; gap: .6rem; } .portal-stat-go { display: none; } .portal-stat-icon { width: 2.4rem; height: 2.4rem; } }
