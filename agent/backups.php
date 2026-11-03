@@ -121,11 +121,11 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
 <!-- Summary row -->
 <div class="row mb-3">
     <?php foreach ([
-        ['label'=>'Total Devices', 'val'=>$total_devices,  'icon'=>'desktop',         'color'=>'primary'],
-        ['label'=>'Healthy',       'val'=>$ok,             'icon'=>'check-circle',    'color'=>'success'],
-        ['label'=>'Warnings',      'val'=>$warn,           'icon'=>'exclamation-triangle','color'=>'warning'],
-        ['label'=>'Failed',        'val'=>$fail,           'icon'=>'times-circle',    'color'=>'danger'],
-        ['label'=>'Unknown',       'val'=>$unknown,        'icon'=>'question-circle', 'color'=>'secondary'],
+        ['label'=>'Total Devices', 'val'=>($comet_users ? $total_devices : '&mdash;'),  'icon'=>'desktop',         'color'=>'primary'],
+        ['label'=>'Healthy',       'val'=>($comet_users ? $ok : '&mdash;'),             'icon'=>'check-circle',    'color'=>'success'],
+        ['label'=>'Warnings',      'val'=>($comet_users ? $warn : '&mdash;'),           'icon'=>'exclamation-triangle','color'=>'warning'],
+        ['label'=>'Failed',        'val'=>($comet_users ? $fail : '&mdash;'),           'icon'=>'times-circle',    'color'=>'danger'],
+        ['label'=>'Unknown',       'val'=>($comet_users ? $unknown : '&mdash;'),        'icon'=>'question-circle', 'color'=>'secondary'],
     ] as $s): ?>
     <div class="col">
         <div class="info-box shadow-sm mb-0">
