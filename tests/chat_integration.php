@@ -330,6 +330,19 @@ $r = $app->interaction(null, $click('rivet_approve', 'workflow_task:2', 'UCAROL'
 $ok($r['acted'] === false && $one("SELECT approval_status FROM workflow_run_tasks WHERE run_task_id = 2") === 'pending', 'a contact can never decide a workflow approval');
 $r = $app->interaction(null, $click('rivet_reject', 'workflow_task:2', 'UBOBB'));
 $ok($r['acted'] === true && $one("SELECT approval_status FROM workflow_run_tasks WHERE run_task_id = 2") === 'rejected' && $one("SELECT status FROM workflow_runs WHERE run_id = 1") === 'paused', 'Deny rejects the workflow approval and pauses the run');
+// one-click "Request this" on virtual agent catalog results
+$res1 = $va->searchCatalog($agentBob, 'VPN');
+$ok(count(array_filter($res1, fn ($x) => !empty($x['request_item']))) >= 1, 'catalog search rows carry the item id');
+$hasBtn = fn (array $blocks) => (bool) array_filter($blocks, fn ($b) => ($b['type'] ?? '') === 'actions' && ($b['elements'][0]['action_id'] ?? '') === 'rivet_request');
+$ok(!$hasBtn(ChatBlocks::results('H', $res1)['blocks']) && $hasBtn(ChatBlocks::results('H', $res1, true)['blocks']), 'Request button only when actions from chat are on');
+$it1 = $q("SELECT catalog_item_id FROM service_catalog_items WHERE is_active = 1 AND requires_approval = 0 ORDER BY catalog_item_id LIMIT 1")->fetch_row()[0] ?? 1;
+$before = (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = $it1");
+$r = $app->interaction(null, $click('rivet_request', "catalog_item:$it1", 'USTRANGER1'));
+$ok($r['acted'] === false && (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = $it1") === $before, 'Request from an unlinked Slack user does nothing');
+$r = $app->interaction(null, $click('rivet_request', "catalog_item:abc", 'UBOBB'));
+$ok($r['acted'] === false && str_contains((string) $r['text'], 'not valid'), 'a malformed Request button value is refused');
+$r = $app->interaction(null, $click('rivet_request', "catalog_item:$it1", 'UBOBB'));
+$ok($r['acted'] === true && (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_catalog_item_id = $it1") === $before + 1, 'a linked agent raises the catalog request from the Request button');
 $app = $newApp();
 
 // ======================================================= 9. interactivity: status / priority / reply / modals / shortcuts

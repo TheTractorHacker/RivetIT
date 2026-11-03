@@ -295,7 +295,7 @@ $svc = new ServiceCatalogService($db);
 $html = $svc->requestDetailsHtml(10);
 ok(str_contains($html, 'Risk 72 (High)') && str_contains($html, 'Waiting for approval'), 'request details on the ticket show the risk');
 $db->query('UPDATE service_catalog_requests SET risk_score = 0 WHERE request_id = 1');
-ok(!str_contains($svc->requestDetailsHtml(10), 'Risk '), 'an unrated request shows no risk badge');
+ok(!str_contains($svc->requestDetailsHtml(10), 'title="Risk score'), 'an unrated request shows no risk badge');
 
 // pages that render the badge must at least lint and reference the helper
 foreach (['admin/service_catalog.php', 'agent/service_catalog.php', 'agent/service_catalog_approvals.php', 'client/my_approvals.php'] as $f) {

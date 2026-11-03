@@ -229,11 +229,11 @@ final class SlackInteractive
             return null; // a member of some other workspace (shared channel)
         }
         $email = strtolower(trim((string) ($user['profile']['email'] ?? '')));
-        if (($user['is_email_confirmed'] ?? false) !== true) {
+        if (($user['is_email_confirmed'] ?? false) !== true || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
 
-        return $this->agentForEmail($email);
+        return $email;
     }
 
     /** Email -> agent id, only when the address is valid and exactly one active agent has it (portal logins, disabled or archived agents never match). */
@@ -243,8 +243,13 @@ final class SlackInteractive
         if ($email === '' || strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return null;
         }
+        $stmt = mysqli_prepare($this->mysqli, 'SELECT user_id FROM users WHERE LOWER(user_email) = ? AND user_type = 1 AND user_status = 1 AND user_archived_at IS NULL');
+        mysqli_stmt_bind_param($stmt, 's', $email);
+        mysqli_stmt_execute($stmt);
+        $rows = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+        mysqli_stmt_close($stmt);
 
-        return $email;
+        return count($rows) === 1 ? (int) $rows[0]['user_id'] : null;
     }
 
     /**
@@ -254,16 +259,8 @@ final class SlackInteractive
     public function agentForSlackUser(string $slackUserId, string $encryptedBotToken, string $payloadTeamId): ?int
     {
         $email = $this->verifiedEmailForSlackUser($slackUserId, $encryptedBotToken, $payloadTeamId);
-        if ($email === null) {
-            return null;
-        }
-        $stmt = mysqli_prepare($this->mysqli, 'SELECT user_id FROM users WHERE LOWER(user_email) = ? AND user_type = 1 AND user_status = 1 AND user_archived_at IS NULL');
-        mysqli_stmt_bind_param($stmt, 's', $email);
-        mysqli_stmt_execute($stmt);
-        $rows = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
-        mysqli_stmt_close($stmt);
 
-        return count($rows) === 1 ? (int) $rows[0]['user_id'] : null;
+        return $email === null ? null : $this->agentForEmail($email);
     }
 
     /** Same rule as the web UI: administrator, or a role with write access to the support module; department restrictions honoured. */

@@ -21,6 +21,7 @@ final class ChatBlocks
     public const ACT_REPLY = 'rivet_reply';
     public const ACT_APPROVE = 'rivet_approve';
     public const ACT_REJECT = 'rivet_reject';
+    public const ACT_REQUEST = 'rivet_request';
     public const CB_REPLY_MODAL = 'rivet_reply_modal';
     public const CB_NEW_MODAL = 'rivet_new_ticket_modal';
     public const SHORTCUT_NEW = 'rivet_ticket_from_message';
@@ -143,8 +144,12 @@ final class ChatBlocks
         ];
     }
 
-    /** Search results as a message. @param list<array{title:string,url:?string,snippet:string}> $rows */
-    public static function results(string $heading, array $rows): array
+    /**
+     * Search results as a message. A catalog row (it has request_item) gets a one-click Request button when $withRequest is true
+     * (the answer is re-checked server side; the button only carries the item id).
+     * @param list<array{title:string,url:?string,snippet:string,request_item?:int}> $rows
+     */
+    public static function results(string $heading, array $rows, bool $withRequest = false): array
     {
         $blocks = [['type' => 'header', 'text' => self::plain($heading)]];
         foreach (array_slice($rows, 0, 5) as $r) {
@@ -153,6 +158,9 @@ final class ChatBlocks
                 $b['accessory'] = ['type' => 'button', 'text' => self::plain('Open'), 'url' => $r['url']];
             }
             $blocks[] = $b;
+            if ($withRequest && !empty($r['request_item']) && (int) $r['request_item'] > 0) {
+                $blocks[] = ['type' => 'actions', 'elements' => [['type' => 'button', 'action_id' => self::ACT_REQUEST, 'value' => 'catalog_item:' . (int) $r['request_item'], 'text' => self::plain('Request this'), 'style' => 'primary']]];
+            }
         }
 
         return ['text' => ChatFormatter::slackEscape($heading), 'blocks' => $blocks];

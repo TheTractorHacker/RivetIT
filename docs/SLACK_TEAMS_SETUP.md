@@ -122,7 +122,7 @@ Everything below is **off by default** and configured on **Administration > Sett
    - *Two-way ticket threads*: needs the channel ID. New tickets are posted there as a thread, public and customer replies follow, and a linked agent's reply in the thread becomes an internal note (or a public reply: no email is sent from chat). Internal notes are mirrored only if you also tick that.
    - *Slash command, form and shortcuts*: `/ticket new [client=<id>] [priority=High] <subject>` (no subject opens a form), `/ticket status <ticket>`, the "New ticket" global shortcut and "Create ticket from message".
    - *Actions from chat*: status, priority and Reply on ticket messages (needs a signing secret on the destination), `/ticket set|reply|approvals`, and Approve / Deny direct messages to approvers who linked chat. Closing a ticket is never offered; an administrator cannot override an approval from chat.
-   - *Virtual agent*: DM the bot or mention it; it searches the knowledge base and service catalog and can open a ticket or request a catalog item without required questions.
+   - *Virtual agent*: DM the bot or mention it; it searches the knowledge base and service catalog and can open a ticket or request a catalog item without required questions. With *Actions from chat* on, catalog results carry a one-click **Request this** (Slack) / **Request** (Teams) button; the click is re-checked server side exactly like typing `request <id>`.
 4. Rights are the person's own: support-module write access and department access, as in the web app. A contact (portal user) can only raise and follow their own tickets and see client-visible articles.
 
 ## Microsoft Teams bot (UNVERIFIED LIVE)

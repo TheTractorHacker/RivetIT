@@ -9,6 +9,7 @@ use ITFlow\Webhooks\ChatFormatter;
  * (Markdown characters and <at> mentions are neutralised); button data is a small fixed shape that TeamsBot re-validates:
  *   {"rivet":"approve"|"reject","kind":"catalog_request"|"workflow_task","id":N}
  *   {"rivet":"status"|"priority","ticket":N}   with the value picked in the card's choice set (field "choice")
+ *   {"rivet":"request","item":N}            raise a catalog request (virtual agent search results)
  *   {"rivet":"reply","ticket":N}               with the text typed in the card's input (field "text")
  */
 final class TeamsCards
@@ -74,7 +75,7 @@ final class TeamsCards
     }
 
     /** @param list<array{title:string,url:?string,snippet:string}> $rows */
-    public static function results(string $heading, array $rows): array
+    public static function results(string $heading, array $rows, bool $withRequest = false): array
     {
         $body = [self::tb($heading, ['weight' => 'Bolder'])];
         $actions = [];
@@ -82,6 +83,9 @@ final class TeamsCards
             $body[] = self::tb($r['title'] . ($r['snippet'] !== '' ? "\n" . $r['snippet'] : ''));
             if (!empty($r['url']) && preg_match('#^https?://[^\s<>"\'|]+$#', $r['url']) && count($actions) < 5) {
                 $actions[] = ['type' => 'Action.OpenUrl', 'title' => ChatBlocks::clip($r['title'], 30), 'url' => $r['url']];
+            }
+            if ($withRequest && !empty($r['request_item']) && (int) $r['request_item'] > 0 && count($actions) < 5) {
+                $actions[] = ['type' => 'Action.Submit', 'title' => 'Request ' . ChatBlocks::clip(preg_replace('/ \(say .*$/', '', $r['title']) ?? $r['title'], 22), 'data' => ['rivet' => 'request', 'item' => (int) $r['request_item']]];
             }
         }
 
