@@ -21,6 +21,12 @@ if ($sso_tables_ok) {
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-id-badge me-2"></i>Single sign-on provider (OpenID Connect)</h3>
+        <div class="card-tools ms-auto">
+            <?php if (!$sso_tables_ok) { ?><span class="badge bg-secondary">Database update needed</span>
+            <?php } elseif ($sso_issuer === null) { ?><span class="badge bg-danger">No issuer address</span>
+            <?php } elseif ($sso_enabled_flag) { ?><span class="badge bg-success">Single sign-on is on</span>
+            <?php } else { ?><span class="badge bg-warning text-dark">Switched off</span><?php } ?>
+        </div>
     </div>
     <div class="card-body">
         <p class="text-muted">RivetIT can sign people in to the Quality system (Datum) so they do not need a second password. A person who is signed in to the
