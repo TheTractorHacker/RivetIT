@@ -141,7 +141,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                 </div>
                                 <button type="submit" name="create_token" class="btn btn-primary">Create token</button>
                             </form>
-                            <script>
+                            <script nonce="<?= htmlspecialchars($csp_nonce ?? "", ENT_QUOTES) ?>">
                             (function () {
                                 var maxUses = document.getElementById('pd_max_uses');
                                 var contact = document.getElementById('pd_contact_id');

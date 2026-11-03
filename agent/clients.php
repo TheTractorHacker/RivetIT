@@ -300,6 +300,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             Primary Location <?php if ($sort == 'location_city') { echo $order_icon; } ?>
                         </a>
                     </th>
+                    <th>Health</th>
                     <th class="text-center">Records</th>
                     <?php if (lookupUserPermission("module_client") >= 2) { ?>
                     <th class="text-center">Action</th>
@@ -406,6 +407,23 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $ticket_count_display = '';
                     }
 
+                    // Health at a glance: open / stale tickets and expired or soon-to-expire items
+                    $health_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT
+                        COUNT(*) AS open_n,
+                        COALESCE(SUM(ticket_updated_at < CURRENT_DATE - INTERVAL 7 DAY), 0) AS stale_n
+                        FROM tickets WHERE ticket_client_id = $client_id AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL"));
+                    $health_open = intval($health_row['open_n']);
+                    $health_stale = intval($health_row['stale_n']);
+                    $health_exp = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT
+                        (SELECT COUNT(*) FROM domains WHERE domain_client_id = $client_id AND domain_archived_at IS NULL AND domain_expire < CURRENT_DATE)
+                      + (SELECT COUNT(*) FROM certificates WHERE certificate_client_id = $client_id AND certificate_archived_at IS NULL AND certificate_expire < CURRENT_DATE)
+                      + (SELECT COUNT(*) FROM software WHERE software_client_id = $client_id AND software_archived_at IS NULL AND software_expire < CURRENT_DATE) AS expired_n,
+                        (SELECT COUNT(*) FROM domains WHERE domain_client_id = $client_id AND domain_archived_at IS NULL AND domain_expire >= CURRENT_DATE AND domain_expire < CURRENT_DATE + INTERVAL 45 DAY)
+                      + (SELECT COUNT(*) FROM certificates WHERE certificate_client_id = $client_id AND certificate_archived_at IS NULL AND certificate_expire >= CURRENT_DATE AND certificate_expire < CURRENT_DATE + INTERVAL 45 DAY)
+                      + (SELECT COUNT(*) FROM software WHERE software_client_id = $client_id AND software_archived_at IS NULL AND software_expire >= CURRENT_DATE AND software_expire < CURRENT_DATE + INTERVAL 45 DAY) AS expiring_n"));
+                    $health_expired = intval($health_exp['expired_n']);
+                    $health_expiring = intval($health_exp['expiring_n']);
+
                     // Client Tags
                     $client_tag_name_display_array = array();
                     $client_tag_id_array = array();
@@ -503,6 +521,15 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <?php } ?>
                         </td>
                         <td><?php echo $location_address_display; ?></td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1" style="min-width:9rem">
+                                <?php if ($health_open) { ?><a class="badge bg-blue-lt text-nowrap" href="tickets.php?client_id=<?= $client_id ?>" title="Open tickets"><i class="fas fa-ticket-alt me-1"></i><?= $health_open ?> open</a><?php } ?>
+                                <?php if ($health_stale) { ?><a class="badge bg-orange-lt text-nowrap" href="client_overview.php?client_id=<?= $client_id ?>#dept-attention" title="Open tickets with no activity for 7+ days"><i class="fas fa-clock me-1"></i><?= $health_stale ?> stale</a><?php } ?>
+                                <?php if ($health_expired) { ?><a class="badge bg-red-lt text-nowrap" href="client_overview.php?client_id=<?= $client_id ?>#dept-attention" title="Expired domains, certificates or licenses"><i class="fas fa-times-circle me-1"></i><?= $health_expired ?> expired</a><?php } ?>
+                                <?php if ($health_expiring) { ?><a class="badge bg-yellow-lt text-nowrap" href="client_overview.php?client_id=<?= $client_id ?>#dept-attention" title="Domains, certificates or licenses expiring within 45 days"><i class="fas fa-hourglass-half me-1"></i><?= $health_expiring ?> expiring</a><?php } ?>
+                                <?php if (!$health_open && !$health_expired && !$health_expiring) { ?><span class="badge bg-green-lt text-nowrap"><i class="fas fa-check me-1"></i>All clear</span><?php } ?>
+                            </div>
+                        </td>
                         <td class="text-center">
                             <a href="#"
                                 class="text-secondary"

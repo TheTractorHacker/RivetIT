@@ -176,6 +176,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
             </div>
         </form>
+        <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
         <hr>
         <div class="table-responsive">
 
@@ -280,7 +281,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td>
                                 <div><?php echo $certificate_expire ?: '-'; ?></div>
                                 <?php if (!empty($certificate_expire)) { ?>
-                                    <div><small><?php echo $certificate_expire_ago; ?></small></div>
+                                    <div><small><?php echo $certificate_expire_ago; ?></small><?= orgExpiryChip($row['certificate_expire'], 45, 14) ?></div>
                                 <?php } ?>
                             </td>
                             <?php if (!$client_url) { ?>
