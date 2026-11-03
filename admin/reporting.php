@@ -37,14 +37,14 @@ $pq = $pq_server !== '' ? ReportingAdmin::powerQuery('mysql-mariadb', $pq_view, 
         <p class="mb-1"><strong><?= $view_have ?></strong> of <?= $view_total ?> views exist in <code><?= $h($db_name) ?></code>. Core migration 0047 is <?= $st['coreMigration'] ? 'applied' : '<span class="text-danger">NOT applied</span> (run the database update)' ?>.</p>
         <?php if ($st['editionZone'] !== null) { $z = $st['editionZone']; ?>
             <p class="mb-0 small <?= (!$z['utc'] && !$z['converted']) ? 'text-danger' : 'text-muted' ?>">
-                Time zone: RivetIT stores its ticket and asset times in the company time zone (<code><?= $h($z['zone'] ?? 'unknown') ?></code>).
+                Time zone: <?= htmlspecialchars(APP_NAME) ?> stores its ticket and asset times in the company time zone (<code><?= $h($z['zone'] ?? 'unknown') ?></code>).
                 <?php if ($z['utc']) { ?>That is UTC, so the views need no conversion.
-                <?php } elseif ($z['converted']) { ?>The RivetIT views convert them to UTC.
-                <?php } else { ?><strong>The RivetIT views are NOT converted to UTC<?= $z['usable'] ? ' (the server can convert: rebuild them below)' : ': the database server\'s time zone tables are not loaded (run mariadb-tzinfo-to-sql), then rebuild them' ?>.</strong><?php } ?>
+                <?php } elseif ($z['converted']) { ?>The <?= htmlspecialchars(APP_NAME) ?> views convert them to UTC.
+                <?php } else { ?><strong>The <?= htmlspecialchars(APP_NAME) ?> views are NOT converted to UTC<?= $z['usable'] ? ' (the server can convert: rebuild them below)' : ': the database server\'s time zone tables are not loaded (run mariadb-tzinfo-to-sql), then rebuild them' ?>.</strong><?php } ?>
             </p>
         <?php } ?>
         <form action="post.php" method="post" class="mt-2"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-            <button class="btn btn-sm btn-outline-secondary" name="rebuild_reporting_views" value="1" type="submit">Rebuild the RivetIT views</button></form>
+            <button class="btn btn-sm btn-outline-secondary" name="rebuild_reporting_views" value="1" type="submit">Rebuild the <?= htmlspecialchars(APP_NAME) ?> views</button></form>
     </div>
 </div>
 
@@ -55,7 +55,7 @@ $pq = $pq_server !== '' ? ReportingAdmin::powerQuery('mysql-mariadb', $pq_view, 
         <?php foreach ($st['core'] as $v) { ?>
             <tr><td><code><?= $h($v['name']) ?></code></td><td><?= $h($v['grain']) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td><?= $h($v['store']) ?></td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
         <?php } foreach ($st['edition'] as $v) { ?>
-            <tr><td><code><?= $h($v['name']) ?></code></td><td>RivetIT: <?= $h(implode(', ', $v['columns'])) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td>control</td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
+            <tr><td><code><?= $h($v['name']) ?></code></td><td><?= htmlspecialchars(APP_NAME) ?>: <?= $h(implode(', ', $v['columns'])) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td>control</td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
         <?php } ?></tbody></table></div>
 </div>
 

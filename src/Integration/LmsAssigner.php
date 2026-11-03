@@ -166,7 +166,7 @@ final class LmsAssigner
         if (array_key_exists('rivetit_id', $e)) {
             $v = $e['rivetit_id'];
             if ((!is_string($v) && !is_int($v)) || preg_match('/^[1-9][0-9]{0,9}$/D', (string) $v) !== 1) {
-                throw new LmsApiException(422, 'invalid_employee', 'rivetit_id must be a RivetIT employee id.');
+                throw new LmsApiException(422, 'invalid_employee', 'rivetit_id must be a ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' employee id.');
             }
             $row = Db::one($this->db, 'SELECT contact_id FROM contacts WHERE contact_id = ? AND contact_archived_at IS NULL', 'i', [(int) $v]);
             if ($row === null || !$this->api->personInScope((int) $row['contact_id'])) {

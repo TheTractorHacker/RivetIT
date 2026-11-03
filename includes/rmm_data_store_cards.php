@@ -94,13 +94,13 @@ systemctl reload postgresql</pre>'
     $credMeta = $ctx['cred_meta'] ?? null;
     if ($conn !== null) {
         $connRows[] = ['Target', rmmH($conn['user'] . '@' . $conn['host'] . ':' . $conn['port'] . '/' . $conn['database']) . ' (schema ' . rmmH($conn['schema']) . ')'];
-        $connRows[] = ['Last test', $conn['tested_at'] === null ? rivetRmmUiPill('off', 'Never tested') : ($conn['test_ok'] ? rivetRmmUiPill('ok', 'OK') . ' ' . rmmH($conn['tested_at']) . ' UTC' : rivetRmmUiPill('warn', 'Failed') . ' ' . rmmH($conn['tested_at']) . ' UTC')];
+        $connRows[] = ['Last test', $conn['tested_at'] === null ? rivetRmmUiPill('off', 'Never tested') : ($conn['test_ok'] ? rivetRmmUiPill('ok', 'OK') . ' ' . rmmH(rivetFormatTime($conn['tested_at'], 'utc')) : rivetRmmUiPill('warn', 'Failed') . ' ' . rmmH(rivetFormatTime($conn['tested_at'], 'utc')))];
         $connRows[] = ['Storage mode', $conn['storage_mode'] === null ? '<span class="text-muted">not created yet</span>' : rmmH($conn['storage_mode'])];
         $connRows[] = ['Server version', $conn['server_version'] === null ? '<span class="text-muted">unknown</span>' : rmmH($conn['server_version'])];
         if (!empty($conn['password_set'])) {
             $changedAt = $credMeta['changed_at'] ?? null;
             $daysOld = $changedAt !== null ? (int) floor((time() - strtotime($changedAt . ' UTC')) / 86400) : null;
-            $changedText = $changedAt === null ? '<span class="text-muted">unknown (saved before this was tracked)</span>' : rmmH($changedAt) . ' UTC (' . $daysOld . ' day' . ($daysOld === 1 ? '' : 's') . ' ago)';
+            $changedText = $changedAt === null ? '<span class="text-muted">unknown (saved before this was tracked)</span>' : rmmH(rivetFormatTime($changedAt, 'utc')) . ' (' . $daysOld . ' day' . ($daysOld === 1 ? '' : 's') . ' ago)';
             $connRows[] = ['Password', rivetRmmUiPill('warn', 'Stored') . ' credential last changed: ' . $changedText . ($daysOld !== null && $daysOld > 90 ? ' ' . rivetRmmUiPill('warn', 'Over 90 days - consider rotating') : '')];
         } else {
             $connRows[] = ['Password', rivetRmmUiPill('ok', 'Not stored (peer authentication)')];
@@ -179,7 +179,7 @@ function rivetRmmDataStoreMigrateBlock(array $status, array $run, array $log, st
             ['Dual-write', !empty($migration['dual_write']) ? rivetRmmUiPill('warn', 'On') . ' ' . (int) ($migration['dual_faults'] ?? 0) . ' fault(s)' : rivetRmmUiPill('off', 'Off')],
         ];
         if (!empty($migration['rollback_until'])) {
-            $rows[] = ['Rollback available until', rmmH($migration['rollback_until']) . ' UTC'];
+            $rows[] = ['Rollback available until', rmmH(rivetFormatTime($migration['rollback_until'], 'utc'))];
         }
         if (!empty($migration['last_error'])) {
             $rows[] = ['Last error', '<span class="text-danger">' . rmmH($migration['last_error']) . '</span>'];

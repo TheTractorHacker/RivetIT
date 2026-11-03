@@ -40,7 +40,7 @@ if ($q_ready) {
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-clipboard-check me-2"></i>Quality (quality management system integration)</h3>
     </div>
     <div class="card-body">
-        <p class="text-muted">RivetIT does not become a quality management system. It shows each person their own items from your separate QMS (Datum) in the department portal,
+        <p class="text-muted"><?= htmlspecialchars(APP_NAME) ?> does not become a quality management system. It shows each person their own items from your separate QMS (Datum) in the department portal,
             sends it training, completion and directory changes, and signs people in to it. Everything here is <strong>off until you turn it on</strong>.
             Setup steps are in <code>docs/integrations/qms-configuration.md</code>; the contract the QMS must implement is <code>docs/QUALITY_CONTRACT.md</code>.</p>
 
@@ -52,7 +52,7 @@ if ($q_ready) {
         <div class="alert alert-warning" role="alert" data-new-secret="1">
             <strong>New <?= $e($q_new_secret['which']) ?> signing secret</strong> (copy it now; it is not shown again):
             <div class="input-group mt-2"><input type="text" class="form-control font-monospace" readonly value="<?= $e($q_new_secret['value']) ?>" aria-label="New signing secret"></div>
-            <div class="form-text">Give it to the QMS as its <?= $q_new_secret['which'] === 'outbound' ? 'verification secret for events from RivetIT' : 'signing secret for events it sends to RivetIT' ?>.</div>
+            <div class="form-text">Give it to the QMS as its <?= $q_new_secret['which'] === 'outbound' ? 'verification secret for events from ' . APP_NAME : 'signing secret for events it sends to ' . APP_NAME ?>.</div>
         </div>
 <?php } ?>
 
@@ -80,7 +80,7 @@ if ($q_ready) {
             <form action="post.php" method="post" class="d-flex flex-wrap gap-2">
                 <input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>">
                 <button class="btn btn-primary" name="run_quality_sync" value="1" <?= $q_on ? '' : 'disabled' ?>><i class="fas fa-sync me-2"></i>Run sync now</button>
-                <button class="btn btn-outline-secondary" name="quality_full_resync" value="1" <?= $q_on ? '' : 'disabled' ?> onclick="return confirm('Queue one event for every assignment, completion, person and department? This can be a lot of events.');"><i class="fas fa-redo me-2"></i>Queue full resync</button>
+                <button class="btn btn-outline-secondary js-confirm-native" data-confirm-variant="primary" data-confirm-message="Queue one event for every assignment, completion, person and department? This can be a lot of events." name="quality_full_resync" value="1" <?= $q_on ? '' : 'disabled' ?>><i class="fas fa-redo me-2"></i>Queue full resync</button>
             </form>
         </div>
 
@@ -148,7 +148,7 @@ if ($q_ready) {
             <h4 class="h5">Signing secrets</h4>
             <p class="text-muted mb-2">Events are signed with HMAC-SHA256 (<code>X-Rivet-Signature-V2: t=&lt;time&gt;,v1=&lt;hex&gt;</code>). One secret per direction. A new secret replaces the old one at once; it is shown once.</p>
             <div class="row g-3">
-                <?php foreach (['outbound' => ['RivetIT to QMS', 'qs_outbound_secret_enc'], 'inbound' => ['QMS to RivetIT', 'qs_inbound_secret_enc']] as $which => [$label, $col]) { ?>
+                <?php foreach (['outbound' => [APP_NAME . ' to QMS', 'qs_outbound_secret_enc'], 'inbound' => ['QMS to ' . APP_NAME, 'qs_inbound_secret_enc']] as $which => [$label, $col]) { ?>
                 <div class="col-12 col-md-6"><form action="post.php" method="post" class="d-flex flex-wrap align-items-center gap-2">
                     <input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>"><input type="hidden" name="which" value="<?= $e($which) ?>">
                     <span><strong><?= $e($label) ?></strong>: <span class="badge bg-<?= (string) $q_row[$col] !== '' ? 'success' : 'secondary' ?>"><?= (string) $q_row[$col] !== '' ? 'set' : 'not set' ?></span></span>
@@ -215,7 +215,7 @@ if ($q_ready) {
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <h4 class="h5 mb-0">Integration error log</h4>
                 <form action="post.php" method="post" class="ms-auto"><input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>">
-                    <button class="btn btn-outline-danger btn-sm" name="clear_quality_errors" value="1" onclick="return confirm('Clear the error log?');"><i class="fas fa-trash me-1"></i>Clear</button></form>
+                    <button class="btn btn-outline-danger btn-sm js-confirm-native" data-confirm-message="Clear the error log?" name="clear_quality_errors" value="1"><i class="fas fa-trash me-1"></i>Clear</button></form>
             </div>
             <p class="text-muted small">No secrets, tokens or personal data are written here. The correlation id is the same one the QMS logged. Entries are kept <?= (int) QualityLog::KEEP_DAYS ?> days.</p>
             <div class="table-responsive"><table class="table table-sm table-striped mb-0">

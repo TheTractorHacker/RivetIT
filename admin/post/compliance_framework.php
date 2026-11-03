@@ -214,10 +214,13 @@ if (isset($_POST['import_compliance_profile'])) {
 if (isset($_POST['record_restore_test'])) {
     validateCSRFToken($_POST['csrf_token']);
     try {
-        $tz = new \DateTimeZone('UTC');
-        $testedAt = new \DateTimeImmutable((string) ($_POST['tested_at'] ?? 'now'), $tz);
+        // The form shows and takes the company time zone (docs/TIMESTAMP_DISPLAY.md); the record keeps UTC.
+        require_once dirname(__DIR__, 2) . '/includes/rivet_time.php';
+        $tz = new \DateTimeZone(rivetCompanyTimezone());
+        $utc = new \DateTimeZone('UTC');
+        $testedAt = (new \DateTimeImmutable((string) ($_POST['tested_at'] ?? 'now'), $tz))->setTimezone($utc);
         $takenRaw = trim((string) ($_POST['backup_taken_at'] ?? ''));
-        $taken = $takenRaw === '' ? null : new \DateTimeImmutable($takenRaw, $tz);
+        $taken = $takenRaw === '' ? null : (new \DateTimeImmutable($takenRaw, $tz))->setTimezone($utc);
         $stores = array_values(array_intersect((array) ($_POST['stores'] ?? []), [BackupStore::CONTROL_DB, BackupStore::RMM_POSTGRES]));
         $counts = [];
         $verify = null;

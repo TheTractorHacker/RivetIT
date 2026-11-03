@@ -1,5 +1,6 @@
 <?php
 require_once "includes/inc_all_admin.php";
+require_once dirname(__DIR__) . '/includes/rivet_time.php';
 
 use ITFlow\Compliance\ComplianceService;
 use RivetCore\Compliance\Backup\BackupStore;
@@ -184,8 +185,8 @@ $row = static function (?\RivetCore\Compliance\Profile\Requirement $r) use ($h):
     <div class="card-body">
         <p class="small text-muted">Restoring a backup and checking it is the evidence behind "Restore tested within N days". The scheduled restore drill records itself on Administration &gt; Backup; use this form to record a test you ran by hand.</p>
         <form action="post.php" method="post" enctype="multipart/form-data" class="row g-2"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-            <div class="col-md-3"><label class="form-label">Tested at (UTC)</label><input class="form-control" name="tested_at" value="<?= gmdate('Y-m-d H:i') ?>" required></div>
-            <div class="col-md-3"><label class="form-label">Backup taken at (UTC, optional)</label><input class="form-control" name="backup_taken_at" placeholder="2026-10-30 03:00"></div>
+            <div class="col-md-3"><label class="form-label">Tested at (<?= $h(rivetTimeZoneLabel()) ?>)</label><input class="form-control" name="tested_at" value="<?= $h(rivetFormatTime(gmdate('Y-m-d H:i:s'), 'utc', false)) ?>" required></div>
+            <div class="col-md-3"><label class="form-label">Backup taken at (<?= $h(rivetTimeZoneLabel()) ?>, optional)</label><input class="form-control" name="backup_taken_at" placeholder="2026-10-30 03:00"></div>
             <div class="col-md-3"><label class="form-label">Who ran it</label><input class="form-control" name="who" maxlength="200" value="<?= $h($session_name) ?>"></div>
             <div class="col-md-3"><label class="form-label">Result</label><select class="form-select" name="result"><option value="pass">Passed</option><option value="fail">Failed</option></select></div>
             <div class="col-md-6"><label class="form-label d-block">Stores restored</label>
@@ -197,7 +198,7 @@ $row = static function (?\RivetCore\Compliance\Profile\Requirement $r) use ($h):
         </form>
         <?php if ($test_list) { ?>
         <div class="table-responsive mt-3"><table class="table table-sm mb-0"><thead><tr><th>Tested</th><th>Result</th><th>Stores</th><th>By</th><th>Row counts</th></tr></thead><tbody>
-            <?php foreach ($test_list as $t) { ?><tr><td><?= $h($t->testedAt->format('Y-m-d H:i')) ?> UTC</td><td><?= $t->passed ? 'Passed' : 'Failed' ?></td><td><?= $h(implode(', ', $t->stores)) ?></td><td><?= $h($t->recordedByName) ?></td>
+            <?php foreach ($test_list as $t) { ?><tr><td><?= $h(rivetFormatTime($t->testedAt->format('Y-m-d H:i:s'), 'utc')) ?></td><td><?= $t->passed ? 'Passed' : 'Failed' ?></td><td><?= $h(implode(', ', $t->stores)) ?></td><td><?= $h($t->recordedByName) ?></td>
                 <td><?= !$t->countsCompared() ? 'not compared' : ($t->countsMatch() ? 'match' : 'DIFFER') ?></td></tr><?php } ?>
         </tbody></table></div>
         <?php } ?>

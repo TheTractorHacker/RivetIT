@@ -23,8 +23,8 @@ if ($sso_tables_ok) {
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-id-badge me-2"></i>Single sign-on provider (OpenID Connect)</h3>
     </div>
     <div class="card-body">
-        <p class="text-muted">RivetIT can sign people in to the Quality system (Datum) so they do not need a second password. A person who is signed in to the
-            department portal presses <strong>Open Quality</strong> and lands in Datum already signed in. RivetIT only shares a stable person id (and, if you allow it,
+        <p class="text-muted"><?= htmlspecialchars(APP_NAME) ?> can sign people in to the Quality system (Datum) so they do not need a second password. A person who is signed in to the
+            department portal presses <strong>Open Quality</strong> and lands in Datum already signed in. <?= htmlspecialchars(APP_NAME) ?> only shares a stable person id (and, if you allow it,
             the display name). Setup steps and the checks Datum must make are in <code>docs/integrations/qms-sso.md</code>.</p>
 
         <?php $sso_admin_url = ($sso_tables_ok && \ITFlow\Quality\QualityConfig::moduleOn($mysqli)) ? OidcConfig::portalLoginUrl($mysqli) : null;
@@ -71,11 +71,11 @@ if ($sso_tables_ok) {
         <?php if ($sso_issuer !== null) { ?>
         <div class="row g-2 mb-4">
             <div class="col-md-6"><label class="form-label small mb-0">Issuer</label>
-                <input type="text" class="form-control" readonly value="<?php echo nullable_htmlentities($sso_issuer); ?>" onclick="this.select()"></div>
+                <input type="text" class="form-control js-select-on-click" readonly value="<?php echo nullable_htmlentities($sso_issuer); ?>"></div>
             <div class="col-md-6"><label class="form-label small mb-0">Discovery URL</label>
                 <div class="input-group">
-                    <input type="text" class="form-control" id="ssoDiscovery" readonly value="<?php echo nullable_htmlentities($sso_issuer . '/.well-known/openid-configuration'); ?>" onclick="this.select()">
-                    <button type="button" class="btn btn-outline-secondary" onclick="var f=document.getElementById('ssoDiscovery');f.select();navigator.clipboard&&navigator.clipboard.writeText(f.value);"><i class="fas fa-copy"></i> Copy</button>
+                    <input type="text" class="form-control js-select-on-click" id="ssoDiscovery" readonly value="<?php echo nullable_htmlentities($sso_issuer . '/.well-known/openid-configuration'); ?>">
+                    <button type="button" class="btn btn-outline-secondary js-copy-text" data-copy-target="ssoDiscovery"><i class="fas fa-copy"></i> Copy</button>
                 </div></div>
         </div>
         <?php } ?>
@@ -128,7 +128,7 @@ if ($sso_tables_ok) {
             <?php } ?>
             <form action="post.php" method="post" class="mt-2">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
-                <button class="btn btn-outline-primary btn-sm" name="rotate_sso_key" value="1" onclick="return confirm('Create a new signing key? The current key stays published for 15 minutes so tokens already issued still verify.');"><i class="fas fa-sync-alt me-1"></i>Rotate signing key</button>
+                <button class="btn btn-outline-primary btn-sm js-confirm-native" data-confirm-variant="primary" data-confirm-message="Create a new signing key? The current key stays published for 15 minutes so tokens already issued still verify." name="rotate_sso_key" value="1"><i class="fas fa-sync-alt me-1"></i>Rotate signing key</button>
                 <span class="text-muted small ms-2">The private key is stored encrypted and is never shown. The public key is at <code>/oidc/jwks</code>.</span>
             </form>
         </div>

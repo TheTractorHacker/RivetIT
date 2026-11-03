@@ -72,7 +72,7 @@ final class InboundEvents
             return $deny(400, 'invalid_event', 'The event needs id, type, schema_version, occurred_at and data.');
         }
         if ($ver > self::SUPPORTED_SCHEMA || $ver < 1) {
-            return $deny(422, 'unsupported_schema_version', 'This RivetIT understands schema_version 1.');
+            return $deny(422, 'unsupported_schema_version', 'This ' . (defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' understands schema_version 1.');
         }
         $hash = hash('sha256', $rawBody);
 
