@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -86,6 +87,23 @@ if ($report['totals']['csat_rated_count'] > 0) {
   .tp-filter .btn { min-height: 0; padding-block: .45rem; }
 </style>
 
+<?php
+$tp = $report['technicians'];
+if ($tp) {
+    $tp_h = array_map(fn($t) => ($t['billable_seconds'] + $t['nonbillable_seconds']) / 3600, $tp);
+    $tp_tot = array_sum($tp_h);
+    $iT = array_search(max($tp_h), $tp_h);
+    $closed = array_map(fn($t) => intval($t['tickets_closed']), $tp);
+    $iC = array_search(max($closed), $closed);
+    $rated = array_filter($tp, fn($t) => $t['csat_avg_rating'] !== null && $t['csat_rated_count'] >= 5);
+    $lowc = null; foreach ($rated as $t) { if ($lowc === null || $t['csat_avg_rating'] < $lowc['csat_avg_rating']) { $lowc = $t; } }
+    if ($tp_tot > 0) {
+        reportHeadline('fa-user-clock', $tp[$iC]['name'] . ' closed the most tickets (' . $closed[$iC] . ')' . ($iT !== $iC ? ', ' . $tp[$iT]['name'] . ' logged the most hours' : ' and logged the most hours'),
+            'Team logged ' . round($tp_tot, 1) . ' hours across ' . count($tp) . ' technicians.' . ($lowc && count($rated) > 1 ? " Lowest CSAT: {$lowc['name']} ({$lowc['csat_avg_rating']}/5)." : ''),
+            'primary', ['Hours' => round($tp_tot, 1), 'Closed' => array_sum($closed)]);
+    }
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-clock me-2"></i>Technician Performance &amp; Utilization</h3>
@@ -93,10 +111,7 @@ if ($report['totals']['csat_rated_count'] > 0) {
              button (white + border) rather than btn-success/btn-primary: Tabler's
              success green (#2fb344) is not one of this app's greens, and on a red-accent
              install btn-primary made "Print" wear the destructive colour. -->
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-secondary d-print-none me-2"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-secondary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
+    </div>
     </div>
     <div class="card-body p-0">
 
