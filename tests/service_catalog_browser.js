@@ -4,7 +4,7 @@ const fs = require('fs');
 const base = process.argv[2], out = process.argv[3];
 fs.mkdirSync(out, { recursive: true });
 let fails = 0; const ok = (c, l) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + l); if (!c) fails++; };
-const mysql = (sql) => require('child_process').execFileSync('sudo', ['mysql', '-N', '-B', 'i30_scratch_app', '-e', sql], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+const mysql = (sql) => require('child_process').execFileSync('sudo', ['mysql', '-N', '-B', process.env.RIVETIT_TEST_DB_NAME || 'i30_scratch_app', '-e', sql], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
 (async () => {
   const browser = await pw.chromium.launch({ executablePath: '/home/sysadmin/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome', args: ['--no-sandbox'] });
   const consoleErrors = [];

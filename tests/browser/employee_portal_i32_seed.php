@@ -16,9 +16,12 @@ if ($db->connect_errno) { fwrite(STDERR, "connect failed\n"); exit(2); }
 $db->query("SET SESSION sql_mode=''");
 $q = static function (string $sql) use ($db) { $r = $db->query($sql); if ($r === false) { fwrite(STDERR, "SQL failed: " . $db->error . "\n  $sql\n"); exit(1); } return $r; };
 
+// A scratch install that already holds demo data has rows in other tables that reference these (contracts -> clients, ...); the wipe must not trip over them.
+$q('SET FOREIGN_KEY_CHECKS = 0');
 foreach (['portal_api_tokens', 'portal_feed_state', 'kb_article_views', 'portal_announcements', 'kb_articles', 'ticket_replies', 'tickets', 'endpoint_agent_devices', 'asset_rmm_links', 'assets',
     'workflow_task_log', 'workflow_run_tasks', 'workflow_runs', 'workflow_template_tasks', 'workflow_templates', 'service_catalog_request_approvals', 'service_catalog_requests', 'service_catalog_items',
     'contacts', 'clients', 'user_settings', 'user_role_permissions', 'user_roles', 'users', 'companies', 'logs'] as $t) { $q("DELETE FROM `$t`"); }
+$q('SET FOREIGN_KEY_CHECKS = 1');
 
 $admin_pw = 'Scratch-Admin-1234'; $emp_pw = 'Employee-Pass-123';
 $H = static fn(string $p) => password_hash($p, PASSWORD_DEFAULT);

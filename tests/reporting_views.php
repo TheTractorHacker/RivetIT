@@ -21,6 +21,8 @@ $fx = json_decode((string) file_get_contents(__DIR__ . '/fixtures/edition_report
 $db_name = getenv('RIVETIT_TEST_DB_NAME');
 $ok($fx === EditionViews::COLUMNS, 'the frozen fixture equals EditionViews::COLUMNS');
 
+// The checks below assume a UTC company; a scratch database seeded from demo data may carry another zone.
+$q("UPDATE settings SET config_timezone = 'UTC' WHERE company_id = 1");
 $r0 = EditionViews::install($db);
 $ok($r0['errors'] === [] && count($r0['created']) === count(EditionViews::COLUMNS), 'install creates all ' . count(EditionViews::COLUMNS) . ' views without errors: ' . implode('; ', $r0['errors']));
 $r1 = EditionViews::install($db);
@@ -122,8 +124,20 @@ if (!EditionViews::zoneUsable($m, 'America/Chicago')) {
 $cid = trim((string) shell_exec("docker ps --filter publish=$port --format '{{.ID}}' | head -1"));
 if ($cid !== '') {
     $o = shell_exec('docker exec ' . escapeshellarg($cid) . " sh -c 'mariadb-tzinfo-to-sql /usr/share/zoneinfo 2>/dev/null | mariadb -uroot -p\"\$MARIADB_ROOT_PASSWORD\" mysql' 2>&1");
+} elseif (!EditionViews::zoneUsable($m, 'America/Chicago') && is_dir('/usr/share/zoneinfo')
+    && trim((string) shell_exec('command -v mariadb-tzinfo-to-sql')) !== '' && trim((string) shell_exec('command -v mariadb')) !== '') {
+    // No docker: the throwaway server is a private mariadbd on 127.0.0.1:$port (never the shared server); load its tables from the host zoneinfo.
+    putenv('MYSQL_PWD=' . $rootpw);
+    shell_exec('mariadb-tzinfo-to-sql /usr/share/zoneinfo 2>/dev/null | mariadb -uroot -h127.0.0.1 -P' . (int) $port . ' mysql 2>&1');
+    putenv('MYSQL_PWD');
 }
-$ok(EditionViews::zoneUsable($m, 'America/Chicago'), 'time zone tables loaded in the throwaway container');
+if (!EditionViews::zoneUsable($m, 'America/Chicago')) {
+    // Could not load the tables here (no docker, and no mariadb-tzinfo-to-sql or /usr/share/zoneinfo on this host): skip the conversion proof, do not fail.
+    echo "SKIP  conversion proof: the throwaway server has no time zone tables and they could not be loaded\n";
+    $m->query('DROP DATABASE tzproof');
+    return;
+}
+$ok(true, 'time zone tables loaded in the throwaway server');
 $after = EditionViews::install($m);
 $ok($after['converted'] === true && $after['warning'] === null && $after['errors'] === [], 'with the tables: converted views');
 $m->query("INSERT INTO ticket_statuses VALUES (1, 'Open')");
