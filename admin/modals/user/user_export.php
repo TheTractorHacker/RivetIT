@@ -16,6 +16,10 @@ ob_start();
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
     <div class="modal-body">
         <p class="mb-0 text-secondary">Download everything you can see here as a CSV file that opens in Excel or any spreadsheet.</p>
+        <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" name="include_archived" value="1" id="exportIncludeArchived">
+            <label class="form-check-label" for="exportIncludeArchived">Include archived users (listed with the status Archived)</label>
+        </div>
     </div>
     <div class="modal-footer">
         <button type="submit" name="export_users_csv" class="btn btn-primary text-bold"><i class="fas fa-fw fa-download me-2"></i>Download CSV</button>
