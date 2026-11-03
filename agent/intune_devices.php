@@ -19,7 +19,7 @@ $sql_links = mysqli_query($mysqli,
      JOIN assets a ON a.asset_id = ail.asset_id
      LEFT JOIN clients c ON c.client_id = a.asset_client_id
      WHERE $where
-     ORDER BY ail.hostname ASC"
+     ORDER BY (LOWER(ail.compliance_state)='compliant') ASC, ail.hostname ASC"
 );
 
 $intune_link_rows = [];
@@ -129,13 +129,12 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
                     $badge = 'text-bg-danger'; $icon = 'fa-circle text-danger'; $label = 'Not Compliant';
                 } else {
                     $badge = 'text-bg-secondary'; $icon = 'fa-question-circle text-muted';
-                    $label = $row['compliance_state'] ? nullable_htmlentities($row['compliance_state']) : 'Unknown';
+                    $label = $row['compliance_state'] ? nullable_htmlentities(ucfirst(trim(preg_replace('/(?<=[a-z])(?=[A-Z])/', ' ', (string) $row['compliance_state'])))) : 'Unknown';
                 }
             ?>
             <tr>
                 <td class="ps-3">
-                    <i class="fas <?= $icon ?>" data-bs-toggle="tooltip" title="<?= $label ?>"></i>
-                    <span class="badge <?= $badge ?> ms-1"><?= $label ?></span>
+                    <span class="badge <?= $badge ?>"><i class="fas <?= $compliance === 'compliant' ? 'fa-check' : ($compliance === 'noncompliant' ? 'fa-times' : 'fa-question') ?> me-1" aria-hidden="true"></i><?= $label ?></span>
                 </td>
                 <td>
                     <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="fw-bold">
@@ -154,11 +153,17 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
                 <td class="text-muted small"><?= nullable_htmlentities(trim(($row['os_name'] ?? '') . ' ' . ($row['os_version'] ?? ''))) ?: '—' ?></td>
                 <td class="text-muted small"><?= nullable_htmlentities($row['primary_user_upn']) ?: '—' ?></td>
                 <td class="text-muted small">
-                    <?= $row['intune_last_sync_at'] ? nullable_htmlentities($row['intune_last_sync_at']) : '—' ?>
+                    <?php
+                    if ($row['intune_last_sync_at']) {
+                        $sync_ts = strtotime($row['intune_last_sync_at']);
+                        $sync_days = $sync_ts ? (int) floor((time() - $sync_ts) / 86400) : null;
+                        $sync_rel = $sync_days === null ? '' : ($sync_days < 1 ? 'today' : ($sync_days === 1 ? 'yesterday' : $sync_days . ' days ago'));
+                        ?><span title="<?= nullable_htmlentities($row['intune_last_sync_at']) ?>"><?= $sync_rel !== '' ? $sync_rel : nullable_htmlentities($row['intune_last_sync_at']) ?></span><?php
+                    } else { echo '—'; } ?>
                 </td>
                 <td class="text-end pe-2">
-                    <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" data-bs-toggle="tooltip" title="View Asset">
-                        <i class="fas fa-tachometer-alt"></i>
+                    <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-sm btn-outline-primary" title="Open this asset">
+                        Open asset<i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
                     </a>
                 </td>
             </tr>

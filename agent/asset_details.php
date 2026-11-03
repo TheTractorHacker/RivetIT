@@ -623,6 +623,7 @@ if (isset($_GET['asset_id'])) {
 
         <style>
             #asset-details-content { font-size: 1.05rem; }
+            #asset-details-content .tab-pane td { overflow-wrap: break-word; min-width: 0; } #asset-details-content .tab-pane code { overflow-wrap: anywhere; }
             .asset-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
             .asset-topbar .breadcrumb { padding: 0; }
             .asset-devstrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap: .5rem; }
@@ -630,14 +631,14 @@ if (isset($_GET['asset_id'])) {
             .asset-devstrip .dev-seg { margin: 0; border-radius: 4px; }
             .dev-seg-label { font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--if-muted, #6c757d); }
             /* one header style for every card on the right: same height, title left, actions right, same button size */
-            #asset-details-content .col-md-9 .card > .card-header:not(.p-0) { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; min-height: 3rem; }
-            #asset-details-content .col-md-9 .card > .card-header:not(.p-0) .card-title { margin: 0; float: none; }
-            #asset-details-content .col-md-9 .card > .card-header:not(.p-0) .card-tools { margin: 0; float: none; display: flex; align-items: center; gap: .35rem; }
-            #asset-details-content .col-md-9 .card > .card-header:not(.p-0) .card-tools > .btn, #asset-details-content .col-md-9 .card > .card-header .card-tools .btn-group > .btn { padding: .2rem .6rem; font-size: .8125rem; white-space: nowrap; }
-            #asset-details-content .col-md-3 > .card:first-child .card-header .btn.float-end { order: 2; margin-left: auto; float: none !important; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; min-height: 3rem; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-title { margin: 0; float: none; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools { margin: 0; float: none; display: flex; align-items: center; gap: .35rem; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools > .btn, #asset-details-content .asset-main .card > .card-header .card-tools .btn-group > .btn { padding: .2rem .6rem; font-size: .8125rem; white-space: nowrap; }
+            #asset-details-content .asset-side > .card:first-child .card-header .btn.float-end { order: 2; margin-left: auto; float: none !important; }
             .asset-facts { display: grid; grid-template-columns: max-content 1fr; gap: .5rem .9rem; align-items: baseline; }
             .asset-facts dt { font-weight: 500; font-size: .8rem; color: var(--if-muted, #6c757d); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
-            .asset-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+            .asset-facts dd { margin: 0; min-width: 0; overflow-wrap: break-word; font-weight: 600; }
             #asset-details-content .small,
             #asset-details-content small { font-size: 92%; }
             #asset-details-content [style*="font-size:11px"] { font-size: 12px !important; }
@@ -646,7 +647,7 @@ if (isset($_GET['asset_id'])) {
 
         <div class="row" id="asset-details-content">
 
-            <div class="col-md-3">
+            <div class="asset-side col-12 col-lg-4 col-xxl-3">
 
                 <div class="card">
                     <div class="card-header">
@@ -810,7 +811,7 @@ if (isset($_GET['asset_id'])) {
 
             </div>
 
-            <div class="col-md-9">
+            <div class="asset-main col-12 col-lg-8 col-xxl-9">
 
 
                 <?php
