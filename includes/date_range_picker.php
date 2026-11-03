@@ -66,7 +66,18 @@ if (!function_exists('dateRangePickerField')) {
             $shownFrom = (string) $opts['dates'][0];
             $shownTo = (string) $opts['dates'][1];
         }
+        // A custom range with one open end is stored with the all-time bound (1970-01-01 / 2099-12-31); never show that bound.
+        // Same wording as the picker's own script: "From <day>" / "Up to <day>", and the open end's input stays empty.
+        $openFrom = $isCustom && $shownFrom === '1970-01-01';
+        $openTo = $isCustom && $shownTo === '2099-12-31';
         $dates = $current->isAllTime() && empty($opts['dates']) ? '' : dateRangeDayLabel($shownFrom, $shownTo);
+        if ($openFrom && !$openTo) {
+            $dates = 'Up to ' . (new DateTimeImmutable($shownTo))->format('M j, Y');
+        } elseif ($openTo && !$openFrom) {
+            $dates = 'From ' . (new DateTimeImmutable($shownFrom))->format('M j, Y');
+        }
+        $valFrom = $isCustom && !$openFrom ? $shownFrom : '';
+        $valTo = $isCustom && !$openTo ? $shownTo : '';
         $label = $isCustom ? 'Custom range' : $current->label();
         $nonDefault = $isCustom || $preset !== $default;
 
@@ -83,8 +94,8 @@ if (!function_exists('dateRangePickerField')) {
         ?>
         <div class="drp <?php echo $e($extraClass); ?>" data-drp data-drp-default="<?php echo $e($default); ?>" data-drp-auto="<?php echo $auto; ?>" data-drp-name="<?php echo $e($name); ?>">
             <input type="hidden" name="<?php echo $e($name); ?>" value="<?php echo $e($preset); ?>" class="drp-canned">
-            <input type="hidden" name="dtf" value="<?php echo $isCustom ? $e($current->from()) : ''; ?>" class="drp-dtf" <?php echo $isCustom ? '' : 'disabled'; ?>>
-            <input type="hidden" name="dtt" value="<?php echo $isCustom ? $e($current->to()) : ''; ?>" class="drp-dtt" <?php echo $isCustom ? '' : 'disabled'; ?>>
+            <input type="hidden" name="dtf" value="<?php echo $e($valFrom); ?>" class="drp-dtf" <?php echo $isCustom ? '' : 'disabled'; ?>>
+            <input type="hidden" name="dtt" value="<?php echo $e($valTo); ?>" class="drp-dtt" <?php echo $isCustom ? '' : 'disabled'; ?>>
             <div class="drp-row">
                 <button type="button" class="drp-btn" id="<?php echo $e($id); ?>-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="<?php echo $e($id); ?>-panel" aria-label="<?php echo $e($a11y); ?>: <?php echo $e($label . ($dates !== '' ? ', ' . $dates : '')); ?>">
                     <i class="far fa-calendar-alt drp-icon" aria-hidden="true"></i>
@@ -118,8 +129,8 @@ if (!function_exists('dateRangePickerField')) {
                 </div>
                 <div class="drp-custom" <?php echo $isCustom ? '' : 'hidden'; ?>>
                     <div class="drp-inputs">
-                        <label class="drp-field"><span>From</span><input type="date" class="form-control drp-from" min="1970-01-01" max="2099-12-31" value="<?php echo $isCustom ? $e($current->from()) : ''; ?>"></label>
-                        <label class="drp-field"><span>To</span><input type="date" class="form-control drp-to" min="1970-01-01" max="2099-12-31" value="<?php echo $isCustom ? $e($current->to()) : ''; ?>"></label>
+                        <label class="drp-field"><span>From</span><input type="date" class="form-control drp-from" min="1970-01-01" max="2099-12-31" value="<?php echo $e($valFrom); ?>"></label>
+                        <label class="drp-field"><span>To</span><input type="date" class="form-control drp-to" min="1970-01-01" max="2099-12-31" value="<?php echo $e($valTo); ?>"></label>
                     </div>
                     <div class="drp-cal" data-first-day="1"></div>
                     <div class="drp-actions">

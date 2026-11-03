@@ -269,13 +269,14 @@ decrypt_and_extract() {
 # read_manifest(): thin wrapper around lib/common.sh's read_manifest_dir(),
 # shared with restore_admin_zip.sh (see its own comment there for the full
 # three-case plaintext/encrypted/missing-manifest behavior). deploy/backup.sh's
-# own manifest is always plaintext JSON -- the outer .tar.gz.enc is what's
-# encrypted, not the manifest a second time inside it -- so this is always
-# called with no passphrase_file. MANIFEST_SETTINGS_ENC_KEY (and friends) come
-# back set as a side effect, exactly as before this was factored out into
-# lib/common.sh.
+# own manifest is plaintext JSON -- the outer .tar.gz.enc is what's encrypted --
+# but an archive whose inner manifest is backup-manifest.json.enc (an older or
+# hand-made one) is decrypted with the same --passphrase-file this script already
+# requires, instead of dying with "no --passphrase-file was given".
+# MANIFEST_SETTINGS_ENC_KEY (and friends) come back set as a side effect, exactly
+# as before this was factored out into lib/common.sh.
 read_manifest() {
-    read_manifest_dir "${EXTRACT_DIR}" ""
+    read_manifest_dir "${EXTRACT_DIR}" "${PASSPHRASE_FILE}"
 }
 
 import_database() {

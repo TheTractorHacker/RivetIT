@@ -535,12 +535,13 @@ final class WidgetRegistry
 
     private static function ticketsWaitingOnCustomer(\mysqli $db, WidgetContext $ctx): array
     {
-        // "Waiting on Employee" is this install's name for upstream's "Waiting on Customer" status; matched by
-        // name (either counts) since setup does not seed this status at all.
+        // "Waiting on Employee" is this install's name for upstream's "Waiting on Customer" status; setup does not seed it.
+        // A ticket counts when its status has either of those names OR is flagged "waiting on someone else" (pauses the SLA clock),
+        // so an install that named the status differently still gets a number.
         $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NULL AND ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer')"));
+            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NULL AND (ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer') OR ticket_status_pauses_sla = 1)"));
         $n = (int) ($row['n'] ?? 0);
-        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'open tickets waiting on the employee'];
+        return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'open tickets waiting on someone else'];
     }
 
     private static function ticketsFlowYear(\mysqli $db, WidgetContext $ctx): array
