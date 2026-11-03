@@ -966,7 +966,7 @@ function rivetRmmAlrEscalationPage(array $vm): string
         $o .= rivetRmmAlrPolicyForm($vm);
     }
     if ($vm['policies'] === []) {
-        $o .= rivetRmmUiCard('Policies', 'level-up-alt', rivetRmmUiEmpty('fas fa-level-up-alt', 'No escalation policies', $admin ? 'Without one, alerts open but nobody is told that they stay open.' : 'An administrator can add one.'));
+        $o .= rivetRmmUiCard('Policies', 'level-up-alt', rivetRmmUiEmpty('fas fa-level-up-alt', 'No escalation policies', $admin ? 'Without one, alerts open but nobody is told that they stay open.' : 'An administrator can add one.', $admin ? '<a class="btn btn-primary" href="/agent/rmm_escalations.php?new=1#alr-policy-form"><i class="fas fa-plus me-1" aria-hidden="true"></i>New policy</a>' : ''));
     } else {
         $rows = '';
         foreach ($vm['policies'] as $p) {
@@ -981,8 +981,8 @@ function rivetRmmAlrEscalationPage(array $vm): string
         $o .= rivetRmmUiCard('Policies (' . count($vm['policies']) . ')', 'level-up-alt', '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><caption class="visually-hidden">Escalation policies</caption>'
             . rivetRmmUiThead(['Name', 'Applies to', 'Alerts', 'Steps', 'Repeat', 'On', 'Actions']) . '<tbody>' . $rows . '</tbody></table></div>', '', '', true);
     }
-    $contact = $vm['contact'] !== '' ? '<span class="rmm-wrap">' . rmmH($vm['contact']) . '</span>' : '<span class="text-muted">not set</span>';
-    $o .= rivetRmmUiCard('Fallback contact', 'user-shield', '<p class="mb-1">This contact is told when a step reaches nobody, and is copied on every critical alert so it never goes unnoticed: ' . $contact . '</p>'
+    $contact = $vm['contact'] !== '' ? '<span class="rmm-wrap">' . rmmH($vm['contact']) . '</span>' : '<span class="badge bg-warning-lt text-warning-emphasis">not set</span>';
+    $o .= rivetRmmUiCard('Fallback contact', 'user-shield', ($vm['contact'] === '' ? '<div class="alert alert-warning py-2 mb-2" role="alert"><i class="fas fa-exclamation-triangle me-2" aria-hidden="true"></i>Nobody is the safety net yet: a step that reaches nobody is silently dropped. Set a contact.</div>' : '') . '<p class="mb-1">This contact is told when a step reaches nobody, and is copied on every critical alert so it never goes unnoticed: ' . $contact . '</p>'
         . ($admin ? '<a href="/admin/settings_endpoint_agent.php">Change it in Administration &gt; Endpoint agent</a>' : '<span class="small text-muted">Only administrators can change it.</span>'));
     if ($vm['storm'] !== null) {
         $o .= rivetRmmUiCard('Storm control', 'cloud-showers-heavy', '<p class="mb-1">' . rmmH(rivetRmmAlrStormWords($vm['storm'])) . '</p><p class="small text-muted mb-0">Beyond these limits new alerts are held back (not lost) and one summary alert says storm control is active. '

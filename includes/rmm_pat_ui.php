@@ -1074,12 +1074,12 @@ function rivetRmmPatRingsCard(array $vm): string
     $form = '';
     if ($can) {
         $form = '<form method="post" action="/agent/post/' . RIVET_RMM_PAT_HANDLER . '.php" class="p-3 border-top" data-rmm-once="1" id="ring-form">' . rivetRmmAutoHidden($csrf, $self . '#rings') . '<input type="hidden" name="action" value="save_ring"><input type="hidden" name="ring_id" value="' . (int) ($e['ring_id'] ?? 0) . '">'
-            . '<h6 class="mb-2">' . ($e !== null ? 'Change ring' : 'New ring') . '</h6><div class="row g-2 align-items-end">'
+            . '<h6 class="mb-2">' . ($e !== null ? 'Change ring' : 'New ring') . '</h6><div class="row g-2 align-items-start">'
             . '<div class="col-md-3"><label class="form-label small" for="rg_name">Name</label><input class="form-control form-control-sm" id="rg_name" name="name" maxlength="39" pattern="[a-z][a-z0-9_\-]{0,38}" required value="' . rmmH($e['name'] ?? '') . '"><div class="form-text">Lower case, digits, - or _.</div></div>'
             . '<div class="col-md-2"><label class="form-label small" for="rg_delay">Delay (days)</label><input class="form-control form-control-sm" type="number" min="0" max="365" id="rg_delay" name="delay_days" required value="' . (int) ($e['delay_days'] ?? 0) . '"></div>'
             . '<div class="col-md-2"><label class="form-label small" for="rg_ord">Sort order</label><input class="form-control form-control-sm" type="number" min="0" max="100000" id="rg_ord" name="sort_order" value="' . (int) ($e['sort_order'] ?? 100) . '"></div>'
             . '<div class="col-md-3"><label class="form-label small" for="rg_desc">Description</label><input class="form-control form-control-sm" id="rg_desc" name="description" maxlength="200" value="' . rmmH($e['description'] ?? '') . '"></div>'
-            . '<div class="col-md-2"><button class="btn btn-sm btn-primary" type="submit">Save ring</button>' . ($e !== null ? ' <a class="btn btn-sm btn-outline-secondary" href="' . $self . '#rings">Cancel</a>' : '') . '</div></div></form>';
+            . '<div class="col-md-2"><label class="form-label small d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-sm btn-primary" type="submit">Save ring</button>' . ($e !== null ? ' <a class="btn btn-sm btn-outline-secondary" href="' . $self . '#rings">Cancel</a>' : '') . '</div></div></form>';
     } else {
         $form = '<p class="small text-muted p-3 mb-0 border-top">' . ($perm['manage'] ? 'Rings and patch policies apply to every department, so they need access to every department.' : 'Your role can read rings but not change them.') . '</p>';
     }
@@ -1133,7 +1133,7 @@ function rivetRmmPatRulesCard(array $vm): string
             . '<input type="hidden" name="action" value="save_rule"><input type="hidden" name="rule_id" value="' . (int) ($e['rule_id'] ?? 0) . '"><h6 class="mb-2">' . ($e !== null && isset($e['rule_id']) ? 'Change rule' : 'New rule') . '</h6><div class="row g-3">'
             . '<div class="col-md-4"><label class="form-label small" for="ru_name">Name</label><input class="form-control form-control-sm" id="ru_name" name="name" maxlength="100" required value="' . rmmH($v('name')) . '"></div>'
             . '<div class="col-md-2"><label class="form-label small" for="ru_days">Approve after (days)</label><input class="form-control form-control-sm" type="number" min="0" max="365" id="ru_days" name="after_days" required value="' . (int) $v('after_days', 3) . '"></div>'
-            . '<div class="col-md-3"><label class="form-label small" for="ru_ring">Ring (adds its delay)</label>' . rivetRmmPatSelect('ru_ring', 'ring', $ringOpts, $v('ring', '') === '' || $v('ring', '') === null ? null : (string) $v('ring'), 'No ring') . '</div>'
+            . '<div class="col-md-3"><label class="form-label small" for="ru_ring">Ring (adds its delay)</label>' . str_replace('class="form-select"', 'class="form-select form-select-sm"', rivetRmmPatSelect('ru_ring', 'ring', $ringOpts, $v('ring', '') === '' || $v('ring', '') === null ? null : (string) $v('ring'), 'No ring')) . '</div>'
             . '<div class="col-md-3"><label class="form-label small" for="ru_client">Applies to</label><select class="form-select form-select-sm" id="ru_client" name="client_id">' . $co . '</select></div>'
             . '<div class="col-12"><span class="form-label small d-block" id="ru_kh">Kinds (none ticked: any)</span><div role="group" aria-labelledby="ru_kh">' . $kb . '</div></div>'
             . '<div class="col-12"><span class="form-label small d-block" id="ru_sh">Severities (none ticked: any)</span><div role="group" aria-labelledby="ru_sh">' . $sb . '</div></div>'

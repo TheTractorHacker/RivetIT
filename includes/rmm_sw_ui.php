@@ -617,9 +617,9 @@ function rivetRmmSwHostsCard(array $vm): string
     $tbl = $rows === '' ? '<p class="small text-muted px-3 pt-3 mb-2">No host is allowed, so no Windows installer can be added or downloaded. Packages for apt and dnf need no host.</p>'
         : '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Hosts installers may be downloaded from</caption>' . rivetRmmUiThead(['Host', 'Note', 'Added', '']) . '<tbody>' . $rows . '</tbody></table></div>';
     $form = $can ? '<form method="post" action="/agent/post/' . RIVET_RMM_SW_HANDLER . '.php" class="p-3 border-top" data-rmm-once="1">' . rivetRmmAutoHidden($csrf, $self . '#hosts') . '<input type="hidden" name="action" value="add_host">'
-        . '<div class="row g-2 align-items-end"><div class="col-md-5"><label class="form-label small" for="ho_host">Host name</label><input class="form-control form-control-sm rmm-mono" id="ho_host" name="host" maxlength="253" required placeholder="downloads.example.com"><div class="form-text">The exact name: example.com does not allow cdn.example.com.</div></div>'
+        . '<div class="row g-2 align-items-start"><div class="col-md-5"><label class="form-label small" for="ho_host">Host name</label><input class="form-control form-control-sm rmm-mono" id="ho_host" name="host" maxlength="253" required placeholder="downloads.example.com"><div class="form-text">The exact name: example.com does not allow cdn.example.com.</div></div>'
         . '<div class="col-md-5"><label class="form-label small" for="ho_note">Note (optional)</label><input class="form-control form-control-sm" id="ho_note" name="note" maxlength="120"></div>'
-        . '<div class="col-md-2"><button class="btn btn-sm btn-primary" type="submit">Allow host</button></div></div></form>'
+        . '<div class="col-md-2"><label class="form-label small d-block" aria-hidden="true">&nbsp;</label><button class="btn btn-sm btn-primary" type="submit">Allow host</button></div></div></form>'
         : '<p class="small text-muted p-3 mb-0 border-top">' . ($perm['admin'] ? 'The host list applies to every department, so it needs access to every department.' : 'Only an administrator can change the list of hosts installers may be downloaded from.') . '</p>';
 
     return rivetRmmUiCard('Allowed installer hosts', 'globe', '<p class="small text-muted px-3 pt-3 mb-2">A Windows installer is downloaded only from a host on this list, over https, and run only if its SHA-256 equals the pin. Taking a host off the list stops deployments that already use it.</p>' . $tbl . $form, '', '', true, 'hosts');
@@ -799,7 +799,7 @@ function rivetRmmSwRingNote(array $vm): string
 {
     $rings = '';
     foreach ($vm['rings'] as $g) {
-        $rings .= '<span class="me-3"><code class="rmm-mono">' . rmmH((string) ($g['name'] ?? '')) . '</code> +' . (int) ($g['delay_days'] ?? 0) . ' d</span>';
+        $rings .= '<span class="me-3 text-nowrap"><code class="rmm-mono">' . rmmH((string) ($g['name'] ?? '')) . '</code> +' . (int) ($g['delay_days'] ?? 0) . '&nbsp;d</span>';
     }
 
     return '<p class="small text-muted mb-2">Rings spread a rollout over time. A device\'s ring is the ring of its effective patch policy (Patch policies); the ring\'s delay in days is added before a package is due on it, and until then the report shows the device as '
