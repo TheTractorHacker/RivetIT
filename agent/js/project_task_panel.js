@@ -67,9 +67,8 @@
     function confirmThen(message, fn) {
         if (window.RivetDialog && RivetDialog.confirm) {
             RivetDialog.confirm(message, { variant: 'danger', okText: 'Delete' }).then(function (ok) { if (ok) { fn(); } });
-        } else if (window.confirm(message)) {
-            fn();
         }
+        // RivetDialog is always loaded by app.js; there is deliberately no native confirm() fallback (docs/UI_DIALOGS.md).
     }
 
     function sectionOf(el) { return el.closest('[data-pt-panel]'); }

@@ -41,6 +41,7 @@ servers:
 tags:
   - name: Auth
   - name: Endpoint agent
+  - name: RivetPanel
   - name: Mobile
   - name: Employee portal
   - name: Dashboard
@@ -2309,6 +2310,467 @@ paths:
         '422': {description: "arch or version invalid", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '429': {description: "Rate limited", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
         '503': {description: "The stored binary is missing or failed its integrity check", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_changes:
+    post:
+      tags: [Endpoint agent]
+      summary: "Change monitoring batch: registry values, files, local groups, scheduled tasks (device credential)"
+      description: >
+        Body is a JSON object {changes: [...]} up to 256 KiB. The device id comes from the credential, never from the request. Answers 503
+        feature_disabled while the change_monitor sub-switch is off (the default) and 503 unavailable when the server is under load. Handled by
+        rivet/rivet-core (DeviceApi::changes).
+      security: [{deviceAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [changes]
+              properties:
+                changes: {type: array, items: {type: object, additionalProperties: true}}
+      responses:
+        '200': {description: "Accepted ({ok: true, ...})", content: {application/json: {schema: {$ref: '#/components/schemas/Ok'}}}}
+        '401': {description: "Credential invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '413': {description: "Body over 256 KiB", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '422': {description: "Invalid payload", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "feature_disabled (sub-switch off) or unavailable (load shedding)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_logs:
+    post:
+      tags: [Endpoint agent]
+      summary: "Event-log and syslog batch (device credential)"
+      description: >
+        Body is {entries: [{ts, source, level, event_id, message, ...}]} with at most 200 entries and 256 KiB. Entries over the limit or invalid are
+        counted as dropped, repeats as duplicates. Answers 503 feature_disabled while the logs sub-switch is off and 503 unavailable under load
+        (the first optional work given up). The device id comes from the credential. Handled by rivet/rivet-core (DeviceApi::logs).
+      security: [{deviceAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entries]
+              properties:
+                entries:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    properties:
+                      ts: {type: string, format: date-time}
+                      source: {type: string}
+                      level: {type: string}
+                      event_id: {type: integer}
+                      message: {type: string}
+                    additionalProperties: true
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  accepted: {type: integer}
+                  dropped: {type: integer}
+                  duplicates: {type: integer}
+        '401': {description: "Credential invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '413': {description: "Body over 256 KiB", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '422': {description: "Invalid payload", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "feature_disabled (sub-switch off) or unavailable (load shedding)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_transfer:
+    get:
+      tags: [Endpoint agent]
+      summary: "Download a file queued FOR the device, one range at a time (device credential + transfer token)"
+      description: >
+        The device may only move transfers of its own device id (taken from the credential). The one-time transfer token (only its SHA-256 is
+        stored) goes in the X-Transfer-Token header. The response carries X-Transfer-Size and X-Transfer-Sha256 headers. 503 feature_disabled
+        while the filetransfer sub-switch is off. Handled by rivet/rivet-core (DeviceApi::transfer).
+      security: [{deviceAuth: []}]
+      parameters:
+        - {name: transfer_id, in: query, required: true, schema: {type: string}}
+        - {name: offset, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {name: length, in: query, required: true, schema: {type: integer, minimum: 1}}
+        - {name: X-Transfer-Token, in: header, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: The requested bytes
+          headers:
+            X-Transfer-Size: {schema: {type: integer}}
+            X-Transfer-Sha256: {schema: {type: string}}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {description: "Credential or transfer token invalid", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Unknown transfer for this device", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "feature_disabled or unavailable", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+    post:
+      tags: [Endpoint agent]
+      summary: "Upload the next chunk of a file the device sends (device credential + transfer token)"
+      description: >
+        Raw body of at most 1 MiB. The final chunk carries X-Transfer-Last: 1 and X-Transfer-Sha256 of the whole file. Handled by rivet/rivet-core
+        (DeviceApi::transfer).
+      security: [{deviceAuth: []}]
+      parameters:
+        - {name: transfer_id, in: query, required: true, schema: {type: string}}
+        - {name: offset, in: query, required: true, schema: {type: integer, minimum: 0}}
+        - {name: X-Transfer-Token, in: header, required: true, schema: {type: string}}
+        - {name: X-Transfer-Last, in: header, required: false, schema: {type: string, enum: ['1']}}
+        - {name: X-Transfer-Sha256, in: header, required: false, schema: {type: string}, description: "Required on the final chunk"}
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: {type: string, format: binary}
+      responses:
+        '200': {description: "Chunk stored ({ok: true, ...})", content: {application/json: {schema: {$ref: '#/components/schemas/Ok'}}}}
+        '401': {description: "Credential or transfer token invalid", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Unknown transfer for this device", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '409': {description: "Offset does not match what the server holds", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '413': {description: "Chunk over 1 MiB", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "feature_disabled or unavailable", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_software/{job_id}/{secret}:
+    get:
+      tags: [Endpoint agent]
+      summary: "Download the hosted installer of a queued or running software_install job (path secret is the credential)"
+      description: >
+        No bearer: the job id plus the per-job secret in the path IS the credential, valid for at most 24 hours while the job is queued or running.
+        Every refusal (no such job, wrong secret, expired, finished, file gone or damaged, module or software_deploy off) is the same 404 not_found.
+        Not part of the frozen device protocol. Handled by rivet/rivet-core (HostedFileApi).
+      security: []
+      parameters:
+        - {name: job_id, in: path, required: true, schema: {type: string}}
+        - {name: secret, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: The installer file
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '404': {description: "not_found for every refusal", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /agent_linux_file:
+    get:
+      tags: [Endpoint agent]
+      summary: "Download a Linux agent file this server hosts (install key)"
+      description: >
+        Also answers HEAD. The install key (rvdl1.<selector>.<expiry>.<hmac>) is sent in X-Install-Key or as an Authorization Bearer, never the
+        enrollment token and never in the URL. It is derived from a still-valid enrollment token for ONE file at ONE version and does not use up an
+        enrollment. A missing, malformed, wrong, expired or revoked key gets one answer, 401 invalid_key (the audit log records the reason). Failed
+        attempts are rate limited per address. The file is checked against its recorded size and SHA-256 before it is served.
+      security: []
+      parameters:
+        - {name: name, in: query, required: true, schema: {type: string}, description: "install-linux.sh, rivetit-agent-linux-amd64, rivetit-agent-linux-arm64 or rivetit-agent-linux-<arch>.tar.gz"}
+        - {name: version, in: query, required: true, schema: {type: string, example: 1.2.0}}
+        - {name: X-Install-Key, in: header, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: The file, with Content-Length, X-Content-SHA256 and ETag headers
+          headers:
+            X-Content-SHA256: {schema: {type: string}}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {description: "invalid_key (one answer for every credential failure and for a malformed request)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Credential fine, file not hosted (not_found)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '405': {description: "GET and HEAD only (code method)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '500': {description: "The hosted file no longer matches its recorded size or SHA-256 (code damaged)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "module_disabled or unavailable", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /build_host/{action}:
+    post:
+      tags: [Endpoint agent]
+      summary: "Local agent build host protocol: poll, status, upload, complete (build host token)"
+      description: >
+        Authenticated ONLY by a build host token (Authorization Bearer rbh_<id>_<secret>) created under Administration > Endpoint agent > Agent updates >
+        Local build; an API key never works here. JSON in, JSON out, pull model (the host only makes outbound requests). poll returns {job: null} or the
+        next build job; status reports building, uploading or failed with optional progress fields (stage, pct, detail, elapsed_s); upload sends one
+        chunk of at most 1 MiB raw as base64 with its SHA-256; complete sends the manifest, after which the server recomputes every hash, runs the existing
+        PE, ELF and MSI validators and only then publishes. Rate limited per address and per host. Full protocol: rivet-core docs/rmm/BUILD_HOST_PROTOCOL.md.
+      security: [{buildHostAuth: []}]
+      parameters:
+        - {name: action, in: path, required: true, schema: {type: string, enum: [poll, status, upload, complete]}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: "poll {host_version, capabilities}; status {job_id, state, note, stage?, pct?, detail?, elapsed_s?}; upload {job_id, name, index, total, sha256_chunk, data_b64}; complete {job_id, manifest}"
+              additionalProperties: true
+      responses:
+        '200':
+          description: Result for the action (shape depends on the action)
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+        '400': {description: "Body is not a JSON object, or a field is out of range (code invalid)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '401': {description: "Invalid or revoked token (code invalid_token)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '404': {description: "Unknown action (code not_found)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '405': {description: "POST only (code method)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '413': {description: "Request too large (code too_large)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '429': {description: "Rate limited (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+        '503': {description: "Local build not available (code unavailable)", content: {application/json: {schema: {$ref: '#/components/schemas/AgentError'}}}}
+  /panel_enroll:
+    post:
+      tags: [RivetPanel]
+      summary: Exchange a panel enrollment token for a per-device credential (no bearer)
+      description: >
+        The enrollment token (rvtp1.<selector>.<secret>) was minted by an administrator for a client and optionally a contact; it travels in the body.
+        The same install_id enrolling again keeps the device and rotates the credential. An RMM token (rvte1.) is not accepted. Failures are limited per
+        address (429 + Retry-After). The server derives the client and contact from the credential and ignores any client_id or contact_id a caller sends.
+        TLS required. Every JSON answer carries server_time. Full contract: rivet-core docs/panel/PANEL_API.md and openapi-panel.yaml.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enrollment_token, device]
+              properties:
+                enrollment_token: {type: string, example: "rvtp1.0123456789ab.0123456789abcdef0123456789abcdef01234567"}
+                device:
+                  type: object
+                  required: [install_id, hostname, os]
+                  properties:
+                    install_id: {type: string, format: uuid}
+                    hostname: {type: string, maxLength: 200}
+                    os: {type: string, enum: [windows, linux, macos]}
+                    os_version: {type: string, maxLength: 200}
+                    app_version: {type: string, maxLength: 40}
+      responses:
+        '201':
+          description: Enrolled. device_token (rvpd_ plus 64 hex) is shown once.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PanelEnrollResponse'}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "Token used up or device revoked (forbidden), or the contact is gone (contact_invalid)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '405': {description: "Wrong method (method_not_allowed)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '409': {description: "install_id belongs to an RMM agent or another client (conflict)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '413': {description: "too_large", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '422': {description: "invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '426': {description: "Plain HTTP (tls_required)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "Panel service off (module_disabled)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+  /panel_me:
+    get:
+      tags: [RivetPanel]
+      summary: Who this panel device is and what it may do
+      security: [{panelAuth: []}]
+      responses:
+        '200':
+          description: The device's client, contact (or null), capabilities and limits
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PanelMe'}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '426': {description: "tls_required", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+  /panel_categories:
+    get:
+      tags: [RivetPanel]
+      summary: The ticket categories of the device's client
+      description: Available to every panel device, including a client-level device whose client has not allowed tickets. At most 120 per 60 s per device.
+      security: [{panelAuth: []}]
+      responses:
+        '200':
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category_id: {type: integer}
+                        name: {type: string}
+                  server_time: {type: string, format: date-time}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+  /panel_tickets:
+    get:
+      tags: [RivetPanel]
+      summary: List this panel device's tickets
+      description: >
+        A device with a contact lists that contact's tickets plus the ones its own device created; a client-level device lists only the ones it created,
+        always inside its own client. 403 client_level_disabled for a client-level device while the client's setting is off. At most 120 per 60 s per device.
+      security: [{panelAuth: []}]
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: offset, in: query, required: false, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200':
+          description: A page of tickets, newest activity first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticket_id: {type: integer}
+                        subject: {type: string}
+                        status: {type: string}
+                        closed: {type: boolean}
+                        category_id: {type: integer, nullable: true}
+                        created_at: {type: string, format: date-time}
+                        updated_at: {type: string, format: date-time}
+                        mine: {type: boolean, description: "Created by this device"}
+                  limit: {type: integer}
+                  offset: {type: integer}
+                  has_more: {type: boolean}
+                  server_time: {type: string, format: date-time}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "client_level_disabled, contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '422': {description: "invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+    post:
+      tags: [RivetPanel]
+      summary: Create a ticket from the panel
+      description: >
+        Filed under the client and contact of the credential; client_id, contact_id and unknown fields are ignored. A client-level device may create only
+        while the client's setting is on. client_request_id makes a retry safe: a replay of a finished request returns the first ticket (200,
+        replayed true); while the first is still running it is 409 request_in_progress (Retry-After 2). At most 10 per 60 s and 50 per day per device.
+      security: [{panelAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, body]
+              properties:
+                subject: {type: string, minLength: 1, maxLength: 200}
+                body: {type: string, minLength: 1, maxLength: 20000}
+                category_id: {type: integer, nullable: true}
+                display_name: {type: string, maxLength: 100, description: "OS user name shown as 'reported as'; never an identity"}
+                client_request_id: {type: string, format: uuid}
+                attachments: {type: array, maxItems: 3, items: {$ref: '#/components/schemas/PanelAttachment'}}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PanelTicketCreated'}
+        '200':
+          description: Replay of an earlier request with the same client_request_id
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PanelTicketCreated'}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "client_level_disabled, contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '409': {description: "request_in_progress (Retry-After header)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '413': {description: "too_large", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '422': {description: "invalid, or attachment_rejected", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+  /panel_ticket_chat:
+    get:
+      tags: [RivetPanel]
+      summary: Read the conversation of one of this device's tickets
+      description: >
+        Only tickets this device created or, for a device with a contact, tickets of that contact. Any other ticket, and one that does not exist, is the same
+        404 not_found. Internal notes are never returned. Poll with after set to the previous next_after.
+      security: [{panelAuth: []}]
+      parameters:
+        - {name: ticket_id, in: query, required: true, schema: {type: integer, minimum: 1}}
+        - {name: after, in: query, required: false, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200':
+          description: Messages after the cursor, oldest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket:
+                    type: object
+                    properties:
+                      ticket_id: {type: integer}
+                      subject: {type: string}
+                      status: {type: string}
+                      closed: {type: boolean}
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message_id: {type: integer}
+                        from: {type: string, enum: [you, staff]}
+                        author: {type: string}
+                        body: {type: string}
+                        created_at: {type: string, format: date-time}
+                        attachments:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              filename: {type: string}
+                              content_type: {type: string}
+                              size: {type: integer}
+                  next_after: {type: integer}
+                  server_time: {type: string, format: date-time}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "client_level_disabled, contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '404': {description: "not_found (missing and out of scope are indistinguishable)", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '422': {description: "invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+    post:
+      tags: [RivetPanel]
+      summary: Post a message on one of this device's tickets
+      description: Same access rule as reading. A closed ticket answers 409 ticket_closed. At most 20 per 60 s per device.
+      security: [{panelAuth: []}]
+      parameters:
+        - {name: ticket_id, in: query, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: {type: string, minLength: 1, maxLength: 5000}
+                display_name: {type: string, maxLength: 100}
+                attachments: {type: array, maxItems: 3, items: {$ref: '#/components/schemas/PanelAttachment'}}
+      responses:
+        '201':
+          description: Posted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket_id: {type: integer}
+                  message_id: {type: integer}
+                  server_time: {type: string, format: date-time}
+        '401': {description: "invalid_token, revoked or expired", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '403': {description: "client_level_disabled, contact_invalid or client_invalid", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '404': {description: "not_found", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '409': {description: "ticket_closed", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '413': {description: "too_large", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '422': {description: "invalid, or attachment_rejected", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '429': {description: "rate_limited", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
+        '503': {description: "module_disabled", content: {application/json: {schema: {$ref: '#/components/schemas/PanelError'}}}}
   /endpoint_devices:
     get:
       tags: [Endpoint agent]
@@ -2935,6 +3397,14 @@ components:
       type: http
       scheme: bearer
       description: Per-device credential issued by POST /agent_enroll (256-bit, only its SHA-256 stored, rotatable and revocable). Not a user token.
+    panelAuth:
+      type: http
+      scheme: bearer
+      description: Per-device RivetPanel credential issued by POST /panel_enroll (rvpd_ plus 64 hex, only its SHA-256 stored, revocable and rotatable). Not an RMM agent credential and not a user token.
+    buildHostAuth:
+      type: http
+      scheme: bearer
+      description: Build host token (rbh_<id>_<secret>) created under Administration > Endpoint agent > Agent updates > Local build. Grants access to /build_host/* only.
   parameters:
     IntLimit:
       name: limit
@@ -3025,6 +3495,56 @@ components:
       description: not_found (unknown, unpublished or not servable; the two are not distinguished)
       content: {application/json: {schema: {$ref: '#/components/schemas/IntegrationError'}}}
   schemas:
+    PanelError:
+      type: object
+      required: [error, code]
+      properties:
+        error: {type: string}
+        code: {type: string, description: "invalid_token, revoked, expired, forbidden, contact_invalid, client_invalid, client_level_disabled, not_found, invalid, attachment_rejected, too_large, rate_limited, method_not_allowed, tls_required, conflict, ticket_closed, request_in_progress, module_disabled, internal"}
+        server_time: {type: string, format: date-time}
+    PanelAttachment:
+      type: object
+      required: [filename, content_type, data_base64]
+      properties:
+        filename: {type: string, description: "Reduced to a safe basename; needs an allowed extension"}
+        content_type: {type: string, description: "Must be the type the extension maps to"}
+        data_base64: {type: string}
+    PanelTicketCreated:
+      type: object
+      properties:
+        ticket_id: {type: integer}
+        replayed: {type: boolean}
+        server_time: {type: string, format: date-time}
+    PanelLimits:
+      type: object
+      properties:
+        subject_max: {type: integer}
+        ticket_body_max: {type: integer}
+        chat_body_max: {type: integer}
+        attachments_max: {type: integer}
+        attachment_bytes_max: {type: integer}
+        attachments_total_max: {type: integer}
+        attachment_extensions: {type: array, items: {type: string}}
+    PanelMe:
+      type: object
+      properties:
+        device_id: {type: integer}
+        client: {type: object, properties: {client_id: {type: integer}, name: {type: string}}}
+        contact: {type: object, nullable: true, properties: {contact_id: {type: integer}, name: {type: string}}}
+        can_create_tickets: {type: boolean}
+        can_view_tickets: {type: boolean}
+        limits: {$ref: '#/components/schemas/PanelLimits'}
+        server_time: {type: string, format: date-time}
+    PanelEnrollResponse:
+      type: object
+      properties:
+        device_id: {type: integer}
+        device_token: {type: string, description: "rvpd_ plus 64 hex characters, shown once"}
+        client: {type: object, properties: {client_id: {type: integer}, name: {type: string}}}
+        contact: {type: object, nullable: true, properties: {contact_id: {type: integer}, name: {type: string}}}
+        can_create_tickets: {type: boolean}
+        limits: {$ref: '#/components/schemas/PanelLimits'}
+        server_time: {type: string, format: date-time}
     PortalAnnouncement:
       type: object
       properties:

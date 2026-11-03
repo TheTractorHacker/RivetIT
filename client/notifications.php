@@ -23,7 +23,7 @@ $feed_sev = ['info' => 'secondary', 'important' => 'warning', 'urgent' => 'dange
 
 <div class="row mb-4">
     <div class="col">
-        <h3><i class="fas fa-fw fa-bell me-2"></i>Notifications</h3>
+        <h2><i class="fas fa-fw fa-bell me-2"></i>Notifications</h2>
     </div>
     <?php if ($feed_unread > 0 && intval($session_contact_id) > 0) { ?>
     <div class="col-auto">

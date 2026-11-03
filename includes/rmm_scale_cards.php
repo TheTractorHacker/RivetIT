@@ -84,7 +84,7 @@ function rivetRmmLogPresetsFieldset(array $rs, array $old): string
         $out .= '<div class="alert alert-info py-2 mb-2" role="status" id="lg_presets_unset">Nothing is saved yet. The recommended presets are ticked; they take effect when you save.</div>';
     }
     $out .= '<div class="alert alert-warning py-2 mb-2" role="note" id="lg_presets_audit"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>' . $note
-        . ' RivetIT cannot read the audit policy of a device, so it does not show whether it is on. Turn the subcategories on with Group Policy or <code>auditpol</code> (see the <code>audit_policy</code> line of each preset below and the <a href="https://github.com/TheTractorHacker/rivet-core/blob/main/docs/rmm/GPO_TEMPLATES_PLAN.md" target="_blank" rel="noopener noreferrer">GPO template plan</a>; a ready-made script is not part of this release).</div>'
+        . ' ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' cannot read the audit policy of a device, so it does not show whether it is on. Turn the subcategories on with Group Policy or <code>auditpol</code> (see the <code>audit_policy</code> line of each preset below and the <a href="https://github.com/TheTractorHacker/rivet-core/blob/main/docs/rmm/GPO_TEMPLATES_PLAN.md" target="_blank" rel="noopener noreferrer">GPO template plan</a>; a ready-made script is not part of this release).</div>'
         . '<input type="hidden" name="log_presets_form" value="1">';
     foreach ((array) ($rs['log_presets'] ?? []) as $i => $p) {
         $id = (string) $p['id'];
@@ -298,7 +298,7 @@ function rivetRmmUiScaleCards(array $c): string
     if (($p['pg_tiers'] ?? null) !== null) {
         $pg = $p['pg_tiers'];
         $body = $m('partitioning') . '<h6>Metric history rollups</h6>'
-            . '<p class="small mb-2"><span class="badge bg-secondary me-1">Not used</span> RivetIT keeps its own hourly metric rollups (<code>device_metric_samples</code>, about ' . rmmH(number_format((int) $own['device_metric_samples'])) . ' rows, and <code>device_metric_rollups</code>, about ' . rmmH(number_format((int) $own['device_metric_rollups'])) . ' rows), '
+            . '<p class="small mb-2"><span class="badge bg-secondary me-1">Not used</span> ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . ' keeps its own hourly metric rollups (<code>device_metric_samples</code>, about ' . rmmH(number_format((int) $own['device_metric_samples'])) . ' rows, and <code>device_metric_rollups</code>, about ' . rmmH(number_format((int) $own['device_metric_rollups'])) . ' rows), '
             . 'so RivetCore\'s own daily metric rollup does not run here and there is nothing to show for it.</p>'
             . '<h6 class="mt-4">Time partitioning of the check history (PostgreSQL)</h6>';
         if (isset($pg['unavailable'])) {
@@ -307,7 +307,7 @@ function rivetRmmUiScaleCards(array $c): string
             $body .= '<p class="small text-muted mb-2">PostgreSQL manages its own partitions (or TimescaleDB chunks) automatically; there is no probe/convert step here. Figures from <code>dataStores()-&gt;maintenance()-&gt;tiers()</code>.</p>'
                 . '<div class="rmm-scale-dl mb-2">' . rivetRmmUiDl([
                     ['Partitioning', !empty($pg['partitioning_enabled']) ? rivetRmmUiPill('ok', 'On') : rivetRmmUiPill('off', 'Off')],
-                    ['Rollup watermark', $pg['rollup_watermark'] === null ? '<span class="text-muted">none yet</span>' : rmmH($pg['rollup_watermark']) . ' UTC' . ($pg['rollup_behind_days'] !== null && $pg['rollup_behind_days'] > 0 ? ' (' . (int) $pg['rollup_behind_days'] . ' day(s) behind)' : '')],
+                    ['Rollup watermark', $pg['rollup_watermark'] === null ? '<span class="text-muted">none yet</span>' : rmmH(rivetFormatTime($pg['rollup_watermark'], 'utc')) . ($pg['rollup_behind_days'] !== null && $pg['rollup_behind_days'] > 0 ? ' (' . (int) $pg['rollup_behind_days'] . ' day(s) behind)' : '')],
                 ]) . '</div>';
             $tierRows = '';
             foreach ((array) ($pg['tables'] ?? []) as $tname => $t) {
@@ -382,7 +382,7 @@ function rivetRmmUiScaleCards(array $c): string
     }
     $body = $m('ext-store') . '<div class="alert alert-secondary py-2 small"><i class="fas fa-info-circle me-1" aria-hidden="true"></i><strong>Most installs do not need this.</strong> It copies metric history to a separate time-series database (VictoriaMetrics) and is meant for installs well beyond 10,000 devices. It is another service to run, back up and secure, and another credential. Below that size, leave it off: RivetIT\'s own hourly rollups are enough.</div>'
         . '<form action="post.php" method="post" autocomplete="off" data-rmm-scale-ext>' . $csrf
-        . rivetRmmScaleSwitch('ex_on', 'extstore_enabled', 'Copy metric history to an external store', $fl['enabled'], 'Off by default. Needs a write address. Reads of history use the store first and fall back to RivetIT\'s own tables.')
+        . rivetRmmScaleSwitch('ex_on', 'extstore_enabled', 'Copy metric history to an external store', $fl['enabled'], 'Off by default. Needs a write address. Reads of history use the store first and fall back to ' . htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') . '\'s own tables.')
         . '<div class="row g-3 mt-1"><div class="col-lg-6"><label class="form-label" for="ex_w">Write address ' . $saved($fl['write'], 'write') . '</label><input type="text" class="form-control font-monospace" id="ex_w" name="extstore_write_url" maxlength="500" autocomplete="off" spellcheck="false" placeholder="'
         . ($fl['write'] ? 'A write address is saved. Type a new one to replace it.' : 'https://vm.example.com/insert/0/influx') . '" aria-describedby="ex_w_h"><div class="form-text" id="ex_w_h">https only, on a public address (or one you listed under allowed webhook networks). No user name or password in the address.</div>'
         . ($fl['write'] ? '<div class="form-check mt-1"><input type="checkbox" class="form-check-input" id="ex_cw" name="extstore_clear_write_url" value="1"><label class="form-check-label small" for="ex_cw">Remove the saved write address</label></div>' : '') . '</div>'

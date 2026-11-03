@@ -20,7 +20,7 @@ final class SlackManifest
         if (!preg_match('#^https://[a-z0-9.-]+(:\d+)?(/[^\s]*)?$#i', $base)) {
             throw new \InvalidArgumentException('A public https base URL is required for the Slack manifest.');
         }
-        $name = mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', $appName) ?? '') ?: 'RivetIT', 0, 35);
+        $name = mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', $appName) ?? '') ?: (defined('APP_NAME') ? APP_NAME : 'RivetIT'), 0, 35);
         $scopes = ['chat:write', 'incoming-webhook', 'users:read', 'users:read.email'];
         $features = ['bot_user' => ['display_name' => $name, 'always_online' => false]];
         $settings = ['interactivity' => ['is_enabled' => true, 'request_url' => $base . '/slack_interactive.php'], 'org_deploy_enabled' => false, 'socket_mode_enabled' => false, 'token_rotation_enabled' => false];

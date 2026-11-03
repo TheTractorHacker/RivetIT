@@ -2,7 +2,7 @@
 // Seeds catalog fixtures into the scratch app DB (fictional demo data only). Usage: php seed.php <worktree>
 $root = $argv[1];
 mysqli_report(MYSQLI_REPORT_OFF);
-$m = new mysqli('localhost', 'i30_scratch', getenv('RIVETIT_TEST_DB_PASS'), 'i30_scratch_app');
+$m = new mysqli('localhost', getenv('RIVETIT_TEST_DB_USER') ?: 'i30_scratch', getenv('RIVETIT_TEST_DB_PASS'), getenv('RIVETIT_TEST_DB_NAME') ?: 'i30_scratch_app');
 require $root . '/src/ITSM/ServiceCatalogService.php';
 use ITFlow\ITSM\ServiceCatalogService as S;
 $svc = new S($m);

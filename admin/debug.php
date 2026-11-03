@@ -564,7 +564,7 @@ $mysqli->close();
                                 echo 'PostgreSQL (no connection saved)';
                             } else {
                                 echo 'PostgreSQL, password ' . ($pg_conn['password_set'] ? 'stored' : 'not stored (peer auth)')
-                                    . ', last test: ' . ($pg_conn['tested_at'] !== null ? htmlspecialchars((string) $pg_conn['tested_at']) . ' UTC, ' . ($pg_conn['test_ok'] ? 'OK' : 'FAILED') : 'never');
+                                    . ', last test: ' . ($pg_conn['tested_at'] !== null ? htmlspecialchars(rivetFormatTime($pg_conn['tested_at'], 'utc')) . ', ' . ($pg_conn['test_ok'] ? 'OK' : 'FAILED') : 'never');
                             }
                         }
                     ?></td>

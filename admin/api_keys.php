@@ -33,7 +33,7 @@ $ic_csrf = $_SESSION['csrf_token'];
                     <h5 class="modal-title" id="akSecretTitle"><i class="fas fa-fw fa-key me-2"></i><?php echo ($ic_once['event'] ?? '') === 'created' ? 'API key created' : 'New secret created'; ?>: <?php echo nullable_htmlentities($ic_once['name']); ?></h5>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-warning" role="alert"><strong>Copy the secret now. It is shown once and cannot be shown again</strong>; RivetIT keeps only a hash of it. If it is lost, create a new secret.</div>
+                    <div class="alert alert-warning" role="alert"><strong>Copy the secret now. It is shown once and cannot be shown again</strong>; <?= htmlspecialchars(APP_NAME) ?> keeps only a hash of it. If it is lost, create a new secret.</div>
                     <label class="form-label" for="akClientIdValue">Client ID</label>
                     <div class="input-group mb-3">
                         <textarea class="form-control ak-secret-value ak-select-all" id="akClientIdValue" rows="1" readonly autocomplete="off" spellcheck="false"><?php echo nullable_htmlentities($ic_once['client_uid']); ?></textarea>
@@ -63,7 +63,7 @@ $ic_csrf = $_SESSION['csrf_token'];
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted">API keys let other systems, such as the QMS or your own scripts, connect to RivetIT. Each key has a <strong>Client ID</strong> and a <strong>secret</strong>: they are the username and password
+        <p class="text-muted">API keys let other systems, such as the QMS or your own scripts, connect to <?= htmlspecialchars(APP_NAME) ?>. Each key has a <strong>Client ID</strong> and a <strong>secret</strong>: they are the username and password
             the other system uses to get a short-lived access token (<code>POST /api/v1/oauth/token</code>). A key can do only what you tick, and sees only the departments you choose. It never acts as a person or an administrator.</p>
 
         <?php if (!$ic_tables_ok) { ?>

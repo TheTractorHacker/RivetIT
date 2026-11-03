@@ -57,7 +57,7 @@ final class TrustPage
             }
         }
 
-        return ['edition' => (string) ($d['edition'] ?? 'RivetIT'), 'counts' => $counts, 'controls' => $d['controls']];
+        return ['edition' => (string) ($d['edition'] ?? (defined('APP_NAME') ? APP_NAME : 'RivetIT')), 'counts' => $counts, 'controls' => $d['controls']];
     }
 
     /** @return array{version:string, counts:array<string,int>, gaps:list<array{id:string,title:string}>}|null */

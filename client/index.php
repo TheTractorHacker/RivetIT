@@ -275,7 +275,7 @@ if ($portal_employee_view) {
     <div class="col-lg-7 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-ticket-alt" aria-hidden="true"></i></span>Recent tickets</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-ticket-alt" aria-hidden="true"></i></span>Recent tickets</h2>
                 <a href="tickets.php" class="btn btn-sm btn-outline-primary">View all</a>
             </div>
             <div class="card-body p-0">
@@ -324,7 +324,7 @@ if ($portal_employee_view) {
     <div class="col-lg-5 col-md-12">
         <div class="card portal-card h-100">
             <div class="card-header">
-                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-desktop" aria-hidden="true"></i></span>Your assigned assets</h3>
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-desktop" aria-hidden="true"></i></span>Your assigned assets</h2>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -376,7 +376,7 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
 <!-- Needs Attention -->
 <div class="card portal-card mb-4" id="tech-alerts">
     <div class="card-header">
-        <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span>Needs attention</h3>
+        <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></span>Needs attention</h2>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -421,7 +421,7 @@ if ($portal_is_tech && count($portal_eh_sections) > 0) {
 <!-- Quick Links -->
 <div class="card portal-card">
     <div class="card-header">
-        <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-th-large" aria-hidden="true"></i></span>Quick links</h3>
+        <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-th-large" aria-hidden="true"></i></span>Quick links</h2>
     </div>
     <div class="card-body">
         <div class="portal-tiles portal-stagger">

@@ -31,7 +31,7 @@ $assets_sql = mysqli_query($mysqli, "SELECT assets.*, contacts.contact_name, sta
 
     <div class="row mb-4">
         <div class="col">
-            <h3><i class="fas fa-fw fa-desktop me-2"></i><?php echo $assets_scope === 'mine' ? 'My devices' : 'Assets'; ?></h3>
+            <h2><i class="fas fa-fw fa-desktop me-2"></i><?php echo $assets_scope === 'mine' ? 'My devices' : 'Assets'; ?></h2>
         </div>
         <?php if ($assets_is_admin) { ?>
         <div class="col-auto">
@@ -59,7 +59,7 @@ if ($assets_scope === 'mine') {
             <div class="col-lg-6 col-md-12">
                 <div class="card portal-card h-100 portal-device" data-asset-id="<?= intval($d['id']) ?>">
                     <div class="card-header d-flex align-items-center justify-content-between gap-2">
-                        <h4 class="card-title mb-0"><span class="portal-card-chip"><i class="fas fa-desktop" aria-hidden="true"></i></span><?= nullable_htmlentities($d['name']) ?></h4>
+                        <h3 class="card-title mb-0"><span class="portal-card-chip"><i class="fas fa-desktop" aria-hidden="true"></i></span><?= nullable_htmlentities($d['name']) ?></h3>
                         <a class="btn btn-sm btn-outline-secondary text-nowrap" href="ticket_add.php?asset_id=<?= intval($d['id']) ?>"><i class="fas fa-fw fa-life-ring me-1" aria-hidden="true"></i>Report a problem</a>
                     </div>
                     <div class="card-body">

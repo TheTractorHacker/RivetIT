@@ -23,7 +23,7 @@ final class TeamsPackage
         if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $botAppId)) {
             throw new \InvalidArgumentException('The Microsoft App ID must be a GUID (the Azure Bot registration\'s App ID).');
         }
-        $name = mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', $appName) ?? '') ?: 'RivetIT', 0, 30);
+        $name = mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', $appName) ?? '') ?: (defined('APP_NAME') ? APP_NAME : 'RivetIT'), 0, 30);
         $scopes = ['personal', 'team', 'groupChat'];
 
         return [
