@@ -130,8 +130,18 @@ ob_start();
         <div class="tab-content" <?php if (!itflow_can_assets(2)) { echo 'inert'; } ?>>
 
             <div class="tab-pane fade show active" id="pills-details">
+                <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                    #pills-details{display:grid;grid-template-columns:1fr 1fr;column-gap:1rem;align-items:start}
+                    #pills-details>*{grid-column:1/-1}
+                    #pills-details>.asset-f-type,#pills-details>.asset-f-name,#pills-details>.asset-f-make,#pills-details>.asset-f-model,#pills-details>.asset-f-serial,#pills-details>.asset-f-tag,#pills-details>.asset-f-pin,#pills-details>.asset-f-os{grid-column:auto}
+                    #pills-details>.asset-f-type{order:1}#pills-details>.asset-f-name{order:2}#pills-details>.asset-f-make{order:3}#pills-details>.asset-f-model{order:4}
+                    #pills-details>.asset-f-serial{order:5}#pills-details>.asset-f-tag{order:6}#pills-details>.asset-f-os{order:7}#pills-details>.asset-f-pin{order:8}
+                    #pills-details>.asset-f-desc{order:9}#pills-details>:not(.asset-f){order:10}
+                    @media (max-width:575.98px){#pills-details{display:block}}
+                </style>
 
-                <div class="form-group">
+
+                <div class="form-group asset-f asset-f-type">
                     <label>Type <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -145,7 +155,7 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group asset-f asset-f-name">
                     <label>Name <strong class="text-danger">*</strong></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -166,7 +176,7 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group asset-f asset-f-tag">
                     <label>Asset Tag</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -178,7 +188,7 @@ ob_start();
 
                 <?php //Do not display Make Model or Serial if Virtual is selected
                 if ($asset_type !== 'virtual') { ?>
-                    <div class="form-group">
+                    <div class="form-group asset-f asset-f-make">
                         <label>Make</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -188,7 +198,7 @@ ob_start();
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group asset-f asset-f-model">
                         <label>Model</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -198,7 +208,7 @@ ob_start();
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group asset-f asset-f-serial">
                         <label>Serial Number</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -208,7 +218,7 @@ ob_start();
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group asset-f asset-f-pin">
                         <label>PIN / Passcode</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -228,7 +238,7 @@ ob_start();
                 if (in_array($asset_type, ['Access Point', 'Printer', 'Camera', 'TV', 'Other'], true)) { ?>
                     <input type="hidden" name="os" value="<?= $asset_os ?>">
                 <?php } else { ?>
-                    <div class="form-group">
+                    <div class="form-group asset-f asset-f-os">
                         <label>Operating System</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -239,7 +249,7 @@ ob_start();
                     </div>
                 <?php } ?>
 
-                <div class="form-group">
+                <div class="form-group asset-f asset-f-desc">
                     <label>Description</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -638,6 +648,8 @@ ob_start();
 </form>
 
 <script src="/agent/js/asset_edit_modal.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/asset_edit_modal.js') ?>"></script>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';
