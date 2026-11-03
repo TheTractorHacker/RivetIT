@@ -6,6 +6,46 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.82] - 2026-11-02
+
+Release candidate 2 on top of 26.10.81: issue #29 leftovers, #31/#33 lifecycle follow-ups, #36 Teams/Slack buttons, #30 risk score display, plus test, accessibility and API-doc work. **Database 2.6.231 to 2.6.233** (2 additive, idempotent steps; take a database dump first, then Administration > Update > Update Database).
+
+**Reversed decisions:** in `docs/FINDINGS-DECISIONS.md`, item 11 (company-wide vendors stay Financial-only) is superseded by item 13, and item 12's "no UI moves a person to another department" row is superseded by item 14 (Move department).
+
+### Added
+- **Move department** (issue #29 leftovers): People row menu. Moves a person to another active department (needs Departments at Modify and access to both). Their devices and licence seats in the old department are unassigned by default (a box keeps them), the location is kept only if the new department can use it, the primary-contact flag is cleared, the move is audited, and `employee.transferred` is raised through the existing lifecycle detection when Employee workflows auto-start is on. Web only, no API equivalent.
+- Users export has an **Include archived users** box; archived agents are then listed with the status Archived.
+- **HR requests from the employee portal** (issue #31): managers and department administrators can ask HR to start an onboarding, offboarding or role-change workflow (portal menu *HR requests*, off until Administration > Settings > Employee portal > "Allow HR requests from the portal" is ticked, DB 2.6.232). The request waits for an HR agent (*Service desk > HR requests*, also `GET/POST /api/v1/hr_requests`); nothing starts and no record changes until it is approved, and rejecting or withdrawing starts nothing. Department scoped (a manager can name only their reports), audited, in-app notification to eligible HR agents. Approving picks the template and starts the run through the normal workflow code.
+- **Okta workflow actions** (issue #31): create a user (staged, no password, no activation email), suspend a user and clear their sessions (never delete), and add a user to groups, as workflow tasks. **Off by default** (Administration > Employee Workflow Templates > Okta actions; domain, encrypted API token and the "Allow workflows to change Okta" switch, DB 2.6.233). Department check, idempotent, token never in messages, logs or audit. Tested against a mock only; not verified against a real Okta org.
+- **Legacy ticket rules in the Event rules tab** (issue #33): every older ticket rule is listed read-only with its state; a rule that has an event-rule equivalent has **Convert to event rule** (a switched-off copy, the legacy rule keeps running) and then **Switch over** (copy on, legacy off, one confirmed step). Rules with no equivalent stay as they are, with the reason.
+- Workflow approval tasks reach approvers in Slack / Teams through the existing chat layer (`ChatNotifier::approvalRequested`); covered by a new end-to-end test. No new chat code.
+- **Teams ticket buttons via a relay (issue #36).** A Microsoft Teams webhook destination with an **interactive-action token** (Edit webhook > Generate) posts **Acknowledge** and **Assign to me** (`Action.Submit`) next to **Open ticket**. A relay flow you own forwards each click to `/teams_interactive.php`, authenticated with that per-destination token (constant-time compare, never in the card), a 5 minute timestamp and single use; the clicker is matched to exactly one active agent by email with the same role and department rights as Slack. No migration. Loopback-tested only, never a real Teams tenant. See docs/SLACK_TEAMS_SETUP.md.
+- **Service catalog risk score is visible (issue #30).** The admin-set risk score shows as a banded **Risk n (Low / Medium / High)** badge in the admin catalog list, the agent Request Something tiles, the ticket's Request details block, and the agent and portal approval inboxes. No migration.
+- **One-click catalog request in chat (issue #36).** With "actions from chat" on, catalog results from the Slack and Teams virtual agent show a **Request this** / **Request** button that raises the request for the linked user (same rules as `request <id>`: required questions go to the portal, approval items wait for approval). Tested with signed Slack simulators and a mocked Teams connector only.
+
+### Changed
+- **Company-wide vendors** (reverses the earlier decision that they stay Financial-only): a role with Tickets, assets & docs can list and open them (Read) and add, edit, archive and restore them (Modify). The **account number**, Delete and the vendor CSV stay Financial-only; without Financial the account number is hidden from the list, search, details and forms and is never changed by that role's edits.
+- **Deleting an RMM check policy** now asks the RMM to remove the checks it already pushed to agents. If any cannot be removed the policy is kept, those deployments are marked `remove_failed`, and **Delete anyway** (which writes the device names and check ids left on agents to the audit log) is offered.
+- The Waiting on Employee dashboard tile also counts open tickets in any status flagged "waiting on someone else" (pauses the SLA clock), not only the two names.
+- Mobile API: a catalog `table` answer now accepts JSON `null` for an empty cell (it was a 422). `docs/MOBILE_API.md` documents answering table questions with an example and the limits, and the new `/hr_requests` endpoint.
+
+### Fixed
+- Users CSV listed Department Portal logins; it is now agents only (what the Users list shows).
+- Bulk department email mailed the contacts of an archived department when it was selected.
+- Licence seat links: a forged asset or person id from another department was linked on add or edit; only the licence's own department can be linked now.
+- Departments date range: a custom range with only a From (or only a To) date showed `... - Dec 31, 2099` (or 1970) after the page reloaded; it now reads `From Jan 15, 2026` / `Up to ...`.
+- `deploy/restore.sh` refused a backup whose inner manifest is encrypted although it already requires `--passphrase-file`; it now decrypts the manifest with that file.
+
+### Tests, accessibility and API docs
+- API: `api/v1/openapi.yaml` now documents the endpoint agent's `agent_changes`, `agent_logs`, `agent_transfer`, `agent_software` and `agent_linux_file`, the local build host protocol `/build_host/{action}`, and the RivetPanel device API (`panel_enroll`, `panel_me`, `panel_categories`, `panel_tickets`, `panel_ticket_chat`), with the new `panelAuth` and `buildHostAuth` security schemes.
+- `scripts/check_openapi_drift.sh` forces `LC_ALL=C` so `comm` sees byte-sorted input (it reported false drift for hyphenated resource names under a UTF-8 locale); it now exits 0.
+- Accessibility: portal and announcement pages no longer skip heading levels; the amber "not verified" badge, amber device status text on portal cards on Chat settings, outline buttons in dark mode and urgent portal announcements in dark mode now meet WCAG AA contrast.
+- Tests: the browser suites take their scratch database from `RIVETIT_TEST_DB_NAME` / `RIVETIT_TEST_DB_USER`; the portal seed wipes safely on an install that already holds demo data; `tests/reporting_views.php` sets a UTC company first and can load time zone tables into a private throwaway MariaDB without Docker; `tests/a11y_new_pages.js` is a repeatable accessibility probe; `tests/browser/lib` (the CDP driver and harness the browser suite needs) is tracked again. Status of every top-level test is in `docs/TEST_STATUS.md`.
+
+### Notes
+- New tests: `tests/i29_leftovers.php`, `tests/browser/i29_leftovers_seed.php`, `tests/browser/i29_leftovers_smoke.mjs`. Findings status tables are final in `docs/user-guide/tools/app-findings.md` and `docs/FINDINGS-STATUS.md`; decisions 13 and 14 in `docs/FINDINGS-DECISIONS.md` supersede 11 and 12.
+- Database: 2.6.232 (`hr_workflow_requests`, `settings.config_portal_hr_requests`) and 2.6.233 (`settings.config_lifecycle_okta_*`). Everything new is off by default.
+
 ## [26.10.81] - 2026-11-02
 
 Integration release of the issue #30-#36, #43, #52 / #55 work, #37 (docs) and #29 (docs and tests). **Database 2.6.211 to 2.6.231** (21 additive, idempotent steps; take a database dump first, then Administration > Update > Update Database, or `php scripts/update_cli.php --update_db`). Nothing risky is switched on by this release; several parts are verified against local mocks only and are marked UNVERIFIED LIVE.

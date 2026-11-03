@@ -122,7 +122,7 @@ An automated task can have **Delay (days)**: it runs no earlier than N days afte
 
 ### Okta (create, suspend, add to groups)
 
-`src/Workflow/Connectors/OktaConnector` talks to the Okta Management API with an SSWS API token. **Off by default.** On Administration > Employee Workflow Templates > *Okta actions* an administrator saves the Okta domain (a bare host name such as `example.okta.com`, validated), the API token (stored encrypted with `encryptSetting`, never shown again, "Remove the saved token" clears it) and ticks **Allow workflows to change Okta** (`settings.config_lifecycle_okta_actions`, DB 2.6.243). With the switch off, or no domain / token, the connector refuses with a message that names the setting, **nothing is sent to Okta**, and the task becomes a manual task. The dry-run preview never sends anything.
+`src/Workflow/Connectors/OktaConnector` talks to the Okta Management API with an SSWS API token. **Off by default.** On Administration > Employee Workflow Templates > *Okta actions* an administrator saves the Okta domain (a bare host name such as `example.okta.com`, validated), the API token (stored encrypted with `encryptSetting`, never shown again, "Remove the saved token" clears it) and ticks **Allow workflows to change Okta** (`settings.config_lifecycle_okta_actions`, DB 2.6.233). With the switch off, or no domain / token, the connector refuses with a message that names the setting, **nothing is sent to Okta**, and the task becomes a manual task. The dry-run preview never sends anything.
 
 | Action | Does |
 |---|---|
@@ -142,7 +142,7 @@ The Okta account's `profile.department` must equal the person's department (fail
 
 ## HR-initiated requests from the portal
 
-Managers and department administrators can ask HR to start an **onboarding**, an **offboarding** or a **role change** from the employee portal (*HR requests*). Off by default: Administration > Settings > Employee portal > **Allow HR requests from the portal** (`settings.config_portal_hr_requests`, DB 2.6.242).
+Managers and department administrators can ask HR to start an **onboarding**, an **offboarding** or a **role change** from the employee portal (*HR requests*). Off by default: Administration > Settings > Employee portal > **Allow HR requests from the portal** (`settings.config_portal_hr_requests`, DB 2.6.232).
 
 * The request is only a row in `hr_workflow_requests` (status `pending`). **Nothing starts, no person is created and no record changes until an HR agent approves it.** Rejecting or withdrawing starts nothing.
 * Scoping: the department is always the requester's own. A manager can name only their direct reports; a department administrator anyone active in their department except themselves; never a leaver and never another department. `submit()` re-checks the person's department itself.

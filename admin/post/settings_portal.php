@@ -29,7 +29,7 @@ if (isset($_POST['edit_portal_settings'])) {
 
     mysqli_query($mysqli, "UPDATE settings SET config_portal_home_sections = '$sections_sql', config_portal_onboarding_requests = $onboarding, config_portal_onboarding_template_id = $template_id WHERE company_id = 1");
 
-    // HR requests (DB 2.6.242): its own switch, audited when it changes. Skipped on an install that has not applied the update.
+    // HR requests (DB 2.6.232): its own switch, audited when it changes. Skipped on an install that has not applied the update.
     if (!empty($config_portal_hr_ready)) {
         $hr_on = isset($_POST['hr_requests']) && $_POST['hr_requests'] === '1' ? 1 : 0;
         if ($hr_on !== intval($config_portal_hr_requests)) {

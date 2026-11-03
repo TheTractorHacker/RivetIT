@@ -12973,7 +12973,7 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.231') {
-        // DB 2.6.242: HR-initiated requests from the employee portal (#31). Additive and idempotent.
+        // DB 2.6.232: HR-initiated requests from the employee portal (#31). Additive and idempotent.
         // hr_workflow_requests   a manager / department administrator asks for an onboarding, offboarding or role-change workflow. NOTHING happens until an HR agent
         //                        approves it (then the run starts through the normal WorkflowService); rejected / cancelled requests never touch a person.
         // settings.config_portal_hr_requests   0 = the portal pages and handlers refuse (default); 1 = on.
@@ -13000,16 +13000,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
   KEY `idx_hr_subject` (`hr_subject_contact_id`,`hr_type`,`hr_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_portal_hr_requests` tinyint(1) NOT NULL DEFAULT 0");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.232'");
     }
 
-    if ($rivetit_db_version() == '2.6.242') {
-        // DB 2.6.243: Okta workflow actions (#31). Additive and idempotent. All off / empty by default.
+    if ($rivetit_db_version() == '2.6.232') {
+        // DB 2.6.233: Okta workflow actions (#31). Additive and idempotent. All off / empty by default.
         // config_lifecycle_okta_actions   0 = the Okta connector refuses and sends nothing (default); 1 = workflows may create / suspend users and add them to groups.
         // config_lifecycle_okta_domain    the org's host name (example.okta.com), validated on save.
         // config_lifecycle_okta_token     the SSWS API token, encrypted with encryptSetting(); never shown again.
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_actions` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_domain` varchar(253) DEFAULT NULL");
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_token` text DEFAULT NULL");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.233'");
     }
