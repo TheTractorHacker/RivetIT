@@ -87,7 +87,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th>CSAT</th>
+                            <?php if (!empty($config_ticket_csat_enable)) { ?><th>CSAT</th><?php } ?>
                             <th>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo sortLinkOrder('ticket_status'); ?>">
                                     Status <?php if ($sort == 'ticket_status') { echo $order_icon; } ?>
@@ -407,12 +407,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <?php } ?>
                                 </td>
 
-                                <!-- CSAT -->
+                                <!-- CSAT (column only while CSAT surveys are switched on) -->
+                                <?php if (!empty($config_ticket_csat_enable)) { ?>
                                 <td>
                                     <?php if ($ticket_csat_rating > 0) { ?>
                                         <span class="csat-face-display" title="<?= csatFaceLabel($ticket_csat_rating) ?>"><?= csatFaceEmoji($ticket_csat_rating) ?></span>
                                     <?php } ?>
                                 </td>
+                                <?php } ?>
 
                                 <!-- Ticket Status -->
                                 <td>

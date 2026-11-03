@@ -556,6 +556,10 @@ if (isset($_GET['asset_id'])) {
 
         <style>
             #asset-details-content { font-size: 1.05rem; }
+            #asset-details-content .col-md-3 > .card:first-child .card-header .btn.float-end { order: 2; margin-left: auto; float: none !important; }
+            .asset-facts { display: grid; grid-template-columns: max-content 1fr; gap: .5rem .9rem; align-items: baseline; }
+            .asset-facts dt { font-weight: 500; font-size: .8rem; color: var(--if-muted, #6c757d); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+            .asset-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
             #asset-details-content .small,
             #asset-details-content small { font-size: 92%; }
             #asset-details-content [style*="font-size:11px"] { font-size: 12px !important; }
@@ -575,9 +579,6 @@ if (isset($_GET['asset_id'])) {
                         <h4 class="text-bold asset-name"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= str_replace('-', "\u{2011}", $asset_name); ?>
                             <?php if ($asset_favorite) { ?><i class="fas fa-fw text-warning fa-star" title="Favorite"></i><?php } ?>
                         </h4>
-                        <?php if ($asset_tag) { ?>
-                            <div class="text-secondary small"><i class="fa fa-fw fa-barcode me-1"></i>Asset Tag: <?= $asset_tag; ?></div>
-                        <?php } ?>
                         <?php if ($asset_photo) { ?>
                             <img class="img-fluid img-circle p-3" alt="asset_photo" src="<?= "../uploads/clients/$client_id/$asset_photo"; ?>">
                         <?php } ?>
@@ -586,34 +587,51 @@ if (isset($_GET['asset_id'])) {
                         <?php } ?>
                     </div>
                     <div class="card-body">
-                        <div class="mb-1">
+                        <div class="d-flex flex-wrap align-items-center mb-3" style="gap:.35rem">
                             <?= $asset_tags_display ?>
                             <a href="#" class="btn btn-xs btn-outline-secondary ajax-modal" data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>" data-modal-tab="pills-notes" title="Manage tags"><i class="fa fa-fw fa-tag me-1"></i>+ Tag</a>
                         </div>
-                        <?php if ($asset_type) { ?>
-                            <div class="mt-1"><i class="fa fa-fw fa-tag text-secondary me-2"></i><?= $asset_type; ?></div>
-                        <?php }
-                        if ($asset_make) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?= (stripos($asset_model, $asset_make) === 0 ? $asset_model : trim("$asset_make $asset_model")); ?></div>
-                        <?php }
-                        if ($asset_os) { ?>
-                            <div class="mt-2"><i class="fab fa-fw fa-windows text-secondary me-2"></i><?= "$asset_os"; ?></div>
-                        <?php }
-                        if ($asset_serial) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-barcode text-secondary me-2"></i><?= $asset_serial; ?></div>
-                        <?php }
-                        if ($asset_pin) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-key text-secondary me-2"></i>PIN: <?= $asset_pin; ?></div>
-                        <?php }
-                        if ($asset_purchase_date) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-shopping-cart text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_purchase_date)); ?></div>
-                        <?php }
-                        if ($asset_install_date) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-calendar-check text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_install_date)); ?></div>
-                        <?php }
-                        if ($asset_warranty_expire) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-exclamation-triangle text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_warranty_expire)); ?></div>
-                        <?php } ?>
+                        <?php
+                        // Labelled facts (the old list was icons only: "2026-03-10" did not say whether it was the purchase, install or warranty date).
+                        $fact_when = static function ($date): array {
+                            $t = strtotime((string) $date);
+                            if (!$t) { return [null, '']; }
+                            $d = (int) floor(($t - strtotime('today')) / 86400);
+                            $span = static function (int $days): string {
+                                $days = abs($days);
+                                if ($days >= 730) { return floor($days / 365) . ' years'; }
+                                if ($days >= 60) { return floor($days / 30) . ' months'; }
+                                return $days . ($days === 1 ? ' day' : ' days');
+                            };
+                            return [$d, $span($d)];
+                        };
+                        $asset_facts = [];
+                        if ($asset_type) { $asset_facts[] = ['Type', 'fa-tag', $asset_type, null]; }
+                        if ($asset_make) { $asset_facts[] = ['Model', 'fa-microchip', (stripos($asset_model, $asset_make) === 0 ? $asset_model : trim("$asset_make $asset_model")), null]; }
+                        if ($asset_os) { $asset_facts[] = ['OS', 'fa-compact-disc', $asset_os, null]; }
+                        if ($asset_serial) { $asset_facts[] = ['Serial', 'fa-barcode', $asset_serial, null]; }
+                        if ($asset_tag) { $asset_facts[] = ['Asset tag', 'fa-hashtag', $asset_tag, null]; }
+                        if ($asset_pin) { $asset_facts[] = ['PIN', 'fa-key', $asset_pin, null]; }
+                        if ($asset_purchase_date) {
+                            [$pd, $pspan] = $fact_when($asset_purchase_date);
+                            $asset_facts[] = ['Purchased', 'fa-shopping-cart', date('Y-m-d', strtotime($asset_purchase_date)), $pd !== null && $pd <= 0 ? [$pspan . ' old', 'muted'] : null];
+                        }
+                        if ($asset_install_date) { $asset_facts[] = ['Installed', 'fa-calendar-check', date('Y-m-d', strtotime($asset_install_date)), null]; }
+                        if ($asset_warranty_expire) {
+                            [$wd, $wspan] = $fact_when($asset_warranty_expire);
+                            $wchip = null;
+                            if ($wd !== null) {
+                                $wchip = $wd < 0 ? ['expired ' . $wspan . ' ago', 'danger'] : ($wd <= 90 ? ['ends in ' . $wspan, 'warning'] : ['covered, ' . $wspan . ' left', 'success']);
+                            }
+                            $asset_facts[] = ['Warranty ends', 'fa-shield-alt', date('Y-m-d', strtotime($asset_warranty_expire)), $wchip];
+                        }
+                        ?>
+                        <dl class="asset-facts mb-0">
+                            <?php foreach ($asset_facts as [$fl, $fi, $fv, $fc]) { ?>
+                                <dt><i class="fa fa-fw <?= $fi ?> me-1" aria-hidden="true"></i><?= $fl ?></dt>
+                                <dd><?= $fv /* already escaped above, or a formatted date */ ?><?php if ($fc) { ?> <span class="badge text-bg-<?= $fc[1] === 'muted' ? 'secondary' : $fc[1] ?><?= $fc[1] === 'warning' ? ' text-dark' : '' ?> ms-1"><?= nullable_htmlentities($fc[0]) ?></span><?php } ?></dd>
+                            <?php } ?>
+                        </dl>
                     </div>
                 </div>
 
