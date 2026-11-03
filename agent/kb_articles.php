@@ -225,12 +225,12 @@ if (isset($kb_groups['Uncategorized'])) {
                                         <span class="badge text-bg-secondary"><?= $kb_article_client_name ?></span>
                                     <?php } ?>
                                     <?php if ($kb_article_client_visible == 1) { ?>
-                                        <i class="fas fa-fw fa-check text-success" data-bs-toggle="tooltip" title="Visible in department portal"></i>
+                                        <span class="badge text-bg-light border text-success" title="Visible in the department portal"><i class="fas fa-fw fa-eye me-1"></i>Portal</span>
                                     <?php } else { ?>
-                                        <i class="fas fa-fw fa-eye-slash text-muted" data-bs-toggle="tooltip" title="Hidden from department portal"></i>
+                                        <span class="badge text-bg-light border text-secondary" title="Hidden from the department portal; staff only"><i class="fas fa-fw fa-eye-slash me-1"></i>Staff only</span>
                                     <?php } ?>
                                     <?php if ($kb_article_training_visible == 1 && ($config_module_enable_training ?? 0) == 1) { ?>
-                                        <i class="fas fa-fw fa-graduation-cap text-primary" data-bs-toggle="tooltip" title="Shown on the training portal"></i>
+                                        <span class="badge text-bg-light border text-primary" title="Shown on the training portal"><i class="fas fa-fw fa-graduation-cap me-1"></i>Training</span>
                                     <?php } ?>
                                     <small class="text-secondary ms-1"><?= nullable_htmlentities(date('M j, Y', strtotime($kb_article_updated_at))) ?></small>
                                 </div>
