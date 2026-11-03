@@ -69,18 +69,17 @@ ob_start();
                         <span class="text-info" id="client_duplicate_info"></span>
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Shortened Name</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-id-badge"></i></span>
                         </div>
-                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="Shortened name for department - Max chars 6" maxlength="6">
+                        <input type="text" class="form-control js-uppercase-input" name="abbreviation" placeholder="e.g. FIN (max 6)" maxlength="6">
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group col-md-6">
                     <label>Cost Center</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -89,8 +88,9 @@ ob_start();
                         <input type="text" class="form-control" name="cost_center" placeholder="e.g. CC-410" maxlength="100">
                     </div>
                 </div>
-
-                <div class="form-group">
+                </div>
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Status</label>
                     <select class="form-control select2" name="status">
                         <?php foreach (['Active', 'Inactive', 'On Hold'] as $status_option) { ?>
@@ -98,17 +98,18 @@ ob_start();
                         <?php } ?>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label>Security Classification <small class="text-secondary">(controls nothing yet on its own - pairs with per-user Department access restrictions under Users)</small></label>
+                <div class="form-group col-md-6">
+                    <label>Security Classification</label>
                     <select class="form-control select2" name="security_classification">
                         <?php foreach (['General', 'Confidential', 'Restricted'] as $classification_option) { ?>
                             <option><?php echo $classification_option; ?></option>
                         <?php } ?>
                     </select>
                 </div>
-
-                <div class="form-group">
+                </div>
+                <div class="form-text mb-3 mt-n2">Security classification controls nothing on its own: it pairs with per-user Department access restrictions under Users.</div>
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Referral</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -132,8 +133,7 @@ ob_start();
                         </div>
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group col-md-6">
                     <label>Website</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -141,6 +141,7 @@ ob_start();
                         </div>
                         <input type="text" class="form-control" name="website" placeholder="ex. google.com" maxlength="200">
                     </div>
+                </div>
                 </div>
 
                 <div class="form-group">
@@ -168,6 +169,7 @@ ob_start();
                         </div>
                     </div>
                 </div>
+
 
             </div>
 
@@ -325,7 +327,7 @@ ob_start();
     </div>
     <div class="modal-footer">
         <button type="submit" name="add_client" class="btn btn-primary text-bold js-prompt-primary-contact"><i class="fa fa-check me-2"></i>Create Department</button>
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Close</button>
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
 
@@ -358,6 +360,8 @@ ob_start();
         );
     }
 </script>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

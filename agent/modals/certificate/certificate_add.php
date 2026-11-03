@@ -165,12 +165,14 @@ ob_start();
     </div>
 
     <div class="modal-footer">
-        <button type="submit" name="add_certificate" class="btn btn-primary text-bold"><i class="fa fa-check"></i> Create</button>
+        <button type="submit" name="add_certificate" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Create</button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
 
 <script src="/agent/js/certificate_fetch_ssl.js"></script>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 

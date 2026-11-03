@@ -36,7 +36,7 @@ ob_start();
     <div class="modal-body">
 
         <div class="form-group">
-            <input type="text" class="form-control" name="name" maxlength="200" value="<?php echo $document_name; ?>" placeholder="Name" required>
+            <input type="text" class="form-control" name="name" maxlength="200" value="<?php echo $document_name; ?>" placeholder="Document name (required)" aria-label="Document name" required>
         </div>
 
         <div class="form-group">

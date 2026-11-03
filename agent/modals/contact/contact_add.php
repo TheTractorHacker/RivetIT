@@ -89,7 +89,8 @@ ob_start();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Title</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -98,8 +99,7 @@ ob_start();
                         <input type="text" class="form-control" name="title" placeholder="Job Title" maxlength="200">
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group col-md-6">
                     <label>Department / Group</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -108,8 +108,11 @@ ob_start();
                         <input type="text" class="form-control" name="department" placeholder="Department or group" maxlength="200">
                     </div>
                 </div>
+                </div>
 
-                <div class="form-group">
+
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Start Date</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -118,6 +121,29 @@ ob_start();
                         <input type="date" class="form-control" name="start_date">
                     </div>
                     <small class="form-text text-muted">Hire date. Training rules use it to give new hires their own due date.</small>
+                </div>
+                <?php if($client_id) { ?>
+                <div class="form-group col-md-6">
+                    <label>Location</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
+                        </div>
+                        <select class="form-control select2" name="location">
+                            <option value="">Select Location</option>
+                            <?php
+
+                            while ($row = mysqli_fetch_assoc($sql_location_select)) {
+                                $location_id = intval($row['location_id']);
+                                $location_name = nullable_htmlentities($row['location_name']);
+                            ?>
+                                <option value="<?= $location_id ?>"><?= $location_name ?></option>
+                            <?php } ?>
+
+                        </select>
+                    </div>
+                </div>
+                <?php } ?>
                 </div>
 
                 <label>Phone / <span class="text-secondary">Extension</span></label>
@@ -167,29 +193,6 @@ ob_start();
                         <span class="text-info" id="contact_check_info"></span>
                     </div>
                 </div>
-
-                <?php if($client_id) { ?>
-                <div class="form-group">
-                    <label>Location</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-map-marker-alt"></i></span>
-                        </div>
-                        <select class="form-control select2" name="location">
-                            <option value="">Select Location</option>
-                            <?php
-
-                            while ($row = mysqli_fetch_assoc($sql_location_select)) {
-                                $location_id = intval($row['location_id']);
-                                $location_name = nullable_htmlentities($row['location_name']);
-                            ?>
-                                <option value="<?= $location_id ?>"><?= $location_name ?></option>
-                            <?php } ?>
-
-                        </select>
-                    </div>
-                </div>
-                <?php } ?>
 
             </div>
 
@@ -373,6 +376,8 @@ $(document).ready(function() {
         );
     }
 </script>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 
