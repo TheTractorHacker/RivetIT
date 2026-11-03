@@ -65,7 +65,10 @@ function catalog_approval_card(array $a, bool $override) {
     <div class="card-body">
         <h6>Waiting for me</h6>
         <?php if (!$mine) { ?>
-            <p class="text-secondary">Nothing is waiting for your approval.</p>
+            <div class="d-flex align-items-center gap-3 py-3 text-secondary">
+                <i class="fas fa-check-circle fa-2x text-success"></i>
+                <div><strong class="text-body">You are all caught up.</strong><br>Requests that need your sign-off appear here, and you get a notification when one arrives. <a href="service_catalog.php">Browse the service catalog</a></div>
+            </div>
         <?php } ?>
         <?php foreach ($mine as $a) { catalog_approval_card($a, false); } ?>
 
@@ -73,7 +76,7 @@ function catalog_approval_card(array $a, bool $override) {
             <hr>
             <h6>Other pending requests <small class="text-secondary">(administrator override: decides the current step for its approvers, and is recorded as such)</small></h6>
             <?php if (!$others) { ?>
-                <p class="text-secondary">No other requests are pending.</p>
+                <p class="text-secondary mb-0"><i class="far fa-fw fa-circle-check me-1"></i>No requests are pending with other approvers.</p>
             <?php } ?>
             <?php foreach ($others as $a) { catalog_approval_card($a, true); } ?>
         <?php } ?>
