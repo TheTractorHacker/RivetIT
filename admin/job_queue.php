@@ -35,6 +35,26 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
     <?php } ?>
 </div>
 
+<?php
+$dead_groups = [];
+foreach ($queue->recent(200, 'dead_letter') as $dj) {
+    $key = trim((string) $dj['error']) !== '' ? trim((string) $dj['error']) : 'No error recorded';
+    $dead_groups[$key] = ($dead_groups[$key] ?? 0) + 1;
+}
+arsort($dead_groups);
+if ($dead_groups) { $dead_total = array_sum($dead_groups); ?>
+<div class="alert alert-danger d-flex flex-wrap align-items-center gap-3 mb-3" role="alert">
+    <div class="flex-grow-1">
+        <strong><?= (int) $dead_total ?> job<?= $dead_total === 1 ? '' : 's' ?> failed for good.</strong>
+        <ul class="mb-0 small">
+            <?php foreach (array_slice($dead_groups, 0, 3, true) as $msg => $cnt) { ?><li><?= (int) $cnt ?> &times; <?= $h(mb_strimwidth((string) $msg, 0, 120, '...')) ?></li><?php } ?>
+        </ul>
+        <div class="small">Fix the cause first (for example a webhook URL), then retry them together.</div>
+    </div>
+    <form action="post.php" method="post" class="m-0"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+        <button class="btn btn-danger btn-sm text-nowrap" name="retry_all_failed"><i class="fas fa-redo me-1"></i>Retry all failed</button></form>
+</div>
+<?php } ?>
 <div class="card mb-3">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Jobs <?= $filter ? '<small class="text-muted">(' . $h($filter) . ')</small> <a class="small" href="job_queue.php">show all</a>' : '' ?></h4>
@@ -46,9 +66,9 @@ $h = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
-            <?php if (!$jobs) { ?><tr><td colspan="7" class="text-center text-muted py-3">No jobs.</td></tr><?php } ?>
+            <?php if (!$jobs) { ?><tr><td colspan="7" class="text-center text-muted py-4">No jobs<?= $filter ? ' with this status' : ' yet. Webhook deliveries and event-rule actions appear here' ?>.</td></tr><?php } ?>
             <?php foreach ($jobs as $j) { ?>
                 <tr>
                     <td><?= (int) $j['job_id'] ?></td>

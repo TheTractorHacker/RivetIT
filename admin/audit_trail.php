@@ -125,8 +125,18 @@ if ($chain_cols) {
     $chain_status_label = ['ok' => ['success', 'Intact'], 'broken' => ['danger', 'BROKEN'], 'empty' => ['secondary', 'Nothing sealed yet'], 'key_changed' => ['warning text-dark', 'Key changed'], 'key_unavailable' => ['warning text-dark', 'Key missing']];
 ?>
 <div class="card mb-3" id="audit-integrity">
-    <div class="card-header py-2"><h3 class="card-title mb-0"><i class="fas fa-fw fa-link me-2"></i>Integrity and copies</h3></div>
-    <div class="card-body">
+    <?php
+    $chain_state = $chain_last['status'] ?? '';
+    $integrity_open = $chain_state !== 'ok' || $sink_problem;
+    [$chain_cls, $chain_lbl] = $chain_last ? ($chain_status_label[$chain_state] ?? ['secondary', $chain_state]) : ['secondary', 'Not checked yet'];
+    ?>
+    <div class="card-header py-2 d-flex align-items-center gap-2">
+        <h3 class="card-title mb-0"><i class="fas fa-fw fa-link me-2"></i>Integrity and copies</h3>
+        <span class="badge text-bg-<?= $chain_cls ?>"><?= $h($chain_lbl) ?></span>
+        <?php if ($chain_last && !empty($chain_last['at'])) { ?><span class="text-muted small d-none d-md-inline">checked <?= $h(rivetFormatTime($chain_last['at'], 'utc') ?: $chain_last['at']) ?></span><?php } ?>
+        <button class="btn btn-link btn-sm ms-auto p-0 text-nowrap" type="button" data-bs-toggle="collapse" data-bs-target="#audit-integrity-body" aria-expanded="<?= $integrity_open ? 'true' : 'false' ?>" aria-controls="audit-integrity-body">Show details</button>
+    </div>
+    <div class="card-body collapse<?= $integrity_open ? ' show' : '' ?>" id="audit-integrity-body">
         <div class="row g-3">
             <div class="col-lg-6">
                 <h6 class="text-muted text-uppercase small">Hash chain</h6>
@@ -168,6 +178,12 @@ if ($chain_cols) {
 <?php if (!$ready) { ?>
     <div class="alert alert-warning">The audit trail is not available yet. Run the database update (Administration &rarr; Update).</div>
 <?php } else { ?>
+<div class="d-flex flex-wrap gap-2 mb-3" aria-label="Filter by event group">
+    <a class="btn btn-sm <?= $type === '' ? 'btn-primary' : 'btn-outline-secondary' ?>" href="<?= $h($qs(['type' => '', 'page' => ''])) ?>">All events</a>
+    <?php foreach ($groups as $g => $n) { ?>
+        <a class="btn btn-sm text-nowrap <?= $type === (string) $g ? 'btn-primary' : 'btn-outline-secondary' ?>" href="<?= $h($qs(['type' => (string) $g, 'page' => ''])) ?>"><?= $h($g) ?> <span class="badge text-bg-light border ms-1"><?= (int) $n ?></span></a>
+    <?php } ?>
+</div>
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
@@ -191,9 +207,9 @@ if ($chain_cols) {
     <div class="card-header py-2 small text-muted"><?= number_format($total) ?> event<?= $total === 1 ? '' : 's' ?></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>What</th><th>From</th><th></th></tr></thead>
+            <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>What</th><th>From</th><th><span class="visually-hidden">Details</span></th></tr></thead>
             <tbody>
-            <?php if (!$rows) { ?><tr><td colspan="6" class="text-center text-muted py-3">No events match.</td></tr><?php } ?>
+            <?php if (!$rows) { ?><tr><td colspan="6" class="text-center text-muted py-4">No events match these filters. <a href="audit_trail.php">Clear filters</a></td></tr><?php } ?>
             <?php foreach ($rows as $r) {
                 $meta = $r['metadata_json'] !== null && $r['metadata_json'] !== '' ? json_decode((string) $r['metadata_json'], true) : null; ?>
                 <tr>
@@ -203,7 +219,7 @@ if ($chain_cols) {
                     <td class="small"><?= $h($r['summary']) ?><?= $r['entity_type'] ? ' <span class="text-muted">(' . $h($r['entity_type']) . ($r['entity_id'] !== null ? ' #' . $h($r['entity_id']) : '') . ')</span>' : '' ?></td>
                     <td class="small text-secondary"><?= $h($r['ip_address']) ?></td>
                     <td class="text-end"><?php if (is_array($meta) && $meta) { ?>
-                        <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="collapse" data-bs-target="#meta<?= (int) $r['audit_id'] ?>">details</button><?php } ?></td>
+                        <button class="btn btn-link btn-sm p-0 text-nowrap" type="button" data-bs-toggle="collapse" data-bs-target="#meta<?= (int) $r['audit_id'] ?>">details</button><?php } ?></td>
                 </tr>
                 <?php if (is_array($meta) && $meta) { ?>
                 <tr class="collapse" id="meta<?= (int) $r['audit_id'] ?>"><td colspan="6" class="bg-body-tertiary"><pre class="small mb-0"><?= $h(json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
