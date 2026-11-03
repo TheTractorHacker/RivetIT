@@ -105,8 +105,8 @@ if (isset($_GET['project_template_id'])) {
             </div>
         </div>
 
-        <div class="col-12 col-xl-2 mt-2 mt-xl-0">
-            <div class="btn-group float-end">
+        <div class="col-12 col-xl-auto ms-xl-auto mt-2 mt-xl-0">
+            <div class="d-flex align-items-center gap-2 justify-content-xl-end">
                 <button type="button" class="btn btn-primary btn-sm ajax-modal" href="#" data-modal-url="modals/project_template/project_template_ticket_template_add.php?project_template_id=<?= $project_template_id ?>">
                     <i class="fas fa-fw fa-plus me-2"></i>Add Ticket Template
                 </button>

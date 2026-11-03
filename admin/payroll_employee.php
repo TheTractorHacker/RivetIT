@@ -27,6 +27,8 @@ $deductions_sql = mysqli_query(
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-tag me-2"></i><?= $user_name ?> - Pay Rate</h3>
@@ -101,7 +103,7 @@ $deductions_sql = mysqli_query(
                     <td class="text-center">
                         <a href="post.php?remove_payroll_employee_deduction=<?= $ed_id ?>&user_id=<?= $user_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                            class="btn btn-xs btn-danger confirm-link">
-                            <i class="fas fa-trash"></i> Remove
+                            <i class="fas fa-fw fa-trash me-1"></i> Remove
                         </a>
                     </td>
                 </tr>

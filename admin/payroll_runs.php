@@ -14,6 +14,8 @@ $sql = mysqli_query(
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-play-circle me-2"></i>Payroll Runs</h3>
@@ -59,7 +61,7 @@ $sql = mysqli_query(
                     <td><?= $created_by ?></td>
                     <td class="text-center">
                         <a href="payroll_run.php?id=<?= $run_id ?>" class="btn btn-xs btn-secondary">
-                            <i class="fas fa-eye"></i> View
+                            <i class="fas fa-fw fa-eye me-1"></i> View
                         </a>
                     </td>
                 </tr>

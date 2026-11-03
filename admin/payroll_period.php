@@ -56,6 +56,8 @@ $job_hours_sql = mysqli_query(
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2">
