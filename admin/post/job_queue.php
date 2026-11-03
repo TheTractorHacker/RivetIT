@@ -4,7 +4,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 require_once __DIR__ . '/../../includes/event_bus.php';
 
-if (isset($_POST['run_job_worker']) || isset($_POST['retry_job']) || isset($_POST['purge_completed_jobs'])) {
+if (isset($_POST['run_job_worker']) || isset($_POST['retry_job']) || isset($_POST['purge_completed_jobs']) || isset($_POST['retry_all_failed'])) {
     validateCSRFToken($_POST['csrf_token']);
     validateAdminRole(); // Old function
 
@@ -22,6 +22,20 @@ if (isset($_POST['run_job_worker']) || isset($_POST['retry_job']) || isset($_POS
             rivetAudit('job.retried', (int) $session_user_id, 'job', $id, 'update', 'Failed job put back in the queue');
         }
         flash_alert($ok ? "Job $id will be tried again." : 'That job cannot be retried.', $ok ? 'success' : 'error');
+        redirect();
+    }
+    if (isset($_POST['retry_all_failed'])) {
+        $n = 0;
+        foreach ($queue->recent(200, 'dead_letter') as $j) {
+            if ($queue->retry((int) $j['job_id'])) {
+                $n++;
+            }
+        }
+        if ($n > 0) {
+            logAction('Jobs', 'Retry', "$session_name retried $n failed jobs");
+            rivetAudit('job.retried', (int) $session_user_id, 'job', 0, 'update', "$n failed jobs put back in the queue");
+        }
+        flash_alert($n > 0 ? "$n failed job" . ($n === 1 ? '' : 's') . ' will be tried again.' : 'There were no failed jobs to retry.', $n > 0 ? 'success' : 'info');
         redirect();
     }
     if (isset($_POST['purge_completed_jobs'])) {

@@ -7,6 +7,13 @@ $sql = mysqli_query($mysqli,
 // Ids shown as names, and every action (escalate included) spelled out: shared with Administration > Automation.
 $ticket_rule_view = new \ITFlow\Automation\TicketRuleView($mysqli);
 
+// How often each rule has fired (from the run log): lets an admin spot rules that never run or run constantly.
+$rule_runs = [];
+$sql_runs = mysqli_query($mysqli, "SELECT rule_id, COUNT(*) AS runs, MAX(created_at) AS last_run, SUM(created_at >= NOW() - INTERVAL 30 DAY) AS runs_30d FROM ticket_automation_runs GROUP BY rule_id");
+while ($sql_runs && ($rr = mysqli_fetch_assoc($sql_runs))) {
+    $rule_runs[intval($rr['rule_id'])] = $rr;
+}
+
 // Pre-load category names for display
 $category_names = [];
 $sql_cats = mysqli_query($mysqli, "SELECT category_id, category_name FROM categories WHERE category_type = 'Ticket' AND category_archived_at IS NULL");
@@ -136,13 +143,14 @@ function ticket_automation_actions(array $rule): array {
                     <th>Conditions</th>
                     <th>Actions</th>
                     <th>Status</th>
-                    <th class="text-end">Actions</th>
+                    <th class="text-nowrap">Last fired</th>
+                    <th class="text-end"><span class="visually-hidden">Actions</span></th>
                 </tr>
             </thead>
             <tbody>
             <?php if (mysqli_num_rows($sql) === 0): ?>
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="8" class="text-center text-muted py-4">
                         <i class="fas fa-robot fa-2x mb-2 d-block"></i>
                         No automation rules yet. Click <strong>New Rule</strong> to add one.
                     </td>
@@ -184,7 +192,15 @@ function ticket_automation_actions(array $rule): array {
                             <span class="badge text-bg-secondary">Disabled</span>
                         <?php endif; ?>
                     </td>
-                    <td class="text-end">
+                    <td class="small text-nowrap">
+                        <?php $rr = $rule_runs[$rule_id] ?? null; if ($rr): ?>
+                            <?php echo nullable_htmlentities(date('M j, H:i', strtotime($rr['last_run']))); ?>
+                            <div class="text-muted"><?php echo (int) $rr['runs_30d']; ?> in 30 days</div>
+                        <?php else: ?>
+                            <span class="text-muted">Never</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="text-end text-nowrap">
                         <button type="button" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/ticket_automation/edit_rule.php?rule_id=<?php echo $rule_id; ?>" data-modal-size="lg" aria-label="Edit <?php echo $name; ?>">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -193,7 +209,7 @@ function ticket_automation_actions(array $rule): array {
                             <?php echo $enabled ? 'Disable' : 'Enable'; ?>
                         </a>
                         <a href="post.php?delete=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
-                           class="btn btn-sm btn-danger confirm-link">
+                           class="btn btn-sm btn-danger confirm-link" aria-label="Delete <?php echo $name; ?>" title="Delete rule">
                             <i class="fas fa-trash"></i>
                         </a>
                     </td>
