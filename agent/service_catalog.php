@@ -49,6 +49,15 @@ $catalog_trending = $catalog_service->trending(5, 30);
         <?php if (mysqli_num_rows($sql) == 0) { ?>
             <p class="text-secondary text-center py-4">No catalog items have been set up yet.</p>
         <?php } else { ?>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="catalogFilterBar">
+                <div class="input-group" style="max-width:22rem;">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="search" class="form-control" id="catalogSearch" placeholder="Search requests: laptop, password, wifi..." aria-label="Search the service catalog" autocomplete="off">
+                </div>
+                <div class="d-flex flex-wrap gap-1" id="catalogCats" role="group" aria-label="Filter by category"></div>
+                <span class="small text-secondary ms-auto" id="catalogCount" aria-live="polite"></span>
+            </div>
+            <p class="text-secondary text-center py-4 d-none" id="catalogNone">Nothing matches. Try a different word, or open a ticket from Tickets and describe it yourself.</p>
             <div class="row" id="serviceCatalogGrid">
                 <?php while ($row = mysqli_fetch_assoc($sql)) {
                     $catalog_item_id = intval($row['catalog_item_id']);
@@ -60,7 +69,7 @@ $catalog_trending = $catalog_service->trending(5, 30);
                     $category_name = nullable_htmlentities($row['category_name']);
                     $default_priority = nullable_htmlentities($row['default_priority']);
                 ?>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-4 mb-4 catalog-col" data-search="<?= strtolower($name . ' ' . $description . ' ' . $category_name) ?>" data-cat="<?= $category_name ?>">
                         <button type="button" class="card h-100 w-100 text-start border-0 shadow-sm service-catalog-tile"
                             data-item-id="<?= $catalog_item_id ?>"
                             data-subject="<?= $ticket_subject_template ?>"
@@ -71,7 +80,7 @@ $catalog_trending = $catalog_service->trending(5, 30);
                                 <?php if ($description) { ?><p class="card-text text-secondary small"><?= $description ?></p><?php } ?>
                             </div>
                             <?php if ($category_name || $default_priority || intval($row['requires_approval'])) { ?>
-                                <div class="card-footer bg-white">
+                                <div class="card-footer bg-transparent">
                                     <?php if ($category_name) { ?><span class="badge text-bg-secondary"><?= $category_name ?></span><?php } ?>
                                     <?php if ($default_priority) { ?><span class="badge text-bg-light"><?= $default_priority ?> Priority</span><?php } ?>
                                     <?php if (intval($row['requires_approval'])) { ?><span class="badge text-bg-warning">Needs approval</span><?php } ?>
@@ -90,6 +99,30 @@ require_once "../includes/footer.php";
 ?>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+// Instant filter: free text plus category chips, so a tech or end user finds the right request without scanning every tile.
+(function () {
+    var cols = Array.prototype.slice.call(document.querySelectorAll('.catalog-col')), box = document.getElementById('catalogSearch');
+    if (!box || !cols.length) { return; }
+    var chips = document.getElementById('catalogCats'), none = document.getElementById('catalogNone'), count = document.getElementById('catalogCount'), activeCat = '';
+    var cats = [];
+    cols.forEach(function (c) { var k = c.getAttribute('data-cat'); if (k && cats.indexOf(k) < 0) { cats.push(k); } });
+    function mk(label, val) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm btn-outline-secondary'; b.textContent = label; b.setAttribute('data-cat', val);
+        b.addEventListener('click', function () { activeCat = val; apply(); }); chips.appendChild(b);
+    }
+    if (cats.length > 1) { mk('All', ''); cats.sort().forEach(function (k) { mk(k, k); }); }
+    function apply() {
+        var norm = function (t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, ''); }, q = norm(box.value), shown = 0;
+        cols.forEach(function (c) {
+            var ok = (!q || norm(c.getAttribute('data-search')).indexOf(q) >= 0) && (!activeCat || c.getAttribute('data-cat') === activeCat);
+            c.classList.toggle('d-none', !ok); if (ok) { shown++; }
+        });
+        Array.prototype.forEach.call(chips.children, function (b) { var on = b.getAttribute('data-cat') === activeCat; b.classList.toggle('btn-secondary', on); b.classList.toggle('btn-outline-secondary', !on); });
+        none.classList.toggle('d-none', shown > 0);
+        count.textContent = (box.value.trim() || activeCat) ? shown + ' of ' + cols.length + ' shown' : '';
+    }
+    box.addEventListener('input', apply); apply();
+})();
 document.getElementById('serviceCatalogGrid') && document.getElementById('serviceCatalogGrid').addEventListener('click', function (e) {
     var tile = e.target.closest('.service-catalog-tile');
     if (!tile) { return; }
