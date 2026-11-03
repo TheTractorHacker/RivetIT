@@ -474,7 +474,8 @@ if (isset($_GET['ticket_id'])) {
         <div class="ticket-alga-theme" data-ticket-id="<?= $ticket_id ?>" data-live-chat="<?= $config_module_enable_live_chat ? '1' : '0' ?>" data-csrf="<?= $_SESSION['csrf_token'] ?>" data-user-name="<?= nullable_htmlentities($session_name) ?>" data-user-id="<?= intval($session_user_id) ?>" data-user-type="agent">
 
         <!-- Breadcrumbs-->
-        <ol class="breadcrumb d-print-none">
+        <link rel="stylesheet" href="../css/area_servicedesk.css?v=<?= (int) @filemtime(__DIR__ . '/../css/area_servicedesk.css') ?>">
+            <ol class="breadcrumb d-print-none">
              <li class="breadcrumb-item">
                 <a href="tickets.php">All Tickets</a>
             </li>
@@ -1110,7 +1111,6 @@ if (isset($_GET['ticket_id'])) {
                                         <div>
                                             <?php if (!$is_portal_reply && $ticket_reply_type !== "Client" && !empty($ticket_reply_time_worked) && $ticket_reply_time_worked !== "00:00:00") { ?>
                                                 <div>
-                                                    <br>
                                                     <small>
                                                         <i class="far fa-fw fa-clock text-secondary"></i>
                                                         Time worked:
@@ -2186,6 +2186,27 @@ if (isset($_GET['ticket_id'])) {
                                     <i class="fa fa-fw fa-mobile-alt text-secondary me-2 flex-shrink-0"></i>
                                     <div class="text-break small" style="min-width:0;"><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a></div>
                                 </div>
+                            <?php }
+
+                            // Inline history: this contact's other tickets, so the technician sees "is this a repeat issue?" without leaving the page.
+                            $_cid = intval($contact_id);
+                            $_hist_total = (int) (mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS c FROM tickets WHERE ticket_contact_id = $_cid AND ticket_id != $ticket_id"))['c'] ?? 0);
+                            if ($_hist_total > 0) {
+                                $_hist = mysqli_query($mysqli, "SELECT t.ticket_id, t.ticket_prefix, t.ticket_number, t.ticket_subject, t.ticket_closed_at, t.ticket_created_at, s.ticket_status_name, s.ticket_status_color
+                                    FROM tickets t LEFT JOIN ticket_statuses s ON s.ticket_status_id = t.ticket_status
+                                    WHERE t.ticket_contact_id = $_cid AND t.ticket_id != $ticket_id
+                                    ORDER BY (t.ticket_closed_at IS NULL) DESC, t.ticket_created_at DESC LIMIT 5"); ?>
+                            <div class="contact-history mt-3 pt-2 border-top">
+                                <div class="small text-secondary text-uppercase fw-semibold mb-1" style="letter-spacing:.04em;">Their other tickets <span class="fw-normal">(<?= $_hist_total ?>)</span></div>
+                                <?php while ($_h = mysqli_fetch_assoc($_hist)) {
+                                    $_hc = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $_h['ticket_status_color']) ? $_h['ticket_status_color'] : '#6c757d'; ?>
+                                <a class="d-flex align-items-start gap-2 py-1 text-decoration-none" style="color:inherit;" href="ticket.php?ticket_id=<?= intval($_h['ticket_id']) ?>" title="<?= nullable_htmlentities($_h['ticket_subject']) ?>">
+                                    <span class="flex-shrink-0 rounded-circle mt-1" style="width:.55rem;height:.55rem;background:<?= $_hc ?>;<?= $_h['ticket_closed_at'] ? 'opacity:.45;' : '' ?>" title="<?= nullable_htmlentities($_h['ticket_status_name']) ?>"></span>
+                                    <span class="small text-break" style="min-width:0;<?= $_h['ticket_closed_at'] ? 'opacity:.7;' : '' ?>"><strong><?= nullable_htmlentities($_h['ticket_prefix'] . $_h['ticket_number']) ?></strong> <?= nullable_htmlentities($_h['ticket_subject']) ?></span>
+                                </a>
+                                <?php } ?>
+                                <?php if ($_hist_total > 5) { ?><a class="small" href="tickets.php?status=All&q=<?= urlencode(html_entity_decode($contact_name)) ?>">View all <?= $_hist_total ?></a><?php } ?>
+                            </div>
                             <?php } ?>
 
                         </div>
