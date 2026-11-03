@@ -208,13 +208,26 @@ if ($action === 'save_policy') {
 }
 
 // ---- Delete policy ----
+// Takes the checks already pushed to agents off the RMM first. If the RMM cannot remove some, the policy is kept (those deployments are marked
+// remove_failed) so nothing is orphaned silently; send force=1 ("Delete anyway") to delete the policy regardless, with the left-over check ids logged.
 if ($action === 'delete_policy') {
     enforceUserPermission('module_rmm', 2);
     if (!$policy_id) { echo json_encode(['success' => false, 'error' => 'Missing policy_id']); exit; }
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_policy_cleanup.php';
+    $force = !empty($_POST['force']);
+    $cleanup = rivetRmmRemovePolicyChecks($mysqli, $policy_id, 'getRmmClient');
+    if ($cleanup['failed'] && !$force) {
+        $names = array_map(fn ($f) => $f['hostname'], $cleanup['failed']);
+        logAction('RMM', 'Check Delete', "$session_name tried to delete check policy ID $policy_id; " . count($cleanup['failed']) . " pushed check(s) could not be removed from the RMM, policy kept");
+        echo json_encode(['success' => false, 'needs_force' => true, 'removed' => $cleanup['removed'], 'failed' => $cleanup['failed'],
+            'error' => count($cleanup['failed']) . ' pushed check(s) could not be removed from the RMM (' . implode(', ', array_slice($names, 0, 5)) . (count($names) > 5 ? ', ...' : '') . '). The policy was kept.']);
+        exit;
+    }
+    $left = $cleanup['failed'] ? ' Left on agents (remove by hand in the RMM): ' . implode(', ', array_map(fn ($f) => $f['hostname'] . ' check ' . $f['check_id'], $cleanup['failed'])) : '';
     mysqli_query($mysqli, "DELETE FROM rmm_check_deployments WHERE policy_id=$policy_id");
     mysqli_query($mysqli, "DELETE FROM rmm_check_policies WHERE id=$policy_id");
-    logAction('RMM', 'Check Delete', "$session_name deleted check policy ID $policy_id");
-    echo json_encode(['success' => true]);
+    logAction('RMM', 'Check Delete', "$session_name deleted check policy ID $policy_id; removed {$cleanup['removed']} pushed check(s) from the RMM." . $left);
+    echo json_encode(['success' => true, 'removed' => $cleanup['removed'], 'left_on_agents' => count($cleanup['failed'])]);
     exit;
 }
 

@@ -424,21 +424,26 @@ function pushAll(platform) {
     });
 }
 
-function deletePolicy(id, name) {
-    confirmAction('Delete policy "' + name + '" and all its deployments?', () => {
+function deletePolicy(id, name, force) {
+    const run = () => {
         fetch('/agent/post/rmm_check.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `csrf_token=${CSRF}&action=delete_policy&policy_id=${id}`
+            body: `csrf_token=${CSRF}&action=delete_policy&policy_id=${id}` + (force ? '&force=1' : '')
         }).then(r => r.json()).then(d => {
             if (d.success) {
                 document.getElementById('pol-row-' + id)?.remove();
-                showMsg('Policy deleted.', 'success');
+                showMsg('Policy deleted' + (d.removed ? ' and ' + d.removed + ' pushed check(s) removed from the agents.' : '.')
+                    + (d.left_on_agents ? ' ' + d.left_on_agents + ' check(s) are still on agents; see the audit log.' : ''), d.left_on_agents ? 'warning' : 'success');
+            } else if (d.needs_force) {
+                confirmAction(d.error + ' Delete the policy anyway? The checks stay on those agents until you remove them in the RMM.', () => deletePolicy(id, name, true));
             } else {
                 showMsg('Failed: ' + d.error, 'danger');
             }
         });
-    });
+    };
+    if (force) { run(); return; }
+    confirmAction('Delete policy "' + name + '", its deployments, and the checks already pushed to agents?', run);
 }
 
 function openNewPolicy() {
