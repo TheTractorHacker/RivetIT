@@ -118,7 +118,7 @@ was chosen, why, and how to reverse it. The per-item outcome for the whole list 
   default off, and each change is written to the audit log. The Delete buttons already test the setting on page load.
 - **Reverse.** Remove the switch and the handler block; the column stays.
 
-## 11. Company-wide vendors stay Financial-only
+## 11. Company-wide vendors stay Financial-only (SUPERSEDED by 13)
 
 - **Finding.** Vendors that belong to no department need `module_financial` (Modify) to add or edit
   (`agent/post/vendor.php`), while department vendors follow the department and Tickets, assets & docs permissions.
@@ -132,7 +132,7 @@ was chosen, why, and how to reverse it. The per-item outcome for the whole list 
 
 | Finding | Decision | Reason |
 |---|---|---|
-| No UI moves a person to another department | No change | People move between departments only through People Import, deliberately: a move changes who can see the person, their assets and tickets, so it is an audited bulk operation, not a field on the edit form. |
+| No UI moves a person to another department | No change (SUPERSEDED by 14) | People move between departments only through People Import, deliberately: a move changes who can see the person, their assets and tickets, so it is an audited bulk operation, not a field on the edit form. |
 | Technician role has no Reporting or Knowledge Base rows | No change | The built-in Administrator and Technician roles are protected and migrations must not change their permissions (module-only logins stay contained). Admins grant those modules by creating or copying a role. |
 | `admin/category.php` opens on the Expense tab | No change | The default tab is kept. |
 
@@ -142,3 +142,30 @@ was chosen, why, and how to reverse it. The per-item outcome for the whole list 
   signed-in portal account's own `users.user_id` (`client/includes/check_login.php` loads `users` by it; portal
   tickets use it for `ticket_created_by` the same way), never a contact id. The agent views join `users` on it and so
   show the portal account's name. Guarded by a test; no code change.
+
+## 13. Company-wide vendors: Support manages them, Finance keeps the money data (supersedes 11)
+
+- **Finding.** Vendors that belong to no department needed `module_financial` for details, add and edit, although the
+  Vendors page itself only needs Tickets, assets & docs.
+- **Chosen (issue #29 leftovers, rc2-i29).** One rule in `functions.php` (`enforceVendorPermission`): a department vendor
+  follows Departments + department access, as before; a company-wide vendor needs Financial OR Tickets, assets & docs at
+  the same level for Read (level 1) and Modify (level 2: add, edit, archive, restore, add from template). Delete (level 3),
+  the vendor CSV export, and the **account number** stay Financial-only. The account number is hidden from the list, the
+  list search, the details dialog and the add/edit forms for roles without Financial, is never stored when such a role
+  adds a vendor, and is kept as stored when such a role edits one (a forged value is ignored).
+- **Why.** Vendors are reference data every technician needs; the account number is the only finance-sensitive field.
+- **Reverse.** Make `vendorCanManageCompanyWide()` return only the `module_financial` test.
+
+## 14. Move department is a dialog, audited, through the lifecycle event (supersedes the "No change" row in 12)
+
+- **Finding.** Only People Import could move a person to another department.
+- **Chosen.** Row menu **Move department** on People (Departments at Modify and access to BOTH departments, destination
+  active). In one step: the person's department changes; they stop being the old department's primary contact; their
+  location is kept only if the new department can use it (own site or a shared one); their devices and licence seats in the
+  old department are unassigned by default (a box keeps them) and stay in the old department; tickets, notes and credentials
+  stay where they were created. The move is an audit-log line and is compared with the before-snapshot through
+  `LifecycleEvents::afterChange`, so `employee.transferred` (webhooks, event rules, the transfer workflow) is raised exactly
+  as for a contact edit or import, when Employee workflows auto-start is on.
+- **Why.** The earlier reason (a move changes who can see the person and their assets) is exactly what the dialog states
+  and handles; an unaudited field on the edit form is still not offered.
+- **Reverse.** Remove the `move_contact_department` handler in `agent/post/contact.php` and the row-menu entry.

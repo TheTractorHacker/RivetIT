@@ -134,7 +134,7 @@ The person is active again under their original name. Do not use **Activate** on
 
 The arrow on **New User** opens two more actions. They appear only when there is more than one user.
 
-- **Export** → **Download CSV** saves a file with **Name**, **Email**, **Role**, **Status** and **Creation Date**. It lists every account, including archived people and Department Portal accounts.
+- **Export** → **Download CSV** saves a file with **Name**, **Email**, **Role**, **Status** and **Creation Date** for the agents shown in the list. Archived agents are left out unless you tick **Include archived users** in the dialog (they then show the status **Archived**). Department Portal accounts are never included.
 - **IR** (incident response) resets passwords in one step. Enter your own password and select **Reset passwords**. Every account that is not archived, except yours, gets a new random password, and the list of email addresses and passwords appears once on a plain page. Copy it before you leave, and pass the passwords on by phone, not email. The reset does not check the account type, so Department Portal accounts are reset too. There is no undo.
 
 ## Roles and permissions
@@ -162,7 +162,7 @@ Three roles exist from the start: **Administrator**, **Technician** and **Accoun
 
 Then give the role to people with **Users → Edit → Role**.
 
-A grey badge such as **RMM is off** next to a module means it is switched off in **Settings → Modules**. You can set the level, but it does nothing until the module is on. The editor also shows **Sales** and **Financial** rows. They control the billing features, which this guide does not cover. Leave them at **None** unless you use those features. One exception: **company-wide vendors** (a vendor that does not belong to any department) are managed under **Financial**, not Tickets, assets & docs. A role needs Financial at Modify to add or edit one, even if it has Tickets, assets & docs at Modify.
+A grey badge such as **RMM is off** next to a module means it is switched off in **Settings → Modules**. You can set the level, but it does nothing until the module is on. The editor also shows **Sales** and **Financial** rows. They control the billing features, which this guide does not cover. Leave them at **None** unless you use those features. One part of Tickets, assets & docs is shared with Financial: **company-wide vendors** (a vendor that does not belong to any department). A role with Tickets, assets & docs at Read can see them, and at Modify can add, edit, archive and restore them. Deleting one, exporting the vendor CSV, and seeing or setting a vendor's **account number** still need Financial (any level to see or set the account number; Full to delete; Read to export).
 
 ### Change or archive a role
 

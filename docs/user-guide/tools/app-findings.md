@@ -9,6 +9,14 @@ turned out to be fixed since they were first seen have been dropped. File and li
 commit, but lines drift, so search for the surrounding code if a number no longer matches. "Not rendered" means
 the claim comes from markup and needs a visual check.
 
+## Final status (rc2-i29, on top of beta 26.10.81, DB 2.6.231)
+
+The leftovers of the 26.10.80 pass below (everything marked not fixed, needs a decision, unconfirmed or needs a live test) were each
+reproduced against a throwaway install with fictional data (`tests/browser/i29_leftovers_smoke.mjs`, run with a node Playwright driver;
+logic in `tests/i29_leftovers.php`), on the code before the change and again after it. The Status column in the two tables below is now final:
+**Fixed here** means it failed before this branch and passes now; **Not reproducible / already fixed** means the same test passed on the
+unchanged code (the test now guards it); **Decided** gives the choice made. Nothing is left open in this list.
+
 ## Re-verification status (beta 26.10.80, DB 2.6.210)
 
 Re-checked by reading the current code in the `beta-i29b` worktree (origin/beta d798e3054). This was a code
@@ -40,39 +48,43 @@ below is kept as written (it describes `main` at 26.10.14); the Status column he
 | Projects and calendar | event click, department field name (`client_id`), repeat control removed, CSP `font-src`, `initialView` | already fixed |
 | Projects and calendar | archived project Delete permission check (`lookupUserPermission(...) >= 3`) | already fixed |
 | Projects and calendar | template task estimates copied; project delete releases tickets/tasks/milestones | already fixed |
-| Projects and calendar | closed ticket to No-Department project; task un-tick after Kanban; list task bar counts; `?archived=1` default status | not re-run; archived default handled (`projects.php:26-27`); the rest unconfirmed, needs a live test |
+| Projects and calendar | closed ticket to No-Department project | Not reproducible, already fixed: linking ticket 7001 (NULL `ticket_updated_at`) to a No-Department project succeeds and leaves the NULL alone; a ticket from another department is still refused (smoke test) |
+| Projects and calendar | task un-tick after Kanban move | Not reproducible, already fixed: Kanban to Done then un-tick on Details returns the task to To Do with progress 0; completing on Details lands in Done, and moving it out of Done clears progress 100 (smoke test) |
+| Projects and calendar | project list task bar | Not reproducible, already fixed: with 3 tasks (2 project-only, 1 ticket task) and 1 done the bar shows 1 of 3 (smoke test) |
+| Projects and calendar | `?archived=1` default status | already fixed (`projects.php:26-27`) |
 | Projects and calendar | task template delete looked up `tags` | already fixed (`getFieldById('task_templates', ...)`) |
 | Departments and people | Location pickers ignore shared sites | already fixed (all pickers join `department_sites`) |
 | Departments and people | restore note key, workflow redirect, CSV export access/archived | already fixed |
-| Departments and people | no UI to move a person between departments | needs decision (feature, not a bug) |
+| Departments and people | no UI to move a person between departments | Fixed here: row menu **Move department** (Departments at Modify, access to both departments). Unassigns their devices and licence seats in the old department by default (untick to keep), keeps the location only if the new department can use it, clears the primary-contact flag, audited, and raises `employee.transferred` through `LifecycleEvents::afterChange` (only when Employee workflows auto-start is on). Reverses the earlier "No change" decision (`docs/FINDINGS-DECISIONS.md` 12). No API equivalent: web only |
 | Departments and people | CRM leftovers with CRM off | already fixed (both cards gated on `config_module_enable_crm`) |
 | Departments and people | `config_destructive_deletes_enable` has no writer | already fixed (Admin > Security setting) |
-| Departments and people | bulk department email filter/no-box behaviour | not confirmed, needs a live test |
+| Departments and people | bulk department email filter/no-box behaviour | Fixed here (one part): no recipient group ticked queues nothing (already so), archived people are never mailed (already so), but contacts of an ARCHIVED department were mailed when that department was selected; they are now excluded (`agent/post/client.php`, reproduced then fixed) |
 | Infrastructure | location dropdowns, rack Model field (`name="model"`), contract permission, vendor_details, KB Delete gating, KB import title, portal credential tokens | already fixed |
 | Infrastructure | Firewall/Router assets in no tab | already fixed (Network tab, `agent/assets.php:127`) |
-| Infrastructure | domain expiry overwrite, license seat links | already fixed for domain; software seat-link behaviour not re-run |
+| Infrastructure | domain expiry overwrite | already fixed |
+| Infrastructure | license seat links | Fixed here (hardening): an edit already kept seat links outside the licence's department, but a forged asset/person id from another department was linked; adds and edits now link only assets and people of the licence's own department (`INSERT IGNORE ... SELECT`, reproduced then fixed) |
 | Infrastructure | OTP element id collision | already fixed (`agent/js/credential_show_otp_via_id.js` targets the clicked trigger) |
-| Infrastructure | Company-wide vendors need `module_financial` | needs decision (permission model) |
+| Infrastructure | Company-wide vendors need `module_financial` | Decided and fixed: Tickets, assets & docs (Support) Read lists/opens them and Modify adds, edits, archives and restores them. Still Finance-only: account number (hidden from the list, search, details and forms for roles without Financial, and never changed by their edits), Delete, and the vendor CSV. Reverses `docs/FINDINGS-DECISIONS.md` 11 |
 | Infrastructure | Bulk Transfer copies and archives original | by design (documented behaviour) |
 | Infrastructure | credential History `title=""` markup | already fixed (`strip_tags` on escaped values) |
 | Infrastructure | TinyMCE image upload tab | by design (deliberately disabled in the file) |
 | Training | achievements "once the Learning Center launches" text | already fixed (no match) |
 | Training | kiosk Origin vs `config_base_url` | by design |
-| Training | New License Devices tab header | not reproducible from markup (`text-white` on a dark header); needs a visual check |
+| Training | New License Devices tab header | Not reproducible: opened the real pop-up and the Devices tab in light and dark; the header label measures 14.68:1 (white on `#1F2937`); screenshots checked |
 | Endpoints | Connect on Sophos/Action1 (`method_exists` guard), Sophos alert `vendor_warning` shown, `config_comet_auto_ticket` read, `metrics_ingest.php` present, Docker supervisord runs mail queue and parser | already fixed |
 | Endpoints | RMM critical figure, script categories, "agents" wording | already fixed |
 | Reports | Day-by-Day label/default, credential rotation archived, hub wording | already fixed |
-| Reports | CSAT note vs rating date, Waiting on Employee tile | not re-run; needs decision on wording |
+| Reports | CSAT note vs rating date | already accurate: `agent/reports/csat.php` says ratings count when *submitted* and only the response rate uses tickets *closed* in range |
+| Reports | Waiting on Employee tile | Fixed here: counts open tickets whose status is named Waiting on Employee / Waiting on Customer OR is flagged "waiting on someone else" (pauses SLA), so a differently named status still counts; caption now says "waiting on someone else" (`WidgetRegistry::ticketsWaitingOnCustomer`) |
 | Roles/settings | Reporting text, Activate on archived user, API key Secret column, roles.php ", " join, user CSV, rows-per-page options (now 5/10/20/50/100/500), header Light override, `contacts.php` role check, Invoices start page, passkey message | already fixed |
-| Roles/settings | session length minimum vs stored defaults | not re-run; needs decision |
-| Roles/settings | Departments date range "1970" display | not reproducible by code read; needs a browser check |
-| Roles/settings | `admin/category.php` opens on Expense | by design (first tab); the 1440 px tab overlap is unconfirmed (not rendered) |
+| Roles/settings | session length minimum vs stored defaults | Decided, no change: the Security form and the login path both show/apply the effective value (session default 20160 min = 14 days; Remember-me has a 30-day minimum applied the same way everywhere, the stored default 3 is never used), so nothing disagrees any more |
+| Roles/settings | Departments date range "1970" display | Fixed here (the open-ended case): All time, the open panel and a custom range all read correctly, but a custom range with only a From (or only a To) date showed `Jan 15, 2026 – Dec 31, 2099` after the page reloaded (and filled the empty input with the bound). It now shows `From Jan 15, 2026` / `Up to ...` and keeps the open end empty (`includes/date_range_picker.php`, reproduced then fixed) |
+| Roles/settings | `admin/category.php` opens on Expense | by design (first tab); the tab overlap is Not reproducible: the button row wraps (`btn-group flex-wrap`), no two buttons overlap at 1440, 1024 or 390 px and the page has no horizontal scroll (smoke test, screenshots checked) |
 | Roles/settings | REBRANDING.md telemetry paragraph | by design (it records that the upstream code was removed) |
-| Roles/settings | portal/guest `bg-dark` card titles | already fixed where checked (`text-white` on the headings); contrast not rendered |
+| Roles/settings | portal/guest `bg-dark` card titles | Not reproducible: rendered the portal ticket title and the guest ticket title in light and dark, each measures 14.68:1 (white on `#1F2937`) |
 
-Net result of this pass: no source change was needed for any item I could confirm. The remaining items marked
-"needs a live test", "needs decision" or "needs a visual check" were not changed because a code read cannot show
-they are real.
+Net result of the 26.10.80 pass: no source change was needed for any item that pass could confirm. The leftovers it could not confirm were
+then settled by the rc2-i29 work described at the top of this section.
 
 ## Highest priority: data loss, exposed secrets, broken fresh installs
 
@@ -105,10 +117,10 @@ Status re-verified against `origin/beta` (26.10.80, DB 2.6.210) for issue #29. S
 |---|---------|--------|
 | 1 | Users edit lets an administrator demote themselves or the last administrator | Already fixed: `admin/post/users.php` refuses to move the only active administrator to a non-admin role |
 | 2 | Legacy API keys act as the lowest-id agent with no admin check | Already fixed: `X-Api-Key` is refused with 401; machine callers use integration tokens as a role-less service identity (docs/API.md matches) |
-| 3 | RMM `save_policy` / `delete_policy` need only level 1 | Already fixed: both need `module_rmm` level 2. Remaining rough edge, not fixed: deleting a policy removes the deployment rows but does not tell agents to drop checks already pushed (a functional item, not a permission one) |
+| 3 | RMM `save_policy` / `delete_policy` need only level 1 | Already fixed: both need `module_rmm` level 2. Leftover fixed here: deleting a policy now asks the RMM to remove the checks it pushed (`includes/rmm_policy_cleanup.php`). A deployment the RMM cannot remove is kept, marked `remove_failed`, and the policy is kept with a "Delete anyway" choice; forcing it logs the device names and check ids left on agents. Tactical is the only integration that pushes checks |
 | 4 | Adding/deleting a report schedule needs only Reporting level 1 | Already fixed: needs level 2, and schedules owned by someone else are owner/admin only |
 | 5 | Reports ignore per-user department restrictions | Already fixed: `ReportScope` clauses in every report function and page; web calls pass no client id so the session scope applies |
-| 6 | Restore edge cases (passphrase-encrypted manifest, old backups, `--admin-user` only) | Not fixed: operational limits of the restore path, not an access-control defect; needs Blake's backup/restore decision |
+| 6 | Restore edge cases (passphrase-encrypted manifest, old backups, `--admin-user` only) | Decided, one small fix: `deploy/restore.sh` refused an archive whose inner manifest is `backup-manifest.json.enc` with "no --passphrase-file" although it already requires one; it now decrypts it with that file. The other two are deliberate, documented limits and unchanged: a backup that predates the manifest restores data and uploads and warns that encrypted settings must be re-entered; `--admin-user` recovers the vault master key only for a same-box rollback and never `config_settings_enc_key` (`deploy/restore_admin_zip.sh` header) |
 | 7 | Portal Contacts tile logs an ordinary employee out | Already fixed: tile only shown to technical contacts, and a direct visit redirects home with a message |
 | 8 | Portal preview lists every department's unassigned assets | Not reproducible: the assigned-assets query requires `asset_contact_id = contact` and a real contact id |
 | 9 | Switching the portal off does not end signed-in sessions | Already fixed: `client/includes/check_login.php` re-reads `config_client_portal_enable` every request |
@@ -123,8 +135,8 @@ Status re-verified against `origin/beta` (26.10.80, DB 2.6.210) for issue #29. S
 | 18 | Department CSV export ignores per-user department access | Already fixed: uses `$access_permission_query` and skips archived rows |
 | 19 | `agent/contacts.php` row menu tests `role == 3` instead of a permission | Not reproducible: no such test remains |
 | 20 | KB article page always shows Delete | Already fixed: shown only at `module_kb` level 3, which the handler also requires |
-| 21 | Company-wide vendors need `module_financial` | Not fixed: a design decision (vendors are treated as financial records), not a defect; left for Blake |
-| 22 | Users Export CSV includes archived users | Not fixed: not a security item; belongs with the functional group |
+| 21 | Company-wide vendors need `module_financial` | Fixed here (model changed): see the Infrastructure row above. Support Read/Modify manage them; account number, Delete and CSV stay Finance |
+| 22 | Users Export CSV includes archived users | Fixed here: archived users were already left out, but Department Portal logins were included; the CSV is now agents only (what the list shows). A new **Include archived users** box in the dialog adds archived agents, marked Archived |
 
 ## Functional bugs
 

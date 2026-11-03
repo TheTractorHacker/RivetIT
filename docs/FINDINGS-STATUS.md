@@ -25,10 +25,10 @@ end as follow-ups). File and line references are current at the time of writing 
 | Users edit can demote the last administrator | FIXED | `admin/post/users.php:159-170` (an administrator can still demote themselves while another administrator exists) |
 | Legacy API key acts as lowest-id agent, no admin check | FIXED | `api/v1/index.php:200-204` (14c1c6f9b) |
 | RMM `save_policy` / `delete_policy` need only level 1 | FIXED | `agent/post/rmm_check.php:161,206` (14c1c6f9b) |
-| `delete_policy` leaves pushed checks on agents | OPEN | follow-up |
+| `delete_policy` leaves pushed checks on agents | FIXED NOW | `includes/rmm_policy_cleanup.php`; failed removals keep the policy (Delete anyway logs what is left); `tests/i29_leftovers.php` |
 | Report schedules need only Reporting level 1 | FIXED | `agent/reports/schedules.php:26` |
 | Reports ignore per-user department restrictions | FIXED (partly) | `src/Reports/ReportScope.php` on 18 of 27 reports (1da274eec); seven still unscoped, see follow-ups |
-| Restore edge cases (encrypted manifest, old backups, `--admin-user` only) | BY DESIGN | the key cannot be recovered without the passphrase; limits documented in `deploy/restore_admin_zip.sh` |
+| Restore edge cases (encrypted manifest, old backups, `--admin-user` only) | BY DESIGN + FIXED NOW | limits documented in `deploy/restore_admin_zip.sh`; `deploy/restore.sh` now decrypts an encrypted inner manifest with `--passphrase-file` |
 | Portal Contacts tile logs an employee out | FIXED | `client/index.php:431`, `client/includes/header.php:540` (961fe6342) |
 | Portal preview lists every department's unassigned assets | FIXED | `client/index.php:151-157` (961fe6342) |
 | Portal switched off only blocks new sign-ins | FIXED | `client/includes/check_login.php:179-184` (961fe6342) |
@@ -80,7 +80,7 @@ end as follow-ups). File and line references are current at the time of writing 
 | Finding | Status | Evidence |
 |---|---|---|
 | Person Location pickers miss shared sites | FIXED | `contact_add.php:8`, `contact_edit.php:258`, `contacts.php:170` (953158bc8) |
-| No UI moves a person to another department | DECIDED | no change; People Import only (`FINDINGS-DECISIONS.md` 12) |
+| No UI moves a person to another department | FIXED NOW + DECIDED | row menu **Move department**, audited, raises `employee.transferred` (`FINDINGS-DECISIONS.md` 14, supersedes 12) |
 | Restoring a note reads the wrong key | FIXED | `agent/post/contact.php:346` (953158bc8) |
 | Start workflow redirect lands on a non-page | FIXED | `agent/post/contact.php:1583` |
 | Department CSV export ignores access / includes archived | FIXED | `agent/post/client.php:754` |
@@ -97,10 +97,10 @@ end as follow-ups). File and line references are current at the time of writing 
 | Firewall/Router assets appear in no Assets tab | BY DESIGN | listed on the Network page (`agent/network.php:10-15`) |
 | Rack Model never saved | FIXED | `agent/post/rack.php:19,66` (c5cc2c511) |
 | `module_contracts` permission does not exist | FIXED | `agent/modals/contract/contract_edit.php:3` uses `module_support` |
-| Company-wide vendors need Financial | DECIDED | stays Financial-only; guide wording fixed (`FINDINGS-DECISIONS.md` 11) |
+| Company-wide vendors need Financial | FIXED NOW + DECIDED | Support manages them; account number, Delete and CSV stay Financial (`FINDINGS-DECISIONS.md` 13, supersedes 11) |
 | `agent/vendor_details.php` requires missing files | OPEN | search no longer links to it; the orphan page remains; follow-up (delete it) |
 | Domain edit overwrites expiry with WHOIS | FIXED | `agent/post/domain.php:82-91` |
-| License edit drops seat links outside its department | FIXED | `agent/post/software.php:147` |
+| License edit drops seat links outside its department | FIXED + hardened | `agent/post/software.php`; adds and edits now link only the licence's own department's assets and people |
 | Bulk Transfer copies an asset to a new id | BY DESIGN | audited, old and new ids logged (`agent/post/asset.php:~455-466`) |
 | Deployed assets show a grey badge | FIXED | `client/assets.php:29,88,105` |
 | TOTP element id collision; History markup in `title`; Word-import heading | FIXED | `credential_show_otp_via_id.js:13,29`; `credential_edit.php:~318`; `kb_article_import_pdf.php:82` (c5cc2c511) |
@@ -136,7 +136,7 @@ end as follow-ups). File and line references are current at the time of writing 
 | Archived user Activate; API key Secret column; `$extended_log_description`; Users CSV archived; roles join | FIXED | `admin/users.php:210`; `api_keys.php:116`; `admin/post/users.php:243,392,405`; `roles.php` |
 | Kiosk-only role sent to Devices & PINs then refused | FIXED NOW + DECIDED | `Access::kioskDecision`; `FINDINGS-DECISIONS.md` 7 |
 | Preferences page sizes 10/25/50/100 vs footer 5 to 500 | FIXED NOW | `recordsPerPageOptions()` used by Preferences, the footer handler and the footer; the footer handler also rejects unknown sizes |
-| Departments date range shows `1970-01-01 - 2099-12-31` | FIXED | `js/date_range_picker.js` (482a639f8) |
+| Departments date range shows `1970-01-01 - 2099-12-31` | FIXED + FIXED NOW | `js/date_range_picker.js` (482a639f8); a From-only / To-only custom range showed 2099 / 1970 after reload, fixed in `includes/date_range_picker.php` |
 | Session length: 30-day minimum vs stored defaults 480 / 3 | FIXED NOW + DECIDED | labels show the effective values (`FINDINGS-DECISIONS.md` 8) |
 | Start Page offers Invoices with accounting off | FIXED | `settings_default.php:10-12` |
 | Light cannot override company dark default | FIXED | `includes/header.php:56` |
@@ -150,9 +150,8 @@ end as follow-ups). File and line references are current at the time of writing 
 ## Open follow-ups (not changed here)
 
 - `mail_log` is never pruned.
-- RMM `delete_policy` does not remove the checks already pushed to agents.
 - Seven reports still ignore per-user department scope: `csat`, `clients_with_balance`, `mrr`, `ticket_day_breakdown`, `service_desk`, `technician_performance`, `rmm_health`.
 - A ticket category that has sub-categories cannot be chosen in ticket forms.
 - Mail queue delete icon marks a message Failed instead of deleting it.
-- Department import still creates a legacy per-department location; bulk department email does not filter archived departments.
+- Department import still creates a legacy per-department location.
 - `agent/vendor_details.php` is an orphaned page requiring files that do not exist.
