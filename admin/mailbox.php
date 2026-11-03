@@ -121,8 +121,8 @@ $mb_ago = function ($secs): string {
                     }
                 ?>
                 <tr>
-                    <td><?= $mb_name ?></td>
-                    <td><?= $mb_email ?></td>
+                    <td class="text-nowrap fw-semibold"><?= $mb_name ?></td>
+                    <td style="min-width:9rem;"><?= str_replace('@', '@<wbr>', $mb_email) ?></td>
                     <td><span class="badge <?= $mb_type_info['badge'] ?>"><i class="<?= $mb_type_info['icon_style'] ?> fa-fw <?= $mb_type_info['icon'] ?> me-1"></i><?= $mb_type_info['label'] ?></span></td>
                     <td>
                         <?php if ($mb_connected) { ?>
@@ -131,7 +131,7 @@ $mb_ago = function ($secs): string {
                             <span class="badge text-bg-danger"><i class="fas fa-times-circle me-1"></i><?= $mb_connected_label ?></span>
                         <?php } ?>
                     </td>
-                    <td style="min-width:14rem;">
+                    <td style="min-width:10rem;">
                         <span class="badge text-bg-<?= $mb_health[0] ?>"><?= $mb_health[1] ?></span>
                         <?php if ($mb_failures > 0) { ?><span class="badge text-bg-danger"><?= $mb_failures ?> failed in a row</span><?php } ?>
                         <div class="small text-muted mt-1">
@@ -155,12 +155,12 @@ $mb_ago = function ($secs): string {
                         <?php } ?>
                     </td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
-                            <i class="fas fa-edit"></i> Edit
+                        <a href="#" class="btn btn-xs btn-outline-secondary ajax-modal" title="Edit mailbox" aria-label="Edit mailbox" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
+                            <i class="fas fa-edit"></i><span class="visually-hidden">Edit</span>
                         </a>
                         <a href="post.php?delete_mailbox=<?= $mb_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Delete
+                           class="btn btn-xs btn-outline-danger confirm-link ms-1" title="Delete mailbox" aria-label="Delete mailbox">
+                            <i class="fas fa-trash"></i><span class="visually-hidden">Delete</span>
                         </a>
                     </td>
                 </tr>

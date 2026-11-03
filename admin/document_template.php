@@ -85,8 +85,8 @@
                                 <div class="media">
                                     <i class="fas fa-fw fa-2x fa-file-alt me-2"></i>
                                     <div class="media-body">
-                                        <div><?= $document_template_name ?></div>
-                                        <div><small class="text-secondary"><?= $document_template_description ?></small></div>
+                                        <div><?= $document_template_name !== '' ? $document_template_name : '<em class="text-secondary">Untitled template</em>' ?></div>
+                                        <div><small class="text-secondary"><?= $document_template_description !== '' ? $document_template_description : 'No description' ?></small></div>
                                     </div>
                                 </div>
                             </a>

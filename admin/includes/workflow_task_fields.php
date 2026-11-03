@@ -61,11 +61,12 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
                     <option value="<?= intval($o['template_task_id']) ?>" <?= in_array(intval($o['template_task_id']), $deps, true) ? 'selected' : '' ?>><?= $h($o['title']) ?></option>
                 <?php } ?>
             </select>
+            <div class="form-text small">Ctrl/Cmd-click to pick several.</div>
         </div>
         <div class="col-md-2 form-group">
             <label>Assignee</label>
             <select class="form-control" name="assignee_user_id">
-                <option value="0">Nobody (owner label only)</option>
+                <option value="0">Nobody (label only)</option>
                 <?php foreach ($agent_rows as $a) { ?>
                     <option value="<?= intval($a['user_id']) ?>" <?= intval($task['assignee_user_id'] ?? 0) === intval($a['user_id']) ? 'selected' : '' ?>><?= $h($a['user_name']) ?></option>
                 <?php } ?>

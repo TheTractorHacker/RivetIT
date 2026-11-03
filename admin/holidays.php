@@ -151,8 +151,16 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                         $holiday_country = nullable_htmlentities($row['holiday_country']);
                         $holiday_is_custom = intval($row['holiday_is_custom']);
 
+                        $holiday_days = (int) floor((strtotime($holiday_date) - strtotime(date('Y-m-d'))) / 86400);
+                        if ($holiday_days < 0) {
+                            $holiday_rel = ['text-secondary', 'passed'];
+                        } elseif ($holiday_days === 0) {
+                            $holiday_rel = ['text-success fw-semibold', 'today'];
+                        } else {
+                            $holiday_rel = ['text-success', 'in ' . $holiday_days . ' day' . ($holiday_days === 1 ? '' : 's')];
+                        }
                         ?>
-                        <tr>
+                        <tr<?php if ($holiday_days < 0) { echo ' class="text-secondary" style="opacity:.7"'; } ?>>
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
                                     <input class="form-check-input bulk-select" type="checkbox" name="holiday_ids[]" value="<?php echo $holiday_id ?>">
@@ -162,6 +170,7 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                                 <a class="ajax-modal" href="#" data-modal-url="modals/holiday/holiday_edit.php?id=<?= $holiday_id ?>">
                                     <?php echo date('M j, Y', strtotime($holiday_date)); ?>
                                 </a>
+                                <div class="small <?php echo $holiday_rel[0]; ?>"><?php echo $holiday_rel[1]; ?></div>
                             </td>
                             <td><?php echo $holiday_name; ?></td>
                             <td><?php echo $holiday_country; ?></td>

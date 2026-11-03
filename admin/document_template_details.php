@@ -41,24 +41,36 @@ $document_template_updated_at = nullable_htmlentities($row['document_template_up
     <li class="breadcrumb-item">
         <a href="document_template.php">Document Templates</a>
     </li>
-    <li class="breadcrumb-item active"><i class="fas fa-file-alt me-2"></i><?php echo $document_template_name; ?></li>
+    <li class="breadcrumb-item active"><i class="fas fa-file-alt me-2"></i><?php echo $document_template_name !== '' ? $document_template_name : 'Untitled template'; ?></li>
 </ol>
 
 <div class="card card-dark">
     <div class="card-header">
 
-        <h3 class="card-title mt-1"><i class="fa fa-fw fa-file-alt me-2"></i><?php echo $document_template_name; ?></h3>
+        <h3 class="card-title mt-1"><i class="fa fa-fw fa-file-alt me-2"></i><?php echo $document_template_name !== '' ? $document_template_name : '<em>Untitled template</em>'; ?></h3>
 
         <div class="card-tools">
-            <button type="button" class="btn btn-tool ajax-modal"
+            <button type="button" class="btn btn-primary btn-sm ajax-modal"
                 data-modal-size="xl"
                 data-modal-url="modals/document_template/document_template_edit.php?id=<?= $document_template_id ?>">
-                <i class="fas fa-edit me-2"></i>
+                <i class="fas fa-edit me-2"></i>Edit template
             </button>
         </div>
     </div>
+    <div class="card-body border-bottom py-2 small text-secondary d-flex flex-wrap gap-3">
+        <span><?php echo $document_template_description !== '' ? $document_template_description : 'No description'; ?></span>
+        <span><i class="far fa-fw fa-clock me-1"></i>Created <?php echo $document_template_created_at; ?></span>
+        <span>Updated <?php echo $document_template_updated_at ?: 'never'; ?></span>
+    </div>
     <div class="card-body prettyContent">
-        <?php echo $document_template_content; ?>
+        <?php if (trim(strip_tags($document_template_content)) === '') { ?>
+            <div class="text-center text-secondary py-5">
+                <i class="fas fa-file-alt fa-2x mb-2 d-block"></i>
+                <div class="fw-semibold text-dark">This template has no content yet</div>
+                <div class="mb-3">New documents created from it will start blank.</div>
+                <button type="button" class="btn btn-primary ajax-modal" data-modal-size="xl" data-modal-url="modals/document_template/document_template_edit.php?id=<?= $document_template_id ?>"><i class="fas fa-edit me-2"></i>Write the template</button>
+            </div>
+        <?php } else { echo $document_template_content; } ?>
     </div>
 </div>
 
