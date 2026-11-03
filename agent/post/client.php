@@ -1362,9 +1362,12 @@ if (isset($_POST['bulk_send_client_email']) && isset($_POST['client_ids'])) {
     $client_ids_str = implode(',', $client_ids);
 
     // SQL to fetch matching contacts
-    $sql = "SELECT * FROM contacts
+    // Archived people and archived departments are never mailed
+    $sql = "SELECT contacts.* FROM contacts
+            JOIN clients ON clients.client_id = contacts.contact_client_id
             WHERE contact_client_id IN ($client_ids_str)
             AND contact_archived_at IS NULL
+            AND client_archived_at IS NULL
             $contact_filter_query";
 
     $result = mysqli_query($mysqli, $sql);

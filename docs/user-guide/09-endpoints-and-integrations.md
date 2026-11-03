@@ -208,6 +208,8 @@ Endpoints → **Check Policies** is a library of monitoring rules that can be pu
 
 *Figure 12 — Check policies grouped by platform. (1) new policy, (2) push all for a platform, (3) how many agents have it, (4) push one policy.*
 
+**Deleting a policy** also asks the RMM to remove the checks it already pushed to agents. If the RMM cannot remove some of them (it is unreachable, or refuses), the policy is kept, those deployments are marked as failed, and you are offered **Delete anyway**. Choosing that deletes the policy and writes the device names and check ids still on the agents to the audit log so you can remove them by hand in the RMM.
+
 - Policies are grouped as Windows, Linux, macOS and All Platforms. Each row shows the check type, warning and critical thresholds, how often it runs, the number of agents it has been **Deployed** to, and whether it is **Active** or **Disabled**.
 - Check types: Disk Space, CPU Load, Memory, Ping, Windows Service and Event Log. Extra settings are typed as JSON, for example `{"disk":"C"}`; a hint under the field shows the format for each type.
 - Click the cloud button **(4)** to push one policy, or **(2)** to push every policy of that platform. RivetIT creates the check on every matching Tactical RMM agent that does not have it yet and tells you how many were pushed and skipped. Pushing needs Modify access to RMM devices, and only works for Tactical RMM integrations.
@@ -364,7 +366,7 @@ Permissions are set per role under Administration → **Roles**. The RMM entries
 | Create a ticket from an alert | Tickets, assets & docs: Modify |
 | Open the RMM Dashboard, Assets, Check Policies, Network, Backups | RMM devices: Read |
 | Push check policies, patch scan and install | RMM devices: Modify |
-| Create, edit or delete a check policy | RMM devices: Read (the screen does not enforce more) |
+| Create, edit or delete a check policy | RMM devices: Modify |
 | Open the Script Run page and see the script buttons | RMM scripts: Read |
 | Run, add or edit a script | RMM scripts: Modify |
 | Delete a script | RMM scripts: highest level |

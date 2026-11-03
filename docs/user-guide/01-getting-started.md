@@ -68,7 +68,7 @@ Entries appear only when the feature is switched on (Administration → Settings
 | **Work** | Projects, Calendar | Tickets, assets & docs: Read or higher. Projects also needs Ticketing on. |
 | **Knowledge** | Knowledge Base, Credentials, Printers, Network Drives | Knowledge Base: **Show Knowledge Base** on and Knowledge base: Read. The others: **Show IT Documentation** on and Tickets, assets & docs: Read. Credentials also needs Credentials: Read. |
 | **Training** | Overview, Courses, Learning Paths, Assignments, Records & sessions, Reports, People, and more | **Show Training (LMS)** is on and Training: Read or higher. Some entries need Modify or Full. |
-| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees just **Assets**. Company-wide vendors (not under a department) need the Financial permission to add or edit. |
+| **Infrastructure** | Assets, Locations, Vendors, Licenses, Domains, Certificates | **Show IT Documentation** on and Tickets, assets & docs: Read. A role with only the Assets permission sees just **Assets**. Company-wide vendors (not under a department) can be seen and managed with Tickets, assets & docs; their account number, deleting and the vendor CSV need the Financial permission. |
 | **Endpoints**, **Backups** | Monitoring and backup pages | Only when an endpoint integration is turned on. See the [Endpoints guide](09-endpoints-and-integrations.md). |
 | **People** | Opens the list of employees | Departments: Read or higher. |
 | **Reports** | Opens the reports | Reporting permission. |
@@ -276,6 +276,7 @@ These three actions are different, and only one of them can be undone.
 Things to know:
 
 - **Delete has no safety net.** In the Archived view, the bulk **Delete** entry on most lists does not show an "Are you sure?" box, unlike **Archive**. Check your ticks before you choose it. Deleting a department also removes everything filed under it, such as its people, assets, tickets and documents.
+- **Move department.** A person's row menu has **Move department** (Departments at Modify, and access to both departments). It moves the person to another active department, keeps their location only if the new department can use it, and ends their primary-contact flag. By default it also unassigns their devices and licence seats in the old department, which stay there; untick the box to leave them. Tickets, notes and credentials stay with the department they belong to. The move is written to the audit log and, when **Employee workflows** auto-start is on, raises the `employee.transferred` event.
 - **Archiving a person also switches off their Department Portal sign-in;** restoring them switches it back on. Archiving a department stops its employees signing in to the portal too.
 - On **People**, **Anonymize & Archive** replaces the person's name with asterisks and erases their contact details and notes. It cannot be reversed.
 - A person or department with **training records** cannot be deleted. Archive it instead.

@@ -942,6 +942,69 @@ if (isset($_GET['anonymize_contact'])) {
 
 }
 
+// Move a person to another department. Uses the same lifecycle detection as a contact edit and the people import, so an
+// employee.transferred event is recorded (when Employee workflows auto-start is on).
+if (isset($_POST['move_contact_department'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_client', 2);
+
+    $contact_id = intval($_POST['contact_id'] ?? 0);
+    $new_client_id = intval($_POST['new_client_id'] ?? 0);
+
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_name, contact_client_id, contact_primary, contact_location_id FROM contacts WHERE contact_id = $contact_id"));
+    if (!$row) {
+        flash_alert("That person no longer exists.", 'error');
+        redirect();
+    }
+    $contact_name = sanitizeInput($row['contact_name']);
+    $old_client_id = intval($row['contact_client_id']);
+    $location_id = intval($row['contact_location_id']);
+
+    // Both the department they leave and the one they join must be within this user's department access
+    enforceClientAccess($old_client_id);
+    enforceClientAccess($new_client_id);
+
+    $new = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = $new_client_id AND client_archived_at IS NULL"));
+    if (!$new_client_id || $new_client_id === $old_client_id || !$new) {
+        flash_alert("Choose a different, active department to move <strong>$contact_name</strong> to.", 'error');
+        redirect();
+    }
+    $new_client_name = sanitizeInput($new['client_name']);
+    $old_client_name = sanitizeInput(getFieldById('clients', $old_client_id, 'client_name'));
+
+    // Keep the location only if the new department can use it (its own site or a shared one)
+    if ($location_id) {
+        $loc_ok = mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM locations WHERE location_id = $location_id AND location_archived_at IS NULL AND (location_client_id = $new_client_id OR EXISTS (SELECT 1 FROM department_sites ds WHERE ds.location_id = locations.location_id AND ds.client_id = $new_client_id))"));
+        if (!$loc_ok) {
+            $location_id = 0;
+        }
+    }
+
+    $lifecycle_before = \ITFlow\Workflow\LifecycleEvents::snapshot($mysqli, $contact_id);
+
+    mysqli_query($mysqli, "UPDATE contacts SET contact_client_id = $new_client_id, contact_primary = 0, contact_location_id = $location_id WHERE contact_id = $contact_id");
+
+    $unassigned = '';
+    if (!empty($_POST['unassign_items'])) {
+        mysqli_query($mysqli, "UPDATE assets SET asset_contact_id = 0 WHERE asset_contact_id = $contact_id AND asset_client_id = $old_client_id");
+        $assets_n = mysqli_affected_rows($mysqli);
+        mysqli_query($mysqli, "DELETE software_contacts FROM software_contacts JOIN software ON software.software_id = software_contacts.software_id WHERE software_contacts.contact_id = $contact_id AND software.software_client_id = $old_client_id");
+        $licenses_n = mysqli_affected_rows($mysqli);
+        $unassigned = "; unassigned $assets_n device(s) and $licenses_n licence seat(s)";
+    }
+
+    \ITFlow\Workflow\LifecycleEvents::afterChange($mysqli, $contact_id, $lifecycle_before);
+
+    logAction("Contact", "Move", "$session_name moved contact $contact_name from department $old_client_name to $new_client_name$unassigned", $new_client_id, $contact_id);
+
+    flash_alert("<strong>$contact_name</strong> moved to <strong>$new_client_name</strong>");
+
+    redirect();
+
+}
+
 if (isset($_GET['archive_contact'])) {
 
     validateCSRFToken($_GET['csrf_token']);

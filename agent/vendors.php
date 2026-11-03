@@ -15,8 +15,10 @@ if (isset($_GET['client_id'])) {
     $client_url = '';
 }
 
-// Perms
+// Perms: company-wide vendors are readable with Support access; the account number needs Finance access
 enforceUserPermission('module_support');
+$vendor_show_account = vendorCanSeeAccountNumber($client_id ?? 0);
+$vendor_account_search = $vendor_show_account ? "OR vendor_account_number LIKE '%$q%'" : "";
 
 $sql = mysqli_query(
     $mysqli,
@@ -24,7 +26,7 @@ $sql = mysqli_query(
     LEFT JOIN clients ON client_id = vendor_client_id
     LEFT JOIN vendor_templates ON vendors.vendor_template_id = vendor_templates.vendor_template_id
     WHERE vendor_$archive_query
-    AND (vendor_name LIKE '%$q%' OR vendor_description LIKE '%$q%' OR vendor_account_number LIKE '%$q%' OR vendor_website LIKE '%$q%' OR vendor_contact_name LIKE '%$q%' OR vendor_email LIKE '%$q%' OR vendor_phone LIKE '%$phone_query%')
+    AND (vendor_name LIKE '%$q%' OR vendor_description LIKE '%$q%' $vendor_account_search OR vendor_website LIKE '%$q%' OR vendor_contact_name LIKE '%$q%' OR vendor_email LIKE '%$q%' OR vendor_phone LIKE '%$phone_query%')
     $client_query
     $access_permission_query
     ORDER BY $sort $order LIMIT $record_from, $record_to"
@@ -50,7 +52,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         data-modal-url="modals/vendor/vendor_add_from_template.php?<?= $client_url ?>">
                         <i class="fa fa-fw fa-puzzle-piece me-2"></i>Create from Template
                     </a>
-                    <?php if ($num_rows[0] > 0) { ?>
+                    <?php if ($num_rows[0] > 0 && $vendor_show_account) { // the CSV carries account numbers: Finance-only for company-wide vendors ?>
                         <div class="dropdown-divider"></div>
                         <a class="dropdown-item text-dark ajax-modal" href="#"
                             data-modal-url="modals/vendor/vendor_export.php?<?= $client_url ?>">
@@ -161,7 +163,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         } else {
                             $vendor_description_display = "-";
                         }
-                        $vendor_account_number = nullable_htmlentities($row['vendor_account_number']);
+                        $vendor_account_number = $vendor_show_account ? nullable_htmlentities($row['vendor_account_number']) : '';
                         if ($vendor_account_number) {
                             $vendor_account_number_display = "<div class='text-secondary'>Account #: $vendor_account_number</div>";
                         } else {

@@ -89,7 +89,8 @@ if (isset($_POST['add_software'])) {
     if (isset($_POST['assets'])) {
         foreach($_POST['assets'] as $asset) {
             $asset_id = intval($asset);
-            mysqli_query($mysqli,"INSERT INTO software_assets SET software_id = $software_id, asset_id = $asset_id");
+            // Only assets of the license's own department can be linked (a forged id from another department is ignored)
+            mysqli_query($mysqli,"INSERT IGNORE INTO software_assets (software_id, asset_id) SELECT $software_id, asset_id FROM assets WHERE asset_id = $asset_id AND asset_client_id = $client_id");
         }
     }
 
@@ -97,7 +98,7 @@ if (isset($_POST['add_software'])) {
     if (isset($_POST['contacts'])) {
         foreach($_POST['contacts'] as $contact) {
             $contact = intval($contact);
-            mysqli_query($mysqli,"INSERT INTO software_contacts SET software_id = $software_id, contact_id = $contact");
+            mysqli_query($mysqli,"INSERT IGNORE INTO software_contacts (software_id, contact_id) SELECT $software_id, contact_id FROM contacts WHERE contact_id = $contact AND contact_client_id = $client_id");
         }
     }
 
@@ -156,7 +157,7 @@ if (isset($_POST['edit_software'])) {
     if (isset($_POST['assets'])) {
         foreach($_POST['assets'] as $asset) {
             $asset = intval($asset);
-            mysqli_query($mysqli,"INSERT INTO software_assets SET software_id = $software_id, asset_id = $asset");
+            mysqli_query($mysqli,"INSERT IGNORE INTO software_assets (software_id, asset_id) SELECT $software_id, asset_id FROM assets WHERE asset_id = $asset AND asset_client_id = $client_id");
         }
     }
 
@@ -165,7 +166,7 @@ if (isset($_POST['edit_software'])) {
     if (isset($_POST['contacts'])) {
         foreach($_POST['contacts'] as $contact) {
             $contact = intval($contact);
-            mysqli_query($mysqli,"INSERT INTO software_contacts SET software_id = $software_id, contact_id = $contact");
+            mysqli_query($mysqli,"INSERT IGNORE INTO software_contacts (software_id, contact_id) SELECT $software_id, contact_id FROM contacts WHERE contact_id = $contact AND contact_client_id = $client_id");
         }
     }
 

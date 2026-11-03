@@ -3779,6 +3779,34 @@ function enforceUserPermission($module, $check_access_level = 1) {
     }
 }
 
+// Vendors come in two kinds: a department's own vendors (module_client + department access) and the company-wide
+// list. Company-wide vendors used to need module_financial for everything; now anyone with Support access can see
+// and manage them (level 1 read, level 2 add/edit/archive/restore). Deleting stays Finance-only (level 3), and the
+// account number and CSV export are finance data, so they stay behind module_financial.
+function vendorCanManageCompanyWide(int $level = 1): bool {
+    if ($level >= 3) {
+        return (int) lookupUserPermission('module_financial') >= $level;
+    }
+    return (int) lookupUserPermission('module_financial') >= $level || (int) lookupUserPermission('module_support') >= $level;
+}
+
+function vendorCanSeeAccountNumber($vendor_client_id): bool {
+    // Department vendors keep their old rules (the Departments module already gates them)
+    return intval($vendor_client_id) > 0 || (int) lookupUserPermission('module_financial') >= 1;
+}
+
+function enforceVendorPermission($vendor_client_id, int $level = 1) {
+    $vendor_client_id = intval($vendor_client_id);
+    if ($vendor_client_id) {
+        enforceUserPermission('module_client', $level);
+        enforceClientAccess($vendor_client_id);
+        return;
+    }
+    if (!vendorCanManageCompanyWide($level)) {
+        enforceUserPermission($level >= 3 ? 'module_financial' : 'module_support', $level);
+    }
+}
+
 function enforceClientAccess($client_id = null) {
     global $mysqli, $session_user_id, $session_is_admin, $session_name;
 

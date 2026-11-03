@@ -472,8 +472,10 @@ if (isset($_POST['export_users_csv'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    //get records from database
-    $sql = mysqli_query($mysqli, "SELECT * FROM users LEFT JOIN user_roles ON user_role_id = role_id WHERE user_archived_at IS NULL ORDER BY user_name ASC");
+    // Agents only (what the Users list shows), without archived users unless the dialog's box was ticked
+    $include_archived = !empty($_POST['include_archived']);
+    $archived_filter = $include_archived ? '' : 'AND user_archived_at IS NULL';
+    $sql = mysqli_query($mysqli, "SELECT * FROM users LEFT JOIN user_roles ON user_role_id = role_id WHERE user_type = 1 $archived_filter ORDER BY user_name ASC");
 
     $count = mysqli_num_rows($sql);
 
@@ -494,7 +496,9 @@ if (isset($_POST['export_users_csv'])) {
         while($row = $sql->fetch_assoc()) {
 
             $user_status = intval($row['user_status']);
-            if ($user_status == 2) {
+            if (!empty($row['user_archived_at'])) {
+                $user_status_display = "Archived";
+            } elseif ($user_status == 2) {
                 $user_status_display = "Invited";
             } elseif ($user_status == 1) {
                 $user_status_display = "Active";
