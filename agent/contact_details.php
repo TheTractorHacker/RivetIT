@@ -254,9 +254,9 @@ if (isset($_GET['contact_id'])) {
 
             <div class="card card-dark">
                 <div class="card-body">
-                    <button type="button" class="btn btn-default float-end ajax-modal"
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end ajax-modal" aria-label="Edit contact"
                         data-modal-url="modals/contact/contact_edit.php?id=<?= $contact_id ?>">
-                        <i class="fas fa-fw fa-user-edit"></i>
+                        <i class="fas fa-fw fa-user-edit me-1"></i>Edit
                     </button>
                     <h3 class="text-bold"><?php echo $contact_name; ?></h3>
                     <?php if ($contact_title) { ?>
@@ -394,14 +394,14 @@ if (isset($_GET['contact_id'])) {
                         <form action="post.php" method="post" class="d-flex gap-2">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
-                            <select class="form-control form-control-sm select2" name="workflow_template_id" style="max-width:250px" required>
+                            <select class="form-control form-control-sm select2 mb-2" name="workflow_template_id" style="max-width:100%" required>
                                 <option value="">Select workflow</option>
                                 <?php while ($tmpl = mysqli_fetch_assoc($sql_workflow_templates)) { ?>
                                     <option value="<?= intval($tmpl['workflow_template_id']) ?>">[<?= ucfirst($tmpl['type']) ?>] <?= nullable_htmlentities($tmpl['name']) ?></option>
                                 <?php } ?>
                             </select>
-                            <button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary js-skip-csrf" title="Dry run: shows what would happen without starting anything"><i class="fas fa-eye me-1"></i>Preview</button>
-                            <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button>
+                            <div class="d-flex gap-2"><button type="submit" formaction="workflow_preview.php" formmethod="get" formnovalidate class="btn btn-sm btn-outline-secondary js-skip-csrf" title="Dry run: shows what would happen without starting anything"><i class="fas fa-eye me-1"></i>Preview</button>
+                            <button type="submit" name="start_employee_workflow" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Start</button></div>
                         </form>
                     <?php } else { ?>
                         <hr>

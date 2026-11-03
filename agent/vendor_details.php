@@ -64,8 +64,8 @@ if (isset($_GET['vendor_id'])) {
 
             <div class="card card-dark">
                 <div class="card-body">
-                    <button type="button" class="btn btn-default float-end ajax-modal" data-modal-url="modals/vendor/vendor_edit.php?id=<?php echo $vendor_id; ?>">
-                        <i class="fas fa-fw fa-edit"></i>
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end ajax-modal" aria-label="Edit vendor" data-modal-url="modals/vendor/vendor_edit.php?id=<?php echo $vendor_id; ?>">
+                        <i class="fas fa-fw fa-edit me-1"></i>Edit
                     </button>
                     <h3 class="text-bold"><?php echo $vendor_name; ?></h3>
                     <?php if ($vendor_description) { ?>

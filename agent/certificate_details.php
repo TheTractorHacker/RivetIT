@@ -51,11 +51,11 @@ if (mysqli_num_rows($sql) == 0) {
     if ($days_until_expiry === null) {
         $expire_badge = ['label' => 'No expiry on file', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 0) {
-        $expire_badge = ['label' => 'Expired', 'class' => 'text-bg-secondary'];
+        $expire_badge = ['label' => 'Expired ' . max(1, (int) ceil(abs($days_until_expiry))) . ' day' . (max(1, (int) ceil(abs($days_until_expiry))) === 1 ? '' : 's') . ' ago - renew now', 'class' => 'text-bg-danger'];
     } elseif ($days_until_expiry <= 1) {
         $expire_badge = ['label' => 'Expiring today', 'class' => 'text-bg-danger'];
-    } elseif ($days_until_expiry <= 7) {
-        $expire_badge = ['label' => 'Renew soon', 'class' => 'text-bg-warning'];
+    } elseif ($days_until_expiry <= 30) {
+        $expire_badge = ['label' => 'Renews in ' . (int) ceil($days_until_expiry) . ' days', 'class' => 'text-bg-warning'];
     } else {
         $expire_badge = ['label' => 'Active', 'class' => 'text-bg-success'];
     }
@@ -95,7 +95,7 @@ if (mysqli_num_rows($sql) == 0) {
                         <p class="text-secondary mb-3"><?= $certificate_description ?></p>
                     <?php } ?>
 
-                    <span class="badge <?= $expire_badge['class'] ?> mb-3"><?= $expire_badge['label'] ?></span>
+                    <span class="badge fs-6 py-2 px-3 <?= $expire_badge['class'] ?> mb-3"><?= $expire_badge['label'] ?></span>
 
                     <table class="table table-sm table-borderless mb-0">
                         <tr>

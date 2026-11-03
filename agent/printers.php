@@ -225,7 +225,21 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </table>
             </div>
         </form>
-        <?php require_once "../includes/filter_footer.php";
+        <?php
+        // A purposeful first-run state with the one action that fixes it, instead of the generic "Nothing here yet".
+        $__empty_first_run = ($num_rows[0] == 0) && empty($_GET['q']) && empty($_GET['archived']);
+        if ($__empty_first_run) {
+            $suppress_filter_empty = true;
+            ?>
+            <div class="text-center py-5 mx-auto" style="max-width:520px">
+                <i class="fas fa-fw fa-print fa-2x text-primary opacity-75 mb-3"></i>
+                <h5 class="mb-2">No printers documented for this department yet</h5>
+                <p class="text-muted mb-3">Record each printer and copier with its IP address, location, driver and supply details, so anyone can set up or fix it without hunting for the details.</p>
+                <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/printer/printer_add.php?<?= $client_url ?>"><i class="fas fa-plus me-2"></i>Add the first printer</button>
+            </div>
+            <?php
+        }
+        require_once "../includes/filter_footer.php";
 ?>
     </div>
 </div>
