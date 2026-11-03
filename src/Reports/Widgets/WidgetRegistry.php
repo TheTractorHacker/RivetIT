@@ -75,7 +75,7 @@ final class WidgetRegistry
         return [
             'tickets_by_status'   => ['title' => 'Open tickets by status',        'icon' => 'fa-layer-group',        'modules' => ['module_support'], 'size' => 'md'],
             'tickets_by_priority' => ['title' => 'Open tickets by priority',      'icon' => 'fa-exclamation-circle', 'modules' => ['module_support'], 'size' => 'md'],
-            'sla_at_risk'         => ['title' => 'SLA at risk (next 4 hours)',    'icon' => 'fa-stopwatch',          'modules' => ['module_support'], 'size' => 'md'],
+            'sla_at_risk'         => ['title' => 'SLA breached or due in 4 hours',    'icon' => 'fa-stopwatch',          'modules' => ['module_support'], 'size' => 'md'],
             'my_tickets'          => ['title' => 'My open tickets',               'icon' => 'fa-user-check',         'modules' => ['module_support'], 'size' => 'md'],
             'created_vs_closed'   => ['title' => 'Tickets created vs closed (30 days)', 'icon' => 'fa-chart-bar',    'modules' => ['module_support'], 'size' => 'lg'],
             'avg_resolution'      => ['title' => 'Average resolution time (30 days)', 'icon' => 'fa-hourglass-half',  'modules' => ['module_support'], 'size' => 'sm'],
