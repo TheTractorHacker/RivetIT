@@ -77,7 +77,20 @@ while ($row = mysqli_fetch_assoc($sql)) {
     #pipeline-board .kanban-column {
         min-height: 200px;
         max-height: none;
+        margin-top: 0;
+        margin-bottom: 0;
+        align-self: stretch;
+        flex: 1 1 0;
+        min-width: 220px;
     }
+    #pipeline-board .kanban-column:first-child { margin-left: 0; }
+    #pipeline-board .kanban-status:empty::before {
+        content: "Drop an opportunity here";
+        display: block; padding: 2rem .5rem; text-align: center;
+        color: var(--if-ink-muted, #8a94a6); font-size: .8rem;
+        border: 2px dashed var(--if-border, #dee2e6); border-radius: .5rem; margin: .5rem;
+    }
+    #pipeline-board .task.close-late { border-left: 3px solid #dc3545; }
     #pipeline-board .kanban-status {
         min-height: 120px;
     }
@@ -143,6 +156,13 @@ while ($row = mysqli_fetch_assoc($sql)) {
     </div>
     <div class="card-body">
 
+        <?php $pl_total = 0; foreach ($columns as $c0) { $pl_total += count($c0['opportunities']); }
+        if ($pl_total === 0) { ?>
+        <div class="text-center py-4 mb-3 border rounded">
+            <p class="fw-semibold mb-1">Your pipeline is empty</p>
+            <p class="text-secondary mb-0">Add an opportunity, then drag its card across the stages as the deal moves. Totals and forecast above update on every move.</p>
+        </div>
+        <?php } ?>
         <div class="container-fluid" id="pipeline-board">
             <?php foreach ($columns as $stage_name => $column) {
                 $stage_color = opportunityStageColor($stage_name);
@@ -159,8 +179,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                         <span class="float-end text-muted"><?php echo numfmt_format_currency($currency_format, $col_total, "$session_company_currency"); ?></span>
                     </h6>
 
-                    <div class="kanban-status" data-stage="<?php echo htmlspecialchars($stage_name); ?>">
-                        <?php foreach ($column['opportunities'] as $opp) {
+                    <div class="kanban-status" data-stage="<?php echo htmlspecialchars($stage_name); ?>"><?php foreach ($column['opportunities'] as $opp) {
                             $opp_id = intval($opp['opportunity_id']);
                             $opp_name = nullable_htmlentities($opp['opportunity_name']);
                             $opp_client = nullable_htmlentities($opp['client_name']);
@@ -169,7 +188,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                             $opp_close = nullable_htmlentities($opp['opportunity_close_date']);
                             $opp_owner = nullable_htmlentities($opp['user_name']);
                             ?>
-                            <div class="task grab-cursor js-open-opportunity"
+                            <div class="task grab-cursor js-open-opportunity<?= (!empty($opp['opportunity_close_date']) && $opp['opportunity_close_date'] < date('Y-m-d') && !in_array($stage_name, ['Won', 'Lost'], true)) ? ' close-late' : '' ?>"
                                  data-opportunity-id="<?php echo $opp_id; ?>"
                                  data-stage="<?php echo htmlspecialchars($stage_name); ?>">
 
@@ -188,15 +207,14 @@ while ($row = mysqli_fetch_assoc($sql)) {
                                 <br>
 
                                 <?php if ($opp_close) { ?>
-                                    <i class="fa fa-fw fa-calendar-check text-secondary me-1"></i><span class="text-muted small"><?php echo $opp_close; ?></span><br>
+                                    <i class="fa fa-fw fa-calendar-check text-secondary me-1"></i><span class="small <?= ($opp_close < date('Y-m-d') && !in_array($stage_name, ['Won', 'Lost'], true)) ? 'text-danger fw-bold' : 'text-muted' ?>"><?php echo $opp_close; ?><?= ($opp_close < date('Y-m-d') && !in_array($stage_name, ['Won', 'Lost'], true)) ? ' (past close date)' : '' ?></span><br>
                                 <?php } ?>
 
                                 <?php if ($opp_owner) { ?>
                                     <i class="fas fa-fw fa-user-tie text-secondary me-1"></i><span class="text-muted small"><?php echo $opp_owner; ?></span>
                                 <?php } ?>
                             </div>
-                        <?php } ?>
-                    </div>
+                        <?php } ?></div>
                 </div>
             <?php } ?>
         </div>
