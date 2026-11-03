@@ -400,3 +400,25 @@ tr[hidden], [hidden].text-center { display: none !important; }
 @media (max-width: 575.98px) { .table-responsive > table.table td.portal-cell-num { display: block; text-align: left; font-size: .8rem; color: var(--if-muted); padding: 0; } }
 .portal-cell-val { min-width: 0; }
 @media (max-width: 575.98px) { .portal-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; } .portal-stat { padding: .75rem .8rem; gap: .6rem; } .portal-stat-go { display: none; } .portal-stat-icon { width: 2.4rem; height: 2.4rem; } }
+
+/* ---- Round 2: portal2 ------------------------------------------------------- */
+/* "No access" banner: the flash arrives as alert-warning; give it an icon and a readable measure. */
+.portal-alert.alert-warning { display: flex; flex-wrap: nowrap; flex-direction: row; align-items: flex-start; gap: .6rem; padding: .85rem 1.1rem; font-size: .95rem; line-height: 1.45; }
+.portal-alert.alert-warning::before { content: "\f071"; font-family: "Font Awesome 6 Free", "Font Awesome 5 Free"; font-weight: 900; flex: none; margin-top: .1rem; }
+.portal-alert .close { margin-left: auto; background: none; border: 0; font-size: 1.25rem; line-height: 1; color: inherit; opacity: .6; }
+/* Expiry pills (domains, certificates) */
+.portal-badge--bad { background: rgba(220, 38, 38, .14); color: #c42323; }
+.portal-badge--warn { background: rgba(245, 159, 0, .17); color: #a86400; }
+:root[data-bs-theme="dark"] .portal-badge--bad { color: #f87171; }
+:root[data-bs-theme="dark"] .portal-badge--warn { color: #fbbf24; }
+.portal-expiry-note { display: flex; gap: .6rem; align-items: center; padding: .7rem 1rem; margin-bottom: 1rem; border-radius: 10px; border-left: 4px solid #c42323; background: rgba(220, 38, 38, .08); font-weight: 600; }
+.portal-expiry-note--warn { border-left-color: #d98a00; background: rgba(245, 159, 0, .1); }
+.portal-expiry-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.portal-expiry-cell { display: flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: center; }
+/* Ticket detail header: subject, status/priority chips, dates */
+.portal-ticket-subject { font-weight: 700; letter-spacing: -.01em; margin: 0 0 .75rem; }
+.portal-ticket-facts { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .9rem; }
+.portal-badge--status { background: rgba(93, 111, 118, .15); color: inherit; }
+.portal-ticket-meta { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
+.portal-ticket-meta dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--if-muted); font-weight: 600; }
+.portal-ticket-meta dd { margin: 0; font-size: .95rem; }

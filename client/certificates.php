@@ -16,12 +16,14 @@ require_once "includes/inc_all.php";
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
     // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
-    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    flash_alert(portal_no_access_message(__FILE__), 'warning');
     header("Location: index.php");
     exit();
 }
 
 $certificates_sql = mysqli_query($mysqli, "SELECT certificate_id, certificate_name, certificate_domain, certificate_issued_by, certificate_expire FROM certificates WHERE certificate_client_id = $session_client_id AND certificate_archived_at IS NULL ORDER BY certificate_expire ASC");
+$certificate_rows = mysqli_fetch_all($certificates_sql, MYSQLI_ASSOC);
+$expiry_note = portal_expiry_summary(array_column($certificate_rows, 'certificate_expire'), 'certificate');
 ?>
 
     <div class="row mb-4">
@@ -48,28 +50,25 @@ $certificates_sql = mysqli_query($mysqli, "SELECT certificate_id, certificate_na
                 <tbody>
 
                 <?php
-                if (mysqli_num_rows($certificates_sql) == 0) { ?>
+                if (count($certificate_rows) == 0) { ?>
                     <tr>
                         <td colspan="4" class="text-center text-muted py-4">No certificates found.</td>
                     </tr>
                 <?php }
-                while ($row = mysqli_fetch_assoc($certificates_sql)) {
+                foreach ($certificate_rows as $row) {
                     $certificate_name = nullable_htmlentities($row['certificate_name']);
                     $certificate_domain = nullable_htmlentities($row['certificate_domain']);
                     $certificate_issued_by = nullable_htmlentities($row['certificate_issued_by']);
                     $certificate_expire = nullable_htmlentities($row['certificate_expire']);
 
-                    $expire_class = "";
-                    if ($certificate_expire && strtotime($certificate_expire) < strtotime('+30 days')) {
-                        $expire_class = "text-danger fw-bold";
-                    }
+                    [$exp_mod, $exp_label] = portal_expiry_state($row['certificate_expire']);
                     ?>
 
                     <tr>
                         <td><?php echo $certificate_name; ?></td>
                         <td><?php echo $certificate_domain; ?></td>
                         <td><?php echo $certificate_issued_by; ?></td>
-                        <td class="<?php echo $expire_class; ?>"><?php echo $certificate_expire; ?></td>
+                        <td><div class="portal-expiry-cell"><span class="portal-expiry-date"><?php echo $certificate_expire; ?></span><span class="portal-badge portal-badge--<?php echo $exp_mod; ?>"><?php echo $exp_label; ?></span></div></td>
                     </tr>
 
                 <?php } ?>
