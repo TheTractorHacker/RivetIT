@@ -48,6 +48,20 @@ $sql_projects = mysqli_query(
 
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
+require_once __DIR__ . '/includes/project_health.php';
+
+// At-a-glance summary of the open projects in scope (ignores search/date filters on purpose)
+$ph_counts = ['open' => 0, 'overdue' => 0, 'week' => 0, 'nodue' => 0];
+if ($status == 0 && empty($_GET['archived'])) {
+    $ph_rs = mysqli_query($mysqli, "SELECT project_due FROM projects WHERE project_completed_at IS NULL AND project_archived_at IS NULL $project_permission_snippet $client_query");
+    while ($ph = mysqli_fetch_assoc($ph_rs)) {
+        $ph_counts['open']++;
+        if (!$ph['project_due']) { $ph_counts['nodue']++; continue; }
+        $d = (int) floor((strtotime($ph['project_due'] . ' 23:59:59') - time()) / 86400);
+        if ($d < 0) { $ph_counts['overdue']++; } elseif ($d <= 7) { $ph_counts['week']++; }
+    }
+}
+
 ?>
 
 <div class="card card-dark">
@@ -105,9 +119,16 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 </div>
             </div>
         </form>
-        <hr>
+        <?php if ($ph_counts['open'] > 0) { ?>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="projectHealthStrip" role="group" aria-label="Project health summary">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-health-filter="all"><strong class="me-1"><?= $ph_counts['open'] ?></strong>open</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-health-filter="overdue" <?= $ph_counts['overdue'] ? '' : 'disabled' ?>><strong class="me-1"><?= $ph_counts['overdue'] ?></strong>overdue</button>
+            <button type="button" class="btn btn-sm btn-outline-warning" data-health-filter="week" <?= $ph_counts['week'] ? '' : 'disabled' ?>><strong class="me-1"><?= $ph_counts['week'] ?></strong>due within 7 days</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-health-filter="nodue" <?= $ph_counts['nodue'] ? '' : 'disabled' ?>><strong class="me-1"><?= $ph_counts['nodue'] ?></strong>no due date</button>
+        </div>
+        <?php } ?>
         <div class="table-responsive">
-            <table class="table table-striped table-hover table-borderless">
+            <table class="table table-hover table-borderless">
                 <thead class="<?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                 <tr>
                     <th>
@@ -214,16 +235,17 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                     ?>
 
-                    <tr>
+                    <?php [$ph_key, , , , $ph_days] = projectHealth($project_due, $completed_task_count, $task_count, $project_completed_at); ?>
+                    <tr data-health="<?= $ph_key ?>" data-days="<?= $ph_days === null ? '' : $ph_days ?>">
                         <td>
                             <a class="text-dark" href="project_details.php?<?php echo $client_url; ?>project_id=<?php echo $project_id; ?>">
                                 <?php echo "$project_prefix$project_number"; ?>
                             </a>
                         </td>
                         <td>
-                            <a class="text-dark" href="project_details.php?project_id=<?php echo $project_id; ?>">
+                            <a class="text-dark" href="project_details.php?<?php echo $client_url; ?>project_id=<?php echo $project_id; ?>">
                                 <div class="media">
-                                    <i class="fa fa-fw fa-2x fa-project-diagram me-3"></i>
+                                    <i class="fa fa-fw fa-lg fa-project-diagram me-3 mt-1 text-secondary"></i>
                                     <div class="media-body">
                                         <div><?php echo $project_name; ?></div>
                                         <div><small class="text-secondary"><?php echo $project_description; ?></small></div>
@@ -245,7 +267,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </div>
                             <?php } ?>
                         </td>
-                        <td><?php echo $project_due; ?></td>
+                        <td class="text-nowrap"><?php echo $project_due; ?>
+                            <?php if ($status == 0) { ?><div class="mt-1"><?= projectHealthBadge($project_due, $completed_task_count, $task_count, $project_completed_at) ?></div><?php } ?>
+                        </td>
                         <?php if ($status == 1) { ?>
                         <td><?php echo $project_completed_at_display; ?></td>
                         <?php } ?>
@@ -302,5 +326,19 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     </div>
 </div>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+document.querySelectorAll('[data-health-filter]').forEach(function (b) {
+    b.addEventListener('click', function () {
+        var f = b.getAttribute('data-health-filter');
+        document.querySelectorAll('[data-health-filter]').forEach(function (x) { x.classList.toggle('active', x === b && f !== 'all'); });
+        document.querySelectorAll('tr[data-health]').forEach(function (r) {
+            var k = r.getAttribute('data-health'), d = r.getAttribute('data-days'),
+                show = f === 'all' || (f === 'overdue' && k === 'overdue') || (f === 'nodue' && k === 'nodue') ||
+                       (f === 'week' && d !== '' && +d >= 0 && +d <= 7);
+            r.style.display = show ? '' : 'none';
+        });
+    });
+});
+</script>
 <?php
 require_once "../includes/footer.php";
