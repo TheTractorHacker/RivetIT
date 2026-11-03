@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -50,12 +51,21 @@ $sev_bg = array_map(function ($s) use ($severity_colors) {
   @media (max-width: 576px) { .chart-h-320 { height: 260px; } }
 </style>
 
+<?php
+if ($report['have_data']) {
+    $rt = $report['totals']; $na = $report['noisiest_assets'][0] ?? null;
+    $sev_crit = 0;
+    foreach ($report['by_severity'] as $sv) { if (in_array($sv['severity'], ['critical', 'error'], true)) { $sev_crit += intval($sv['count']); } }
+    $unack = 0;
+    foreach ($report['by_status'] as $st) { if (stripos($st['status'] ?? '', 'new') !== false) { $unack += intval($st['count']); } }
+    reportHeadline('fa-heartbeat', intval($rt['open']) . ' of ' . intval($rt['total']) . ' alerts are still open' . ($unack ? ", $unack unacknowledged" : ''),
+        ($na ? "Noisiest device: {$na['asset_name']} ({$na['alerts']} alerts). " : '') . "$sev_crit critical or error alerts in this range." . ($rt['conversion_pct'] !== null ? " Only {$rt['conversion_pct']}% became tickets." : ''),
+        intval($rt['open']) > 0 ? 'warning' : 'success', ['Open' => intval($rt['open']), 'Critical + error' => $sev_crit]);
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-heartbeat me-2"></i>RMM Health</h3>
-        <div class="card-tools">
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
     </div>
     <div class="card-body p-0">
 
