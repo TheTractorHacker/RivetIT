@@ -155,6 +155,7 @@ if ($tr_can_author) {
         <?php } ?>
     </div>
 
+<link rel="stylesheet" href="/css/area_training.css">
     <div class="tr-filters" role="search" aria-label="Filter courses">
         <div class="tr-filters__row">
             <label class="tr-search mb-0">
