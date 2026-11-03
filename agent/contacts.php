@@ -526,6 +526,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/contact/contact_edit.php?id=<?= $contact_id ?>">
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
+                                        <?php if (!$contact_archived_at && lookupUserPermission('module_client') >= 2) { ?>
+                                        <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/contact/contact_move_department.php?id=<?= $contact_id ?>">
+                                            <i class="fas fa-fw fa-people-arrows me-2"></i>Move department
+                                        </a>
+                                        <?php } ?>
                                         <?php if (lookupUserPermission('module_client') >= 3 && $contact_primary == 0) { ?>
                                             <?php if ($contact_archived_at) { ?>
                                             <div class="dropdown-divider"></div>
