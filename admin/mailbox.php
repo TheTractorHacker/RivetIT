@@ -60,8 +60,9 @@ $mb_ago = function ($secs): string {
     <div class="card-body">
         <p class="text-muted">Manage the mailboxes <?= htmlspecialchars(APP_NAME) ?> monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
         <hr>
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}</style>
         <div class="table-responsive">
-            <table class="table table-sm table-striped table-borderless table-hover">
+            <table class="table table-sm table-striped table-borderless table-hover mb-compact">
                 <thead class="text-dark">
                     <tr>
                         <th>Name</th>
@@ -121,7 +122,7 @@ $mb_ago = function ($secs): string {
                 ?>
                 <tr>
                     <td class="text-nowrap"><?= $mb_name ?></td>
-                    <td style="min-width:12rem"><?= $mb_email ?></td>
+                    <td><?= str_replace('@', '@<wbr>', $mb_email) ?></td>
                     <td><span class="badge <?= $mb_type_info['badge'] ?>"><i class="<?= $mb_type_info['icon_style'] ?> fa-fw <?= $mb_type_info['icon'] ?> me-1"></i><?= $mb_type_info['label'] ?></span></td>
                     <td>
                         <?php if ($mb_connected) { ?>
