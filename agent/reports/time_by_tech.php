@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -38,18 +39,78 @@ $sql_users = mysqli_query($mysqli, "
 );
 // TODO: Maybe try and filter this to just users with the support module perm
 
+$tbt_rows = [];
+while ($agent_row = mysqli_fetch_assoc($sql_users)) {
+    $user_id = intval($agent_row['user_id']);
+    $user_name = nullable_htmlentities($agent_row['user_name']);
+
+    // Get tickets in period that are still assigned to the technician/agent
+    $sql_ticket_count = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS ticket_count FROM tickets WHERE YEAR(ticket_created_at) = $year AND ticket_assigned_to = $user_id$scope_ticket");
+    $row = mysqli_fetch_assoc($sql_ticket_count);
+    $ticket_raised_count = intval($row['ticket_count']);
+
+    // Get unique tickets in period that the agent replied to/touched
+    $sql_tickets_touched = mysqli_query($mysqli, "
+        SELECT COUNT(DISTINCT ticket_id) AS tickets_touched
+        FROM (
+            -- Tickets the agent replied to
+            SELECT ticket_reply_ticket_id AS ticket_id
+            FROM ticket_replies
+            WHERE YEAR(ticket_reply_created_at) = $year AND ticket_reply_by = $user_id
+              AND ticket_reply_ticket_id IN (SELECT ticket_id FROM tickets WHERE 1 = 1 $scope_ticket)
+
+            UNION
+
+            -- Tickets the agent opened
+            SELECT ticket_id
+            FROM tickets
+            WHERE YEAR(ticket_created_at) = $year AND ticket_created_by = $user_id$scope_ticket
+
+            UNION
+
+            -- Tickets the agent closed
+            SELECT ticket_id
+            FROM tickets
+            WHERE YEAR(ticket_created_at) = $year AND ticket_closed_by = $user_id$scope_ticket
+        )
+        AS tickets_touched
+    ");
+
+    $row = mysqli_fetch_assoc($sql_tickets_touched);
+    $tickets_touched = intval($row['tickets_touched']);
+
+
+    // Calculate total time tracked towards tickets in the period (for this agent)
+    $sql_time = mysqli_query($mysqli, "SELECT SUM(TIME_TO_SEC(ticket_reply_time_worked)) AS total_secs, SEC_TO_TIME(SUM(TIME_TO_SEC(ticket_reply_time_worked))) as total_time FROM ticket_replies LEFT JOIN tickets ON tickets.ticket_id = ticket_replies.ticket_reply_ticket_id WHERE YEAR(ticket_created_at) = $year AND ticket_reply_by = $user_id AND ticket_reply_time_worked IS NOT NULL$scope_ticket");
+    $row = mysqli_fetch_assoc($sql_time);
+    $ticket_total_time_worked = nullable_htmlentities($row['total_time']);
+
+    $tbt_rows[] = ['name' => $user_name, 'assigned' => $ticket_raised_count, 'touched' => $tickets_touched, 'secs' => intval($row['total_secs'] ?? 0), 'time' => $ticket_total_time_worked];
+}
+usort($tbt_rows, fn($x, $y) => $y['secs'] <=> $x['secs'] ?: strcmp($x['name'], $y['name']));
+$tbt_total = array_sum(array_column($tbt_rows, 'secs'));
+
+if ($tbt_rows && $tbt_total > 0) {
+    $topr = $tbt_rows[0]; $share0 = round($topr['secs'] / $tbt_total * 100);
+    $active = count(array_filter($tbt_rows, fn($r) => $r['secs'] > 0));
+    $idle = array_map(fn($r) => $r['name'], array_filter($tbt_rows, fn($r) => $r['secs'] === 0));
+    reportHeadline('fa-user-clock', $topr['name'] . " logged the most time in $year: " . round($topr['secs'] / 3600, 1) . "h ($share0% of the team)",
+        $active . ' of ' . count($tbt_rows) . ' technicians logged time.' . ($idle ? ' No time from: ' . implode(', ', $idle) . '.' : ''),
+        $share0 >= 60 ? 'warning' : 'primary', ['Team hours' => round($tbt_total / 3600, 1), 'Technicians' => $active]);
+} else {
+    reportHeadline('fa-info-circle', "No time was logged in $year", 'Time appears here once technicians add time to ticket replies.', 'secondary');
+}
+
 ?>
 
     <div class="card card-dark">
         <div class="card-header py-2">
             <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Time Logged By Technician</h3>
-            <div class="card-tools">
-                <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-            </div>
         </div>
         <div class="card-body">
-            <form class="mb-3">
-                <select class="form-control auto-submit-select" name="year">
+            <form class="mb-3 d-flex align-items-center gap-2">
+                <label class="form-label mb-0 text-muted small" for="tbt-year">Year</label>
+                <select class="form-select form-select-sm auto-submit-select" name="year" id="tbt-year" style="max-width:9rem">
                     <?php
                     while ($row = mysqli_fetch_assoc($sql_ticket_years)) {
                         $ticket_year = intval($row['ticket_year']); ?>
@@ -71,67 +132,29 @@ $sql_users = mysqli_query($mysqli, "
                                 <th class="text-end">Tickets assigned</th>
                                 <th class="text-end">Tickets touched</th>
                                 <th class="text-end">Total time worked <i>(H:M:S)</i></th>
+                                <th>Share of team time</th>
                             </tr>
                             </thead>
                             <tbody>
                             <?php
-
-                            while ($agent_row = mysqli_fetch_assoc($sql_users)) {
-                                $user_id = intval($agent_row['user_id']);
-                                $user_name = nullable_htmlentities($agent_row['user_name']);
-
-                                // Get tickets in period that are still assigned to the technician/agent
-                                $sql_ticket_count = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS ticket_count FROM tickets WHERE YEAR(ticket_created_at) = $year AND ticket_assigned_to = $user_id$scope_ticket");
-                                $row = mysqli_fetch_assoc($sql_ticket_count);
-                                $ticket_raised_count = intval($row['ticket_count']);
-
-                                // Get unique tickets in period that the agent replied to/touched
-                                $sql_tickets_touched = mysqli_query($mysqli, "
-                                    SELECT COUNT(DISTINCT ticket_id) AS tickets_touched
-                                    FROM (
-                                        -- Tickets the agent replied to
-                                        SELECT ticket_reply_ticket_id AS ticket_id
-                                        FROM ticket_replies
-                                        WHERE YEAR(ticket_reply_created_at) = $year AND ticket_reply_by = $user_id
-                                          AND ticket_reply_ticket_id IN (SELECT ticket_id FROM tickets WHERE 1 = 1 $scope_ticket)
-
-                                        UNION
-
-                                        -- Tickets the agent opened
-                                        SELECT ticket_id
-                                        FROM tickets
-                                        WHERE YEAR(ticket_created_at) = $year AND ticket_created_by = $user_id$scope_ticket
-
-                                        UNION
-
-                                        -- Tickets the agent closed
-                                        SELECT ticket_id
-                                        FROM tickets
-                                        WHERE YEAR(ticket_created_at) = $year AND ticket_closed_by = $user_id$scope_ticket
-                                    )
-                                    AS tickets_touched
-                                ");
-
-                                $row = mysqli_fetch_assoc($sql_tickets_touched);
-                                $tickets_touched = intval($row['tickets_touched']);
-
-
-                                // Calculate total time tracked towards tickets in the period (for this agent)
-                                $sql_time = mysqli_query($mysqli, "SELECT SEC_TO_TIME(SUM(TIME_TO_SEC(ticket_reply_time_worked))) as total_time FROM ticket_replies LEFT JOIN tickets ON tickets.ticket_id = ticket_replies.ticket_reply_ticket_id WHERE YEAR(ticket_created_at) = $year AND ticket_reply_by = $user_id AND ticket_reply_time_worked IS NOT NULL$scope_ticket");
-                                $row = mysqli_fetch_assoc($sql_time);
-                                $ticket_total_time_worked = nullable_htmlentities($row['total_time']);
-
+                            foreach ($tbt_rows as $tr) {
+                                $share = $tbt_total > 0 ? round($tr['secs'] / $tbt_total * 100) : 0;
                                 ?>
-
                                 <tr>
-                                    <td><?php echo $user_name; ?></td>
-                                    <td class="text-end"><?php echo $ticket_raised_count; ?></td>
-                                    <td class="text-end"><?php echo $tickets_touched; ?></td>
-                                    <td class="text-end"><?php echo $ticket_total_time_worked; ?></td>
+                                    <td><?php echo $tr['name']; ?></td>
+                                    <td class="text-end"><?php echo $tr['assigned']; ?></td>
+                                    <td class="text-end"><?php echo $tr['touched']; ?></td>
+                                    <td class="text-end"><?php echo $tr['time'] ?: '00:00:00'; ?></td>
+                                    <td style="min-width:11rem">
+                                        <?php if ($tr['secs'] > 0) { ?>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height:8px" role="progressbar" aria-label="Share of logged time" aria-valuenow="<?php echo $share; ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:<?php echo $share; ?>%"></div></div>
+                                            <span class="small text-secondary text-nowrap" style="width:2.5rem;text-align:right"><?php echo $share; ?>%</span>
+                                        </div>
+                                        <?php } else { ?><span class="small text-secondary">no time logged</span><?php } ?>
+                                    </td>
                                 </tr>
-
                                 <?php
-
                             }
                             ?>
                             </tbody>
@@ -140,7 +163,6 @@ $sql_users = mysqli_query($mysqli, "
                 </div>
             </div>
 
-            <!-- TODO: Monthly version of this report -->
 
         </div>
     </div>

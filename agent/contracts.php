@@ -112,13 +112,13 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
                         <?= $has_included_issues ? '<span class="badge text-bg-secondary"><i class="fas fa-house-user me-1"></i>Allowance</span>' : '' ?>
                         <?= (!$has_sla && !$has_included_issues) ? '-' : '' ?>
                     </td>
-                    <td><?= $cstart ?: '-' ?></td>
-                    <td><?= $cend ?: '-' ?></td>
+                    <td class="text-nowrap"><?= $cstart ?: "-" ?></td>
+                    <td class="text-nowrap"><?= $cend ?: "-" ?></td>
                     <td class="<?= $renewal_class ?>">
                         <?php if ($crenewal) {
                             echo $crenewal;
-                            if ($crenewal < $today) echo " <span class='badge text-bg-danger'>Expired</span>";
-                            elseif ($crenewal <= $warn_date) echo " <span class='badge text-bg-warning text-dark'>Due Soon</span>";
+                            if ($crenewal < $today) echo " <span class='badge text-bg-danger'>Expired " . (int) floor((strtotime($today) - strtotime($crenewal)) / 86400) . "d ago</span>";
+                            elseif ($crenewal <= $warn_date) echo " <span class='badge text-bg-warning text-dark'>Due in " . max(0, (int) ceil((strtotime($crenewal) - strtotime($today)) / 86400)) . " days</span>";
                         } else { echo '-'; } ?>
                     </td>
                     <td class="text-center text-nowrap">

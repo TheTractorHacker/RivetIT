@@ -163,6 +163,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     $opp_close = nullable_htmlentities($row['opportunity_close_date']);
                     $opp_owner = nullable_htmlentities($row['user_name']);
                     $opp_status = nullable_htmlentities($row['opportunity_status']);
+                    $opp_late = ($opp_status === 'open' && $opp_close && $opp_close < date('Y-m-d'));
+                    $sum_amount = ($sum_amount ?? 0) + $opp_amount;
+                    $sum_weighted = ($sum_weighted ?? 0) + $opp_weighted;
                     ?>
                     <tr>
                         <td>
@@ -181,7 +184,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <td class="text-end"><?php echo numfmt_format_currency($currency_format, $opp_amount, "$session_company_currency"); ?></td>
                         <td class="text-end"><?php echo $opp_prob; ?>%</td>
                         <td class="text-end"><?php echo numfmt_format_currency($currency_format, $opp_weighted, "$session_company_currency"); ?></td>
-                        <td><?php echo $opp_close ? $opp_close : '<span class="text-muted">-</span>'; ?></td>
+                        <td class="text-nowrap"><?php if ($opp_close) { echo $opp_late ? "<span class='text-danger fw-bold' title='Close date has passed; update it or move the deal'>$opp_close <i class='fas fa-exclamation-circle'></i></span>" : $opp_close; } else { echo '<span class="text-muted">-</span>'; } ?></td>
                         <td><?php echo $opp_owner ? $opp_owner : '<span class="text-muted">-</span>'; ?></td>
                         <td>
                             <div class="dropdown dropleft text-center">
@@ -204,6 +207,17 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     </tr>
                 <?php } ?>
                 </tbody>
+                <?php if (isset($sum_amount)) { ?>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="<?= $client_url ? 2 : 3 ?>" class="text-end text-secondary">Total on this page</td>
+                        <td class="text-end"><?= numfmt_format_currency($currency_format, $sum_amount, "$session_company_currency") ?></td>
+                        <td></td>
+                        <td class="text-end"><?= numfmt_format_currency($currency_format, $sum_weighted, "$session_company_currency") ?></td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+                <?php } ?>
             </table>
         </div>
         <?php require_once "../includes/filter_footer.php"; ?>

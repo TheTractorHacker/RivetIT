@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -86,13 +87,25 @@ $priority_colors = [
   .info-box.bg-teal .info-box-icon      { color: var(--color-accent, #0d9488); }
 </style>
 
+<?php
+// Answer first: are we meeting SLA, and how stale is the open queue?
+$sd_open = intval($report['totals']['open_now']);
+$sd_old = 0;
+foreach ($report['aging'] as $ab) { if (!in_array($ab['label'], ['0-1d', '1-3d', '3-7d'], true)) { $sd_old += intval($ab['count']); } }
+$sd_res = $report['sla']['resolution_pct']; $sd_rsp = $report['sla']['response_pct'];
+$sd_tone = ($sd_res !== null && $sd_res < 80) ? 'danger' : (($sd_res !== null && $sd_res < 90) ? 'warning' : 'success');
+if ($sd_res === null && $sd_rsp === null) {
+    reportHeadline('fa-info-circle', "$sd_open tickets are open", 'No SLA targets are set on tickets in this range, so compliance cannot be shown.', 'secondary');
+} else {
+    reportHeadline('fa-stopwatch', 'Resolution SLA is ' . ($sd_res ?? 'n/a') . '%' . ($sd_res !== null && $sd_res < 90 ? ', below the 90% goal' : ', on target'),
+        "First response SLA is " . ($sd_rsp ?? 'n/a') . "%. $sd_open tickets are open now" . ($sd_open ? ", $sd_old of them older than 7 days (" . round($sd_old / $sd_open * 100) . '%).' : '.'),
+        $sd_tone, ['Open now' => $sd_open, 'Older than 7d' => $sd_old]);
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-headset me-2"></i>Service Desk &amp; SLA Ops</h3>
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
+    </div>
     </div>
     <div class="card-body p-0">
 

@@ -1,14 +1,15 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
 // inc_all_reports.php loads includes/filter_header.php, which resolves the
 // canned-date / custom-date filter into $dtf and $dtt.
 if (!$date_range_explicit) {
-    // No filter submitted: this report defaults to this month (the picker is told the same default).
-    $date_range = dateRangeFromRequest(['canned_date' => 'thismonth']);
+    // No filter submitted: default to the last 30 days (a fresh month starts out as an empty chart).
+    $date_range = dateRangeFromRequest(['canned_date' => 'last30']);
     $dtf = $date_range->from();
     $dtt = $date_range->to();
 }
@@ -42,20 +43,33 @@ if (!empty($report_export_csv)) {
   @media (max-width: 576px) { .chart-h-320 { height: 260px; } }
 </style>
 
+<?php
+$hl_days = $report['days'];
+if ($hl_days) {
+    $c = intval($report['totals']['created']); $cl = intval($report['totals']['closed']); $n = intval($report['totals']['net']);
+    $busy = $hl_days[0];
+    foreach ($hl_days as $d) { if ($d['created'] > $busy['created']) { $busy = $d; } }
+    $nd = count($hl_days);
+    if ($c + $cl === 0) {
+        reportHeadline('fa-info-circle', 'No tickets were created or closed in this range', 'Widen the date range to see activity.', 'secondary');
+    } else {
+        reportHeadline($n > 0 ? 'fa-arrow-up' : 'fa-arrow-down',
+            $n > 0 ? "The backlog grew by $n: $c opened vs $cl closed" : ($n < 0 ? 'The backlog shrank by ' . abs($n) . ": $cl closed vs $c opened" : "Closing kept pace with opening: $c each"),
+            "Busiest day: {$busy['date']} with {$busy['created']} new tickets. Average " . round($c / $nd, 1) . ' opened and ' . round($cl / $nd, 1) . " closed per day over $nd days.",
+            $n > 0 ? 'warning' : 'success', ['Opened' => $c, 'Closed' => $cl]);
+    }
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-calendar-day me-2"></i>Tickets: Day by Day</h3>
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
     </div>
     <div class="card-body p-0">
 
         <!-- Date range filter (uses includes/filter_header.php) -->
         <form class="p-3 d-print-none">
             <label class="mb-1 d-block">Date range</label>
-            <?php echo dateRangePickerField($date_range, 'canned_date', ['default' => 'thismonth', 'dates' => [$report_from, $report_to]]); ?>
+            <?php echo dateRangePickerField($date_range, 'canned_date', ['default' => 'last30', 'dates' => [$report_from, $report_to]]); ?>
         </form>
 
         <div class="px-3 pb-2">
@@ -125,13 +139,17 @@ if (!empty($report_export_csv)) {
                         <?php if (empty($report['days'])) { ?>
                             <tr><td colspan="4" class="text-center text-muted">No days in range.</td></tr>
                         <?php } else {
-                            foreach (array_reverse($report['days']) as $d) { ?>
+                            $quiet = 0;
+                            foreach (array_reverse($report['days']) as $d) { if (!$d['created'] && !$d['closed']) { $quiet++; continue; } ?>
                             <tr>
                                 <td><?php echo nullable_htmlentities($d['date']); ?></td>
                                 <td class="text-end"><?php echo intval($d['created']); ?></td>
                                 <td class="text-end"><?php echo intval($d['closed']); ?></td>
                                 <td class="text-end<?php echo $d['net'] > 0 ? ' text-danger' : ($d['net'] < 0 ? ' text-success' : ''); ?>"><?php echo intval($d['net']); ?></td>
                             </tr>
+                        <?php }
+                            if ($quiet) { ?>
+                            <tr><td colspan="4" class="text-center text-secondary small"><?php echo $quiet; ?> quiet day<?php echo $quiet === 1 ? '' : 's'; ?> with no tickets created or closed not listed (they still appear in the chart and CSV).</td></tr>
                         <?php } } ?>
                     </tbody>
                 </table>

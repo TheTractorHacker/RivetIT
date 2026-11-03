@@ -316,7 +316,7 @@ $all_reports = ReportCatalog::definitions();
                             <td><?php echo nullable_htmlentities($delivery_label); ?></td>
                             <td><?php echo nullable_htmlentities($frequency); ?></td>
                             <td><?php echo nullable_htmlentities($row['schedule_recipients']); ?></td>
-                            <td><?php echo nullable_htmlentities($row['owner_name'] ?? ''); ?></td>
+                            <td><?php echo ($row['owner_name'] ?? '') !== '' ? nullable_htmlentities($row['owner_name']) : '<span class="text-muted" title="Created before owners were recorded; administrators only">No owner</span>'; ?></td>
                             <td>
                                 <?php if ($active) { ?>
                                     <span class="badge text-bg-success">Active</span>
@@ -329,7 +329,7 @@ $all_reports = ReportCatalog::definitions();
                                 <?php if ($last_status !== '') { ?>
                                     <span class="<?php echo strpos($last_status, 'error') === 0 ? 'text-danger' : 'text-muted'; ?>"><?php echo nullable_htmlentities($last_status); ?></span>
                                     <br><span class="text-muted"><?php echo nullable_htmlentities($row['schedule_last_run_at'] ?? ''); ?></span>
-                                <?php } ?>
+                                <?php } else { ?><span class="text-muted">Not run yet</span><?php } ?>
                             </td>
                             <td class="text-end text-nowrap">
                                 <?php if ($may_change) { ?>

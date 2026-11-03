@@ -110,17 +110,17 @@ $is_completed = !empty($completed_at);
                 <div class="form-group">
                     <div class="form-check form-check">
                         <input type="checkbox" class="form-check-input" id="field_<?= $fid ?>" name="field_<?= $fid ?>" value="1" <?= $fval == '1' ? 'checked' : '' ?> <?= $disabled ?>>
-                        <label class="form-check-label" for="field_<?= $fid ?>"><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
+                        <label class="form-check-label" for="field_<?= $fid ?>"><?= $fname ?> <?= ($freq && !$disabled) ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     </div>
                 </div>
             <?php } elseif ($ftype === 'textarea') { ?>
                 <div class="form-group">
-                    <label><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
+                    <label><?= $fname ?> <?= ($freq && !$disabled) ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     <textarea class="form-control" name="field_<?= $fid ?>" rows="3" <?= $freq ? 'required' : '' ?> <?= $disabled ?>><?= $fval ?></textarea>
                 </div>
             <?php } elseif ($ftype === 'select') { ?>
                 <div class="form-group">
-                    <label><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
+                    <label><?= $fname ?> <?= ($freq && !$disabled) ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     <select class="form-control select2" name="field_<?= $fid ?>" <?= $freq ? 'required' : '' ?> <?= $disabled ?>>
                         <option value="">Select</option>
                         <?php foreach (array_filter(explode("\n", $fopts)) as $opt) {
@@ -131,11 +131,13 @@ $is_completed = !empty($completed_at);
                 </div>
             <?php } elseif ($ftype === 'signature') { ?>
                 <div class="form-group">
-                    <label><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
+                    <label><?= $fname ?> <?= ($freq && !$disabled) ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     <?php if ($fval) { ?>
                         <div><img src="<?= $fval ?>" style="max-height:100px; border:1px solid #ccc; border-radius:4px; background:#fff;"></div>
                         <?php if (!$disabled) { ?><button type="button" class="btn btn-sm btn-outline-secondary mt-1 js-clear-worksheet-sig" data-field-id="<?= $fid ?>">Clear & Re-sign</button><?php } ?>
                         <input type="hidden" name="field_<?= $fid ?>" id="sig_data_<?= $fid ?>" value="<?= htmlspecialchars($fval) ?>">
+                    <?php } elseif ($disabled) { ?>
+                        <div class="text-secondary fst-italic">No signature was captured.</div>
                     <?php } else { ?>
                         <canvas id="sig_canvas_<?= $fid ?>" width="500" height="150" style="border:1px solid #ccc; border-radius:4px; background:#fff; touch-action:none; display:block;"></canvas>
                         <input type="hidden" name="field_<?= $fid ?>" id="sig_data_<?= $fid ?>">
@@ -146,7 +148,7 @@ $is_completed = !empty($completed_at);
                 </div>
             <?php } else { ?>
                 <div class="form-group">
-                    <label><?= $fname ?> <?= $freq ? '<strong class="text-danger">*</strong>' : '' ?></label>
+                    <label><?= $fname ?> <?= ($freq && !$disabled) ? '<strong class="text-danger">*</strong>' : '' ?></label>
                     <input type="text" class="form-control" name="field_<?= $fid ?>" value="<?= $fval ?>" <?= $freq ? 'required' : '' ?> <?= $disabled ?>>
                 </div>
             <?php } ?>

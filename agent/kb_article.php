@@ -394,6 +394,37 @@ $sql_attachments = mysqli_query(
     is parsed - all its work is event-driven. Cache-busted by filemtime, the same
     idiom includes/footer.php uses for its own first-party assets.
 */ ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    .prettyContent table { width: 100%; border-collapse: collapse; margin: .75rem 0 1.25rem; }
+    .prettyContent th, .prettyContent td { border: 1px solid var(--bs-border-color, #dee2e6); padding: .4rem .65rem; vertical-align: top; }
+    .prettyContent th { background: var(--bs-tertiary-bg, #f4f6f9); text-align: left; }
+    .prettyContent h2, .prettyContent h3 { scroll-margin-top: 80px; }
+</style>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+// "On this page": a jump list built from the article's own headings (only for longer articles).
+document.addEventListener('DOMContentLoaded', function () {
+    var body = document.querySelector('.prettyContent');
+    var side = document.querySelector('.col-md-3.d-print-none');
+    if (!body || !side) { return; }
+    var heads = body.querySelectorAll('h1, h2, h3');
+    if (heads.length < 4) { return; }
+    var card = document.createElement('div'); card.className = 'card mb-3';
+    var hd = document.createElement('div'); hd.className = 'card-header';
+    var t = document.createElement('h5'); t.className = 'card-title mb-0';
+    var ic = document.createElement('i'); ic.className = 'fas fa-fw fa-list-ul me-2'; t.appendChild(ic);
+    t.appendChild(document.createTextNode('On this page')); hd.appendChild(t); card.appendChild(hd);
+    var list = document.createElement('div'); list.className = 'list-group list-group-flush';
+    heads.forEach(function (h, i) {
+        if (!h.id) { h.id = 'kb-h-' + i; }
+        var a = document.createElement('a'); a.href = '#' + h.id; a.className = 'list-group-item list-group-item-action py-1 small';
+        if (h.tagName === 'H3') { a.style.paddingLeft = '2rem'; }
+        a.textContent = h.textContent.trim();
+        list.appendChild(a);
+    });
+    card.appendChild(list);
+    side.insertBefore(card, side.firstChild);
+});
+</script>
 <script src="/js/kb_interactive.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/kb_interactive.js'); ?>" defer></script>
 
 <?php
