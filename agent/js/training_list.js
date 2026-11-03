@@ -191,6 +191,15 @@
                 open ? el('a', { href: open, text: c.name || 'Untitled course' }) : el('span', { text: c.name || 'Untitled course' })
             ]);
             var tagList = Array.isArray(c.tags) ? c.tags : [];
+            // A tag that repeats the category name (or another tag) adds nothing; show it once.
+            var seenNames = {};
+            if (c.category && c.category.name) { seenNames[String(c.category.name).toLowerCase()] = true; }
+            tagList = tagList.filter(function (t) {
+                var k = String(t.name || '').toLowerCase();
+                if (seenNames[k]) { return false; }
+                seenNames[k] = true;
+                return true;
+            });
             var chips = [];
             if (c.category) {
                 var catChip = el('span', { class: 'tr-chip tr-chip--dot' }, [c.category.name]);
