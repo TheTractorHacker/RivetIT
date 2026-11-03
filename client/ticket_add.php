@@ -100,12 +100,13 @@ if ($catalog_item) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                     </div>
-                    <input type="text" class="form-control" name="subject" placeholder="Subject" value="<?= nullable_htmlentities($prefill_subject) ?>" required>
+                    <input type="text" class="form-control" name="subject" placeholder="e.g. Monitor keeps flickering" maxlength="200" value="<?= nullable_htmlentities($prefill_subject) ?>" required>
                 </div>
+                <?php if (!$catalog_item) { ?><div class="portal-suggest" id="portalSubjectSuggest" hidden aria-live="polite"></div><?php } ?>
             </div>
 
             <div class="row">
-                <div class="col">
+                <div class="col-12 col-sm">
                     <div class="form-group">
                         <label>Priority <strong class="text-danger">*</strong></label>
                         <div class="input-group">
@@ -121,7 +122,7 @@ if ($catalog_item) {
                     </div>
                 </div>
 
-                <div class="col">
+                <div class="col-12 col-sm">
                     <div class="form-group">
                     <label>Category</label>
                     <div class="input-group">

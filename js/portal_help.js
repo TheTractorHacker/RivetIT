@@ -84,3 +84,75 @@
     });
     document.addEventListener('click', function (e) { if (!form.contains(e.target)) { close(); } });
 })();
+
+
+/* Phones: label table cells from their column header so css/itflow_portal.css can stack rows as cards. */
+(function () {
+    'use strict';
+    var TITLES = /^(subject|name|course|title|document|domain|certificate|article)$/i;
+    document.querySelectorAll('.table-responsive > table.table').forEach(function (t) {
+        var heads = Array.prototype.map.call(t.querySelectorAll('thead th'), function (h) { return h.textContent.trim(); });
+        if (!heads.length) { return; }
+        t.querySelectorAll('tbody tr').forEach(function (tr) {
+            Array.prototype.forEach.call(tr.children, function (td, i) {
+                if (td.tagName !== 'TD' || td.hasAttribute('colspan')) { return; }
+                if (heads[i] === '#') { td.classList.add('portal-cell-num'); return; }
+                if (TITLES.test(heads[i] || '') && !td.querySelector('button, input, select, form')) { td.classList.add('portal-cell-title'); }
+                else {
+                    td.setAttribute('data-label', heads[i] || '');
+                    if (td.childNodes.length > 1) { var w = document.createElement('span'); w.className = 'portal-cell-val'; while (td.firstChild) { w.appendChild(td.firstChild); } td.appendChild(w); }
+                }
+            });
+        });
+    });
+})();
+
+/* New ticket: while the subject is typed, offer matching knowledge-base answers and requests (same endpoint as the home help box). */
+(function () {
+    'use strict';
+    var subject = document.querySelector('input[name="subject"]');
+    var box = document.getElementById('portalSubjectSuggest');
+    if (!subject || !box) { return; }
+    var timer = null, seq = 0;
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text != null) { e.textContent = text; } return e; }
+    function render(d) {
+        box.textContent = '';
+        var items = [];
+        ((d && d.kb) || []).forEach(function (k) { items.push(['fa-book-open', k.title, k.category, k.url]); });
+        ((d && d.catalog) || []).forEach(function (c) { items.push(['fa-concierge-bell', c.name, 'Request', c.url]); });
+        if (!items.length) { box.hidden = true; return; }
+        box.appendChild(el('div', 'ps-head', 'Might already answer this'));
+        items.slice(0, 5).forEach(function (it) {
+            var a = el('a'); a.href = it[3]; a.target = '_blank'; a.rel = 'noopener';
+            a.appendChild(el('i', 'fas fa-fw ' + it[0])); a.appendChild(el('span', null, it[1]));
+            if (it[2]) { a.appendChild(el('span', 'ps-sub', it[2])); }
+            box.appendChild(a);
+        });
+        box.hidden = false;
+    }
+    function run() {
+        var q = subject.value.trim(), mine = ++seq;
+        if (q.length < 3) { box.hidden = true; return; }
+        fetch('help_suggest.php?q=' + encodeURIComponent(q), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (mine === seq) { render(d && d.ok ? d : null); } })
+            .catch(function () { if (mine === seq) { box.hidden = true; } });
+    }
+    subject.addEventListener('input', function () { if (timer) { clearTimeout(timer); } timer = setTimeout(run, 250); });
+})();
+
+/* Ticket list: instant filter by subject or number. */
+(function () {
+    'use strict';
+    var f = document.getElementById('ticketFilter'), t = document.getElementById('ticketTable'), none = document.getElementById('ticketNoMatch');
+    if (!f || !t) { return; }
+    f.addEventListener('input', function () {
+        var q = f.value.trim().toLowerCase(), shown = 0;
+        t.querySelectorAll('tbody tr').forEach(function (tr) {
+            if (tr.querySelector('td[colspan]')) { return; }
+            var hit = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
+            tr.hidden = !hit; if (hit) { shown++; }
+        });
+        if (none) { none.hidden = shown > 0 || !q; }
+    });
+})();

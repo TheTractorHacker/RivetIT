@@ -44,7 +44,7 @@ require_once __DIR__ . '/includes/training_common.php';
 
 <?php if ($tp_me > 0) { ?>
 <div class="card card-outline card-primary mb-4">
-    <div class="card-header"><h5 class="mb-0">My training</h5><div class="text-muted small ms-auto">Select a course to open it in the training module. You are already signed in; you only enter your training PIN when you sign.</div></div>
+    <div class="card-header portal-train-head"><h5 class="mb-0">My training</h5><div class="text-muted small ms-auto">Select a course to open it in the training module. You are already signed in; you only enter your training PIN when you sign.</div></div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
