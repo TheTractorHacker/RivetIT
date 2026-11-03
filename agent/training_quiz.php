@@ -69,7 +69,15 @@ $tr_company_words = preg_split('/\s+/', trim((string) ($session_company_name ?? 
 $tr_crumbs[] = ['label' => (string) $tr_course['course_name'], 'url' => $tr_builder_url];
 $tr_crumbs[] = ['label' => $tr_title];
 
+$tr_has_quiz = false;
+try {
+    $tr_has_quiz = (new \ITFlow\Training\Quiz\QuizService($tr_ctx))->get($tr_lesson_id) !== null;
+} catch (\Throwable $e) {
+    $tr_has_quiz = true;   // unknown: let the page fetch it and show the real error
+}
+
 $tr_data = [
+    'has_quiz' => $tr_has_quiz,
     'lesson_id' => $tr_lesson_id,
     'lesson_uid' => (string) $tr_lesson['uid'],
     'lesson_type' => (string) $tr_lesson['type'],
