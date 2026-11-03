@@ -1,10 +1,10 @@
 <?php
 /*
- * Lifecycle follow-ups (issues #31 / #33 / #30), DB 2.6.242-2.6.243, on a SCRATCH database only:
+ * Lifecycle follow-ups (issues #31 / #33 / #30), DB 2.6.232-2.6.233, on a SCRATCH database only:
  *   1. Okta connector (create / suspend / add to groups) against an in-process Okta mock: default off, never deletes, department check, no secrets in messages.
  *   2. HR-initiated portal requests: validation, scoping, pending-until-approved, approve starts the run, reject / cancel start nothing, audit, notifications.
  *   3. Legacy ticket rules in the unified rules list: states, one-click convert, switch over, behaviour of the copy.
- *   4. Migration 2.6.242 / 2.6.243: re-running changes nothing.
+ *   4. Migration 2.6.232 / 2.6.233: re-running changes nothing.
  * Nothing real is contacted: no Okta, no mail, no chat, no Odoo.
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=scratch_x RIVETIT_TEST_DB_USER=.. RIVETIT_TEST_DB_PASS=.. php tests/lifecycle_life33.php
  * config.php must point at the same scratch database.
@@ -132,8 +132,8 @@ $suffix = substr(md5((string) getmypid() . microtime()), 0, 6);
 $cleanup = [];
 
 // ===================================================================================================================================
-section('Migration 2.6.242 / 2.6.243');
-ok(LATEST_DATABASE_VERSION === '2.6.243', 'LATEST_DATABASE_VERSION is 2.6.243 (range 242-246)');
+section('Migration 2.6.232 / 2.6.233');
+ok(LATEST_DATABASE_VERSION === '2.6.233', 'LATEST_DATABASE_VERSION is 2.6.233 (range 232-233)');
 ok(q1($db, "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='hr_workflow_requests'") == 1, 'hr_workflow_requests exists');
 foreach (['config_portal_hr_requests', 'config_lifecycle_okta_actions', 'config_lifecycle_okta_domain', 'config_lifecycle_okta_token'] as $col) {
     ok(q1($db, "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='settings' AND COLUMN_NAME='$col'") == 1, "settings.$col exists");
@@ -142,8 +142,8 @@ ok(q1($db, "SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SC
 shell_exec('cd ' . escapeshellarg($ROOT . '/scripts') . ' && php update_cli.php --update_db 2>&1'); // bring the scratch DB to the tip first (other tests may leave it lower)
 $before = q1($db, "SELECT config_current_database_version FROM settings WHERE company_id=1");
 $out = shell_exec('cd ' . escapeshellarg($ROOT . '/scripts') . ' && php update_cli.php --update_db 2>&1');
-ok($before === '2.6.243', 'sanity: scratch DB is at 2.6.243', (string) $before);
-ok( q1($db, "SELECT config_current_database_version FROM settings WHERE company_id=1") === '2.6.243', 're-running the updater at 2.6.243 changes nothing');
+ok($before === '2.6.233', 'sanity: scratch DB is at 2.6.233', (string) $before);
+ok( q1($db, "SELECT config_current_database_version FROM settings WHERE company_id=1") === '2.6.233', 're-running the updater at 2.6.233 changes nothing');
 
 // ===================================================================================================================================
 section('Okta connector: gate, domain, create, suspend, groups');
