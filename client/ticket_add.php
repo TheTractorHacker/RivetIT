@@ -39,6 +39,11 @@ if (!$catalog_item && intval($_GET['asset_id'] ?? 0) > 0) {
         $prefill_subject = 'Problem with ' . $report_device['asset_name'];
     }
 }
+// Arriving from the portal home help box: what the person typed becomes the subject (plain text, length-capped, escaped on output).
+if (!$catalog_item && $prefill_subject === '' && isset($_GET['subject']) && is_string($_GET['subject'])) {
+    $prefill_subject = trim(preg_replace('/\s+/', ' ', strip_tags($_GET['subject'])));
+    $prefill_subject = function_exists('mb_substr') ? mb_substr($prefill_subject, 0, 200) : substr($prefill_subject, 0, 200);
+}
 $prefill_priority = 'Low';
 $prefill_category = 0;
 $catalog_icon = 'fa-ticket-alt';
@@ -95,12 +100,13 @@ if ($catalog_item) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-tag"></i></span>
                     </div>
-                    <input type="text" class="form-control" name="subject" placeholder="Subject" value="<?= nullable_htmlentities($prefill_subject) ?>" required>
+                    <input type="text" class="form-control" name="subject" placeholder="e.g. Monitor keeps flickering" maxlength="200" value="<?= nullable_htmlentities($prefill_subject) ?>" required>
                 </div>
+                <?php if (!$catalog_item) { ?><div class="portal-suggest" id="portalSubjectSuggest" hidden aria-live="polite"></div><?php } ?>
             </div>
 
             <div class="row">
-                <div class="col">
+                <div class="col-12 col-sm">
                     <div class="form-group">
                         <label>Priority <strong class="text-danger">*</strong></label>
                         <div class="input-group">
@@ -116,7 +122,7 @@ if ($catalog_item) {
                     </div>
                 </div>
 
-                <div class="col">
+                <div class="col-12 col-sm">
                     <div class="form-group">
                     <label>Category</label>
                     <div class="input-group">

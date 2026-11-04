@@ -286,6 +286,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
             </div>
         </form>
+        <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
         <hr>
         <form id="bulkActions" action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
@@ -412,7 +413,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('asset_id') AS num FROM assets WHERE asset_contact_id = $contact_id AND asset_archived_at IS NULL"));
                         $asset_count = $row['num'];
                         if ($asset_count) {
-                            $asset_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#assets' class='me-2 mb-1 badge rounded-pill text-bg-primary p-2' title='Assets ($asset_count)'><i class='fas fa-fw fa-desktop me-2'></i>$asset_count</a>";
+                            $asset_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#assets' class='me-1 mb-1 badge rounded-pill text-nowrap text-bg-primary p-2' title='Assets ($asset_count)'><i class='fas fa-fw fa-desktop me-1'></i>$asset_count <span class='fw-normal'>Assets</span></a>";
                         } else {
                             $asset_count_display = '';
                         }
@@ -421,7 +422,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('credential_id') AS num FROM credentials WHERE credential_contact_id = $contact_id AND credential_archived_at IS NULL"));
                         $credential_count = $row['num'];
                         if ($credential_count) {
-                            $credential_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#credentials' class='me-2 mb-1 badge rounded-pill text-bg-warning p-2' title='Credentials ($credential_count)'><i class='fas fa-fw fa-key me-2'></i>$credential_count</a>";
+                            $credential_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#credentials' class='me-1 mb-1 badge rounded-pill text-nowrap text-bg-warning p-2' title='Credentials ($credential_count)'><i class='fas fa-fw fa-key me-1'></i>$credential_count <span class='fw-normal'>Credentials</span></a>";
                         } else {
                             $credential_count_display = '';
                         }
@@ -430,7 +431,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('software_id') AS num FROM software, software_contacts WHERE software.software_id = software_contacts.software_id AND software_contacts.contact_id = $contact_id AND software_archived_at IS NULL"));
                         $software_count = $row['num'];
                         if ($software_count) {
-                            $software_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#software' class='me-2 mb-1 badge rounded-pill text-bg-info p-2' title='Licenses ($software_count)'><i class='fas fa-fw fa-cube me-2'></i>$software_count</a>";
+                            $software_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#software' class='me-1 mb-1 badge rounded-pill text-nowrap text-bg-info p-2' title='Licenses ($software_count)'><i class='fas fa-fw fa-cube me-1'></i>$software_count <span class='fw-normal'>Licenses</span></a>";
                         } else {
                             $software_count_display = '';
                         }
@@ -439,7 +440,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('ticket_id') AS num FROM tickets WHERE ticket_contact_id = $contact_id AND ticket_archived_at IS NULL"));
                         $ticket_count = $row['num'];
                         if ($ticket_count) {
-                            $ticket_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#tickets' class='me-2 mb-1 badge rounded-pill text-bg-danger p-2' title='Tickets ($ticket_count)'><i class='fas fa-fw fa-life-ring me-2'></i>$ticket_count</a>";
+                            $ticket_count_display = "<a href='contact_details.php?client_id=$client_id&contact_id=$contact_id#tickets' class='me-1 mb-1 badge rounded-pill text-nowrap text-bg-secondary p-2' title='Tickets ($ticket_count)'><i class='fas fa-fw fa-life-ring me-1'></i>$ticket_count <span class='fw-normal'>Tickets</span></a>";
                         } else {
                             $ticket_count_display = '';
                         }

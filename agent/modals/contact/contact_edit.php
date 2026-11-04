@@ -461,6 +461,8 @@ $(document).ready(function() {
 });
 </script>
 
+<script src="/agent/js/modal_form_ux.js"></script>
+
 <?php
 
 require_once '../../../includes/modal_footer.php';

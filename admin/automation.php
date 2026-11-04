@@ -85,7 +85,7 @@ $has_retry = $ready && $has_runs && \ITFlow\Automation\RuleAdmin::hasRetryColumn
         <thead><tr><th>Rule</th><th>When</th><th>Only if</th><th>Then</th><th>Last 24 hours</th><th>Status</th><th></th></tr></thead>
         <tbody>
         <?php if (!$ready) { ?><tr><td colspan="7" class="text-center text-muted py-3">Run the database update first.</td></tr>
-        <?php } elseif (!$rules) { ?><tr><td colspan="7" class="text-center text-muted py-3">No event rules yet.</td></tr><?php } ?>
+        <?php } elseif (!$rules) { ?><tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-bolt fa-2x mb-2 d-block"></i><div class="fw-semibold text-dark">No event rules yet</div><div class="mb-3">A rule runs an action when something happens, for example notify a technician when a critical ticket arrives.</div><a class="btn btn-primary btn-sm" href="event_rules.php"><i class="fas fa-magic me-1"></i>Start from a ready-made recipe</a></td></tr><?php } ?>
         <?php foreach ($rules as $r) { $c = $counts[(int) $r['rule_id']] ?? []; ?>
             <tr>
                 <td><strong><?= $h($r['name']) ?></strong></td>

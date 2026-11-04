@@ -6,6 +6,22 @@ $order = "ASC";
 
 require_once "includes/inc_all_admin.php";
 
+// Quick filter chips: a security-posture summary that is also the filter (status / MFA / never signed in).
+$user_filter = in_array($_GET['ufilter'] ?? '', ['active', 'disabled', 'invited', 'nomfa', 'never'], true) ? $_GET['ufilter'] : '';
+$user_filter_sql = match ($user_filter) {
+    'active' => "AND user_status = 1",
+    'disabled' => "AND user_status = 0",
+    'invited' => "AND user_status = 2",
+    'nomfa' => "AND (user_token IS NULL OR user_token = '')",
+    'never' => "AND NOT EXISTS (SELECT 1 FROM logs WHERE log_user_id = users.user_id AND log_type = 'Login')",
+    default => '',
+};
+$user_counts = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS total,
+    SUM(user_status = 1) AS active, SUM(user_status = 0) AS disabled, SUM(user_status = 2) AS invited,
+    SUM(user_token IS NULL OR user_token = '') AS nomfa,
+    SUM(NOT EXISTS (SELECT 1 FROM logs WHERE log_user_id = users.user_id AND log_type = 'Login')) AS never
+    FROM users WHERE user_type = 1 AND user_$archive_query"));
+
 $sql = mysqli_query(
     $mysqli,
     "SELECT SQL_CALC_FOUND_ROWS * FROM users
@@ -14,6 +30,7 @@ $sql = mysqli_query(
     WHERE (user_name LIKE '%$q%' OR user_email LIKE '%$q%')
     AND user_type = 1
     AND user_$archive_query
+    $user_filter_sql
     ORDER BY $sort $order LIMIT $record_from, $record_to"
 );
 
@@ -72,28 +89,37 @@ require "includes/users_toggle.php";
                 </div>
             </div>
         </form>
+        <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Filter users">
+            <?php
+            $chip_base = '?' . http_build_query(array_filter(['q' => stripslashes($q ?? ''), 'archived' => $archived ? 1 : '']));
+            foreach (['' => ['All', 'total', ''], 'active' => ['Active', 'active', 'text-success'], 'disabled' => ['Disabled', 'disabled', 'text-danger'], 'invited' => ['Invited', 'invited', 'text-info'], 'nomfa' => ['No MFA', 'nomfa', 'text-danger'], 'never' => ['Never signed in', 'never', 'text-secondary']] as $fk => [$flabel, $fcount, $ftone]) {
+                $n = (int) ($user_counts[$fcount] ?? 0);
+                if ($fk !== '' && $n === 0 && $user_filter !== $fk) { continue; } ?>
+                <a class="btn btn-sm text-nowrap <?= $user_filter === $fk ? 'btn-primary' : 'btn-outline-secondary' ?>" href="<?= $chip_base . ($fk !== '' ? ($chip_base === '?' ? '' : '&') . 'ufilter=' . $fk : '') ?>"><?= $flabel ?> <span class="badge text-bg-light border ms-1"><?= $n ?></span></a>
+            <?php } ?>
+        </div>
         <hr>
         <div class="table-responsive-sm">
             <table class="table table-striped table-borderless table-hover">
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                 <tr>
                     <th class="text-center">
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=user_name&order=<?php echo sortLinkOrder('user_name'); ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?><?= $user_filter ? '&ufilter=' . $user_filter : '' ?>&sort=user_name&order=<?php echo sortLinkOrder('user_name'); ?>">
                             Name <?php if ($sort == 'user_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=user_email&order=<?php echo sortLinkOrder('user_email'); ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?><?= $user_filter ? '&ufilter=' . $user_filter : '' ?>&sort=user_email&order=<?php echo sortLinkOrder('user_email'); ?>">
                             Email <?php if ($sort == 'user_email') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=role_name&order=<?php echo sortLinkOrder('role_name'); ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?><?= $user_filter ? '&ufilter=' . $user_filter : '' ?>&sort=role_name&order=<?php echo sortLinkOrder('role_name'); ?>">
                             Role <?php if ($sort == 'role_name') { echo $order_icon; } ?>
                         </a>
                     </th>
                     <th>
-                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=user_status&order=<?php echo sortLinkOrder('user_status'); ?>">
+                        <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?><?= $user_filter ? '&ufilter=' . $user_filter : '' ?>&sort=user_status&order=<?php echo sortLinkOrder('user_status'); ?>">
                             Status <?php if ($sort == 'user_status') { echo $order_icon; } ?>
                         </a>
                     </th>
@@ -242,6 +268,9 @@ require "includes/users_toggle.php";
                 </tbody>
             </table>
         </div>
+        <?php if ($num_rows[0] == 0) { ?>
+            <div class="text-center text-muted py-4">No users match<?= $user_filter ? ' this filter' : '' ?>. <a href="users.php">Clear filters</a></div>
+        <?php } ?>
         <?php require_once "../includes/filter_footer.php";
  ?>
     </div>

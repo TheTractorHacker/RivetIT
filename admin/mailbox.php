@@ -60,8 +60,9 @@ $mb_ago = function ($secs): string {
     <div class="card-body">
         <p class="text-muted">Manage the mailboxes <?= htmlspecialchars(APP_NAME) ?> monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
         <hr>
-        <div class="table-responsive-sm">
-            <table class="table table-striped table-borderless table-hover">
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}</style>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped table-borderless table-hover mb-compact">
                 <thead class="text-dark">
                     <tr>
                         <th>Name</th>
@@ -70,8 +71,7 @@ $mb_ago = function ($secs): string {
                         <th>Connected?</th>
                         <th>Health</th>
                         <th>Default Department</th>
-                        <th>Active</th>
-                        <th class="text-center">Action</th>
+                                                <th class="text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,8 +121,8 @@ $mb_ago = function ($secs): string {
                     }
                 ?>
                 <tr>
-                    <td><?= $mb_name ?></td>
-                    <td><?= $mb_email ?></td>
+                    <td class="text-nowrap"><?= $mb_name ?></td>
+                    <td><?= str_replace('@', '@<wbr>', $mb_email) ?></td>
                     <td><span class="badge <?= $mb_type_info['badge'] ?>"><i class="<?= $mb_type_info['icon_style'] ?> fa-fw <?= $mb_type_info['icon'] ?> me-1"></i><?= $mb_type_info['label'] ?></span></td>
                     <td>
                         <?php if ($mb_connected) { ?>
@@ -131,7 +131,7 @@ $mb_ago = function ($secs): string {
                             <span class="badge text-bg-danger"><i class="fas fa-times-circle me-1"></i><?= $mb_connected_label ?></span>
                         <?php } ?>
                     </td>
-                    <td style="min-width:14rem;">
+                    <td style="min-width:10.5rem;">
                         <span class="badge text-bg-<?= $mb_health[0] ?>"><?= $mb_health[1] ?></span>
                         <?php if ($mb_failures > 0) { ?><span class="badge text-bg-danger"><?= $mb_failures ?> failed in a row</span><?php } ?>
                         <div class="small text-muted mt-1">
@@ -147,20 +147,13 @@ $mb_ago = function ($secs): string {
                             <span class="text-muted">Guest / Unmatched</span>
                         <?php } ?>
                     </td>
-                    <td>
-                        <?php if ($mb_active) { ?>
-                            <span class="badge text-bg-success">Active</span>
-                        <?php } else { ?>
-                            <span class="badge text-bg-secondary">Inactive</span>
-                        <?php } ?>
-                    </td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
-                            <i class="fas fa-edit"></i> Edit
+                        <a href="#" title="Edit mailbox" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
+                            <i class="fas fa-fw fa-edit"></i><span class="visually-hidden">Edit</span>
                         </a>
                         <a href="post.php?delete_mailbox=<?= $mb_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Delete
+                           title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1">
+                            <i class="fas fa-fw fa-trash"></i><span class="visually-hidden">Delete</span>
                         </a>
                     </td>
                 </tr>
@@ -198,8 +191,8 @@ $quarantine_sql = mysqli_query($mysqli, "SELECT s.*, m.mailbox_name, m.mailbox_e
                         <td class="small"><?= nullable_htmlentities(mb_strimwidth((string) $qrow['intake_last_error'], 0, 140, '...')) ?></td>
                         <td><?= nullable_htmlentities($qrow['intake_quarantined_at']) ?></td>
                         <td class="text-center" style="white-space:nowrap;">
-                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-xs btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-redo"></i> Reset</a>
-                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-xs btn-danger confirm-link ms-1"><i class="fas fa-times"></i> Dismiss</a>
+                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-xs btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-fw fa-redo me-1"></i> Reset</a>
+                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1"><i class="fas fa-fw fa-times me-1"></i> Dismiss</a>
                         </td>
                     </tr>
                 <?php } ?>

@@ -91,6 +91,13 @@ $last_real_event = mysqli_fetch_assoc(mysqli_query($mysqli,
      WHERE log_client_id = $client_id AND log_action != 'View'
      ORDER BY log_created_at DESC LIMIT 1"));
 
+// Latest row of ANY kind (page views included) - the same feed the Recent
+// Activity card below shows, so the tile can never contradict it.
+$last_any_event = mysqli_fetch_assoc(mysqli_query($mysqli,
+    "SELECT log_description, log_created_at FROM logs
+     WHERE log_client_id = $client_id
+     ORDER BY log_created_at DESC LIMIT 1"));
+
 $sql_shared_items = mysqli_query($mysqli,
     "SELECT * FROM shared_items WHERE item_client_id = $client_id AND item_active = 1 $co_support_sql ORDER BY item_created_at ASC LIMIT 5");
 
@@ -246,20 +253,34 @@ if ($config_module_enable_itdoc == 1 && lookupUserPermission('module_credential'
 }
 
 $stat_tiles[] = [
-    'label'       => 'Expiring 45d',
+    'label'       => 'Expired / expiring',
     'icon'        => 'fa-hourglass-half',
-    'value'       => $num_expiring_45,
-    'value_class' => $num_expiring_45 > 0 ? 'text-warning' : '',
+    'value'       => $num_expiring_45 + $num_expired_items,
+    'value_class' => $num_expired_items > 0 ? 'text-danger' : ($num_expiring_45 > 0 ? 'text-warning' : ''),
     // Anchors to the attention row further down, but only when that row renders.
-    'href'        => ($num_stale_tickets || $num_expiring_45 || $num_expired_items) ? '#dept-attention' : null,
-    'sub'         => $num_expired_items > 0 ? '<span class="text-danger">' . $num_expired_items . ' expired</span>' : '',
+    'href'        => ($num_expiring_45 || $num_expired_items) ? '#dept-attention' : null,
+    'sub'         => ($num_expired_items > 0 ? '<span class="text-danger">' . $num_expired_items . ' expired</span>' : '')
+                   . ($num_expired_items > 0 && $num_expiring_45 > 0 ? ' &middot; ' : '')
+                   . ($num_expiring_45 > 0 ? '<span class="text-warning">' . $num_expiring_45 . ' within 45d</span>' : ''),
 ];
 
+if ($last_real_event) {
+    $la_text = nullable_htmlentities(timeAgo($last_real_event['log_created_at']));
+    $la_sub  = nullable_htmlentities($last_real_event['log_description']);
+} elseif ($last_any_event) {
+    // Nothing has been changed, but the department has been looked at: say so
+    // instead of "No changes yet" sitting above a Recent Activity row.
+    $la_text = 'Viewed ' . nullable_htmlentities(timeAgo($last_any_event['log_created_at']));
+    $la_sub  = 'No changes recorded yet';
+} else {
+    $la_text = 'No activity yet';
+    $la_sub  = '';
+}
 $stat_tiles[] = [
     'label' => 'Last activity',
     'icon'  => 'fa-history',
-    'text'  => $last_real_event ? nullable_htmlentities(timeAgo($last_real_event['log_created_at'])) : 'None yet',
-    'sub'   => $last_real_event ? nullable_htmlentities($last_real_event['log_description']) : '',
+    'text'  => $la_text,
+    'sub'   => $la_sub,
 ];
 
 // One tile body, whether or not the tile is a link.
@@ -346,6 +367,8 @@ $has_locations    = mysqli_num_rows($sql_client_locations) > 0;
                     $tsname  = nullable_htmlentities($row['ticket_status_name']);
                     $tscolor = nullable_htmlentities($row['ticket_status_color']);
                     $tago    = timeAgo($row['ticket_updated_at']);
+                    $open_shown_ids[] = $tid;
+                    $t_is_stale = !empty($row['ticket_updated_at']) && strtotime($row['ticket_updated_at']) < strtotime('-7 days');
                     $prio_class = match(strtolower($tprio ?? '')) {
                         'critical' => 'danger', 'high' => 'warning', 'medium' => 'info', default => 'secondary'
                     };
@@ -357,6 +380,7 @@ $has_locations    = mysqli_num_rows($sql_client_locations) > 0;
                         <div class="small mt-1">
                             <span class="badge rounded-pill badge-<?= $prio_class ?>"><?= $tprio ?></span>
                             <span class="badge rounded-pill <?= tagTextClass($tscolor) ?> ms-1" style="background:<?= $tscolor ?>"><?= $tsname ?></span>
+                            <?php if ($t_is_stale): ?><span class="badge bg-orange-lt text-nowrap ms-1" title="No activity for 7+ days"><i class="fas fa-clock me-1"></i>Stale</span><?php endif; ?>
                             <span class="text-muted ms-1"><?= $tago ?></span>
                         </div>
                     </td>
@@ -560,8 +584,8 @@ if ($has_fav_assets || $has_fav_creds):
 <div class="row">
 
     <?php if ($has_fav_assets): ?>
-    <div class="col-md-<?= $has_fav_creds ? '6' : '12' ?>">
-        <div class="card card-dark mb-3">
+    <div class="mb-3 col-md-<?= $has_fav_creds ? '6' : '12' ?>">
+        <div class="card card-dark h-100">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-star text-warning me-2"></i>Favorite Assets</h5>
                 <a href="assets.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
@@ -594,8 +618,8 @@ if ($has_fav_assets || $has_fav_creds):
     <?php endif; ?>
 
     <?php if ($has_fav_creds): ?>
-    <div class="col-md-<?= $has_fav_assets ? '6' : '12' ?>">
-        <div class="card card-dark mb-3">
+    <div class="mb-3 col-md-<?= $has_fav_assets ? '6' : '12' ?>">
+        <div class="card card-dark h-100">
             <div class="card-header p-2 d-flex align-items-center justify-content-between">
                 <h5 class="card-title mb-0"><i class="fas fa-fw fa-star text-warning me-2"></i>Favorite Credentials</h5>
                 <a href="credentials.php?client_id=<?= $client_id ?>" class="text-muted small">View all <i class="fas fa-chevron-right fa-xs"></i></a>
@@ -661,9 +685,18 @@ if ($has_fav_assets || $has_fav_creds):
 
 <!-- ── Needs attention (stale / expiring / expired) ───────────────────────── -->
 <?php
+// Stale tickets already listed (and flagged "Stale") in Open Tickets above are not
+// repeated here - the card only adds the ones the capped list did not show.
+$stale_rows = [];
+mysqli_data_seek($sql_stale_tickets, 0);
+while ($srow = mysqli_fetch_assoc($sql_stale_tickets)) {
+    if (!in_array(intval($srow['ticket_id']), $open_shown_ids ?? [], true)) {
+        $stale_rows[] = $srow;
+    }
+}
 // Counted once at the top of this file; the "Expiring 45d" tile in the
 // at-a-glance strip links down here whenever any of the three renders.
-$has_stale    = $num_stale_tickets > 0;
+$has_stale    = count($stale_rows) > 0;
 $has_expiring = $num_expiring_45 > 0;
 $has_expired  = $num_expired_items > 0;
 
@@ -682,7 +715,7 @@ if ($has_stale || $has_expiring || $has_expired):
                 <h5 class="card-title text-warning mb-0"><i class="fas fa-fw fa-clock me-2"></i>Stale Tickets <small class="text-muted fw-normal">(7+ days)</small></h5>
             </div>
             <div class="list-group list-group-flush">
-                <?php while ($row = mysqli_fetch_assoc($sql_stale_tickets)):
+                <?php foreach ($stale_rows as $row):
                     $tid   = intval($row['ticket_id']);
                     $tnum  = nullable_htmlentities($row['ticket_prefix'] . $row['ticket_number']);
                     $tsubj = nullable_htmlentities($row['ticket_subject']);
@@ -696,7 +729,7 @@ if ($has_stale || $has_expiring || $has_expired):
                         <span class="text-muted small ms-2 text-nowrap"><?= $tago ?></span>
                     </div>
                 </a>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
         </div>
     </div>

@@ -16,7 +16,7 @@ require_once "includes/inc_all.php";
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
     // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
-    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    flash_alert(portal_no_access_message(__FILE__), 'warning');
     header("Location: index.php");
     exit();
 }
@@ -74,16 +74,14 @@ $documents_sql = mysqli_query($mysqli, "SELECT document_id, document_name, docum
                         <a href="document.php?id=<?php echo $document_id?>">
                             <i class="fas fa-file-alt me-2"></i>
                             <?php
-                            if (!empty($folder_name)) {
-                                echo "$folder_name / ";
-                            }
                             echo $document_name;
                             ?>
                         </a>
+                        <?php if (!empty($folder_name)) { ?><span class="portal-badge portal-badge--muted ms-2"><i class="fas fa-folder"></i><?php echo $folder_name; ?></span><?php } ?>
                     </td>
                     <td><?php echo date('Y-m-d', strtotime($document_created_at)); ?></td>
                     <td class="text-center">
-                        <a href="document.php?id=<?php echo $document_id?>" class="btn btn-sm btn-outline-primary">
+                        <a href="document.php?id=<?php echo $document_id?>" class="btn btn-sm btn-outline-primary" aria-label="Open <?php echo $document_name; ?>">
                             <i class="fas fa-eye"></i>
                         </a>
                     </td>

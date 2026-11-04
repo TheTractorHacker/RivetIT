@@ -76,7 +76,12 @@ $status_badge = [
 
 <div class="card card-dark">
     <div class="card-header py-2">
+        <?php $_wt = count($tasks); $_wd = 0; foreach ($tasks as $_t) { if (in_array($_t['status'], ['completed', 'skipped'], true)) { $_wd++; } } $_wp = $_wt ? (int) round(100 * $_wd / $_wt) : 0; ?>
         <h5 class="card-title">Checklist</h5>
+        <div class="card-tools d-flex align-items-center gap-2" style="min-width:14rem;">
+            <div class="progress flex-fill" style="height:8px;" role="progressbar" aria-valuenow="<?= $_wp ?>" aria-valuemin="0" aria-valuemax="100" aria-label="Checklist progress"><div class="progress-bar <?= $_wp === 100 ? 'bg-success' : '' ?>" style="width:<?= $_wp ?>%"></div></div>
+            <span class="small text-secondary text-nowrap"><?= $_wd ?> of <?= $_wt ?> done</span>
+        </div>
     </div>
     <div class="card-body">
         <?php foreach ($tasks as $task) {
@@ -106,8 +111,8 @@ $status_badge = [
                     <?php } ?>
                 </div>
                 <div class="flex-fill">
-                    <div class="<?= in_array($task['status'], ['completed', 'skipped'], true) ? 'text-decoration-line-through text-muted' : '' ?>">
-                        <strong><?= nullable_htmlentities($task['title']) ?></strong>
+                    <div class="<?= in_array($task['status'], ['completed', 'skipped'], true) ? 'text-muted' : '' ?>">
+                        <strong class="<?= in_array($task['status'], ['completed', 'skipped'], true) ? 'text-decoration-line-through' : '' ?>"><?= nullable_htmlentities($task['title']) ?></strong>
                         <?php if (!$task['required']) { ?><span class="badge text-bg-light text-secondary">optional</span><?php } ?>
                         <?php if ($task['category']) { ?><span class="badge text-bg-light text-secondary"><?= nullable_htmlentities($task['category']) ?></span><?php } ?>
                         <?php if ($task['default_owner']) { ?><span class="text-secondary small"> &mdash; <?= nullable_htmlentities($task['default_owner']) ?></span><?php } ?>
@@ -238,7 +243,7 @@ $status_badge = [
             </div>
         <?php } ?>
 
-        <?php if ($run['status'] !== 'cancelled') { ?>
+        <?php if (!in_array($run['status'], ['cancelled', 'completed', 'completed_with_exceptions'], true)) { ?>
         <div class="mt-3">
             <form action="post.php" method="post" data-confirm-submit="Cancel this workflow? This cannot be undone.">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">

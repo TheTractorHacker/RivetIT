@@ -257,6 +257,7 @@
     Builder.prototype.load = function () {
         var self = this;
         if (this.mode === 'quiz') {
+            if (this.opts.hasQuiz === false) { self.renderNoQuiz(); return Promise.resolve(); }   // known server-side: skip a fetch that would only log a 404
             return TrainingApi.get('quiz_get', { lesson_id: this.opts.lessonId }).then(function (quiz) {
                 self.setQuiz(quiz, true);
             }, function (err) {
@@ -2424,7 +2425,7 @@
         if (!d || !d.lesson_id) { return; }
         window.TrainingQuizBuilder.mount(host, {
             lessonId: d.lesson_id, courseId: d.course_id, lessonType: d.lesson_type, lessonTitle: d.lesson_title,
-            lang: d.default_language, defaultLanguage: d.default_language, languages: d.languages, embedded: false, brand: d.brand
+            lang: d.default_language, defaultLanguage: d.default_language, languages: d.languages, embedded: false, brand: d.brand, hasQuiz: d.has_quiz
         });
     });
 })();

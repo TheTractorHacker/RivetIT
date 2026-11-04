@@ -54,8 +54,14 @@ $billing_increment_options = [
 ];
 
 // Default range: current month
-$from = isset($_GET['from']) ? $_GET['from'] : date('Y-m-01');
-$to   = isset($_GET['to'])   ? $_GET['to']   : date('Y-m-t');
+// Default to the month of the most recent logged time, so a fresh month does not open on an empty report.
+$def_ts = time();
+if (!isset($_GET['from']) && !isset($_GET['to'])) {
+    $lt = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT MAX(ticket_reply_created_at) AS d FROM ticket_replies WHERE ticket_reply_time_worked IS NOT NULL AND ticket_reply_time_worked <> '00:00:00'"));
+    if (!empty($lt['d'])) { $def_ts = strtotime($lt['d']); }
+}
+$from = isset($_GET['from']) ? $_GET['from'] : date('Y-m-01', $def_ts);
+$to   = isset($_GET['to'])   ? $_GET['to']   : date('Y-m-t', $def_ts);
 
 if (!isValidDateYmd($from)) $from = date('Y-m-01');
 if (!isValidDateYmd($to))   $to   = date('Y-m-t');
@@ -124,7 +130,7 @@ $result = $stmt->get_result();
 
 ?>
 <div class="card">
-    <div class="card-header bg-dark py-2">
+    <div class="card-header py-2">
         <h3 class="card-title mt-2">
             <i class="fas fa-fw fa-life-ring me-2"></i>
             Department Time Detail Audit Report (<?php echo nullable_htmlentities($from); ?> to <?php echo nullable_htmlentities($to); ?>)
@@ -132,11 +138,7 @@ $result = $stmt->get_result();
                 <span class="badge text-bg-success ms-2">Billable Only</span>
             <?php } ?>
         </h3>
-        <div class="card-tools">
-            <button type="button" class="btn btn-primary d-print-none js-print-page">
-                <i class="fas fa-fw fa-print me-2"></i>Print
-            </button>
-        </div>
+    </div>
     </div>
 
     <div class="card-header d-print-none">

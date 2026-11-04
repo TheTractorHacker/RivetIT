@@ -57,7 +57,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-calendar"></i></span>
                 </div>
-                <input type="datetime-local" class="form-control" name="queued_at">
+                <input type="datetime-local" class="form-control" name="queued_at" aria-label="Send later (leave empty to send now)" title="Send later (leave empty to send now)">
             </div>
         </div>
 

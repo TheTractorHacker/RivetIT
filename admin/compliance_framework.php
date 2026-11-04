@@ -114,7 +114,7 @@ $row = static function (?\RivetCore\Compliance\Profile\Requirement $r) use ($h):
         <thead><tr><th>Name</th><th>Kind</th><th>Version</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody>
         <?php foreach ($profiles as $p) { $archived = $p->status === FrameworkProfile::STATUS_ARCHIVED; ?>
             <tr><td><?= $h($p->displayName()) ?><?php if ($p->description !== '') { ?><div class="small text-muted"><?= $h($p->description) ?></div><?php } ?></td>
-                <td><?= $p->builtin ? 'Built in' : 'Custom' ?></td><td><?= (int) $p->version ?></td><td><?= $archived ? 'Archived' : 'Active' ?></td>
+                <td class="text-nowrap"><?= $p->builtin ? 'Built in' : 'Custom' ?></td><td><?= (int) $p->version ?></td><td><?= $archived ? 'Archived' : 'Active' ?></td>
                 <td class="text-end text-nowrap">
                     <a class="btn btn-sm btn-outline-secondary" href="post.php?export_compliance_profile=<?= $h($p->key) ?>&amp;csrf_token=<?= $csrf ?>">Export</a>
                     <?php if (!$p->builtin) { ?><a class="btn btn-sm btn-outline-primary" href="?edit=<?= $h($p->key) ?>">Edit</a><?php } ?>

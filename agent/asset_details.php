@@ -352,7 +352,8 @@ if (isset($_GET['asset_id'])) {
 
         ?>
 
-        <ol class="breadcrumb">
+        <div class="asset-topbar">
+        <ol class="breadcrumb mb-0">
             <?php if (lookupUserPermission('module_client') >= 1) { ?>
             <li class="breadcrumb-item">
                 <a href="clients.php">Departments</a>
@@ -370,15 +371,79 @@ if (isset($_GET['asset_id'])) {
             <?php } ?>
             <li class="breadcrumb-item active"><?= $asset_name; ?></li>
         </ol>
+                <?php if (lookupUserPermission('module_support') >= 1) { // New ticket/credential/document/file and Link: Tickets/assets/docs (P4) ?>
+                <div class="btn-group asset-actions">
+                    <div class="dropdown me-2">
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-plus me-2"></i>New</button>
+                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-right">
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
+                                <i class="fa fa-fw fa-life-ring me-2"></i>New Ticket
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/recurring_ticket/recurring_ticket_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
+                                <i class="fa fa-fw fa-recycle me-2"></i>New Recurring Ticket
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <?php if (itflow_modal_allowed('credential/credential_add.php')) { // needs Credentials (includes/modal_permissions.php) ?>
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/credential/credential_add.php?<?= $client_url ?>asset_id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-key me-2"></i>New Credential
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <?php } ?>
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/document/document_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
+                                <i class="fa fa-fw fa-file-alt me-2"></i>New Document
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/file/file_upload.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-upload me-2"></i>Upload file(s)
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-link me-2"></i>Link</button>
+                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-right">
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/asset/asset_link_software.php?id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-cube me-2"></i>License
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <?php if (itflow_modal_allowed('asset/asset_link_credential.php')) { // needs Credentials ?>
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/asset/asset_link_credential.php?id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-key me-2"></i>Credential
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <?php } ?>
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/asset/asset_link_service.php?id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-stream me-2"></i>Service
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/asset/asset_link_document.php?id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-folder me-2"></i>Document
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/asset/asset_link_file.php?id=<?= $asset_id ?>">
+                                <i class="fa fa-fw fa-paperclip me-2"></i>File
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <?php } ?>
+        </div>
 
         <?php if ($rmm_agent_ui !== null) { echo rivetRmmUiStrip($rmm_agent_ui); } ?>
 
+        <div class="asset-devstrip">
         <?php if ($rmm_link): ?>
-        <div class="card card-dark mb-2" style="border-left:5px solid <?= $rmm_border ?>; border-radius:4px;">
+        <div class="card card-dark dev-seg" style="border-left:4px solid <?= $rmm_border ?>;">
             <div class="card-body py-2 px-3">
                 <div class="d-flex align-items-center flex-wrap" style="gap:8px">
-                    <div class="mr-auto">
-                        <strong class="h5 mb-0"><?= nullable_htmlentities($rmm_link['hostname'] ?: $asset_name) ?></strong>
+                    <div class="me-auto">
+                        <span class="dev-seg-label"><i class="fas fa-server me-1"></i><?= nullable_htmlentities($rmm_provider_name) ?></span>
                         <span class="badge <?= $rmm_badge ?> ms-2"><?= ucfirst($rmm_link['rmm_status']) ?></span>
                         <?php if ($rmm_alerts_count > 0): ?>
                             <span class="badge text-bg-danger ms-1"><i class="fas fa-bell me-1"></i><?= $rmm_alerts_count ?> Alert<?= $rmm_alerts_count != 1 ? 's' : '' ?></span>
@@ -461,6 +526,7 @@ if (isset($_GET['asset_id'])) {
             </div>
         </div>
         <?php endif; ?>
+        <?php /* the Intune and MDM segments render next, into the same strip */ ?>
 
         <?php
         // Intune Integration — load cached link data (device-management data
@@ -483,11 +549,11 @@ if (isset($_GET['asset_id'])) {
                 $intune_compliance_label = $intune_link['compliance_state'] ? nullable_htmlentities($intune_link['compliance_state']) : 'Unknown';
             }
         ?>
-        <div class="card card-dark mb-2" style="border-left:5px solid <?= $intune_border ?>; border-radius:4px;">
+        <div class="card card-dark dev-seg" style="border-left:4px solid <?= $intune_border ?>;">
             <div class="card-body py-2 px-3">
                 <div class="d-flex align-items-center flex-wrap" style="gap:8px">
-                    <div class="mr-auto">
-                        <strong class="h5 mb-0"><i class="fab fa-microsoft me-1"></i><?= nullable_htmlentities($intune_link['hostname'] ?: $asset_name) ?></strong>
+                    <div class="me-auto">
+                        <span class="dev-seg-label"><i class="fab fa-microsoft me-1"></i>Microsoft Intune</span>
                         <span class="badge <?= $intune_badge ?> ms-2"><?= $intune_compliance_label ?></span>
                         <?php if (intval($intune_link['is_encrypted'] ?? 0)): ?>
                             <span class="badge text-bg-info ms-1"><i class="fas fa-lock me-1"></i>Encrypted</span>
@@ -560,6 +626,7 @@ if (isset($_GET['asset_id'])) {
         </div>
         <?php endif; ?>
         <?php endif; ?>
+        </div>
 
         <?php
         // ManageEngine MDM: cached device data from the read-only sync (separate from Intune above). Never contacts ManageEngine.
@@ -601,6 +668,22 @@ if (isset($_GET['asset_id'])) {
 
         <style>
             #asset-details-content { font-size: 1.05rem; }
+            #asset-details-content .tab-pane td { overflow-wrap: break-word; min-width: 0; } #asset-details-content .tab-pane code { overflow-wrap: anywhere; }
+            .asset-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+            .asset-topbar .breadcrumb { padding: 0; }
+            .asset-devstrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap: .5rem; }
+            .asset-devstrip:has(.dev-seg) { margin-bottom: .75rem; }
+            .asset-devstrip .dev-seg { margin: 0; border-radius: 4px; }
+            .dev-seg-label { font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--if-muted, #6c757d); }
+            /* one header style for every card on the right: same height, title left, actions right, same button size */
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; min-height: 3rem; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-title { margin: 0; float: none; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools { margin: 0; float: none; display: flex; align-items: center; gap: .35rem; }
+            #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools > .btn, #asset-details-content .asset-main .card > .card-header .card-tools .btn-group > .btn { padding: .2rem .6rem; font-size: .8125rem; white-space: nowrap; }
+            #asset-details-content .asset-side > .card:first-child .card-header .btn.float-end { order: 2; margin-left: auto; float: none !important; }
+            .asset-facts { display: grid; grid-template-columns: max-content 1fr; gap: .5rem .9rem; align-items: baseline; }
+            .asset-facts dt { font-weight: 500; font-size: .8rem; color: var(--if-muted, #6c757d); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+            .asset-facts dd { margin: 0; min-width: 0; overflow-wrap: break-word; font-weight: 600; }
             #asset-details-content .small,
             #asset-details-content small { font-size: 92%; }
             #asset-details-content [style*="font-size:11px"] { font-size: 12px !important; }
@@ -609,7 +692,7 @@ if (isset($_GET['asset_id'])) {
 
         <div class="row" id="asset-details-content">
 
-            <div class="col-md-3">
+            <div class="asset-side col-12 col-lg-4 col-xxl-3">
 
                 <div class="card">
                     <div class="card-header">
@@ -620,9 +703,6 @@ if (isset($_GET['asset_id'])) {
                         <h4 class="text-bold asset-name"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= str_replace('-', "\u{2011}", $asset_name); ?>
                             <?php if ($asset_favorite) { ?><i class="fas fa-fw text-warning fa-star" title="Favorite"></i><?php } ?>
                         </h4>
-                        <?php if ($asset_tag) { ?>
-                            <div class="text-secondary small"><i class="fa fa-fw fa-barcode me-1"></i>Asset Tag: <?= $asset_tag; ?></div>
-                        <?php } ?>
                         <?php if ($asset_photo) { ?>
                             <img class="img-fluid img-circle p-3" alt="asset_photo" src="<?= "../uploads/clients/$client_id/$asset_photo"; ?>">
                         <?php } ?>
@@ -631,34 +711,51 @@ if (isset($_GET['asset_id'])) {
                         <?php } ?>
                     </div>
                     <div class="card-body">
-                        <div class="mb-1">
+                        <div class="d-flex flex-wrap align-items-center mb-3" style="gap:.35rem">
                             <?= $asset_tags_display ?>
                             <a href="#" class="btn btn-xs btn-outline-secondary ajax-modal" data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>" data-modal-tab="pills-notes" title="Manage tags"><i class="fa fa-fw fa-tag me-1"></i>+ Tag</a>
                         </div>
-                        <?php if ($asset_type) { ?>
-                            <div class="mt-1"><i class="fa fa-fw fa-tag text-secondary me-2"></i><?= $asset_type; ?></div>
-                        <?php }
-                        if ($asset_make) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-circle text-secondary me-2"></i><?= (stripos($asset_model, $asset_make) === 0 ? $asset_model : trim("$asset_make $asset_model")); ?></div>
-                        <?php }
-                        if ($asset_os) { ?>
-                            <div class="mt-2"><i class="fab fa-fw fa-windows text-secondary me-2"></i><?= "$asset_os"; ?></div>
-                        <?php }
-                        if ($asset_serial) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-barcode text-secondary me-2"></i><?= $asset_serial; ?></div>
-                        <?php }
-                        if ($asset_pin) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-key text-secondary me-2"></i>PIN: <?= $asset_pin; ?></div>
-                        <?php }
-                        if ($asset_purchase_date) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-shopping-cart text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_purchase_date)); ?></div>
-                        <?php }
-                        if ($asset_install_date) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-calendar-check text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_install_date)); ?></div>
-                        <?php }
-                        if ($asset_warranty_expire) { ?>
-                            <div class="mt-2"><i class="fa fa-fw fa-exclamation-triangle text-secondary me-2"></i><?= date('Y-m-d', strtotime($asset_warranty_expire)); ?></div>
-                        <?php } ?>
+                        <?php
+                        // Labelled facts (the old list was icons only: "2026-03-10" did not say whether it was the purchase, install or warranty date).
+                        $fact_when = static function ($date): array {
+                            $t = strtotime((string) $date);
+                            if (!$t) { return [null, '']; }
+                            $d = (int) floor(($t - strtotime('today')) / 86400);
+                            $span = static function (int $days): string {
+                                $days = abs($days);
+                                if ($days >= 730) { return floor($days / 365) . ' years'; }
+                                if ($days >= 60) { return floor($days / 30) . ' months'; }
+                                return $days . ($days === 1 ? ' day' : ' days');
+                            };
+                            return [$d, $span($d)];
+                        };
+                        $asset_facts = [];
+                        if ($asset_type) { $asset_facts[] = ['Type', 'fa-tag', $asset_type, null]; }
+                        if ($asset_make) { $asset_facts[] = ['Model', 'fa-microchip', (stripos($asset_model, $asset_make) === 0 ? $asset_model : trim("$asset_make $asset_model")), null]; }
+                        if ($asset_os) { $asset_facts[] = ['OS', 'fa-compact-disc', $asset_os, null]; }
+                        if ($asset_serial) { $asset_facts[] = ['Serial', 'fa-barcode', $asset_serial, null]; }
+                        if ($asset_tag) { $asset_facts[] = ['Asset tag', 'fa-hashtag', $asset_tag, null]; }
+                        if ($asset_pin) { $asset_facts[] = ['PIN', 'fa-key', $asset_pin, null]; }
+                        if ($asset_purchase_date) {
+                            [$pd, $pspan] = $fact_when($asset_purchase_date);
+                            $asset_facts[] = ['Purchased', 'fa-shopping-cart', date('Y-m-d', strtotime($asset_purchase_date)), $pd !== null && $pd <= 0 ? [$pspan . ' old', 'muted'] : null];
+                        }
+                        if ($asset_install_date) { $asset_facts[] = ['Installed', 'fa-calendar-check', date('Y-m-d', strtotime($asset_install_date)), null]; }
+                        if ($asset_warranty_expire) {
+                            [$wd, $wspan] = $fact_when($asset_warranty_expire);
+                            $wchip = null;
+                            if ($wd !== null) {
+                                $wchip = $wd < 0 ? ['expired ' . $wspan . ' ago', 'danger'] : ($wd <= 90 ? ['ends in ' . $wspan, 'warning'] : ['covered, ' . $wspan . ' left', 'success']);
+                            }
+                            $asset_facts[] = ['Warranty ends', 'fa-shield-alt', date('Y-m-d', strtotime($asset_warranty_expire)), $wchip];
+                        }
+                        ?>
+                        <dl class="asset-facts mb-0">
+                            <?php foreach ($asset_facts as [$fl, $fi, $fv, $fc]) { ?>
+                                <dt><i class="fa fa-fw <?= $fi ?> me-1" aria-hidden="true"></i><?= $fl ?></dt>
+                                <dd><?= $fv /* already escaped above, or a formatted date */ ?><?php if ($fc) { ?> <span class="badge text-bg-<?= $fc[1] === 'muted' ? 'secondary' : $fc[1] ?><?= $fc[1] === 'warning' ? ' text-dark' : '' ?> ms-1"><?= nullable_htmlentities($fc[0]) ?></span><?php } ?></dd>
+                            <?php } ?>
+                        </dl>
                     </div>
                 </div>
 
@@ -759,70 +856,8 @@ if (isset($_GET['asset_id'])) {
 
             </div>
 
-            <div class="col-md-9">
+            <div class="asset-main col-12 col-lg-8 col-xxl-9">
 
-                <?php if (lookupUserPermission('module_support') >= 1) { // New ticket/credential/document/file and Link: Tickets/assets/docs (P4) ?>
-                <div class="btn-group mb-3">
-                    <div class="dropdown dropleft me-2">
-                        <button type="button" class="btn btn-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-plus me-2"></i>New</button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/ticket/ticket_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
-                                <i class="fa fa-fw fa-life-ring me-2"></i>New Ticket
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/recurring_ticket/recurring_ticket_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
-                                <i class="fa fa-fw fa-recycle me-2"></i>New Recurring Ticket
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <?php if (itflow_modal_allowed('credential/credential_add.php')) { // needs Credentials (includes/modal_permissions.php) ?>
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/credential/credential_add.php?<?= $client_url ?>asset_id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-key me-2"></i>New Credential
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <?php } ?>
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/document/document_add.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>" data-modal-size="lg">
-                                <i class="fa fa-fw fa-file-alt me-2"></i>New Document
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/file/file_upload.php?<?= $client_url ?>&asset_id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-upload me-2"></i>Upload file(s)
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="dropdown dropleft">
-                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-link me-2"></i>Link</button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item text-dark ajax-modal" href="#"
-                                data-modal-url="modals/asset/asset_link_software.php?id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-cube me-2"></i>License
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <?php if (itflow_modal_allowed('asset/asset_link_credential.php')) { // needs Credentials ?>
-                            <a class="dropdown-item text-dark ajax-modal" href="#"
-                                data-modal-url="modals/asset/asset_link_credential.php?id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-key me-2"></i>Credential
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <?php } ?>
-                            <a class="dropdown-item text-dark ajax-modal" href="#"
-                                data-modal-url="modals/asset/asset_link_service.php?id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-stream me-2"></i>Service
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-dark ajax-modal" href="#"
-                                data-modal-url="modals/asset/asset_link_document.php?id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-folder me-2"></i>Document
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-dark ajax-modal" href="#"
-                                data-modal-url="modals/asset/asset_link_file.php?id=<?= $asset_id ?>">
-                                <i class="fa fa-fw fa-paperclip me-2"></i>File
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <?php } ?>
 
                 <?php
                 if ($rmm_agent_ui !== null) {
@@ -1282,10 +1317,10 @@ if (isset($_GET['asset_id'])) {
                         <h3 class="card-title mt-1"><i class="fa fa-fw fa-ethernet me-2"></i>Interfaces</h3>
                         <div class="card-tools">
                             <div class="btn-group">
-                                <button type="button" class="btn btn-tool ajax-modal" data-modal-url="modals/asset/asset_interface_add.php?&asset_id=<?= $asset_id ?>">
+                                <button type="button" class="btn btn-outline-primary ajax-modal" data-modal-url="modals/asset/asset_interface_add.php?&asset_id=<?= $asset_id ?>">
                                     <i class="fas fa-plus me-2"></i>New Interface
                                 </button>
-                                <button type="button" class="btn btn-tool dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                                <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-label="More ways to add interfaces"></button>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#addMultipleAssetInterfacesModal">
                                         <i class="fa fa-fw fa-check-double me-2"></i>Add Multiple

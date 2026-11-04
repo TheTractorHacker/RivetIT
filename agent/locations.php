@@ -252,6 +252,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
             </div>
         </form>
+        <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
         <hr>
         <form id="bulkActions" action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
@@ -421,7 +422,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 -
                                 <?php } ?>
                             </td>
-                            <td>
+                            <td class="text-nowrap">
                                 <?php echo $location_phone_display; ?>
                                 <?php echo $location_fax_display; ?>
                             </td>

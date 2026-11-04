@@ -16,12 +16,14 @@ require_once "includes/inc_all.php";
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
     // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
-    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    flash_alert(portal_no_access_message(__FILE__), 'warning');
     header("Location: index.php");
     exit();
 }
 
 $domains_sql = mysqli_query($mysqli, "SELECT domain_id, domain_name, domain_expire FROM domains WHERE domain_client_id = $session_client_id AND domain_archived_at IS NULL ORDER BY domain_expire ASC");
+$domain_rows = mysqli_fetch_all($domains_sql, MYSQLI_ASSOC);
+$expiry_note = portal_expiry_summary(array_column($domain_rows, 'domain_expire'), 'domain');
 ?>
 
     <div class="row mb-4">
@@ -46,24 +48,21 @@ $domains_sql = mysqli_query($mysqli, "SELECT domain_id, domain_name, domain_expi
                 <tbody>
 
                 <?php
-                if (mysqli_num_rows($domains_sql) == 0) { ?>
+                if (count($domain_rows) == 0) { ?>
                     <tr>
                         <td colspan="2" class="text-center text-muted py-4">No domains found.</td>
                     </tr>
                 <?php }
-                while ($row = mysqli_fetch_assoc($domains_sql)) {
+                foreach ($domain_rows as $row) {
                     $domain_name = nullable_htmlentities($row['domain_name']);
                     $domain_expire = nullable_htmlentities($row['domain_expire']);
 
-                    $expire_class = "";
-                    if ($domain_expire && strtotime($domain_expire) < strtotime('+30 days')) {
-                        $expire_class = "text-danger fw-bold";
-                    }
+                    [$exp_mod, $exp_label] = portal_expiry_state($row['domain_expire']);
                     ?>
 
                     <tr>
                         <td><i class="fas fa-fw fa-globe text-secondary me-2"></i><?php echo $domain_name; ?></td>
-                        <td class="<?php echo $expire_class; ?>"><?php echo $domain_expire; ?></td>
+                        <td><div class="portal-expiry-cell"><span class="portal-expiry-date"><?php echo $domain_expire; ?></span><span class="portal-badge portal-badge--<?php echo $exp_mod; ?>"><?php echo $exp_label; ?></span></div></td>
                     </tr>
 
                 <?php } ?>

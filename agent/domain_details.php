@@ -76,11 +76,11 @@ if (mysqli_num_rows($sql) == 0) {
     if ($days_until_expiry === null) {
         $expire_badge = ['label' => 'No expiry on file', 'class' => 'text-bg-secondary'];
     } elseif ($days_until_expiry <= 0) {
-        $expire_badge = ['label' => 'Expired', 'class' => 'text-bg-secondary'];
+        $expire_badge = ['label' => 'Expired ' . max(1, (int) ceil(abs($days_until_expiry))) . ' day' . (max(1, (int) ceil(abs($days_until_expiry))) === 1 ? '' : 's') . ' ago - renew now', 'class' => 'text-bg-danger'];
     } elseif ($days_until_expiry <= 14) {
         $expire_badge = ['label' => 'Expiring soon', 'class' => 'text-bg-danger'];
     } elseif ($days_until_expiry <= 90) {
-        $expire_badge = ['label' => 'Renew soon', 'class' => 'text-bg-warning'];
+        $expire_badge = ['label' => 'Renews in ' . (int) ceil($days_until_expiry) . ' days', 'class' => 'text-bg-warning'];
     } else {
         $expire_badge = ['label' => 'Active', 'class' => 'text-bg-success'];
     }
@@ -122,7 +122,7 @@ if (mysqli_num_rows($sql) == 0) {
                         <p class="text-secondary mb-3"><?= $domain_description ?></p>
                     <?php } ?>
 
-                    <span class="badge <?= $expire_badge['class'] ?> mb-3"><?= $expire_badge['label'] ?></span>
+                    <span class="badge fs-6 py-2 px-3 <?= $expire_badge['class'] ?> mb-3"><?= $expire_badge['label'] ?></span>
 
                     <table class="table table-sm table-borderless mb-0">
                         <tr>
@@ -216,7 +216,7 @@ if (mysqli_num_rows($sql) == 0) {
                     <h3 class="card-title mt-2"><i class="fa fa-fw fa-search-plus me-2"></i>WHOIS &amp; DNS Records</h3>
                 </div>
                 <div class="card-body">
-                    <?php if (!$domain_registered_at && !$domain_ip && !$domain_name_servers) { ?>
+                    <?php if (!$domain_ip && !$domain_name_servers && !$domain_mail_servers && !$domain_txt) { ?>
                         <p class="text-secondary mb-0">Not refreshed from WHOIS yet - the daily cron picks up one domain per run, so this fills in over time.</p>
                     <?php } else { ?>
                     <table class="table table-sm table-borderless mb-0">

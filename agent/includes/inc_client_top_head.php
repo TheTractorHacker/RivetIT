@@ -377,6 +377,13 @@ $client_header_can_edit_sites = (lookupUserPermission("module_support") >= 1);
                     <span class="fw-medium"><?php echo $num_closed_tickets; ?></span>
                 </div>
             </div>
+            <?php /* Fills the cell to the height of its neighbours with something useful, not blank space. */ ?>
+            <div class="mt-auto pt-2 d-flex gap-2 flex-wrap">
+                <a class="btn btn-sm btn-outline-secondary" href="/agent/tickets.php?client_id=<?php echo intval($client_id); ?>"><i class="fas fa-fw fa-life-ring me-1"></i>View tickets</a>
+                <?php if (lookupUserPermission("module_support") >= 2) { ?>
+                <button type="button" class="btn btn-sm btn-outline-primary ajax-modal" data-modal-url="/agent/modals/ticket/ticket_add_v2.php?client_id=<?php echo intval($client_id); ?>" data-modal-size="lg"><i class="fas fa-fw fa-plus me-1"></i>New ticket</button>
+                <?php } ?>
+            </div>
         </div>
         <?php } ?>
 

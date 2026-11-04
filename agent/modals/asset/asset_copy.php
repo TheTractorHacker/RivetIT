@@ -51,7 +51,7 @@ ob_start();
 
 <div class="modal-header bg-dark">
     <h5 class="modal-title"><i class='fa fa-fw fa-<?php echo $device_icon; ?> me-2'></i>Copying asset: <strong><?php echo $asset_name; ?></strong></h5>
-    <button type="button" class="close text-light" data-bs-dismiss="modal">
+    <button type="button" class="close text-white" data-bs-dismiss="modal">
         <span>&times;</span>
     </button>
 </div>
@@ -470,6 +470,8 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

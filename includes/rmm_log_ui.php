@@ -891,7 +891,7 @@ function rivetRmmLogRulesPage(array $vm): string
         $o .= rivetRmmLogRuleForm($vm);
     }
     if ($vm['rules'] === []) {
-        return $o . rivetRmmUiCard('Rules', 'bullhorn', rivetRmmUiEmpty('fas fa-bullhorn', 'No log rules yet', 'Create a rule to be alerted when a phrase such as &ldquo;disk failure&rdquo; shows up in the logs.', $btn !== '' ? str_replace('btn-sm ', '', $btn) : ''), '', '', false)
+        return $o . rivetRmmUiCard('Rules', 'bullhorn', rivetRmmUiEmpty('fas fa-bullhorn', 'No log rules yet', 'Create a rule to be alerted when a phrase such as “disk failure” shows up in the logs.', $btn !== '' ? str_replace('btn-sm ', '', $btn) : ''), '', '', false)
             . rivetRmmAutoConfirmModal();
     }
     $rows = '';

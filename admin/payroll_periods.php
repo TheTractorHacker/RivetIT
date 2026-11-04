@@ -23,6 +23,8 @@ $suggest_end = date('Y-m-d', strtotime($suggest_start . " +$suggest_days days"))
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-calendar-alt me-2"></i>Pay Periods</h3>
@@ -74,7 +76,7 @@ $suggest_end = date('Y-m-d', strtotime($suggest_start . " +$suggest_days days"))
                     </td>
                     <td class="text-center">
                         <a href="payroll_period.php?id=<?= $p_id ?>" class="btn btn-xs btn-secondary">
-                            <i class="fas fa-arrow-right"></i> Open
+                            <i class="fas fa-fw fa-arrow-right me-1"></i> Open
                         </a>
                     </td>
                 </tr>

@@ -138,17 +138,22 @@ if ($price_quote_print) {
         <?php } ?>
 
         <?php if ($price_quote_can_edit && !$price_quote_archived) { ?>
-        <div class="form-group mb-3" style="max-width: 16rem;">
-            <label>Status</label>
-            <form action="post.php" method="post">
+        <div class="mb-3">
+            <label class="form-label mb-1">Where is this quote?</label>
+            <form action="post.php" method="post" class="d-print-none">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="price_quote_id" value="<?= $price_quote_id ?>">
-                <select class="form-control select2 auto-submit-select" name="status">
-                    <?php foreach ($price_quote_statuses as $status_option) { ?>
-                        <option value="<?= $status_option ?>" <?= $price_quote_status === $status_option ? 'selected' : '' ?>><?= $status_option ?></option>
+                <input type="hidden" name="edit_price_quote_status" value="1">
+                <div class="btn-group" role="group" aria-label="Quote status">
+                    <?php foreach ($price_quote_statuses as $status_option) {
+                        $is_cur = $price_quote_status === $status_option;
+                        $col = $price_quote_status_colors[$status_option] ?? 'secondary'; ?>
+                        <button type="submit" name="status" value="<?= $status_option ?>" class="btn <?= $is_cur ? 'btn-' . $col : 'btn-outline-' . $col ?>" <?= $is_cur ? 'aria-current="true" tabindex="-1" style="pointer-events:none"' : '' ?>>
+                            <?php if ($is_cur) { ?><i class="fas fa-check me-1"></i><?php } ?><?= $status_option ?>
+                        </button>
                     <?php } ?>
-                </select>
-                <button type="submit" name="edit_price_quote_status" class="d-none">Save</button>
+                </div>
+                <div class="form-text">Draft, then Sent once the department has it, then Accepted or Declined.</div>
             </form>
         </div>
         <?php } ?>

@@ -50,15 +50,24 @@ $document_template_updated_at = nullable_htmlentities($row['document_template_up
         <h3 class="card-title mt-1"><i class="fa fa-fw fa-file-alt me-2"></i><?php echo $document_template_name; ?></h3>
 
         <div class="card-tools">
-            <button type="button" class="btn btn-tool ajax-modal"
+            <button type="button" class="btn btn-sm btn-light ajax-modal"
                 data-modal-size="xl"
                 data-modal-url="modals/document_template/document_template_edit.php?id=<?= $document_template_id ?>">
-                <i class="fas fa-edit me-2"></i>
+                <i class="fas fa-fw fa-edit me-1"></i>Edit template
             </button>
         </div>
     </div>
-    <div class="card-body prettyContent">
-        <?php echo $document_template_content; ?>
+    <div class="card-body">
+        <?php if ($document_template_description) { ?><p class="text-muted"><?php echo $document_template_description; ?></p><?php } ?>
+        <?php if (trim(strip_tags((string) $row['document_template_content'], '<img>')) !== '') { ?>
+            <div class="prettyContent"><?php echo $document_template_content; ?></div>
+        <?php } else { ?>
+            <div class="border border-dashed rounded p-4 text-center text-muted">
+                <i class="fas fa-fw fa-file-alt fa-2x mb-2"></i>
+                <div class="mb-2">This template has no content yet. Documents created from it will start blank.</div>
+                <button type="button" class="btn btn-sm btn-primary ajax-modal" data-modal-size="xl" data-modal-url="modals/document_template/document_template_edit.php?id=<?= $document_template_id ?>"><i class="fas fa-fw fa-edit me-1"></i>Write the content</button>
+            </div>
+        <?php } ?>
     </div>
 </div>
 

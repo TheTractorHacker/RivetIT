@@ -61,7 +61,7 @@ render_page_header(
                         <input type="search" class="form-control" id="tr-setup-q" placeholder="Name, serial or asset tag" autocomplete="off" maxlength="80">
                     </div>
                     <div class="form-hint mb-2">Tablets, phones, laptops and desktops that are not archived.</div>
-                    <div class="list-group list-group-flush border rounded tr-setup-assets" id="tr-setup-assets" role="listbox" aria-label="Assets"></div>
+                    <div class="list-group list-group-flush border rounded tr-setup-assets" id="tr-setup-assets" style="max-height: 340px; overflow-y: auto;" role="listbox" aria-label="Assets"></div>
                 </div>
                 <div id="tr-setup-unlisted-pane"<?= $tr_can_assets ? ' hidden' : '' ?>>
                     <p class="mb-2">For a device you don't keep in Assets, like a trainer's laptop or a borrowed iPad. You only give it a name.</p>

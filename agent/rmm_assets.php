@@ -233,12 +233,12 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 </td>
                 <td class="text-end pe-2">
                     <div class="btn-group">
-                        <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" data-bs-toggle="tooltip" title="View Asset">
-                            <i class="fas fa-tachometer-alt"></i>
+                        <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" title="Open this asset">
+                            <i class="fas fa-arrow-right me-1" aria-hidden="true"></i>Open
                         </a>
                         <?php if ($can_rmm_remote_connect && !empty($row['tactical_agent_id'])): ?>
-                            <button type="button" class="btn btn-success btn-xs" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="tactical" title="Remote Connect">
-                                <i class="fas fa-desktop"></i>
+                            <button type="button" class="btn btn-success btn-xs" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="tactical" title="Remote connect">
+                                <i class="fas fa-desktop me-1" aria-hidden="true"></i>Connect
                             </button>
                             <?php if (!empty($row['mesh_node_id'])): ?>
                             <button type="button" class="btn btn-success btn-xs dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-boundary="window"></button>

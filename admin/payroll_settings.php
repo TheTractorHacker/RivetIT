@@ -10,6 +10,8 @@ $pay_frequency_array = array(
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-3">
         <h3 class="card-title"><i class="fas fa-fw fa-sliders-h me-2"></i>Payroll Settings</h3>

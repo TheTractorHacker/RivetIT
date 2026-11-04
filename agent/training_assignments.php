@@ -35,6 +35,14 @@ $tr_filters = [
     'q' => tro_get_str('q', 100),
     'page' => tro_get_id('page') ?? 1,
 ];
+// Smarter default for a manager: with no explicit filter, open on what is overdue (if anything is)
+// instead of the whole open pile.
+if ($tr_tab === 'assignments' && !isset($_GET['status']) && $tr_filters['status'] === 'open') {
+    $tr_probe = tro_action($mysqli, 'assignment_list', array_filter(['status' => 'overdue', 'client_id' => $tr_filters['client_id'], 'course_id' => $tr_filters['course_id'], 'contact_id' => $tr_filters['contact_id'], 'requirement_id' => $tr_filters['requirement_id'], 'q' => $tr_filters['q']], static fn($v) => $v !== null));
+    if (($tr_probe['state'] ?? '') === 'ok' && (int) ($tr_probe['data']['total'] ?? 0) > 0) {
+        $tr_filters['status'] = 'overdue';
+    }
+}
 $tr_rule_view = tro_get_enum('view', ['active', 'archived', 'manual'], 'active');
 
 $tr_params = array_filter($tr_filters, static fn($v) => $v !== null);

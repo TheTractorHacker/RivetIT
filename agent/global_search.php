@@ -936,7 +936,36 @@ if (isset($_GET['query'])) {
             <p class="mb-1"><strong>No results for &ldquo;<?php echo $q; ?>&rdquo;</strong></p>
             <p class="small mb-0">Check the spelling, try fewer or different words, or search by a ticket number, asset name or contact.</p>
         </div>
-    <?php } else { echo $gs_results_html; } ?>
+    <?php } else { echo $gs_results_html; ?>
+    <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+        /* Result cards pack into two balanced columns, so a long Ticket Replies list no longer leaves a blank hole beside short cards. */
+        .gs-masonry { display: block !important; column-count: 2; column-gap: 1rem; margin: 0; }
+        .gs-masonry > [class*="col-"] { width: 100%; max-width: none; padding: 0; break-inside: avoid; display: inline-block; }
+        @media (max-width: 991px) { .gs-masonry { column-count: 1; } }
+        .gs-jump a { text-decoration: none; }
+        .gs-masonry td { overflow-wrap: normal !important; }
+        .gs-jump .badge { font-weight: 600; }
+    </style>
+    <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    // "Jump to" chips: one per result group with its hit count, so a search that returns six kinds of things is navigable at a glance.
+    (function () {
+        var row = document.querySelector('.card-body > .row'); if (!row) { return; }
+        row.classList.add('gs-masonry');
+        var cols = row.querySelectorAll(':scope > [class*="col-"]'), bar = document.createElement('div');
+        bar.className = 'gs-jump d-flex flex-wrap gap-2 mb-3'; bar.setAttribute('aria-label', 'Jump to a result group');
+        cols.forEach(function (col, i) {
+            var title = col.querySelector('.card-title'); if (!title) { return; }
+            col.id = 'gs-group-' + i;
+            var n = col.querySelectorAll('tbody tr').length || col.querySelectorAll('.card .card, .card-body > a, li').length;
+            var a = document.createElement('a'); a.href = '#gs-group-' + i; a.className = 'btn btn-sm btn-outline-secondary';
+            a.appendChild(document.createTextNode(title.textContent.trim() + ' '));
+            if (n) { var b = document.createElement('span'); b.className = 'badge text-bg-secondary ms-1'; b.textContent = n; a.appendChild(b); }
+            bar.appendChild(a);
+        });
+        if (bar.children.length > 1) { row.parentNode.insertBefore(bar, row); }
+    })();
+    </script>
+    <?php } ?>
 
 </div>
 

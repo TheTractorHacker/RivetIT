@@ -20,6 +20,7 @@ require_once "includes/inc_all_admin.php";
                     <input type="checkbox" class="form-check-input" name="config_module_enable_itdoc" <?php if ($config_module_enable_itdoc == 1) { echo "checked"; } ?> value="1" id="customSwitch1">
                     <label class="form-check-label" for="customSwitch1">Show IT Documentation</label>
                 </div>
+                <small class="form-text text-muted">Passwords, assets, networks, documents and the other IT documentation sections in the agent menu.</small>
             </div>
 
             <div class="form-group">
@@ -27,6 +28,7 @@ require_once "includes/inc_all_admin.php";
                     <input type="checkbox" class="form-check-input" name="config_module_enable_ticketing" <?php if ($config_module_enable_ticketing == 1) { echo "checked"; } ?> value="1" id="customSwitch2">
                     <label class="form-check-label" for="customSwitch2">Show Ticketing</label>
                 </div>
+                <small class="form-text text-muted">Tickets, the ticket board and everything that depends on them. Hiding it does not delete any tickets.</small>
             </div>
 
             <div class="form-group">

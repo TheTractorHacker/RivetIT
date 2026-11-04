@@ -84,6 +84,15 @@ $post_button = static function (string $action, string $widget, string $label, s
 };
 ?>
 <style nonce="<?php echo $csp_nonce; ?>">
+    /* Reading mode packs the widgets into a dense 12-column grid so a short card never leaves a hole beside it
+       (the old row layout left half-empty bands). Customise mode keeps the plain DOM-order row so drag-reorder stays predictable. */
+    @media (min-width: 1200px) {
+        #dash-widgets.dash-dense { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 1rem; margin: 0; --bs-gutter-x: 0; }
+        #dash-widgets.dash-dense > [data-widget] { width: auto; max-width: none; padding: 0; margin: 0; }
+        #dash-widgets.dash-dense > .col-xl-4 { grid-column: span 4; }
+        #dash-widgets.dash-dense > .col-xl-6 { grid-column: span 6; }
+        #dash-widgets.dash-dense > .col-xl-12 { grid-column: span 12; }
+    }
     .dash-drag { cursor: grab; }
     .dash-drag:active { cursor: grabbing; }
     #dash-widgets .sortable-ghost { opacity: .4; }
@@ -205,7 +214,7 @@ $post_button = static function (string $action, string $widget, string $label, s
     </div></div>
 <?php } ?>
 
-<div class="row g-3" id="dash-widgets" data-csrf="<?php echo $csrf; ?>">
+<div class="row g-3<?php echo $customise ? '' : ' dash-dense'; ?>" id="dash-widgets" data-csrf="<?php echo $csrf; ?>">
 <?php foreach ($layout as $i => $entry) {
     $wid = $entry['id'];
     $def = $defs[$wid];

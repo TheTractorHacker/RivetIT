@@ -595,8 +595,8 @@ function rivetRmmScrLibraryPage(array $vm, array $ctx): string
         $filtered = $f['q'] !== '' || $f['language'] !== '' || $f['tag'] !== '';
 
         return $o . rivetRmmUiCard('Scripts', 'file-code', rivetRmmUiEmpty('fas fa-file-code', $filtered ? 'No script matches' : 'No scripts yet',
-            $filtered ? 'Try another search, or include retired scripts.' : ($perm['run_script'] ? 'Publish the first script to run it on devices.' : 'An administrator or a technician with script rights can publish scripts here.'),
-            $perm['run_script'] && !$filtered ? '<a class="btn btn-primary" href="' . $self . '?new=1">New script</a>' : ''), '', '', true);
+            $filtered ? 'Try another search, or include retired scripts.' : ($perm['run_script'] ? 'Start with the signed, ready-made starter pack (Windows and Linux, read-only checks first), or publish your own.' : 'An administrator or a technician with script rights can publish scripts here.'),
+            $perm['run_script'] && !$filtered ? '<a class="btn btn-primary" href="/agent/rmm_starter_pack.php"><i class="fas fa-box-open me-1" aria-hidden="true"></i>Install the starter pack</a> <a class="btn btn-outline-secondary" href="' . $self . '?new=1">Write a script</a>' : ''), '', '', true);
     }
     $rows = '';
     $waiting = rivetRmmStarterWaiting($ctx, $vm['items']);   // administrators only, and only when the page holds a starter script
@@ -1123,7 +1123,7 @@ function rivetRmmScrSchedulesPage(array $vm, array $ctx): string
     }
     if ($vm['items'] === []) {
         return $o . rivetRmmUiCard('Schedules', 'clock', rivetRmmUiEmpty('fas fa-clock', 'No schedules yet', $perm['admin'] ? 'Create one to run a library script on a timetable.' : 'An administrator can create schedules.',
-            $perm['admin'] ? '<a class="btn btn-primary" href="' . $self . '?new=1">New schedule</a>' : ''), '', '', true);
+            $perm['admin'] ? '<a class="btn btn-primary" href="' . $self . '?new=1">New schedule</a> <a class="btn btn-outline-secondary" href="/agent/rmm_script_library.php">Browse the script library</a>' : ''), '', '', true);
     }
     $rows = '';
     foreach ($vm['items'] as $s) {
@@ -1398,8 +1398,7 @@ function rivetRmmScrApprovalsPage(array $vm, array $ctx): string
     $csrf = $ctx['csrf'];
     $self = '/agent/rmm_approvals.php';
     $badge = $vm['pending'] > 0 ? ' <span class="badge text-bg-warning ms-2" id="approvals-pending-count"><span class="visually-hidden">Pending requests: </span>' . (int) $vm['pending'] . '</span>' : '';
-    $o = '<div class="d-flex align-items-center flex-wrap mb-3" style="gap:6px"><h4 class="mb-0 me-auto"><i class="fas fa-user-check me-2" aria-hidden="true"></i>Approvals' . $badge . '</h4></div>'
-        . '<p class="text-muted small mb-3">A run on many devices, or of a script that needs approval, waits here until a second person approves it. Nobody can approve their own request. A request that nobody decides expires on its own.</p>';
+    $o = str_replace('</h1>', $badge . '</h1>', rivetRmmAutoHeader('Approvals', 'user-check', '', 'A run on many devices, or of a script that needs approval, waits here until a second person approves it. Nobody can approve their own request. A request that nobody decides expires on its own.'));
     $words = ['pending_approval' => 'Waiting', 'approved' => 'Approved', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'all' => 'All'];
     $o .= '<form method="get" action="' . $self . '" class="card card-dark mb-3"><div class="card-body"><div class="row g-2 align-items-end"><div class="col-md-3"><label class="form-label" for="apr_state">State</label><select class="form-select" id="apr_state" name="state">';
     foreach ($words as $k => $w) {

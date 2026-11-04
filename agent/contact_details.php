@@ -254,9 +254,9 @@ if (isset($_GET['contact_id'])) {
 
             <div class="card card-dark">
                 <div class="card-body">
-                    <button type="button" class="btn btn-default float-end ajax-modal"
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end ajax-modal" aria-label="Edit contact"
                         data-modal-url="modals/contact/contact_edit.php?id=<?= $contact_id ?>">
-                        <i class="fas fa-fw fa-user-edit"></i>
+                        <i class="fas fa-fw fa-user-edit me-1"></i>Edit
                     </button>
                     <h3 class="text-bold"><?php echo $contact_name; ?></h3>
                     <?php if ($contact_title) { ?>

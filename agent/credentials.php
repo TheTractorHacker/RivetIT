@@ -490,12 +490,14 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <?php } ?>
         <?php } ?>
 
+        <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
         <hr class="mt-3">
         <form id="bulkActions" action="post.php" method="post">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
             <div class="table-responsive">
-                <table class="table table-striped table-borderless table-hover">
+                <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.cred-compact th,.cred-compact td{padding-left:.5rem !important;padding-right:.5rem !important}.cred-compact .checkbox-column{padding-left:.75rem !important}.cred-compact .cred-btn{padding-left:.2rem !important;padding-right:.2rem !important}</style>
+                <table class="table table-striped table-borderless table-hover cred-compact">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                         <tr>
                             <td class="bg-light checkbox-column">
@@ -540,7 +542,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             if (empty($credential_uri)) {
                                 $credential_uri_display = "-";
                             } else {
-                                $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,40) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
+                                $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,20) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
                             }
                             $credential_uri_2 = sanitize_url($row['credential_uri_2']);
                             // Nothing is decrypted into this page. Username and password are drawn masked; the eye and copy buttons fetch
@@ -548,7 +550,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $credential_has_username = !empty($row['credential_username']);
                             $credential_has_password = !empty($row['credential_password']);
                             $credential_username_display = $credential_has_username
-                                ? "<span class='cred-cell'><span class='cred-mask js-cred-value' data-masked='1'>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>"
+                                ? "<span class='cred-cell'><span class='cred-mask js-cred-value' data-masked='1'>&bull;&bull;&bull;&bull;&bull;&bull;</span>"
                                     . "<button class='btn btn-sm cred-btn js-cred-reveal' type='button' title='Show username' aria-label='Show username' data-credential-id='$credential_id' data-field='username'><i class='far fa-eye'></i></button>"
                                     . "<button class='btn btn-sm cred-btn js-cred-copy' type='button' title='Copy username' aria-label='Copy username' data-credential-id='$credential_id' data-field='username'><i class='far fa-copy'></i></button></span>"
                                 : "-";
@@ -644,7 +646,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <input class="form-check-input bulk-select" type="checkbox" name="credential_ids[]" value="<?php echo $credential_id ?>">
                                     </div>
                                 </td>
-                                <td style="min-width:16rem;">
+                                <td style="min-width:10rem;">
                                 <a class="cred-name-link ajax-modal" href="#" data-modal-url="modals/credential/credential_view.php?id=<?= $credential_id ?>">
                                     <span class="cred-icon"><i class="fa fa-fw fa-lg fa-key"></i></span>
                                     <span class="cred-name-body">
@@ -662,7 +664,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td class="text-nowrap">
                                     <?php if ($credential_has_password) { ?>
                                     <span class="cred-cell">
-                                        <span class="cred-mask js-cred-value" data-masked="1">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+                                        <span class="cred-mask js-cred-value" data-masked="1">&bull;&bull;&bull;&bull;&bull;&bull;</span>
                                         <button class="btn btn-sm cred-btn js-cred-reveal" type="button" title="Show password" aria-label="Show password" data-credential-id="<?php echo $credential_id; ?>" data-field="password"><i class="far fa-eye"></i></button>
                                         <button class="btn btn-sm cred-btn js-cred-copy" type="button" title="Copy password" aria-label="Copy password" data-credential-id="<?php echo $credential_id; ?>" data-field="password"><i class="far fa-copy"></i></button>
                                     </span>

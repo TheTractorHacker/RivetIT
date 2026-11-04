@@ -69,7 +69,9 @@ ob_start();
 
                 <?php } ?>
 
-                <div class="form-group">
+
+                <div class="row">
+                <div class="form-group col-md-4">
                     <label>Type</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -81,8 +83,7 @@ ob_start();
                         </select>
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group col-md-8">
                     <label>Name <strong class="text-danger">*</strong> / <span class="text-secondary">Important?</span></label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -97,6 +98,7 @@ ob_start();
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
 
                 <div class="form-group">
@@ -134,8 +136,13 @@ ob_start();
                         </div>
                     </div>
                 </div>
+                <div class="form-group mt-n2 js-pw-strength" aria-live="polite">
+                    <div class="progress" style="height:4px"><div class="progress-bar" role="progressbar" style="width:0"></div></div>
+                    <small class="form-text text-muted js-pw-strength-text">Type or generate a password to see its strength.</small>
+                </div>
 
-                <div class="form-group">
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label>Rotation Due</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -143,9 +150,14 @@ ob_start();
                         </div>
                         <input type="date" class="form-control" name="rotation_due_at" max="2999-12-31">
                     </div>
+                    <div class="mt-1" role="group" aria-label="Quick rotation dates">
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-rot" data-days="90">+90 days</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-rot" data-days="180">+180 days</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary js-rot" data-days="365">+1 year</button>
+                        <button type="button" class="btn btn-sm btn-link js-rot" data-days="0">Clear</button>
+                    </div>
                 </div>
-
-                <div class="form-group js-credential-otp-group">
+                <div class="form-group col-md-6 js-credential-otp-group">
                     <label>TOTP Seed</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -157,8 +169,11 @@ ob_start();
                         </div>
                     </div>
                 </div>
+                </div>
 
-                <div class="form-group">
+
+                <div class="row">
+                <div class="form-group col-md-6">
                     <label class="js-credential-uri-label">URI</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -167,8 +182,7 @@ ob_start();
                         <input type="text" class="form-control" name="uri" placeholder="http://192.168.1.1" maxlength="500">
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group col-md-6">
                     <label class="js-credential-uri2-label">URI 2</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
@@ -177,6 +191,8 @@ ob_start();
                         <input type="text" class="form-control" name="uri_2" placeholder="https://server.company.com:5001" maxlength="500">
                     </div>
                 </div>
+                </div>
+
 
             </div>
 
@@ -286,8 +302,43 @@ ob_start();
     </div>
 </form>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+    (function () {
+        
+        var modal = document.currentScript.closest('.modal') || document;
+        var pw = modal.querySelector('input[name="password"]');
+        var bar = modal.querySelector('.js-pw-strength .progress-bar');
+        var txt = modal.querySelector('.js-pw-strength-text');
+        function rate() {
+            var v = pw.value, n = 0;
+            if (!v) { bar.style.width = '0'; txt.textContent = 'Type or generate a password to see its strength.'; return; }
+            if (v.length >= 8) n++; if (v.length >= 12) n++; if (v.length >= 16) n++;
+            if (/[a-z]/.test(v) && /[A-Z]/.test(v)) n++;
+            if (/\d/.test(v)) n++; if (/[^A-Za-z0-9]/.test(v)) n++;
+            var lvl = n <= 2 ? 0 : n <= 4 ? 1 : 2;
+            var names = ['Weak', 'Fair', 'Strong'], cls = ['bg-danger', 'bg-warning', 'bg-success'];
+            bar.className = 'progress-bar ' + cls[lvl];
+            bar.style.width = (33 + lvl * 33) + '%';
+            txt.textContent = names[lvl] + ' (' + v.length + ' characters)';
+        }
+        if (pw && bar) {
+            pw.addEventListener('input', rate);
+            modal.querySelectorAll('.generatePasswordBtn').forEach(function (b) { b.addEventListener('click', function () { setTimeout(function () { pw.dispatchEvent(new Event('input', { bubbles: true })); }, 50); }); });
+        }
+        modal.querySelectorAll('.js-rot').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var inp = modal.querySelector('input[name="rotation_due_at"]'), d = parseInt(b.dataset.days, 10);
+                if (!d) { inp.value = ''; return; }
+                var t = new Date(); t.setDate(t.getDate() + d);
+                inp.value = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+            });
+        });
+    })();
+</script>
 <script src="/agent/js/generate_password.js"></script>
 <script src="/agent/js/credential_type_toggle.js"></script>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 

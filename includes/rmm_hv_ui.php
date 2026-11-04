@@ -96,7 +96,7 @@ function rivetRmmHvHostsPage(array $vm, array $ctx): string
     $o .= rmmxKpiGrid([
         ['icon' => 'fa-server', 'label' => 'Hosts', 'value' => (int) $s['hosts'], 'sub' => count($clusters) . ' cluster' . (count($clusters) === 1 ? '' : 's') . ', ' . ((int) $s['hosts'] - array_sum(array_map(static fn ($x) => !empty($x['cluster']['name']) ? 1 : 0, $hosts))) . ' standalone', 'tone' => 'info', 'href' => $qs([]), 'title' => 'Show every host'],
         ['icon' => 'fa-cubes', 'label' => 'Virtual machines', 'value' => (int) $s['vms'], 'sub' => (int) $s['running'] . ' running, ' . $stopped . ' stopped', 'tone' => 'neutral', 'title' => 'All VMs on the hosts below'],
-        ['icon' => 'fa-play-circle', 'label' => 'Running', 'value' => (int) $s['running'], 'sub' => (int) $s['vms'] > 0 ? round(100 * (int) $s['running'] / max(1, (int) $s['vms'])) . '% of VMs' : '', 'tone' => 'ok', 'title' => 'VMs currently running'],
+        ['icon' => 'fa-play-circle', 'label' => 'Running', 'value' => (int) $s['running'], 'sub' => (int) $s['vms'] > 0 ? round(100 * (int) $s['running'] / max(1, (int) $s['vms'])) . '% of VMs' : 'no VMs reported yet', 'tone' => 'ok', 'title' => 'VMs currently running'],
         ['icon' => 'fa-exclamation-triangle', 'label' => 'Hosts with problems', 'value' => $withProblems, 'sub' => 'Stale report, error or unhealthy storage', 'tone' => 'warn', 'href' => $qs(['problems' => 1]), 'active' => ($_GET['problems'] ?? '') === '1', 'title' => 'Show only hosts with a problem'],
         ['icon' => 'fa-eye-slash', 'label' => 'Ignored', 'value' => (int) $s['ignored'], 'sub' => 'Hidden from alerts', 'tone' => 'neutral', 'title' => 'Hosts an administrator chose to ignore'],
     ]);

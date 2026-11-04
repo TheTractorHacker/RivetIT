@@ -133,7 +133,7 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
           if (first && first.offsetParent !== null && !first.closest('.ts-wrapper, .select2-container, .tox')) { first.focus({ preventScroll: true }); }
         }
         const dlg = modalEl.querySelector('.modal-dialog');
-        if (dlg && !dlg.classList.contains('modal-fullscreen') && dlg.offsetHeight > window.innerHeight - 16 &&
+        if (dlg && !dlg.classList.contains('modal-fullscreen') && dlg.offsetHeight > window.innerHeight - 60 &&
             modalEl.querySelector('.modal-content > .modal-body, .modal-content > form > .modal-body')) {
           dlg.classList.add('modal-dialog-scrollable');
         }
