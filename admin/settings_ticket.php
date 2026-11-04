@@ -30,6 +30,7 @@ require_once "includes/inc_all_admin.php";
                     </div>
                 </div>
 
+                <h6 class="tset-sec text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Numbering &amp; intake</h6>
                 <div class="form-group">
                     <label>Ticket Prefix</label>
                     <div class="input-group">
@@ -80,6 +81,8 @@ require_once "includes/inc_all_admin.php";
                     </div>
                 </div>
 
+                <hr>
+                <h6 class="tset-sec text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Defaults for new tickets</h6>
                 <div class="form-group">
                     <label>Default Ticket Assignee <small class="text-secondary">(every new ticket that isn't otherwise assigned - by a form field, a recurring ticket's own setting, an automation rule, etc. - is automatically assigned to this technician instead of being left unassigned)</small></label>
                     <div class="input-group">
@@ -136,7 +139,7 @@ require_once "includes/inc_all_admin.php";
                 </div>
 
                 <hr>
-                <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Reporting</h6>
+                <h6 class="tset-sec text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Reporting</h6>
 
                 <div class="form-group">
                     <div class="form-check form-check form-switch">
@@ -150,7 +153,7 @@ require_once "includes/inc_all_admin.php";
                 </div>
 
                 <hr>
-                <h6 class="text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Customer Satisfaction (CSAT)</h6>
+                <h6 class="tset-sec text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Customer Satisfaction (CSAT)</h6>
 
                 <div class="form-group">
                     <div class="form-check form-check form-switch">
@@ -188,6 +191,8 @@ require_once "includes/inc_all_admin.php";
                     </div>
                 </div>
                 
+                <hr>
+                <h6 class="tset-sec text-muted text-uppercase mb-2" style="font-size:.72rem; letter-spacing:.06em;">Views &amp; Kanban</h6>
                 <div class="form-group">
                     <label>Tickets Default View</label>
                     <div class="input-group">
@@ -222,5 +227,7 @@ require_once "includes/inc_all_admin.php";
     </div>
 
 <?php
+$page_index_selector = 'h6.tset-sec';
+require __DIR__ . '/includes/page_index.php';
 require_once "../includes/footer.php";
 
