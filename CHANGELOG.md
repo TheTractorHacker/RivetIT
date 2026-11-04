@@ -6,6 +6,14 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.82] - 2026-11-03
+
+- **Every-page UI pass.** Fixes and one user-facing improvement per area: collapsible Ticket Views rail, "Their other tickets" on the ticket page, similar-ticket hints in New Ticket, hidden-tab validation that opens the offending tab (about 95 dialogs), Health column on Departments and expiry chips on domains/certificates/software, project health chips, quote status pipeline, answer-first headlines on 12 reports, a device-status band on the asset page, training overdue banner and compliance matrix, admin jump bars on long settings pages (one shared look), grouped Ticket settings, status badges for SSO/mail/identity, retry-all on the job queue, and a 24-hour health banner on webhook deliveries.
+- **Command palette.** Ctrl/Cmd+K jumps to any page or record (RivetCore rc.58).
+- **Portal.** "How can we help?" box suggests knowledge-base articles and catalog requests before a ticket is raised; clearer no-access banner, ticket-detail summary, status tabs; tables stack as cards on phones.
+- **Fixes.** Table badges and buttons no longer break mid-word, mailbox and credentials tables fit at 1366 wide, readable amber text, org chart Location column, panel_deploy 500 without a department.
+- Requires RivetCore 1.0.0-rc.58 (CSS/JS only; no migration).
+
 ## [26.10.81] - 2026-11-02
 
 Integration release of the issue #30-#36, #43, #52 / #55 work, #37 (docs) and #29 (docs and tests). **Database 2.6.211 to 2.6.231** (21 additive, idempotent steps; take a database dump first, then Administration > Update > Update Database, or `php scripts/update_cli.php --update_db`). Nothing risky is switched on by this release; several parts are verified against local mocks only and are marked UNVERIFIED LIVE.
