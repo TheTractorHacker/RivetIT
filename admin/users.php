@@ -174,7 +174,8 @@ require "includes/users_toggle.php";
                         $log_user_agent = nullable_htmlentities($row['log_user_agent']);
                         $log_user_os = getOS($log_user_agent);
                         $log_user_browser = getWebBrowser($log_user_agent);
-                        $last_login = "$log_created_at<small class='text-secondary'><div class='mt-1'>$log_user_os</div><div class='mt-1'>$log_user_browser</div><div class='mt-1'><i class='fa fa-fw fa-globe'></i> $log_ip</div></small>";
+                        $log_os_browser = trim(implode(' / ', array_filter([$log_user_os, $log_user_browser], function ($v) { $v = trim(strip_tags((string) $v)); return $v !== '' && $v !== '-'; })));
+                        $last_login = "$log_created_at<small class='text-secondary'>" . ($log_os_browser !== '' ? "<div class='mt-1'>$log_os_browser</div>" : '') . "<div class='mt-1'><i class='fa fa-fw fa-globe'></i> $log_ip</div></small>";
                     }
 
                     // Get User Client Access Permissions

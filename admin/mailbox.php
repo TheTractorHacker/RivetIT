@@ -156,11 +156,11 @@ $mb_ago = function ($secs): string {
                         <?php } ?>
                     </td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" title="Edit mailbox" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
+                        <a href="#" title="Edit mailbox" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
                             <i class="fas fa-fw fa-edit"></i><span class="visually-hidden">Edit</span>
                         </a>
                         <a href="post.php?delete_mailbox=<?= $mb_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1">
+                           title="Delete mailbox" class="btn btn-sm btn-danger confirm-link ms-1">
                             <i class="fas fa-fw fa-trash"></i><span class="visually-hidden">Delete</span>
                         </a>
                     </td>
@@ -199,8 +199,8 @@ $quarantine_sql = mysqli_query($mysqli, "SELECT s.*, m.mailbox_name, m.mailbox_e
                         <td class="small"><?= nullable_htmlentities(mb_strimwidth((string) $qrow['intake_last_error'], 0, 140, '...')) ?></td>
                         <td><?= nullable_htmlentities($qrow['intake_quarantined_at']) ?></td>
                         <td class="text-center" style="white-space:nowrap;">
-                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-xs btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-fw fa-redo me-1"></i> Reset</a>
-                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1"><i class="fas fa-fw fa-times me-1"></i> Dismiss</a>
+                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-fw fa-redo me-1"></i> Reset</a>
+                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Delete mailbox" class="btn btn-sm btn-danger confirm-link ms-1"><i class="fas fa-fw fa-times me-1"></i> Dismiss</a>
                         </td>
                     </tr>
                 <?php } ?>

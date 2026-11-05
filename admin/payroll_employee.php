@@ -102,7 +102,7 @@ $deductions_sql = mysqli_query(
                     <td>$<?= number_format($amount, 2) ?></td>
                     <td class="text-center">
                         <a href="post.php?remove_payroll_employee_deduction=<?= $ed_id ?>&user_id=<?= $user_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link">
+                           class="btn btn-sm btn-danger confirm-link">
                             <i class="fas fa-fw fa-trash me-1"></i> Remove
                         </a>
                     </td>
