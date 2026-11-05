@@ -96,7 +96,7 @@ if (isset($_GET['delete_project_template'])) {
 
     $project_template_id = intval($_GET['delete_project_template']);
 
-    $project_template_name = sanitizeInput(getFieldById('project_templates', $project_template_id, 'project_template_name'));
+    $project_template_name = getFieldById('project_templates', $project_template_id, 'project_template_name');
 
     mysqli_query($mysqli, "DELETE FROM project_templates WHERE project_template_id = $project_template_id");
 
