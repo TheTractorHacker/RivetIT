@@ -2,7 +2,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-dark">
-                <h5 class="modal-title"><i class="fa fa-fw fa-th-list me-2"></i>Create <?php echo nullable_htmlentities($table); ?> field</h5>
+                <h5 class="modal-title"><i class="fa fa-fw fa-th-list me-2"></i>Create <?php echo $table === 'clients' ? 'department' : ($table === 'client_assets' ? 'asset' : nullable_htmlentities($table)); ?> field</h5>
                 <button type="button" class="close text-white" data-bs-dismiss="modal">
                     <span>&times;</span>
                 </button>

@@ -33,7 +33,7 @@ $pay_frequency_array = array(
                         <span class="input-group-text"><i class="fa fa-fw fa-business-time"></i></span>
                     </div>
                     <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}"
-                        name="overtime_threshold_hours"
+                        name="overtime_threshold_hours" title="Hours between 1 and 168, up to two decimals (e.g. 40 or 37.5)"
                         value="<?php echo number_format($config_payroll_overtime_threshold_hours, 2, '.', ''); ?>"
                         placeholder="40.00" required>
                 </div>
@@ -47,7 +47,7 @@ $pay_frequency_array = array(
                         <span class="input-group-text"><i class="fa fa-fw fa-times"></i></span>
                     </div>
                     <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}"
-                        name="overtime_multiplier"
+                        name="overtime_multiplier" title="A number between 1 and 10, up to two decimals (e.g. 1.5)"
                         value="<?php echo number_format($config_payroll_overtime_multiplier, 2, '.', ''); ?>"
                         placeholder="1.50" required>
                 </div>

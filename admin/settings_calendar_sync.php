@@ -63,7 +63,7 @@ $configured   = !empty($config_outlook_cal_client_id) && !empty($config_outlook_
                 </div>
             </div>
 
-            <button type="submit" name="save_outlook_cal_settings" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Credentials</button>
+            <button type="submit" name="save_outlook_cal_settings" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Credentials</button>
             <?php if ($configured) { ?>
             <a href="post.php?clear_outlook_cal_settings=1&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-danger ms-2 confirm-link"><i class="fas fa-trash me-1"></i>Clear</a>
             <?php } ?>

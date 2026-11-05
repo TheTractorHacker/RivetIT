@@ -57,7 +57,7 @@ if (isset($_POST['add_service_catalog_item'])) {
 
     logAction("Service Catalog", "Create", "$session_name created catalog item $name", 0, $catalog_item_id);
 
-    flash_alert("Catalog item <strong>$name</strong> created");
+    flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
 
     redirect();
 
@@ -114,7 +114,7 @@ if (isset($_POST['edit_service_catalog_item'])) {
     if ($condition_errors) {
         // Conditions must point at an existing, earlier question; nothing about the form is saved until that is fixed.
         $catalog_service->saveSteps($catalog_item_id, \ITFlow\ITSM\ServiceCatalogService::normalizeStepRows($_POST));
-        flash_alert("Catalog item <strong>$name</strong> saved, but the request form was NOT changed:<br>" . implode('<br>', array_map('nullable_htmlentities', $condition_errors)), 'error');
+        flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> saved, but the request form was NOT changed:<br>" . implode('<br>', array_map('nullable_htmlentities', $condition_errors)), 'error');
         redirect();
     }
     $catalog_service->saveFields($catalog_item_id, $field_rows);
@@ -122,7 +122,7 @@ if (isset($_POST['edit_service_catalog_item'])) {
 
     logAction("Service Catalog", "Edit", "$session_name edited catalog item $name", 0, $catalog_item_id);
 
-    flash_alert("Catalog item <strong>$name</strong> updated");
+    flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> updated");
 
     redirect();
 
@@ -134,13 +134,13 @@ if (isset($_GET['toggle_service_catalog_item'])) {
 
     $catalog_item_id = intval($_GET['toggle_service_catalog_item']);
 
-    $name = sanitizeInput(getFieldById('service_catalog_items', $catalog_item_id, 'name'));
+    $name = getFieldById('service_catalog_items', $catalog_item_id, 'name');
 
     mysqli_query($mysqli, "UPDATE service_catalog_items SET is_active = 1 - is_active WHERE catalog_item_id = $catalog_item_id");
 
     logAction("Service Catalog", "Edit", "$session_name toggled active state of catalog item $name", 0, $catalog_item_id);
 
-    flash_alert("Catalog item <strong>$name</strong> updated");
+    flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> updated");
 
     redirect();
 
@@ -152,12 +152,12 @@ if (isset($_GET['delete_service_catalog_item'])) {
 
     $catalog_item_id = intval($_GET['delete_service_catalog_item']);
 
-    $name = sanitizeInput(getFieldById('service_catalog_items', $catalog_item_id, 'name'));
+    $name = getFieldById('service_catalog_items', $catalog_item_id, 'name');
 
     // A request still waiting on approvals holds a ticket; deleting its item would orphan the chain.
     $pending_requests = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM service_catalog_requests WHERE catalog_item_id = $catalog_item_id AND status = 'pending_approval'"))[0]);
     if ($pending_requests > 0) {
-        flash_alert("Catalog item <strong>$name</strong> has $pending_requests request(s) waiting for approval - deactivate it instead, or decide those first", 'error');
+        flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> has $pending_requests request(s) waiting for approval - deactivate it instead, or decide those first", 'error');
         redirect();
     }
 
@@ -170,7 +170,7 @@ if (isset($_GET['delete_service_catalog_item'])) {
 
     logAction("Service Catalog", "Delete", "$session_name deleted catalog item $name");
 
-    flash_alert("Catalog item <strong>$name</strong> deleted", 'error');
+    flash_alert("Catalog item <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> deleted", 'error');
 
     redirect();
 
@@ -201,7 +201,7 @@ if (isset($_POST['save_service_catalog_category'])) {
 
     $safe_name = sanitizeInput($category_name);
     logAction("Service Catalog", "Edit", "$session_name saved catalog category $safe_name", 0, $category_id);
-    flash_alert("Category <strong>$safe_name</strong> saved");
+    flash_alert("Category <strong>" . htmlspecialchars(stripslashes($safe_name)) . "</strong> saved");
     redirect();
 
 }
@@ -212,11 +212,11 @@ if (isset($_GET['delete_service_catalog_category'])) {
 
     require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
     $category_id = intval($_GET['delete_service_catalog_category']);
-    $category_name = sanitizeInput(getFieldById('service_catalog_categories', $category_id, 'name'));
+    $category_name = getFieldById('service_catalog_categories', $category_id, 'name');
     (new \ITFlow\ITSM\ServiceCatalogService($mysqli))->deleteCategory($category_id);
 
     logAction("Service Catalog", "Delete", "$session_name deleted catalog category $category_name", 0, $category_id);
-    flash_alert("Category <strong>$category_name</strong> deleted. Its items now show under Other", 'error');
+    flash_alert("Category <strong>" . htmlspecialchars(stripslashes($category_name)) . "</strong> deleted. Its items now show under Other", 'error');
     redirect();
 
 }
