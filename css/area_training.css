@@ -25,3 +25,16 @@
 :root[data-bs-theme="dark"] .trr-nextstep { background: #3a1a1a; border-color: #7a2c2c; color: #ffdada; }
 @media (max-width: 700px) { .trr-nextstep { flex-wrap: wrap; } .trr-nextstep .btn { width: 100%; } }
 .tr-labelled-select > span { white-space: nowrap; }
+
+/* Item analysis picker: rows are whole-row links, not underlined text links */
+.tri-picker__item, .tri-picker__item:hover, .tri-picker__item .tri-picker__name,
+.tri-picker__item .trr-mono, .tri-picker__item .trr-chip { text-decoration: none; }
+
+/* Fleet links: a hidden "new link" reveal card must not push the sibling card down (card + card margin) */
+#trf-reveal + .card { margin-top: 0; }
+
+/* Overview KPI tiles: every label row is the same height so the big numbers line up across tiles */
+.trr-kpi__label { min-height: 28px; }
+
+/* Two-line modal headers (title + helper line) need real vertical padding, not Tabler's fixed 3.5rem row */
+.modal-header:has(> div > .modal-title + .text-muted) { padding-top: 14px; padding-bottom: 14px; height: auto; min-height: 56px; }

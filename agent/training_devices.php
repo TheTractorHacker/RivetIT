@@ -15,7 +15,7 @@
  *   Setup guide       [S] D-7: iPad and Windows kiosk setup (the docs/ path is denied by nginx).
  */
 
-$page_extra_css = ['/css/itflow_training.css'];
+$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuardKiosk(1)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
