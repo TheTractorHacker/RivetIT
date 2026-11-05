@@ -180,7 +180,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                         <td><?= $t['revoked_at'] !== null ? '<span class="badge text-bg-secondary">Revoked</span>' : ($t['use_count'] >= $t_max ? '<span class="badge text-bg-success">Used</span>' : ($t['use_count'] > 0 ? '<span class="badge text-bg-info">In use</span>' : '<span class="badge text-bg-warning">Pending</span>')) ?></td>
                                         <td>
                                             <?php if ($t['revoked_at'] === null && $t['use_count'] < $t_max) { ?>
-                                            <a class="btn btn-sm btn-outline-danger confirm-link" href="post/panel_deploy.php?revoke_token=<?= (int) $t['token_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
+                                            <a class="btn btn-sm btn-outline-danger confirm-link" data-confirm-message="Revoke this enrollment token? It can no longer be used to enroll a device." href="post/panel_deploy.php?revoke_token=<?= (int) $t['token_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
                                             <?php } ?>
                                         </td>
                                     </tr>
@@ -211,7 +211,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                         <td><?= $d['revoked_at'] !== null ? '<span class="badge text-bg-secondary">Revoked</span>' : '<span class="badge text-bg-success">Active</span>' ?></td>
                                         <td>
                                             <?php if ($d['revoked_at'] === null) { ?>
-                                            <a class="btn btn-sm btn-outline-danger confirm-link" href="post/panel_deploy.php?revoke_device=<?= (int) $d['device_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
+                                            <a class="btn btn-sm btn-outline-danger confirm-link" data-confirm-message="Revoke this device? It will stop being able to open tickets." href="post/panel_deploy.php?revoke_device=<?= (int) $d['device_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
                                             <?php } ?>
                                         </td>
                                     </tr>

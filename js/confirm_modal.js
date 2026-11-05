@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var n = document.querySelectorAll('input[type="checkbox"].bulk-select:checked').length;
                 body.textContent = 'Permanently delete ' + n + ' selected ' + (n === 1 ? 'item' : 'items') + '? This cannot be undone.';
             } else {
-                body.textContent = 'Are you sure?';
+                body.textContent = link.getAttribute('data-confirm-message') || 'Are you sure?';
             }
         }
 

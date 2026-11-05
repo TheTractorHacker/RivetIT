@@ -196,8 +196,8 @@ if ($price_quote_print) {
                             <td class="text-end"><?= numfmt_format_currency($currency_format, $item_total, $session_company_currency); ?></td>
                             <td class="text-end d-print-none">
                                 <?php if ($price_quote_can_edit && !$price_quote_archived) { ?>
-                                <a href="#" class="ajax-modal" data-modal-url="modals/price_quote/price_quote_item_edit.php?price_quote_item_id=<?= $item_id ?>" title="Edit"><i class="fas fa-edit"></i></a>
-                                <a href="post.php?delete_price_quote_item=<?= $item_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="confirm-link ms-2 text-danger" title="Delete"><i class="fas fa-trash"></i></a>
+                                <a href="#" class="ajax-modal" data-modal-url="modals/price_quote/price_quote_item_edit.php?price_quote_item_id=<?= $item_id ?>" title="Edit" aria-label="Edit line item"><i class="fas fa-edit"></i></a>
+                                <a href="post.php?delete_price_quote_item=<?= $item_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="confirm-link ms-2 text-danger" data-confirm-message="Delete this line item? This cannot be undone." title="Delete" aria-label="Delete line item"><i class="fas fa-trash"></i></a>
                                 <?php } ?>
                             </td>
                         </tr>
