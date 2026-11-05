@@ -33,3 +33,6 @@
 .trq-rule__draw .form-control { max-width: 4rem; }
 .trq-rule__draw { white-space: nowrap; }
 .trq-type { min-width: 9.75rem; max-width: 12rem; }
+/* QA3: rule editor "Add condition" menu was ~175px wide, so every hint wrapped to 4-5 lines and the list covered the page header */
+#tro-rule-add-menu { min-width: 24rem; }
+#tro-rule-add-menu .dropdown-item { white-space: normal; }
