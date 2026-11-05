@@ -866,6 +866,15 @@ if (isset($_POST['add_contact'])) {
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
 
+    // flash_alert() text is printed as plain text, so show the name as typed (sanitizeInput() output carries SQL escapes)
+    $contact_name_shown = strip_tags(trim((string) ($_POST['contact_name'] ?? '')));
+
+    // A name and a real-looking email are both required. The browser checks this too, but a hand-made POST skips it.
+    if ($contact_name === '' || !filter_var(trim((string) ($_POST['contact_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Please enter a name and a valid email address", 'danger');
+        redirect('contact_add.php');
+    }
+
     // The auth method is written straight into users.user_auth_method, which decides how the
     // account is allowed to log in, so it can't be free text off the wire - only the three values
     // the form actually offers ('' = no portal access). Reject anything else outright rather than
@@ -876,9 +885,10 @@ if (isset($_POST['add_contact'])) {
         redirect('contact_add.php');
     }
 
-    // Check the email isn't already in use
+    // Check the email isn't already in use (by a login, or by another contact in this department)
     $sql = mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$contact_email'");
-    if ($sql && mysqli_num_rows($sql) > 0) {
+    $sql_dup_contact = mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_email = '$contact_email' AND contact_client_id = $session_client_id AND contact_archived_at IS NULL LIMIT 1");
+    if (($sql && mysqli_num_rows($sql) > 0) || ($sql_dup_contact && mysqli_num_rows($sql_dup_contact) > 0)) {
         flash_alert("Cannot add contact as that email address is already in use", 'danger');
         redirect('contact_add.php');
     }
@@ -905,7 +915,7 @@ if (isset($_POST['add_contact'])) {
 
     customAction('contact_create', $contact_id);
 
-    flash_alert("Contact $contact_name created");
+    flash_alert("Contact $contact_name_shown created");
 
     redirect('contacts.php');
 
@@ -924,6 +934,12 @@ if (isset($_POST['edit_contact'])) {
     $contact_email = sanitizeInput($_POST['contact_email']);
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
+    $contact_name_shown = strip_tags(trim((string) ($_POST['contact_name'] ?? '')));
+
+    if ($contact_name === '' || !filter_var(trim((string) ($_POST['contact_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Please enter a name and a valid email address", 'danger');
+        redirect('contact_edit.php?id=' . $contact_id);
+    }
 
     // The auth method is written straight into users.user_auth_method, which decides how the
     // account is allowed to log in, so it can't be free text off the wire - only the three values
@@ -984,7 +1000,7 @@ if (isset($_POST['edit_contact'])) {
 
     logAction("Contact", "Edit", "Department contact $session_contact_name edited contact $contact_name in the department portal", $session_client_id, $contact_id);
 
-    flash_alert("Contact $contact_name updated");
+    flash_alert("Contact $contact_name_shown updated");
 
     redirect('contacts.php');
 
@@ -1003,6 +1019,12 @@ if (isset($_POST['client_add_document'])) {
     $document_name = sanitizeInput($_POST['document_name']);
     $document_description = sanitizeInput($_POST['document_description']);
     $document_content_raw = sanitizeInput($document_name . " " . strip_tags($_POST['document_content']));
+    $document_name_shown = strip_tags(trim((string) ($_POST['document_name'] ?? '')));
+
+    // The box is plain text. Without markup, keep its line breaks (otherwise the whole text runs together on one line).
+    if ($_POST['document_content'] === strip_tags($_POST['document_content'])) {
+        $_POST['document_content'] = '<p>' . nl2br(htmlspecialchars($_POST['document_content'], ENT_QUOTES, 'UTF-8')) . '</p>';
+    }
 
     // Create document
     mysqli_query($mysqli, "INSERT INTO documents SET
@@ -1031,7 +1053,7 @@ if (isset($_POST['client_add_document'])) {
 
     logAction("Document", "Create", "Department contact $session_contact_name created document $document_name", $session_client_id, $document_id);
 
-    flash_alert("Document <strong>$document_name</strong> created successfully");
+    flash_alert("Document $document_name_shown created successfully");
 
     redirect('documents.php');
 
@@ -1109,18 +1131,18 @@ if (isset($_POST['client_upload_document'])) {
 
                 logAction("Document", "Upload", "Department contact $session_contact_name uploaded document $document_name with file $file_name", $session_client_id, $document_id);
 
-                flash_alert("Document <strong>$document_name</strong> uploaded successfully");
+                flash_alert("Document " . strip_tags(trim((string) ($_POST['document_name'] ?? ''))) . " uploaded successfully");
 
             } else {
-                flash_alert('Error uploading file. Please try again.', 'error');
+                flash_alert('Error uploading file. Please try again.', 'danger');
             }
 
         } else {
-            flash_alert('Invalid file type. Please upload PDF, Word documents, or text files only.', 'error');
+            flash_alert('That file type is not allowed. Please upload a PDF, Word document, text, Markdown, OpenDocument or RTF file.', 'danger');
         }
 
     } else {
-        flash_alert('Please select a file to upload.', 'error');
+        flash_alert('Please choose a file to upload.', 'danger');
     }
 
     redirect('documents.php');

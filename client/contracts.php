@@ -57,13 +57,13 @@ while ($cr = mysqli_fetch_assoc($contracts_sql)) {
             <div class="card mb-2 border">
                 <div class="card-header py-2 cursor-pointer" id="ch<?= $cid ?>"
                      data-bs-toggle="collapse" data-bs-target="#cc<?= $cid ?>" aria-expanded="<?= $i===0?'true':'false' ?>">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex align-items-center w-100">
                         <i class="fas fa-file-contract me-3 text-primary"></i>
                         <div class="flex-grow-1">
                             <strong><?= $cname ?></strong>
                             <span class="text-muted small ms-2"><?= $ctype ?></span>
                         </div>
-                        <span class="badge badge-<?= $badge ?> me-3"><?= $cstatus ?></span>
+                        <span class="badge text-bg-<?= $badge ?> me-3"><?= $cstatus ?></span>
                         <span class="text-muted small me-3"><?= $cstart ?> – <?= $cend ?></span>
                         <span class="badge text-bg-secondary"><?= $doc_count ?> doc<?= $doc_count!==1?'s':'' ?></span>
                         <i class="fas fa-chevron-down ms-3 text-muted portal-chevron-sm"></i>
