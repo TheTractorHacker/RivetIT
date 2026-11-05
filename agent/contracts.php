@@ -103,7 +103,7 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
                     <td><a href="contracts.php?client_id=<?= $cclient_id ?>"><?= $cclient_name ?></a></td>
                     <?php } ?>
                     <td><strong><?= $cname ?></strong></td>
-                    <td><?= $ctype ?></td>
+                    <td class="text-nowrap"><?= $ctype ?></td>
                     <td><?= $cstatus ?></td>
                     <td><?= $cvalue ?></td>
                     <td><?= $cfreq ?: '-' ?></td>
