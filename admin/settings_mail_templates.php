@@ -202,7 +202,7 @@ tinymce.init({
     browser_spellcheck: true,
     contextmenu: false,
     resize: true,
-    min_height: 220,
+    min_height: 140,
     max_height: 600,
     promotion: false,
     branding: false,

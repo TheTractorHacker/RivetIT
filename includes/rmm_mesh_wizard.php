@@ -235,7 +235,7 @@ function rivetRmmMeshWizardPage(array $st, string $csrf, ?array $probe = null, a
         . $probeHtml
         . $f(3, 'save_pin') . $tok
         . rivetRmmMeshWizardField('mw_pin', 'Certificate pin <span class="text-muted">(only for a private certificate)</span>', '<input class="form-control font-monospace" id="mw_pin" name="mesh_server_cert_pin" maxlength="100" autocomplete="off" spellcheck="false" value="' . $h($keepPin) . '" aria-describedby="mw_pin-help">',
-            'A fingerprint of the server&#039;s certificate; leave it empty if the certificate is publicly trusted.', 'col-lg-8 mt-3')
+            'A fingerprint of the server&#039;s certificate; leave it empty if the certificate is publicly trusted.', 'col-lg-8 mt-4')
         . '<div class="col-12"><button class="btn btn-primary" type="submit" id="mw-save-pin"' . ($st['db_ready'] ? '' : ' disabled') . '><i class="fas fa-save me-1" aria-hidden="true"></i>Save pin</button>'
         . ($pin !== '' ? ' <button class="btn btn-outline-secondary ms-2" type="submit" name="clear" value="1" id="mw-clear-pin">Remove the pin (public certificate)</button>' : '') . '</div></form>';
 
