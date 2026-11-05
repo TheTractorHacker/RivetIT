@@ -2,6 +2,12 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+// The Edit modal on the list page posts here (the handler is chosen from the Referer), but the edit
+// logic lives with the details page handler: hand over to it.
+if (isset($_POST['edit_onboarding_template'])) {
+    require_once __DIR__ . '/onboarding_template.php';
+}
+
 if (isset($_POST['add_onboarding_template'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -33,7 +39,7 @@ if (isset($_POST['add_onboarding_template'])) {
 
     logAction("Onboarding Template", "Create", "$session_name created onboarding template $name", 0, $project_template_id);
 
-    flash_alert("Onboarding Template <strong>$name</strong> created");
+    flash_alert("Onboarding Template <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
 
     redirect("onboarding_template_details.php?project_template_id=$project_template_id");
 
@@ -45,7 +51,7 @@ if (isset($_GET['delete_onboarding_template'])) {
 
     $project_template_id = intval($_GET['delete_onboarding_template']);
 
-    $project_template_name = sanitizeInput(getFieldById('project_templates', $project_template_id, 'project_template_name'));
+    $project_template_name = getFieldById('project_templates', $project_template_id, 'project_template_name'); // already SQL-escaped
 
     $sql_ticket_templates = mysqli_query($mysqli, "SELECT ticket_template_id FROM project_template_ticket_templates WHERE project_template_id = $project_template_id");
     while ($row = mysqli_fetch_assoc($sql_ticket_templates)) {
@@ -59,7 +65,7 @@ if (isset($_GET['delete_onboarding_template'])) {
 
     logAction("Onboarding Template", "Delete", "$session_name deleted onboarding template $project_template_name and its checklist");
 
-    flash_alert("Onboarding Template <strong>$project_template_name</strong> deleted", 'error');
+    flash_alert("Onboarding Template <strong>" . htmlspecialchars(stripslashes($project_template_name), ENT_QUOTES) . "</strong> deleted", 'error');
 
     redirect("onboarding_templates.php");
 

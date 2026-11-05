@@ -58,7 +58,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     ?>
                     <tr>
                         <td>
-                            <strong class="text-dark"><?= $module_name ?></strong>
+                            <?php $module_label = preg_replace('/\bRmm\b/', 'RMM', ucwords(str_replace('_', ' ', preg_replace('/^module_/', '', $row['module_name'])))); ?>
+                            <strong class="text-dark"><?= nullable_htmlentities($module_label) ?></strong>
+                            <code class="small text-secondary ms-2"><?= $module_name ?></code>
                             <div class="text-secondary"><?= $module_description ?></div>
                         </td>
                         <td>

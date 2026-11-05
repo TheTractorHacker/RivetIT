@@ -130,6 +130,7 @@ $archived_count = $sql_archived ? mysqli_num_rows($sql_archived) : 0;
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="kb_article_id" value="<?php echo $kb_article_id; ?>">
                                 <button type="submit" name="restore_kb_article" class="btn btn-sm btn-outline-success confirm-link"
+                                        data-confirm-message="Restore this article to the Knowledge Base?"
                                         title="Restore - the article reappears exactly where it was">
                                     <i class="fas fa-fw fa-trash-restore me-1"></i>Restore
                                 </button>
@@ -138,6 +139,7 @@ $archived_count = $sql_archived ? mysqli_num_rows($sql_archived) : 0;
                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                 <input type="hidden" name="kb_article_id" value="<?php echo $kb_article_id; ?>">
                                 <button type="submit" name="delete_kb_article_permanently" class="btn btn-sm btn-outline-danger confirm-link"
+                                        data-confirm-message="Permanently delete this article<?php if ($attachment_count > 0) { echo ' and its ' . $attachment_count . ' attachment' . ($attachment_count == 1 ? '' : 's'); } ?>? This cannot be undone."
                                         title="Permanently delete<?php if ($attachment_count > 0) { echo " - $attachment_count attachment" . ($attachment_count == 1 ? '' : 's') . " go with it"; } ?> - this cannot be undone">
                                     <i class="fas fa-fw fa-trash-alt me-1"></i>Delete
                                 </button>
