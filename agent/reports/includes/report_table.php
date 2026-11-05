@@ -15,8 +15,24 @@ if (!function_exists('rpt_table')) {
     {
         echo '<div class="card mb-3"><div class="card-header py-2"><h3 class="card-title mb-0">' . nullable_htmlentities($caption) . '</h3></div>';
         echo '<div class="table-responsive"><table class="table table-striped table-sm mb-0"><thead><tr>';
-        foreach ($headers as $h) {
-            echo '<th>' . nullable_htmlentities($h) . '</th>';
+        // A column whose every non-empty cell is a number gets a right-aligned header so it sits over its figures.
+        $numeric = [];
+        foreach ($headers as $i => $h) {
+            $seen = false;
+            $numeric[$i] = true;
+            foreach ($rows as $r) {
+                $c = array_values($r)[$i] ?? '';
+                if (is_array($c) || (string) $c === '' || (string) $c === '-') {
+                    if (is_array($c)) { $numeric[$i] = false; break; }
+                    continue;
+                }
+                $seen = true;
+                if (!preg_match('/^-?[\d,]+(\.\d+)?%?$/', (string) $c)) { $numeric[$i] = false; break; }
+            }
+            $numeric[$i] = $numeric[$i] && $seen;
+        }
+        foreach ($headers as $i => $h) {
+            echo '<th' . (!empty($numeric[$i]) ? ' class="text-end"' : '') . '>' . nullable_htmlentities($h) . '</th>';
         }
         echo '</tr></thead><tbody>';
         if ($rows === []) {
@@ -29,7 +45,8 @@ if (!function_exists('rpt_table')) {
                     echo '<td>' . $c['html'] . '</td>';
                 } else {
                     $t = (string) ($c ?? '');
-                    echo '<td' . (preg_match('/^-?[\d,]+(\.\d+)?%?$/', $t) ? ' class="text-end"' : '') . '>' . nullable_htmlentities($t) . '</td>';
+                    $cls = preg_match('/^-?[\d,]+(\.\d+)?%?$/', $t) ? 'text-end' : (mb_strlen($t) <= 20 ? 'text-nowrap' : '');
+                    echo '<td' . ($cls !== '' ? ' class="' . $cls . '"' : '') . '>' . nullable_htmlentities($t) . '</td>';
                 }
             }
             echo '</tr>';
