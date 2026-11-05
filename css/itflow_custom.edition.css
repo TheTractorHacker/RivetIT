@@ -259,3 +259,10 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 /* Modal close button: the BS4 .close shim floats right, but .modal-header is a flex row, so the "x" sat
    right next to the title instead of at the far edge of the header. */
 .modal-header > .close { margin-left: auto; float: none; }
+
+/* Phone: the app bar's hamburger already opens the sidebar, so the sidebar's own toggler (a second hamburger above it) is hidden. */
+@media (max-width: 991.98px) {
+  aside.navbar-vertical > .container-fluid > .navbar-toggler { display: none; }
+}
+/* Portal: the unread badge sits after the "Notifications" label instead of over its last letter. */
+.client-portal-nav .nav-link .badge { position: static; margin-left: .35rem; transform: none; }
