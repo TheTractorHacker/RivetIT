@@ -70,7 +70,7 @@ function rivetRmmPolUserNames(\mysqli $mysqli, array $ids): array
 
 const RIVET_RMM_POL_OPS = ['gt' => 'is above', 'gte' => 'is at or above', 'lt' => 'is below', 'lte' => 'is at or below'];
 const RIVET_RMM_POL_OP_SYMBOLS = ['gt' => '>', 'gte' => '>=', 'lt' => '<', 'lte' => '<='];
-const RIVET_RMM_POL_FEATURES = ['software_inventory' => 'Software inventory', 'script_checks' => 'Script checks', 'checks' => 'Checks'];
+const RIVET_RMM_POL_FEATURES = ['software_inventory' => 'Software inventory', 'script_checks' => 'Script checks', 'checks' => 'Check execution'];
 const RIVET_RMM_POL_LEGACY_TYPES = ['service', 'disk', 'pending_reboot', 'script'];
 
 /** The plain-language name of a policy setting key. */
@@ -572,7 +572,7 @@ function rivetRmmPolCheckRow(string $i, array $row, array $catalog): string
         }
     }
     $o = '<div class="rmm-row" data-rmm-index="' . ($i === '__i__' ? '' : rmmH($i)) . '"><div class="row g-2 align-items-end">'
-        . '<div class="col-sm-6 col-lg-3"><label class="form-label small mb-1" for="' . $id . '_key">Check key</label><input type="text" class="form-control form-control-sm rmm-mono" id="' . $id . '_key" name="' . $nm . '[key]" maxlength="100" value="' . rmmH($row['key'] ?? '') . '" placeholder="cpu_load"></div>'
+        . '<div class="col-sm-6 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_key">Check key</label><input type="text" class="form-control form-control-sm rmm-mono" id="' . $id . '_key" name="' . $nm . '[key]" maxlength="100" value="' . rmmH($row['key'] ?? '') . '" placeholder="cpu_load"></div>'
         . '<div class="col-sm-6 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_mode">This check</label><select class="form-select form-select-sm" id="' . $id . '_mode" name="' . $nm . '[mode]">'
         . '<option value="override"' . (($row['mode'] ?? 'override') === 'override' ? ' selected' : '') . '>Is set by this policy</option><option value="disable"' . (($row['mode'] ?? '') === 'disable' ? ' selected' : '') . '>Remove this check</option></select></div>'
         . '<div class="col-sm-6 col-lg-3"><label class="form-label small mb-1" for="' . $id . '_type">Check type</label><select class="form-select form-select-sm" id="' . $id . '_type" name="' . $nm . '[type]"><option value="">Choose a type</option>';
@@ -584,7 +584,7 @@ function rivetRmmPolCheckRow(string $i, array $row, array $catalog): string
         . '<div class="col-sm-4 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_iv">Run every (seconds)</label><input type="number" step="1" min="30" max="86400" class="form-control form-control-sm" id="' . $id . '_iv" name="' . $nm . '[interval_s]" value="' . rmmH($row['interval_s'] ?? '') . '" placeholder="60"></div>'
         . '<div class="col-sm-4 col-lg-2"><label class="form-label small mb-1" for="' . $id . '_os">Applies to</label><select class="form-select form-select-sm" id="' . $id . '_os" name="' . $nm . '[os]">'
         . '<option value="any"' . (($row['os'] ?? 'any') === 'any' ? ' selected' : '') . '>Windows and Linux</option><option value="windows"' . (($row['os'] ?? '') === 'windows' ? ' selected' : '') . '>Windows only</option><option value="linux"' . (($row['os'] ?? '') === 'linux' ? ' selected' : '') . '>Linux only</option></select></div>'
-        . '<div class="col-sm-2 col-lg-2 text-end"><button type="button" class="btn btn-sm btn-outline-danger rmm-row-remove" data-rmm-remove="1" aria-label="Remove this check row" title="Remove this row"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>'
+        . '<div class="col-sm-2 col-lg-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger rmm-row-remove" data-rmm-remove="1" aria-label="Remove this check row" title="Remove this row"><i class="fas fa-times" aria-hidden="true"></i></button></div></div>'
         . '<p class="form-text mb-1">A check set for one OS is only sent to devices of that OS. Choosing "Remove this check" takes the key out of the device\'s check list (also one from the global list); the type and settings are then ignored.</p>';
     // the type's own params
     $legacy = [];

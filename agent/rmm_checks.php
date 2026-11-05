@@ -180,7 +180,7 @@ foreach ($platform_order as $plat):
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0">Please Confirm</h6>
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="confirmActionBody"></div>
             <div class="modal-footer py-2">
@@ -199,7 +199,7 @@ foreach ($platform_order as $plat):
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0" id="policyModalTitle">New Check Policy</h6>
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit_id" value="">
