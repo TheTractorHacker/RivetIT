@@ -65,6 +65,8 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
 <!-- Responsive chart helpers -->
 <style>
   .chart-h-320 { position: relative; height: 320px; }
+  .info-box .info-box-number { white-space: nowrap; font-size: 1.2rem; }
+  .info-box .info-box-content { min-width: 0; }
   @media (max-width: 576px) { .chart-h-320 { height: 260px; } }
 
   /* KPI stat tiles: Bootstrap's .bg-* utilities only set background-color, so the
@@ -113,7 +115,6 @@ if (!empty($cs['avg_rating'])) {
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-star me-2"></i>Customer Satisfaction (CSAT)</h3>
     </div>
-    </div>
     <div class="card-body p-0">
 
         <!-- Date range filter -->
@@ -136,7 +137,7 @@ if (!empty($cs['avg_rating'])) {
                     <span class="info-box-icon"><i class="fas fa-star"></i></span>
                     <div class="info-box-content">
                         <span class="info-box-text">Avg Rating</span>
-                        <span class="info-box-number"><?php echo $report['summary']['avg_rating'] !== null ? $report['summary']['avg_rating'] . ' / 5' : '—'; ?></span>
+                        <span class="info-box-number"><?php echo $report['summary']['avg_rating'] !== null ? $report['summary']['avg_rating'] . '<small class="fw-normal text-muted">/5</small>' : '—'; ?></span>
                     </div>
                 </div>
             </div>

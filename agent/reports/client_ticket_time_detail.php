@@ -139,7 +139,6 @@ $result = $stmt->get_result();
             <?php } ?>
         </h3>
     </div>
-    </div>
 
     <div class="card-header d-print-none">
         <!-- Filters -->
