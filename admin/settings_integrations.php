@@ -1796,8 +1796,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     Requires the <code>User.Read.All</code> Application permission on this same app registration - grant it in Entra ID → App registrations → (your app) → API permissions → Add a permission → Microsoft Graph → Application permissions, then Grant admin consent. This is a DIFFERENT permission from <code>DeviceManagementManagedDevices.Read.All</code> (needed for Intune device sync, on the Device Sync tab) - grant both separately if you want both. This app cannot grant either for you; they must be added in the Azure/Entra portal.
                 </small>
 
-                <button type="submit" name="save_microsoft_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
-                <button type="submit" name="test_microsoft_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <button type="submit" name="save_microsoft_integration" class="btn btn-primary text-bold me-1"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_microsoft_integration" class="btn btn-secondary me-1"><i class="fas fa-plug me-2"></i>Test Connection</button>
                 <?php if ($ms_enabled && $ms_directory_sync_enabled && $ms_has_secret): ?>
                 <button type="submit" name="sync_microsoft_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <button type="submit" name="preview_microsoft_directory" value="1" class="btn btn-outline-secondary"><i class="fas fa-eye me-2"></i>Preview</button>
@@ -1940,8 +1940,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     <label class="form-check-label" for="googleEnabled">Enabled</label>
                 </div>
 
-                <button type="submit" name="save_google_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
-                <button type="submit" name="test_google_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <button type="submit" name="save_google_integration" class="btn btn-primary text-bold me-1"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_google_integration" class="btn btn-secondary me-1"><i class="fas fa-plug me-2"></i>Test Connection</button>
                 <?php if ($google_enabled && $google_has_key): ?>
                 <button type="submit" name="sync_google_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <?php endif; ?>
@@ -2143,8 +2143,8 @@ foreach ($directory_field_canonical as $df_provider => $df_fields) {
                     <label class="form-check-label" for="odooEnabled">Enabled</label>
                 </div>
 
-                <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
-                <button type="submit" name="test_odoo_integration" class="btn btn-secondary"><i class="fas fa-plug me-2"></i>Test Connection</button>
+                <button type="submit" name="save_odoo_integration" class="btn btn-primary text-bold me-1"><i class="fas fa-check me-2"></i>Save</button>
+                <button type="submit" name="test_odoo_integration" class="btn btn-secondary me-1"><i class="fas fa-plug me-2"></i>Test Connection</button>
                 <?php if ($odoo_enabled && $odoo_has_key): ?>
                 <button type="submit" name="sync_odoo_directory" class="btn btn-success"><i class="fas fa-sync me-2"></i>Sync Now</button>
                 <?php endif; ?>
