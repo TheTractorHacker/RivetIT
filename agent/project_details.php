@@ -78,7 +78,7 @@ if (isset($_GET['project_id'])) {
     if ($project_manager) {
         $project_manager_display = "<div class='text-secondary'><i class='fas fa-fw fa-user-tie me-2'></i>$project_manager_name</div>";
     } else {
-        $project_manager_display = "-";
+        $project_manager_display = "<div class='text-secondary'><i class='fas fa-fw fa-user-tie me-2'></i>No manager assigned</div>";
     }
 
     if ($project_completed_at) {
