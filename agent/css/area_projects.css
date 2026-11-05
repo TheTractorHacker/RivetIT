@@ -1,2 +1,7 @@
 /* Project view tabs (Details / Gantt / Kanban): the active pill keeps readable text in the dark theme. */
 [data-bs-theme="dark"] .nav-pills .nav-link.active { color: #cfe2ff; }
+
+/* Phone width: let wide tables scroll sideways instead of squeezing every column until words break per letter. */
+@media (max-width: 767.98px) {
+    .table-responsive > .table { min-width: 820px; }
+}
