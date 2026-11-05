@@ -14,10 +14,17 @@ if (isset($_POST['edit_your_user_details'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
+    // Column limits (users.user_name/email/title varchar(200), user_phone varchar(50)): say so instead of a database error.
+    if (mb_strlen((string) ($_POST['name'] ?? '')) > 200 || mb_strlen((string) ($_POST['email'] ?? '')) > 200
+        || mb_strlen((string) ($_POST['title'] ?? '')) > 200 || mb_strlen((string) ($_POST['phone'] ?? '')) > 50) {
+        flash_alert('Name, email and job title can be at most 200 characters, and phone at most 50. Nothing was saved.', 'error');
+        redirect();
+    }
+
     $name = sanitizeInput($_POST['name']);
     $email = sanitizeInput($_POST['email']);
-    $title = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['title'] ?? ''));
-    $phone = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['phone'] ?? ''));
+    $title = sanitizeInput($_POST['title'] ?? '');
+    $phone = sanitizeInput($_POST['phone'] ?? '');
     $signature = mysqli_escape_string($mysqli,$_POST['signature']);
 
     $existing_file_name = sanitizeInput(getFieldById('users', $session_user_id, 'user_avatar'));
