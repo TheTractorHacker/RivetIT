@@ -108,7 +108,7 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
                 <p>No Intune devices found. Sync devices from <a href="/admin/settings_integrations.php?tab=directorysync">Microsoft integration settings</a>.</p>
             </div>
         <?php else: ?>
-        <table class="table table-hover table-sm mb-0" id="intune-devices-table">
+        <div class="table-responsive"><table class="table table-hover table-sm mb-0" id="intune-devices-table" style="min-width:760px;">
             <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                 <tr>
                     <th class="ps-3">Compliance</th>
@@ -169,7 +169,7 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
             </tr>
             <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
         <?php endif; ?>
     </div>
 </div>
