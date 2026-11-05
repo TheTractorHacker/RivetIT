@@ -300,7 +300,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </td>
                             <td>
                                 <a class="text-dark ajax-modal" href="#" data-modal-url="modals/network/network_edit.php?id=<?= $network_id ?>">
-                                    <div class="media">
+                                    <div class="d-flex align-items-center">
                                         <i class="fa fa-fw fa-2x fa-network-wired me-2"></i>
                                         <div class="media-body">
                                             <div><?= $network_name ?></div>
@@ -314,7 +314,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td><?= $network ?></td>
                             <td><?= $network_gateway ?></td>
                             <td><?= $network_dhcp_range_display ?></td>
-                            <td><?= $network_dns_display ?></td>
+                            <td class="text-nowrap"><?= $network_dns_display ?></td>
                             <?php if (!$client_url) { ?>
                             <td><a href="networks.php?client_id=<?= $client_id ?>"><?= $client_name ?></a></td>
                             <?php } ?>

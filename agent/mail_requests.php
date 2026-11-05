@@ -30,18 +30,21 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
     <div class="card-body">
         <p class="text-muted">Emails from senders that don't match a known contact or domain land here for review. Convert a request into a ticket (picking the department it belongs to), or dismiss it.</p>
         <div class="table-responsive">
-            <table class="table table-striped table-borderless table-hover">
+            <table class="table table-striped table-borderless table-hover" style="min-width:880px;">
                 <thead class="text-dark">
                     <tr>
-                        <th>From</th>
+                        <th style="min-width:13rem;">From</th>
                         <th>Subject</th>
                         <th>Mailbox</th>
                         <th>Received</th>
                         <th>Attachments</th>
-                        <th class="text-center">Action</th>
+                        <th class="text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody>
+                <?php if (mysqli_num_rows($sql) === 0) { ?>
+                <tr><td colspan="6" class="text-center text-muted py-5"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>No requests waiting for review. Mail from unknown senders will appear here.</td></tr>
+                <?php } ?>
                 <?php while ($row = mysqli_fetch_assoc($sql)) {
                     $mr_id           = intval($row['mail_request_id']);
                     $mr_from_email   = nullable_htmlentities($row['mail_request_from_email']);
@@ -54,7 +57,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                 <tr>
                     <td>
                         <?php if ($mr_from_name) { ?><div class="fw-semibold"><?= $mr_from_name ?></div><?php } ?>
-                        <div class="text-muted small text-nowrap" style="overflow-wrap:normal;"><?= $mr_from_email ?></div>
+                        <div class="text-muted small text-break"><?= $mr_from_email ?></div>
                     </td>
                     <td style="min-width:16rem;">
                         <div><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?></div>
@@ -74,19 +77,23 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                             <span class="text-muted">&mdash;</span>
                         <?php } ?>
                     </td>
-                    <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mail_request/mail_request_view.php?id=<?= $mr_id ?>">
-                            <i class="fas fa-eye me-1"></i>View
-                        </a>
+                    <td class="text-end">
+                      <div class="d-flex flex-wrap gap-1 justify-content-end" style="width:12.5rem;margin-left:auto;">
                         <?php if (lookupUserPermission('module_support') >= 2) { ?>
                         <a href="#" class="btn btn-xs btn-primary ajax-modal" data-modal-url="modals/mail_request/mail_request_convert.php?id=<?= $mr_id ?>">
                             <i class="fas fa-check me-1"></i>Convert to Ticket
                         </a>
+                        <?php } ?>
+                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mail_request/mail_request_view.php?id=<?= $mr_id ?>">
+                            <i class="fas fa-eye me-1"></i>View
+                        </a>
+                        <?php if (lookupUserPermission('module_support') >= 2) { ?>
                         <a href="post.php?dismiss_mail_request=<?= $mr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link ms-1">
+                           class="btn btn-xs btn-danger confirm-link" data-confirm="Dismiss this request without creating a ticket?">
                             <i class="fas fa-trash me-1"></i>Dismiss
                         </a>
                         <?php } ?>
+                      </div>
                     </td>
                 </tr>
                 <?php } ?>
