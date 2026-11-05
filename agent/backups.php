@@ -119,7 +119,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
 </div>
 
 <!-- Summary row -->
-<div class="row mb-3">
+<div class="row g-2 mb-3">
     <?php foreach ([
         ['label'=>'Total Devices', 'val'=>($comet_users ? $total_devices : '&mdash;'),  'icon'=>'desktop',         'color'=>'primary'],
         ['label'=>'Healthy',       'val'=>($comet_users ? $ok : '&mdash;'),             'icon'=>'check-circle',    'color'=>'success'],
@@ -127,7 +127,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
         ['label'=>'Failed',        'val'=>($comet_users ? $fail : '&mdash;'),           'icon'=>'times-circle',    'color'=>'danger'],
         ['label'=>'Unknown',       'val'=>($comet_users ? $unknown : '&mdash;'),        'icon'=>'question-circle', 'color'=>'secondary'],
     ] as $s): ?>
-    <div class="col">
+    <div class="col-6 col-md">
         <div class="info-box shadow-sm mb-0">
             <span class="info-box-icon bg-<?= $s['color'] ?>" style="font-size:1.4rem;">
                 <i class="fas fa-<?= $s['icon'] ?>"></i>

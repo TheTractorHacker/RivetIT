@@ -781,8 +781,8 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                     </div>
                                                 </a>
                                             </td>
-                                            <td><?php echo $file_mime_type; ?></td>
-                                            <td><?php echo $file_size_KB; ?> KB</td>
+                                            <td class="text-nowrap"><?php echo $file_mime_type; ?></td>
+                                            <td class="text-nowrap"><?php echo $file_size_KB; ?> KB</td>
                                             <td>
                                                 <?php echo $file_created_at; ?>
                                                 <div class="text-secondary mt-1"><?php echo $file_uploaded_by; ?></div>

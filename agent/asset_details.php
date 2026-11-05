@@ -1442,13 +1442,13 @@ if (isset($_GET['asset_id'])) {
                                                 <?= $interface_name ?> <?php if($interface_primary) { echo "<small class='text-primary'>(Primary)</small>"; } ?>
                                             </a>
                                         </td>
-                                        <td><?= $interface_type_display; ?></td>
+                                        <td class="text-nowrap"><?= $interface_type_display; ?></td>
                                         <td><?= $network_name_display; ?></td>
-                                        <td>
+                                        <td class="text-nowrap">
                                             <?= $interface_ip_display; ?>
                                             <div><small class="text-secondary"><?= $interface_ipv6 ?></small></div>
                                         </td>
-                                        <td><?= $interface_mac_display; ?></td>
+                                        <td class="text-nowrap"><?= $interface_mac_display; ?></td>
                                         <td><?= $connected_to_display; ?></td>
                                         <td>
                                             <div class="dropdown dropleft text-center">

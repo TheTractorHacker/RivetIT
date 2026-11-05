@@ -184,7 +184,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
                 <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                .certs-table > tbody > tr > td:nth-child(2) { min-width: 220px; }
+                .certs-table > tbody > tr > td:nth-child(2) { min-width: 200px; }
+                .certs-table > tbody > tr > td:nth-child(3) { min-width: 15rem; overflow-wrap: anywhere; }
                 .certs-table > tbody > tr > td:nth-child(2) .media-body { min-width: 0; overflow-wrap: anywhere; }
                 .certs-table > tbody > tr > td:nth-child(2) .media > i { flex: 0 0 auto; }
             </style>

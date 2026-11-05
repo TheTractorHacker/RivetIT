@@ -227,6 +227,7 @@ if ($f['group'] !== '') {
     /* Keep the action buttons inside the card: below 1700px the source name collapses to its icon (the name stays in the tooltip) */
     @media (max-width: 1699px) { .alert-src-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0 !important; } }
     @media (max-width: 1699px) { .rmmx-scroll .rmmx-table td.rmmx-msg { min-width: 11rem !important; } .rmmx-scroll .rmmx-table th, .rmmx-scroll .rmmx-table td { padding-left: .5rem; padding-right: .5rem; } }
+    .rmmx-scroll { position: relative; } /* contain the visually-hidden source labels so they cannot widen the page */
     .rmmx-scroll td.text-end .btn { padding-left: .5rem; padding-right: .5rem; }
     @media (max-width: 1699px) { #alertsTable td.text-end { white-space: normal !important; min-width: 9rem; } #alertsTable td.text-end .btn { margin: 0 0 .25rem .25rem !important; } }
 </style>
