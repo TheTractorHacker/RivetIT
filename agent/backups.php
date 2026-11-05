@@ -146,7 +146,7 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
     <div class="card-body py-2">
         <form method="get" class="d-flex flex-wrap align-items-center" style="gap:6px">
             <?php if (mysqli_num_rows($sql_clients) > 0) { ?>
-            <select name="client_id" class="form-control form-control-sm me-2 auto-submit-select" style="max-width:200px">
+            <select name="client_id" class="form-select me-2 auto-submit-select" style="max-width:220px" aria-label="Department">
                 <option value="">All Departments</option>
                 <?php while ($cl = mysqli_fetch_assoc($sql_clients)) { ?>
                 <option value="<?= $cl['client_id'] ?>" <?= $filter_client_id == $cl['client_id'] ? 'selected' : '' ?>>
@@ -155,10 +155,10 @@ $sql_clients = mysqli_query($mysqli, "SELECT DISTINCT client_id, client_name FRO
                 <?php } ?>
             </select>
             <?php } ?>
-            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control form-control-sm me-2" placeholder="Search device, user, department…" style="max-width:220px">
-            <button type="submit" class="btn btn-sm btn-secondary me-2"><i class="fas fa-search"></i></button>
+            <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>" class="form-control me-2" placeholder="Search device, user, department…" style="max-width:300px" aria-label="Search backups">
+            <button type="submit" class="btn btn-secondary me-2" aria-label="Search"><i class="fas fa-search"></i></button>
             <?php if ($filter_client_id || $filter_search !== '') { ?>
-            <a href="?" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+            <a href="?" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
             <?php } ?>
         </form>
     </div>
