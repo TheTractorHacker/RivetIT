@@ -3,6 +3,24 @@ require_once "includes/inc_all_user.php";
 require_once "../../includes/security_policy.php";
 require_once "../../includes/security_sessions.php";
 
+// "Chrome on Linux" instead of the raw user-agent string; the full string stays available as a tooltip.
+if (!function_exists('sec_ua_label')) {
+    function sec_ua_label(string $ua): string
+    {
+        if ($ua === '') { return 'Unknown browser'; }
+        $browser = 'Browser';
+        foreach (['Edg/' => 'Edge', 'OPR/' => 'Opera', 'Firefox/' => 'Firefox', 'Chrome/' => 'Chrome', 'Safari/' => 'Safari'] as $needle => $name) {
+            if (stripos($ua, $needle) !== false) { $browser = $name; break; }
+        }
+        if (stripos($ua, 'okhttp') !== false || stripos($ua, 'RivetIT') !== false) { $browser = 'Mobile app'; }
+        $os = '';
+        foreach (['Windows' => 'Windows', 'Android' => 'Android', 'iPhone' => 'iOS', 'iPad' => 'iPadOS', 'Mac OS X' => 'macOS', 'CrOS' => 'ChromeOS', 'Linux' => 'Linux'] as $needle => $name) {
+            if (stripos($ua, $needle) !== false) { $os = $name; break; }
+        }
+        return $os !== '' ? "$browser on $os" : $browser;
+    }
+}
+
 $sec_min_password = secSettingInt('password_min_length');
 $sec_new_codes = $_SESSION['new_recovery_codes'] ?? null;   // shown once, then forgotten
 unset($_SESSION['new_recovery_codes']);
@@ -60,7 +78,7 @@ function tps_local(?string $utc): ?string
                         <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
                     </div>
                     <input type="password" class="form-control" data-toggle="password"
-                           name="new_password" placeholder="Leave blank for no change"
+                           name="new_password" placeholder="Enter a new password"
                            autocomplete="new-password" minlength="<?= $sec_min_password ?>" required>
                     <div class="input-group-append">
                         <span class="input-group-text" style="cursor:pointer;">
@@ -70,7 +88,7 @@ function tps_local(?string $utc): ?string
                 </div>
                 <small class="text-muted">Minimum <?= $sec_min_password ?> characters, and not the same as your name or email address.</small>
             </div>
-            <button type="submit" name="edit_your_user_password" class="btn btn-primary btn-sm">
+            <button type="submit" name="edit_your_user_password" class="btn btn-primary">
                 <i class="fas fa-check me-1"></i>Update Password
             </button>
         </form>
@@ -94,6 +112,11 @@ function tps_local(?string $utc): ?string
             <?php require_once "modals/user_mfa_disable_modal.php"; ?>
         <?php } ?>
     </div>
+    <?php if (empty($session_token)) { ?>
+    <div class="card-body py-2">
+        <p class="mb-0 text-muted small">Two-factor authentication is off. Turn it on to require a code from an authenticator app each time you sign in.</p>
+    </div>
+    <?php } ?>
     <?php if (!empty($session_token)) { ?>
     <div class="card-body py-2">
         <p class="mb-0 text-muted small">TOTP authentication is active on your account. Use your authenticator app each time you sign in.</p>
@@ -171,7 +194,7 @@ function tps_local(?string $utc): ?string
                 <tr><td colspan="5" class="text-muted text-center py-3">No tracked sessions yet.</td></tr>
             <?php } foreach ($sec_sessions as $sx) { ?>
                 <tr>
-                    <td class="ps-3 small"><?= nullable_htmlentities(mb_strimwidth((string) $sx['session_user_agent'], 0, 60, '...')) ?>
+                    <td class="ps-3 small"><span title="<?= nullable_htmlentities((string) $sx['session_user_agent']) ?>"><?= nullable_htmlentities(sec_ua_label((string) $sx['session_user_agent'])) ?></span>
                         <?php if ($sx['is_current']) { ?><span class="badge text-bg-success ms-1">This browser</span><?php } ?></td>
                     <td class="text-muted small"><?= nullable_htmlentities($sx['session_ip']) ?></td>
                     <td class="text-muted small"><?= nullable_htmlentities($sx['session_created_at']) ?></td>
@@ -479,13 +502,13 @@ document.addEventListener('click', async function (e) {
                             <i class="fas fa-bell text-success ms-1" title="Push notifications active"></i>
                         <?php endif; ?>
                     </td>
-                    <td class="text-muted small"><?= $tok['token_created_at'] ?></td>
-                    <td class="text-muted small"><?= $tok['token_last_used_at'] ?? 'Never' ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities($tok['token_created_at']) ?></td>
+                    <td class="text-muted small"><?= nullable_htmlentities($tok['token_last_used_at'] ?? 'Never') ?></td>
                     <td class="text-end">
-                        <button class="btn btn-xs btn-danger js-revoke-api-token"
+                        <button class="btn btn-sm btn-outline-danger js-revoke-api-token"
                                 data-token-id="<?= $tok['token_id'] ?>"
                                 data-csrf="<?= $_SESSION['csrf_token'] ?>">
-                            <i class="fas fa-times"></i> Revoke
+                            <i class="fas fa-times me-1"></i>Revoke
                         </button>
                     </td>
                 </tr>
@@ -555,7 +578,7 @@ document.addEventListener('click', async function (e) {
                 </div>
                 <small class="text-muted">Six digits. Not a straight run, a repeated pattern, or your last trainer PIN.</small>
             </div>
-            <button type="submit" name="set_trainer_pin" class="btn btn-primary btn-sm">
+            <button type="submit" name="set_trainer_pin" class="btn btn-primary">
                 <i class="fas fa-check me-1"></i><?= $trainer_pin_row['has_pin'] ? 'Change Trainer PIN' : 'Set Trainer PIN' ?>
             </button>
         </form>
