@@ -87,13 +87,13 @@ foreach ($platform_order as $plat):
     <table class="table table-sm table-hover mb-0" style="table-layout:fixed">
         <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
             <tr>
-                <th class="ps-3" style="width:26%">Check Name</th>
+                <th class="ps-3" style="width:24%">Check Name</th>
                 <th class="text-center" style="width:16%;font-size:12px">Type</th>
                 <th class="text-center" style="width:14%;font-size:12px">Thresholds</th>
                 <th class="text-center" style="width:9%;font-size:12px">Interval</th>
                 <th class="text-center" style="width:11%;font-size:12px">Deployed</th>
                 <th class="text-center" style="width:10%;font-size:12px">Status</th>
-                <th style="width:14%"></th>
+                <th style="width:16%"></th>
             </tr>
         </thead>
         <tbody>
@@ -143,7 +143,7 @@ foreach ($platform_order as $plat):
                     ? '<span class="badge text-bg-success" style="font-size:90%">Active</span>'
                     : '<span class="badge text-bg-secondary" style="font-size:90%">Disabled</span>' ?>
             </td>
-            <td class="text-end pe-2" style="white-space:nowrap">
+            <td class="text-end pe-3" style="white-space:nowrap">
                 <button class="btn btn-xs btn-outline-success me-1 js-push-policy" title="Push to matching agents" aria-label="Push to matching agents"
                         data-policy-id="<?= $pid ?>" data-policy-name="<?= nullable_htmlentities($pol['name']) ?>">
                     <i class="fas fa-cloud-upload-alt"></i>
