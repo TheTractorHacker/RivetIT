@@ -14,12 +14,12 @@ if (isset($_POST['add_change'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_support', 2);
 
-    $title = sanitizeInput($_POST['title']);
+    $title = cleanInput($_POST['title']);
     $risk = in_array($_POST['risk'] ?? '', ['low', 'medium', 'high'], true) ? $_POST['risk'] : 'low';
-    $reason = sanitizeInput($_POST['reason'] ?? '');
-    $impact = sanitizeInput($_POST['impact'] ?? '');
-    $implementation_plan = sanitizeInput($_POST['implementation_plan'] ?? '');
-    $rollback_plan = sanitizeInput($_POST['rollback_plan'] ?? '');
+    $reason = cleanInput($_POST['reason'] ?? '');
+    $impact = cleanInput($_POST['impact'] ?? '');
+    $implementation_plan = cleanInput($_POST['implementation_plan'] ?? '');
+    $rollback_plan = cleanInput($_POST['rollback_plan'] ?? '');
     $scheduled_at = itsmParseDatetimeLocal($_POST['scheduled_at'] ?? null);
 
     $change_id = (new \ITFlow\ITSM\ChangeService($mysqli))->create(
@@ -53,12 +53,12 @@ if (isset($_POST['edit_change'])) {
     enforceUserPermission('module_support', 2);
 
     $change_id = intval($_POST['change_id']);
-    $title = sanitizeInput($_POST['title']);
+    $title = cleanInput($_POST['title']);
     $risk = in_array($_POST['risk'] ?? '', ['low', 'medium', 'high'], true) ? $_POST['risk'] : 'low';
-    $reason = sanitizeInput($_POST['reason'] ?? '');
-    $impact = sanitizeInput($_POST['impact'] ?? '');
-    $implementation_plan = sanitizeInput($_POST['implementation_plan'] ?? '');
-    $rollback_plan = sanitizeInput($_POST['rollback_plan'] ?? '');
+    $reason = cleanInput($_POST['reason'] ?? '');
+    $impact = cleanInput($_POST['impact'] ?? '');
+    $implementation_plan = cleanInput($_POST['implementation_plan'] ?? '');
+    $rollback_plan = cleanInput($_POST['rollback_plan'] ?? '');
 
     $stmt = $mysqli->prepare(
         "UPDATE changes SET title = ?, risk = ?, reason = ?, impact = ?, implementation_plan = ?, rollback_plan = ? WHERE change_id = ?"
@@ -78,7 +78,7 @@ if (isset($_POST['set_change_status'])) {
     enforceUserPermission('module_support', 2);
 
     $change_id = intval($_POST['change_id']);
-    $status = sanitizeInput($_POST['status']);
+    $status = cleanInput($_POST['status']);
     $scheduled_at = itsmParseDatetimeLocal($_POST['scheduled_at'] ?? null);
 
     try {

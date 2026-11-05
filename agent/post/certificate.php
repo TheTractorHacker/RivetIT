@@ -189,7 +189,7 @@ if (isset($_GET['delete_certificate'])) {
 
     mysqli_query($mysqli,"DELETE FROM certificates WHERE certificate_id = $certificate_id");
 
-    logAction("Certificate", "Delete", "$session_name deleted certificate $name", $client_id);
+    logAction("Certificate", "Delete", "$session_name deleted certificate $certificate_name", $client_id);
 
     flash_alert("Certificate <strong>$certificate_name</strong> deleted");
 
