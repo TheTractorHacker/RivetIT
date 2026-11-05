@@ -257,7 +257,7 @@ function rivetRmmPackCard(array $vm, array $ctx): string
     $params = rivetRmmPackParamsBlock($vm['items'], $paramVals);
     $c = $vm['counts'];
     $seg = static fn (string $key, string $label, int $n, string $tip, bool $on = false): string => '<button type="button" class="' . ($on ? 'is-active' : '') . '" data-pack-filter="' . $key . '" aria-pressed="' . ($on ? 'true' : 'false') . '" title="' . rmmH($tip) . '"' . ($n === 0 && $key !== 'all' ? ' data-zero="1"' : '') . '>' . rmmH($label) . ' <span class="rmmx-count">' . $n . '</span></button>';
-    $chips = '<div class="rmmx-seg mb-3" role="group" aria-label="Filter the items by state">'
+    $chips = '<div class="rmmx-seg mb-3" style="max-width:100%;overflow-x:auto" role="group" aria-label="Filter the items by state">'
         . $seg('all', 'All', (int) $c['not_installed'] + (int) $c['installed'] + (int) $c['update_available'] + (int) $c['edited'], 'Show every item', true)
         . $seg('not_installed', 'Not installed', (int) $c['not_installed'], 'Items that are not installed yet')
         . $seg('installed', 'Installed', (int) $c['installed'], 'Items installed and unchanged from the pack')

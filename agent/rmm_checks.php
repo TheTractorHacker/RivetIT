@@ -33,6 +33,9 @@ $type_meta = [
     'script'    => ['icon' => 'fas fa-code',         'label' => 'Script'],
 ];
 ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    @media (max-width: 991.98px) { .rmm-checks-table { min-width: 820px; } }
+</style>
 
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 mr-auto"><i class="fas fa-heartbeat me-2"></i>Alert Check Policies</h4>
@@ -83,8 +86,8 @@ foreach ($platform_order as $plat):
             <i class="fas fa-cloud-upload-alt me-1"></i><?= $plat === 'any' ? 'Push to all agents' : 'Push all to ' . $pm['label'] . ' agents' ?>
         </button>
     </div>
-    <div class="card-body p-0">
-    <table class="table table-sm table-hover mb-0" style="table-layout:fixed">
+    <div class="card-body p-0 table-responsive">
+    <table class="table table-sm table-hover mb-0 rmm-checks-table" style="table-layout:fixed">
         <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
             <tr>
                 <th class="ps-3" style="width:24%">Check Name</th>

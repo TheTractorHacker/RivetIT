@@ -168,7 +168,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 
 <!-- Asset table -->
 <div class="card card-dark">
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
         <?php if (count($rmm_link_rows) === 0): ?>
             <div class="text-center text-muted py-5">
                 <i class="fas fa-desktop fa-3x mb-3"></i>
@@ -177,6 +177,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
         <?php else: ?>
         <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
             #rmm-assets-table td { vertical-align: middle; }
+            #rmm-assets-table { min-width: 980px; }
             #rmm-assets-table .rmm-host { white-space: nowrap; }
             #rmm-assets-table .rmm-user { overflow-wrap: normal; word-break: normal; }
             #rmm-assets-table .rmm-actions { white-space: nowrap; text-align: left; width: 1%; }

@@ -310,7 +310,7 @@ if ($legacy_can_import): ?>
     <div class="card-header py-2 d-flex align-items-center">
         <h6 class="mb-0 mr-auto"><i class="fas fa-history me-2"></i>Recent Script Runs</h6>
     </div>
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
     <?php if (mysqli_num_rows($sql_runs) === 0): ?>
         <p class="text-muted text-center py-3 mb-0 small">No script runs yet.</p>
     <?php else: ?>
