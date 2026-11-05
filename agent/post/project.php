@@ -285,6 +285,38 @@ if (isset($_GET['close_project'])) {
 
 }
 
+if (isset($_GET['reopen_project'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $project_id = intval($_GET['reopen_project']);
+
+    $sql = mysqli_query($mysqli, "SELECT project_name, project_client_id FROM projects WHERE project_id = $project_id");
+    $row = mysqli_fetch_assoc($sql);
+    if (!$row) {
+        flash_alert("That project no longer exists", 'error');
+        redirect("projects.php");
+    }
+    $project_name = sanitizeInput($row['project_name']);
+    $client_id = intval($row['project_client_id']);
+
+    // Same department check as closing a project
+    if ($client_id) {
+        enforceClientAccess($client_id);
+    }
+
+    mysqli_query($mysqli, "UPDATE projects SET project_completed_at = NULL WHERE project_id = $project_id AND project_archived_at IS NULL");
+
+    logAction("Project", "Edit", "$session_name reopened project $project_name", $client_id, $project_id);
+
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> reopened");
+
+    redirect();
+
+}
+
 if (isset($_GET['archive_project'])) {
 
     validateCSRFToken($_GET['csrf_token']);
