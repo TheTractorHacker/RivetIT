@@ -235,10 +235,15 @@ document.addEventListener('click', function (e) {
 
 // RivetDialog confirm gate for delete links nested inside another modal,
 // where .confirm-link's own modal-on-modal stacking doesn't work.
-document.addEventListener('click', function (e) {
-    var el = e.target.closest ? e.target.closest('.js-confirm-native') : null;
-    if (el) { RivetDialog.gate(e, el, el.dataset.confirmMessage || 'Are you sure?', { variant: el.dataset.confirmVariant || 'danger' }); }
-});
+// This script is re-executed on every AJAX modal load, so bind the document listener only once: a second copy
+// would see the first one's approval already consumed and ask for the confirmation a second time.
+if (!window.__rivetConfirmNativeBound) {
+    window.__rivetConfirmNativeBound = true;
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('.js-confirm-native') : null;
+        if (el) { RivetDialog.gate(e, el, el.dataset.confirmMessage || 'Are you sure?', { variant: el.dataset.confirmVariant || 'danger' }); }
+    });
+}
 
 // Force-uppercase as-you-type (client abbreviation field, etc).
 document.addEventListener('input', function (e) {
