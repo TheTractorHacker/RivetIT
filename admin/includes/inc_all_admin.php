@@ -66,6 +66,7 @@ $admin_settings_labels = [
     'webhook_new.php' => 'Webhooks',
     'webhook_edit.php' => 'Webhooks',
     'settings_ai.php' => 'AI',
+    'ai_model.php' => 'AI models',
     'settings_telemetry.php' => 'Telemetry',
     'settings_comet.php' => 'Integrations',
     'comet_status.php' => 'Integrations',

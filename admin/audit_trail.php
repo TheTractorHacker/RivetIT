@@ -215,9 +215,9 @@ if ($chain_cols) {
                 <tr>
                     <td class="small text-nowrap"><?= $h(rivetFormatTime($r['created_at'], 'local', true, 'Y-m-d H:i:s') ?: $r['created_at']) ?></td>   <?php /* audit_events.created_at defaults to current_timestamp() under the company session zone */ ?>
                     <td><span class="badge text-bg-<?= $tone((string) $r['event_type']) ?>"><?= $h($r['event_type']) ?></span></td>
-                    <td class="small"><?= $r['actor_user_id'] ? $h($r['user_name'] ?: ('user #' . $r['actor_user_id'])) : '<span class="text-muted">system / anonymous</span>' ?></td>
+                    <td class="small text-nowrap"><?= $r['actor_user_id'] ? $h($r['user_name'] ?: ('user #' . $r['actor_user_id'])) : '<span class="text-muted">system / anonymous</span>' ?></td>
                     <td class="small"><?= $h($r['summary']) ?><?= $r['entity_type'] ? ' <span class="text-muted">(' . $h($r['entity_type']) . ($r['entity_id'] !== null ? ' #' . $h($r['entity_id']) : '') . ')</span>' : '' ?></td>
-                    <td class="small text-secondary"><?= $h($r['ip_address']) ?></td>
+                    <td class="small text-secondary text-nowrap"><?= $h($r['ip_address']) ?></td>
                     <td class="text-end"><?php if (is_array($meta) && $meta) { ?>
                         <button class="btn btn-link btn-sm p-0 text-nowrap" type="button" data-bs-toggle="collapse" data-bs-target="#meta<?= (int) $r['audit_id'] ?>">details</button><?php } ?></td>
                 </tr>
