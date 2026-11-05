@@ -259,7 +259,7 @@ require_once dirname(__DIR__) . '/includes/rmm_installer.php';
 $dash_gate = rivetRmmInstallerGate($mysqli, (int) $session_user_id);
 $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $session_user_id) : null;
 ?>
-<div class="d-flex align-items-center mb-3">
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
     <h4 class="mb-0 mr-auto"><i class="fas fa-tachometer-alt me-2"></i>RMM Dashboard</h4>
     <?php if ($last_sync_row): ?>
     <small class="text-muted me-3">
@@ -372,7 +372,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                 <span class="badge text-bg-danger"><?= intval($health['resource_pressure']) ?> pressured</span>
                 <span class="badge text-bg-info"><?= intval($health['maintenance']) ?> maintenance</span>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 table-responsive">
             <?php if (count($unhealthy_rows) === 0): ?>
                 <p class="text-muted text-center py-3 mb-0 small"><i class="fas fa-check-circle text-success me-1"></i>No devices need attention.</p>
             <?php else: ?>
@@ -563,7 +563,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                 </h6>
                 <a href="/agent/rmm_assets.php?status=offline" class="btn btn-xs btn-secondary">View All</a>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 table-responsive">
             <?php if (count($offline_rows) === 0): ?>
                 <p class="text-muted text-center py-3 mb-0 small">
                     <i class="fas fa-check-circle text-success me-1"></i>All assets online
@@ -671,7 +671,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
                 <h6 class="mb-0 mr-auto"><i class="fas fa-users me-2"></i>Department Health</h6>
                 <a href="/agent/clients.php" class="btn btn-xs btn-secondary">All Departments</a>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 table-responsive">
             <?php if (mysqli_num_rows($sql_clients) === 0): ?>
                 <p class="text-muted text-center py-3 mb-0 small">No departments with RMM assets.</p>
             <?php else: ?>
@@ -855,7 +855,8 @@ async function dashAlertTicket(id, btn) {
 }
 
 async function ackAllNew(btn) {
-    if (!(await RivetDialog.confirm('Acknowledge all new alerts?'))) return;
+    const n = document.querySelectorAll('[id^="dash-alert-"]').length;
+    if (!(await RivetDialog.confirm('Acknowledge the ' + n + ' new alert' + (n === 1 ? '' : 's') + ' listed here? They stay open; they are only marked as seen.'))) return;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Acking...';
     document.querySelectorAll('[id^="dash-alert-"]').forEach(row => {
@@ -927,7 +928,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 labels: <?php echo json_encode($sev_labels); ?>,
                 datasets: [{
                     data: <?php echo json_encode($sev_counts); ?>,
-                    backgroundColor: <?php echo json_encode($sev_colors); ?>
+                    backgroundColor: <?php echo json_encode($sev_colors); ?>,
+                    borderColor: getComputedStyle(ctx.closest('.card') || document.body).backgroundColor,
+                    borderWidth: 2
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right' } } }

@@ -168,13 +168,20 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 
 <!-- Asset table -->
 <div class="card card-dark">
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
         <?php if (count($rmm_link_rows) === 0): ?>
             <div class="text-center text-muted py-5">
                 <i class="fas fa-desktop fa-3x mb-3"></i>
                 <p>No RMM assets found. <a href="#" class="js-trigger-sync">Sync from <?= nullable_htmlentities($sync_target_name) ?></a> to import devices.</p>
             </div>
         <?php else: ?>
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+            #rmm-assets-table td { vertical-align: middle; }
+            #rmm-assets-table { min-width: 980px; }
+            #rmm-assets-table .rmm-host { white-space: nowrap; }
+            #rmm-assets-table .rmm-user { overflow-wrap: normal; word-break: normal; }
+            #rmm-assets-table .rmm-actions { white-space: nowrap; text-align: left; width: 1%; }
+        </style>
         <table class="table table-hover table-sm mb-0" id="rmm-assets-table">
             <thead class="text-muted small border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;">
                 <tr>
@@ -202,7 +209,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 <td>
                     <i class="fas <?= $icon ?>" data-bs-toggle="tooltip" title="<?= ucfirst($status) ?>"></i>
                 </td>
-                <td>
+                <td class="rmm-host">
                     <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="fw-bold">
                         <?= nullable_htmlentities($row['hostname']) ?>
                     </a>
@@ -224,14 +231,14 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                     <?php endif; ?>
                 </td>
                 <td class="text-muted small"><?= nullable_htmlentities($row['os_name']) ?></td>
-                <td class="text-muted small"><?= nullable_htmlentities($row['logged_in_user']) ?: '—' ?></td>
+                <td class="text-muted small rmm-user"><?= $row['logged_in_user'] ? str_replace('\\', '\\<wbr>', nullable_htmlentities($row['logged_in_user'])) : '—' ?></td>
                 <td class="text-muted small">
                     <?= $row['last_seen'] ? nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'Y-m-d H:i')) : '—' ?>
                 </td>
                 <td class="text-muted small">
-                    <?= $row['last_sync'] ? nullable_htmlentities($row['last_sync']) : '—' ?>
+                    <?= $row['last_sync'] ? nullable_htmlentities(rivetFormatTime($row['last_sync'], 'local', true, 'Y-m-d H:i')) : '—' ?>
                 </td>
-                <td class="text-end pe-2">
+                <td class="rmm-actions pe-2">
                     <div class="btn-group">
                         <a href="/agent/asset_details.php?client_id=<?= intval($row['asset_client_id']) ?>&asset_id=<?= intval($row['asset_id']) ?>" class="btn btn-xs btn-info" title="Open this asset">
                             <i class="fas fa-arrow-right me-1" aria-hidden="true"></i>Open

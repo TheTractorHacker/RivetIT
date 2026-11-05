@@ -310,7 +310,7 @@ if ($legacy_can_import): ?>
     <div class="card-header py-2 d-flex align-items-center">
         <h6 class="mb-0 mr-auto"><i class="fas fa-history me-2"></i>Recent Script Runs</h6>
     </div>
-    <div class="card-body p-0">
+    <div class="card-body p-0 table-responsive">
     <?php if (mysqli_num_rows($sql_runs) === 0): ?>
         <p class="text-muted text-center py-3 mb-0 small">No script runs yet.</p>
     <?php else: ?>
@@ -368,7 +368,7 @@ if ($legacy_can_import): ?>
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="scriptModalTitle">New Script</h5>
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -437,7 +437,7 @@ if ($legacy_can_import): ?>
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0" id="previewModalTitle"></h6>
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
                 <pre id="previewBody" style="background:#111;color:#e0e0e0;font-size:12px;margin:0;padding:16px;max-height:500px;overflow-y:auto;border-radius:0 0 4px 4px"></pre>
@@ -452,7 +452,7 @@ if ($legacy_can_import): ?>
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0"><i class="fas fa-play me-2"></i>Run Script on Asset</h6>
-                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-2">Script: <strong id="runScriptName"></strong></p>

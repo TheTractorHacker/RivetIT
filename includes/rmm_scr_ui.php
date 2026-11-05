@@ -1799,7 +1799,7 @@ function rivetRmmScrTabs(string $active, \mysqli $mysqli): string
         return '';
     }
     $tab = static fn (string $key, string $href, string $icon, string $label): string => '<li class="nav-item"><a class="nav-link' . ($active === $key ? ' active' : '') . '" href="' . $href . '"'
-        . ($active === $key ? ' aria-current="page"' : '') . '><i class="fas fa-' . $icon . ' me-1" aria-hidden="true"></i>' . rmmH($label) . '</a></li>';
+        . ($active === $key ? ' aria-current="page"' : '') . '><i class="fas fa-' . $icon . ' me-2" aria-hidden="true"></i>' . rmmH($label) . '</a></li>';
 
     return '<nav aria-label="Scripts"><ul class="nav nav-tabs mb-3" id="rmm-scripts-tabs">' . $tab('library', RIVET_RMM_SCR_LIBRARY_PAGE, 'file-code', 'Library')
         . $tab('legacy', RIVET_RMM_SCR_LEGACY_PAGE, 'cloud-download-alt', 'Synced from ' . rivetRmmScrLegacyProviderName($mysqli)) . '</ul></nav>';
