@@ -147,7 +147,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     }
     /* Board layout: equal-width lanes that scroll sideways as a group instead of clipping the last one, a header that stays put, and no giant empty band. */
     #kanban-board { min-width: 0; max-width: 100%; height: auto; gap: 12px; padding: 0 0 .75rem; align-items: flex-start; scroll-snap-type: x proximity; }
-    #kanban-board .kanban-column { flex: 1 0 280px; min-width: 280px; margin: 0; padding: 0; min-height: 0; max-height: calc(100vh - 290px); overflow: hidden; scroll-snap-align: start; display: flex; flex-direction: column; }
+    #kanban-board .kanban-column { flex: 1 0 260px; min-width: 260px; margin: 0; padding: 0; min-height: 0; max-height: calc(100vh - 290px); overflow: hidden; scroll-snap-align: start; display: flex; flex-direction: column; }
     #kanban-board .panel-title { display: flex; align-items: center; gap: .5rem; margin: 0; padding: .7rem .85rem; font-size: .9rem; font-weight: 600; border-bottom: 1px solid var(--if-border); background: var(--if-surface); position: sticky; top: 0; z-index: 1; flex: 0 0 auto; }
     #kanban-board .panel-title .badge { float: none !important; margin-left: auto; }
     #kanban-board .kanban-status { padding: .5rem; min-height: 96px; overflow-y: auto; flex: 1 1 auto; }
@@ -179,7 +179,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     #kanban-board .task-avatar-more { font-size: .6rem; }
     #kanban-board .task-assignee-name { margin-left: .35rem; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9rem; }
     #kanban-board .task-assignee { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--bs-secondary-color, #6c757d); }
-    #kanban-board .task-avatar { width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--if-border); color: var(--if-ink); display: inline-flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 600; flex: 0 0 auto; }
+    #kanban-board .task-avatar { width: 1.55rem; height: 1.55rem; letter-spacing: 0; overflow: hidden; border-radius: 50%; background: var(--if-border); color: var(--if-ink); display: inline-flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 600; flex: 0 0 auto; }
     #kanban-board .task.is-filtered-out { display: none; }
     #kanban-board .task .dropdown-menu { font-size: .85rem; }
     /* Keep the page from selecting text / opening the iOS callout while a card is being held to drag */
