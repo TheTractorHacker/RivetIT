@@ -191,7 +191,7 @@ function tps_local(?string $utc): ?string
         </form>
     </div>
     <div class="card-body p-0">
-        <table class="table table-sm table-borderless table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0">
             <thead class="text-muted small"><tr class="border-bottom"><th class="ps-3">Browser</th><th>IP address</th><th>Signed in</th><th>Last active</th><th></th></tr></thead>
             <tbody>
             <?php if (!$sec_sessions) { ?>
@@ -215,7 +215,7 @@ function tps_local(?string $utc): ?string
                 </tr>
             <?php } ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 
@@ -227,7 +227,7 @@ function tps_local(?string $utc): ?string
     </div>
     <div class="card-body p-0">
         <p class="text-muted small px-3 pt-3 mb-2">Apps you allowed to read <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> as you (read-only, limited to what your role can see). Remove one to cut it off immediately.</p>
-        <table class="table table-sm table-borderless table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0">
             <thead class="text-muted small"><tr class="border-bottom"><th class="ps-3">App</th><th>Approved</th><th>Last used</th><th>Ends</th><th></th></tr></thead>
             <tbody>
             <?php if (!$mcp_connections) { ?>
@@ -248,7 +248,7 @@ function tps_local(?string $utc): ?string
                 </tr>
             <?php } ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 <?php } ?>
@@ -289,7 +289,7 @@ $vault_canonical_ok = !empty(mysqli_fetch_assoc(mysqli_query($mysqli,
             </div>
         </div>
         <?php endif; ?>
-        <table class="table table-sm table-borderless table-hover mb-0" id="passkey-table">
+        <div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0" id="passkey-table">
             <thead class="text-muted small">
                 <tr class="border-bottom">
                     <th class="ps-3">Name</th>
@@ -327,7 +327,7 @@ $vault_canonical_ok = !empty(mysqli_fetch_assoc(mysqli_query($mysqli,
                 <?php }
             } ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 
@@ -487,7 +487,7 @@ document.addEventListener('click', async function (e) {
     </div>
     <div class="card-body p-0">
         <?php if (mysqli_num_rows($sql_api_tokens) > 0): ?>
-        <table class="table table-sm table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-hover mb-0">
             <thead>
                 <tr>
                     <th>Device</th>
@@ -518,7 +518,7 @@ document.addEventListener('click', async function (e) {
                 </tr>
                 <?php endwhile; ?>
             </tbody>
-        </table>
+        </table></div>
         <?php else: ?>
         <div class="p-3 text-muted text-center">
             <i class="fas fa-mobile-alt fa-2x mb-2 d-block text-secondary"></i>

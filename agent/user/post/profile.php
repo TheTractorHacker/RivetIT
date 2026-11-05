@@ -261,6 +261,8 @@ if (isset($_POST['edit_your_user_preferences'])) {
     $calendar_first_day = intval($_POST['calendar_first_day']);
     $dark_mode = in_array(intval($_POST['dark_mode'] ?? 0), [0, 1, 2]) ? intval($_POST['dark_mode'] ?? 0) : 0; // 0 company default, 1 dark, 2 light
 
+    $extended_log_description = '';
+
     // Calendar
     $records_per_page = normalizeRecordsPerPage($_POST['records_per_page'] ?? null, intval($user_config_records_per_page ?? 10) ?: 10);
 
@@ -274,7 +276,7 @@ if (isset($_POST['edit_your_user_preferences'])) {
             $extension_key = randomString(32);
             mysqli_query($mysqli, "UPDATE users SET user_extension_key = '$extension_key' WHERE user_id = $session_user_id");
 
-            $extended_log_description .= "enabled browser extension access";
+            $extended_log_description .= "(browser extension access enabled)";
             $logout = true;
         }
     }
@@ -282,10 +284,10 @@ if (isset($_POST['edit_your_user_preferences'])) {
     // Disable extension access
     if (!isset($_POST['extension'])) {
         mysqli_query($mysqli, "UPDATE users SET user_extension_key = '' WHERE user_id = $session_user_id");
-        $extended_log_description .= "disabled browser extension access";
+        $extended_log_description .= "(browser extension access disabled)";
     }
 
-    logAction("User Account", "Edit", "$session_name $extended_log_description");
+    logAction("User Account", "Edit", trim("$session_name edited their preferences $extended_log_description"));
 
     flash_alert("User preferences updated");
 

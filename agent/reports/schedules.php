@@ -166,7 +166,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
         || ($delivery !== 'summary' && (!ReportCatalog::exists($report) || !$can_module_row($report)))
         || ($report === '')) {
         $_SESSION['alert_type'] = 'danger';
-        $_SESSION['alert_message'] = 'Please choose a valid report to schedule (a headline summary is only available for some reports, and you need access to the report).';
+        if ($report !== '' && isset($valid_formats[$delivery]) && $delivery === 'summary' && !isset($schedulable[$report]) && $saved_view_id <= 0) {
+            $_SESSION['alert_message'] = 'That report has no headline summary. Choose CSV, tables or PDF delivery for it, or pick a different report.';
+        } else {
+            $_SESSION['alert_message'] = 'Please choose a valid report to schedule (a headline summary is only available for some reports, and you need access to the report).';
+        }
     } elseif (!$can_schedule_report($report)) {
         $_SESSION['alert_type'] = 'danger';
         $_SESSION['alert_message'] = 'Your role does not have access to the data in that report.';
@@ -297,7 +301,7 @@ $all_reports = ReportCatalog::definitions();
                     <optgroup label="Reports">
                         <?php foreach ($all_reports as $key => $def) {
                             if (!$can_module_row($key)) { continue; } ?>
-                            <option value="r:<?php echo nullable_htmlentities($key); ?>"><?php echo nullable_htmlentities($def['label']); ?></option>
+                            <option value="r:<?php echo nullable_htmlentities($key); ?>"<?php if (!isset($sched_default_set) && isset($schedulable[$key])) { $sched_default_set = true; echo ' selected'; } ?>><?php echo nullable_htmlentities($def['label']); ?></option>
                         <?php } ?>
                     </optgroup>
                     <?php if ($my_views) { ?>
