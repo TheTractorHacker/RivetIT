@@ -203,6 +203,7 @@ foreach ($platform_order as $plat):
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit_id" value="">
+                <div class="alert alert-danger d-none py-2 small" id="policyModalMsg" role="alert"></div>
                 <div class="form-group">
                     <label class="text-muted small">Policy Name</label>
                     <input type="text" class="form-control form-control-sm" id="p_name" placeholder="e.g. Disk Space C: Drive">
@@ -459,6 +460,7 @@ function openNewPolicy() {
     document.getElementById('p_description').value = '';
     document.getElementById('p_enabled').checked = true;
     updateParamsHint();
+    policyModalError('');
     $('#policyModal').modal('show');
 }
 
@@ -476,6 +478,7 @@ function editPolicy(pol) {
     document.getElementById('p_description').value = pol.description || '';
     document.getElementById('p_enabled').checked   = pol.enabled == 1;
     updateParamsHint();
+    policyModalError('');
     $('#policyModal').modal('show');
 }
 
@@ -513,7 +516,19 @@ function updateParamsHint() {
     document.getElementById('threshold_row').style.display = noThresh ? 'none' : '';
 }
 
+function policyModalError(text) {
+    const el = document.getElementById('policyModalMsg');
+    el.textContent = text;
+    el.classList.toggle('d-none', !text);
+}
+
 function savePolicy() {
+    policyModalError('');
+    if (document.getElementById('p_name').value.trim() === '') {
+        policyModalError('Enter a name for the policy.');
+        document.getElementById('p_name').focus();
+        return;
+    }
     const params = {
         csrf_token:         CSRF,
         action:             'save_policy',
@@ -537,9 +552,9 @@ function savePolicy() {
             showMsg('Policy saved.', 'success');
             setTimeout(() => location.reload(), 800);
         } else {
-            showMsg('Failed: ' + (d.error || 'Unknown error'), 'danger');
+            policyModalError(d.error || 'The policy could not be saved.');
         }
-    });
+    }).catch(() => policyModalError('Network error: the policy was not saved. Try again.'));
 }
 </script>
 
