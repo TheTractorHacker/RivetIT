@@ -129,9 +129,9 @@ $row = static function (?\RivetCore\Compliance\Profile\Requirement $r) use ($h):
         <?php } ?></tbody></table></div>
 </div>
 
-<div class="row">
+<div class="row align-items-stretch">
 <div class="col-lg-6">
-<div class="card mb-3"><div class="card-header py-3"><h4 class="card-title mb-0">Copy a framework</h4></div><div class="card-body">
+<div class="card mb-3 h-100"><div class="card-header py-3"><h4 class="card-title mb-0">Copy a framework</h4></div><div class="card-body">
     <form action="post.php" method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
         <div class="mb-2"><label class="form-label">Copy from</label><select class="form-select" name="source_key"><?php foreach ($profiles as $p) { ?><option value="<?= $h($p->key) ?>"><?= $h($p->displayName()) ?></option><?php } ?></select></div>
         <div class="mb-2"><label class="form-label">New key</label><input class="form-control" name="profile_key" required pattern="[a-z][a-z0-9_]{2,47}" placeholder="contract_x"><div class="form-text">Lower case letters, digits and underscores, 3 to 48 characters.</div></div>
@@ -140,7 +140,7 @@ $row = static function (?\RivetCore\Compliance\Profile\Requirement $r) use ($h):
     </form></div></div>
 </div>
 <div class="col-lg-6">
-<div class="card mb-3"><div class="card-header py-3"><h4 class="card-title mb-0">Import a framework</h4></div><div class="card-body">
+<div class="card mb-3 h-100"><div class="card-header py-3"><h4 class="card-title mb-0">Import a framework</h4></div><div class="card-body">
     <form action="post.php" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
         <div class="mb-2"><label class="form-label">JSON file (64 KiB at most)</label><input type="file" class="form-control" name="profile_file" accept="application/json,.json" required></div>
         <div class="mb-2"><label class="form-label">Use this key instead (optional, if the file's key is taken)</label><input class="form-control" name="as_key" pattern="[a-z][a-z0-9_]{2,47}"></div>

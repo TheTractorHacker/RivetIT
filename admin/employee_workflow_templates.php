@@ -24,7 +24,7 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
     <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Start workflows automatically</h5></div>
     <div class="card-body">
         <p class="text-muted small">When on, a hire, a departure, a new job title or a move to another department raises an <code>employee.hired</code>, <code>employee.terminated</code>, <code>employee.role_changed</code> (new job title) or <code>employee.transferred</code> (new department) event (a contact edit, the people import, or the Microsoft, Google and Odoo directory syncs). An <a href="event_rules.php">event rule</a> with the action &ldquo;Start an employee workflow&rdquo; then starts the template you choose, once per person. Off by default: with it off, nothing is detected and workflows only start when someone starts them.</p>
-        <form action="post.php" method="post" class="d-flex align-items-center gap-3">
+        <form action="post.php" method="post" class="d-flex flex-wrap align-items-center gap-3">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_auto_start" value="1" id="lifecycle_auto_start" <?= $lifecycle_on ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_auto_start">Detect hires, departures, role changes and transfers and let event rules start workflows</label></div>
             <?php if ($odoo_ready) { ?>
@@ -56,9 +56,9 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
 <?php } ?>
 
 <div class="card">
-    <div class="card-header py-2">
+    <div class="card-header py-2 flex-wrap gap-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-tasks me-2"></i>Employee Workflow Templates</h3>
-        <div class="card-tools">
+        <div class="card-tools d-flex flex-wrap gap-1">
             <a href="bulk_onboarding.php" class="btn btn-outline-secondary me-1"><i class="fas fa-users me-2"></i>Start for many people</a>
             <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_add.php"><i class="fas fa-plus me-2"></i>New Template</button>
         </div>

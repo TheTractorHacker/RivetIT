@@ -55,12 +55,12 @@ ob_start();
         <?php
         $defs = \ITFlow\Workflow\TemplateVariables::definitions($row['variables_json'] ?? null);
         for ($i = 0; $i < 6; $i++) { $d = $defs[$i] ?? ['name' => '', 'label' => '', 'type' => 'text', 'required' => false, 'default' => '', 'options' => []]; ?>
-        <div class="row g-1 mb-1">
-            <div class="col-4 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][name]" placeholder="field_name" maxlength="30" value="<?= nullable_htmlentities($d['name']) ?>"></div>
-            <div class="col-8 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][label]" placeholder="Question" maxlength="100" value="<?= nullable_htmlentities($d['label'] === $d['name'] ? '' : $d['label']) ?>"></div>
-            <div class="col-5 col-md-2"><select class="form-select form-select-sm" name="vars[<?= $i ?>][type]"><?php foreach (\ITFlow\Workflow\TemplateVariables::TYPES as $k => $l) { ?><option value="<?= $k ?>" <?= $d['type'] === $k ? 'selected' : '' ?>><?= $l ?></option><?php } ?></select></div>
-            <div class="col-7 col-md-3"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][options]" placeholder="Choices (comma separated)" maxlength="400" value="<?= nullable_htmlentities(implode(', ', $d['options'])) ?>"></div>
-            <div class="col-12 col-md-1"><label class="small text-nowrap"><input type="checkbox" name="vars[<?= $i ?>][required]" value="1" <?= $d['required'] ? 'checked' : '' ?>> Required</label></div>
+        <div class="row g-1 mb-3">
+            <div class="col-5"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][name]" placeholder="field_name" maxlength="30" value="<?= nullable_htmlentities($d['name']) ?>"></div>
+            <div class="col-7"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][label]" placeholder="Question" maxlength="100" value="<?= nullable_htmlentities($d['label'] === $d['name'] ? '' : $d['label']) ?>"></div>
+            <div class="col-4"><select class="form-select form-select-sm" name="vars[<?= $i ?>][type]"><?php foreach (\ITFlow\Workflow\TemplateVariables::TYPES as $k => $l) { ?><option value="<?= $k ?>" <?= $d['type'] === $k ? 'selected' : '' ?>><?= $l ?></option><?php } ?></select></div>
+            <div class="col-5"><input type="text" class="form-control form-control-sm" name="vars[<?= $i ?>][options]" placeholder="Choices (comma separated)" maxlength="400" value="<?= nullable_htmlentities(implode(', ', $d['options'])) ?>"></div>
+            <div class="col-3"><label class="small text-nowrap"><input type="checkbox" name="vars[<?= $i ?>][required]" value="1" <?= $d['required'] ? 'checked' : '' ?>> Required</label></div>
         </div>
         <?php } ?>
     </div>

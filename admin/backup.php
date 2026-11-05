@@ -177,7 +177,7 @@ function fmt_age(?int $ts): string {
 
     <!-- Master key -->
     <div class="col-lg-5">
-        <div class="card h-100">
+        <div class="card">
             <div class="card-header py-2">
                 <h3 class="card-title"><i class="fas fa-fw fa-key me-2"></i>Encryption Key Backup</h3>
             </div>
