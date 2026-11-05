@@ -160,9 +160,10 @@
                 load();
             }, function (err) {
                 var f = (err && err.fields) || {};
+                var friendly = { client_id: 'Pick a department.', label: 'Give the link a name.' };
                 Object.keys(f).forEach(function (k) {
                     var fb = root.querySelector('[data-field="' + k + '"]');
-                    if (fb) { fb.textContent = f[k]; if (fb.previousElementSibling) { fb.previousElementSibling.classList.add('is-invalid'); } }
+                    if (fb) { fb.textContent = (friendly[k] && /^(Required|Must be at least)/.test(String(f[k]))) ? friendly[k] : f[k]; if (fb.previousElementSibling) { fb.previousElementSibling.classList.add('is-invalid'); } }
                 });
                 fail(err, 'Could not create the link.');
             }).then(function () { btn.disabled = false; });

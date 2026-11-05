@@ -38,3 +38,24 @@
 
 /* Two-line modal headers (title + helper line) need real vertical padding, not Tabler's fixed 3.5rem row */
 .modal-header:has(> div > .modal-title + .text-muted) { padding-top: 14px; padding-bottom: 14px; height: auto; min-height: 56px; }
+
+/* Course builder: a very long course name must not blow the breadcrumb out into several lines */
+.tr-b-head__crumbs .breadcrumb { flex-wrap: nowrap; min-width: 0; }
+.tr-b-head__crumbs .breadcrumb-item { flex: 0 0 auto; }
+.tr-b-head__crumbs .breadcrumb-item.active { flex: 0 1 auto; min-width: 0; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Quiz builder: the dashed "Add question" ghost row is hidden by the builder when the empty state already offers the same button; its display rule beat [hidden] */
+.trq-addq[hidden] { display: none !important; }
+
+/* Learning paths: prerequisites card header (the helper line inherited the header's bold weight; padding matched no sibling card) */
+.tr-prereq-card .card-header { padding: 16px 20px; }
+.tr-prereq-card .card-header .small { font-weight: 400; font-size: .8125rem; margin-top: 2px; }
+.tr-prereq-card .card-header .form-check-label { font-weight: 500; font-size: .875rem; }
+
+/* Cover library: icon + label buttons collapse the leading space of their text node inside a flex button */
+.trcl-card__actions .btn { display: inline-flex; align-items: center; gap: .4rem; }
+
+/* Fleet links: tables scroll inside their card on a phone instead of squeezing every column to one character */
+#trf-root .table-responsive { position: relative; max-width: 100%; overflow-x: auto; }
+#trf-root .card-table { min-width: 560px; }
+#trf-root #trf-pending-card .card-table { min-width: 720px; }
