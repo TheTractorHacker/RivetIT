@@ -16,7 +16,7 @@ if (isset($_POST['add_project_template'])) {
 
     logAction("Project Template", "Create", "$session_name created project template $name", 0, $project_template_id);
 
-    flash_alert("Project Template <strong>$name</strong> created");
+    flash_alert("Project Template <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
 
     redirect();
 
@@ -35,7 +35,7 @@ if (isset($_POST['edit_project_template'])) {
 
     logAction("Project Template", "Edit", "$session_name edited project template $name", 0, $project_template_id);
 
-    flash_alert("Project Template <strong>$name</strong> edited");
+    flash_alert("Project Template <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> edited");
 
     redirect();
 
@@ -105,7 +105,7 @@ if (isset($_GET['delete_project_template'])) {
 
     logAction("Project Template", "Delete", "$session_name deleted project template $project_template_name and its associated ticket templates and tasks");
 
-    flash_alert("Project Template <strong>$project_template_name</strong> and its associated ticket templates and tasks deleted", 'error');
+    flash_alert("Project Template <strong>" . htmlspecialchars(stripslashes($project_template_name)) . "</strong> and its associated ticket templates and tasks deleted", 'error');
 
     redirect();
 
