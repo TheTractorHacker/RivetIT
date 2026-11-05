@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (/^bulk_delete_/.test(name)) {
                 var n = document.querySelectorAll('input[type="checkbox"].bulk-select:checked').length;
                 body.textContent = 'Permanently delete ' + n + ' selected ' + (n === 1 ? 'item' : 'items') + '? This cannot be undone.';
+            } else if (link.getAttribute('data-confirm')) {
+                // Pages can say what the click will do: <a class="confirm-link" data-confirm="Dismiss this request?">
+                body.textContent = link.getAttribute('data-confirm');
             } else {
                 body.textContent = 'Are you sure?';
             }

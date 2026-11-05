@@ -89,7 +89,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                         </a>
                         <?php if (lookupUserPermission('module_support') >= 2) { ?>
                         <a href="post.php?dismiss_mail_request=<?= $mr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-xs btn-danger confirm-link">
+                           class="btn btn-xs btn-danger confirm-link" data-confirm="Dismiss this request without creating a ticket?">
                             <i class="fas fa-trash me-1"></i>Dismiss
                         </a>
                         <?php } ?>
