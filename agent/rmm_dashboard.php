@@ -855,7 +855,8 @@ async function dashAlertTicket(id, btn) {
 }
 
 async function ackAllNew(btn) {
-    if (!(await RivetDialog.confirm('Acknowledge all new alerts?'))) return;
+    const n = document.querySelectorAll('[id^="dash-alert-"]').length;
+    if (!(await RivetDialog.confirm('Acknowledge the ' + n + ' new alert' + (n === 1 ? '' : 's') + ' listed here? They stay open; they are only marked as seen.'))) return;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Acking...';
     document.querySelectorAll('[id^="dash-alert-"]').forEach(row => {
