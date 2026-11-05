@@ -269,9 +269,6 @@ require "includes/users_toggle.php";
                 </tbody>
             </table>
         </div>
-        <?php if ($num_rows[0] == 0) { ?>
-            <div class="text-center text-muted py-4">No users match<?= $user_filter ? ' this filter' : '' ?>. <a href="users.php">Clear filters</a></div>
-        <?php } ?>
         <?php require_once "../includes/filter_footer.php";
  ?>
     </div>
