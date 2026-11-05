@@ -365,8 +365,8 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
     }
     .ts-nav li { flex: 0 0 auto; }
     .ts-nav a {
-        display: flex; align-items: center; gap: .35rem; padding: .45rem .5rem; border-radius: 8px;
-        font-weight: 500; font-size: .875rem; white-space: nowrap; text-decoration: none; color: var(--if-muted, #5d6f76);
+        display: flex; align-items: center; gap: .35rem; padding: .45rem .4rem; border-radius: 8px;
+        font-weight: 500; font-size: .8125rem; white-space: nowrap; text-decoration: none; color: var(--if-muted, #5d6f76);
     }
     .ts-nav a:hover { color: var(--if-ink, #16232a); background: rgba(var(--if-primary-rgb, 13, 148, 136), .06); }
     .ts-nav a:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 1px; }
