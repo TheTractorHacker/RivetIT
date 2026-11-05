@@ -152,7 +152,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-2">
                     <div class="form-group">
                         <select class="form-control select2 auto-submit-select" name="billable">
-                            <option value="">Billable Status</option>
+                            <option value="">All Billing</option>
                             <option <?php if ($billable_filter == 1) { echo "selected"; } ?> value="1">Billable</option>
                             <option <?php if ($billable_filter == 0) { echo "selected"; } ?> value="0">Non-Billable</option>
                         </select>
@@ -287,9 +287,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $recurring_ticket_next_run = nullable_htmlentities($row['recurring_ticket_next_run']);
                             $recurring_ticket_billable = intval($row['recurring_ticket_billable']);
                             if ($recurring_ticket_billable) {
-                                $recurring_ticket_billable_display = "<i class='fas fa-fw fa-check text-success'></i>";
+                                $recurring_ticket_billable_display = "<i class='fas fa-fw fa-check text-success' title='Billable' aria-label='Billable'></i>";
                             } else {
-                                $recurring_ticket_billable_display = "-";
+                                $recurring_ticket_billable_display = "<span class='text-secondary' title='Not billable'>No</span>";
                             }
                             $recurring_ticket_category = getFallBack(nullable_htmlentities($row['category_name']));
                             $recurring_ticket_client_name = nullable_htmlentities($row['client_name']);
@@ -325,7 +325,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td><?= $recurring_ticket_priority ?></td>
                                 <td><?= $recurring_ticket_frequency ?></td>
                                 <td class="text-center"><?= $recurring_ticket_billable_display ?></td>
-                                <td><?= $assigned_to ?></td>
+                                <td class="text-nowrap"><?= $assigned_to ?></td>
                                 <?php if (!$client_url) { ?>
                                 <td><a href="recurring_tickets.php?client_id=<?= $recurring_ticket_client_id ?>"><?= $recurring_ticket_client_name ?></a>
                                 </td>
