@@ -11,13 +11,13 @@ $client_id = intval($row['printer_client_id']);
 enforceUserPermission('module_support');
 enforceClientAccess($client_id);
 
-$name = sanitizeInput($row['printer_name']);
-$ip_address = sanitizeInput($row['printer_ip_address']);
-$location_name = sanitizeInput($row['location_name']);
-$physical_location = sanitizeInput($row['printer_physical_location']);
-$model = sanitizeInput($row['printer_model']);
-$serial_number = sanitizeInput($row['printer_serial_number']);
-$mac_address = sanitizeInput($row['printer_mac_address']);
+$name = nullable_htmlentities($row['printer_name']);
+$ip_address = nullable_htmlentities($row['printer_ip_address']);
+$location_name = nullable_htmlentities($row['location_name']);
+$physical_location = nullable_htmlentities($row['printer_physical_location']);
+$model = nullable_htmlentities($row['printer_model']);
+$serial_number = nullable_htmlentities($row['printer_serial_number']);
+$mac_address = nullable_htmlentities($row['printer_mac_address']);
 $notes = nullable_htmlentities($row['printer_notes']);
 
 $location_display = trim(implode(' - ', array_filter([$location_name, $physical_location])));

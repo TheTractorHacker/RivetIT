@@ -11,7 +11,8 @@ if (isset($_GET['client_id'])) {
     $client_url = "client_id=$client_id&";
 } else {
     require_once "includes/inc_all.php";
-    $client_query = "AND printer_client_id = 0";
+    // Organization view lists every printer (the sidebar count does too); the Department column says whose each one is.
+    $client_query = "";
     $client_url = '';
 }
 
@@ -108,7 +109,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     <tr>
                         <td class="bg-light checkbox-column">
                             <div class="form-check">
-                                <input class="form-check-input" id="selectAllCheckbox" type="checkbox">
+                                <input class="form-check-input" id="selectAllCheckbox" type="checkbox" aria-label="Select all printers">
                             </div>
                         </td>
                         <th>
@@ -129,6 +130,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <th>
                             Serial / MAC
                         </th>
+                        <?php if (!$client_url) { ?><th>Department</th><?php } ?>
                         <th class="text-center">Action</th>
                     </tr>
                     </thead>
@@ -159,13 +161,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <tr>
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
-                                    <input class="form-check-input bulk-select" type="checkbox" name="printer_ids[]" value="<?php echo $printer_id ?>">
+                                    <input class="form-check-input bulk-select" type="checkbox" name="printer_ids[]" value="<?php echo $printer_id ?>" aria-label="Select <?php echo $printer_name; ?>">
                                 </div>
                             </td>
                             <td>
                                 <a class="ajax-modal" href="#" data-modal-url="modals/printer/printer_details.php?id=<?= $printer_id ?>">
                                     <div class="media">
-                                        <i class="fas fa-fw fa-2x fa-print text-dark me-2"></i>
+                                        <i class="fas fa-2x fa-print text-dark me-2 text-center" style="width:1.4em;flex:none" aria-hidden="true"></i>
                                         <div class="media-body">
                                             <div><?php echo $printer_name; ?></div>
                                             <?php echo $printer_location_display; ?>
@@ -175,7 +177,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </td>
                             <td><?php echo $printer_ip_address ?: '-'; ?></td>
                             <td><?php echo $printer_model; ?></td>
-                            <td>
+                            <td class="text-nowrap">
                                 <?php if ($printer_serial_number) { ?>
                                     <div class="text-secondary">SN: <?php echo $printer_serial_number; ?></div>
                                 <?php } ?>
@@ -183,9 +185,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <div class="text-secondary">MAC: <?php echo $printer_mac_address; ?></div>
                                 <?php } ?>
                             </td>
+                            <?php if (!$client_url) { ?>
+                            <td><?php echo $row['client_name'] ? '<a href="printers.php?client_id=' . intval($row['printer_client_id']) . '">' . nullable_htmlentities($row['client_name']) . '</a>' : '<span class="text-secondary">Organization-wide</span>'; ?></td>
+                            <?php } ?>
                             <td>
                                 <div class="dropdown dropleft text-center">
-                                    <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window">
+                                    <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions" title="Actions">
                                         <i class="fas fa-ellipsis-h"></i>
                                     </button>
                                     <div class="dropdown-menu">
@@ -233,7 +238,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             ?>
             <div class="text-center py-5 mx-auto" style="max-width:520px">
                 <i class="fas fa-fw fa-print fa-2x text-primary opacity-75 mb-3"></i>
-                <h5 class="mb-2">No printers documented for this department yet</h5>
+                <h5 class="mb-2">No printers documented<?= $client_url ? ' for this department' : '' ?> yet</h5>
                 <p class="text-muted mb-3">Record each printer and copier with its IP address, location, driver and supply details, so anyone can set up or fix it without hunting for the details.</p>
                 <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/printer/printer_add.php?<?= $client_url ?>"><i class="fas fa-plus me-2"></i>Add the first printer</button>
             </div>
