@@ -119,6 +119,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <form id="bulkActions" action="post.php" method="post">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
+            <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                .vendor-nowrap { white-space: nowrap; }
+                .vendor-media { display: flex; align-items: center; }
+                .vendor-media > i { flex: 0 0 2.25rem; text-align: center; margin-right: .5rem !important; }
+                .vendor-media .media-body > div + div { white-space: nowrap; }
+            </style>
             <div class="table-responsive">
                 <table class="table table-striped table-borderless table-hover">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
@@ -209,7 +215,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </td>
                             <td>
                                 <a class="ajax-modal" href="#" data-modal-url="modals/vendor/vendor_details.php?id=<?= $vendor_id ?>">
-                                    <div class="media">
+                                    <div class="media vendor-media">
                                         <i class="fas fa-fw fa-2x fa-building text-dark me-2"></i>
                                         <div class="media-body">
                                             <div><?php echo $vendor_name; ?></div>
@@ -221,7 +227,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td>
                                 <?php echo $vendor_description_display; ?>
                             </td>
-                            <td>
+                            <td class="vendor-nowrap">
                                 <?php
                                 if (!empty($vendor_contact_name)) { ?>
                                     <i class="fa fa-fw fa-user text-secondary me-2 mb-2"></i><?php echo $vendor_contact_name_display; ?>
@@ -240,7 +246,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <br>
                                 <?php } ?>
                             </td>
-                             <td><?php echo $vendor_website_display; ?></td>
+                             <td class="vendor-nowrap"><?php echo $vendor_website_display; ?></td>
                              <td><?php echo $vendor_template_display; ?></td>
                             <td>
                                 <div class="dropdown dropleft text-center">
