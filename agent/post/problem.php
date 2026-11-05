@@ -15,8 +15,8 @@ if (isset($_POST['add_problem'])) {
     validateCSRFToken($_POST['csrf_token']);
     enforceUserPermission('module_support', 2);
 
-    $title = sanitizeInput($_POST['title']);
-    $description = sanitizeInput($_POST['description'] ?? '');
+    $title = cleanInput($_POST['title']);
+    $description = cleanInput($_POST['description'] ?? '');
 
     $problem_id = (new \ITFlow\ITSM\ProblemService($mysqli))->create($title, $description !== '' ? $description : null, $session_user_id);
 
@@ -32,8 +32,8 @@ if (isset($_POST['edit_problem'])) {
     enforceUserPermission('module_support', 2);
 
     $problem_id = intval($_POST['problem_id']);
-    $title = sanitizeInput($_POST['title']);
-    $description = sanitizeInput($_POST['description'] ?? '');
+    $title = cleanInput($_POST['title']);
+    $description = cleanInput($_POST['description'] ?? '');
 
     $stmt = $mysqli->prepare("UPDATE problems SET title = ?, description = ? WHERE problem_id = ?");
     $stmt->bind_param('ssi', $title, $description, $problem_id);
