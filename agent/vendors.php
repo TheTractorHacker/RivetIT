@@ -234,6 +234,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <br>
                                 <?php } else {
                                     echo $vendor_contact_name_display;
+                                    if (!empty($vendor_phone) || !empty($vendor_email)) { echo "<br>"; }
                                 }
 
                                 if (!empty($vendor_phone)) { ?>
