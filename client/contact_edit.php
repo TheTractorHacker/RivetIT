@@ -48,8 +48,10 @@ if ($row) {
     $contact_billing = intval($row['contact_billing']);
     $contact_auth_method = nullable_htmlentities($row['user_auth_method']);
 } else {
+    // an unknown, archived or other-department id is just a dead link, not a reason to end the whole portal session
     ob_end_clean();
-    header("Location: post.php?logout");
+    flash_alert('That contact could not be found', 'warning');
+    header("Location: contacts.php");
     exit();
 }
 
@@ -76,7 +78,7 @@ if ($row) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                     </div>
-                    <input type="text" class="form-control" name="contact_name" value="<?php echo nullable_htmlentities($contact_name) ?>" required maxlength="200">
+                    <input type="text" class="form-control" name="contact_name" value="<?php echo $contact_name ?>" required maxlength="200">
                 </div>
             </div>
 
@@ -86,11 +88,11 @@ if ($row) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                     </div>
-                    <input type="email" class="form-control" name="contact_email" value="<?php echo nullable_htmlentities($contact_email) ?>" required maxlength="200">
+                    <input type="email" class="form-control" name="contact_email" value="<?php echo $contact_email ?>" required maxlength="200">
                 </div>
             </div>
 
-            <label>Roles:</label>
+            <label class="form-label">Roles</label>
             <div class="form-row">
                 <div class="col-md-4">
                     <div class="form-group">
@@ -116,7 +118,7 @@ if ($row) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>
                     </div>
-                    <select class="form-control select2 authMethod" name="contact_auth_method">
+                    <select class="form-select pe-5 authMethod" name="contact_auth_method">
                         <option value="">No portal access</option>
                         <option value="local" <?php if ($contact_auth_method == "local") { echo "selected"; } ?>>Local (Email and password)</option>
                         <?php if (!empty($config_azure_client_id)) { ?>
@@ -124,12 +126,17 @@ if ($row) {
                         <?php } ?>
                     </select>
                 </div>
+                <div class="form-text small text-secondary">With "Local", they can sign in once they choose a password with "Forgot password" on the sign-in page (needs outgoing email to be set up). "No portal access" keeps them as a contact only.</div>
             </div>
 
             <?php /* ?? 0: an admin portal preview deliberately never writes contact_id, so reading it raw
    warned on every view. 0 matches no contact, which is the correct outcome here. */ ?>
-<?php if ($contact_primary || $contact_id == ($_SESSION['contact_id'] ?? 0)) { echo "<i>Cannot edit this contact</i>"; } else { ?>
-                <button class="btn btn-primary" name="edit_contact">Save</button>
+<?php if ($contact_primary || $contact_id == ($_SESSION['contact_id'] ?? 0)) { ?>
+                <div class="text-secondary small mb-2"><i class="fas fa-lock me-1" aria-hidden="true"></i>This contact is managed by IT and cannot be changed here.</div>
+                <a href="contacts.php" class="btn btn-outline-secondary">Back to contacts</a>
+            <?php } else { ?>
+                <button class="btn btn-primary" name="edit_contact">Save changes</button>
+                <a href="contacts.php" class="btn btn-link text-secondary">Cancel</a>
             <?php } ?>
         </form>
     </div>
