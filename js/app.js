@@ -216,6 +216,9 @@ function initDocBuilder(editor) {
 // silently blocked by this app's strict CSP (no unsafe-inline), so every filter
 // dropdown in the app did nothing when changed. One delegated listener replaces
 // all of them; mark any auto-submitting control with the auto-submit-select class.
+// This script re-runs on every AJAX modal load; bind the delegated handlers once so a confirm is not fired twice.
+if (!window.__rivetAppDelegatesBound) {
+window.__rivetAppDelegatesBound = true;
 document.addEventListener('change', function (e) {
     var el = e.target.closest ? e.target.closest('.auto-submit-select') : null;
     if (el && el.form) {
@@ -246,6 +249,7 @@ document.addEventListener('input', function (e) {
         e.target.value = e.target.value.toUpperCase();
     }
 });
+}
 
 function initSelect2Widgets() {
     // Initialize select boxes (Tom Select replaces Select2). Deliberately NOT
