@@ -34,7 +34,7 @@ if (isset($_POST['add_contract'])) {
     mysqli_query($mysqli, "INSERT INTO contracts SET contract_client_id = $client_id, contract_name = '$name', contract_type = '$type', contract_status = '$status', contract_value = $value_sql, contract_renewal_frequency = $freq_sql, contract_start_date = $start_sql, contract_end_date = $end_sql, contract_renewal_date = $renewal_sql, contract_details = '$notes', contract_sla_low_response_time = $sla_lr, contract_sla_low_resolution_time = $sla_lres, contract_sla_medium_response_time = $sla_mr, contract_sla_medium_resolution_time = $sla_mres, contract_sla_high_response_time = $sla_hr, contract_sla_high_resolution_time = $sla_hres, contract_support_hours_included_remote = $hours_remote, contract_support_hours_included_onsite = $hours_onsite, contract_created_by = $session_user_id");
 
     logAction("Contract", "Add", "Added contract $name", $client_id);
-    flash_alert("Contract <strong>$name</strong> created.");
+    flash_alert("Contract <strong>" . nullable_htmlentities(stripslashes($name)) . "</strong> created.");
     redirect();
 }
 
