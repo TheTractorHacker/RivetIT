@@ -47,7 +47,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM payroll_deduction_categories WHERE p
                             <i class="fas fa-fw fa-edit me-1"></i> Edit
                         </a>
                         <a href="post.php?delete_payroll_deduction_category=<?= $dc_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-sm btn-danger confirm-link ms-1">
+                           class="btn btn-sm btn-danger confirm-link ms-1" data-confirm-message="Delete the deduction category &quot;<?= $dc_name ?>&quot;?">
                             <i class="fas fa-fw fa-trash me-1"></i> Delete
                         </a>
                     </td>
