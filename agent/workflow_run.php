@@ -204,9 +204,9 @@ $status_badge = [
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="run_task_id" value="<?= intval($task['run_task_id']) ?>">
                             <input type="hidden" name="run_id" value="<?= $run_id ?>">
-                            <button type="submit" name="complete_workflow_run_task" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button>
+                            <button type="submit" name="complete_workflow_run_task" class="btn btn-sm btn-success" title="Mark done" aria-label="Mark done"><i class="fas fa-check"></i></button>
                         </form>
-                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" title="Skip this task" aria-label="Skip this task" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
                     <?php } else { ?>
                         <form action="post.php" method="post">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
