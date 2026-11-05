@@ -12,7 +12,7 @@
  * never keep an agent session (stray cookies are also expired by the kiosk, P-11).
  */
 
-$page_extra_css = ['/css/itflow_training.css'];
+$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuardKiosk(3)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
