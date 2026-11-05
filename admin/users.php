@@ -24,7 +24,7 @@ $user_counts = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS tota
 
 $sql = mysqli_query(
     $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS * FROM users
+    "SELECT SQL_CALC_FOUND_ROWS *, users.user_id AS user_id FROM users
     LEFT JOIN user_roles ON user_role_id = role_id
     LEFT JOIN user_settings ON users.user_id = user_settings.user_id
     WHERE (user_name LIKE '%$q%' OR user_email LIKE '%$q%')
@@ -61,7 +61,7 @@ require "includes/users_toggle.php";
                         <a class="dropdown-item text-danger ajax-modal" href="#"
                             data-modal-url="modals/user/user_all_reset_password.php"
                             data-modal-size="lg">
-                            <i class="fas fa-skull-crossbones me-2"></i>IR
+                            <i class="fas fa-fw fa-skull-crossbones me-2"></i>Reset all passwords (incident response)
                         </a>
                     <?php } ?>
                 </div>
@@ -268,8 +268,11 @@ require "includes/users_toggle.php";
                 </tbody>
             </table>
         </div>
-        <?php if ($num_rows[0] == 0) { ?>
-            <div class="text-center text-muted py-4">No users match<?= $user_filter ? ' this filter' : '' ?>. <a href="users.php">Clear filters</a></div>
+        <?php if ($num_rows[0] == 0) { $suppress_filter_empty = true; // this page states its own empty state, so the shared one stays quiet ?>
+            <div class="text-center text-muted py-5">
+                <i class="far fa-folder-open fa-2x d-block mb-3 opacity-50"></i>
+                <?php if ($user_filter || $q !== '') { ?>No users match your filters. <a href="users.php">Clear filters</a><?php } else { ?>No users here yet.<?php } ?>
+            </div>
         <?php } ?>
         <?php require_once "../includes/filter_footer.php";
  ?>

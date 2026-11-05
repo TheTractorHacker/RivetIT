@@ -50,13 +50,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     $field_count = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM worksheet_template_fields WHERE field_template_id = $tmpl_id"))[0]);
                 ?>
                     <tr>
-                        <td><strong><?= $tmpl_name ?></strong></td>
+                        <td><a href="worksheet_template_details.php?id=<?= $tmpl_id ?>" class="fw-bold"><?= $tmpl_name ?></a></td>
                         <td><?= $tmpl_desc ?></td>
                         <td class="text-center"><?= $field_count ?></td>
                         <td class="text-center">
                             <div class="dropdown dropstart">
-                                <button class="btn btn-light btn-sm text-secondary" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $tmpl_name ?>">
-                                    <i class="fas fa-ellipsis-v"></i>
+                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $tmpl_name ?>">
+                                    <i class="fas fa-ellipsis-h"></i>
                                 </button>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item" href="worksheet_template_details.php?id=<?= $tmpl_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>

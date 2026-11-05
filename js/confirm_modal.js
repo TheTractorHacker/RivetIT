@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (/^bulk_delete_/.test(name)) {
                 var n = document.querySelectorAll('input[type="checkbox"].bulk-select:checked').length;
                 body.textContent = 'Permanently delete ' + n + ' selected ' + (n === 1 ? 'item' : 'items') + '? This cannot be undone.';
+            } else if (link.getAttribute('data-confirm')) {
+                // A page can say exactly what will happen: data-confirm="Take a backup, then update the database?"
+                body.textContent = link.getAttribute('data-confirm');
             } else {
                 body.textContent = 'Are you sure?';
             }

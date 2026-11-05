@@ -137,7 +137,7 @@ function releaseChannelStatus(string $dir, string $channel): array
     if ($st['same_branch'] || $st['ahead'] === 0) {
         $st['can_switch'] = true;
     } else {
-        $st['reason'] = "This server is running {$st['ahead']} change(s) that the " . releaseChannels()[$channel]['label'] . ' channel does not have yet. Switching now would install older code on a newer database, so it is blocked until that channel catches up.';
+        $st['reason'] = "This server is running {$st['ahead']} " . ((int) $st['ahead'] === 1 ? 'change' : 'changes') . " that the " . releaseChannels()[$channel]['label'] . ' channel does not have yet. Switching now would install older code on a newer database, so it is blocked until that channel catches up.';
     }
 
     return $st;
