@@ -24,7 +24,7 @@ $user_counts = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS tota
 
 $sql = mysqli_query(
     $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS * FROM users
+    "SELECT SQL_CALC_FOUND_ROWS *, users.user_id AS user_id FROM users
     LEFT JOIN user_roles ON user_role_id = role_id
     LEFT JOIN user_settings ON users.user_id = user_settings.user_id
     WHERE (user_name LIKE '%$q%' OR user_email LIKE '%$q%')
@@ -61,7 +61,7 @@ require "includes/users_toggle.php";
                         <a class="dropdown-item text-danger ajax-modal" href="#"
                             data-modal-url="modals/user/user_all_reset_password.php"
                             data-modal-size="lg">
-                            <i class="fas fa-skull-crossbones me-2"></i>IR
+                            <i class="fas fa-fw fa-skull-crossbones me-2"></i>Reset all passwords (incident response)
                         </a>
                     <?php } ?>
                 </div>

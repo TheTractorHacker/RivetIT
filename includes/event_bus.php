@@ -415,7 +415,7 @@ function rivetWebhookRuleText($mysqli = null): string
 {
     $nets = rivetWebhookAllowedNetworks($mysqli);
 
-    return 'allowed: public addresses' . ($nets ? ' and ' . implode(', ', $nets) : ' only (no internal networks are allowed)');
+    return 'allowed: public addresses' . ($nets ? ' and ' . implode(', ', $nets) : ' only, no internal networks');
 }
 
 /**
