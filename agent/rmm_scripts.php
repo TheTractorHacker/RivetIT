@@ -204,8 +204,8 @@ if ($legacy_can_import): ?>
                 </a>
                 <?php endforeach; ?>
             </div>
-            <input type="hidden" name="category" value="<?= htmlspecialchars($filter_cat) ?>">
-            <input type="text" name="q" value="<?= htmlspecialchars($filter_q) ?>"
+            <input type="hidden" name="category" value="<?= htmlspecialchars((string) ($_GET['category'] ?? ''), ENT_QUOTES) ?>">
+            <input type="text" name="q" value="<?= htmlspecialchars((string) ($_GET['q'] ?? ''), ENT_QUOTES) ?>"
                    class="form-control form-control-sm" placeholder="Search scripts…" style="max-width:200px">
             <button type="submit" class="btn btn-sm btn-secondary"><i class="fas fa-search"></i></button>
             <?php if ($filter_cat || $filter_q): ?>
@@ -233,7 +233,7 @@ if ($legacy_can_import): ?>
                     <th>Category</th>
                     <th>Type</th>
                     <th>Runs</th>
-                    <th>Tact. ID</th>
+                    <th>Tactical ID</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -276,22 +276,22 @@ if ($legacy_can_import): ?>
                 <td class="text-end pe-2" style="white-space:nowrap">
                     <?php if (lookupUserPermission('module_rmm_scripts') >= 1): ?>
                     <button class="btn btn-xs btn-outline-success me-1 js-open-run-modal" data-script='<?= json_encode(['id'=>$scr['id'],'name'=>$scr['name'],'tactical_script_id'=>$scr['tactical_script_id']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
-                            title="Run on Asset" <?= !$scr['tactical_script_id'] ? 'disabled title="No Tactical ID — sync scripts first"' : '' ?>>
+                            title="<?= $scr['tactical_script_id'] ? 'Run on Asset' : 'No Tactical RMM ID: sync scripts first' ?>" aria-label="Run on Asset" <?= !$scr['tactical_script_id'] ? 'disabled' : '' ?>>
                         <i class="fas fa-play"></i>
                     </button>
                     <?php if ($scr['script_body']): ?>
                     <button class="btn btn-xs btn-outline-secondary me-1 js-preview-script" data-script='<?= json_encode(['name'=>$scr['name'],'body'=>$scr['script_body'],'type'=>$scr['script_type']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
-                            title="View Script">
+                            title="View Script" aria-label="View Script">
                         <i class="fas fa-eye"></i>
                     </button>
                     <?php endif; ?>
-                    <button class="btn btn-xs btn-outline-secondary me-1 js-edit-script" data-script='<?= json_encode($scr, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>' title="Edit">
+                    <button class="btn btn-xs btn-outline-secondary me-1 js-edit-script" data-script='<?= json_encode($scr, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>' title="Edit" aria-label="Edit script">
                         <i class="fas fa-edit"></i>
                     </button>
                     <form method="post" class="d-inline">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="script_id" value="<?= $sid ?>">
-                        <button type="submit" name="delete_script" class="btn btn-xs btn-outline-danger confirm-link" title="Delete">
+                        <button type="submit" name="delete_script" class="btn btn-xs btn-outline-danger confirm-link" title="Delete" aria-label="Delete script">
                             <i class="fas fa-trash"></i>
                         </button>
                     </form>
@@ -377,14 +377,14 @@ if ($legacy_can_import): ?>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="text-muted small">Script Name</label>
-                                <input type="text" class="form-control form-control-sm" name="name" id="s_name" required>
+                                <label class="form-label">Script Name</label>
+                                <input type="text" class="form-control" name="name" id="s_name" required>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label class="text-muted small">Category</label>
-                                <select class="form-control form-control-sm" name="category" id="s_category">
+                                <label class="form-label">Category</label>
+                                <select class="form-control" name="category" id="s_category">
                                     <?php foreach ($categories as $cat): ?>
                                     <option><?= nullable_htmlentities($cat) ?></option>
                                     <?php endforeach; ?>
@@ -393,8 +393,8 @@ if ($legacy_can_import): ?>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label class="text-muted small">Script Type</label>
-                                <select class="form-control form-control-sm" name="script_type" id="s_type">
+                                <label class="form-label">Script Type</label>
+                                <select class="form-control" name="script_type" id="s_type">
                                     <option value="powershell">PowerShell</option>
                                     <option value="cmd">CMD / Batch</option>
                                     <option value="python">Python</option>
@@ -404,16 +404,16 @@ if ($legacy_can_import): ?>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="text-muted small">Description</label>
-                        <input type="text" class="form-control form-control-sm" name="description" id="s_description">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" name="description" id="s_description">
                     </div>
                     <div class="form-group">
-                        <label class="text-muted small">Tactical RMM Script ID</label>
-                        <input type="number" class="form-control form-control-sm" name="tactical_script_id" id="s_tactical_id" placeholder="Leave blank to assign after syncing">
+                        <label class="form-label">Tactical RMM Script ID</label>
+                        <input type="number" class="form-control" name="tactical_script_id" id="s_tactical_id" placeholder="Leave blank to assign after syncing">
                     </div>
                     <div class="form-group">
-                        <label class="text-muted small">Script Body <small class="text-muted">(stored for reference; execution happens via Tactical)</small></label>
-                        <textarea class="form-control form-control-sm" name="script_body" id="s_body" rows="8" style="font-family:monospace;font-size:12px"></textarea>
+                        <label class="form-label">Script Body <small class="text-muted">(stored for reference; execution happens via Tactical)</small></label>
+                        <textarea class="form-control" name="script_body" id="s_body" rows="8" style="font-family:monospace;font-size:12px"></textarea>
                     </div>
                     <div class="form-check form-check form-switch">
                         <input type="checkbox" class="form-check-input" id="s_enabled" name="enabled" value="1" checked>
@@ -421,8 +421,8 @@ if ($legacy_can_import): ?>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" name="save_script" class="btn btn-primary btn-sm">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" name="save_script" class="btn btn-primary">
                         <i class="fas fa-check me-1"></i>Save
                     </button>
                 </div>
@@ -457,8 +457,8 @@ if ($legacy_can_import): ?>
             <div class="modal-body">
                 <p class="text-muted small mb-2">Script: <strong id="runScriptName"></strong></p>
                 <div class="form-group mb-2">
-                    <label class="text-muted small">Select Online Asset</label>
-                    <select class="form-control form-control-sm" id="runAssetSelect">
+                    <label class="form-label">Select Online Asset</label>
+                    <select class="form-control" id="runAssetSelect">
                         <option value="">— Choose asset —</option>
                         <?php while ($oa = mysqli_fetch_assoc($sql_online_assets)): ?>
                         <option value="<?= intval($oa['link_id']) ?>">
@@ -470,8 +470,8 @@ if ($legacy_can_import): ?>
                 <div id="runModalMsg" class="mt-2"></div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success btn-sm js-run-script-now">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success js-run-script-now">
                     <i class="fas fa-play me-1"></i>Run Now
                 </button>
             </div>
@@ -543,7 +543,8 @@ function runScriptNow() {
             $('#runModal').modal('hide');
             window.location.href = '/agent/rmm_script_run.php?run_id=' + d.run_id;
         } else {
-            msg.innerHTML = '<div class="alert alert-danger p-2 small">' + (d.error || 'Failed') + '</div>';
+            msg.innerHTML = '<div class="alert alert-danger p-2 small"></div>';
+            msg.firstChild.textContent = d.error || 'Failed';
         }
     }).catch(() => {
         msg.innerHTML = '<div class="alert alert-danger p-2 small">Network error.</div>';
@@ -580,4 +581,10 @@ function syncScripts() {
 }
 </script>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+/* Phone widths: the first (name) column keeps a readable width and the table scrolls sideways instead of wrapping the name one letter per line. */
+@media (max-width: 767.98px) {
+    .table-responsive > .table > tbody > tr > td:first-child { min-width: 11rem; }
+}
+</style>
 <?php require_once "../includes/footer.php"; ?>

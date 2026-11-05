@@ -27,7 +27,7 @@ if (isset($_POST['add_task'])) {
 
     logAction("Task", "Create", "$session_name created task $task_name", $client_id, $task_id);
 
-    flash_alert("You created Task <strong>$task_name</strong>");
+    flash_alert("You created Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong>");
 
     redirect();
 
@@ -70,7 +70,7 @@ if (isset($_POST['add_project_task'])) {
 
     logAction("Task", "Create", "$session_name created task $task_name", $client_id, $task_id);
 
-    flash_alert("You created Task <strong>$task_name</strong>");
+    flash_alert("You created Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong>");
 
     redirect();
 

@@ -2254,6 +2254,12 @@ if (isset($_POST['add_ticket_reply'])) {
     // Capture prior status for SLA pause accounting before it is overwritten.
     $sla_old_status_id = intval(getFieldById('tickets', $ticket_id, 'ticket_status'));
 
+    // Nothing to save (no reply text, no time, same status): say so instead of reporting a phantom "Ticket updated".
+    if (trim(strip_tags(stripslashes($ticket_reply))) === '' && stripos($ticket_reply, '<img') === false && !($hours > 0 || $minutes > 0 || $seconds > 0) && $ticket_status === $sla_old_status_id) {
+        flash_alert("Nothing to submit: write a reply, log some time or choose a different status.", 'warning');
+        redirect();
+    }
+
     // Update Ticket Status & updated at (in case status didn't change)
     mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $ticket_status, ticket_updated_at = NOW() WHERE ticket_id = $ticket_id");
 
@@ -2442,6 +2448,11 @@ if (isset($_POST['add_ticket_reply'])) {
 
     } else {
         flash_alert("Ticket updated");
+        // Status-only update: load the ticket identity the audit line below needs.
+        $_tk = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_prefix, ticket_number, ticket_subject FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
+        $ticket_prefix = sanitizeInput($_tk['ticket_prefix'] ?? '');
+        $ticket_number = intval($_tk['ticket_number'] ?? 0);
+        $ticket_subject = sanitizeInput($_tk['ticket_subject'] ?? '');
     }
 
     if ($ticket_reply_type == 'Labor') {

@@ -10,7 +10,13 @@
     box-sizing: border-box;
     min-width: 400px;
     height: calc(100vh - 210px);
+    /* Line the board up with the filter card above it (container-fluid's own gutter plus the column margin pushed it ~26px in). */
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 1rem;
 }
+#kanban-board > .kanban-column:first-child { margin-left: 0; }
+#kanban-board > .kanban-column:last-child { margin-right: 0; }
 
 /* Kanban Column - migrated to the shared --if-* design tokens (was hardcoded
    light-theme-only colors, so this board was unreadable/inconsistent in dark
@@ -101,3 +107,8 @@
 
 /* The shared ".card + .card" spacing rule pushed every lane but the first down 16px; lanes sit side by side, so they must share one top edge. */
 #kanban-board > .kanban-column { margin-top: 0; margin-bottom: 0; }
+
+@media (max-width: 576px) {
+    /* the board scrolls inside itself; its 400px floor made the whole page scroll sideways on a phone */
+    #kanban-board { min-width: 0; }
+}
