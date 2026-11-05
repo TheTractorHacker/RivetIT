@@ -117,12 +117,12 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                 <input type="hidden" name="client_id" value="<?= (int) $client_id ?>">
                                 <div class="mb-3">
-                                    <label class="form-label">Number of PCs</label>
+                                    <label class="form-label" for="pd_max_uses">Number of PCs</label>
                                     <input type="number" name="max_uses" id="pd_max_uses" class="form-control" value="1" min="1" max="500">
                                     <div class="form-text">1 = single-use token (one machine). More than 1 mints a "fleet" token (up to 500) for an RMM push of one installer to many PCs - it must be client-level and expires in at most 72 hours.</div>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Contact (optional - leave blank for a client-level device)</label>
+                                    <label class="form-label" for="pd_contact_id">Contact (optional - leave blank for a client-level device)</label>
                                     <select name="contact_id" id="pd_contact_id" class="form-select">
                                         <option value="">None (client-level)</option>
                                         <?php foreach ($pd_contacts as $c) { ?>
@@ -132,12 +132,12 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                     <div class="form-text" id="pd_contact_fleet_note" style="display:none;">Cleared: a fleet token (more than one PC) cannot be tied to one person.</div>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Label</label>
-                                    <input type="text" name="label" class="form-control" maxlength="100" placeholder="e.g. Jane's laptop">
+                                    <label class="form-label" for="pd_label">Label</label>
+                                    <input type="text" id="pd_label" name="label" class="form-control" maxlength="100" placeholder="e.g. Jane's laptop">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Expires in (hours, max 72)</label>
-                                    <input type="number" name="ttl_hours" class="form-control" value="24" min="1" max="72">
+                                    <label class="form-label" for="pd_ttl_hours">Expires in (hours, max 72)</label>
+                                    <input type="number" id="pd_ttl_hours" name="ttl_hours" class="form-control" value="24" min="1" max="72">
                                 </div>
                                 <button type="submit" name="create_token" class="btn btn-primary">Create token</button>
                             </form>
@@ -172,15 +172,15 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                     foreach ($pd_contacts as $c) { if ((int) $c['contact_id'] === $t['contact_id']) { $t_contact = $c['contact_name']; } }
                                     ?>
                                     <tr>
-                                        <td><?= nullable_htmlentities($t['label'] !== '' ? $t['label'] : '-') ?></td>
+                                        <td class="text-break" style="max-width:14rem"><?= nullable_htmlentities($t['label'] !== '' ? $t['label'] : '-') ?></td>
                                         <td><?= $t['contact_id'] !== null ? nullable_htmlentities($t_contact ?? ('#' . $t['contact_id'])) : '<span class="text-muted">Client-level</span>' ?></td>
                                         <?php $t_max = $pd_max_uses_by_token[$t['token_id']] ?? 1; ?>
-                                        <td><?= nullable_htmlentities($t['expires_at']) ?></td>
+                                        <td class="text-nowrap"><?= nullable_htmlentities($t['expires_at']) ?></td>
                                         <td><?= (int) $t['use_count'] ?> / <?= $t_max ?><?= $t_max > 1 ? ' <span class="badge text-bg-info">fleet</span>' : '' ?></td>
                                         <td><?= $t['revoked_at'] !== null ? '<span class="badge text-bg-secondary">Revoked</span>' : ($t['use_count'] >= $t_max ? '<span class="badge text-bg-success">Used</span>' : ($t['use_count'] > 0 ? '<span class="badge text-bg-info">In use</span>' : '<span class="badge text-bg-warning">Pending</span>')) ?></td>
                                         <td>
                                             <?php if ($t['revoked_at'] === null && $t['use_count'] < $t_max) { ?>
-                                            <a class="btn btn-sm btn-outline-danger confirm-link" href="post/panel_deploy.php?revoke_token=<?= (int) $t['token_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
+                                            <a class="btn btn-sm btn-outline-danger confirm-link" data-confirm-message="Revoke this enrollment token? It can no longer be used to enroll a device." href="post/panel_deploy.php?revoke_token=<?= (int) $t['token_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
                                             <?php } ?>
                                         </td>
                                     </tr>
@@ -203,7 +203,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                     foreach ($pd_contacts as $c) { if ((int) $c['contact_id'] === $d['contact_id']) { $d_contact = $c['contact_name']; } }
                                     ?>
                                     <tr>
-                                        <td><?= nullable_htmlentities($d['hostname']) ?></td>
+                                        <td class="text-break"><?= nullable_htmlentities($d['hostname']) ?></td>
                                         <td><?= nullable_htmlentities($d['os']) ?></td>
                                         <td><?= $d['contact_id'] !== null ? nullable_htmlentities($d_contact ?? ('#' . $d['contact_id'])) : '<span class="text-muted">Client-level</span>' ?></td>
                                         <td><?= nullable_htmlentities($d['first_seen_at']) ?></td>
@@ -211,7 +211,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                         <td><?= $d['revoked_at'] !== null ? '<span class="badge text-bg-secondary">Revoked</span>' : '<span class="badge text-bg-success">Active</span>' ?></td>
                                         <td>
                                             <?php if ($d['revoked_at'] === null) { ?>
-                                            <a class="btn btn-sm btn-outline-danger confirm-link" href="post/panel_deploy.php?revoke_device=<?= (int) $d['device_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
+                                            <a class="btn btn-sm btn-outline-danger confirm-link" data-confirm-message="Revoke this device? It will stop being able to open tickets." href="post/panel_deploy.php?revoke_device=<?= (int) $d['device_id'] ?>&client_id=<?= (int) $client_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">Revoke</a>
                                             <?php } ?>
                                         </td>
                                     </tr>

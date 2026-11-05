@@ -78,7 +78,7 @@ if (isset($_GET['project_id'])) {
     if ($project_manager) {
         $project_manager_display = "<div class='text-secondary'><i class='fas fa-fw fa-user-tie me-2'></i>$project_manager_name</div>";
     } else {
-        $project_manager_display = "-";
+        $project_manager_display = "<div class='text-secondary'><i class='fas fa-fw fa-user-tie me-2'></i>No manager assigned</div>";
     }
 
     if ($project_completed_at) {
@@ -310,7 +310,7 @@ if (isset($_GET['project_id'])) {
             </td>
             <td class="text-end" style="width: 34px;">
                 <div class="dropdown">
-                    <a href="#" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v text-secondary"></i></a>
+                    <a href="#" data-bs-toggle="dropdown" aria-label="Task actions" title="Task actions"><i class="fas fa-ellipsis-v text-secondary"></i></a>
                     <div class="dropdown-menu dropdown-menu-right">
                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_detail.php?id=<?= $t_id ?>" data-modal-size="lg"><i class="fas fa-fw fa-expand-alt me-2"></i>Details</a>
                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_edit.php?id=<?= $t_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
@@ -318,7 +318,7 @@ if (isset($_GET['project_id'])) {
                             <a class="dropdown-item ajax-modal" href="#" data-modal-url="<?= $create_ticket_url ?>" data-modal-size="lg" title="Turn this task into a real ticket - assignment, status workflow, department communication"><i class="fas fa-fw fa-life-ring me-2"></i>Create Ticket</a>
                         <?php } ?>
                         <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-danger confirm-link" href="post.php?delete_task=<?= $t_id ?>&csrf_token=<?= $csrf ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
+                        <a class="dropdown-item text-danger confirm-link" data-confirm-message="Delete this task? This cannot be undone." href="post.php?delete_task=<?= $t_id ?>&csrf_token=<?= $csrf ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
                     </div>
                 </div>
             </td>
@@ -337,6 +337,7 @@ if (isset($_GET['project_id'])) {
 </ol>
 
 <!-- Project view tabs -->
+<link rel="stylesheet" href="css/area_projects.css">
 <ul class="nav nav-pills mb-3 d-print-none">
     <li class="nav-item">
         <a class="nav-link active" href="project_details.php?<?= $client_url ?>project_id=<?= $project_id ?>"><i class="fas fa-fw fa-info-circle me-2"></i>Details</a>
@@ -370,7 +371,7 @@ if (isset($_GET['project_id'])) {
             <div class="d-flex align-items-center">
                 <?php if (empty($project_completed_at)) { ?>
                     <div class="dropdown me-2">
-                        <button class="btn btn-primary btn-sm" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown">
+                        <button class="btn btn-primary btn-sm" type="button" id="projectNewMenuButton" data-bs-toggle="dropdown">
                             <i class="fas fa-fw fa-plus me-2"></i>New
                         </button>
                         <div class="dropdown-menu">
@@ -386,7 +387,7 @@ if (isset($_GET['project_id'])) {
                         </div>
                     </div>
                     <div class="dropdown">
-                        <button class="btn btn-outline-primary btn-sm me-3" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown">
+                        <button class="btn btn-outline-primary btn-sm me-3" type="button" id="projectLinkMenuButton" data-bs-toggle="dropdown">
                             <i class="fas fa-fw fa-link me-2"></i>Link
                         </button>
                         <div class="dropdown-menu">
@@ -401,12 +402,12 @@ if (isset($_GET['project_id'])) {
                     </div>
                 <?php } ?>
                 <?php if (($tickets_closed_percent == 100 || $tickets_resolved_percent == 100) && empty($project_completed_at)) { ?>
-                    <a class="btn btn-dark btn-sm confirm-link" href="post.php?close_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                    <a class="btn btn-dark btn-sm confirm-link" data-confirm-message="Close this project? You can reopen it later from its Actions menu." href="post.php?close_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                         <i class="fas fa-fw fa-check me-2"></i>Close
                     </a>
                 <?php } ?>
                 <div class="dropdown dropleft text-center ms-3">
-                    <button class="btn btn-secondary btn-sm" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" data-boundary="window">
+                    <button class="btn btn-secondary btn-sm" type="button" id="projectActionsMenuButton" aria-label="Project actions" title="Project actions" data-bs-toggle="dropdown" data-boundary="window">
                         <i class="fas fa-fw fa-ellipsis-v"></i>
                     </button>
                     <div class="dropdown-menu">
@@ -417,13 +418,17 @@ if (isset($_GET['project_id'])) {
                             </a>
                         <?php } ?>
                         <?php if (!empty($project_completed_at) && empty($project_archived_at) && lookupUserPermission("module_support") >= 2) { ?>
-                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?archive_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                            <a class="dropdown-item confirm-link" data-confirm-message="Reopen this project? It moves back to the Open list." href="post.php?reopen_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                <i class="fas fa-fw fa-redo me-2"></i>Reopen
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Archive this project? You can restore it from the Archived list." href="post.php?archive_project=<?= $project_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                 <i class="fas fa-fw fa-archive me-2"></i>Archive
                             </a>
                         <?php } ?>
                         <?php if (!empty($project_archived_at) && lookupUserPermission("module_support") >= 3) { ?>
                             <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-danger confirm-link" href="post.php?delete_project=<?php echo $project_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
+                            <a class="dropdown-item text-danger confirm-link" data-confirm-message="Permanently delete this project? This cannot be undone." href="post.php?delete_project=<?php echo $project_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
                             </a>
                         <?php } ?>
@@ -622,15 +627,15 @@ if (isset($_GET['project_id'])) {
                                     <?php } ?>
                                 </div>
                                 <div class="dropdown">
-                                    <a href="#" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v text-secondary"></i></a>
+                                    <a href="#" data-bs-toggle="dropdown" aria-label="Milestone actions" title="Milestone actions"><i class="fas fa-ellipsis-v text-secondary"></i></a>
                                     <div class="dropdown-menu dropdown-menu-right">
                                         <?php if (empty($project_completed_at)) { ?>
                                             <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/task_add.php?project_id=<?= $project_id ?>&milestone_id=<?= $ms_id ?>"><i class="fas fa-fw fa-plus me-2"></i>Add Task</a>
-                                            <a class="dropdown-item confirm-link" href="post.php?toggle_milestone=<?= $ms_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-check me-2"></i><?= $ms_is_complete ? 'Reopen' : 'Mark Complete' ?></a>
+                                            <a class="dropdown-item confirm-link" data-confirm-message="<?= $ms_is_complete ? 'Reopen this milestone?' : 'Mark this milestone as complete?' ?>" href="post.php?toggle_milestone=<?= $ms_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-check me-2"></i><?= $ms_is_complete ? 'Reopen' : 'Mark Complete' ?></a>
                                             <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/project/milestone_edit.php?id=<?= $ms_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
                                             <div class="dropdown-divider"></div>
                                         <?php } ?>
-                                        <a class="dropdown-item text-danger confirm-link" href="post.php?delete_milestone=<?= $ms_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
+                                        <a class="dropdown-item text-danger confirm-link" data-confirm-message="Delete this milestone? Its tasks are kept." href="post.php?delete_milestone=<?= $ms_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash me-2"></i>Delete</a>
                                     </div>
                                 </div>
                             </div>

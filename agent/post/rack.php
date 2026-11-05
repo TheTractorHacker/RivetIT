@@ -47,7 +47,7 @@ if (isset($_POST['add_rack'])) {
 
     logAction("Rack", "Create", "$session_name created rack $name", $client_id, $rack_id);
 
-    flash_alert("Rack <strong>$name</strong> created");
+    flash_alert("Rack <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
 
     redirect();
 
@@ -94,7 +94,7 @@ if (isset($_POST['edit_rack'])) {
 
     logAction("Rack", "Edit", "$session_name edited rack $name", $client_id, $rack_id);
 
-    flash_alert("Rack <strong>$name</strong> edited");
+    flash_alert("Rack <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> edited");
 
     redirect();
 
@@ -120,7 +120,7 @@ if (isset($_GET['archive_rack'])) {
 
     logAction("Rack", "Archive", "$session_name archived rack $rack_name", $client_id, $rack_id);
 
-    flash_alert("Rack <strong>$rack_name</strong> archived", 'error');
+    flash_alert("Rack <strong>" . htmlspecialchars(stripslashes($rack_name), ENT_QUOTES) . "</strong> archived", 'error');
 
     redirect();
 
@@ -146,7 +146,7 @@ if (isset($_GET['restore_rack'])) {
 
     logAction("Rack", "Restore", "$session_name restored rack $rack_name", $client_id, $rack_id);
 
-    flash_alert("Rack <strong>$rack_name</strong> Restored");
+    flash_alert("Rack <strong>" . htmlspecialchars(stripslashes($rack_name), ENT_QUOTES) . "</strong> Restored");
 
     redirect();
 
@@ -178,7 +178,7 @@ if (isset($_GET['delete_rack'])) {
 
     logAction("Rack", "Delete", "$session_name deleted rack $rack_name", $client_id);
 
-    flash_alert("Rack <strong>$rack_name</strong> deleted", 'error');
+    flash_alert("Rack <strong>" . htmlspecialchars(stripslashes($rack_name), ENT_QUOTES) . "</strong> deleted", 'error');
 
     redirect();
 
@@ -226,7 +226,7 @@ if (isset($_POST['add_rack_unit'])) {
 
     logAction("Rack", "Edit", "$session_name added device $name to units $unit_start - $unit_end in rack $rack_name", $client_id, $rack_id);
 
-    flash_alert("Device <strong>$name</strong> added to units $unit_start - $unit_end in rack.");
+    flash_alert("Device <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> added to units $unit_start - $unit_end in rack.");
 
     redirect();
 
@@ -257,7 +257,7 @@ if (isset($_POST['edit_rack_unit'])) {
 
     logAction("Rack", "Edit", "$session_name edited device $name in rack $rack_name", $client_id, $rack_id);
 
-    flash_alert("Device $name edited on the rack");
+    flash_alert("Device " . htmlspecialchars(stripslashes($name), ENT_QUOTES) . " edited on the rack");
 
     redirect();
 
@@ -285,7 +285,7 @@ if (isset($_GET['remove_rack_unit'])) {
 
     logAction("Rack", "Edit", "$session_name removed device $device_name from rack $rack_name", $client_id, $rack_id);
 
-    flash_alert("Device <strong>$device_name</strong> removed from rack", 'error');
+    flash_alert("Device <strong>" . htmlspecialchars(stripslashes($device_name), ENT_QUOTES) . "</strong> removed from rack", 'error');
 
     redirect();
 

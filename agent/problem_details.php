@@ -57,16 +57,21 @@ $available_changes = mysqli_query(
 
 ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    /* A very long problem title must not blow out the breadcrumb or the card header. */
+    .problem-crumb-title { max-width: min(60ch, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .problem-title { overflow-wrap: anywhere; min-width: 0; padding-right: .75rem; }
+</style>
 <ol class="breadcrumb d-print-none">
     <li class="breadcrumb-item"><a href="problems.php"><i class="fas fa-fw fa-exclamation-circle me-1"></i>Problems</a></li>
-    <li class="breadcrumb-item active"><?= nullable_htmlentities($problem['title']) ?></li>
+    <li class="breadcrumb-item active problem-crumb-title" title="<?= nullable_htmlentities($problem['title']) ?>"><?= nullable_htmlentities($problem['title']) ?></li>
 </ol>
 
 <div class="row">
     <div class="col-md-8">
         <div class="card card-dark mb-3">
             <div class="card-header py-2 d-flex align-items-center">
-                <h3 class="card-title me-auto mb-0">
+                <h3 class="card-title me-auto mb-0 problem-title">
                     <?= nullable_htmlentities($problem['title']) ?>
                     <span class="badge <?= $problem_status_badge[$problem['status']] ?? 'text-bg-secondary' ?> ms-2"><?= ucfirst($problem['status']) ?></span>
                 </h3>
@@ -147,8 +152,8 @@ $available_changes = mysqli_query(
                     <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <input type="hidden" name="problem_id" value="<?= $problem_id ?>">
                     <div class="col-auto">
-                        <label class="small text-muted mb-1">Link an existing ticket</label>
-                        <input type="text" class="form-control form-control-sm" name="ticket_number" placeholder="Ticket # e.g. 1042" required>
+                        <label class="small text-muted mb-1" for="problemTicketNumber">Link an existing ticket</label>
+                        <input type="text" id="problemTicketNumber" class="form-control form-control-sm" name="ticket_number" placeholder="Ticket # e.g. 1042" required>
                     </div>
                     <div class="col-auto">
                         <button type="submit" name="link_problem_ticket" class="btn btn-sm btn-secondary"><i class="fas fa-link me-1"></i>Link Ticket</button>
@@ -178,7 +183,7 @@ $available_changes = mysqli_query(
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="problem_id" value="<?= $problem_id ?>">
                         <div class="form-group">
-                            <select class="form-control select2" name="change_id" required>
+                            <select class="form-control select2" name="change_id" aria-label="Change to link" required>
                                 <option value="">Select Change</option>
                                 <?php while ($c = mysqli_fetch_assoc($available_changes)) { ?>
                                     <option value="<?= intval($c['change_id']) ?>"><?= nullable_htmlentities($c['title']) ?></option>

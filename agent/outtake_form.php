@@ -78,7 +78,7 @@ $sign_url = "https://$config_base_url/guest/outtake_sign.php?token=$ot_token";
         <?php if ($signed_at) { ?>
         <div class="alert alert-success">
             <i class="fas fa-check-circle me-2"></i>Signed by <strong><?= $signed_nm ?></strong> on <?= date('M j, Y g:i A', strtotime($signed_at)) ?>
-            <?php if ($signature) { ?><br><img src="<?= $signature ?>" style="max-height:80px;border:1px solid #ccc;border-radius:4px;background:#fff;display:block;margin-top:8px;"><?php } ?>
+            <?php if ($signature) { ?><br><img src="<?= $signature ?>" alt="Customer signature" style="max-height:80px;border:1px solid #ccc;border-radius:4px;background:#fff;display:block;margin-top:8px;"><?php } ?>
         </div>
         <?php } else { ?>
         <div class="alert alert-warning">
@@ -89,7 +89,7 @@ $sign_url = "https://$config_base_url/guest/outtake_sign.php?token=$ot_token";
                     <div class="mt-1" style="font-size:12px;word-break:break-all;color:#856404;"><?= $sign_url ?></div>
                     <?php } ?>
                 </div>
-                <div class="d-flex flex-wrap mt-2 mt-md-0 ml-md-3" style="gap:6px;">
+                <div class="d-flex flex-wrap mt-2 mt-md-0 ms-md-3" style="gap:6px;">
                     <?php if ($ot_token && $contact_email) { ?>
                     <form action="post.php" method="post" class="d-inline">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -122,9 +122,9 @@ $sign_url = "https://$config_base_url/guest/outtake_sign.php?token=$ot_token";
                     <input type="hidden" name="outtake_id" value="<?= $outtake_id ?>">
                     <input type="hidden" name="ticket_id" value="<?= $ticket_id ?>">
                     <input type="hidden" name="client_id" value="<?= $client_id ?>">
-                    <div class="form-group">
-                        <label><strong>Tech Notes / Work Summary</strong> <small class="text-secondary">(visible on the outtake form)</small></label>
-                        <textarea class="form-control" name="outtake_tech_notes" rows="5" placeholder="Describe the work completed, parts used, recommendations..."><?= $tech_notes ?></textarea>
+                    <div class="mb-3">
+                        <label class="form-label" for="outtakeTechNotes"><strong>Tech Notes / Work Summary</strong> <small class="text-secondary">(visible on the outtake form)</small></label>
+                        <textarea class="form-control" id="outtakeTechNotes" name="outtake_tech_notes" rows="5" placeholder="Describe the work completed, parts used, recommendations..."><?= $tech_notes ?></textarea>
                     </div>
                     <button type="submit" name="save_outtake_notes" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Notes</button>
                 </form>
@@ -152,7 +152,7 @@ $sign_url = "https://$config_base_url/guest/outtake_sign.php?token=$ot_token";
                         <h6 class="border-bottom pb-2">Form Details</h6>
                         <table class="table table-sm table-borderless mb-0">
                             <tr><td class="text-secondary">Ticket</td><td><?= $ticket_num ?></td></tr>
-                            <tr><td class="text-secondary">Department</td><td><?= $client_nm ?></td></tr>
+                            <tr><td class="text-secondary">Department</td><td><?= !empty($client_nm) ? $client_nm : '<span class="text-secondary">None</span>' ?></td></tr>
                             <?php if ($contact_nm) { ?><tr><td class="text-secondary">Contact</td><td><?= $contact_nm ?></td></tr><?php } ?>
                             <tr><td class="text-secondary">Subject</td><td><?= $subject ?></td></tr>
                             <tr><td class="text-secondary">Status</td><td><?= $signed_at ? '<span class="badge text-bg-success">Signed</span>' : '<span class="badge text-bg-warning text-dark">Unsigned</span>' ?></td></tr>
