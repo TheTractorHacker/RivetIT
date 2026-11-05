@@ -25,3 +25,11 @@
 :root[data-bs-theme="dark"] .trr-nextstep { background: #3a1a1a; border-color: #7a2c2c; color: #ffdada; }
 @media (max-width: 700px) { .trr-nextstep { flex-wrap: wrap; } .trr-nextstep .btn { width: 100%; } }
 .tr-labelled-select > span { white-space: nowrap; }
+/* QA3: each department group is its own wrapper, so Core's :first-child reset removed the gap between groups */
+@media screen { .trr-print-group:not(.trr-print-group--first) > .trr-group-title:first-child { margin-top: 24px; } }
+/* QA3: quiz builder - read-only draw list chips and select chevrons were clipping their text */
+.trq-ro > .tr-chip { flex: 0 0 auto; white-space: nowrap; }
+.trq-rule__mode { padding-right: 1.6rem; background-position: right .4rem center; }
+.trq-rule__draw .form-control { max-width: 4rem; }
+.trq-rule__draw { white-space: nowrap; }
+.trq-type { min-width: 9.75rem; max-width: 12rem; }
