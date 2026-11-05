@@ -166,8 +166,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <i class="fas fa-fw fa-layer-group me-2"></i>Bulk Action (<span id="selectedCount">0</span>)
                             </button>
                             <div class="dropdown-menu">
-                                <button class="dropdown-item confirm-link" type="submit" form="bulkActions" name="bulk_force_recurring_tickets">
-                                    <i class="fas fa-fw fa-paper-plane me-2"></i>Force Reoccur
+                                <button class="dropdown-item confirm-link" data-confirm-message="Create a ticket now from each selected recurring ticket? Their next run dates move forward as usual." type="submit" form="bulkActions" name="bulk_force_recurring_tickets">
+                                    <i class="fas fa-fw fa-paper-plane me-2"></i>Create Tickets Now
                                 </button>
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item ajax-modal" href="#"
@@ -334,7 +334,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <?php if (lookupUserPermission("module_support") >= 2) { ?>
                                     <td>
                                         <div class="dropdown dropleft text-center">
-                                            <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window">
+                                            <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-label="Actions" title="Actions" data-boundary="window">
                                                 <i class="fas fa-ellipsis-h"></i>
                                             </button>
                                             <div class="dropdown-menu">
@@ -344,12 +344,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                     <i class="fas fa-fw fa-edit me-2"></i>Edit
                                                 </a>
                                                 <div class="dropdown-divider"></div>
-                                                <a class="dropdown-item" href="post.php?force_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                                    <i class="fa fa-fw fa-paper-plane text-secondary me-2"></i>Force Reoccur
+                                                <a class="dropdown-item confirm-link" data-confirm-message="Create a ticket now from this recurring ticket? Its next run date moves forward as usual." href="post.php?force_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                                    <i class="fa fa-fw fa-paper-plane text-secondary me-2"></i>Create Ticket Now
                                                 </a>
                                                 <?php if (lookupUserPermission("module_support") == 3) { ?>
                                                     <div class="dropdown-divider"></div>
-                                                    <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                                    <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Delete this recurring ticket? Tickets it already created are kept." href="post.php?delete_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                                     </a>
                                                 <?php } ?>
