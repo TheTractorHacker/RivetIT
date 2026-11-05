@@ -205,7 +205,7 @@ if ($chain_cols) {
 
 <div class="card mb-3">
     <div class="card-header py-2 small text-muted"><?= number_format($total) ?> event<?= $total === 1 ? '' : 's' ?></div>
-    <div class="table-responsive">
+    <div class="table-responsive position-relative">
         <table class="table table-sm align-middle mb-0">
             <thead><tr><th>Time</th><th>Event</th><th>Who</th><th>What</th><th>From</th><th><span class="visually-hidden">Details</span></th></tr></thead>
             <tbody>
