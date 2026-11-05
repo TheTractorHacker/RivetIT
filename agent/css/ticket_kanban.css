@@ -107,3 +107,8 @@
 
 /* The shared ".card + .card" spacing rule pushed every lane but the first down 16px; lanes sit side by side, so they must share one top edge. */
 #kanban-board > .kanban-column { margin-top: 0; margin-bottom: 0; }
+
+@media (max-width: 576px) {
+    /* the board scrolls inside itself; its 400px floor made the whole page scroll sideways on a phone */
+    #kanban-board { min-width: 0; }
+}

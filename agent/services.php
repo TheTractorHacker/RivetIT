@@ -225,4 +225,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     </div>
 
 <?php
+?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+/* Phone widths: the first (name) column keeps a readable width and the table scrolls sideways instead of wrapping the name one letter per line. */
+@media (max-width: 767.98px) {
+    .table-responsive > .table > tbody > tr > td:first-child { min-width: 11rem; }
+}
+</style>
+<?php
 require_once "../includes/footer.php";
