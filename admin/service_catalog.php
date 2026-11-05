@@ -41,8 +41,51 @@ $catalog_worker_on = \ITFlow\ITSM\ServiceCatalogService::timeoutsEnabled($mysqli
         <div class="card-body">
             <p class="text-secondary">Curated tickets your team &amp; departments can raise in one click from <strong>Request Something</strong>. Each item pre-fills the normal ticket form. Group items into <strong>categories</strong> to show them as tiles. Edit an item to add request form fields (including repeating tables and conditions), risk rules and an approval chain (parallel steps, risk-based routing, reminders and timeouts); items without them behave as plain shortcuts.</p>
 
+            <div class="row g-3 mb-3">
+                <div class="col-lg-7">
+                  <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="mb-0"><i class="fas fa-fw fa-folder me-2"></i>Categories <small class="text-secondary">(the tile groups on Request Something)</small></h6>
+                        <button type="button" class="btn btn-sm btn-primary ajax-modal" data-modal-url="modals/service_catalog/service_catalog_category_edit.php"><i class="fas fa-plus me-1"></i>New category</button>
+                    </div>
+                    <?php if (!$catalog_cat_rows) { ?>
+                        <p class="text-secondary small mt-2 mb-0">No categories yet. Without categories every item is listed in one group.</p>
+                    <?php } else { ?>
+                    <ul class="list-group" id="catalogCategoryList">
+                        <?php foreach ($catalog_cat_rows as $cat) { $cid = intval($cat['category_id']); ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center <?= intval($cat['is_active']) ? '' : 'text-muted' ?>">
+                                <span><i class="fas fa-fw <?= nullable_htmlentities($cat['icon'] ?: 'fa-folder') ?> me-2"></i><?= nullable_htmlentities($cat['name']) ?>
+                                    <span class="badge text-bg-light"><?= $catalog_cat_counts[$cid] ?? 0 ?> item<?= ($catalog_cat_counts[$cid] ?? 0) === 1 ? '' : 's' ?></span>
+                                    <?php if (!intval($cat['is_active'])) { ?><span class="badge text-bg-secondary">Inactive</span><?php } ?></span>
+                                <span>
+                                    <a href="#" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/service_catalog/service_catalog_category_edit.php?id=<?= $cid ?>" aria-label="Edit category"><i class="fas fa-edit"></i></a>
+                                    <a href="post.php?delete_service_catalog_category=<?= $cid ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-danger confirm-link" data-confirm="Delete this category? Its items are kept and move to the ungrouped list." aria-label="Delete category"><i class="fas fa-trash"></i></a>
+                                </span>
+                            </li>
+                        <?php } ?>
+                    </ul>
+                    <?php } ?>
+                  </div>
+                </div>
+                <?php if ($session_is_admin) { ?>
+                <div class="col-lg-5">
+                  <div class="border rounded p-3 h-100">
+                    <h6><i class="fas fa-fw fa-bell me-2"></i>Approval worker</h6>
+                    <form action="post.php" method="post" autocomplete="off">
+                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="catalog_approval_cron" value="1" id="catalog_approval_cron" <?= $catalog_worker_on ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="catalog_approval_cron">Send approval reminders, escalate and time out requests, and hand approvals to out-of-office delegates</label>
+                        </div>
+                        <p class="small text-secondary mt-1 mb-2">Off by default. Each item sets its own hours (edit an item, Reminders and timeouts). Runs with the main cron; reminders go out as in-app notifications and email.</p>
+                        <button type="submit" name="save_service_catalog_worker" class="btn btn-sm btn-primary">Save</button>
+                    </form>
+                  </div>
+                </div>
+                <?php } ?>
+            </div>
             <div class="row">
-                <div class="col-sm-4 mb-2">
+                <div class="col-sm-6 col-lg-4 mb-2">
                     <form autocomplete="off">
                         <div class="input-group">
                             <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search Catalog Items">
@@ -54,45 +97,6 @@ $catalog_worker_on = \ITFlow\ITSM\ServiceCatalogService::timeoutsEnabled($mysqli
                 </div>
             </div>
 
-            <div class="row g-3 mb-3">
-                <div class="col-lg-7">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <h6 class="mb-0"><i class="fas fa-fw fa-folder me-2"></i>Categories <small class="text-secondary">(the tile groups on Request Something)</small></h6>
-                        <button type="button" class="btn btn-sm btn-primary ajax-modal" data-modal-url="modals/service_catalog/service_catalog_category_edit.php"><i class="fas fa-plus me-1"></i>New category</button>
-                    </div>
-                    <?php if (!$catalog_cat_rows) { ?>
-                        <p class="text-secondary small mb-0">No categories yet. Without categories every item is listed in one group.</p>
-                    <?php } else { ?>
-                    <ul class="list-group" id="catalogCategoryList">
-                        <?php foreach ($catalog_cat_rows as $cat) { $cid = intval($cat['category_id']); ?>
-                            <li class="list-group-item d-flex justify-content-between align-items-center <?= intval($cat['is_active']) ? '' : 'text-muted' ?>">
-                                <span><i class="fas fa-fw <?= nullable_htmlentities($cat['icon'] ?: 'fa-folder') ?> me-2"></i><?= nullable_htmlentities($cat['name']) ?>
-                                    <span class="badge text-bg-light"><?= $catalog_cat_counts[$cid] ?? 0 ?> item<?= ($catalog_cat_counts[$cid] ?? 0) === 1 ? '' : 's' ?></span>
-                                    <?php if (!intval($cat['is_active'])) { ?><span class="badge text-bg-secondary">Inactive</span><?php } ?></span>
-                                <span>
-                                    <a href="#" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/service_catalog/service_catalog_category_edit.php?id=<?= $cid ?>" aria-label="Edit category"><i class="fas fa-edit"></i></a>
-                                    <a href="post.php?delete_service_catalog_category=<?= $cid ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-danger confirm-link" aria-label="Delete category"><i class="fas fa-trash"></i></a>
-                                </span>
-                            </li>
-                        <?php } ?>
-                    </ul>
-                    <?php } ?>
-                </div>
-                <?php if ($session_is_admin) { ?>
-                <div class="col-lg-5">
-                    <h6><i class="fas fa-fw fa-bell me-2"></i>Approval worker</h6>
-                    <form action="post.php" method="post" autocomplete="off">
-                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="catalog_approval_cron" value="1" id="catalog_approval_cron" <?= $catalog_worker_on ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="catalog_approval_cron">Send approval reminders, escalate and time out requests, and hand approvals to out-of-office delegates</label>
-                        </div>
-                        <p class="small text-secondary mt-1 mb-2">Off by default. Each item sets its own hours (edit an item, Reminders and timeouts). Runs with the main cron; reminders go out as in-app notifications and email.</p>
-                        <button type="submit" name="save_service_catalog_worker" class="btn btn-sm btn-primary">Save</button>
-                    </form>
-                </div>
-                <?php } ?>
-            </div>
 
             <hr>
 
