@@ -66,7 +66,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                             <i class="fas fa-fw fa-check me-1"></i> Convert to Ticket
                         </a>
                         <a href="post.php?dismiss_mail_request=<?= $mr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-sm btn-danger confirm-link ms-1">
+                           class="btn btn-sm btn-danger confirm-link ms-1" data-confirm-message="Dismiss the request from <?= $mr_from_email ?>? It will not become a ticket.">
                             <i class="fas fa-fw fa-trash me-1"></i> Dismiss
                         </a>
                     </td>

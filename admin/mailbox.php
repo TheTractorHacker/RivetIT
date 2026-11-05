@@ -68,7 +68,7 @@ $mb_ago = function ($secs): string {
     <div class="card-body">
         <p class="text-muted">Manage the mailboxes <?= htmlspecialchars(APP_NAME) ?> monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
         <hr>
-        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}</style>
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}@media (max-width: 767.98px){.mb-compact{min-width:760px}.mb-compact td:nth-child(2){min-width:13rem}}</style>
         <div class="table-responsive">
             <table class="table table-sm table-striped table-borderless table-hover mb-compact">
                 <thead class="text-dark">
@@ -187,7 +187,7 @@ $quarantine_sql = mysqli_query($mysqli, "SELECT s.*, m.mailbox_name, m.mailbox_e
             <p class="mb-0"><i class="fas fa-check-circle text-success me-1"></i>Nothing is quarantined.</p>
         <?php } else { ?>
         <div class="table-responsive-sm">
-            <table class="table table-sm table-striped table-borderless">
+            <table class="table table-sm table-striped table-borderless" style="min-width:640px">
                 <thead class="text-dark"><tr><th>Mailbox</th><th>From</th><th>Subject</th><th>Attempts</th><th>Last error</th><th>Since</th><th class="text-center">Action</th></tr></thead>
                 <tbody>
                 <?php while ($qrow = mysqli_fetch_assoc($quarantine_sql)) { $q_id = intval($qrow['intake_id']); ?>
