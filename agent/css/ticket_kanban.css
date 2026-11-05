@@ -10,7 +10,13 @@
     box-sizing: border-box;
     min-width: 400px;
     height: calc(100vh - 210px);
+    /* Line the board up with the filter card above it (container-fluid's own gutter plus the column margin pushed it ~26px in). */
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 1rem;
 }
+#kanban-board > .kanban-column:first-child { margin-left: 0; }
+#kanban-board > .kanban-column:last-child { margin-right: 0; }
 
 /* Kanban Column - migrated to the shared --if-* design tokens (was hardcoded
    light-theme-only colors, so this board was unreadable/inconsistent in dark
