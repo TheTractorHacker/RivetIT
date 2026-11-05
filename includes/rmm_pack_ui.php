@@ -273,7 +273,7 @@ function rivetRmmPackCard(array $vm, array $ctx): string
         $notice . $chips
         . '<form method="post" action="/agent/post/' . RIVET_RMM_PACK_HANDLER . '.php" id="pack-form" class="rmmx-pad-bottom">' . rivetRmmAutoHidden($csrf, $returnTo)
         . $table
-        . ($params === '' ? '' : '<div class="p-3 border-top"><div class="small text-muted mb-2">Install-time parameters. Leave a field at its default unless you need another value.</div>' . $params . '</div>')
+        . ($params === '' ? '' : '<details class="p-3 border-top"><summary class="fw-semibold">Install-time parameters <span class="text-muted fw-normal small">(optional: leave a field empty to use its default)</span></summary><div class="mt-3">' . $params . '</div></details>')
         . '<div class="px-3 pb-3">' . $actions . '</div></form>',
         '', '<span class="small text-muted">' . rmmH($vm['pack']['name']) . ' ' . rmmH($vm['pack']['version']) . '</span>', true, 'pack-card');
 
