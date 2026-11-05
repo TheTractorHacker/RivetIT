@@ -606,17 +606,36 @@ if (isset($_POST['edit_profile'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    $new_password = $_POST['new_password'];
+    $new_password = trim((string) ($_POST['new_password'] ?? ''));
+    $current_password = (string) ($_POST['current_password'] ?? '');
 
-    if (!empty($new_password)) {
-        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
-
-        // Logging
-        logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+    if ($new_password === '' || $current_password === '') {
+        flash_alert('Enter your current password and a new password.', 'danger');
+        redirect('profile.php');
     }
 
-    redirect('index.php');
+    // The current password must be right before it can be replaced (a borrowed, unlocked session should not be enough).
+    $pw_check = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id"));
+    if (!$pw_check || !password_verify($current_password, (string) $pw_check['user_password'])) {
+        flash_alert('Your current password is not correct.', 'danger');
+        redirect('profile.php');
+    }
+
+    require_once '../includes/security_policy.php';
+    $policy_error = secPasswordPolicyError($new_password, ['name' => $session_contact_name ?? '', 'email' => $session_contact_email ?? '', 'username' => $session_contact_email ?? ''], $mysqli);
+    if ($policy_error !== null) {
+        flash_alert($policy_error, 'danger');
+        redirect('profile.php');
+    }
+
+    $password_hash = mysqli_real_escape_string($mysqli, secPasswordHash($new_password));
+    mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
+
+    // Logging
+    logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+
+    flash_alert('Your password was changed.');
+    redirect('profile.php');
 
 }
 
