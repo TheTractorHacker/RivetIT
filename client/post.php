@@ -628,17 +628,26 @@ if (isset($_POST['edit_profile'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    $new_password = $_POST['new_password'];
+    $new_password = (string) ($_POST['new_password'] ?? '');
 
-    if (!empty($new_password)) {
-        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
-
-        // Logging
-        logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+    // The form says "at least 8 characters"; enforce it here too, since the browser check can be bypassed.
+    if ($new_password === '' || mb_strlen($new_password) < 8) {
+        flash_alert('Your new password must be at least 8 characters long.', 'danger');
+        redirect('profile.php');
+    }
+    if (strlen($new_password) > 1024) {
+        flash_alert('That password is too long (1024 characters at most).', 'danger');
+        redirect('profile.php');
     }
 
-    redirect('index.php');
+    $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+    mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
+
+    // Logging
+    logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+
+    flash_alert('Your password was changed.');
+    redirect('profile.php');
 
 }
 
@@ -681,6 +690,7 @@ if (isset($_POST['mark_feed_read'])) {
         (new \ITFlow\Portal\PortalFeed($mysqli))->markRead(intval($session_contact_id));
     }
 
+    flash_alert('All notifications marked as read.');
     redirect('notifications.php');
 
 }
