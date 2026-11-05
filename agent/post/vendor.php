@@ -51,7 +51,7 @@ if (isset($_POST['add_vendor_from_template'])) {
 
     logAction("Vendor", "Create", "$session_name created vendor $name using a template", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> created from template");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created from template");
 
     redirect();
 
@@ -81,7 +81,7 @@ if (isset($_POST['add_vendor'])) {
 
     logAction("Vendor", "Create", "$session_name created vendor $name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> created");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
 
     redirect();
 
@@ -111,7 +111,7 @@ if (isset($_POST['edit_vendor'])) {
 
     logAction("Vendor", "Edit", "$session_name edited vendor $name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> edited");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> edited");
 
     redirect();
 
