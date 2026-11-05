@@ -65,7 +65,7 @@ if (!empty($session_avatar) && file_exists(__DIR__ . "/../../uploads/users/$sess
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-user"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="name"
+                            <input type="text" class="form-control" name="name" maxlength="200"
                                    placeholder="Full Name"
                                    value="<?= stripslashes(nullable_htmlentities($session_name)) ?>" required>
                         </div>
@@ -77,7 +77,7 @@ if (!empty($session_avatar) && file_exists(__DIR__ . "/../../uploads/users/$sess
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                             </div>
-                            <input type="email" class="form-control" name="email"
+                            <input type="email" class="form-control" name="email" maxlength="200"
                                    placeholder="Email Address"
                                    value="<?= nullable_htmlentities($session_email) ?>" required>
                         </div>
@@ -100,7 +100,7 @@ if (!empty($session_avatar) && file_exists(__DIR__ . "/../../uploads/users/$sess
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-id-badge"></i></span>
                             </div>
-                            <input type="text" class="form-control" id="user_title_input" name="title"
+                            <input type="text" class="form-control" id="user_title_input" name="title" maxlength="200"
                                    placeholder="e.g. Senior Technician" value="<?= $session_title ?>">
                         </div>
                     </div>
@@ -111,7 +111,7 @@ if (!empty($session_avatar) && file_exists(__DIR__ . "/../../uploads/users/$sess
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-phone"></i></span>
                             </div>
-                            <input type="text" class="form-control" id="user_phone_input" name="phone"
+                            <input type="text" class="form-control" id="user_phone_input" name="phone" maxlength="50"
                                    placeholder="e.g. (555) 123-4567" value="<?= $session_phone ?>">
                         </div>
                     </div>

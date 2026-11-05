@@ -11,6 +11,14 @@ $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 
 $report_from = $dtf;
 $report_to   = $dtt;
+// What the header shows for an all-time range: the real span of requests rather than the 1970 / 2099 sentinels.
+$shown_from = $report_from;
+$shown_to = $report_to;
+if ($report_from === '1970-01-01' || $report_to === '2099-12-31') {
+    $span = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT DATE(MIN(created_at)) AS a, DATE(MAX(created_at)) AS b FROM service_catalog_requests"));
+    $shown_from = $report_from === '1970-01-01' ? ($span['a'] ?: date('Y-m-d')) : $report_from;
+    $shown_to = $report_to === '2099-12-31' ? date('Y-m-d') : $report_to;
+}
 // "All time" sentinels are valid dates; the service takes them as they are. Show the real bounds in the header line.
 
 $catalog_stats = $catalog_service->requestStats($report_from, $report_to, \ITFlow\Reports\ReportScope::clause('r.client_id'));
@@ -44,21 +52,17 @@ foreach ($catalog_stats['trend'] as $d) { $trend_max = max($trend_max, $d['reque
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-concierge-bell me-2"></i>Service Catalog Requests</h3>
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
     </div>
     <div class="card-body p-0">
 
         <form class="p-3 d-print-none">
             <label class="mb-1 d-block">Date range</label>
-            <?php echo dateRangePickerField($date_range, 'canned_date', ['dates' => [$report_from, $report_to]]); ?>
+            <?php echo dateRangePickerField($date_range, 'canned_date', ['dates' => [$shown_from, $shown_to]]); ?>
         </form>
 
         <div class="px-3 pb-2">
             <small class="text-muted">
-                Requests raised from the catalog between <strong><?php echo nullable_htmlentities($report_from); ?></strong> and <strong><?php echo nullable_htmlentities($report_to); ?></strong>.
+                Requests raised from the catalog between <strong><?php echo nullable_htmlentities($shown_from); ?></strong> and <strong><?php echo nullable_htmlentities($shown_to); ?></strong>.
                 Turnaround is the time from submission to the final decision, for requests that went through approval and were decided (auto-approved requests are not counted).
             </small>
         </div>

@@ -628,19 +628,29 @@ if (isset($_POST['edit_profile'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    $new_password = (string) ($_POST['new_password'] ?? '');
+    $new_password = trim((string) ($_POST['new_password'] ?? ''));
+    $current_password = (string) ($_POST['current_password'] ?? '');
 
-    // The form says "at least 8 characters"; enforce it here too, since the browser check can be bypassed.
-    if ($new_password === '' || mb_strlen($new_password) < 8) {
-        flash_alert('Your new password must be at least 8 characters long.', 'danger');
-        redirect('profile.php');
-    }
-    if (strlen($new_password) > 1024) {
-        flash_alert('That password is too long (1024 characters at most).', 'danger');
+    if ($new_password === '' || $current_password === '') {
+        flash_alert('Enter your current password and a new password.', 'danger');
         redirect('profile.php');
     }
 
-    $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+    // The current password must be right before it can be replaced (a borrowed, unlocked session should not be enough).
+    $pw_check = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id"));
+    if (!$pw_check || !password_verify($current_password, (string) $pw_check['user_password'])) {
+        flash_alert('Your current password is not correct.', 'danger');
+        redirect('profile.php');
+    }
+
+    require_once '../includes/security_policy.php';
+    $policy_error = secPasswordPolicyError($new_password, ['name' => $session_contact_name ?? '', 'email' => $session_contact_email ?? '', 'username' => $session_contact_email ?? ''], $mysqli);
+    if ($policy_error !== null) {
+        flash_alert($policy_error, 'danger');
+        redirect('profile.php');
+    }
+
+    $password_hash = mysqli_real_escape_string($mysqli, secPasswordHash($new_password));
     mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
 
     // Logging
