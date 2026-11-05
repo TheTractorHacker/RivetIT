@@ -44,8 +44,16 @@ $mb_ago = function ($secs): string {
 </div>
 <?php } ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    @media (max-width: 575.98px) {
+        .mailbox-card-header { flex-wrap: wrap; gap: .5rem; }
+        .mailbox-card-header .card-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-left: 0; width: 100%; }
+        .mailbox-card-header .card-tools .btn { flex: 1 1 auto; white-space: normal; }
+        .mb-compact { min-width: 820px; }
+    }
+</style>
 <div class="card">
-    <div class="card-header py-2">
+    <div class="card-header py-2 mailbox-card-header">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-inbox me-2"></i>Mailboxes</h3>
         <div class="card-tools">
             <button type="button" class="btn btn-outline-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_check_access.php">

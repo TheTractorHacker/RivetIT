@@ -56,9 +56,9 @@ if ($dead_groups) { $dead_total = array_sum($dead_groups); ?>
 </div>
 <?php } ?>
 <div class="card mb-3">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+    <div class="card-header py-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
         <h4 class="card-title mb-0">Jobs <?= $filter ? '<small class="text-muted">(' . $h($filter) . ')</small> <a class="small" href="job_queue.php">show all</a>' : '' ?></h4>
-        <form action="post.php" method="post" class="d-flex gap-2">
+        <form action="post.php" method="post" class="d-flex flex-wrap gap-2">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <button class="btn btn-primary btn-sm" name="run_job_worker"><i class="fas fa-play me-1"></i>Process jobs now</button>
             <button class="btn btn-outline-secondary btn-sm" name="purge_completed_jobs" title="Remove completed jobs older than 30 days">Clear old completed</button>
@@ -66,7 +66,7 @@ if ($dead_groups) { $dead_total = array_sum($dead_groups); ?>
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th class="position-relative"><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
             <?php if (!$jobs) { ?><tr><td colspan="7" class="text-center text-muted py-4">No jobs<?= $filter ? ' with this status' : ' yet. Webhook deliveries and event-rule actions appear here' ?>.</td></tr><?php } ?>
             <?php foreach ($jobs as $j) { ?>

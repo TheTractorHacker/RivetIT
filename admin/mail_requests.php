@@ -19,8 +19,8 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
     <div class="card-body">
         <p class="text-muted">Emails from senders that don't match a known contact or domain land here for review. Convert a request into a ticket (picking the department it belongs to), or dismiss it.</p>
         <hr>
-        <div class="table-responsive-sm">
-            <table class="table table-striped table-borderless table-hover">
+        <div class="table-responsive">
+            <table class="table table-striped table-borderless table-hover" style="min-width:820px;">
                 <thead class="text-dark">
                     <tr>
                         <th>From</th>
@@ -43,7 +43,7 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                 ?>
                 <tr>
                     <td>
-                        <?= $mr_from_name ? "$mr_from_name " : '' ?><span class="text-muted">&lt;<?= $mr_from_email ?>&gt;</span>
+                        <?= $mr_from_name ? "$mr_from_name<br>" : '' ?><span class="text-muted small">&lt;<?= str_replace(['@', '.'], ['@<wbr>', '.<wbr>'], $mr_from_email) ?>&gt;</span>
                     </td>
                     <td><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?>
                         <?php if (($row['mail_request_reason'] ?? '') === 'rate_limited') { ?><span class="badge text-bg-danger ms-1" title="The sender exceeded the hourly message cap">Rate limited</span>
@@ -71,6 +71,9 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                         </a>
                     </td>
                 </tr>
+                <?php } ?>
+                <?php if (mysqli_num_rows($sql) === 0) { ?>
+                <tr><td colspan="6" class="text-center text-muted py-5"><i class="fas fa-fw fa-inbox fa-2x d-block mb-2"></i>No mail requests to review. Mail from unknown senders will show up here.</td></tr>
                 <?php } ?>
                 </tbody>
             </table>
