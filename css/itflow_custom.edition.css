@@ -255,3 +255,7 @@ html[data-bs-theme="dark"] .portal-ui footer.footer,
 html[data-bs-theme="dark"] .portal-ui footer.footer p {
     color: #aeb7c4;
 }
+
+/* Modal close button: the BS4 .close shim floats right, but .modal-header is a flex row, so the "x" sat
+   right next to the title instead of at the far edge of the header. */
+.modal-header > .close { margin-left: auto; float: none; }

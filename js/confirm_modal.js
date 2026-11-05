@@ -43,7 +43,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 var n = document.querySelectorAll('input[type="checkbox"].bulk-select:checked').length;
                 body.textContent = 'Permanently delete ' + n + ' selected ' + (n === 1 ? 'item' : 'items') + '? This cannot be undone.';
             } else {
-                body.textContent = 'Are you sure?';
+                // Pages can name the consequence: <button class="confirm-link" data-confirm="...">
+                body.textContent = link.getAttribute('data-confirm') || 'Are you sure?';
             }
         }
 
