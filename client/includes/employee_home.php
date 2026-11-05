@@ -70,6 +70,10 @@ if ($eh_show('catalog')) {
 <?php } ?>
 
 <?php
+// Department administrators already have requests and devices above, so the remaining cards sit in a tidy two-column
+// grid (training, approvals, checklist) with the wide help-articles card last.
+$eh_admin_grid = in_array('requests', $eh_skip ?? [], true) && in_array('devices', $eh_skip ?? [], true);
+$eh_o = $eh_admin_grid ? ['train' => 'col-lg-6 order-lg-1', 'appr' => 'order-lg-2', 'check' => 'order-lg-3', 'kb' => 'order-lg-4'] : ['train' => 'col-lg-5', 'appr' => '', 'check' => '', 'kb' => ''];
 $eh_approvals = $eh_show('approvals') ? $eh->waitingOnMe($eh_cid, $eh_client) : [];
 $eh_requests = $eh_show('requests') ? $eh->myOpenRequests($eh_cid, $eh_client, 5) : [];
 $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : [];
@@ -174,14 +178,14 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
         <?= $eh_training_html ?>
     </div></div>
     <?php } elseif ($eh_training_html !== '') { ?>
-    <div class="col-lg-5 col-md-12"><div class="portal-stack"><?= $eh_training_html ?></div></div>
+    <div class="<?= $eh_o['train'] ?> col-md-12"><div class="portal-stack h-100"><?= $eh_training_html ?></div></div>
     <?php } ?>
 
     <?php if ($eh_show('kb') && intval($config_module_enable_kb ?? 0) === 1) {
         $eh_kb_popular = $eh->popularArticles($eh_client, 5, 30);
         $eh_kb_recent = $eh->recentArticles($eh_client, 5);
         if ($eh_kb_popular || $eh_kb_recent) { ?>
-    <div class="col-lg-12 col-md-12" id="help-articles">
+    <div class="col-lg-12 col-md-12 <?= $eh_o['kb'] ?>" id="help-articles">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-book" aria-hidden="true"></i></span>Help articles</h2>
@@ -207,7 +211,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <?php } } ?>
 
     <?php if ($eh_show('approvals') && ($eh_approvals || $eh->isManager($eh_cid, $eh_client))) { ?>
-    <div class="col-lg-6 col-md-12">
+    <div class="col-lg-6 col-md-12 <?= $eh_o['appr'] ?>">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-check" aria-hidden="true"></i></span>Waiting on me</h2>
@@ -234,7 +238,7 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     if ($eh_show('onboarding')) {
         $eh_check = $eh->myChecklist($eh_cid, $eh_client);
         if ($eh_check) { ?>
-    <div class="col-lg-6 col-md-12" id="checklist">
+    <div class="col-lg-6 col-md-12 <?= $eh_o['check'] ?>" id="checklist">
         <div class="card portal-card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h2>

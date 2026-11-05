@@ -14,7 +14,7 @@ $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 
 // Gate: only a contact who is (or has been) an approver, i.e. a manager somebody reports to, sees this page.
 if (!$catalog_service->contactIsApprover($session_contact_id, $session_client_id)) {
-    flash_alert('You are not an approver for any requests', 'danger');
+    flash_alert('You are not an approver for any requests, so there is nothing to approve.', 'warning');
     redirect('index.php');
 }
 
