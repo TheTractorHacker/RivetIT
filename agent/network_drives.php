@@ -158,7 +158,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </a>
                             </td>
                             <td><?php echo $network_drive_letter ?: '-'; ?></td>
-                            <td><code><?php echo $network_drive_path ?: '-'; ?></code></td>
+                            <td><?php echo $network_drive_path ? '<code>' . $network_drive_path . '</code>' : '<span class="text-muted">-</span>'; ?></td>
                             <td><?php echo $network_drive_purpose ?: '-'; ?></td>
                             <td>
                                 <div class="dropdown dropleft text-center">
