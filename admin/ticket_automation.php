@@ -112,6 +112,9 @@ function ticket_automation_actions(array $rule): array {
     return [];
 }
 ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    .ta-toggle { min-width: 4.5rem; text-align: center; }
+</style>
 
 <div class="card">
     <div class="card-header py-2">
@@ -195,7 +198,7 @@ function ticket_automation_actions(array $rule): array {
                     <td class="small text-nowrap">
                         <?php $rr = $rule_runs[$rule_id] ?? null; if ($rr): ?>
                             <?php echo nullable_htmlentities(date('M j, H:i', strtotime($rr['last_run']))); ?>
-                            <div class="text-muted"><?php echo (int) $rr['runs_30d']; ?> in 30 days</div>
+                            <div class="text-muted"><?php echo (int) $rr['runs_30d']; ?> run<?php echo (int) $rr['runs_30d'] === 1 ? '' : 's'; ?> in 30 days</div>
                         <?php else: ?>
                             <span class="text-muted">Never</span>
                         <?php endif; ?>
@@ -205,7 +208,7 @@ function ticket_automation_actions(array $rule): array {
                             <i class="fas fa-edit"></i>
                         </button>
                         <a href="post.php?toggle=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
-                           class="btn btn-sm btn-<?php echo $enabled ? 'warning' : 'success'; ?>">
+                           class="btn btn-sm btn-<?php echo $enabled ? 'warning' : 'success'; ?> ta-toggle">
                             <?php echo $enabled ? 'Disable' : 'Enable'; ?>
                         </a>
                         <a href="post.php?delete=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
