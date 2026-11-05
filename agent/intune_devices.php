@@ -78,8 +78,8 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
 <!-- Filter bar -->
 <div class="card card-dark mb-2">
     <div class="card-body py-2">
-        <form method="get" class="form-inline">
-            <select name="client_id" class="form-control form-control-sm me-2 auto-submit-select">
+        <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+            <select name="client_id" class="form-select auto-submit-select w-auto">
                 <option value="">All Departments</option>
                 <?php foreach ($clients_list as $cl): ?>
                 <option value="<?= intval($cl['client_id']) ?>" <?= $filter_client_id == $cl['client_id'] ? 'selected' : '' ?>>
@@ -87,13 +87,13 @@ while ($c = mysqli_fetch_assoc($sql_clients)) $clients_list[] = $c;
                 </option>
                 <?php endforeach; ?>
             </select>
-            <select name="compliance" class="form-control form-control-sm me-2 auto-submit-select">
+            <select name="compliance" class="form-select auto-submit-select w-auto">
                 <option value="">All Compliance States</option>
                 <option value="compliant"    <?= $filter_compliance === 'compliant'    ? 'selected' : '' ?>>Compliant</option>
                 <option value="noncompliant" <?= $filter_compliance === 'noncompliant' ? 'selected' : '' ?>>Not Compliant</option>
             </select>
             <?php if ($filter_compliance || $filter_client_id): ?>
-                <a href="?" class="btn btn-secondary btn-sm">Clear Filters</a>
+                <a href="?" class="btn btn-secondary">Clear Filters</a>
             <?php endif; ?>
         </form>
     </div>
