@@ -132,12 +132,12 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                                 Name <?php if ($sort == 'holiday_name') { echo $order_icon; } ?>
                             </a>
                         </th>
-                        <th>
+                        <th class="d-none d-md-table-cell">
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort . $filter_extra_qs; ?>&sort=holiday_country&order=<?php echo sortLinkOrder('holiday_country'); ?>">
                                 Country <?php if ($sort == 'holiday_country') { echo $order_icon; } ?>
                             </a>
                         </th>
-                        <th>Source</th>
+                        <th class="d-none d-md-table-cell">Source</th>
                         <th class="text-center">Action</th>
                     </tr>
                     </thead>
@@ -160,7 +160,8 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                             $holiday_rel = ['text-success', 'in ' . $holiday_days . ' day' . ($holiday_days === 1 ? '' : 's')];
                         }
                         ?>
-                        <tr<?php if ($holiday_days < 0) { echo ' class="text-secondary" style="opacity:.7"'; } ?>>
+                        <?php $holiday_past_cls = $holiday_days < 0 ? ' class="text-secondary"' : ''; ?>
+                        <tr>
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
                                     <input class="form-check-input bulk-select" type="checkbox" name="holiday_ids[]" value="<?php echo $holiday_id ?>">
@@ -172,9 +173,9 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                                 </a>
                                 <div class="small <?php echo $holiday_rel[0]; ?>"><?php echo $holiday_rel[1]; ?></div>
                             </td>
-                            <td><?php echo $holiday_name; ?></td>
-                            <td><?php echo $holiday_country; ?></td>
-                            <td>
+                            <td<?= $holiday_past_cls ?>><?php echo $holiday_name; ?></td>
+                            <td class="d-none d-md-table-cell<?= $holiday_past_cls ? ' text-secondary' : '' ?>"><?php echo $holiday_country; ?></td>
+                            <td class="d-none d-md-table-cell">
                                 <?php if ($holiday_is_custom) { ?>
                                     <span class="badge text-bg-secondary">Custom</span>
                                 <?php } else { ?>
@@ -191,7 +192,7 @@ while ($yr = mysqli_fetch_assoc($yres)) { $years_in_catalog[] = intval($yr['holi
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_holiday=<?= $holiday_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Delete the holiday &quot;<?= $holiday_name ?>&quot;?" href="post.php?delete_holiday=<?= $holiday_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                             <i class="fas fa-fw fa-trash me-2"></i>Delete
                                         </a>
                                     </div>
