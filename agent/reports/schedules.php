@@ -291,7 +291,7 @@ $all_reports = ReportCatalog::definitions();
         <form method="post" class="p-3 form-row align-items-end">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
             <input type="hidden" name="add_schedule" value="1">
-            <div class="col-md-3 col-6 mb-2">
+            <div class="col-md-3 col-12 mb-2">
                 <label class="mb-1">Report or saved view</label>
                 <select class="form-control" name="schedule_source" required>
                     <optgroup label="Reports">
@@ -309,7 +309,7 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-3 col-6 mb-2">
+            <div class="col-md-3 col-12 mb-2">
                 <label class="mb-1">Delivery</label>
                 <select class="form-control" name="schedule_delivery" required>
                     <?php foreach ($valid_formats as $key => $label) { ?>
@@ -317,7 +317,7 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-2 col-6 mb-2">
+            <div class="col-md-2 col-12 mb-2">
                 <label class="mb-1">Frequency</label>
                 <select class="form-control" name="schedule_frequency" required>
                     <?php foreach ($valid_frequencies as $key => $label) { ?>
