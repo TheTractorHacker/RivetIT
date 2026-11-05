@@ -177,7 +177,7 @@ $catalog_worker_on = \ITFlow\ITSM\ServiceCatalogService::timeoutsEnabled($mysqli
                                                 <?php } ?>
                                             </a>
                                             <div class="dropdown-divider"></div>
-                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_service_catalog_item=<?php echo $catalog_item_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger text-bold confirm-link" data-confirm="Delete this catalog item permanently? Items with requests waiting for approval cannot be deleted." href="post.php?delete_service_catalog_item=<?php echo $catalog_item_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
                                             </a>
                                         </div>
