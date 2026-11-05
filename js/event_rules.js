@@ -628,7 +628,7 @@
     }
     function addBtn(text, ic, onClick, cls) {
       var b = el('button', cls || 'btn btn-sm btn-outline-secondary', null, { type: 'button' });
-      b.appendChild(icon(ic)); b.appendChild(document.createTextNode(' ' + text));
+      var ib = icon(ic); ib.classList.add('me-1'); b.appendChild(ib); b.appendChild(document.createTextNode(text));
       b.addEventListener('click', onClick);
       if (count() >= D.maxConditions) { b.disabled = true; b.title = 'At most ' + D.maxConditions + ' conditions'; }
       return b;
