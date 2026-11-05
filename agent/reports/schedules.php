@@ -309,7 +309,7 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-2 col-6 mb-2">
+            <div class="col-md-3 col-6 mb-2">
                 <label class="mb-1">Delivery</label>
                 <select class="form-control" name="schedule_delivery" required>
                     <?php foreach ($valid_formats as $key => $label) { ?>
@@ -325,12 +325,12 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-3 col-8 mb-2">
+            <div class="col-md-4 col-12 mb-2">
                 <label class="mb-1">Recipients</label>
-                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com (or choose groups below)">
+                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com">
             </div>
-            <div class="col-md-2 col-4 mb-2">
-                <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-fw fa-plus me-1"></i>Add</button>
+            <div class="col-12 mb-2">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-fw fa-plus me-1"></i>Add</button>
             </div>
             <?php if ($recipient_groups) { ?>
             <div class="col-12 mb-2">
@@ -447,7 +447,7 @@ $all_reports = ReportCatalog::definitions();
                             <td><?php echo nullable_htmlentities($report_name); ?></td>
                             <td><?php echo nullable_htmlentities($delivery_label); ?></td>
                             <td><?php echo nullable_htmlentities($frequency); ?></td>
-                            <td>
+                            <td class="text-break">
                                 <?php echo nullable_htmlentities($row['schedule_recipients']); ?>
                                 <?php foreach ($row_targets as $rt) {
                                     $rt_view = !empty($rt['target_saved_report_id']) ? SavedReports::get($mysqli, intval($rt['target_saved_report_id'])) : null; ?>
