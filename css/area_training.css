@@ -59,3 +59,14 @@
 #trf-root .table-responsive { position: relative; max-width: 100%; overflow-x: auto; }
 #trf-root .card-table { min-width: 560px; }
 #trf-root #trf-pending-card .card-table { min-width: 720px; }
+/* QA3: each department group is its own wrapper, so Core's :first-child reset removed the gap between groups */
+@media screen { .trr-print-group:not(.trr-print-group--first) > .trr-group-title:first-child { margin-top: 24px; } }
+/* QA3: quiz builder - read-only draw list chips and select chevrons were clipping their text */
+.trq-ro > .tr-chip { flex: 0 0 auto; white-space: nowrap; }
+.trq-rule__mode { padding-right: 1.6rem; background-position: right .4rem center; }
+.trq-rule__draw .form-control { max-width: 4rem; }
+.trq-rule__draw { white-space: nowrap; }
+.trq-type { min-width: 9.75rem; max-width: 12rem; }
+/* QA3: rule editor "Add condition" menu was ~175px wide, so every hint wrapped to 4-5 lines and the list covered the page header */
+#tro-rule-add-menu { min-width: 24rem; }
+#tro-rule-add-menu .dropdown-item { white-space: normal; }
