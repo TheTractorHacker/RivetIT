@@ -23,12 +23,12 @@ $docs = mysqli_query($mysqli,
 
 ob_start();
 ?>
-<div class="modal-header bg-dark text-white">
+<div class="modal-header bg-dark text-white align-items-start">
     <div>
         <h5 class="modal-title mb-0"><i class="fas fa-fw fa-file-pdf me-2"></i>Documents</h5>
-        <small class="text-muted"><?= $contract_name ?></small>
+        <small class="text-white-50"><?= $contract_name ?></small>
     </div>
-    <button type="button" class="close text-white" data-bs-dismiss="modal"><span>&times;</span></button>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 
 <div class="modal-body p-0">
@@ -39,16 +39,14 @@ ob_start();
         <form action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="contract_id" value="<?= $contract_id ?>">
-            <div class="input-group">
-                <input type="file" class="form-control" data-upload-enhanced="1" id="doc_upload" name="contract_document" aria-label="Contract document"
+            <div class="d-flex gap-2 align-items-start">
+                <input type="file" class="form-control flex-grow-1" data-upload-enhanced="1" id="doc_upload" name="contract_document" aria-label="Contract document"
                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" required>
-                <div class="input-group-append">
-                    <button class="btn btn-primary" type="submit" name="upload_contract_document">
-                        <i class="fas fa-upload me-1"></i>Upload
-                    </button>
-                </div>
+                <button class="btn btn-primary flex-shrink-0" type="submit" name="upload_contract_document">
+                    <i class="fas fa-upload me-1"></i>Upload
+                </button>
             </div>
-            <small class="text-muted">PDF, Word, images, text — max 20 MB</small>
+            <small class="text-muted d-block mt-2">PDF, Word, images, text — max 20 MB</small>
         </form>
     </div>
     <?php endif; ?>
@@ -81,7 +79,7 @@ ob_start();
             $ago      = timeAgo($doc['doc_uploaded_at']);
             $size     = $doc['doc_size'] >= 1048576
                 ? round($doc['doc_size'] / 1048576, 1) . ' MB'
-                : round($doc['doc_size'] / 1024, 0) . ' KB';
+                : ($doc['doc_size'] > 0 && $doc['doc_size'] < 1024 ? '<1 KB' : round($doc['doc_size'] / 1024, 0) . ' KB');
             $mime = $doc['doc_mime_type'];
             $icon = str_contains($mime, 'pdf') ? 'file-pdf text-danger'
                 : (str_contains($mime, 'word') || str_contains($fname, '.doc') ? 'file-word text-primary'
@@ -101,7 +99,7 @@ ob_start();
                     </a>
                     <?php if (lookupUserPermission('module_support') >= 2): ?>
                     <a href="post.php?delete_contract_document=<?= $doc_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                       class="btn btn-xs btn-outline-danger ms-1 js-confirm-native" title="Delete"
+                       class="btn btn-xs btn-outline-danger ms-1 contract-doc-delete" title="Delete"
                        data-confirm-message="Delete <?= htmlspecialchars($fname, ENT_QUOTES) ?>?">
                         <i class="fas fa-trash"></i>
                     </a>

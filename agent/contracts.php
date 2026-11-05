@@ -148,4 +148,17 @@ $warn_date = date('Y-m-d', strtotime('+45 days'));
     </div>
 </div>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+    // Confirm before deleting a contract document (bound once here: js/app.js is re-run on every modal load, so its
+    // delegated js-confirm-native handler fires twice for links inside an AJAX modal and never completes).
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('a.contract-doc-delete') : null;
+        if (!a) { return; }
+        e.preventDefault();
+        RivetDialog.confirm(a.getAttribute('data-confirm-message') || 'Delete this document?', { variant: 'danger', title: 'Delete document', okText: 'Delete' }).then(function (ok) {
+            if (ok) { window.location.href = a.href; }
+        });
+    });
+</script>
+
 <?php require_once "../includes/footer.php"; ?>
