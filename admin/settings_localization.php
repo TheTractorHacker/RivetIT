@@ -40,7 +40,7 @@ $phone_country_codes_array = [
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-globe me-2"></i>Localization</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-globe me-2"></i>Language &amp; region</h3>
         </div>
         <div class="card-body">
             <form action="post.php" method="post" autocomplete="off">
@@ -123,7 +123,7 @@ $phone_country_codes_array = [
                 </div>
 
                 <div class="form-group">
-                    <div class="form-check">
+                    <div class="form-check form-switch">
                         <input type="checkbox" class="form-check-input" id="whatsapp_enabled" name="whatsapp_enabled" value="1" <?php if ($config_whatsapp_enabled) { echo "checked"; } ?>>
                         <label class="form-check-label" for="whatsapp_enabled">Enable WhatsApp click-to-chat links</label>
                     </div>

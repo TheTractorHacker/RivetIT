@@ -57,7 +57,7 @@
     });
     var nb = document.querySelector('header.navbar'), st = getComputedStyle(nb || document.body).position;
     nav.style.top = (nb && (st === 'fixed' || st === 'sticky')) ? Math.round(nb.getBoundingClientRect().height) + 'px' : '0';
-    scope.insertBefore(nav, scope.firstChild);
+    scope.insertBefore(nav, cards[0]); // after any breadcrumb/heading that precedes the first card
   });
 })();
 </script>
