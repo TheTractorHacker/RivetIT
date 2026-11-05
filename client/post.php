@@ -155,13 +155,30 @@ if (isset($_POST['add_ticket'])) {
         if ($catalog_item) {
             $catalog_check = \ITFlow\ITSM\ServiceCatalogService::validateInput($catalog_service->getFields($catalog_item_id), (array) ($_POST['catalog_field'] ?? []));
             if ($catalog_check['errors']) {
-                flash_alert(implode('<br>', array_map('nullable_htmlentities', $catalog_check['errors'])), 'danger');
+                flash_alert(implode(' ', $catalog_check['errors']), 'danger');
                 redirect("ticket_add.php?catalog_item_id=$catalog_item_id");
             }
             $catalog_values = $catalog_check['values'];
         }
     }
     $catalog_item_sql = $catalog_item ? $catalog_item_id : 'NULL';
+
+    // A ticket needs a subject, and a plain ticket needs details (the form marks both required, but a rich-text box cannot
+    // enforce that in the browser). Keep what was typed so nothing is lost, and do not burn a ticket number.
+    $details_text = trim(html_entity_decode(strip_tags((string) $_POST['details']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $details_text = trim(str_replace("\xC2\xA0", ' ', $details_text));
+    $ticket_form_errors = [];
+    if (trim(strip_tags((string) $_POST['subject'])) === '') {
+        $ticket_form_errors[] = 'Please enter a subject.';
+    }
+    if (!$catalog_item && $details_text === '' && stripos((string) $_POST['details'], '<img') === false) {
+        $ticket_form_errors[] = 'Please describe what is going on in the details box.';
+    }
+    if ($ticket_form_errors) {
+        $_SESSION['ticket_add_old'] = ['subject' => mb_substr(strip_tags((string) $_POST['subject']), 0, 200), 'details' => (string) $_POST['details']];
+        flash_alert(implode(' ', $ticket_form_errors), 'danger');
+        redirect('ticket_add.php' . ($catalog_item ? "?catalog_item_id=$catalog_item_id" : ''));
+    }
 
     // Atomically increment and get the new ticket number
     mysqli_query($mysqli, "
@@ -227,6 +244,7 @@ if (isset($_POST['add_ticket'])) {
 
     logAction("Ticket", "Create", "$session_contact_name created ticket $config_ticket_prefix$ticket_number - $subject from the department portal", $session_client_id, $ticket_id);
 
+    flash_alert('Your ticket ' . $config_ticket_prefix . $ticket_number . ' has been raised. The service desk will be in touch.');
     redirect("ticket.php?id=" . $ticket_id);
 
 }
@@ -339,6 +357,7 @@ if (isset($_POST['add_ticket_comment'])) {
         // Custom action/notif handler
         customAction('ticket_reply_client', $ticket_id);
 
+        flash_alert('Your reply has been sent.');
         // Redirect back to original page
         redirect();
 
@@ -453,7 +472,7 @@ if (isset($_POST['add_ticket_feedback'])) {
     // Verify the contact has access to the provided ticket ID
     if (verifyContactTicketAccess($ticket_id, "Closed")) {
 
-        applyCsatRating($mysqli, $ticket_id, $rating, $comment, $session_contact_name, $config_ticket_csat_low_rating_threshold);
+        applyCsatRating($mysqli, $ticket_id, $rating, $comment_raw, $session_contact_name, $config_ticket_csat_low_rating_threshold);
 
         // Custom action/notif handler
         customAction('ticket_feedback', $ticket_id);
@@ -502,6 +521,7 @@ if (isset($_GET['resolve_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_resolve', $ticket_id);
 
+        flash_alert('Ticket marked as resolved.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -542,6 +562,7 @@ if (isset($_GET['reopen_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_update', $ticket_id);
 
+        flash_alert('Ticket reopened. The service desk has been told.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -582,6 +603,7 @@ if (isset($_GET['close_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_close', $ticket_id);
 
+        flash_alert('Ticket closed.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -606,17 +628,26 @@ if (isset($_POST['edit_profile'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    $new_password = $_POST['new_password'];
+    $new_password = (string) ($_POST['new_password'] ?? '');
 
-    if (!empty($new_password)) {
-        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
-
-        // Logging
-        logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+    // The form says "at least 8 characters"; enforce it here too, since the browser check can be bypassed.
+    if ($new_password === '' || mb_strlen($new_password) < 8) {
+        flash_alert('Your new password must be at least 8 characters long.', 'danger');
+        redirect('profile.php');
+    }
+    if (strlen($new_password) > 1024) {
+        flash_alert('That password is too long (1024 characters at most).', 'danger');
+        redirect('profile.php');
     }
 
-    redirect('index.php');
+    $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+    mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
+
+    // Logging
+    logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+
+    flash_alert('Your password was changed.');
+    redirect('profile.php');
 
 }
 
@@ -659,6 +690,7 @@ if (isset($_POST['mark_feed_read'])) {
         (new \ITFlow\Portal\PortalFeed($mysqli))->markRead(intval($session_contact_id));
     }
 
+    flash_alert('All notifications marked as read.');
     redirect('notifications.php');
 
 }
@@ -675,7 +707,7 @@ if (isset($_POST['request_onboarding'])) {
     $ob_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
 
     if (!$eh->canRequestOnboarding(intval($config_portal_onboarding_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $ob_is_admin)) {
-        flash_alert('You cannot request onboarding', 'danger');
+        flash_alert('Onboarding requests are not available for your account.', 'warning');
         redirect('index.php');
     }
 
@@ -687,7 +719,7 @@ if (isset($_POST['request_onboarding'])) {
 
     if ($ob['errors']) {
         $_SESSION['onboarding_old'] = $ob['clean'];
-        flash_alert(implode('<br>', array_map('nullable_htmlentities', $ob['errors'])), 'danger');
+        flash_alert(implode(' ', $ob['errors']), 'danger');
         redirect('onboarding_request.php');
     }
 
@@ -695,7 +727,7 @@ if (isset($_POST['request_onboarding'])) {
 
     if ($ob_result['status'] === 'exists_active' || $ob_result['status'] === 'error') {
         $_SESSION['onboarding_old'] = $ob['clean'];
-        flash_alert(nullable_htmlentities($ob_result['message']), 'danger');
+        flash_alert($ob_result['message'], 'danger');
         redirect('onboarding_request.php');
     }
 
@@ -782,16 +814,16 @@ if (isset($_POST['submit_hr_request']) || isset($_POST['cancel_hr_request'])) {
     $hr_v = \ITFlow\Portal\HrRequests::validate($hr_type, $_POST, $hr_manager_ids, array_column($hr_subjects, 'contact_id'), intval($session_contact_id), $hr_titles);
     if ($hr_v['errors']) {
         $_SESSION['hr_request_old'] = ['type' => $hr_type] + $hr_v['clean'] + array_intersect_key($_POST, array_flip(['name', 'email', 'start_date', 'title', 'manager_id', 'notes', 'subject_contact_id', 'effective_date', 'new_title']));
-        flash_alert(implode('<br>', array_map('nullable_htmlentities', $hr_v['errors'])), 'danger');
+        flash_alert(implode(' ', $hr_v['errors']), 'danger');
         redirect('hr_request.php');
     }
 
     $hr_res = $hr->submit($hr_v['clean'], intval($session_client_id), intval($session_contact_id));
     if ($hr_res['status'] === 'created') {
         logAction("HR Request", "Create", "Department contact $session_contact_name sent an HR $hr_type request (#" . $hr_res['request_id'] . ")", $session_client_id, $hr_res['request_id']);
-        flash_alert(nullable_htmlentities($hr_res['message']));
+        flash_alert($hr_res['message']);
     } else {
-        flash_alert(nullable_htmlentities($hr_res['message']), $hr_res['status'] === 'duplicate' ? 'info' : 'danger');
+        flash_alert($hr_res['message'], $hr_res['status'] === 'duplicate' ? 'info' : 'danger');
     }
     redirect('hr_request.php');
 
@@ -822,7 +854,7 @@ if (isset($_POST['enable_portal_mfa'])) {
 
     }
 
-    flash_alert("Verification code invalid, please try again.", 'error');
+    flash_alert("Verification code invalid, please try again.", 'danger');
     redirect('profile.php');
 
 }
@@ -832,14 +864,14 @@ if (isset($_POST['disable_portal_mfa'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     if (!empty($session_user_force_mfa)) {
-        flash_alert("Two-factor authentication is required for your login and cannot be turned off.", 'error');
+        flash_alert("Two-factor authentication is required for your login and cannot be turned off.", 'danger');
         redirect('profile.php');
     }
 
     // Turning it off needs the password again, so a walk-up on an open session can't strip it.
     $pw_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id AND user_type = 2"));
     if (!$pw_row || !password_verify((string) ($_POST['current_password'] ?? ''), $pw_row['user_password'])) {
-        flash_alert("Password incorrect. Two-factor authentication was not changed.", 'error');
+        flash_alert("Password incorrect. Two-factor authentication was not changed.", 'danger');
         redirect('profile.php');
     }
 
@@ -1199,7 +1231,7 @@ if (isset($_POST['catalog_decide'])) {
         logAction("Service Catalog", $approve ? "Approve" : "Reject", "$session_contact_name " . ($approve ? 'approved' : 'rejected') . " catalog request $request_id from the department portal", $session_client_id, $request_id);
         flash_alert($approve ? 'Request approved' : 'Request rejected');
     } else {
-        flash_alert(nullable_htmlentities($result['error']), 'danger');
+        flash_alert($result['error'], 'danger');
     }
 
     redirect('my_approvals.php');

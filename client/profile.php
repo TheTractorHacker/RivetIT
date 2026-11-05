@@ -82,7 +82,7 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
                 <div><dt>Start date</dt><dd><?= nullable_htmlentities($profile_facts['contact_start_date'] ?: '-') ?></dd></div>
                 <div><dt>My devices</dt><dd>
                     <?php if (!$profile_devices) { ?><span class="text-secondary">None assigned</span><?php } else { ?>
-                        <?= count($profile_devices) ?>: <?= nullable_htmlentities(implode(', ', array_map(static fn($d) => $d['asset_name'], array_slice($profile_devices, 0, 5)))) ?><?= count($profile_devices) > 5 ? ', ...' : '' ?>
+                        <?= count($profile_devices) > 1 ? count($profile_devices) . ' devices: ' : '' ?><?= nullable_htmlentities(implode(', ', array_map(static fn($d) => $d['asset_name'], array_slice($profile_devices, 0, 5)))) ?><?= count($profile_devices) > 5 ? ', ...' : '' ?>
                         <a href="assets.php" class="ms-1">Details</a>
                     <?php } ?>
                 </dd></div>

@@ -92,6 +92,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
         ");
         ?>
 
+        <link rel="stylesheet" href="/css/area_client_portal.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/area_client_portal.css') ?>">
         <ol class="breadcrumb d-print-none">
             <li class="breadcrumb-item">
                 <a href="index.php">Home</a>
@@ -110,7 +111,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                 <div class="card-tools">
                     <?php
                     if (empty($ticket_resolved_at) && $task_count == $completed_task_count) { ?>
-                        <a href="post.php?resolve_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-success float-end text-white confirm-link"><i class="fas fa-fw fa-check text-success"></i> Resolve ticket</a>
+                        <a href="post.php?resolve_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-success float-end text-white confirm-link" data-confirm-message="Mark this ticket as resolved? It will be closed. Raise a new ticket if the problem comes back."><i class="fas fa-fw fa-check text-success"></i> Resolve ticket</a>
                     <?php } ?>
                 </div>
             </div>
@@ -280,6 +281,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
             <form action="post.php" enctype="multipart/form-data" method="post">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="ticket_id" value="<?php echo $ticket_id ?>">
+                <h5 class="mb-2">Reply to the service desk</h5>
                 <div class="form-group">
                     <textarea class="form-control tinymce" name="comment" placeholder="Add comments.."></textarea>
                 </div>
@@ -293,19 +295,12 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
             <!-- Re-open -->
 
             <h4>Your ticket has been resolved</h4>
+            <p class="text-secondary">Still not right? Reopen it and the service desk will pick it back up. Otherwise close it to confirm you are happy.</p>
 
-            <div class="col-6">
-                <div class="row">
-                    <div class="col">
-                        <a href="post.php?reopen_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-secondary btn-lg"><i class="fas fa-fw fa-redo"></i> Reopen ticket</a>
-                    </div>
-
-                    <div class="col">
-                        <a href="post.php?close_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-success btn-lg confirm-link"><i class="fas fa-fw fa-gavel text-white"></i> Close ticket</a>
-                    </div>
-                </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a href="post.php?reopen_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-outline-secondary"><i class="fas fa-fw fa-redo me-1"></i>Reopen ticket</a>
+                <a href="post.php?close_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-success confirm-link" data-confirm-message="Close this ticket? Closing tells the service desk you are happy with the fix."><i class="fas fa-fw fa-check me-1"></i>Close ticket</a>
             </div>
-            <br>
 
         <?php } elseif (empty($config_ticket_csat_enable)) { ?>
 
@@ -344,7 +339,6 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
         <!-- End comments/reopen/feedback -->
 
         <hr>
-        <br>
 
         <!-- Live update notice (populated by js/live_ticket.js) -->
         <div id="ticket-replies-notice"></div>
@@ -355,8 +349,8 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
         while ($row = mysqli_fetch_assoc($sql)) {
             $ticket_reply_id = intval($row['ticket_reply_id']);
             $ticket_reply = $purifier->purify($row['ticket_reply']);
-            $ticket_reply_created_at = nullable_htmlentities($row['ticket_reply_created_at']);
-            $ticket_reply_updated_at = nullable_htmlentities($row['ticket_reply_updated_at']);
+            $ticket_reply_created_at = $row['ticket_reply_created_at'] ? nullable_htmlentities(date('M j, Y g:i A', strtotime($row['ticket_reply_created_at']))) : '';
+            $ticket_reply_updated_at = $row['ticket_reply_updated_at'] ? nullable_htmlentities(date('M j, Y g:i A', strtotime($row['ticket_reply_updated_at']))) : '';
             $ticket_reply_by = intval($row['ticket_reply_by']);
             $ticket_reply_type = $row['ticket_reply_type'];
 
@@ -389,14 +383,11 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                             <?php
                             if (!empty($user_avatar)) {
                                 ?>
-                                <img src="<?php echo $avatar_link ?>" alt="User Avatar" class="img-size-50 me-3 img-circle">
+                                <img src="<?php echo $avatar_link ?>" alt="" class="portal-reply-avatar me-3">
                                 <?php
                             } else {
                                 ?>
-                                <span class="fa-stack fa-2x">
-                                    <i class="fa fa-circle fa-stack-2x text-secondary"></i>
-                                    <span class="fa fa-stack-1x text-white"><?php echo $user_initials; ?></span>
-                                </span>
+                                <span class="portal-reply-avatar" aria-hidden="true"><?php echo $user_initials; ?></span>
                                 <?php
                             }
                             ?>
