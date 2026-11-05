@@ -95,6 +95,10 @@ function tps_local(?string $utc): ?string
     </div>
 </div>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+  /* The shim's float:right does nothing inside the flex modal header, which left the close button hugging the title. */
+  #enableMFAModal .modal-header .close, #disableMFAModal .modal-header .close, #passkeyAddModal .modal-header .close { margin-left: auto; }
+</style>
 <!-- Two-Factor Authentication -->
 <div class="card card-dark">
     <div class="card-header py-2 d-flex align-items-center">
