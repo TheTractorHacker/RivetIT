@@ -261,7 +261,7 @@ final class ComplianceCatalog
 
                 return version_compare($cur, $latest, '>=')
                     ? CheckResult::pass('Database schema is at ' . $cur . '.')
-                    : CheckResult::fail("Database is at $cur but the code expects $latest.", 'Run the update from Administration.', 'database_updates.php');
+                    : CheckResult::fail("Database is at $cur but the code expects $latest.", 'Run the update from Administration.', 'update.php');
             });
 
         if ((int) $this->setting('config_module_enable_training', 0) === 1) {
