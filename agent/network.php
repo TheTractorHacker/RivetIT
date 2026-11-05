@@ -48,7 +48,7 @@ $sql_devices = mysqli_query($mysqli,
      LEFT JOIN asset_interfaces ai ON ai.interface_asset_id = a.asset_id AND ai.interface_primary = 1
      WHERE $where
      GROUP BY a.asset_id
-     ORDER BY FIELD(a.asset_type,'Firewall/Router','Switch','Access Point'), a.asset_name ASC"
+     ORDER BY FIELD(a.asset_type,'Firewall/Router','Switch','Access Point'), (arl.rmm_status='offline') DESC, a.asset_name ASC"
 );
 
 $cnt = mysqli_fetch_assoc(mysqli_query($mysqli,
@@ -168,11 +168,11 @@ $type_labels = [
 <!-- Filter bar -->
 <div class="card card-dark mb-3">
     <div class="card-body py-2">
-        <form method="get" class="d-flex flex-wrap align-items-center" style="gap:6px">
+        <form method="get" class="d-flex flex-wrap align-items-center" style="gap:8px">
             <?php if ($filter_type): ?>
             <input type="hidden" name="device_type" value="<?= htmlspecialchars($filter_type) ?>">
             <?php endif; ?>
-            <select name="client_id" class="form-control form-control-sm auto-submit-select" style="max-width:200px">
+            <select name="client_id" class="form-select auto-submit-select" style="max-width:240px">
                 <option value="">All Departments</option>
                 <?php while ($cl = mysqli_fetch_assoc($sql_clients)): ?>
                 <option value="<?= $cl['client_id'] ?>" <?= $filter_client_id == $cl['client_id'] ? 'selected' : '' ?>>
@@ -180,20 +180,20 @@ $type_labels = [
                 </option>
                 <?php endwhile; ?>
             </select>
-            <select name="status" class="form-control form-control-sm auto-submit-select" style="max-width:150px">
+            <select name="status" class="form-select auto-submit-select" style="max-width:150px">
                 <option value="">All Statuses</option>
                 <option value="online"  <?= $filter_status === 'online'  ? 'selected' : '' ?>>Online</option>
                 <option value="offline" <?= $filter_status === 'offline' ? 'selected' : '' ?>>Offline</option>
             </select>
-            <div class="input-group" style="max-width:240px">
+            <div class="input-group" style="max-width:340px">
                 <input type="text" name="q" value="<?= htmlspecialchars($filter_search) ?>"
-                       class="form-control form-control-sm" placeholder="Search device, department, IP…">
+                       class="form-control" placeholder="Search device, department, IP…">
                 <div class="input-group-append">
-                    <button type="submit" class="btn btn-sm btn-secondary"><i class="fas fa-search"></i></button>
+                    <button type="submit" class="btn btn-secondary" aria-label="Search"><i class="fas fa-search"></i></button>
                 </div>
             </div>
             <?php if ($filter_client_id || $filter_status || $filter_search !== '' || $filter_type): ?>
-            <a href="?" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+            <a href="?" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
             <?php endif; ?>
         </form>
     </div>
@@ -309,26 +309,26 @@ $proc = function(array $dev) use ($device_icons): array {
                             <?php endif; ?>
                             <div class="row no-gutters" style="font-size:13px">
                                 <div class="col-6 pe-2 mb-1">
-                                    <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">IP Address</div>
+                                    <div class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px">IP Address</div>
                                     <div class="text-monospace fw-bold"><?= $d['ip'] ?: '<span class="text-muted">—</span>' ?></div>
                                 </div>
                                 <div class="col-6 mb-1">
-                                    <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Model</div>
+                                    <div class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px">Model</div>
                                     <div><?= $d['model'] ?: '<span class="text-muted">—</span>' ?></div>
                                 </div>
                                 <div class="col-6 pe-2">
-                                    <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Firmware</div>
-                                    <div class="text-secondary" style="font-size:12px"><?= $d['firmware'] ?: '<span class="text-muted">—</span>' ?></div>
+                                    <div class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px">Firmware</div>
+                                    <div class="text-secondary" style="font-size:13px"><?= $d['firmware'] ?: '<span class="text-muted">—</span>' ?></div>
                                 </div>
                                 <div class="col-6">
-                                    <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Last Seen</div>
-                                    <div style="font-size:12px"><?= $d['ago'] ?></div>
+                                    <div class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.4px">Last Seen</div>
+                                    <div style="font-size:13px"><?= $d['ago'] ?></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="card-footer py-2 d-flex justify-content-between align-items-center bg-light" style="font-size:12px">
+                <div class="card-footer py-2 d-flex justify-content-between align-items-center bg-light" style="font-size:13px">
                     <span class="text-muted"><i class="fas fa-plug me-1"></i><?= $d['source'] ?></span>
                     <a href="/agent/asset_details.php?asset_id=<?= $d['asset_id'] ?>" class="btn btn-xs btn-outline-secondary">
                         <i class="fas fa-external-link-alt me-1"></i>Details
@@ -361,7 +361,7 @@ foreach ($net_sections as $sect):
     <div class="card-body p-0">
     <div class="table-responsive">
     <table class="table table-hover mb-0">
-        <thead style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;background:#f8f9fa" class="text-muted border-bottom">
+        <thead style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;background:#f8f9fa" class="text-muted border-bottom">
             <tr>
                 <th class="ps-3" style="width:50px"></th>
                 <th>Device</th>
@@ -402,7 +402,7 @@ foreach ($net_sections as $sect):
             <td class="align-middle small text-muted">
                 <?php if ($d['model'] || $d['firmware']): ?>
                     <?php if ($d['model']): ?><div><?= $d['model'] ?></div><?php endif; ?>
-                    <?php if ($d['firmware']): ?><div class="text-secondary" style="font-size:10px"><?= $d['firmware'] ?></div><?php endif; ?>
+                    <?php if ($d['firmware']): ?><div class="text-secondary" style="font-size:13px"><?= $d['firmware'] ?></div><?php endif; ?>
                 <?php else: ?>—<?php endif; ?>
             </td>
             <td class="align-middle small text-muted"><?= $d['source'] ?></td>

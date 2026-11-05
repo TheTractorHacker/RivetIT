@@ -14,6 +14,7 @@
 $page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_reports.css'];   // BEFORE inc_all
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(1)) { require_once "../includes/footer.php"; exit; }
+echo '<link rel="stylesheet" href="/css/area_training.css">';
 define('TRAINING_PAGE', 1);
 session_write_close();   // spec §0 #9: nothing below writes the session (inc_all has shown the flash); free its lock before the reports compute
 require_once __DIR__ . '/includes/training_records/report_ui.php';
@@ -106,6 +107,13 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
         ?>
 
     <!-- KPI row -->
+    <?php if ((int) $trr_k['overdue'] > 0 && $trr_level >= 2) { ?>
+    <div class="trr-nextstep" role="region" aria-label="Next step">
+        <i class="fas fa-bullseye" aria-hidden="true"></i>
+        <div class="trr-nextstep__text"><strong><?= (int) $trr_k['overdue'] ?> overdue <?= (int) $trr_k['overdue'] === 1 ? 'assignment' : 'assignments' ?></strong> across <?= (int) $trr_k['overdue_people'] ?> <?= (int) $trr_k['overdue_people'] === 1 ? 'person' : 'people' ?> are what stands between you and a clean audit. Start with the oldest.</div>
+        <a class="btn btn-danger" href="/agent/training_assignments.php?status=overdue">Work the overdue list <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i></a>
+    </div>
+    <?php } ?>
     <section class="trr-kpis" aria-label="Key numbers">
         <div class="trr-kpi">
             <div class="trr-kpi__label">Compliance</div>
@@ -253,7 +261,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                     </div>
                 </div>
                 <?php if ($trr['expiring']['top'] === []) { ?>
-                <p class="trr-empty-line">Nothing expires in the next 90 days.</p>
+                <p class="trr-empty-line"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>All clear: nothing expires in the next 90 days.</p>
                 <?php } else { ?>
                 <ul class="trr-rows" id="trr-exp-rows">
                     <?php foreach ($trr['expiring']['top'] as $trr_r) { ?>
@@ -270,7 +278,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
                 </ul>
                 <p class="trr-empty-line" id="trr-exp-none"<?= $trr['expiring']['d30'] > 0 ? ' hidden' : '' ?>>Nothing expires in this window.</p>
                 <?php } ?>
-                <div class="trr-card__foot mt-auto">
+                <div class="trr-card__foot mt-auto"<?= $trr['expiring']['top'] === [] ? ' hidden' : '' ?>>
                     <span class="trr-muted" id="trr-exp-showing">Showing <?= min(5, (int) $trr['expiring']['d30']) ?> of <?= (int) $trr['expiring']['d30'] ?></span>
                     <a class="trr-card__link" id="trr-exp-all" href="<?= trr_h(trr_url('training_reports.php', ['tab' => 'expiring', 'days' => 30, 'client_id' => $trr_client, 'course_id' => $trr_course])) ?>">View all <?= (int) $trr['expiring']['d30'] ?></a>
                 </div>

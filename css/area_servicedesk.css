@@ -1,0 +1,6 @@
+/* Service Desk area: ticket thread density. Edition-owned (not Core-generated). */
+.ticket-thread-reply > .card-header { padding: .6rem .9rem; }
+.ticket-thread-reply .fa-stack.fa-2x { font-size: 1.45em; }
+.ticket-thread-reply .img-size-50 { width: 36px; height: 36px; object-fit: cover; }
+.ticket-thread-reply .card-header .card-tools { margin-bottom: .15rem !important; }
+.ticket-thread-reply .card-header small { font-size: .78rem; }

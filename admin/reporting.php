@@ -53,9 +53,9 @@ $pq = $pq_server !== '' ? ReportingAdmin::powerQuery('mysql-mariadb', $pq_view, 
     <div class="table-responsive"><table class="table table-sm align-middle mb-0">
         <thead><tr><th>View</th><th>What a row is</th><th>Client scoped</th><th>Store</th><th>Exists</th></tr></thead><tbody>
         <?php foreach ($st['core'] as $v) { ?>
-            <tr><td><code><?= $h($v['name']) ?></code></td><td><?= $h($v['grain']) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td><?= $h($v['store']) ?></td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
+            <tr><td><code><?= $h($v['name']) ?></code></td><td><?= $h($v['grain']) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td class="text-nowrap"><?= $h($v['store']) ?></td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
         <?php } foreach ($st['edition'] as $v) { ?>
-            <tr><td><code><?= $h($v['name']) ?></code></td><td><?= htmlspecialchars(APP_NAME) ?>: <?= $h(implode(', ', $v['columns'])) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td>control</td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
+            <tr><td><code><?= $h($v['name']) ?></code></td><td><?= htmlspecialchars(APP_NAME) ?>: <?= $h(implode(', ', $v['columns'])) ?></td><td><?= $v['scoped'] ? 'yes' : 'no' ?></td><td class="text-nowrap">control</td><td><?= $v['exists'] ? 'yes' : '<span class="text-danger">no</span>' ?></td></tr>
         <?php } ?></tbody></table></div>
 </div>
 

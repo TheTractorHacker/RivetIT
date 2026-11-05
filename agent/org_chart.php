@@ -93,7 +93,7 @@ $sql_contacts = mysqli_query($mysqli, "
     FROM contacts
     LEFT JOIN clients ON clients.client_id = contacts.contact_client_id
     LEFT JOIN locations ON locations.location_id = contacts.contact_location_id
-        AND locations.location_client_id = contacts.contact_client_id
+        AND locations.location_client_id IN (0, contacts.contact_client_id)
     WHERE contacts.contact_archived_at IS NULL
     $scope_where
     ORDER BY contacts.contact_name ASC

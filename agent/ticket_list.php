@@ -87,7 +87,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th>CSAT</th>
+                            <?php if (!empty($config_ticket_csat_enable)) { ?><th>CSAT</th><?php } ?>
                             <th>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo sortLinkOrder('ticket_status'); ?>">
                                     Status <?php if ($sort == 'ticket_status') { echo $order_icon; } ?>
@@ -286,7 +286,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <!-- Ticket Number -->
                                 <td>
                                     <a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>">
-                                        <span class="badge rounded-pill text-bg-dark p-2"><?php echo "$ticket_prefix$ticket_number"; ?></span>
+                                        <span class="badge rounded-pill text-bg-dark tk-num"><?php echo "$ticket_prefix$ticket_number"; ?></span>
                                     </a>
                                 </td>
 
@@ -407,12 +407,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     <?php } ?>
                                 </td>
 
-                                <!-- CSAT -->
+                                <!-- CSAT (column only while CSAT surveys are switched on) -->
+                                <?php if (!empty($config_ticket_csat_enable)) { ?>
                                 <td>
                                     <?php if ($ticket_csat_rating > 0) { ?>
                                         <span class="csat-face-display" title="<?= csatFaceLabel($ticket_csat_rating) ?>"><?= csatFaceEmoji($ticket_csat_rating) ?></span>
                                     <?php } ?>
                                 </td>
+                                <?php } ?>
 
                                 <!-- Ticket Status -->
                                 <td>
@@ -487,14 +489,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <!-- Ticket Last Response -->
                                 <td>
                                     <div title="<?php echo $ticket_reply_created_at; ?>">
-                                        <?php echo $ticket_reply_created_at_time_ago; ?>
+                                        <span class="text-nowrap"><?php echo $ticket_reply_created_at_time_ago; ?></span>
                                     </div>
                                     <div class="text-secondary"><?php echo $ticket_reply_by_display; ?></div>
                                 </td>
 
                                 <!-- Ticket Created At -->
                                 <td>
-                                    <?php echo $ticket_created_at_time_ago; ?>
+                                    <span class="text-nowrap"><?php echo $ticket_created_at_time_ago; ?></span>
                                     <br>
                                     <small class="text-secondary"><?php echo date("$config_date_format $config_time_format", strtotime($ticket_created_at)); ?></small>
                                 </td>
@@ -517,9 +519,14 @@ foreach ($_cat_subs as $_pid => $_subs) {
 
 <style>
 .tkt-pill-badge {
-    font-size: 13px; font-weight: 600; padding: 6px 14px;
+    font-size: 12px; font-weight: 600; padding: 4px 10px;
     white-space: nowrap; cursor: pointer; user-select: none;
+    max-width: 11rem; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
 }
+.table.table-tight > tbody > tr > td { vertical-align: middle; padding-top: .4rem; padding-bottom: .4rem; }
+.table-tight .tk-col-subject { min-width: 180px; }
+.table-tight td, .table-tight th { overflow-wrap: normal; }
+.table-tight .tk-num { font-size: 12px; padding: 5px 9px; }
 .tkt-pill-badge.dropdown-toggle::after { display: none; }
 .ticket-group-header td { border: none !important; }
 .ticket-group-header { background: var(--if-bg, #eef2f2); }

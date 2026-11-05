@@ -1418,15 +1418,17 @@ function rivetRmmUiCapacity(array $cap): string
         . 'so you can raise or lower the number at any time. To run N workers, start N copies of the queue worker (for example N systemd service instances or N cron lines for <code>cron/integration_worker.php</code>); the hint above says what N should be. '
         . 'The limits that shape them are under Administration &rarr; Endpoint agent &rarr; Scale settings; see <code>docs/ENDPOINT_AGENT.md</code> for the commands.</p>';
 
-    return '<section class="card card-dark mb-3" style="border-top:3px solid var(--tblr-info)" id="rmm-capacity"><div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px"><h6 class="mb-0 me-auto">'
+    // Collapsed while everything is healthy (shed level 0, no warnings): the page leads with devices, and this admin panel opens itself when it has news.
+    $capOpen = ($shed > 0 || $warn !== '') ? ' open' : '';
+    return '<details class="card card-dark mb-3"' . $capOpen . ' style="border-top:3px solid var(--tblr-info)" id="rmm-capacity"><summary class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px;cursor:pointer;list-style:none"><h6 class="mb-0 me-auto">'
         . '<i class="fas fa-server me-2 text-info" aria-hidden="true"></i>Performance and capacity <span class="small text-muted fw-normal ms-2">scale, queue workers and storage &middot; Administrators only</span></h6>'
-        . ($shed > 0 ? rivetRmmUiPill('warn', 'Shed level ' . $shed) : rivetRmmUiPill('ok', 'Shed level 0: normal')) . '</div><div class="card-body pb-1">' . $workers . '<div class="row">' . $tiles . '</div>'
+        . ($shed > 0 ? rivetRmmUiPill('warn', 'Shed level ' . $shed) : rivetRmmUiPill('ok', 'Shed level 0: normal')) . '<span class="small text-muted ms-2"><i class="fas fa-chevron-down" aria-hidden="true"></i> details</span></summary><div class="card-body pb-1">' . $workers . '<div class="row">' . $tiles . '</div>'
         . ($warn !== '' ? '<ul class="list-group list-group-flush mb-2">' . $warn . '</ul>' : '<p class="small text-muted"><i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i>No capacity warnings.</p>')
         . $detail
         . ($tables !== '' ? '<div class="table-responsive"><table class="table table-sm mb-2"><caption class="visually-hidden">Largest endpoint agent tables</caption>' . rivetRmmUiThead(['Table', 'Rows (estimate)', 'Size']) . '<tbody>' . $tables . '</tbody></table></div>' : '')
         . $guidance
         . '<p class="small mb-2"><a href="/admin/settings_endpoint_agent.php#scale"><i class="fas fa-cog me-1" aria-hidden="true"></i>Scale settings</a> &middot; <a href="/admin/settings_endpoint_agent.php#datastore"><i class="fas fa-database me-1" aria-hidden="true"></i>RMM data store</a></p>'
-        . '</div></section>';
+        . '</div></details>';
 }
 
 // The shared layer of the Phase 2 and 3 pages (required last: it requires this file first, and everything above is defined by now).

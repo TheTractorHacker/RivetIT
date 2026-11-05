@@ -2983,4 +2983,5 @@ document.addEventListener('change', function (e) {
 });
 </script>
 
+<?php require __DIR__ . '/includes/section_index.php'; ?>
 <?php require_once "../includes/footer.php"; ?>

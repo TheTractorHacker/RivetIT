@@ -43,7 +43,7 @@ ob_start();
 <div class="modal-header bg-dark">
     <h5 class="modal-title"><i class="fas fa-fw fa-user-edit me-2"></i>Editing user:
         <strong><?php echo $user_name; ?></strong></h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <button type="button" class="close text-white" data-bs-dismiss="modal" aria-label="Close"><span>&times;</span></button>
 </div>
 <form action="post.php" method="post" enctype="multipart/form-data" autocomplete="off">
     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">

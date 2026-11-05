@@ -99,10 +99,11 @@ if (isset($_GET['calendar_id'])) {
         $webcal_url = "webcal://$config_base_url/agent/calendar_feed.php?token=$cal_token";
         ?>
         <div class="card">
-            <div class="card-header">
+            <div class="card-header" role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#calSyncBody" aria-expanded="false" aria-controls="calSyncBody" style="cursor:pointer;">
                 <h3 class="card-title"><i class="fas fa-sync-alt me-1"></i>Calendar Sync</h3>
+                <div class="card-tools"><i class="fas fa-chevron-down text-muted" aria-hidden="true"></i></div>
             </div>
-            <div class="card-body p-3">
+            <div class="card-body p-3 collapse" id="calSyncBody">
                 <p class="text-muted mb-3" style="font-size:.85rem;">Subscribe to your scheduled tickets in any calendar app. Refreshes automatically.</p>
 
                 <!-- Outlook Classic -->

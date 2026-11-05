@@ -78,6 +78,7 @@
 <script src="/js/keepalive.js"></script>
 
 <script src="/js/portal.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal.js'); ?>"></script>
+<script src="/js/portal_help.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/portal_help.js'); ?>"></script>
 <script src="/js/a11y.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/a11y.js'); ?>"></script>
 <script src="/js/file_upload.js?v=<?php echo filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/file_upload.js'); ?>"
         data-file-limit="<?= htmlspecialchars(ini_get('upload_max_filesize')) ?>"

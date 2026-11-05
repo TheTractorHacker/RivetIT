@@ -302,7 +302,18 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <input class="form-check-input bulk-select" type="checkbox" name="recurring_ticket_ids[]" value="<?= $recurring_ticket_id ?>">
                                     </div>
                                 </td>
-                                <td class="text-bold"><?= $recurring_ticket_next_run ?></td>
+                                <td class="text-nowrap">
+                                    <?php
+                                    // Relative due chip: "today / tomorrow / in N days / N days overdue" beside the exact date.
+                                    $_nr_days = (int) floor((strtotime(substr($row['recurring_ticket_next_run'], 0, 10) . ' 00:00:00') - strtotime(date('Y-m-d') . ' 00:00:00')) / 86400);
+                                    if ($_nr_days < 0)      { $_nr_label = abs($_nr_days) . ' day' . (abs($_nr_days) === 1 ? '' : 's') . ' overdue'; $_nr_class = 'text-bg-danger'; }
+                                    elseif ($_nr_days == 0) { $_nr_label = 'Today';    $_nr_class = 'text-bg-warning'; }
+                                    elseif ($_nr_days == 1) { $_nr_label = 'Tomorrow'; $_nr_class = 'text-bg-info'; }
+                                    else                    { $_nr_label = "In $_nr_days days"; $_nr_class = 'text-bg-light border'; }
+                                    ?>
+                                    <div class="fw-semibold"><?= $recurring_ticket_next_run ?></div>
+                                    <span class="badge <?= $_nr_class ?>"><?= $_nr_label ?></span>
+                                </td>
                                 <td>
                                     <a class="ajax-modal" href="#"
                                         data-modal-size="lg"
@@ -316,8 +327,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td class="text-center"><?= $recurring_ticket_billable_display ?></td>
                                 <td><?= $assigned_to ?></td>
                                 <?php if (!$client_url) { ?>
-                                <th><a href="recurring_tickets.php?client_id=<?= $recurring_ticket_client_id ?>"><?= $recurring_ticket_client_name ?></a>
-                                </th>
+                                <td><a href="recurring_tickets.php?client_id=<?= $recurring_ticket_client_id ?>"><?= $recurring_ticket_client_name ?></a>
+                                </td>
                                 <?php } ?>
 
                                 <?php if (lookupUserPermission("module_support") >= 2) { ?>

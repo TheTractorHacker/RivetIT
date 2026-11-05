@@ -39,7 +39,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </form>
         <hr>
 
-        <div class="table-responsive-sm">
+        <div class="table-responsive">
             <table class="table table-striped table-borderless table-hover">
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
@@ -78,17 +78,17 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $updated = nullable_htmlentities($row['contract_template_updated_at']);
                     ?>
                     <tr>
-                        <td>
+                        <td style="min-width:14rem;">
                             <a class="text-bold ajax-modal" href="#" data-modal-size="xl"
                                 data-modal-url="modals/contract_template/contract_template_edit.php?id=<?= $id ?>">
                                 <i class="fas fa-fw fa-file-alt text-dark"></i> <?php echo $name; ?>
                             </a>
                             <div class="mt-1 text-secondary"><?php echo nullable_htmlentities($row['contract_template_description']); ?></div>
                         </td>
-                        <td><?php echo $type; ?></td>
-                        <td><?php echo $freq; ?></td>
-                        <td><?php echo "$sla_low_resp / $sla_med_resp / $sla_high_resp"; ?></td>
-                        <td><?php echo "$sla_low_res / $sla_med_res / $sla_high_res"; ?></td>
+                        <td class="text-nowrap"><?php echo $type; ?></td>
+                        <td class="text-nowrap"><?php echo $freq; ?></td>
+                        <td class="text-nowrap"><?php echo "$sla_low_resp / $sla_med_resp / $sla_high_resp"; ?></td>
+                        <td class="text-nowrap"><?php echo "$sla_low_res / $sla_med_res / $sla_high_res"; ?></td>
                         <td><?php echo $hourly_rate; ?></td>
                         <td><?php echo $after_hours; ?></td>
                         <td><?php echo $support_hours; ?></td>

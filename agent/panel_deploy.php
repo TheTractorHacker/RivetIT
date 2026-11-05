@@ -9,6 +9,12 @@
  * enforceClientAccess() - the same IDOR lesson already applied elsewhere in this app.
  */
 
+// A per-department page: without a department there is nothing to deploy to, and the department nav would run SQL with an empty id (HTTP 500).
+if (empty($_GET['client_id'])) {
+    header('Location: /agent/clients.php');
+    exit;
+}
+
 require_once 'includes/inc_all_client.php';   // sets $client_id, enforces module_client + enforceClientAccess()
 require_once dirname(__DIR__) . '/includes/panel_bootstrap.php';
 
@@ -135,7 +141,7 @@ $pd_installer_url = $pd_release_url . '/download/RivetPanelSetup.exe';
                                 </div>
                                 <button type="submit" name="create_token" class="btn btn-primary">Create token</button>
                             </form>
-                            <script>
+                            <script nonce="<?= htmlspecialchars($csp_nonce ?? "", ENT_QUOTES) ?>">
                             (function () {
                                 var maxUses = document.getElementById('pd_max_uses');
                                 var contact = document.getElementById('pd_contact_id');

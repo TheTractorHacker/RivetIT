@@ -254,6 +254,17 @@ $portal_employee_view = !$portal_is_tech && count($portal_eh_sections) > 0;
             <i class="fas fa-arrow-right portal-stat-go" aria-hidden="true"></i>
         </a>
 
+    <?php } else { ?>
+
+        <a class="portal-stat portal-stat--slate" href="assets.php">
+            <span class="portal-stat-icon"><i class="fas fa-laptop" aria-hidden="true"></i></span>
+            <span class="portal-stat-body">
+                <span class="portal-stat-num portal-count" data-count="<?php echo $portal_assigned_count; ?>"><?php echo $portal_assigned_count; ?></span>
+                <span class="portal-stat-label">My device<?php echo $portal_assigned_count == 1 ? '' : 's'; ?></span>
+            </span>
+            <i class="fas fa-arrow-right portal-stat-go" aria-hidden="true"></i>
+        </a>
+
     <?php } ?>
 
 </div>

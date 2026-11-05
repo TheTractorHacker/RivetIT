@@ -50,7 +50,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-file"></i></span>
                 </div>
-                <input type="text" class="form-control" name="name" placeholder="Name" required>
+                <input type="text" class="form-control" name="name" placeholder="Document name (required)" aria-label="Document name" required>
             </div>
         </div>
 
@@ -93,6 +93,8 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 require_once '../../../includes/modal_footer.php';

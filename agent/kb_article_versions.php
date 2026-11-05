@@ -75,6 +75,11 @@ $sql_versions = mysqli_query(
                             </tr>
                         </thead>
                         <tbody>
+                            <tr class="table-active">
+                                <td><span class="badge text-bg-success">Current</span></td>
+                                <td colspan="2" class="text-secondary">The live article. Restoring an older version keeps this one in history.</td>
+                                <td class="text-end"><a class="btn btn-sm btn-secondary" href="kb_article.php?id=<?php echo $kb_article_id; ?>"><i class="fas fa-fw fa-arrow-left me-1"></i>Back to article</a></td>
+                            </tr>
                             <?php while ($version = mysqli_fetch_assoc($sql_versions)) {
                                 $kb_article_version_id = intval($version['kb_article_version_id']);
                                 $kb_article_version_number = intval($version['kb_article_version_number']);

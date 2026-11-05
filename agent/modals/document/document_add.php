@@ -24,7 +24,7 @@ ob_start();
     <div class="modal-body">
 
         <div class="form-group">
-            <input type="text" class="form-control" name="name" placeholder="Name" maxlength="200" required autofocus>
+            <input type="text" class="form-control" name="name" placeholder="Document name (required)" aria-label="Document name" maxlength="200" required autofocus>
         </div>
 
         <div class="form-group">

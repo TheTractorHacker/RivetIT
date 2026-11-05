@@ -136,4 +136,6 @@ ob_start();
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
 </form>
+<script src="/agent/js/modal_form_ux.js"></script>
+
 <?php require_once '../../../includes/modal_footer.php'; ?>

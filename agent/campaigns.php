@@ -96,6 +96,9 @@ $sql_campaigns = mysqli_query($mysqli, "SELECT crm_campaigns.*, segment_name,
                             <?php } ?>
                         </select>
                         <small class="text-muted">Recipients with a valid email: <strong id="campaign_recipient_preview">-</strong></small>
+                        <?php if (mysqli_num_rows($segment_options) === 0) { mysqli_data_seek($segment_options, 0); ?>
+                            <div class="alert alert-info py-2 mt-2 mb-0 small"><i class="fas fa-info-circle me-1"></i>A campaign needs a segment to send to, and none exist yet. <a href="segments.php" class="alert-link">Create a segment first</a>, then come back here.</div>
+                        <?php } ?>
                     </div>
 
                     <div class="form-group">

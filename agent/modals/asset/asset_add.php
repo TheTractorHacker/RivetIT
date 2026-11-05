@@ -103,112 +103,114 @@ ob_start();
 
                 <?php } ?>
 
-                <div class="form-group">
-                    <label>Type <strong class="text-danger">*</strong></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label for="asset-add-type">Type <strong class="text-danger">*</strong></label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
+                            </div>
+                            <select class="form-control select2" name="type" id="asset-add-type" required>
+                                <option value="">Select Type</option>
+                                <?php foreach($asset_types_array as $asset_type => $asset_icon) { ?>
+                                    <option <?php if ($type !== '' && strcasecmp($type, $asset_type) === 0) { echo 'selected'; } ?>><?= $asset_type ?></option>
+                                <?php } ?>
+                            </select>
                         </div>
-                        <select class="form-control select2" name="type" required>
-                            <option value="">Select Type</option>
-                            <?php foreach($asset_types_array as $asset_type => $asset_icon) { ?>
-                                <option><?= $asset_type ?></option>
-                            <?php } ?>
-                        </select>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label>Name <strong class="text-danger">*</strong> / <span class="text-secondary" title="Pin to Overview">Favorite</span></label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fas fa-fw fa-tag"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="name" placeholder="e.g. SRV-DC01" maxlength="200" required autofocus>
-                        <div class="input-group-append">
-                            <div class="input-group-text">
-                                <label class="star-toggle mb-0" title="Favorite">
-                                    <input type="checkbox" name="favorite" value="1"><i class="far fa-star"></i>
-                                </label>
+                    <div class="col-md-6 form-group">
+                        <label for="asset-add-name">Name <strong class="text-danger">*</strong> / <span class="text-secondary" title="Pin to Overview">Favorite</span></label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-fw fa-tag"></i></span>
+                            </div>
+                            <input type="text" class="form-control" name="name" id="asset-add-name" placeholder="e.g. SRV-DC01" maxlength="200" required autofocus>
+                            <div class="input-group-append">
+                                <div class="input-group-text">
+                                    <label class="star-toggle mb-0" title="Favorite">
+                                        <input type="checkbox" name="favorite" value="1" aria-label="Favorite"><i class="far fa-star"></i>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Asset Tag</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="fa fa-fw fa-barcode"></i></span>
-                        </div>
-                        <input type="text" class="form-control" name="asset_tag" placeholder="e.g. 25500" maxlength="100">
-                    </div>
-                </div>
-
-                <?php //Do not display Make Model or Serial if Virtual is selected
-                if ($type !== 'Virtual') { ?>
-                    <div class="form-group">
-                        <label>Make</label>
+                <div class="row">
+                    <div class="col-md-6 form-group js-asset-hw">
+                        <label for="asset-add-make">Make</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-building"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="make" placeholder="e.g. Dell, HP, Lenovo" maxlength="200">
+                            <input type="text" class="form-control" name="make" id="asset-add-make" placeholder="e.g. Dell, HP, Lenovo" maxlength="200">
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Model</label>
+                    <div class="col-md-6 form-group js-asset-hw">
+                        <label for="asset-add-model">Model</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="model" placeholder="e.g. PowerEdge R740" maxlength="200">
+                            <input type="text" class="form-control" name="model" id="asset-add-model" placeholder="e.g. PowerEdge R740" maxlength="200">
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Serial Number</label>
+                    <div class="col-md-6 form-group js-asset-hw">
+                        <label for="asset-add-serial">Serial Number</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fa fa-fw fa-barcode"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="serial" placeholder="e.g. ABC1234XYZ" maxlength="200">
+                            <input type="text" class="form-control" name="serial" id="asset-add-serial" placeholder="e.g. ABC1234XYZ" maxlength="200">
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>PIN / Passcode</label>
+                    <div class="col-md-6 form-group">
+                        <label for="asset-add-tag">Asset Tag</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
-                                <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                                <span class="input-group-text"><i class="fa fa-fw fa-barcode"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="pin" placeholder="Device unlock PIN/passcode" maxlength="50">
+                            <input type="text" class="form-control" name="asset_tag" id="asset-add-tag" placeholder="e.g. 25500" maxlength="100">
                         </div>
                     </div>
-                <?php } ?>
+                </div>
 
-                <?php if ($type !== 'Network' && $type !== 'Other') { ?>
-                    <div class="form-group">
-                        <label>Operating System</label>
+                <div class="row">
+                    <div class="col-md-6 form-group js-asset-os">
+                        <label for="os">Operating System</label>
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text"><i class="fas fa-fw fa-laptop-code"></i></span>
                             </div>
-                            <input type="text" class="form-control" name="os" id="os" placeholder="e.g. Windows 11 Pro, Ubuntu 24.04" maxlength="200">
+                            <input type="text" class="form-control" name="os" id="os" placeholder="e.g. Windows 11 Pro" maxlength="200">
                         </div>
                     </div>
-                <?php } ?>
+
+                    <div class="col-md-6 form-group js-asset-pin">
+                        <label for="asset-add-pin">PIN / Passcode</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
+                            </div>
+                            <input type="text" class="form-control" name="pin" id="asset-add-pin" placeholder="Device unlock PIN" maxlength="50">
+                        </div>
+                    </div>
+                </div>
 
                 <div class="form-group">
-                    <label>Description</label>
+                    <label for="asset-add-desc">Description</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-align-left"></i></span>
                         </div>
-                        <input type="text" class="form-control" name="description" placeholder="e.g. Domain controller for HQ" maxlength="255">
+                        <input type="text" class="form-control" name="description" id="asset-add-desc" placeholder="e.g. Domain controller for HQ" maxlength="255">
                     </div>
                 </div>
+
 
             </div>
 
@@ -597,6 +599,29 @@ ob_start();
         });
     });
 </script>
+
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+    // Show only the fields that make sense for the chosen type (same rules the page used to apply server-side).
+    (function () {
+        var form = document.getElementById('asset-add-type').form;
+        var sel = document.getElementById('asset-add-type');
+        function apply() {
+            var t = (sel.value || '').toLowerCase();
+            var noHw = (t === 'virtual');
+            var noOs = (t === 'network' || t === 'other');
+            [['.js-asset-hw', noHw], ['.js-asset-pin', noHw], ['.js-asset-os', noOs]].forEach(function (r) {
+                form.querySelectorAll(r[0]).forEach(function (el) {
+                    el.classList.toggle('d-none', r[1]);
+                    el.querySelectorAll('input').forEach(function (i) { i.disabled = r[1]; });
+                });
+            });
+        }
+        sel.addEventListener('change', apply);
+        if (window.jQuery) { window.jQuery(sel).on('change', apply); }
+        apply();
+    })();
+</script>
+<script src="/agent/js/modal_form_ux.js"></script>
 
 <?php
 

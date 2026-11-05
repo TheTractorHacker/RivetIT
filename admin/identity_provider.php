@@ -7,6 +7,17 @@ require_once "includes/inc_all_admin.php";
         <h3 class="card-title"><i class="fas fa-fw fa-fingerprint me-2"></i>Identity Providers</h3>
     </div>
     <div class="card-body">
+        <div class="d-flex flex-wrap gap-3 mb-3 pb-3 border-bottom" role="status" aria-label="Sign-in provider status">
+            <?php
+            $idp_items = [
+                ['Microsoft Entra', ($config_azure_client_id ?? '') !== '' && ($config_azure_client_secret ?? '') !== '' ? 'Configured' : 'Not set up', ($config_azure_client_id ?? '') !== '' && ($config_azure_client_secret ?? '') !== ''],
+                ['OpenID Connect', !empty($config_oidc_enabled) ? (($config_oidc_issuer ?? '') !== '' && ($config_oidc_client_id ?? '') !== '' ? 'On' : 'On, but issuer or client ID missing') : 'Off', !empty($config_oidc_enabled) && ($config_oidc_issuer ?? '') !== '' && ($config_oidc_client_id ?? '') !== ''],
+            ];
+            foreach ($idp_items as $idp_item) { ?>
+                <span><strong><?= nullable_htmlentities($idp_item[0]) ?></strong> <span class="badge <?= $idp_item[2] ? 'bg-success' : 'bg-secondary' ?>"><?= nullable_htmlentities($idp_item[1]) ?></span></span>
+            <?php } ?>
+            <a href="#oidc_enabled" class="ms-auto small">Jump to OpenID Connect</a>
+        </div>
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 

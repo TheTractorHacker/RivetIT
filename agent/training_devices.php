@@ -70,9 +70,10 @@ render_page_header(
         <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'people' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-people" type="button" role="tab" aria-controls="tr-tab-people" aria-selected="<?= $tr_tab === 'people' ? 'true' : 'false' ?>" data-tab="people"><i class="fas fa-key me-2" aria-hidden="true"></i>People &amp; PINs</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link<?= $tr_tab === 'guide' ? ' active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tr-tab-guide" type="button" role="tab" aria-controls="tr-tab-guide" aria-selected="<?= $tr_tab === 'guide' ? 'true' : 'false' ?>" data-tab="guide"><i class="fas fa-book me-2" aria-hidden="true"></i>Setup guide</button></li>
     </ul>
+    <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">#tr-device-bulk-bar:not([hidden]){display:flex}</style>
     <div class="tab-content">
         <div class="tab-pane fade<?= $tr_tab === 'devices' ? ' show active' : '' ?>" id="tr-tab-devices" role="tabpanel">
-            <div id="tr-device-bulk-bar" class="alert alert-secondary d-flex align-items-center gap-2 mb-3" role="toolbar" hidden>
+            <div id="tr-device-bulk-bar" class="alert alert-secondary align-items-center gap-2 mb-3" role="toolbar" hidden>
                 <span id="tr-device-bulk-count"></span>
                 <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="tr-device-bulk-remove"><i class="fas fa-trash-alt me-1" aria-hidden="true"></i>Remove selected</button>
                 <button type="button" class="btn btn-sm btn-link" id="tr-device-bulk-clear">Clear</button>

@@ -6,7 +6,7 @@ continues unchanged.
 
 ## [Unreleased]
 
-## [26.10.82] - 2026-11-02
+## [26.10.83] - 2026-11-04
 
 Release candidate 2 on top of 26.10.81: issue #29 leftovers, #31/#33 lifecycle follow-ups, #36 Teams/Slack buttons, #30 risk score display, plus test, accessibility and API-doc work. **Database 2.6.231 to 2.6.233** (2 additive, idempotent steps; take a database dump first, then Administration > Update > Update Database).
 
@@ -45,6 +45,14 @@ Release candidate 2 on top of 26.10.81: issue #29 leftovers, #31/#33 lifecycle f
 ### Notes
 - New tests: `tests/i29_leftovers.php`, `tests/browser/i29_leftovers_seed.php`, `tests/browser/i29_leftovers_smoke.mjs`. Findings status tables are final in `docs/user-guide/tools/app-findings.md` and `docs/FINDINGS-STATUS.md`; decisions 13 and 14 in `docs/FINDINGS-DECISIONS.md` supersede 11 and 12.
 - Database: 2.6.232 (`hr_workflow_requests`, `settings.config_portal_hr_requests`) and 2.6.233 (`settings.config_lifecycle_okta_*`). Everything new is off by default.
+
+## [26.10.82] - 2026-11-03
+
+- **Every-page UI pass.** Fixes and one user-facing improvement per area: collapsible Ticket Views rail, "Their other tickets" on the ticket page, similar-ticket hints in New Ticket, hidden-tab validation that opens the offending tab (about 95 dialogs), Health column on Departments and expiry chips on domains/certificates/software, project health chips, quote status pipeline, answer-first headlines on 12 reports, a device-status band on the asset page, training overdue banner and compliance matrix, admin jump bars on long settings pages (one shared look), grouped Ticket settings, status badges for SSO/mail/identity, retry-all on the job queue, and a 24-hour health banner on webhook deliveries.
+- **Command palette.** Ctrl/Cmd+K jumps to any page or record (RivetCore rc.58).
+- **Portal.** "How can we help?" box suggests knowledge-base articles and catalog requests before a ticket is raised; clearer no-access banner, ticket-detail summary, status tabs; tables stack as cards on phones.
+- **Fixes.** Table badges and buttons no longer break mid-word, mailbox and credentials tables fit at 1366 wide, readable amber text, org chart Location column, panel_deploy 500 without a department.
+- Requires RivetCore 1.0.0-rc.58 (CSS/JS only; no migration).
 
 ## [26.10.81] - 2026-11-02
 

@@ -359,6 +359,28 @@ if (isset($sql_wh) && mysqli_num_rows($sql_wh) > 0 && $legacy_queue_rows > 0) { 
     <div class="card-header py-3">
         <h3 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Deliveries</h3>
     </div>
+    <?php
+    // Health at a glance: the last 24 hours of direct deliveries, with the most common failure reason.
+    $wh_health = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS total,
+            SUM(http_status BETWEEN 200 AND 299) AS ok,
+            SUM(http_status IS NULL OR http_status NOT BETWEEN 200 AND 299) AS bad
+        FROM webhook_deliveries WHERE created_at > NOW() - INTERVAL 24 HOUR"));
+    $wh_total = intval($wh_health['total'] ?? 0);
+    $wh_ok = intval($wh_health['ok'] ?? 0);
+    $wh_bad = intval($wh_health['bad'] ?? 0);
+    if ($wh_total > 0) {
+        $wh_reason = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT response_body_snippet, COUNT(*) AS n FROM webhook_deliveries
+            WHERE created_at > NOW() - INTERVAL 24 HOUR AND (http_status IS NULL OR http_status NOT BETWEEN 200 AND 299)
+            GROUP BY response_body_snippet ORDER BY n DESC LIMIT 1"));
+        $wh_class = $wh_bad == 0 ? 'alert-success' : ($wh_ok == 0 ? 'alert-danger' : 'alert-warning');
+        ?>
+    <div class="alert <?= $wh_class ?> mx-3 mt-3 mb-0 py-2" role="status">
+        <strong>Last 24 hours:</strong> <?= $wh_ok ?> delivered, <?= $wh_bad ?> failed<?= $wh_ok == 0 && $wh_bad > 0 ? ': nothing is getting through' : '' ?>.
+        <?php if ($wh_bad > 0 && !empty($wh_reason['response_body_snippet'])) { ?>
+            Most common failure: <em><?= nullable_htmlentities(mb_substr($wh_reason['response_body_snippet'], 0, 120)) ?></em> (<?= intval($wh_reason['n']) ?>&times;).
+        <?php } ?>
+    </div>
+    <?php } ?>
     <p class="text-muted small px-3 pt-3 mb-2">Every attempt, including retries (a failed delivery is retried after 1, 5, 30 and 120 minutes, then set aside as failed; see the Job queue page). Showing the latest 100.</p>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -411,5 +433,6 @@ if ($wh_add !== '' && Destinations::has($wh_add)) { ?>
 location.replace('webhook_new.php?dest=<?= rawurlencode($wh_add) ?>&step=connect');
 </script>
 <?php } ?>
+<?php $page_index_selector = '.card-title'; require __DIR__ . '/includes/page_index.php'; ?>
 <script src="<?= $wh_asset('js/webhook_list.js') ?>" defer></script>
 <?php require_once "../includes/footer.php"; ?>

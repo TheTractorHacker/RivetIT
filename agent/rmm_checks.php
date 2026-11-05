@@ -79,8 +79,8 @@ foreach ($platform_order as $plat):
             <i class="<?= $pm['icon'] ?> me-2 text-<?= $pm['color'] ?>"></i>
             <?= $pm['label'] ?> Checks
         </h6>
-        <button class="btn btn-xs btn-<?= $pm['color'] ?> js-push-all-policies" data-platform="<?= nullable_htmlentities($plat) ?>">
-            <i class="fas fa-cloud-upload-alt me-1"></i>Push All <?= $pm['label'] ?> to Agents
+        <button class="btn btn-xs btn-outline-primary js-push-all-policies" data-platform="<?= nullable_htmlentities($plat) ?>">
+            <i class="fas fa-cloud-upload-alt me-1"></i><?= $plat === 'any' ? 'Push to all agents' : 'Push all to ' . $pm['label'] . ' agents' ?>
         </button>
     </div>
     <div class="card-body p-0">
@@ -144,15 +144,15 @@ foreach ($platform_order as $plat):
                     : '<span class="badge text-bg-secondary" style="font-size:90%">Disabled</span>' ?>
             </td>
             <td class="text-end pe-2" style="white-space:nowrap">
-                <button class="btn btn-xs btn-success me-1 js-push-policy" title="Push to matching agents"
+                <button class="btn btn-xs btn-outline-success me-1 js-push-policy" title="Push to matching agents" aria-label="Push to matching agents"
                         data-policy-id="<?= $pid ?>" data-policy-name="<?= nullable_htmlentities($pol['name']) ?>">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </button>
-                <button class="btn btn-xs btn-secondary me-1 js-edit-policy" title="Edit"
+                <button class="btn btn-xs btn-outline-secondary me-1 js-edit-policy" title="Edit" aria-label="Edit policy"
                         data-policy='<?= json_encode($pol, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'>
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn btn-xs btn-danger js-delete-policy" title="Delete"
+                <button class="btn btn-xs btn-outline-danger js-delete-policy" title="Delete" aria-label="Delete policy"
                         data-policy-id="<?= $pid ?>" data-policy-name="<?= nullable_htmlentities($pol['name']) ?>">
                     <i class="fas fa-trash"></i>
                 </button>

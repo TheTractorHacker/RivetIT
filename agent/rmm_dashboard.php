@@ -365,7 +365,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
 <!-- Fleet health + patch compliance -->
 <div class="row">
     <div class="col-lg-7">
-        <div class="card card-dark mb-3" style="border-top:3px solid #fd7e14">
+        <div class="card card-dark mb-3"(fd7e14|17a2b8|dc3545|ffc107)"#fd7e14">
             <div class="card-header py-2 d-flex align-items-center flex-wrap" style="gap:4px">
                 <h6 class="mb-0 mr-auto"><i class="fas fa-heartbeat me-2 text-warning"></i>Fleet Health</h6>
                 <span class="badge text-bg-warning"><?= intval($health['needs_reboot']) ?> need reboot</span>
@@ -420,7 +420,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
         </div>
     </div>
     <div class="col-lg-5">
-        <div class="card card-dark mb-3" style="border-top:3px solid #17a2b8">
+        <div class="card card-dark mb-3"(fd7e14|17a2b8|dc3545|ffc107)"#17a2b8">
             <div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-download me-2 text-info"></i>Patch Compliance</h6></div>
             <div class="card-body">
                 <div class="row text-center mb-2">
@@ -553,7 +553,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
     <div class="col-md-6">
 
         <!-- Offline Assets -->
-        <div class="card card-dark mb-3" style="border-top:3px solid #dc3545">
+        <div class="card card-dark mb-3"(fd7e14|17a2b8|dc3545|ffc107)"#dc3545">
             <div class="card-header py-2 d-flex align-items-center">
                 <h6 class="mb-0 mr-auto">
                     <i class="fas fa-times-circle me-2 text-danger"></i>Offline Assets
@@ -602,7 +602,7 @@ $dash_ctx = $dash_gate['allowed'] ? rivetRmmInstallerContext($mysqli, (int) $ses
         </div>
 
         <!-- New Alerts -->
-        <div class="card card-dark mb-3" style="border-top:3px solid #ffc107">
+        <div class="card card-dark mb-3"(fd7e14|17a2b8|dc3545|ffc107)"#ffc107">
             <div class="card-header py-2 d-flex align-items-center">
                 <h6 class="mb-0 mr-auto">
                     <i class="fas fa-bell me-2 text-warning"></i>New Alerts

@@ -55,13 +55,31 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
             <div class="card-header">
                 <h3 class="card-title mt-1"><?php echo $ticket_template_name; ?></h3>
                 <div class="card-tools">
-                    <button type="button" class="btn btn-tool btn-sm" data-bs-toggle="modal" data-bs-target="#editTicketTemplateModal">
-                        <i class="fas fa-edit"></i>
+                    <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editTicketTemplateModal">
+                        <i class="fas fa-fw fa-edit me-1"></i>Edit template
                     </button>
                 </div>
             </div>
-            <div class="card-body prettyContent">
-                <?php echo $ticket_template_details; ?>
+            <div class="card-body">
+                <?php if ($ticket_template_description) { ?><p class="text-muted"><?php echo $ticket_template_description; ?></p><?php } ?>
+                <div class="mb-3">
+                    <div class="text-uppercase small fw-bold text-muted">Ticket subject</div>
+                    <?php if ($ticket_template_subject) { ?>
+                        <div class="fs-5"><?php echo $ticket_template_subject; ?></div>
+                    <?php } else { ?>
+                        <div class="text-muted fst-italic">Not set: tickets raised from this template start with an empty subject.</div>
+                    <?php } ?>
+                </div>
+                <div class="text-uppercase small fw-bold text-muted mb-1">Ticket body</div>
+                <?php if (trim(strip_tags((string) $row['ticket_template_details'], '<img>')) !== '') { ?>
+                    <div class="prettyContent border rounded p-3"><?php echo $ticket_template_details; ?></div>
+                <?php } else { ?>
+                    <div class="border border-dashed rounded p-4 text-center text-muted">
+                        <i class="fas fa-fw fa-file-alt fa-2x mb-2"></i>
+                        <div class="mb-2">No default ticket body yet. Add the questions or steps a technician should see on every ticket made from this template.</div>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editTicketTemplateModal"><i class="fas fa-fw fa-edit me-1"></i>Write the body</button>
+                    </div>
+                <?php } ?>
             </div>
         </div>
 

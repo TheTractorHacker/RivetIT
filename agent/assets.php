@@ -434,6 +434,60 @@ if (lookupUserPermission('module_client') >= 1) {
     </div>
 </div>
 
+<?php
+// Needs-attention views: one click to the assets that usually need a person (counts honour the department/archive/access scope, not the type tabs).
+$_att = ['warranty_expired' => 0, 'warranty_soon' => 0, 'unassigned' => 0, 'unmanaged' => 0];
+$_att_rmm = mysqli_query($mysqli, "SHOW TABLES LIKE 'asset_rmm_links'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'asset_rmm_links'")) > 0
+    ? 'EXISTS (SELECT 1 FROM asset_rmm_links WHERE asset_rmm_links.asset_id = assets.asset_id)' : '0';
+$_att_mdm = mysqli_query($mysqli, "SHOW TABLES LIKE 'asset_mdm_links'") && mysqli_num_rows(mysqli_query($mysqli, "SHOW TABLES LIKE 'asset_mdm_links'")) > 0
+    ? 'EXISTS (SELECT 1 FROM asset_mdm_links WHERE asset_mdm_links.asset_id = assets.asset_id)' : '0';
+$_att_row = mysqli_fetch_assoc(mysqli_query($mysqli, "
+    SELECT
+        SUM(asset_warranty_expire IS NOT NULL AND asset_warranty_expire < CURDATE()) AS warranty_expired,
+        SUM(asset_warranty_expire BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)) AS warranty_soon,
+        SUM(asset_contact_id = 0 OR asset_contact_id IS NULL) AS unassigned,
+        SUM(NOT $_att_rmm AND NOT $_att_mdm) AS unmanaged
+    FROM assets
+    LEFT JOIN clients ON client_id = asset_client_id
+    WHERE $archive_query AND asset_type != 'Firewall/Router'
+    $access_permission_query
+    $client_query
+"));
+if ($_att_row) { foreach ($_att as $_k => $_v) { $_att[$_k] = intval($_att_row[$_k]); } }
+$_att_base = ($client_url ? $client_url . '&' : '') . ($scope_url ?? '');
+$_att_views = [
+    ['warranty=expired', 'fa-shield-alt', 'Warranty expired', $_att['warranty_expired'], 'danger', $f_warranty === 'expired'],
+    ['warranty=90', 'fa-hourglass-half', 'Warranty ends in 90 days', $_att['warranty_soon'], 'warning', $f_warranty === '90'],
+    ['assigned=none', 'fa-user-slash', 'Not assigned to anyone', $_att['unassigned'], 'secondary', $f_assigned === 'none'],
+    ['managed=none', 'fa-plug', 'Not managed by RMM or MDM', $_att['unmanaged'], 'secondary', $f_managed === 'none'],
+];
+if (array_sum($_att)) { ?>
+<div class="asset-attention mb-3" role="group" aria-label="Needs attention">
+    <span class="asset-attention-label"><i class="fas fa-bullseye me-1" aria-hidden="true"></i>Needs attention</span>
+    <?php foreach ($_att_views as [$_q, $_ic, $_lbl, $_n, $_tone, $_on]) { if ($_n < 1 && !$_on) { continue; } ?>
+        <a class="asset-attention-chip tone-<?= $_tone ?><?= $_on ? ' active' : '' ?>" href="?<?= htmlspecialchars(trim($_att_base, '&') . '&' . ($_on ? '' : $_q), ENT_QUOTES) ?>"<?= $_on ? ' aria-current="true" title="Click to clear this view"' : '' ?>>
+            <i class="fas <?= $_ic ?>" aria-hidden="true"></i><?= $_lbl ?><span class="asset-attention-n"><?= $_n ?></span>
+        </a>
+    <?php } ?>
+</div>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    .asset-attention { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+    .asset-attention-label { font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--if-muted, #6c757d); margin-right: .25rem; }
+    .asset-attention-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem; border: 1px solid var(--if-border, #dee2e6); border-radius: 999px; font-size: .875rem; text-decoration: none; white-space: nowrap; color: inherit; background: var(--if-surface, #fff); }
+    .asset-attention-chip:hover { border-color: currentColor; text-decoration: none; }
+    .asset-attention-chip.tone-danger i { color: #dc3545; }
+    .asset-attention-chip.tone-warning i { color: #d98c00; }
+    .asset-attention-chip.tone-secondary i { color: #6c757d; }
+    .asset-attention-chip.active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+    .asset-attention-chip.active i { color: #fff; }
+    .asset-attention-n { font-weight: 700; padding: 0 .45rem; border-radius: 999px; background: rgba(127,127,127,.18); }
+    .asset-inline-cell, .asset-inline-cell .asset-inline-link { white-space: nowrap; }
+    td:has(> div > .dropdown.d-inline) { white-space: nowrap; }
+    td .dropdown.d-inline { display: inline-block !important; }
+    td .dropdown.d-inline .btn-tool { padding: 0 .35rem; }
+</style>
+<?php } ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-desktop me-2"></i>Assets</h3>

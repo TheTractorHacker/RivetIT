@@ -16,7 +16,7 @@ require_once "includes/inc_all.php";
 if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
     ob_end_clean();
     // a contact without this role used to be signed out of the whole portal; send them home with a reason instead
-    flash_alert("You do not have access to that page. Ask your department's primary contact if you need it.", 'error');
+    flash_alert(portal_no_access_message(__FILE__), 'warning');
     header("Location: index.php");
     exit();
 }
@@ -26,9 +26,9 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
 
     <div class="row mb-4">
         <div class="col">
-            <h3><i class="fas fa-fw fa-address-book me-2"></i>Contacts</h3>
+            <h3 class="text-nowrap"><i class="fas fa-fw fa-address-book me-2"></i>Contacts</h3>
         </div>
-        <div class="col offset-6 text-end">
+        <div class="col-auto ms-auto text-end">
             <a href="contact_add.php" class="btn btn-primary" role="button"><i class="fas fa-plus me-2"></i>New Contact</a>
         </div>
     </div>
@@ -46,6 +46,7 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
                     <th>Name</th>
                     <th>Email</th>
                     <th>Roles</th>
+                    <th class="text-end">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -53,7 +54,7 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
                 <?php
                 if (mysqli_num_rows($contacts_sql) == 0) { ?>
                     <tr>
-                        <td colspan="3" class="text-center text-muted py-4">No contacts found.</td>
+                        <td colspan="4" class="text-center text-muted py-4">No contacts found.</td>
                     </tr>
                 <?php }
                 while ($row = mysqli_fetch_assoc($contacts_sql)) {
@@ -64,7 +65,7 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
                     $contact_technical = intval($row['contact_technical']);
                     $contact_billing = intval($row['contact_billing']);
 
-                    $contact_roles_display = '-';
+                    $contact_roles_display = 'Team member';
                     if ($contact_primary) {
                         $contact_roles_display = 'Primary contact';
                     } else if ($contact_technical && $contact_billing) {
@@ -78,9 +79,10 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
                     ?>
 
                     <tr>
-                        <td><a href="contact_edit.php?id=<?php echo $contact_id?>"><?php echo $contact_name ?></a></td>
+                        <td><a href="contact_edit.php?id=<?php echo $contact_id?>"><?php echo $contact_name ?></a><?php if ($contact_id === intval($session_contact_id)) { ?> <span class="portal-badge portal-badge--muted ms-1">You</span><?php } ?></td>
                         <td><?php echo $contact_email; ?></td>
-                        <td><span class="badge text-bg-secondary"><?php echo $contact_roles_display ?></span></td>
+                        <td><span class="badge <?php echo ($contact_primary || $contact_technical || $contact_billing) ? 'text-bg-primary' : 'text-bg-secondary'; ?>"><?php echo $contact_roles_display ?></span></td>
+                        <td class="text-end"><?php if ($contact_primary || $contact_id === intval($session_contact_id)) { ?><span class="text-secondary small">Managed by IT</span><?php } else { ?><a href="contact_edit.php?id=<?php echo $contact_id?>" class="btn btn-sm btn-outline-secondary" aria-label="Edit <?php echo $contact_name; ?>"><i class="fas fa-pen me-1"></i>Edit</a><?php } ?></td>
                     </tr>
 
                 <?php } ?>

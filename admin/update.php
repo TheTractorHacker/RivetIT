@@ -350,8 +350,8 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                         </tr>
                         </thead>
                         <tbody>
-                        <?php foreach ($pending_commits as $commit) { ?>
-                            <tr>
+                        <?php foreach ($pending_commits as $upd_i => $commit) { ?>
+                            <tr<?= $upd_i >= 8 ? ' class="upd-more d-none"' : '' ?>>
                                 <td class="ps-3 upd-wrap"><?= $h($commit['subject']) ?></td>
                                 <td><code><?= $h($commit['hash']) ?></code></td>
                                 <td class="pe-3 text-muted text-nowrap"><?= $h($commit['when']) ?></td>
@@ -360,6 +360,19 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                         </tbody>
                     </table>
                 </div>
+                <?php if (count($pending_commits) > 8) { ?>
+                    <div class="border-top p-2 text-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="upd-more-btn" aria-expanded="false" data-total="<?= (int) count($pending_commits) ?>">Show all <?= (int) count($pending_commits) ?> changes (<?= (int) (count($pending_commits) - 8) ?> more)</button>
+                    </div>
+                    <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                    document.getElementById('upd-more-btn').addEventListener('click', function () {
+                        var open = this.getAttribute('aria-expanded') === 'true';
+                        document.querySelectorAll('#update-changes .upd-more').forEach(function (r) { r.classList.toggle('d-none', open); });
+                        this.setAttribute('aria-expanded', open ? 'false' : 'true');
+                        this.textContent = open ? 'Show all ' + this.dataset.total + ' changes (' + (this.dataset.total - 8) + ' more)' : 'Show fewer';
+                    });
+                    </script>
+                <?php } ?>
             </div>
         </section>
     <?php } ?>
@@ -518,4 +531,5 @@ $changelog_link = APP_CHANGELOG_URL !== ''
 
 <?php
 
+$page_index_selector = '.card-title'; require __DIR__ . '/includes/page_index.php';
 require_once "../includes/footer.php";

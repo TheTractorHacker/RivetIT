@@ -275,23 +275,23 @@ if ($legacy_can_import): ?>
                 </td>
                 <td class="text-end pe-2" style="white-space:nowrap">
                     <?php if (lookupUserPermission('module_rmm_scripts') >= 1): ?>
-                    <button class="btn btn-xs btn-success me-1 js-open-run-modal" data-script='<?= json_encode(['id'=>$scr['id'],'name'=>$scr['name'],'tactical_script_id'=>$scr['tactical_script_id']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
+                    <button class="btn btn-xs btn-outline-success me-1 js-open-run-modal" data-script='<?= json_encode(['id'=>$scr['id'],'name'=>$scr['name'],'tactical_script_id'=>$scr['tactical_script_id']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
                             title="Run on Asset" <?= !$scr['tactical_script_id'] ? 'disabled title="No Tactical ID — sync scripts first"' : '' ?>>
                         <i class="fas fa-play"></i>
                     </button>
                     <?php if ($scr['script_body']): ?>
-                    <button class="btn btn-xs btn-dark me-1 js-preview-script" data-script='<?= json_encode(['name'=>$scr['name'],'body'=>$scr['script_body'],'type'=>$scr['script_type']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
+                    <button class="btn btn-xs btn-outline-secondary me-1 js-preview-script" data-script='<?= json_encode(['name'=>$scr['name'],'body'=>$scr['script_body'],'type'=>$scr['script_type']], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'
                             title="View Script">
                         <i class="fas fa-eye"></i>
                     </button>
                     <?php endif; ?>
-                    <button class="btn btn-xs btn-secondary me-1 js-edit-script" data-script='<?= json_encode($scr, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>' title="Edit">
+                    <button class="btn btn-xs btn-outline-secondary me-1 js-edit-script" data-script='<?= json_encode($scr, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>' title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
                     <form method="post" class="d-inline">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="script_id" value="<?= $sid ?>">
-                        <button type="submit" name="delete_script" class="btn btn-xs btn-danger confirm-link" title="Delete">
+                        <button type="submit" name="delete_script" class="btn btn-xs btn-outline-danger confirm-link" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </form>
@@ -350,7 +350,7 @@ if ($legacy_can_import): ?>
                 <?php else: ?>—<?php endif; ?>
             </td>
             <td>
-                <a href="/agent/rmm_script_run.php?run_id=<?= intval($run['id']) ?>" class="btn btn-xs btn-secondary">
+                <a href="/agent/rmm_script_run.php?run_id=<?= intval($run['id']) ?>" class="btn btn-xs btn-outline-secondary" title="View output" aria-label="View output">
                     <i class="fas fa-eye"></i>
                 </a>
             </td>

@@ -16,6 +16,8 @@ $sql = mysqli_query(
 
 ?>
 
+<?php require __DIR__ . "/payroll_nav.inc.php"; ?>
+
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-user-tag me-2"></i>Payroll Employees</h3>
@@ -60,7 +62,7 @@ $sql = mysqli_query(
                     </td>
                     <td class="text-center">
                         <a href="payroll_employee.php?id=<?= $u_id ?>" class="btn btn-xs btn-secondary">
-                            <i class="fas fa-edit"></i> <?= $pay_type ? 'Edit' : 'Enroll' ?>
+                            <i class="fas fa-fw fa-edit me-1"></i> <?= $pay_type ? 'Edit' : 'Enroll' ?>
                         </a>
                     </td>
                 </tr>

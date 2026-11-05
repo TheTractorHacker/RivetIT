@@ -184,7 +184,7 @@ if ($f['group'] !== '') {
                 <td><?php if ($checkOf($a) !== '') { ?><span class="rmmx-tag rmmx-mono"><?= rmmxH($checkOf($a)) ?></span><?php } else { ?><span class="text-muted">-</span><?php } ?></td>
                 <td class="rmmx-msg" title="<?= rmmxH($a['message']) ?>"><?= rmmxH(mb_strimwidth($msg, 0, 160, '…')) ?></td>
                 <td><?= rmmxWhen($a['created_at']) ?></td>
-                <td><span class="rmmx-tag" title="<?= rmmxH($src) ?>"><i class="fas <?= $icon ?> me-1" aria-hidden="true"></i><?= rmmxH(mb_strimwidth($src, 0, 22, '…')) ?></span></td>
+                <td><span class="rmmx-tag" title="<?= rmmxH($src) ?>"><i class="fas <?= $icon ?>" aria-hidden="true"></i><span class="alert-src-label ms-1"><?= rmmxH(mb_strimwidth($src, 0, 22, '…')) ?></span></span></td>
                 <td class="text-end text-nowrap">
                     <?php if ($a['ticket_id']) { ?><a href="/agent/ticket.php?ticket_id=<?= (int) $a['ticket_id'] ?>" class="small me-2" title="Linked ticket"><i class="fas fa-ticket-alt me-1" aria-hidden="true"></i><?= rmmxH($a['ticket_label']) ?></a>
                     <?php } elseif ($a['can_create_ticket'] && $can_ticket && $a['status'] !== 'resolved') { ?><button type="button" class="btn btn-sm btn-outline-secondary js-alert-action me-1" data-source="<?= rmmxH($a['source']) ?>" data-alert-id="<?= (int) $a['id'] ?>" data-alert-action="create_ticket" data-row-id="<?= rmmxH($rk) ?>"><i class="fas fa-ticket-alt me-1" aria-hidden="true"></i>Ticket</button><?php } ?>
@@ -223,6 +223,12 @@ if ($f['group'] !== '') {
 </div>
 <?php } ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    /* Keep the action buttons inside the card: below 1700px the source name collapses to its icon (the name stays in the tooltip) */
+    @media (max-width: 1699px) { .alert-src-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0 !important; } }
+    @media (max-width: 1699px) { .rmmx-scroll .rmmx-table td.rmmx-msg { min-width: 15rem !important; } .rmmx-scroll .rmmx-table th, .rmmx-scroll .rmmx-table td { padding-left: .5rem; padding-right: .5rem; } }
+    .rmmx-scroll td.text-end .btn { padding-left: .5rem; padding-right: .5rem; }
+</style>
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">window.ALERT_ENDPOINTS = <?= json_encode($endpointFor) ?>;</script>
 <script src="/agent/js/alerts_central.js?v=<?= filemtime(__DIR__ . '/js/alerts_central.js') ?>"></script>
 

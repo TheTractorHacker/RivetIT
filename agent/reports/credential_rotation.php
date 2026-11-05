@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_credential');
 
@@ -19,21 +20,31 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
         ORDER BY client_name"
 );
 
+$cr_rows = [];
+while ($r = mysqli_fetch_assoc($passwords_not_rotated_sql)) { $cr_rows[] = $r; }
+if ($cr_rows) {
+    $oldest = $cr_rows[0];
+    foreach ($cr_rows as $r) { if ($r['credential_password_changed_at'] < $oldest['credential_password_changed_at']) { $oldest = $r; } }
+    $cr_depts = count(array_unique(array_column($cr_rows, 'client_id')));
+    $oldest_days = (int) floor((time() - strtotime($oldest['credential_password_changed_at'])) / 86400);
+    reportHeadline('fa-key', count($cr_rows) . ' credential' . (count($cr_rows) === 1 ? ' has' : 's have') . " not been rotated in $days days",
+        "Oldest: {$oldest['credential_name']} ($oldest_days days). Spread across $cr_depts department" . ($cr_depts === 1 ? '' : 's') . '.',
+        'warning', ['Overdue' => count($cr_rows), 'Oldest (days)' => $oldest_days]);
+} else {
+    reportHeadline('fa-check-circle', "Every credential was rotated within $days days", 'Nothing to do here.', 'success');
+}
 ?>
 
     <div class="card card-dark">
         <div class="card-header py-2">
             <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Department credentials not changed/rotated in the last <?= intval($days) ?> days</h3>
-            <div class="card-tools">
-                <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-            </div>
         </div>
         <div class="card-body">
 
             <form class="mb-3">
                 <div class="input-group" style="max-width:220px">
                     <span class="input-group-text">Days</span>
-                    <input type="number" min="1" class="form-control auto-submit-select" name="days" value="<?= intval($days) ?>">
+                    <input type="number" min="1" class="form-control auto-submit-select" name="days" aria-label="Days since last change" value="<?= intval($days) ?>">
                 </div>
             </form>
 
@@ -42,16 +53,16 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
                     <thead>
                     <tr>
                         <th>Department</th>
-                        <th class="text-end">Credential Name</th>
-                        <th class="text-end">Credential Description</th>
-                        <th class="text-end">Credential Password Last Changed</th>
+                        <th>Credential Name</th>
+                        <th>Description</th>
+                        <th class="text-end">Password last changed</th>
                     </tr>
                     </thead>
                     <tbody>
 
                     <?php
 
-                    while ($row = mysqli_fetch_assoc($passwords_not_rotated_sql)) {
+                    foreach ($cr_rows as $row) {
 
                         $credential_id = intval($row['credential_id']);
                         $credential_name = nullable_htmlentities($row['credential_name']);
@@ -64,13 +75,14 @@ $passwords_not_rotated_sql = mysqli_query($mysqli,
 
                         <tr>
                             <td><?php echo $client_name; ?></td>
-                            <td class="text-end"><?php echo $credential_name; ?></td>
-                            <td class="text-end"><?php echo $credential_description; ?></td>
+                            <td><?php echo $credential_name; ?></td>
+                            <td><?php echo $credential_description; ?></td>
                             <td class="text-end"><?php echo timeAgo($credential_password_changed) . " (" . $credential_password_changed . ")" ?></td>
                         </tr>
 
                     <?php } ?>
 
+                    <?php if (!$cr_rows) { ?><tr><td colspan="4" class="text-center text-secondary py-4">Nothing overdue. Every active credential changed within <?= intval($days) ?> days.</td></tr><?php } ?>
                     </tbody>
                 </table>
             </div>

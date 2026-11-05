@@ -22,7 +22,8 @@ $sql = mysqli_query($mysqli, "SELECT ot.*, t.ticket_prefix, t.ticket_number, t.t
     WHERE ot.outtake_id = $outtake_id LIMIT 1");
 
 if (mysqli_num_rows($sql) == 0) {
-    echo "<div class='alert alert-danger m-3'>Outtake form not found.</div>";
+    $back = $ticket_id ? "ticket.php?ticket_id=$ticket_id" : 'tickets.php';
+    echo "<div class='text-center py-5'><i class='fas fa-file-circle-question fa-2x text-secondary mb-3 d-block' aria-hidden='true'></i><h4 class='text-secondary'>That outtake form does not exist</h4><p class='text-secondary'>It may have been removed, or the link is out of date.</p><a class='btn btn-secondary' href='" . htmlspecialchars($back, ENT_QUOTES) . "'><i class='fa fa-fw fa-arrow-left me-1'></i>" . ($ticket_id ? 'Back to the ticket' : 'Back to tickets') . "</a></div>";
     require_once "../includes/footer.php";
     exit;
 }

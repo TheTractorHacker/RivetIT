@@ -32,7 +32,7 @@ ob_start();
         <i class="fas fa-fw fa-building fa-2x me-3"></i>
         <div>
             <h5 class="modal-title mb-0"><?php echo $name; ?></h5>
-            <div class="text-muted"><?php echo getFallback($description); ?></div>
+            <div class="text-white-50"><?php echo getFallback($description); ?></div>
         </div>
     </div>
     <button type="button" class="close text-white" data-bs-dismiss="modal">

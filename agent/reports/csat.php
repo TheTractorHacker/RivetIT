@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_support');
 
@@ -97,13 +98,21 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
   .info-box.bg-teal .info-box-icon      { color: var(--color-accent, #0d9488); }
 </style>
 
+<?php
+$cs = $report['summary'];
+$cs_low = 0; foreach ($report['feedback'] as $f) { if (intval($f['rating']) <= 2) { $cs_low++; } }
+if (!empty($cs['avg_rating'])) {
+    reportHeadline('fa-star', "Customers rate us {$cs['avg_rating']} out of 5" . (isset($cs['satisfied_pct']) ? ", {$cs['satisfied_pct']}% satisfied" : ''),
+        $cs_low . ' unhappy rating' . ($cs_low === 1 ? '' : 's') . ' in this range' . (intval($cs['needs_followup_count']) ? ', ' . intval($cs['needs_followup_count']) . ' still need follow-up' : '') . '. The feedback list below starts with those.',
+        ($cs['avg_rating'] < 4 || $cs_low > 5) ? 'warning' : 'success', ['Unhappy' => $cs_low, 'Need follow-up' => intval($cs['needs_followup_count'])]);
+} else {
+    reportHeadline('fa-info-circle', 'No customer ratings in this range', 'Ratings appear once customers answer the survey on closed tickets.', 'secondary');
+}
+?>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-star me-2"></i>Customer Satisfaction (CSAT)</h3>
-        <div class="card-tools">
-            <a href="?<?php echo nullable_htmlentities(http_build_query(array_merge($_GET, ['export' => 'csv']))); ?>" class="btn btn-success d-print-none me-1"><i class="fas fa-fw fa-file-csv me-2"></i>Export CSV</a>
-            <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-        </div>
+    </div>
     </div>
     <div class="card-body p-0">
 
@@ -243,6 +252,11 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
         <!-- Raw feedback feed -->
         <div class="px-3 pb-3">
             <h6 class="mt-2"><i class="fas fa-comment-dots me-2"></i>Feedback <small class="text-muted">(most recent first, capped at 1000 rows — full range via CSV)</small></h6>
+            <div class="btn-group btn-group-sm mb-2 d-print-none" id="fbFilter" role="group" aria-label="Filter feedback">
+                <button type="button" class="btn btn-outline-secondary active" data-fb="low">Needs attention (<?= $cs_low ?>)</button>
+                <button type="button" class="btn btn-outline-secondary" data-fb="comment">With comments</button>
+                <button type="button" class="btn btn-outline-secondary" data-fb="all">All (<?= count($report['feedback']) ?>)</button>
+            </div>
             <div class="table-responsive-sm">
                 <table class="table table-striped table-sm">
                     <thead>
@@ -259,7 +273,7 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
                         <?php if (empty($report['feedback'])) { ?>
                             <tr><td colspan="6" class="text-center text-muted">No ratings in range.</td></tr>
                         <?php } else { foreach ($report['feedback'] as $f) { ?>
-                            <tr>
+                            <tr data-rating="<?= intval($f['rating']) ?>" data-comment="<?= trim((string) $f['comment']) !== '' ? 1 : 0 ?>">
                                 <td><a href="../ticket.php?ticket_id=<?php echo intval($f['ticket_id']); ?>"><?php echo nullable_htmlentities($config_ticket_prefix . $f['ticket_number']); ?></a></td>
                                 <td><?php echo nullable_htmlentities($f['client_name']); ?></td>
                                 <td><?php echo nullable_htmlentities($f['tech_name']); ?></td>
@@ -282,6 +296,21 @@ $trend_avg    = array_map(function ($t) { return $t['avg_rating']; }, $report['t
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+        var btns = document.querySelectorAll('#fbFilter [data-fb]');
+        function apply(mode) {
+            var shown = 0;
+            document.querySelectorAll('tr[data-rating]').forEach(function (r) {
+                var ok = mode === 'all' || (mode === 'low' && +r.dataset.rating <= 2) || (mode === 'comment' && r.dataset.comment === '1');
+                if (ok && shown >= 100) { ok = false; }
+                if (ok) { shown++; }
+                r.style.display = ok ? '' : 'none';
+            });
+            btns.forEach(function (b) { b.classList.toggle('active', b.dataset.fb === mode); });
+        }
+        btns.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.fb); }); });
+        if (btns.length) { apply('low'); }
+    })();
 
     // RATING DISTRIBUTION (bar - ordinal 1-5 reads better than a donut)
     (function () {

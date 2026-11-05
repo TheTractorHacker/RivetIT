@@ -301,7 +301,8 @@ if (isset($_GET['project_id'])) {
                     </a>
                 <?php } ?>
                 <?php if ($t_due) { ?>
-                    <span class="badge text-bg-light border ms-1"><i class="far fa-calendar me-1"></i><?= $t_due ?></span>
+                    <?php $t_late = !$t_completed && strtotime($t_due . ' 23:59:59') < time(); ?>
+                    <span class="badge <?= $t_late ? 'text-bg-light border border-danger text-danger' : 'text-bg-light border' ?> ms-1" <?= $t_late ? 'title="Overdue"' : '' ?>><i class="far fa-calendar me-1"></i><?= $t_due ?></span>
                 <?php } ?>
                 <?php if (!$t_completed && $t_progress > 0) { ?>
                     <span class="badge text-bg-info ms-1"><?= $t_progress ?>%</span>
@@ -354,6 +355,7 @@ if (isset($_GET['project_id'])) {
         <h5 class="card-title">
             <i class="fas fa-project-diagram text-secondary me-2"></i>
             <span class="h4"><?= "$project_prefix$project_number$project_status_display" ?></span>
+            <?php require_once __DIR__ . '/includes/project_health.php'; echo ' ' . projectHealthBadge($project_due, $completed_task_count, $task_count, $project_completed_at); ?>
         </h5>
         <div class="card-tools d-print-none">
             <?php /* Not a real .btn-group: these are separate, unrelated actions
@@ -440,7 +442,7 @@ if (isset($_GET['project_id'])) {
     <div class="card card-body">
         <div><?php echo $client_name_display; ?></div>
         <div><?php echo $project_manager_display; ?></div>
-        <div class='text-secondary'><i class='fa fa-fw fa-clock me-2'></i><?php echo $project_due; ?></div>
+        <div class='text-secondary'><i class='fa fa-fw fa-calendar-check me-2'></i>Due <?php echo $project_due ?: 'not set'; ?></div>
         <div><?php echo $project_completed_date_display; ?></div>
         <!-- Time tracking -->
         <?php if ($ticket_total_reply_time) { ?>
@@ -612,7 +614,8 @@ if (isset($_GET['project_id'])) {
                                     <?php } ?>
                                     <strong><?php echo $ms_name; ?></strong>
                                     <?php if ($ms_due) { ?>
-                                        <span class="badge text-bg-light border ms-1"><i class="far fa-calendar me-1"></i><?php echo $ms_due; ?></span>
+                                        <?php $ms_late = !$ms_is_complete && strtotime($ms_due . ' 23:59:59') < time(); ?>
+                                        <span class="badge <?= $ms_late ? 'text-bg-light border border-danger text-danger' : 'text-bg-light border' ?> ms-1"><i class="far fa-calendar me-1"></i><?php echo $ms_due; ?></span>
                                     <?php } ?>
                                     <?php if ($ms_description) { ?>
                                         <div><small class="text-secondary"><?php echo $ms_description; ?></small></div>
@@ -845,9 +848,9 @@ if (isset($_GET['project_id'])) {
                                         </td>
                                         <!-- Ticket Number / Subject -->
                                         <td>
-                                            <a href="ticket.php?ticket_id=<?php echo $ticket_id; ?>">
-                                                <span class="badge rounded-pill text-bg-secondary p-3 me-2"><?php echo "$ticket_prefix$ticket_number"; ?></span>
-                                                <?php echo $ticket_subject; ?>
+                                            <a href="ticket.php?ticket_id=<?php echo $ticket_id; ?>" class="d-flex align-items-center">
+                                                <span class="badge rounded-pill text-bg-secondary p-3 me-2 flex-shrink-0"><?php echo "$ticket_prefix$ticket_number"; ?></span>
+                                                <span><?php echo $ticket_subject; ?></span>
                                             </a>
                                         </td>
                                         <!-- Ticket Priority -->

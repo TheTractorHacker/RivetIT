@@ -5,6 +5,7 @@ require_once "includes/inc_all_admin.php";
     <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>Send mail (SMTP)</h3>
+            <?php if (!empty($config_smtp_provider)): ?><span class="badge text-bg-success ms-2"><i class="fas fa-check-circle me-1"></i>Configured</span><?php else: ?><span class="badge text-bg-secondary ms-2">Disabled</span><?php endif; ?>
         </div>
         <div class="card-body">
             <form action="post.php" method="post" autocomplete="off">
@@ -107,6 +108,7 @@ require_once "includes/inc_all_admin.php";
     <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-envelope me-2"></i>Receive ticket mail (IMAP)</h3>
+            <?php if (!empty($config_imap_provider)): ?><span class="badge text-bg-success ms-2"><i class="fas fa-check-circle me-1"></i>Configured</span><?php else: ?><span class="badge text-bg-secondary ms-2">Disabled</span><?php endif; ?>
         </div>
         <div class="card-body">
             <div class="alert alert-info alert-dismissible fade show" role="alert">
@@ -289,6 +291,7 @@ require_once "includes/inc_all_admin.php";
     <div class="card">
         <div class="card-header py-3">
             <h3 class="card-title"><i class="fas fa-fw fa-paper-plane me-2"></i>Sender details</h3>
+            <?php if (!empty($config_mail_from_email)): ?><span class="badge text-bg-success ms-2"><i class="fas fa-check-circle me-1"></i>From address set</span><?php else: ?><span class="badge text-bg-secondary ms-2">Not set</span><?php endif; ?>
         </div>
         <div class="card-body">
             <form action="post.php" method="post" autocomplete="off">
@@ -919,4 +922,5 @@ document.addEventListener('click', function (e) {
 })();
 </script>
 
+<?php require __DIR__ . '/includes/section_index.php'; ?>
 <?php require_once "../includes/footer.php";

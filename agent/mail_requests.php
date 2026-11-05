@@ -29,7 +29,6 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
 
     <div class="card-body">
         <p class="text-muted">Emails from senders that don't match a known contact or domain land here for review. Convert a request into a ticket (picking the department it belongs to), or dismiss it.</p>
-        <hr>
         <div class="table-responsive">
             <table class="table table-striped table-borderless table-hover">
                 <thead class="text-dark">
@@ -54,11 +53,20 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                 ?>
                 <tr>
                     <td>
-                        <?= $mr_from_name ? "$mr_from_name " : '' ?><span class="text-muted">&lt;<?= $mr_from_email ?>&gt;</span>
+                        <?php if ($mr_from_name) { ?><div class="fw-semibold"><?= $mr_from_name ?></div><?php } ?>
+                        <div class="text-muted small text-nowrap" style="overflow-wrap:normal;"><?= $mr_from_email ?></div>
                     </td>
-                    <td><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?></td>
-                    <td><?= $mr_mailbox_name ?: '<span class="text-muted">Unknown</span>' ?></td>
-                    <td><?= $mr_received_at ?></td>
+                    <td style="min-width:16rem;">
+                        <div><?= $mr_subject !== '' ? $mr_subject : '<span class="text-muted">No Subject</span>' ?></div>
+                        <?php
+                        // Body preview: enough to decide convert vs dismiss without opening the request.
+                        $mr_preview = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) ($row['mail_request_body'] ?? '')), ENT_QUOTES | ENT_HTML5)));
+                        if ($mr_preview !== '') { ?>
+                        <div class="text-muted small mt-1"><?= nullable_htmlentities(mb_strlen($mr_preview) > 110 ? mb_substr($mr_preview, 0, 110) . '...' : $mr_preview) ?></div>
+                        <?php } ?>
+                    </td>
+                    <td class="text-nowrap"><?= $mr_mailbox_name ?: '<span class="text-muted">Unknown</span>' ?></td>
+                    <td class="text-nowrap" title="<?= $mr_received_at ?>"><?= timeAgo($row['mail_request_received_at']) ?><div class="text-muted small"><?= $mr_received_at ?></div></td>
                     <td>
                         <?php if ($mr_attachments > 0) { ?>
                             <span class="badge text-bg-secondary"><i class="fas fa-paperclip me-1"></i><?= $mr_attachments ?></span>
@@ -68,15 +76,15 @@ $sql = mysqli_query($mysqli, "SELECT mr.*, m.mailbox_name, m.mailbox_email,
                     </td>
                     <td class="text-center" style="white-space:nowrap;">
                         <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mail_request/mail_request_view.php?id=<?= $mr_id ?>">
-                            <i class="fas fa-eye"></i> View
+                            <i class="fas fa-eye me-1"></i>View
                         </a>
                         <?php if (lookupUserPermission('module_support') >= 2) { ?>
                         <a href="#" class="btn btn-xs btn-primary ajax-modal" data-modal-url="modals/mail_request/mail_request_convert.php?id=<?= $mr_id ?>">
-                            <i class="fas fa-check"></i> Convert to Ticket
+                            <i class="fas fa-check me-1"></i>Convert to Ticket
                         </a>
                         <a href="post.php?dismiss_mail_request=<?= $mr_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
                            class="btn btn-xs btn-danger confirm-link ms-1">
-                            <i class="fas fa-trash"></i> Dismiss
+                            <i class="fas fa-trash me-1"></i>Dismiss
                         </a>
                         <?php } ?>
                     </td>

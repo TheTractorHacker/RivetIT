@@ -43,13 +43,16 @@ if ($eh_show('catalog')) {
     $eh_popular = $eh_catalog->trending(5, 30);
     $eh_recent = $eh_catalog->recentForContact($eh_cid, $eh_client, 5);
     ?>
-<div class="card portal-card mb-4">
+<div class="card portal-card portal-help mb-4">
     <div class="card-body">
-        <h2 class="h5 mb-3"><span class="portal-card-chip"><i class="fas fa-concierge-bell" aria-hidden="true"></i></span>What do you need?</h2>
-        <form action="service_catalog.php" method="get" class="portal-filterbar mb-2">
-            <div class="portal-search">
+        <h3 class="h5 mb-1"><span class="portal-card-chip"><i class="fas fa-life-ring" aria-hidden="true"></i></span>How can we help?</h3>
+        <p class="text-secondary small mb-3">Describe it in a few words. We will show you quick answers first, and turn it into a ticket if you still need us.</p>
+        <form action="service_catalog.php" method="get" id="portalHelpForm" class="portal-help-form mb-2" role="search">
+            <div class="portal-help-box">
                 <i class="fas fa-search" aria-hidden="true"></i>
-                <input type="search" class="form-control form-control-lg" name="q" maxlength="100" placeholder="Request something: new laptop, software, access..." aria-label="Search the service catalog" autocomplete="off">
+                <input type="search" class="form-control form-control-lg" name="q" maxlength="100" placeholder="e.g. my laptop won't connect to Wi-Fi, new starter, reset my password" aria-label="Describe what you need help with" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="portalHelpResults">
+                <a href="ticket_add.php" id="portalHelpRaise" class="btn btn-primary portal-help-raise"><i class="fas fa-ticket-alt me-2" aria-hidden="true"></i>Raise a ticket</a>
+                <div class="portal-help-results" id="portalHelpResults" role="listbox" aria-label="Suggestions" hidden></div>
             </div>
         </form>
         <?php foreach ([['Popular', 'fa-fire', $eh_popular], ['Recent', 'fa-history', $eh_recent]] as [$eh_shelf_title, $eh_shelf_icon, $eh_shelf_rows]) {
@@ -71,6 +74,44 @@ $eh_approvals = $eh_show('approvals') ? $eh->waitingOnMe($eh_cid, $eh_client) : 
 $eh_requests = $eh_show('requests') ? $eh->myOpenRequests($eh_cid, $eh_client, 5) : [];
 $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : [];
 ?>
+
+    <?php
+    ob_start();
+    $eh_training_html = '';
+    if ($eh_show('training') && intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) {
+        $eh_due = [];
+        try {
+            require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
+            require_once __DIR__ . '/training_common.php'; // same compliance engine as training.php, own rows only ($tp_mine)
+            foreach ($tp_mine as $p) {
+                if ($tp_needs_attention($p)) { $eh_due[] = $p; }
+            }
+            usort($eh_due, static fn($a, $b) => [$tp_urgency[$a['status']] ?? 9, $a['course']['name']] <=> [$tp_urgency[$b['status']] ?? 9, $b['course']['name']]);
+        } catch (\Throwable $e) {
+            $eh_due = [];
+        }
+        ?>
+        <div class="card portal-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h3 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h3>
+                <a href="training.php" class="btn btn-sm btn-outline-primary">Open</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <?php if (!$eh_due) { ?>
+                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Your training is up to date.</div></li>
+                    <?php }
+                    foreach (array_slice($eh_due, 0, 5) as $p) { [$eh_cls, $eh_txt] = $tp_badge($p); ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><?= nullable_htmlentities($p['course']['name']) ?></span>
+                            <span><?php if ($tp_when($p) !== '') { ?><span class="small text-secondary me-2"><?= nullable_htmlentities($tp_when($p)) ?></span><?php } ?><span class="badge text-bg-<?= nullable_htmlentities($eh_cls) ?>"><?= nullable_htmlentities($eh_txt) ?></span></span>
+                        </li>
+                    <?php } ?>
+                </ul>
+            </div>
+        </div>
+    <?php }
+    $eh_training_html = ob_get_clean(); ?>
 
 <div class="row g-3 mb-4">
 
@@ -106,8 +147,8 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     <?php } ?>
 
     <?php if ($eh_show('devices')) { ?>
-    <div class="col-lg-5 col-md-12">
-        <div class="card portal-card h-100">
+    <div class="col-lg-5 col-md-12"><div class="portal-stack">
+        <div class="card portal-card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-laptop" aria-hidden="true"></i></span>My devices</h2>
                 <a href="assets.php" class="btn btn-sm btn-outline-primary">Details</a>
@@ -130,7 +171,10 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
                 </ul>
             </div>
         </div>
-    </div>
+        <?= $eh_training_html ?>
+    </div></div>
+    <?php } elseif ($eh_training_html !== '') { ?>
+    <div class="col-lg-5 col-md-12"><div class="portal-stack"><?= $eh_training_html ?></div></div>
     <?php } ?>
 
     <?php if ($eh_show('kb') && intval($config_module_enable_kb ?? 0) === 1) {
@@ -216,41 +260,5 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
     </div>
     <?php } } ?>
 
-    <?php
-    if ($eh_show('training') && intval($config_module_enable_training ?? 0) === 1 && !empty($config_training_schema_ready)) {
-        $eh_due = [];
-        try {
-            require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
-            require_once __DIR__ . '/training_common.php'; // same compliance engine as training.php, own rows only ($tp_mine)
-            foreach ($tp_mine as $p) {
-                if ($tp_needs_attention($p)) { $eh_due[] = $p; }
-            }
-            usort($eh_due, static fn($a, $b) => [$tp_urgency[$a['status']] ?? 9, $a['course']['name']] <=> [$tp_urgency[$b['status']] ?? 9, $b['course']['name']]);
-        } catch (\Throwable $e) {
-            $eh_due = [];
-        }
-        ?>
-    <div class="col-lg-6 col-md-12">
-        <div class="card portal-card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-graduation-cap" aria-hidden="true"></i></span>My training due</h2>
-                <a href="training.php" class="btn btn-sm btn-outline-primary">Open</a>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    <?php if (!$eh_due) { ?>
-                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Your training is up to date.</div></li>
-                    <?php }
-                    foreach (array_slice($eh_due, 0, 5) as $p) { [$eh_cls, $eh_txt] = $tp_badge($p); ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><?= nullable_htmlentities($p['course']['name']) ?></span>
-                            <span><?php if ($tp_when($p) !== '') { ?><span class="small text-secondary me-2"><?= nullable_htmlentities($tp_when($p)) ?></span><?php } ?><span class="badge text-bg-<?= nullable_htmlentities($eh_cls) ?>"><?= nullable_htmlentities($eh_txt) ?></span></span>
-                        </li>
-                    <?php } ?>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <?php } ?>
 
 </div>

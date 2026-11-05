@@ -1,6 +1,7 @@
 <?php
 
 require_once "includes/inc_all_reports.php";
+require_once __DIR__ . "/includes/report_headline.php";
 
 enforceUserPermission('module_credential');
 
@@ -20,21 +21,27 @@ $rotation_due_sql = mysqli_query($mysqli,
         ORDER BY credential_rotation_due_at ASC"
 );
 
+$rv_rows = [];
+while ($r = mysqli_fetch_assoc($rotation_due_sql)) { $rv_rows[] = $r; }
+$rv_over = count(array_filter($rv_rows, fn($r) => strtotime($r['credential_rotation_due_at']) < strtotime(date('Y-m-d'))));
+if (!$rv_rows) {
+    reportHeadline('fa-check-circle', "No credentials are due for rotation in the next $days days", 'Rotation dates are set on each credential.', 'success');
+} else {
+    reportHeadline('fa-history', ($rv_over ? "$rv_over credential" . ($rv_over === 1 ? ' is' : 's are') . ' overdue for rotation' : count($rv_rows) . ' credentials are due soon'),
+        count($rv_rows) . " due or overdue within $days days; " . (count($rv_rows) - $rv_over) . ' still upcoming.', $rv_over ? 'danger' : 'warning', ['Overdue' => $rv_over, 'Upcoming' => count($rv_rows) - $rv_over]);
+}
 ?>
 
     <div class="card card-dark">
         <div class="card-header py-2">
             <h3 class="card-title mt-2"><i class="fas fa-fw fa-history me-2"></i>Credentials due for rotation (overdue or within <?= intval($days) ?> days)</h3>
-            <div class="card-tools">
-                <button type="button" class="btn btn-primary d-print-none js-print-page"><i class="fas fa-fw fa-print me-2"></i>Print</button>
-            </div>
         </div>
         <div class="card-body">
 
             <form class="mb-3">
                 <div class="input-group" style="max-width:220px">
                     <span class="input-group-text">Days ahead</span>
-                    <input type="number" min="0" class="form-control auto-submit-select" name="days" value="<?= intval($days) ?>">
+                    <input type="number" min="0" class="form-control auto-submit-select" name="days" aria-label="Days ahead" value="<?= intval($days) ?>">
                 </div>
             </form>
 
@@ -53,13 +60,13 @@ $rotation_due_sql = mysqli_query($mysqli,
 
                     <?php
 
-                    if (mysqli_num_rows($rotation_due_sql) == 0) { ?>
+                    if (!$rv_rows) { ?>
                         <tr>
                             <td colspan="5" class="text-center text-muted">No credentials due for rotation in this window.</td>
                         </tr>
                     <?php }
 
-                    while ($row = mysqli_fetch_assoc($rotation_due_sql)) {
+                    foreach ($rv_rows as $row) {
 
                         $credential_id = intval($row['credential_id']);
                         $credential_name = nullable_htmlentities($row['credential_name']);

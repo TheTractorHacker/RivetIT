@@ -200,5 +200,7 @@ ob_start();
 
 <script src="/agent/js/certificate_fetch_ssl.js"></script>
 
+<script src="/agent/js/modal_form_ux.js"></script>
+
 <?php
 require_once '../../../includes/modal_footer.php';

@@ -73,6 +73,11 @@ $page_title = $row['project_name'];
     </li>
 </ul>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    #project-gantt .gantt .bar-wrapper.bar-overdue .bar { fill: #dc3545; }
+    #project-gantt .gantt .bar-wrapper.bar-overdue .bar-progress { fill: #a71d2a; }
+    .gantt-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:6px; }
+</style>
 <div class="card">
     <div class="card-header py-2">
         <h5 class="card-title mt-2 mb-2"><i class="fas fa-fw fa-stream me-2"></i><?= $project_name ?> &mdash; Timeline</h5>
@@ -85,6 +90,7 @@ $page_title = $row['project_name'];
         </div>
     </div>
     <div class="card-body">
+        <div id="gantt-summary" class="d-flex flex-wrap align-items-center gap-3 mb-3 small text-secondary" style="display:none;"></div>
         <div id="project-gantt"></div>
         <div id="gantt-empty" class="text-center text-secondary py-5" style="display:none;">
             <i class="fas fa-fw fa-stream fa-2x mb-3 d-block"></i>
@@ -130,6 +136,34 @@ $page_title = $row['project_name'];
                 empty.style.display = '';
                 return;
             }
+            // Flag bars that are past their end date and not finished, and summarise the schedule up top.
+            var today = new Date(); today.setHours(0, 0, 0, 0);
+            var late = 0, open = 0, last = null;
+            tasks.forEach(function (t) {
+                var end = new Date(t.end);
+                if (!last || end > last) { last = end; }
+                if (+t.progress < 100) {
+                    open++;
+                    if (end < today && String(t.custom_class || '').indexOf('milestone') === -1) {
+                        late++; t.custom_class = ((t.custom_class || '') + ' bar-overdue').trim();
+                    }
+                }
+            });
+            var sum = document.getElementById('gantt-summary');
+            function chip(cls, label) {
+                var sp = document.createElement('span'); sp.className = 'gantt-legend';
+                var i = document.createElement('i'); i.style.background = cls; sp.appendChild(i);
+                sp.appendChild(document.createTextNode(label)); sum.appendChild(sp);
+            }
+            var lead = document.createElement('strong');
+            lead.className = late ? 'text-danger' : 'text-success';
+            lead.textContent = late ? late + ' overdue of ' + open + ' unfinished' : 'Nothing overdue';
+            sum.appendChild(lead);
+            chip('#2563eb', 'Progress'); chip('#b0b8c4', 'Remaining'); chip('#dc3545', 'Overdue');
+            var tl = document.createElement('span');
+            tl.textContent = 'Today ' + today.toISOString().slice(0, 10) + (last ? ' | schedule ends ' + last.toISOString().slice(0, 10) : '');
+            sum.appendChild(tl);
+            sum.style.display = '';
             gantt = new Gantt(target, tasks, {
                 view_mode: currentView,
                 on_date_change: function (task) { persistSchedule(task); },
