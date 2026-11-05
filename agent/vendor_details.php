@@ -31,7 +31,7 @@ if (isset($_GET['vendor_id'])) {
     } else {
         $vendor_contact_name_display = $vendor_contact_name;
     }
-    $vendor_phone = formatPhoneNumber($row['vendor_phone']);
+    $vendor_phone = nullable_htmlentities(formatPhoneNumber($row['vendor_phone'], $row['vendor_phone_country_code'] ?: '1'));
     $vendor_extension = nullable_htmlentities($row['vendor_extension']);
     $vendor_email = nullable_htmlentities($row['vendor_email']);
     $vendor_website = nullable_htmlentities($row['vendor_website']);
@@ -83,7 +83,7 @@ if (isset($_GET['vendor_id'])) {
                     if ($vendor_extension) { ?>
                         <div class="ms-4">x<?php echo $vendor_extension; ?></div>
                     <?php } ?>
-                    <div class="mt-2"><i class="fa fa-fw fa-clock text-secondary me-2"></i><?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
+                    <div class="mt-2 text-secondary" title="Date this vendor was added"><i class="fa fa-fw fa-clock me-2"></i>Added <?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
 
                     <?php // The edit form is the on-demand modal modals/vendor/vendor_edit.php (button above); the old include vendor_edit_modal.php no longer exists. ?>
 
@@ -167,7 +167,7 @@ if (isset($_GET['vendor_id'])) {
             <?php if ($vendor_contact_count == 0) { ?>
             <div class="card card-dark">
                 <div class="card-body text-center text-muted py-5">
-                    <i class="fa fa-fw fa-users fa-2x mb-2 d-block"></i>
+                    <div class="mb-2"><i class="fa fa-users fa-2x" aria-hidden="true"></i></div>
                     <p class="mb-1">No contacts for this vendor yet.</p>
                     <small>Use <strong>New</strong> above to add a vendor contact or a note.</small>
                 </div>
