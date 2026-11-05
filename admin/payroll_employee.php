@@ -54,7 +54,7 @@ $deductions_sql = mysqli_query(
                 <div class="input-group">
                     <div class="input-group-prepend"><span class="input-group-text">$</span></div>
                     <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}"
-                        name="pay_amount" value="<?= number_format($pay_amount, 2, '.', '') ?>" placeholder="0.00" required>
+                        title="Enter an amount like 25.00 (numbers only, up to 2 decimals)" name="pay_amount" inputmode="decimal" maxlength="12" value="<?= number_format($pay_amount, 2, '.', '') ?>" placeholder="0.00" required>
                 </div>
             </div>
 

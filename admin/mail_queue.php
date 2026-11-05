@@ -20,7 +20,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-mail-bulk me-2"></i>Email Queue</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-mail-bulk me-2"></i>Mail Queue</h3>
         </div>
         <div class="card-body">
             <form class="mb-4" autocomplete="off">
@@ -107,7 +107,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     Attempts <?php if ($sort == 'email_attempts') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th class="text-center">Action</th>
+                            <th class="text-start">Action</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -151,7 +151,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td><?php echo $email_subject; ?></td>
                                 <td><?php echo $email_status_display; ?></td>
                                 <td><?php echo $email_attempts; ?></td>
-                                <td class="text-center text-nowrap">
+                                <td class="text-start text-nowrap" style="min-width:9rem">
                                     <a class="btn btn-sm btn-secondary ajax-modal" href="#" title="View message" aria-label="View message"
                                         data-modal-size="lg"
                                         data-modal-url="modals/mail_queue/mail_queue_message_view.php?id=<?= $email_id ?>">

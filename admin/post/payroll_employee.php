@@ -8,7 +8,13 @@ if (isset($_POST['save_payroll_pay_rate'])) {
 
     $user_id = intval($_POST['user_id']);
     $pay_type = sanitizeInput($_POST['pay_type'] ?? 'hourly');
-    $pay_amount = round(floatval($_POST['pay_amount'] ?? 0), 2);
+    $pay_amount_raw = trim((string) ($_POST['pay_amount'] ?? ''));
+    $pay_amount = round(floatval($pay_amount_raw), 2);
+    $pay_user_back = intval($_POST['user_id'] ?? 0);
+    if ($pay_amount_raw === '' || !is_numeric($pay_amount_raw) || $pay_amount < 0 || $pay_amount > 1000000) {
+        flash_alert("Enter a pay rate between 0.00 and 1,000,000.00.", 'error');
+        redirect("/admin/payroll_employee.php?id=$pay_user_back");
+    }
 
     if (!in_array($pay_type, ['hourly', 'salary'], true)) {
         $pay_type = 'hourly';
@@ -61,6 +67,11 @@ if (isset($_POST['add_payroll_employee_deduction'])) {
     $category_name = sanitizeInput(getFieldById('payroll_deduction_categories', $category_id, 'payroll_deduction_category_name'));
     if ($user_id <= 0 || $category_id <= 0 || $category_name === '') {
         flash_alert("Invalid employee or deduction category.", 'error');
+        redirect("/admin/payroll_employee.php?id=$user_id");
+    }
+
+    if (!is_numeric($_POST['amount'] ?? '') || $amount < 0 || $amount > 1000000) {
+        flash_alert("Enter a deduction amount between 0.00 and 1,000,000.00.", 'error');
         redirect("/admin/payroll_employee.php?id=$user_id");
     }
 
