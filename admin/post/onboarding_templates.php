@@ -2,6 +2,12 @@
 
 defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
+// The Edit modal on the list page posts here (the handler is chosen from the Referer), but the edit
+// logic lives with the details page handler: hand over to it.
+if (isset($_POST['edit_onboarding_template'])) {
+    require_once __DIR__ . '/onboarding_template.php';
+}
+
 if (isset($_POST['add_onboarding_template'])) {
 
     validateCSRFToken($_POST['csrf_token']);
