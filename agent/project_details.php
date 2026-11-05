@@ -337,6 +337,7 @@ if (isset($_GET['project_id'])) {
 </ol>
 
 <!-- Project view tabs -->
+<link rel="stylesheet" href="css/area_projects.css">
 <ul class="nav nav-pills mb-3 d-print-none">
     <li class="nav-item">
         <a class="nav-link active" href="project_details.php?<?= $client_url ?>project_id=<?= $project_id ?>"><i class="fas fa-fw fa-info-circle me-2"></i>Details</a>

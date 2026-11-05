@@ -206,7 +206,8 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
 
 <!-- Project view tabs -->
 <div class="d-flex justify-content-between align-items-center flex-wrap mb-3 d-print-none">
-    <ul class="nav nav-pills mb-0">
+    <link rel="stylesheet" href="css/area_projects.css">
+<ul class="nav nav-pills mb-0">
         <li class="nav-item">
             <a class="nav-link" href="project_details.php?<?= $client_url ?>project_id=<?= $project_id ?>"><i class="fas fa-fw fa-info-circle me-2"></i>Details</a>
         </li>

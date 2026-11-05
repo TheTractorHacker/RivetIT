@@ -60,6 +60,7 @@ $page_title = $row['project_name'];
     <li class="breadcrumb-item active">Gantt</li>
 </ol>
 
+<link rel="stylesheet" href="css/area_projects.css">
 <!-- Project view tabs -->
 <ul class="nav nav-pills mb-3 d-print-none">
     <li class="nav-item">

@@ -1,0 +1,2 @@
+/* Project view tabs (Details / Gantt / Kanban): the active pill keeps readable text in the dark theme. */
+[data-bs-theme="dark"] .nav-pills .nav-link.active { color: #cfe2ff; }
