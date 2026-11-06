@@ -1,0 +1,118 @@
+PASS | wizard | step 1 no horizontal overflow @1280 light | sw=1270
+PASS | wizard | keyboard: every tab stop on step 1 shows a focus indicator | 30 stops; without indicator: []
+PASS | wizard | keyboard: every tab stop has an accessible name | unnamed stops=0
+  tab order: ['All', 'Automation platfor', 'Team chat', 'Push and notificat', 'Home automation', 'Generic', 'Workflow automatio', 'Slack incoming web', 'Post to a channel ', 'Teams channel thro', 'Open-source (Apach', 'Open-source home a']
+FAIL | wizard | axe AA on step 1 @1280 light | [{"id": "color-contrast", "n": 38, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+PASS | wizard | Enter on a platform card moves to step 2 @1280 light | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+FAIL | wizard | axe AA on step 2 @1280 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz4c8f1a-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @1280 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 109, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL | event-rules | axe AA list @1280 light | [{"id": "color-contrast", "n": 31, "html": "<p class=\"er-sub\">"}]
+FAIL | event-rules | axe AA builder @1280 light | [{"id": "color-contrast", "n": 57, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL | event-rules | keyboard: builder tab stops show a focus indicator | 40 stops; none: ['input:Search everywhere']
+FAIL | date-range | axe AA with the picker open @1280 light | [{"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"presentation\">Upcoming</div>"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"}]
+FAIL | date-range | Esc closes the picker @1280 light | panel still open=True
+FAIL | icon-picker | axe AA with the picker open @1280 light | [{"id": "color-contrast", "n": 2, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+PASS | icon-picker | keyboard: tab stops show a focus indicator | 15 stops; none: []
+PASS | icon-picker | Esc closes the picker panel (not the whole modal) | panel open after Esc=False
+PASS | wizard | step 1 no horizontal overflow @768 light | sw=758
+FAIL | wizard | axe AA on step 1 @768 light | [{"id": "color-contrast", "n": 38, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+PASS | wizard | Enter on a platform card moves to step 2 @768 light | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+FAIL | wizard | axe AA on step 2 @768 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz17c816-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @768 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 102, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL | event-rules | axe AA list @768 light | [{"id": "color-contrast", "n": 29, "html": "<p class=\"er-sub\">"}]
+FAIL | event-rules | axe AA builder @768 light | [{"id": "color-contrast", "n": 57, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL | date-range | axe AA with the picker open @768 light | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"
+FAIL | date-range | Esc closes the picker @768 light | panel still open=True
+FAIL | icon-picker | axe AA with the picker open @768 light | [{"id": "color-contrast", "n": 2, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+PASS | wizard | step 1 no horizontal overflow @360 light | sw=350
+FAIL | wizard | axe AA on step 1 @360 light | [{"id": "color-contrast", "n": 8, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+PASS | wizard | Enter on a platform card moves to step 2 @360 light | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+FAIL | wizard | axe AA on step 2 @360 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz1047fb-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @360 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 102, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL | event-rules | axe AA list @360 light | [{"id": "color-contrast", "n": 31, "html": "<p class=\"er-sub\">"}]
+FAIL | event-rules | axe AA builder @360 light | [{"id": "color-contrast", "n": 53, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL | date-range | axe AA with the picker open @360 light | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"
+FAIL | date-range | Esc closes the picker @360 light | panel still open=True
+FAIL | icon-picker | axe AA with the picker open @360 light | [{"id": "color-contrast", "n": 1, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+PASS | wizard | step 1 no horizontal overflow @1280 dark | sw=1270
+PASS | wizard | axe AA on step 1 @1280 dark | []
+PASS | wizard | Enter on a platform card moves to step 2 @1280 dark | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+PASS | wizard | axe AA on step 2 @1280 dark | []
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz626f1e-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @1280 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 25, "html": "<a href=\"#guides\" data-wg-link=\"guides\" class=\"is-current\" aria-cu
+PASS | event-rules | axe AA list @1280 dark | []
+FAIL | event-rules | axe AA builder @1280 dark | [{"id": "color-contrast", "n": 16, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL | date-range | axe AA with the picker open @1280 dark | [{"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"}]
+FAIL | date-range | Esc closes the picker @1280 dark | panel still open=True
+PASS | icon-picker | axe AA with the picker open @1280 dark | []
+PASS | wizard | step 1 no horizontal overflow @768 dark | sw=758
+PASS | wizard | axe AA on step 1 @768 dark | []
+PASS | wizard | Enter on a platform card moves to step 2 @768 dark | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+PASS | wizard | axe AA on step 2 @768 dark | []
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz83c55b-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @768 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 24, "html": "<span class=\"wg-chip wg-chip-cat\"><i class=\"fas fa-project-diagram\" 
+PASS | event-rules | axe AA list @768 dark | []
+FAIL | event-rules | axe AA builder @768 dark | [{"id": "color-contrast", "n": 15, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL | date-range | axe AA with the picker open @768 dark | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><st
+FAIL | date-range | Esc closes the picker @768 dark | panel still open=True
+PASS | icon-picker | axe AA with the picker open @768 dark | []
+PASS | wizard | step 1 no horizontal overflow @360 dark | sw=350
+PASS | wizard | axe AA on step 1 @360 dark | []
+PASS | wizard | Enter on a platform card moves to step 2 @360 dark | visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect
+PASS | wizard | axe AA on step 2 @360 dark | []
+FAIL | wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz171115-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL | guides | axe AA @360 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 24, "html": "<span class=\"wg-chip wg-chip-cat\"><i class=\"fas fa-project-diagram\" 
+PASS | event-rules | axe AA list @360 dark | []
+FAIL | event-rules | axe AA builder @360 dark | [{"id": "color-contrast", "n": 15, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL | date-range | axe AA with the picker open @360 dark | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><st
+FAIL | date-range | Esc closes the picker @360 dark | panel still open=True
+PASS | icon-picker | axe AA with the picker open @360 dark | []
+
+71 checks, 43 FAIL
+FAIL: wizard | axe AA on step 1 @1280 light | [{"id": "color-contrast", "n": 38, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | axe AA on step 2 @1280 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz4c8f1a-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @1280 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 109, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL: event-rules | axe AA list @1280 light | [{"id": "color-contrast", "n": 31, "html": "<p class=\"er-sub\">"}]
+FAIL: event-rules | axe AA builder @1280 light | [{"id": "color-contrast", "n": 57, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL: event-rules | keyboard: builder tab stops show a focus indicator | 40 stops; none: ['input:Search everywhere']
+FAIL: date-range | axe AA with the picker open @1280 light | [{"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"presentation\">Upcoming</div>"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"}]
+FAIL: date-range | Esc closes the picker @1280 light | panel still open=True
+FAIL: icon-picker | axe AA with the picker open @1280 light | [{"id": "color-contrast", "n": 2, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+FAIL: wizard | axe AA on step 1 @768 light | [{"id": "color-contrast", "n": 38, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | axe AA on step 2 @768 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz17c816-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @768 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 102, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL: event-rules | axe AA list @768 light | [{"id": "color-contrast", "n": 29, "html": "<p class=\"er-sub\">"}]
+FAIL: event-rules | axe AA builder @768 light | [{"id": "color-contrast", "n": 57, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL: date-range | axe AA with the picker open @768 light | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"
+FAIL: date-range | Esc closes the picker @768 light | panel still open=True
+FAIL: icon-picker | axe AA with the picker open @768 light | [{"id": "color-contrast", "n": 2, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+FAIL: wizard | axe AA on step 1 @360 light | [{"id": "color-contrast", "n": 8, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | axe AA on step 2 @360 light | [{"id": "color-contrast", "n": 5, "html": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>"}]
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 light | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz1047fb-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @360 light | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 102, "html": "<span>Something happens in RivetIT</span>"}, {"id": "listitem", "n": 2,
+FAIL: event-rules | axe AA list @360 light | [{"id": "color-contrast", "n": 31, "html": "<p class=\"er-sub\">"}]
+FAIL: event-rules | axe AA builder @360 light | [{"id": "color-contrast", "n": 53, "html": "<p class=\"er-sub\"><i class=\"fas fa-bell me-1\" aria-hidden=\"true\"></i><strong>Tell me when a High or Critical ticket arri"}]
+FAIL: date-range | axe AA with the picker open @360 light | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "color-contrast", "n": 2, "html": "<div class=\"drp-group-title\" role=\"
+FAIL: date-range | Esc closes the picker @360 light | panel still open=True
+FAIL: icon-picker | axe AA with the picker open @360 light | [{"id": "color-contrast", "n": 1, "html": "<small class=\"icon-picker__hint\">Choose icon</small>"}]
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz626f1e-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @1280 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 25, "html": "<a href=\"#guides\" data-wg-link=\"guides\" class=\"is-current\" aria-cu
+FAIL: event-rules | axe AA builder @1280 dark | [{"id": "color-contrast", "n": 16, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL: date-range | axe AA with the picker open @1280 dark | [{"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"}]
+FAIL: date-range | Esc closes the picker @1280 dark | panel still open=True
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz83c55b-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @768 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 24, "html": "<span class=\"wg-chip wg-chip-cat\"><i class=\"fas fa-project-diagram\" 
+FAIL: event-rules | axe AA builder @768 dark | [{"id": "color-contrast", "n": 15, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL: date-range | axe AA with the picker open @768 dark | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><st
+FAIL: date-range | Esc closes the picker @768 dark | panel still open=True
+FAIL: wizard | empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 dark | invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz171115-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']
+FAIL: guides | axe AA @360 dark | [{"id": "aria-required-children", "n": 1, "html": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" href=\"settin"}, {"id": "color-contrast", "n": 24, "html": "<span class=\"wg-chip wg-chip-cat\"><i class=\"fas fa-project-diagram\" 
+FAIL: event-rules | axe AA builder @360 dark | [{"id": "color-contrast", "n": 15, "html": "<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>"}]
+FAIL: date-range | axe AA with the picker open @360 dark | [{"id": "button-name", "n": 1, "html": "<button type=\"button\" class=\"btn btn-primary ajax-modal\" data-modal-url=\"modals/ticket/ticket_add_v2.php?\" data-modal-si"}, {"id": "target-size", "n": 10, "html": "<a href=\"tickets.php?client_id=19\"><st
+FAIL: date-range | Esc closes the picker @360 dark | panel still open=True
+done

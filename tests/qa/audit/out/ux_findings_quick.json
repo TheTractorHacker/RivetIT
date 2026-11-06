@@ -1,0 +1,2085 @@
+[
+ {
+  "page": "tickets",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/tickets.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Tickets",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 32,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "56"
+  ],
+  "contrast": [],
+  "axe": [
+   {
+    "id": "target-size",
+    "impact": "serious",
+    "n": 10,
+    "help": "All touch targets must be 24px large, or leave sufficient space",
+    "sample": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"
+   }
+  ]
+ },
+ {
+  "page": "dashboard",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/my_dashboard.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - My Dashboard",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 17,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "clients",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/clients.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Departments",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 6,
+  "tinySample": [
+   "open critical and error alerts",
+   "7",
+   "56"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "panel_deploy",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/panel_deploy.php?client_id=16",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Executive Office - Panel Deploy",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 20,
+  "tinySample": [
+   "Leadership",
+   "2",
+   "5"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 4.34,
+    "need": 4.5,
+    "fg": "rgb(138, 148, 166)",
+    "bg": "rgb(43,48,56)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Leadership",
+    "cls": "client-nav-type"
+   },
+   {
+    "count": 1,
+    "ratio": 2.74,
+    "need": 4.5,
+    "fg": "rgb(47, 179, 68)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "Turn on",
+    "cls": "btn btn-outline-success"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 1,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<button type=\"submit\" name=\"set_client_level\" class=\"btn btn-outline-success\">\n                               "
+   }
+  ]
+ },
+ {
+  "page": "mesh_needs_approval",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=90",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "mesh_conflict",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=91",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "mesh_mapped",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=89",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_dashboard",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_dashboard.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Dashboard",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 106,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 2.13,
+    "need": 4.5,
+    "fg": "color(srgb 0.960784 0.623529 0)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 20,
+    "sample": "3",
+    "cls": "h4 mb-0 text-warning"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "rmm_fleet",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_fleet.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Fleet",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 31,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 2,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": true,
+    "fs": 14,
+    "sample": "Largest endpoint agent tables",
+    "cls": "visually-hidden"
+   },
+   {
+    "count": 1,
+    "ratio": 1.88,
+    "need": 4.5,
+    "fg": "rgb(75, 93, 100)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12,
+    "sample": "Previous",
+    "cls": "btn btn-outline-secondary disabled"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "rmm_alerts",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/alerts.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Alerts",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [
+   {
+    "count": 9,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Severity",
+    "cls": "th"
+   },
+   {
+    "count": 6,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12,
+    "sample": "Search",
+    "cls": "label"
+   },
+   {
+    "count": 3,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12.8,
+    "sample": "Needs action now",
+    "cls": "rmmx-kpi-sub d-block"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.72,
+    "sample": "Everything that needs attention across your device",
+    "cls": "rmmx-sub"
+   },
+   {
+    "count": 1,
+    "ratio": 2.78,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(250,238,238)",
+    "img": false,
+    "fs": 12.8,
+    "sample": "Open, not yet acknowledged",
+    "cls": "rmmx-kpi-sub d-block"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 13.6,
+    "sample": "13 alerts",
+    "cls": "rmmx-result-count"
+   },
+   {
+    "count": 1,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14.4,
+    "sample": "Alerts",
+    "cls": "visually-hidden"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 19,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"rmmx-sub\">Everything that needs attention across your devices and backups: endpoint agent, RMM integ"
+   }
+  ]
+ },
+ {
+  "page": "rmm_policies",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_policies.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Policies",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 24,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "The everyday health checks for a Windows desktop o",
+    "cls": "rmmx-desc"
+   },
+   {
+    "count": 24,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 13.6,
+    "sample": "Windows",
+    "cls": "span"
+   },
+   {
+    "count": 4,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Select",
+    "cls": "visually-hidden"
+   },
+   {
+    "count": 3,
+    "ratio": 4.31,
+    "need": 4.5,
+    "fg": "rgb(22, 35, 42)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "Installed",
+    "cls": "button"
+   },
+   {
+    "count": 3,
+    "ratio": 3.29,
+    "need": 4.5,
+    "fg": "rgb(22, 35, 42)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12.48,
+    "sample": "0",
+    "cls": "rmmx-count"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.72,
+    "sample": "A policy tells the devices it reaches how often to",
+    "cls": "rmmx-sub"
+   },
+   {
+    "count": 1,
+    "ratio": 4.19,
+    "need": 4.5,
+    "fg": "rgb(255, 255, 255)",
+    "bg": "rgb(37,99,235)",
+    "img": false,
+    "fs": 12.48,
+    "sample": "24",
+    "cls": "rmmx-count"
+   },
+   {
+    "count": 1,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14.4,
+    "sample": "Policy starter pack items",
+    "cls": "visually-hidden"
+   },
+   {
+    "count": 1,
+    "ratio": 2.38,
+    "need": 4.5,
+    "fg": "rgb(28, 79, 207)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "Plan",
+    "cls": "btn btn-outline-primary disabled"
+   },
+   {
+    "count": 1,
+    "ratio": 2.42,
+    "need": 4.5,
+    "fg": "rgb(255, 255, 255)",
+    "bg": "rgb(37,99,235)",
+    "img": false,
+    "fs": 14,
+    "sample": "Install selected",
+    "cls": "span"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 32,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"rmmx-sub\">A policy tells the devices it reaches how often to check in, which features to use, which "
+   }
+  ]
+ },
+ {
+  "page": "rmm_scripts",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_scripts.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Scripts",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 77,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 3.72,
+    "need": 4.5,
+    "fg": "color(srgb 0.839216 0.223529 0.223529)",
+    "bg": "rgb(220,230,252)",
+    "img": true,
+    "fs": 10.7188,
+    "sample": "(1 failed)",
+    "cls": "text-danger small"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "rmm_checks",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_checks.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1276,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Checks",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 16,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_software",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_software.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Software",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.72,
+    "sample": "The packages you can deploy. A version is immutabl",
+    "cls": "rmmx-sub"
+   },
+   {
+    "count": 1,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": true,
+    "fs": 14,
+    "sample": "Starter templates (unverified)",
+    "cls": "visually-hidden"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 1,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"rmmx-sub\">"
+   }
+  ]
+ },
+ {
+  "page": "rmm_hypervisors",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/agent/rmm_hypervisors.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Hypervisors",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 8,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 4,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12.8,
+    "sample": "0 clusters, 0 standalone",
+    "cls": "rmmx-kpi-sub d-block"
+   },
+   {
+    "count": 3,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12,
+    "sample": "Search",
+    "cls": "label"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.72,
+    "sample": "Proxmox VE and Hyper-V hosts that an endpoint agen",
+    "cls": "rmmx-sub"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 13.6,
+    "sample": "0 hosts",
+    "cls": "rmmx-result-count"
+   },
+   {
+    "count": 1,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "A Proxmox VE or Hyper-V host with an agent that an",
+    "cls": "div"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 10,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"rmmx-sub\">Proxmox VE and Hyper-V hosts that an endpoint agent reports on: their VMs and storage.</p>"
+   }
+  ]
+ },
+ {
+  "page": "webhooks",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/settings_webhooks.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Settings Webhooks",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 29,
+  "tinySample": [
+   "3",
+   "Name",
+   "Address"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 3.7,
+    "need": 4.5,
+    "fg": "rgb(22, 35, 42)",
+    "bg": "rgb(255,255,255)",
+    "img": true,
+    "fs": 14,
+    "sample": "Ticket Archive Export",
+    "cls": "whl-name text-reset"
+   }
+  ],
+  "axe": [
+   {
+    "id": "aria-required-children",
+    "impact": "critical",
+    "n": 1,
+    "help": "Certain ARIA roles must contain particular children",
+    "sample": "<ul class=\"nav nav-tabs px-3\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link active\" aria-cur"
+   },
+   {
+    "id": "listitem",
+    "impact": "serious",
+    "n": 2,
+    "help": "<li> elements must be contained in a <ul> or <ol>",
+    "sample": "<li class=\"nav-item\"><a class=\"nav-link active\" aria-current=\"page\" href=\"settings_webhooks.php\">Webhooks</a><"
+   }
+  ]
+ },
+ {
+  "page": "webhook_new",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/webhook_new.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Webhook New",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 38,
+  "tinySample": [
+   "3",
+   "Popular",
+   "Workflow automation (fair-code"
+  ],
+  "contrast": [
+   {
+    "count": 24,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Workflow automation (fair-code, self-hostable). St",
+    "cls": "wz-pcard-desc"
+   },
+   {
+    "count": 7,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Workflow automation (fair-code, self-hostable). St",
+    "cls": "wz-pcard-desc"
+   },
+   {
+    "count": 6,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Popular",
+    "cls": "wz-cat-title"
+   },
+   {
+    "count": 3,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.72,
+    "sample": "Connect",
+    "cls": "wz-steplabel"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.4,
+    "sample": "Send selected events to another service. Four shor",
+    "cls": "wz-sub"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 38,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"wz-sub\">Send selected events to another service. Four short steps; nothing is saved until the last o"
+   }
+  ]
+ },
+ {
+  "page": "webhook_guides",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/settings_webhook_guides.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 2,
+  "title": "All platforms 24 | Summit Ridge Manufacturing - Settings Webhook Guides",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 3,
+  "tinySample": [
+   "3",
+   "All",
+   "Reference"
+  ],
+  "contrast": [
+   {
+    "count": 48,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 11.84,
+    "sample": "Setup time: 10 min",
+    "cls": "wg-pill"
+   },
+   {
+    "count": 24,
+    "ratio": 4.49,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(233,239,253)",
+    "img": false,
+    "fs": 12,
+    "sample": "Automation platforms",
+    "cls": "wg-chip wg-chip-cat"
+   },
+   {
+    "count": 24,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 13.76,
+    "sample": "Workflow automation (fair-code, self-hostable). St",
+    "cls": "wg-card-desc"
+   },
+   {
+    "count": 6,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Reference",
+    "cls": "wh-cat-title"
+   },
+   {
+    "count": 5,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12.8,
+    "sample": "Something happens in RivetIT",
+    "cls": "span"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": true,
+    "fs": 14,
+    "sample": "Connect RivetIT events to n8n, Home Assistant, ntf",
+    "cls": "wg-hero-pitch"
+   },
+   {
+    "count": 1,
+    "ratio": 4.24,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(224,233,252)",
+    "img": false,
+    "fs": 13.76,
+    "sample": "All guides",
+    "cls": "is-current"
+   },
+   {
+    "count": 1,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 12,
+    "sample": "24",
+    "cls": "wg-count"
+   }
+  ],
+  "axe": [
+   {
+    "id": "aria-required-children",
+    "impact": "critical",
+    "n": 1,
+    "help": "Certain ARIA roles must contain particular children",
+    "sample": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" hr"
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 109,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<span>Something happens in RivetIT</span>"
+   },
+   {
+    "id": "landmark-main-is-top-level",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Main landmark should not be contained in another landmark",
+    "sample": "<main class=\"wg-main\" id=\"wg-main\" tabindex=\"-1\">"
+   },
+   {
+    "id": "landmark-no-duplicate-main",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Document should not have more than one main landmark",
+    "sample": "<main id=\"main-content\" class=\"container-xl\" tabindex=\"-1\">"
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "sample": "<main id=\"main-content\" class=\"container-xl\" tabindex=\"-1\">"
+   },
+   {
+    "id": "listitem",
+    "impact": "serious",
+    "n": 2,
+    "help": "<li> elements must be contained in a <ul> or <ol>",
+    "sample": "<li class=\"nav-item\"><a class=\"nav-link\" href=\"settings_webhooks.php\">Webhooks</a></li>"
+   }
+  ]
+ },
+ {
+  "page": "event_rules",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/event_rules.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Event Rules",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 1,
+  "tinySample": [
+   "3"
+  ],
+  "contrast": [
+   {
+    "count": 22,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12,
+    "sample": "Ticket created",
+    "cls": "er-recipe-flow"
+   },
+   {
+    "count": 11,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 13.12,
+    "sample": "Notify the technicians the moment an urgent ticket",
+    "cls": "er-recipe-blurb"
+   },
+   {
+    "count": 8,
+    "ratio": 2.79,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(238,242,242)",
+    "img": false,
+    "fs": 14.4,
+    "sample": "When something happens in RivetIT, a rule can do s",
+    "cls": "er-sub"
+   },
+   {
+    "count": 4,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 12.8,
+    "sample": "rules",
+    "cls": "er-tile-l"
+   },
+   {
+    "count": 2,
+    "ratio": 3.01,
+    "need": 4.5,
+    "fg": "rgba(107, 114, 128, 0.75)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 14,
+    "sample": "Pick a recipe to start from, or",
+    "cls": "p"
+   },
+   {
+    "count": 1,
+    "ratio": 2.74,
+    "need": 3,
+    "fg": "rgb(47, 179, 68)",
+    "bg": "rgb(255,255,255)",
+    "img": false,
+    "fs": 25.6,
+    "sample": "0",
+    "cls": "er-tile-n er-ok"
+   }
+  ],
+  "axe": [
+   {
+    "id": "aria-allowed-role",
+    "impact": "minor",
+    "n": 11,
+    "help": "ARIA role should be appropriate for the element",
+    "sample": "<a class=\"er-recipe\" role=\"listitem\" href=\"event_rules.php?new=1&amp;recipe=critical-ticket\" style=\"--er-c: #2"
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 31,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<p class=\"er-sub\">"
+   }
+  ]
+ },
+ {
+  "page": "audit_log",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/audit_log.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Audit Log",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 1,
+  "tinySample": [
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "endpoint_settings",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/settings_endpoint_agent.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Settings Endpoint Agent",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 108,
+  "tinySample": [
+   "3",
+   "On",
+   "Online"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "custom_links",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/custom_link.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Custom Link",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 3,
+  "tinySample": [
+   "3",
+   "New Tab",
+   "Action"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "users",
+  "theme": "light",
+  "vp": "1280x800",
+  "url": "/admin/users.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Users",
+  "muted": "#4b5d64",
+  "dlg": [],
+  "tiny": 4,
+  "tinySample": [
+   "3",
+   "MFA",
+   "Last Login"
+  ],
+  "contrast": [
+   {
+    "count": 3,
+    "ratio": 1,
+    "need": 3,
+    "fg": "color(srgb 1 1 1)",
+    "bg": "rgb(255,255,255)",
+    "img": true,
+    "fs": 28,
+    "sample": "AM",
+    "cls": "fa fa-stack-1x text-white"
+   },
+   {
+    "count": 1,
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "color(srgb 1 1 1)",
+    "bg": "rgb(220,230,252)",
+    "img": true,
+    "fs": 28,
+    "sample": "PN",
+    "cls": "fa fa-stack-1x text-white"
+   },
+   {
+    "count": 1,
+    "ratio": 4.34,
+    "need": 4.5,
+    "fg": "rgb(21, 122, 48)",
+    "bg": "rgb(220,230,252)",
+    "img": true,
+    "fs": 14,
+    "sample": "Active",
+    "cls": "text-success"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "tickets",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/tickets.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Tickets",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 32,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "56"
+  ],
+  "contrast": [],
+  "axe": [
+   {
+    "id": "target-size",
+    "impact": "serious",
+    "n": 10,
+    "help": "All touch targets must be 24px large, or leave sufficient space",
+    "sample": "<a href=\"tickets.php?client_id=19\"><strong>Sales &amp; Marketing</strong></a>"
+   }
+  ]
+ },
+ {
+  "page": "dashboard",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/my_dashboard.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - My Dashboard",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 17,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [
+   {
+    "count": 2,
+    "ratio": 3.71,
+    "need": 4.5,
+    "fg": "rgb(13, 110, 253)",
+    "bg": "rgb(20,32,31)",
+    "img": false,
+    "fs": 12.25,
+    "sample": "\u25a0",
+    "cls": "span"
+   },
+   {
+    "count": 2,
+    "ratio": 3.69,
+    "need": 4.5,
+    "fg": "rgb(25, 135, 84)",
+    "bg": "rgb(20,32,31)",
+    "img": false,
+    "fs": 12.25,
+    "sample": "\u25a0",
+    "cls": "span"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "clients",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/clients.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Departments",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 6,
+  "tinySample": [
+   "open critical and error alerts",
+   "7",
+   "56"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "panel_deploy",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/panel_deploy.php?client_id=16",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Executive Office - Panel Deploy",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 20,
+  "tinySample": [
+   "Leadership",
+   "2",
+   "5"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 4.34,
+    "need": 4.5,
+    "fg": "rgb(138, 148, 166)",
+    "bg": "rgb(43,48,56)",
+    "img": false,
+    "fs": 11.52,
+    "sample": "Leadership",
+    "cls": "client-nav-type"
+   }
+  ],
+  "axe": []
+ },
+ {
+  "page": "mesh_needs_approval",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=90",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "mesh_conflict",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=91",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "mesh_mapped",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_agent_device.php?device_id=89",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Agent Device",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 18,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_dashboard",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_dashboard.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Dashboard",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 106,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_fleet",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_fleet.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Fleet",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 31,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 1,
+    "ratio": 1.7,
+    "need": 4.5,
+    "fg": "color(srgb 0.384471 0.559529 0.943529)",
+    "bg": "rgb(107,107,107)",
+    "img": false,
+    "fs": 14,
+    "sample": "Add device",
+    "cls": "btn-outline-primary btn-sm"
+   },
+   {
+    "count": 1,
+    "ratio": 2.17,
+    "need": 4.5,
+    "fg": "rgb(147, 166, 171)",
+    "bg": "rgb(20,32,31)",
+    "img": false,
+    "fs": 12,
+    "sample": "Previous",
+    "cls": "btn btn-outline-secondary disabled"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 1,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<button type=\"button\" class=\"btn-outline-primary btn-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#rmmInstallerM"
+   }
+  ]
+ },
+ {
+  "page": "rmm_alerts",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/alerts.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Alerts",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_policies",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_policies.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Policies",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [
+   {
+    "count": 24,
+    "ratio": 3.23,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(20,32,31)",
+    "img": false,
+    "fs": 13.6,
+    "sample": "Why",
+    "cls": "summary"
+   },
+   {
+    "count": 1,
+    "ratio": 4.19,
+    "need": 4.5,
+    "fg": "rgb(255, 255, 255)",
+    "bg": "rgb(37,99,235)",
+    "img": false,
+    "fs": 12.48,
+    "sample": "24",
+    "cls": "rmmx-count"
+   },
+   {
+    "count": 1,
+    "ratio": 1.72,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(20,32,31)",
+    "img": false,
+    "fs": 14,
+    "sample": "Plan",
+    "cls": "btn btn-outline-primary disabled"
+   },
+   {
+    "count": 1,
+    "ratio": 2.42,
+    "need": 4.5,
+    "fg": "rgb(255, 255, 255)",
+    "bg": "rgb(37,99,235)",
+    "img": false,
+    "fs": 14,
+    "sample": "Install selected",
+    "cls": "span"
+   }
+  ],
+  "axe": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 12,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<span class=\"rmmx-count\">24</span>"
+   }
+  ]
+ },
+ {
+  "page": "rmm_scripts",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_scripts.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Scripts",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 77,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_checks",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_checks.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1276,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Checks",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 16,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_software",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_software.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Software",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 12,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "rmm_hypervisors",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/agent/rmm_hypervisors.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - RMM Hypervisors",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 8,
+  "tinySample": [
+   "open critical and error alerts",
+   "56",
+   "Overview"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "webhooks",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/settings_webhooks.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Settings Webhooks",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 29,
+  "tinySample": [
+   "3",
+   "Name",
+   "Address"
+  ],
+  "contrast": [],
+  "axe": [
+   {
+    "id": "aria-required-children",
+    "impact": "critical",
+    "n": 1,
+    "help": "Certain ARIA roles must contain particular children",
+    "sample": "<ul class=\"nav nav-tabs px-3\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link active\" aria-cur"
+   },
+   {
+    "id": "listitem",
+    "impact": "serious",
+    "n": 2,
+    "help": "<li> elements must be contained in a <ul> or <ol>",
+    "sample": "<li class=\"nav-item\"><a class=\"nav-link active\" aria-current=\"page\" href=\"settings_webhooks.php\">Webhooks</a><"
+   }
+  ]
+ },
+ {
+  "page": "webhook_new",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/webhook_new.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 1,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Webhook New",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 38,
+  "tinySample": [
+   "3",
+   "Popular",
+   "Workflow automation (fair-code"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "webhook_guides",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/settings_webhook_guides.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 2,
+  "title": "All platforms 24 | Summit Ridge Manufacturing - Settings Webhook Guides",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 3,
+  "tinySample": [
+   "3",
+   "All",
+   "Reference"
+  ],
+  "contrast": [
+   {
+    "count": 24,
+    "ratio": 2.97,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(22,39,52)",
+    "img": false,
+    "fs": 12,
+    "sample": "Automation platforms",
+    "cls": "wg-chip wg-chip-cat"
+   },
+   {
+    "count": 1,
+    "ratio": 2.86,
+    "need": 4.5,
+    "fg": "rgb(37, 99, 235)",
+    "bg": "rgb(22,41,60)",
+    "img": false,
+    "fs": 13.76,
+    "sample": "All guides",
+    "cls": "is-current"
+   }
+  ],
+  "axe": [
+   {
+    "id": "aria-required-children",
+    "impact": "critical",
+    "n": 1,
+    "help": "Certain ARIA roles must contain particular children",
+    "sample": "<ul class=\"nav nav-tabs px-3 d-print-none\" role=\"tablist\">\n        <li class=\"nav-item\"><a class=\"nav-link\" hr"
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 25,
+    "help": "Elements must meet minimum color contrast ratio thresholds",
+    "sample": "<a href=\"#guides\" data-wg-link=\"guides\" class=\"is-current\" aria-current=\"page\"><i class=\"fas fa-th-large\" aria"
+   },
+   {
+    "id": "landmark-main-is-top-level",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Main landmark should not be contained in another landmark",
+    "sample": "<main class=\"wg-main\" id=\"wg-main\" tabindex=\"-1\">"
+   },
+   {
+    "id": "landmark-no-duplicate-main",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Document should not have more than one main landmark",
+    "sample": "<main id=\"main-content\" class=\"container-xl\" tabindex=\"-1\">"
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "n": 1,
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "sample": "<main id=\"main-content\" class=\"container-xl\" tabindex=\"-1\">"
+   },
+   {
+    "id": "listitem",
+    "impact": "serious",
+    "n": 2,
+    "help": "<li> elements must be contained in a <ul> or <ol>",
+    "sample": "<li class=\"nav-item\"><a class=\"nav-link\" href=\"settings_webhooks.php\">Webhooks</a></li>"
+   }
+  ]
+ },
+ {
+  "page": "event_rules",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/event_rules.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Event Rules",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 1,
+  "tinySample": [
+   "3"
+  ],
+  "contrast": [],
+  "axe": [
+   {
+    "id": "aria-allowed-role",
+    "impact": "minor",
+    "n": 11,
+    "help": "ARIA role should be appropriate for the element",
+    "sample": "<a class=\"er-recipe\" role=\"listitem\" href=\"event_rules.php?new=1&amp;recipe=critical-ticket\" style=\"--er-c: #2"
+   }
+  ]
+ },
+ {
+  "page": "audit_log",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/audit_log.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Audit Log",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 1,
+  "tinySample": [
+   "3"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "endpoint_settings",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/settings_endpoint_agent.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Settings Endpoint Agent",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 108,
+  "tinySample": [
+   "3",
+   "On",
+   "Online"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "custom_links",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/custom_link.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Custom Link",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 3,
+  "tinySample": [
+   "3",
+   "New Tab",
+   "Action"
+  ],
+  "contrast": [],
+  "axe": []
+ },
+ {
+  "page": "users",
+  "theme": "dark",
+  "vp": "1280x800",
+  "url": "/admin/users.php",
+  "errs": [],
+  "bad": [],
+  "unnamed": [],
+  "nolabel": [],
+  "overflowX": false,
+  "sw": 1270,
+  "h1": 0,
+  "main": 1,
+  "title": "Summit Ridge Manufacturing - Users",
+  "muted": "#93a6ab",
+  "dlg": [],
+  "tiny": 4,
+  "tinySample": [
+   "3",
+   "MFA",
+   "Last Login"
+  ],
+  "contrast": [],
+  "axe": []
+ }
+]

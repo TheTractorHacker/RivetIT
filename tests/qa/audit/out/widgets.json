@@ -1,0 +1,428 @@
+[
+ [
+  "wizard",
+  "step 1 no horizontal overflow @1280 light",
+  true,
+  "sw=1270"
+ ],
+ [
+  "wizard",
+  "keyboard: every tab stop on step 1 shows a focus indicator",
+  true,
+  "30 stops; without indicator: []"
+ ],
+ [
+  "wizard",
+  "keyboard: every tab stop has an accessible name",
+  true,
+  "unnamed stops=0"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 38, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @1280 light",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 5, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 light",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz4c8f1a-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @1280 light",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 109, \"html\": \"<span>Something happens in RivetIT</span>\"}, {\"id\": \"listitem\", \"n\": 2,"
+ ],
+ [
+  "event-rules",
+  "axe AA list @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 31, \"html\": \"<p class=\\\"er-sub\\\">\"}]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 57, \"html\": \"<p class=\\\"er-sub\\\"><i class=\\\"fas fa-bell me-1\\\" aria-hidden=\\\"true\\\"></i><strong>Tell me when a High or Critical ticket arri\"}]"
+ ],
+ [
+  "event-rules",
+  "keyboard: builder tab stops show a focus indicator",
+  false,
+  "40 stops; none: ['input:Search everywhere']"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 2, \"html\": \"<div class=\\\"drp-group-title\\\" role=\\\"presentation\\\">Upcoming</div>\"}, {\"id\": \"target-size\", \"n\": 10, \"html\": \"<a href=\\\"tickets.php?client_id=19\\\"><strong>Sales &amp; Marketing</strong></a>\"}]"
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @1280 light",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @1280 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 2, \"html\": \"<small class=\\\"icon-picker__hint\\\">Choose icon</small>\"}]"
+ ],
+ [
+  "icon-picker",
+  "keyboard: tab stops show a focus indicator",
+  true,
+  "15 stops; none: []"
+ ],
+ [
+  "icon-picker",
+  "Esc closes the picker panel (not the whole modal)",
+  true,
+  "panel open after Esc=False"
+ ],
+ [
+  "wizard",
+  "step 1 no horizontal overflow @768 light",
+  true,
+  "sw=758"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @768 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 38, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @768 light",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @768 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 5, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 light",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz17c816-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @768 light",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 102, \"html\": \"<span>Something happens in RivetIT</span>\"}, {\"id\": \"listitem\", \"n\": 2,"
+ ],
+ [
+  "event-rules",
+  "axe AA list @768 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 29, \"html\": \"<p class=\\\"er-sub\\\">\"}]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @768 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 57, \"html\": \"<p class=\\\"er-sub\\\"><i class=\\\"fas fa-bell me-1\\\" aria-hidden=\\\"true\\\"></i><strong>Tell me when a High or Critical ticket arri\"}]"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @768 light",
+  false,
+  "[{\"id\": \"button-name\", \"n\": 1, \"html\": \"<button type=\\\"button\\\" class=\\\"btn btn-primary ajax-modal\\\" data-modal-url=\\\"modals/ticket/ticket_add_v2.php?\\\" data-modal-si\"}, {\"id\": \"color-contrast\", \"n\": 2, \"html\": \"<div class=\\\"drp-group-title\\\" role=\\\""
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @768 light",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @768 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 2, \"html\": \"<small class=\\\"icon-picker__hint\\\">Choose icon</small>\"}]"
+ ],
+ [
+  "wizard",
+  "step 1 no horizontal overflow @360 light",
+  true,
+  "sw=350"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @360 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 8, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @360 light",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @360 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 5, \"html\": \"<p class=\\\"wz-sub\\\">Send selected events to another service. Four short steps; nothing is saved until the last one.</p>\"}]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 light",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz1047fb-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @360 light",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 102, \"html\": \"<span>Something happens in RivetIT</span>\"}, {\"id\": \"listitem\", \"n\": 2,"
+ ],
+ [
+  "event-rules",
+  "axe AA list @360 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 31, \"html\": \"<p class=\\\"er-sub\\\">\"}]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @360 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 53, \"html\": \"<p class=\\\"er-sub\\\"><i class=\\\"fas fa-bell me-1\\\" aria-hidden=\\\"true\\\"></i><strong>Tell me when a High or Critical ticket arri\"}]"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @360 light",
+  false,
+  "[{\"id\": \"button-name\", \"n\": 1, \"html\": \"<button type=\\\"button\\\" class=\\\"btn btn-primary ajax-modal\\\" data-modal-url=\\\"modals/ticket/ticket_add_v2.php?\\\" data-modal-si\"}, {\"id\": \"color-contrast\", \"n\": 2, \"html\": \"<div class=\\\"drp-group-title\\\" role=\\\""
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @360 light",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @360 light",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 1, \"html\": \"<small class=\\\"icon-picker__hint\\\">Choose icon</small>\"}]"
+ ],
+ [
+  "wizard",
+  "step 1 no horizontal overflow @1280 dark",
+  true,
+  "sw=1270"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @1280 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @1280 dark",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @1280 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @1280 dark",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz626f1e-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @1280 dark",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 25, \"html\": \"<a href=\\\"#guides\\\" data-wg-link=\\\"guides\\\" class=\\\"is-current\\\" aria-cu"
+ ],
+ [
+  "event-rules",
+  "axe AA list @1280 dark",
+  true,
+  "[]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @1280 dark",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 16, \"html\": \"<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>\"}]"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @1280 dark",
+  false,
+  "[{\"id\": \"target-size\", \"n\": 10, \"html\": \"<a href=\\\"tickets.php?client_id=19\\\"><strong>Sales &amp; Marketing</strong></a>\"}]"
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @1280 dark",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @1280 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "step 1 no horizontal overflow @768 dark",
+  true,
+  "sw=758"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @768 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @768 dark",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @768 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @768 dark",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz83c55b-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @768 dark",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 24, \"html\": \"<span class=\\\"wg-chip wg-chip-cat\\\"><i class=\\\"fas fa-project-diagram\\\" "
+ ],
+ [
+  "event-rules",
+  "axe AA list @768 dark",
+  true,
+  "[]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @768 dark",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 15, \"html\": \"<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>\"}]"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @768 dark",
+  false,
+  "[{\"id\": \"button-name\", \"n\": 1, \"html\": \"<button type=\\\"button\\\" class=\\\"btn btn-primary ajax-modal\\\" data-modal-url=\\\"modals/ticket/ticket_add_v2.php?\\\" data-modal-si\"}, {\"id\": \"target-size\", \"n\": 10, \"html\": \"<a href=\\\"tickets.php?client_id=19\\\"><st"
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @768 dark",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @768 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "step 1 no horizontal overflow @360 dark",
+  true,
+  "sw=350"
+ ],
+ [
+  "wizard",
+  "axe AA on step 1 @360 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "Enter on a platform card moves to step 2 @360 dark",
+  true,
+  "visible steps=['connect'] url=/admin/webhook_new.php?dest=n8n&step=connect"
+ ],
+ [
+  "wizard",
+  "axe AA on step 2 @360 dark",
+  true,
+  "[]"
+ ],
+ [
+  "wizard",
+  "empty Next shows an error linked to the field (aria-invalid + aria-describedby) @360 dark",
+  false,
+  "invalid=[{'id': '', 'desc': None, 'has': False}, {'id': 'wz171115-name', 'desc': None, 'has': False}, {'id': '', 'desc': None, 'has': False}] live=['Step 2 of 4: Connect', '0 events selected']"
+ ],
+ [
+  "guides",
+  "axe AA @360 dark",
+  false,
+  "[{\"id\": \"aria-required-children\", \"n\": 1, \"html\": \"<ul class=\\\"nav nav-tabs px-3 d-print-none\\\" role=\\\"tablist\\\">\\n        <li class=\\\"nav-item\\\"><a class=\\\"nav-link\\\" href=\\\"settin\"}, {\"id\": \"color-contrast\", \"n\": 24, \"html\": \"<span class=\\\"wg-chip wg-chip-cat\\\"><i class=\\\"fas fa-project-diagram\\\" "
+ ],
+ [
+  "event-rules",
+  "axe AA list @360 dark",
+  true,
+  "[]"
+ ],
+ [
+  "event-rules",
+  "axe AA builder @360 dark",
+  false,
+  "[{\"id\": \"color-contrast\", \"n\": 15, \"html\": \"<summary>Fields this event carries (12): use them in conditions and as {placeholders}</summary>\"}]"
+ ],
+ [
+  "date-range",
+  "axe AA with the picker open @360 dark",
+  false,
+  "[{\"id\": \"button-name\", \"n\": 1, \"html\": \"<button type=\\\"button\\\" class=\\\"btn btn-primary ajax-modal\\\" data-modal-url=\\\"modals/ticket/ticket_add_v2.php?\\\" data-modal-si\"}, {\"id\": \"target-size\", \"n\": 10, \"html\": \"<a href=\\\"tickets.php?client_id=19\\\"><st"
+ ],
+ [
+  "date-range",
+  "Esc closes the picker @360 dark",
+  false,
+  "panel still open=True"
+ ],
+ [
+  "icon-picker",
+  "axe AA with the picker open @360 dark",
+  true,
+  "[]"
+ ]
+]
