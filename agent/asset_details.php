@@ -2093,8 +2093,6 @@ if (isset($_GET['asset_id'])) {
             require_once "modals/share_modal.php";
         }
 
-        }
-
         ?>
 
     <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
@@ -2144,6 +2142,9 @@ if (isset($_GET['asset_id'])) {
     require_once "modals/asset/asset_interface_multiple_add.php";
     require_once "modals/asset/asset_interface_import.php";
     require_once "modals/asset/asset_interface_export.php";
+
+    // end of the "asset found" branch (these scripts and modals need the asset's own variables, so a nonexistent asset_id shows only the not-found page)
+    }
 
 }
 

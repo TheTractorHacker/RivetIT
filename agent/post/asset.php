@@ -13,6 +13,12 @@ if (isset($_POST['add_asset'])) {
     enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     require_once 'asset_model.php';
+    require_once 'asset_validate.php';
+    if ($name === '') {
+        flash_alert('Asset name is required.', 'error');
+        redirect();
+    }
+    assetNetworkFieldsOrBack($ip, $ipv6, $nat_ip, $mac);
 
     $client_id = intval($_POST['client_id']);
 
@@ -92,6 +98,12 @@ if (isset($_POST['edit_asset'])) {
     enforceAssetPermission(2);   // Assets or Tickets/assets/docs (roles audit P4)
 
     require_once 'asset_model.php';
+    require_once 'asset_validate.php';
+    if ($name === '') {
+        flash_alert('Asset name is required.', 'error');
+        redirect();
+    }
+    assetNetworkFieldsOrBack($ip, $ipv6, $nat_ip, $mac);
 
     $asset_id = intval($_POST['asset_id']);
 
@@ -1408,6 +1420,8 @@ if (isset($_POST['add_asset_interface'])) {
 
     // Defines $name, $mac, $ip, $ipv6, $port, $notes, $network, $connected_to, etc.
     require_once 'asset_interface_model.php';
+    require_once 'asset_validate.php';
+    assetNetworkFieldsOrBack($ip, $ipv6, $nat_ip, $mac);
 
     // 3) Fetch asset info for logging and alert
     $sql   = mysqli_query($mysqli, "
@@ -1527,6 +1541,8 @@ if (isset($_POST['edit_asset_interface'])) {
     // Interface info
     $interface_id = intval($_POST['interface_id']);
     require_once 'asset_interface_model.php';
+    require_once 'asset_validate.php';
+    assetNetworkFieldsOrBack($ip, $ipv6, $nat_ip, $mac);
     // sets: $name, $mac, $ip, $ipv6, $port, $notes, $network, $connected_to, etc.
 
     // 1) Get Asset Name and Client ID for logging and alert message
