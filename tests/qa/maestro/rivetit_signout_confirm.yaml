@@ -1,0 +1,14 @@
+# RIVETIT-ANDROID-008: drawer "Sign out" asks for confirmation; Cancel keeps the session, confirm signs out.
+# Needs a signed-in session. Ends signed out (rerun rivetit_login.yaml afterwards).
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp
+- tapOn: "Menu"
+- tapOn: "Sign out"
+- assertVisible: "Sign Out?"
+- tapOn: "Cancel"
+- assertVisible: "Good morning|Good afternoon|Good evening"
+- tapOn: "Menu"
+- tapOn: "Sign out"
+- tapOn: "Sign Out"
+- assertVisible: "Username or email"

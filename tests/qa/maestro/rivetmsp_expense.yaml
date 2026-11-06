@@ -1,0 +1,22 @@
+# RivetMSP Android - Expenses: add an expense and see it in the (previously cached) list.
+# Needs a logged-in session.
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- tapOn: "Menu"
+- scrollUntilVisible:
+    element: "Expenses"
+- tapOn: "Expenses"
+- tapOn: "Add Expense"
+- tapOn: "Description"
+- inputText: "QA-maestro-expense"
+- hideKeyboard
+- tapOn: "Amount"
+- inputText: "7.25"
+- hideKeyboard
+- tapOn: "Save Expense"
+- extendedWaitUntil:
+    visible: "QA-maestro-expense"
+    timeout: 30000
+- assertVisible: "\\$7.25"

@@ -1,0 +1,77 @@
+# RivetMSP Android (beta debug) - first run, server setup with self-signed cert, login.
+# Targets the LAN HTTPS demo (self-signed cert; app asks for the cert fingerprint tail).
+# The app rejects http://. The emulator's NAT path to https://10.1.0.45:8445 drops connections
+# intermittently, so the flows go through an adb tunnel instead (the demo cert has 127.0.0.1 as a SAN):
+#   socat TCP-LISTEN:28445,bind=127.0.0.1,fork,reuseaddr TCP:10.1.0.45:8445 &
+#   adb -s emulator-5556 reverse tcp:28445 tcp:28445
+# To use the LAN address directly, run with: -e SERVER=https://10.1.0.45:8445
+appId: com.foleyit.itflow.beta
+env:
+  SERVER: "https://127.0.0.1:28445"
+  CERT_SUFFIX: "617D49"
+  EMAIL: "alex.morgan@northwind-it.example"
+  PASSWORD: "DemoAdmin#2026"
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- assertVisible: "Connect to RivetMSP"
+# http:// must be rejected
+- tapOn: "https://"
+- eraseText: 30
+- inputText: "http://10.0.2.2:8080"
+- tapOn: "Connect"
+- assertVisible: "URL must start with https://"
+- tapOn:
+    point: "95%,38%"
+- eraseText: 40
+- inputText: ${SERVER}
+- hideKeyboard
+- tapOn: "Connect"
+- extendedWaitUntil:
+    visible: "Untrusted Certificate"
+    timeout: 45000
+- tapOn:
+    below: "To confirm.*"
+- inputText: ${CERT_SUFFIX}
+# RIVETMSP-ANDROID-005: with the keyboard still open, the dialog must stay reachable
+# (previously "Trust & Connect" sat behind the keyboard and this tap hit a key instead)
+- tapOn: "Trust & Connect"
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 45000
+# RIVETMSP-ANDROID-005: empty submit gives feedback instead of doing nothing
+- tapOn:
+    text: "Sign in"
+    index: 1
+- assertVisible: "Enter your username and password"
+# invalid credentials
+- tapOn: "Username or email"
+- inputText: ${EMAIL}
+- tapOn: "Password"
+- inputText: "wrongpass"
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Invalid username or password"
+    timeout: 45000
+# valid credentials
+- tapOn:
+    point: "75%,45%"
+- eraseText: 20
+- inputText: ${PASSWORD}
+- pressKey: Enter
+# Android 13+: the POST_NOTIFICATIONS prompt is shown once after sign-in; declining explains the cost
+- extendedWaitUntil:
+    visible: "Allow RivetMSP Beta to send you notifications.*"
+    timeout: 60000
+- tapOn: "Don.t allow"
+- assertVisible: "Notifications are off, so you won't get ticket alerts."
+# The snackbar's action opens the system notification settings for the app
+- tapOn: "Settings"
+- assertVisible: "RivetMSP Beta"
+- back
+- assertVisible: "(Good (morning|afternoon|evening)|Working late.*)"

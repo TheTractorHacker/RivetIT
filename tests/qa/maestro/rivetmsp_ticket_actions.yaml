@@ -1,0 +1,47 @@
+# RivetMSP Android - ticket detail actions on a freshly created ticket: change status, add charge,
+# timer + log time, resolve (needs a logged-in session).
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- tapOn: "Ticket"
+- tapOn: "Subject.*"
+- inputText: "QA-maestro-actions"
+- hideKeyboard
+- tapOn: "Create Ticket"
+- extendedWaitUntil:
+    visible: "Add Note"
+    timeout: 30000
+# Change status -> On Hold
+- tapOn: "Change Status"
+- tapOn: "On Hold"
+- extendedWaitUntil:
+    visible: "On Hold"
+    timeout: 15000
+# Add a charge
+- tapOn: "Add Charge"
+- tapOn: "Item Name.*"
+- inputText: "QA charge"
+- hideKeyboard
+- tapOn: "Unit Price"
+- inputText: "12.50"
+- hideKeyboard
+- tapOn:
+    text: "Add Charge"
+    index: 1
+- extendedWaitUntil:
+    visible: "QA charge"
+    timeout: 20000
+# Timer shows after starting, then Log Time opens the note sheet
+- tapOn: "Timer"
+- assertVisible: "0:00:0.*"
+- tapOn: "Log Time"
+- assertVisible: "Time worked"
+- back
+# Resolve -> Closed
+- tapOn: "Resolve"
+- assertVisible: "This will mark the ticket as Closed."
+- tapOn: "Resolve"
+- extendedWaitUntil:
+    visible: "Closed"
+    timeout: 20000

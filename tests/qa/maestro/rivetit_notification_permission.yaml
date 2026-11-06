@@ -1,0 +1,12 @@
+# RIVETIT-ANDROID-001: Android 13+ must be asked for POST_NOTIFICATIONS once the main UI shows.
+# Needs a signed-in session; launches with all runtime permissions denied.
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp:
+    stopApp: true
+    permissions: { all: deny }
+- extendedWaitUntil:
+    visible: "Allow RivetIT Beta to send you notifications?"
+    timeout: 15000
+- tapOn: "Allow"
+- assertVisible: "Good morning|Good afternoon|Good evening"
