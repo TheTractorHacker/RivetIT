@@ -1,6 +1,6 @@
 [Unit]
 Description=RivetIT Redis (loopback only, no persistence)
-Documentation=https://github.com/TheTractorHacker/RivetIT/blob/main/docs/REDIS.md
+Documentation=https://github.com/TheTractorHacker/RivetIT/blob/production/docs/REDIS.md
 After=network.target
 
 [Service]

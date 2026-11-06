@@ -55,9 +55,9 @@ if (!function_exists('rivetit_repo_link')) {
 }
 rivetit_brand_define('APP_SOURCE_URL', rivetit_repo_link());
 rivetit_brand_define('APP_WEBSITE_URL', rivetit_repo_link());
-rivetit_brand_define('APP_DOCS_URL', rivetit_repo_link('/tree/main/docs'));
+rivetit_brand_define('APP_DOCS_URL', rivetit_repo_link('/tree/production/docs'));
 rivetit_brand_define('APP_SUPPORT_URL', rivetit_repo_link('/issues'));
-rivetit_brand_define('APP_CHANGELOG_URL', rivetit_repo_link('/blob/main/CHANGELOG.md'));
+rivetit_brand_define('APP_CHANGELOG_URL', rivetit_repo_link('/blob/production/CHANGELOG.md'));
 // "Latest Release" on Admin > Update links here. The updater compares git tags, so this is the tag list.
 rivetit_brand_define('APP_RELEASES_URL', rivetit_repo_link('/tags'));
 
@@ -65,7 +65,7 @@ rivetit_brand_define('APP_RELEASES_URL', rivetit_repo_link('/tags'));
 // remote of the install's checkout and compares <remote>/<$repo_branch> with HEAD. As of 2026-09-29 this is
 // "origin" (the repository is public, plain HTTPS, no deploy key needed) - the same remote the Update App
 // button (admin/post/update.php), scripts/update_cli.php and deploy/update.sh already pull from via a plain
-// `git pull` (which follows the branch's upstream, origin/main). Using the same remote for both the check and
+// `git pull` (which follows the branch's upstream, origin/production). Using the same remote for both the check and
 // the apply means a fresh install needs zero git-credential setup for updates to work out of the box.
 // A private fork of this project can still point this at a separate remote (e.g. "fork") if it wants the
 // check to compare against a different repository than origin - see reference_itflow_update_checker.md for

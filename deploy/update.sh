@@ -38,7 +38,7 @@ set -euo pipefail
 # KNOWN ISSUE (do not silently "fix" by editing update_cli.php — see this
 # project's shared context): update_cli.php's --force_update hardcodes
 # `git reset --hard origin/master`, but this repository's real default
-# branch is `main`. This script therefore deliberately NEVER passes
+# branch is `production`. This script therefore deliberately NEVER passes
 # --force_update — only plain `--update` (a `git pull`, which tracks
 # whatever branch is actually checked out and is unaffected by that
 # hardcoded name).

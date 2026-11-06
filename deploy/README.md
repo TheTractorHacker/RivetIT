@@ -465,7 +465,7 @@ the OS current but a known application-level fix has shipped. Always take a fres
 is exactly the kind of change you want a tested rollback path for.
 
 **Known issue: avoid `scripts/update_cli.php --force_update`.** It hardcodes `git fetch --all && git
-reset --hard origin/master` — but this repository's real default branch is `main`, not `master`. In
+reset --hard origin/master` — but this repository's real default branch is `production`, not `master`. In
 practice that means `--force_update` will not track this repo correctly. `deploy/update.sh` uses a plain
 `git pull` instead, which is branch-correct and is the recommended update path until that mismatch is
 fixed upstream in `scripts/update_cli.php` itself (not something this deployment tooling patches around

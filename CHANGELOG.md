@@ -6,6 +6,13 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.84] - 2026-11-06
+
+- **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
+- **Settings.** Tiles for Compliance framework, Security and trust, and Reporting / Power BI on the settings hub.
+- **Telemetry page removed.** RivetIT sends nothing anywhere; the Settings > Telemetry page and its installation-ID display are gone (the ID is still used internally to sign calendar-feed links).
+- **Funding.** `.github/FUNDING.yml` (GitHub Sponsors).
+
 ## [26.10.83] - 2026-11-04
 
 Release candidate 2 on top of 26.10.81: issue #29 leftovers, #31/#33 lifecycle follow-ups, #36 Teams/Slack buttons, #30 risk score display, plus test, accessibility and API-doc work. **Database 2.6.231 to 2.6.233** (2 additive, idempotent steps; take a database dump first, then Administration > Update > Update Database).

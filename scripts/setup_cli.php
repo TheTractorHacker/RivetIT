@@ -303,7 +303,7 @@ $new_config .= "\$mysqli = mysqli_connect(\$dbhost, \$dbusername, \$dbpassword, 
 $new_config .= "\$config_app_name = ''; // empty: use the product name (APP_NAME)\n";
 $new_config .= "\$config_base_url = '" . addslashes($base_url) . "';\n";
 $new_config .= "\$config_https_only = TRUE;\n";
-$new_config .= "\$repo_branch = 'main';\n";
+$new_config .= "\$repo_branch = 'production';\n";
 $new_config .= "\$installation_id = '$installation_id';\n";
 // Per-installation key for encryptSetting()/decryptSetting() - SMTP and IMAP
 // passwords, OAuth refresh tokens, RMM/UniFi API keys, webhook secrets and the

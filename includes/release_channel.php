@@ -15,7 +15,7 @@ if (!defined('RELEASE_REMOTE')) {
     define('RELEASE_REMOTE', defined('APP_UPDATE_REMOTE') ? (string) APP_UPDATE_REMOTE : 'origin');
 }
 if (!defined('RELEASE_BRANCH_PRODUCTION')) {
-    define('RELEASE_BRANCH_PRODUCTION', 'main');
+    define('RELEASE_BRANCH_PRODUCTION', 'production');
 }
 if (!defined('RELEASE_BRANCH_BETA')) {
     define('RELEASE_BRANCH_BETA', 'beta');

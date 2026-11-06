@@ -24,7 +24,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # The repository the project is published from today (the same one as
 # APP_REPO_URL in includes/branding.php); change both when the project moves.
 REPO_URL="https://github.com/TheTractorHacker/RivetIT.git"
-REPO_BRANCH="main"
+REPO_BRANCH="production"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TEMPLATES_DIR="${SCRIPT_DIR}/templates"
 LOG_FILE="/var/log/itflow-install.log"
