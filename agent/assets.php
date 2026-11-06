@@ -488,6 +488,15 @@ if (array_sum($_att)) { ?>
 </style>
 <?php } ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    /* QA3: keep the Name column readable (it was collapsing to one character per line) */
+    .assets-table > tbody > tr > td:nth-child(2) { min-width: 170px; }
+    .assets-table > tbody > tr > td:nth-child(2) .media-body { min-width: 0; overflow-wrap: anywhere; }
+    .assets-table > tbody > tr > td:nth-child(2) .media > i { flex: 0 0 auto; }
+    .assets-table > thead th:nth-child(4), .assets-table > tbody > tr > td:nth-child(4) { min-width: 110px; }
+    /* tighten so Status, Department and the Action menu stay on screen at laptop widths */
+    .assets-table > :not(caption) > * > * { padding-left: .5rem; padding-right: .5rem; }
+</style>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-desktop me-2"></i>Assets</h3>

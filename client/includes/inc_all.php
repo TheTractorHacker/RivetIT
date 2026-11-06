@@ -22,16 +22,20 @@
  * the narrower default and break the very images they widened it for.
  */
 $portal_csp_already_set = false;
+$portal_csp_narrow = false;
 foreach (headers_list() as $portal_sent_header) {
     if (stripos($portal_sent_header, 'Content-Security-Policy:') === 0) {
         $portal_csp_already_set = true;
+        // The plain per-page `default-src 'self'` line is widened by data: IMAGES only (never scripts or styles): Tabler draws every
+        // <select> arrow, checkbox tick and radio dot as a data: SVG background, and `default-src 'self'` alone made them all vanish.
+        $portal_csp_narrow = (trim(substr($portal_sent_header, strlen('Content-Security-Policy:'))) === "default-src 'self'");
         break;
     }
 }
-if (!$portal_csp_already_set && !headers_sent()) {
-    header("Content-Security-Policy: default-src 'self'");
+if (!headers_sent() && ($portal_csp_narrow || !$portal_csp_already_set)) {
+    header("Content-Security-Policy: default-src 'self'; img-src 'self' data:");
 }
-unset($portal_csp_already_set, $portal_sent_header);
+unset($portal_csp_already_set, $portal_csp_narrow, $portal_sent_header);
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/functions.php';

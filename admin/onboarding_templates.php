@@ -75,7 +75,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     $project_template_description = nullable_htmlentities($row['project_template_description']);
                     $project_template_default_contract_template_id = intval($row['project_template_default_contract_template_id']);
 
-                    $default_contract_template_name = '-';
+                    $default_contract_template_name = '&mdash;';
                     if ($project_template_default_contract_template_id) {
                         $default_contract_template_name = nullable_htmlentities(getFieldById('contract_templates', $project_template_default_contract_template_id, 'contract_template_name'));
                     }
@@ -94,7 +94,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <td>
                             <a class="text-dark" href="onboarding_template_details.php?project_template_id=<?= $project_template_id ?>">
                                 <div class="media">
-                                    <i class="fa fa-fw fa-2x fa-user-plus me-3"></i>
+                                    <i class="fa fa-fw fa-lg fa-user-plus text-secondary me-3"></i>
                                     <div class="media-body">
                                         <div>
                                             <?= $project_template_name ?>

@@ -5183,6 +5183,9 @@ function redirect($url = null, $permanent = false) {
 
 //Flash Alert Function
 function flash_alert(string $message, string $type = 'success'): void {
+    // Many handlers interpolate sanitizeInput()'d (SQL-escaped) names straight into the message; undo the
+    // visible backslash before quotes so "O'Brien" does not show as O\'Brien.
+    $message = str_replace(['\\"', "\\'"], ['"', "'"], $message);
     $_SESSION['alert_type'] = $type;
     $_SESSION['alert_message'] = $message;
 }

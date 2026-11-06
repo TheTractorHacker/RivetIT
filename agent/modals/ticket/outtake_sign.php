@@ -79,7 +79,7 @@ if (!$row) {
     <div class="form-check mt-1 mb-2">
         <input class="form-check-input" type="checkbox" id="outtake_terms_agree">
         <label class="form-check-label" style="font-size:13px;" for="outtake_terms_agree">
-            I have read and agree to the <?php if ($config_terms_url !== '') { ?><a href="<?= nullable_htmlentities($config_terms_url) ?>" target="_blank" rel="noopener">Terms &amp; Conditions</a><?php } else { ?>terms above<?php } ?>
+            I have read and agree to the <?php if ($config_terms_url !== '') { ?><a href="<?= nullable_htmlentities($config_terms_url) ?>" target="_blank" rel="noopener">Terms &amp; Conditions</a><?php } else { ?>work summary on this form<?php } ?>
         </label>
     </div>
 
@@ -119,7 +119,7 @@ if (!$row) {
 
         if (!name)   { errBox.textContent = 'Please enter a full name.'; errBox.classList.remove('d-none'); return; }
         if (!sig)    { errBox.textContent = 'Please draw a signature.'; errBox.classList.remove('d-none'); return; }
-        if (!agreed) { errBox.textContent = 'Please agree to the Terms & Conditions.'; errBox.classList.remove('d-none'); return; }
+        if (!agreed) { errBox.textContent = 'Please tick the checkbox to confirm your agreement.'; errBox.classList.remove('d-none'); return; }
 
         btn.disabled = true;
         fetch('post.php', {

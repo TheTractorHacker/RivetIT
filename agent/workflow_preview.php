@@ -64,16 +64,16 @@ $type_labels = ['manual' => 'Manual', 'approval' => 'Approval', 'action' => 'Aut
                     <td><strong><?= nullable_htmlentities($t['title']) ?></strong><?= $t['required'] ? '' : ' <span class="badge text-bg-light text-secondary">optional</span>' ?></td>
                     <td><?= nullable_htmlentities($type_labels[$t['type']] ?? $t['type']) ?></td>
                     <td><?= $t['starts'] === 'ready' ? '<span class="badge text-bg-primary">ready</span>' : '<span class="badge text-bg-secondary">blocked</span>' ?></td>
-                    <td class="small"><?= nullable_htmlentities(implode(', ', $t['depends_on_titles'])) ?></td>
+                    <td class="small"><?= $t['depends_on_titles'] ? nullable_htmlentities(implode(', ', $t['depends_on_titles'])) : '<span class="text-muted">&mdash;</span>' ?></td>
                     <td class="small text-nowrap"><?= $t['due_at'] ? nullable_htmlentities($t['due_at']) : '<span class="text-muted">none</span>' ?><?= !empty($t['run_after']) ? '<div class="text-info">Runs not before ' . nullable_htmlentities($t['run_after']) . '</div>' : '' ?></td>
                     <td class="small"><?= nullable_htmlentities($t['assignee']) ?></td>
-                    <td class="small"><?= nullable_htmlentities($t['what']) ?></td>
+                    <td class="small"><?= trim((string) $t['what']) !== '' ? nullable_htmlentities($t['what']) : '<span class="text-muted">Task added to the checklist</span>' ?></td>
                 </tr>
             <?php } ?>
             </tbody>
         </table></div>
         <?php if (lookupUserPermission('module_client') >= 2) { ?>
-        <form action="post.php" method="post">
+        <form action="post.php" method="post" class="mt-3">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
             <input type="hidden" name="workflow_template_id" value="<?= intval($workflow_template_id) ?>">

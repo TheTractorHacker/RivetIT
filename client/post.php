@@ -155,13 +155,30 @@ if (isset($_POST['add_ticket'])) {
         if ($catalog_item) {
             $catalog_check = \ITFlow\ITSM\ServiceCatalogService::validateInput($catalog_service->getFields($catalog_item_id), (array) ($_POST['catalog_field'] ?? []));
             if ($catalog_check['errors']) {
-                flash_alert(implode('<br>', array_map('nullable_htmlentities', $catalog_check['errors'])), 'danger');
+                flash_alert(implode(' ', $catalog_check['errors']), 'danger');
                 redirect("ticket_add.php?catalog_item_id=$catalog_item_id");
             }
             $catalog_values = $catalog_check['values'];
         }
     }
     $catalog_item_sql = $catalog_item ? $catalog_item_id : 'NULL';
+
+    // A ticket needs a subject, and a plain ticket needs details (the form marks both required, but a rich-text box cannot
+    // enforce that in the browser). Keep what was typed so nothing is lost, and do not burn a ticket number.
+    $details_text = trim(html_entity_decode(strip_tags((string) $_POST['details']), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $details_text = trim(str_replace("\xC2\xA0", ' ', $details_text));
+    $ticket_form_errors = [];
+    if (trim(strip_tags((string) $_POST['subject'])) === '') {
+        $ticket_form_errors[] = 'Please enter a subject.';
+    }
+    if (!$catalog_item && $details_text === '' && stripos((string) $_POST['details'], '<img') === false) {
+        $ticket_form_errors[] = 'Please describe what is going on in the details box.';
+    }
+    if ($ticket_form_errors) {
+        $_SESSION['ticket_add_old'] = ['subject' => mb_substr(strip_tags((string) $_POST['subject']), 0, 200), 'details' => (string) $_POST['details']];
+        flash_alert(implode(' ', $ticket_form_errors), 'danger');
+        redirect('ticket_add.php' . ($catalog_item ? "?catalog_item_id=$catalog_item_id" : ''));
+    }
 
     // Atomically increment and get the new ticket number
     mysqli_query($mysqli, "
@@ -227,6 +244,7 @@ if (isset($_POST['add_ticket'])) {
 
     logAction("Ticket", "Create", "$session_contact_name created ticket $config_ticket_prefix$ticket_number - $subject from the department portal", $session_client_id, $ticket_id);
 
+    flash_alert('Your ticket ' . $config_ticket_prefix . $ticket_number . ' has been raised. The service desk will be in touch.');
     redirect("ticket.php?id=" . $ticket_id);
 
 }
@@ -339,6 +357,7 @@ if (isset($_POST['add_ticket_comment'])) {
         // Custom action/notif handler
         customAction('ticket_reply_client', $ticket_id);
 
+        flash_alert('Your reply has been sent.');
         // Redirect back to original page
         redirect();
 
@@ -453,7 +472,7 @@ if (isset($_POST['add_ticket_feedback'])) {
     // Verify the contact has access to the provided ticket ID
     if (verifyContactTicketAccess($ticket_id, "Closed")) {
 
-        applyCsatRating($mysqli, $ticket_id, $rating, $comment, $session_contact_name, $config_ticket_csat_low_rating_threshold);
+        applyCsatRating($mysqli, $ticket_id, $rating, $comment_raw, $session_contact_name, $config_ticket_csat_low_rating_threshold);
 
         // Custom action/notif handler
         customAction('ticket_feedback', $ticket_id);
@@ -502,6 +521,7 @@ if (isset($_GET['resolve_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_resolve', $ticket_id);
 
+        flash_alert('Ticket marked as resolved.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -542,6 +562,7 @@ if (isset($_GET['reopen_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_update', $ticket_id);
 
+        flash_alert('Ticket reopened. The service desk has been told.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -582,6 +603,7 @@ if (isset($_GET['close_ticket'])) {
         // Custom action/notif handler
         customAction('ticket_close', $ticket_id);
 
+        flash_alert('Ticket closed.');
         redirect("ticket.php?id=" . $ticket_id);
 
     } else {
@@ -606,17 +628,36 @@ if (isset($_POST['edit_profile'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    $new_password = $_POST['new_password'];
+    $new_password = trim((string) ($_POST['new_password'] ?? ''));
+    $current_password = (string) ($_POST['current_password'] ?? '');
 
-    if (!empty($new_password)) {
-        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
-
-        // Logging
-        logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+    if ($new_password === '' || $current_password === '') {
+        flash_alert('Enter your current password and a new password.', 'danger');
+        redirect('profile.php');
     }
 
-    redirect('index.php');
+    // The current password must be right before it can be replaced (a borrowed, unlocked session should not be enough).
+    $pw_check = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id"));
+    if (!$pw_check || !password_verify($current_password, (string) $pw_check['user_password'])) {
+        flash_alert('Your current password is not correct.', 'danger');
+        redirect('profile.php');
+    }
+
+    require_once '../includes/security_policy.php';
+    $policy_error = secPasswordPolicyError($new_password, ['name' => $session_contact_name ?? '', 'email' => $session_contact_email ?? '', 'username' => $session_contact_email ?? ''], $mysqli);
+    if ($policy_error !== null) {
+        flash_alert($policy_error, 'danger');
+        redirect('profile.php');
+    }
+
+    $password_hash = mysqli_real_escape_string($mysqli, secPasswordHash($new_password));
+    mysqli_query($mysqli, "UPDATE users SET user_password = '$password_hash' WHERE user_id = $session_user_id");
+
+    // Logging
+    logAction("Contact", "Edit", "Department contact $session_contact_name edited their profile/password in the department portal", $session_client_id, $session_contact_id);
+
+    flash_alert('Your password was changed.');
+    redirect('profile.php');
 
 }
 
@@ -659,6 +700,7 @@ if (isset($_POST['mark_feed_read'])) {
         (new \ITFlow\Portal\PortalFeed($mysqli))->markRead(intval($session_contact_id));
     }
 
+    flash_alert('All notifications marked as read.');
     redirect('notifications.php');
 
 }
@@ -675,7 +717,7 @@ if (isset($_POST['request_onboarding'])) {
     $ob_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
 
     if (!$eh->canRequestOnboarding(intval($config_portal_onboarding_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $ob_is_admin)) {
-        flash_alert('You cannot request onboarding', 'danger');
+        flash_alert('Onboarding requests are not available for your account.', 'warning');
         redirect('index.php');
     }
 
@@ -687,7 +729,7 @@ if (isset($_POST['request_onboarding'])) {
 
     if ($ob['errors']) {
         $_SESSION['onboarding_old'] = $ob['clean'];
-        flash_alert(implode('<br>', array_map('nullable_htmlentities', $ob['errors'])), 'danger');
+        flash_alert(implode(' ', $ob['errors']), 'danger');
         redirect('onboarding_request.php');
     }
 
@@ -695,7 +737,7 @@ if (isset($_POST['request_onboarding'])) {
 
     if ($ob_result['status'] === 'exists_active' || $ob_result['status'] === 'error') {
         $_SESSION['onboarding_old'] = $ob['clean'];
-        flash_alert(nullable_htmlentities($ob_result['message']), 'danger');
+        flash_alert($ob_result['message'], 'danger');
         redirect('onboarding_request.php');
     }
 
@@ -782,16 +824,16 @@ if (isset($_POST['submit_hr_request']) || isset($_POST['cancel_hr_request'])) {
     $hr_v = \ITFlow\Portal\HrRequests::validate($hr_type, $_POST, $hr_manager_ids, array_column($hr_subjects, 'contact_id'), intval($session_contact_id), $hr_titles);
     if ($hr_v['errors']) {
         $_SESSION['hr_request_old'] = ['type' => $hr_type] + $hr_v['clean'] + array_intersect_key($_POST, array_flip(['name', 'email', 'start_date', 'title', 'manager_id', 'notes', 'subject_contact_id', 'effective_date', 'new_title']));
-        flash_alert(implode('<br>', array_map('nullable_htmlentities', $hr_v['errors'])), 'danger');
+        flash_alert(implode(' ', $hr_v['errors']), 'danger');
         redirect('hr_request.php');
     }
 
     $hr_res = $hr->submit($hr_v['clean'], intval($session_client_id), intval($session_contact_id));
     if ($hr_res['status'] === 'created') {
         logAction("HR Request", "Create", "Department contact $session_contact_name sent an HR $hr_type request (#" . $hr_res['request_id'] . ")", $session_client_id, $hr_res['request_id']);
-        flash_alert(nullable_htmlentities($hr_res['message']));
+        flash_alert($hr_res['message']);
     } else {
-        flash_alert(nullable_htmlentities($hr_res['message']), $hr_res['status'] === 'duplicate' ? 'info' : 'danger');
+        flash_alert($hr_res['message'], $hr_res['status'] === 'duplicate' ? 'info' : 'danger');
     }
     redirect('hr_request.php');
 
@@ -822,7 +864,7 @@ if (isset($_POST['enable_portal_mfa'])) {
 
     }
 
-    flash_alert("Verification code invalid, please try again.", 'error');
+    flash_alert("Verification code invalid, please try again.", 'danger');
     redirect('profile.php');
 
 }
@@ -832,14 +874,14 @@ if (isset($_POST['disable_portal_mfa'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     if (!empty($session_user_force_mfa)) {
-        flash_alert("Two-factor authentication is required for your login and cannot be turned off.", 'error');
+        flash_alert("Two-factor authentication is required for your login and cannot be turned off.", 'danger');
         redirect('profile.php');
     }
 
     // Turning it off needs the password again, so a walk-up on an open session can't strip it.
     $pw_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT user_password FROM users WHERE user_id = $session_user_id AND user_type = 2"));
     if (!$pw_row || !password_verify((string) ($_POST['current_password'] ?? ''), $pw_row['user_password'])) {
-        flash_alert("Password incorrect. Two-factor authentication was not changed.", 'error');
+        flash_alert("Password incorrect. Two-factor authentication was not changed.", 'danger');
         redirect('profile.php');
     }
 
@@ -866,6 +908,15 @@ if (isset($_POST['add_contact'])) {
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
 
+    // flash_alert() text is printed as plain text, so show the name as typed (sanitizeInput() output carries SQL escapes)
+    $contact_name_shown = strip_tags(trim((string) ($_POST['contact_name'] ?? '')));
+
+    // A name and a real-looking email are both required. The browser checks this too, but a hand-made POST skips it.
+    if ($contact_name === '' || !filter_var(trim((string) ($_POST['contact_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Please enter a name and a valid email address", 'danger');
+        redirect('contact_add.php');
+    }
+
     // The auth method is written straight into users.user_auth_method, which decides how the
     // account is allowed to log in, so it can't be free text off the wire - only the three values
     // the form actually offers ('' = no portal access). Reject anything else outright rather than
@@ -876,9 +927,10 @@ if (isset($_POST['add_contact'])) {
         redirect('contact_add.php');
     }
 
-    // Check the email isn't already in use
+    // Check the email isn't already in use (by a login, or by another contact in this department)
     $sql = mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$contact_email'");
-    if ($sql && mysqli_num_rows($sql) > 0) {
+    $sql_dup_contact = mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_email = '$contact_email' AND contact_client_id = $session_client_id AND contact_archived_at IS NULL LIMIT 1");
+    if (($sql && mysqli_num_rows($sql) > 0) || ($sql_dup_contact && mysqli_num_rows($sql_dup_contact) > 0)) {
         flash_alert("Cannot add contact as that email address is already in use", 'danger');
         redirect('contact_add.php');
     }
@@ -905,7 +957,7 @@ if (isset($_POST['add_contact'])) {
 
     customAction('contact_create', $contact_id);
 
-    flash_alert("Contact $contact_name created");
+    flash_alert("Contact $contact_name_shown created");
 
     redirect('contacts.php');
 
@@ -924,6 +976,12 @@ if (isset($_POST['edit_contact'])) {
     $contact_email = sanitizeInput($_POST['contact_email']);
     $contact_technical = intval($_POST['contact_technical'] ?? 0);
     $contact_billing = intval($_POST['contact_billing'] ?? 0);
+    $contact_name_shown = strip_tags(trim((string) ($_POST['contact_name'] ?? '')));
+
+    if ($contact_name === '' || !filter_var(trim((string) ($_POST['contact_email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
+        flash_alert("Please enter a name and a valid email address", 'danger');
+        redirect('contact_edit.php?id=' . $contact_id);
+    }
 
     // The auth method is written straight into users.user_auth_method, which decides how the
     // account is allowed to log in, so it can't be free text off the wire - only the three values
@@ -984,7 +1042,7 @@ if (isset($_POST['edit_contact'])) {
 
     logAction("Contact", "Edit", "Department contact $session_contact_name edited contact $contact_name in the department portal", $session_client_id, $contact_id);
 
-    flash_alert("Contact $contact_name updated");
+    flash_alert("Contact $contact_name_shown updated");
 
     redirect('contacts.php');
 
@@ -1003,6 +1061,12 @@ if (isset($_POST['client_add_document'])) {
     $document_name = sanitizeInput($_POST['document_name']);
     $document_description = sanitizeInput($_POST['document_description']);
     $document_content_raw = sanitizeInput($document_name . " " . strip_tags($_POST['document_content']));
+    $document_name_shown = strip_tags(trim((string) ($_POST['document_name'] ?? '')));
+
+    // The box is plain text. Without markup, keep its line breaks (otherwise the whole text runs together on one line).
+    if ($_POST['document_content'] === strip_tags($_POST['document_content'])) {
+        $_POST['document_content'] = '<p>' . nl2br(htmlspecialchars($_POST['document_content'], ENT_QUOTES, 'UTF-8')) . '</p>';
+    }
 
     // Create document
     mysqli_query($mysqli, "INSERT INTO documents SET
@@ -1031,7 +1095,7 @@ if (isset($_POST['client_add_document'])) {
 
     logAction("Document", "Create", "Department contact $session_contact_name created document $document_name", $session_client_id, $document_id);
 
-    flash_alert("Document <strong>$document_name</strong> created successfully");
+    flash_alert("Document $document_name_shown created successfully");
 
     redirect('documents.php');
 
@@ -1109,18 +1173,18 @@ if (isset($_POST['client_upload_document'])) {
 
                 logAction("Document", "Upload", "Department contact $session_contact_name uploaded document $document_name with file $file_name", $session_client_id, $document_id);
 
-                flash_alert("Document <strong>$document_name</strong> uploaded successfully");
+                flash_alert("Document " . strip_tags(trim((string) ($_POST['document_name'] ?? ''))) . " uploaded successfully");
 
             } else {
-                flash_alert('Error uploading file. Please try again.', 'error');
+                flash_alert('Error uploading file. Please try again.', 'danger');
             }
 
         } else {
-            flash_alert('Invalid file type. Please upload PDF, Word documents, or text files only.', 'error');
+            flash_alert('That file type is not allowed. Please upload a PDF, Word document, text, Markdown, OpenDocument or RTF file.', 'danger');
         }
 
     } else {
-        flash_alert('Please select a file to upload.', 'error');
+        flash_alert('Please choose a file to upload.', 'danger');
     }
 
     redirect('documents.php');
@@ -1177,7 +1241,7 @@ if (isset($_POST['catalog_decide'])) {
         logAction("Service Catalog", $approve ? "Approve" : "Reject", "$session_contact_name " . ($approve ? 'approved' : 'rejected') . " catalog request $request_id from the department portal", $session_client_id, $request_id);
         flash_alert($approve ? 'Request approved' : 'Request rejected');
     } else {
-        flash_alert(nullable_htmlentities($result['error']), 'danger');
+        flash_alert($result['error'], 'danger');
     }
 
     redirect('my_approvals.php');

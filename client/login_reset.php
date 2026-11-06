@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
             //End Mail IF
         }
 
-        $_SESSION['login_message'] = "If your account exists, a reset link is on it's way! Please allow a few minutes for it to reach you.";
+        $_SESSION['login_message'] = "If your account exists, a reset link is on its way. Please allow a few minutes for it to reach you.";
 
     /*
      * Link is being used - Perform password reset
@@ -302,8 +302,10 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                     // Sanity check
                     if ($user_row && hash_equals((string)$user_row['user_password_reset_token'], hash('sha256', $token))) { ?>
 
+                        <p class="text-secondary small">Choose a new password. It must be at least 8 characters.</p>
+
                         <div class="input-group mb-3">
-                            <input type="password" class="form-control" placeholder="New Password" name="new_password" required minlength="8">
+                            <input type="password" class="form-control" placeholder="New Password" aria-label="New password" name="new_password" required minlength="8" autocomplete="new-password" autofocus>
                             <div class="input-group-append">
                                 <div class="input-group-text">
                                     <span class="fas fa-lock"></span>
@@ -315,7 +317,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                         <input type="hidden" name="email" value="<?php echo nullable_htmlentities($email); ?>">
                         <input type="hidden" name="client" value="<?php echo $client; ?>">
 
-                        <button type="submit" class="btn btn-success btn-block mb-3" name="password_reset_set_password">Reset password</button>
+                        <button type="submit" class="btn btn-primary w-100 mb-3" name="password_reset_set_password">Reset password</button>
 
 
                     <?php } else {
@@ -330,8 +332,10 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                      */
                 } else { ?>
 
+                    <p class="text-secondary small">Enter the email address on your department portal account. If it matches, we will email you a link to choose a new password.</p>
+
                     <div class="input-group mb-3">
-                        <input type="email" class="form-control" placeholder="Registered Department Email" name="email" required autofocus>
+                        <input type="email" class="form-control" placeholder="Registered Department Email" aria-label="Registered department email" name="email" required autofocus>
                         <div class="input-group-append">
                             <div class="input-group-text">
                                 <span class="fas fa-envelope"></span>
@@ -339,7 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-success btn-block mb-3" name="password_reset_email_request">Reset my password</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-3" name="password_reset_email_request">Reset my password</button>
 
                 <?php }
                 ?>
@@ -353,15 +357,14 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                expressed with Bootstrap utilities instead. Same look, no
                dependency on adminlte.min.css. */
             ?>
-            <p class="text-center text-danger">
-                <?php
-                // Show feedback from session
-                if (!empty($_SESSION['login_message'])) {
-                    echo nullable_htmlentities($_SESSION['login_message']);
-                    unset($_SESSION['login_message']);
-                }
-                ?>
-            </p>
+            <?php
+            // Show feedback from session: the two good-news messages in green, everything else (errors) in red
+            $login_msg = (string) ($_SESSION['login_message'] ?? '');
+            unset($_SESSION['login_message']);
+            $login_msg_ok = ($login_msg !== '' && $login_msg !== WORDING_ERROR && (str_starts_with($login_msg, 'If your account exists') || str_starts_with($login_msg, 'Password reset successfully')));
+            if ($login_msg !== '') { ?>
+                <p class="text-center <?= $login_msg_ok ? 'text-success' : 'text-danger' ?>" role="alert"><?= nullable_htmlentities($login_msg) ?></p>
+            <?php } ?>
 
             <a href="/login.php">Back to login</a>
 

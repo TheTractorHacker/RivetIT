@@ -51,7 +51,7 @@ if (isset($_POST['add_vendor_from_template'])) {
 
     logAction("Vendor", "Create", "$session_name created vendor $name using a template", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> created from template");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created from template");
 
     redirect();
 
@@ -81,7 +81,7 @@ if (isset($_POST['add_vendor'])) {
 
     logAction("Vendor", "Create", "$session_name created vendor $name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> created");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
 
     redirect();
 
@@ -111,7 +111,7 @@ if (isset($_POST['edit_vendor'])) {
 
     logAction("Vendor", "Edit", "$session_name edited vendor $name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$name</strong> edited");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> edited");
 
     redirect();
 
@@ -136,7 +136,7 @@ if (isset($_GET['archive_vendor'])) {
 
     logAction("Vendor", "Archive", "$session_name archived vendor $vendor_name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$vendor_name</strong> archived", 'error');
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($vendor_name)) . "</strong> archived", 'error');
 
     redirect();
 
@@ -161,7 +161,7 @@ if(isset($_GET['restore_vendor'])){
 
     logAction("Vendor", "Restore", "$session_name restored vendor $vendor_name", $client_id, $vendor_id);
 
-    flash_alert("Vendor <strong>$vendor_name</strong> restored");
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($vendor_name)) . "</strong> restored");
 
     redirect();
 
@@ -192,7 +192,7 @@ if (isset($_GET['delete_vendor'])) {
 
     logAction("Vendor", "Delete", "$session_name deleted vendor $vendor_name", $client_id);
 
-    flash_alert("Vendor <strong>$vendor_name</strong> deleted", 'error');
+    flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($vendor_name)) . "</strong> deleted", 'error');
 
     redirect();
 

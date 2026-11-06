@@ -64,6 +64,10 @@ if ($status == 0 && empty($_GET['archived'])) {
 
 ?>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    /* Health chips with a zero count are disabled; keep them readable instead of near-invisible. */
+    [data-health-filter][disabled] { color: var(--tblr-secondary-color, #6c757d); border-color: var(--tblr-border-color, #dee2e6); background: transparent; opacity: 1; }
+</style>
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-project-diagram me-2"></i>Projects</h3>
@@ -271,10 +275,10 @@ if ($status == 0 && empty($_GET['archived'])) {
                             <?php if ($status == 0) { ?><div class="mt-1"><?= projectHealthBadge($project_due, $completed_task_count, $task_count, $project_completed_at) ?></div><?php } ?>
                         </td>
                         <?php if ($status == 1) { ?>
-                        <td><?php echo $project_completed_at_display; ?></td>
+                        <td class="text-nowrap"><?php echo $project_completed_at_display; ?></td>
                         <?php } ?>
-                        <td><?php echo $project_manager_display; ?></td>
-                        <td><?php echo $project_created_at_display; ?></td>
+                        <td class="text-nowrap"><?php echo $project_manager_display; ?></td>
+                        <td class="text-nowrap"><?php echo $project_created_at_display; ?></td>
                         <?php if (!$client_url) { ?>
                         <td><?php echo $client_name_display; ?></td>
                         <?php } ?>

@@ -110,7 +110,7 @@ $others = array_filter($views, static fn ($v) => intval($v['saved_report_user_id
     <div class="card-body p-0">
         <div class="table-responsive-sm">
             <table class="table table-striped mb-0">
-                <thead><tr><th>Report</th><th>Name</th><th>Filters</th><th>Shared</th><th class="text-end">Actions</th></tr></thead>
+                <thead><tr><th>Report</th><th>Name</th><th>Filters</th><th>Shared with team</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                 <?php if (!$mine) { ?>
                     <tr><td colspan="5" class="text-center text-muted">No saved views yet. Open a report, set its filters and choose Save this view.</td></tr>
@@ -127,11 +127,11 @@ $others = array_filter($views, static fn ($v) => intval($v['saved_report_user_id
                         </td>
                         <td class="small text-muted"><?php echo $v['params'] ? nullable_htmlentities(http_build_query($v['params'])) : 'defaults'; ?></td>
                         <td>
-                            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" form="sv-form-<?php echo $vid; ?>" name="shared" value="1" <?php echo intval($v['saved_report_shared']) === 1 ? 'checked' : ''; ?>></div>
+                            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" form="sv-form-<?php echo $vid; ?>" name="shared" value="1" aria-label="Share this view with everyone who has Reporting access" title="Share with everyone who has Reporting access" <?php echo intval($v['saved_report_shared']) === 1 ? 'checked' : ''; ?>></div>
                         </td>
                         <td class="text-end text-nowrap">
-                            <button type="submit" form="sv-form-<?php echo $vid; ?>" class="btn btn-sm btn-outline-secondary"><i class="fas fa-fw fa-save"></i> Save</button>
-                            <form method="post" class="d-inline">
+                            <button type="submit" form="sv-form-<?php echo $vid; ?>" class="btn btn-sm btn-outline-secondary"><i class="fas fa-fw fa-save"></i> Save changes</button>
+                            <form method="post" class="d-inline js-confirm-delete" data-confirm="Delete the saved view &quot;<?php echo nullable_htmlentities($v['saved_report_name']); ?>&quot;? Schedules that use it will stop working.">
                                 <input type="hidden" name="csrf_token" value="<?php echo nullable_htmlentities($_SESSION['csrf_token']); ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?php echo $vid; ?>">
@@ -169,4 +169,12 @@ $others = array_filter($views, static fn ($v) => intval($v['saved_report_user_id
 </div>
 <?php } ?>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+document.addEventListener('submit', async function (e) {
+    var f = e.target.closest('form.js-confirm-delete');
+    if (!f || f.dataset.confirmed) { return; }
+    e.preventDefault();
+    if (await RivetDialog.confirm(f.dataset.confirm)) { f.dataset.confirmed = '1'; f.submit(); }
+});
+</script>
 <?php require_once "../../includes/footer.php"; ?>

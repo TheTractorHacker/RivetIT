@@ -20,8 +20,8 @@ ob_start();
 ?>
 
 <div class="modal-header bg-dark">
-    <h5 class="modal-title"><i class='fas fa-bell mr-2'></i>Notifications<span class='badge badge-secondary badge-pill px-3 ml-3'><?= $num_notifications ?><span></h5>
-    <button type="button" class="close text-white" data-dismiss="modal">
+    <h5 class="modal-title"><i class='fas fa-bell mr-2'></i>Notifications<span class='badge badge-secondary badge-pill px-3 ml-3'><?= intval($num_notifications) ?></span></h5>
+    <button type="button" class="close text-white ms-auto" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Close">
         <span>&times;</span>
     </button>
 </div>

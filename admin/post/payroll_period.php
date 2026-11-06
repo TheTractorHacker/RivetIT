@@ -28,6 +28,19 @@ if (isset($_POST['save_payroll_hours'])) {
     }
 
     $hours_input = $_POST['hours'] ?? [];
+    // A week has 168 hours: refuse the whole save instead of storing nonsense.
+    if (is_array($hours_input)) {
+        foreach ($hours_input as $weeks_check) {
+            foreach ((array) $weeks_check as $hm_check) {
+                $h_check = $hm_check['h'] ?? '0';
+                $m_check = $hm_check['m'] ?? '0';
+                if (!is_array($hm_check) || !ctype_digit(trim((string) $h_check) ?: '0') || !ctype_digit(trim((string) $m_check) ?: '0') || intval($h_check) > 168 || intval($m_check) > 59) {
+                    flash_alert("Hours must be whole numbers (0-168) and minutes 0-59. Nothing was saved.", 'error');
+                    redirect("/admin/payroll_period.php?id=$period_id");
+                }
+            }
+        }
+    }
     if (is_array($hours_input)) {
         foreach ($hours_input as $user_id => $weeks) {
             $user_id = intval($user_id);

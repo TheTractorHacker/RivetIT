@@ -41,7 +41,7 @@ $sql = mysqli_query($mysqli, "SELECT * FROM labor_types WHERE labor_type_archive
                         <span class="badge rounded-pill text-white px-3 py-2" style="background:<?= $lt_color ?>;"><?= $lt_name ?></span>
                     </td>
                     <td><?= $lt_rate > 0 ? '$' . number_format($lt_rate, 2) . '/hr' : '<span class="text-muted">—</span>' ?></td>
-                    <td><span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:<?= $lt_color ?>;border:1px solid #ccc;"></span> <?= $lt_color ?></td>
+                    <td><span class="d-inline-flex align-items-center gap-2"><span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:<?= $lt_color ?>;border:1px solid #ccc;flex:none;"></span><span class="text-secondary"><?= $lt_color ?></span></span></td>
                     <td class="text-center" style="white-space:nowrap;">
                         <div class="dropdown dropstart d-inline-block">
                             <button class="btn btn-light btn-sm text-secondary" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-label="Actions for <?= $lt_name ?>">

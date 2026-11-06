@@ -180,10 +180,10 @@ if ($action === 'save_policy') {
         echo json_encode(['success' => false, 'error' => 'Name and check type required']); exit;
     }
 
-    $name_e = mysqli_real_escape_string($mysqli, $name);
-    $plat_e = mysqli_real_escape_string($mysqli, $platform);
-    $type_e = mysqli_real_escape_string($mysqli, $check_type);
-    $desc_e = mysqli_real_escape_string($mysqli, $description);
+    $name_e = $name;      // sanitizeInput() already escaped it: escaping again stored literal backslashes
+    $plat_e = $platform;
+    $type_e = $check_type;
+    $desc_e = $description;
     $par_e  = mysqli_real_escape_string($mysqli, $params);
     $warn_v = is_numeric($warn) ? intval($warn) : 'NULL';
     $crit_v = is_numeric($crit) ? intval($crit) : 'NULL';

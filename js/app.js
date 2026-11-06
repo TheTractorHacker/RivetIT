@@ -216,6 +216,9 @@ function initDocBuilder(editor) {
 // silently blocked by this app's strict CSP (no unsafe-inline), so every filter
 // dropdown in the app did nothing when changed. One delegated listener replaces
 // all of them; mark any auto-submitting control with the auto-submit-select class.
+// This script re-runs on every AJAX modal load; bind the delegated handlers once so a confirm is not fired twice.
+if (!window.__rivetAppDelegatesBound) {
+window.__rivetAppDelegatesBound = true;
 document.addEventListener('change', function (e) {
     var el = e.target.closest ? e.target.closest('.auto-submit-select') : null;
     if (el && el.form) {
@@ -235,10 +238,15 @@ document.addEventListener('click', function (e) {
 
 // RivetDialog confirm gate for delete links nested inside another modal,
 // where .confirm-link's own modal-on-modal stacking doesn't work.
-document.addEventListener('click', function (e) {
-    var el = e.target.closest ? e.target.closest('.js-confirm-native') : null;
-    if (el) { RivetDialog.gate(e, el, el.dataset.confirmMessage || 'Are you sure?', { variant: el.dataset.confirmVariant || 'danger' }); }
-});
+// This script is re-executed on every AJAX modal load, so bind the document listener only once: a second copy
+// would see the first one's approval already consumed and ask for the confirmation a second time.
+if (!window.__rivetConfirmNativeBound) {
+    window.__rivetConfirmNativeBound = true;
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('.js-confirm-native') : null;
+        if (el) { RivetDialog.gate(e, el, el.dataset.confirmMessage || 'Are you sure?', { variant: el.dataset.confirmVariant || 'danger' }); }
+    });
+}
 
 // Force-uppercase as-you-type (client abbreviation field, etc).
 document.addEventListener('input', function (e) {
@@ -246,6 +254,7 @@ document.addEventListener('input', function (e) {
         e.target.value = e.target.value.toUpperCase();
     }
 });
+}
 
 function initSelect2Widgets() {
     // Initialize select boxes (Tom Select replaces Select2). Deliberately NOT
@@ -1428,16 +1437,31 @@ function initPasswordToggles() {
     // validation bubble and the Create/Save click just appears to do nothing.
     // Switch to that field's tab before the browser tries to show the bubble,
     // so the same native validation UI lands somewhere the user can see it.
-    document.addEventListener('invalid', function (e) {
-        var el = e.target;
-        if (!el || !el.closest) { return; }
-        var pane = el.closest('.tab-pane');
-        if (!pane || !pane.id || pane.classList.contains('active')) { return; }
-        var trigger = document.querySelector(
-            '[data-bs-toggle="pill"][href="#' + pane.id + '"], [data-bs-toggle="tab"][href="#' + pane.id + '"]'
-        );
-        if (trigger && window.bootstrap && window.bootstrap.Tab) {
-            window.bootstrap.Tab.getOrCreateInstance(trigger).show();
-        }
-    }, true);
+    // Only the first invalid field of a submit attempt switches the tab (otherwise a later invalid field on another tab
+    // wins and the user lands on the wrong one), and a hidden Tom Select gets a visible invalid outline instead of a silent no-op.
+    // This script is re-executed on every AJAX modal load, so bind just once.
+    if (!window.__rivetInvalidTabBound) {
+        window.__rivetInvalidTabBound = true;
+        var invalidHandled = false;
+        document.addEventListener('invalid', function (e) {
+            var el = e.target;
+            if (!el || !el.closest) { return; }
+            if (el.tomselect && el.tomselect.wrapper) { el.tomselect.wrapper.classList.add('is-invalid'); }
+            if (invalidHandled) { return; }
+            invalidHandled = true;
+            setTimeout(function () { invalidHandled = false; }, 0);
+            var pane = el.closest('.tab-pane');
+            if (!pane || !pane.id || pane.classList.contains('active')) { return; }
+            var trigger = document.querySelector(
+                '[data-bs-toggle="pill"][href="#' + pane.id + '"], [data-bs-toggle="tab"][href="#' + pane.id + '"]'
+            );
+            if (trigger && window.bootstrap && window.bootstrap.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(trigger).show();
+            }
+        }, true);
+        document.addEventListener('change', function (e) {
+            var el = e.target;
+            if (el && el.tomselect && el.tomselect.wrapper) { el.tomselect.wrapper.classList.remove('is-invalid'); }
+        }, true);
+    }
 })();

@@ -218,9 +218,16 @@ if (isset($_POST['record_restore_test'])) {
         require_once dirname(__DIR__, 2) . '/includes/rivet_time.php';
         $tz = new \DateTimeZone(rivetCompanyTimezone());
         $utc = new \DateTimeZone('UTC');
-        $testedAt = (new \DateTimeImmutable((string) ($_POST['tested_at'] ?? 'now'), $tz))->setTimezone($utc);
+        $parseWhen = static function (string $raw, string $label) use ($tz, $utc): \DateTimeImmutable {
+            try {
+                return (new \DateTimeImmutable($raw, $tz))->setTimezone($utc);
+            } catch (\Throwable $e) {
+                throw new \InvalidArgumentException($label . ' is not a date and time we can read. Use a format like 2026-11-04 20:17.');
+            }
+        };
+        $testedAt = $parseWhen((string) ($_POST['tested_at'] ?? 'now'), 'Tested at');
         $takenRaw = trim((string) ($_POST['backup_taken_at'] ?? ''));
-        $taken = $takenRaw === '' ? null : (new \DateTimeImmutable($takenRaw, $tz))->setTimezone($utc);
+        $taken = $takenRaw === '' ? null : $parseWhen($takenRaw, 'Backup taken at');
         $stores = array_values(array_intersect((array) ($_POST['stores'] ?? []), [BackupStore::CONTROL_DB, BackupStore::RMM_POSTGRES]));
         $counts = [];
         $verify = null;

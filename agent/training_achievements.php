@@ -153,6 +153,10 @@ render_page_header(
     </aside>
 </div>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+/* The card title is a stretched link that covers the whole card; lift the inline archive confirmation above it so its buttons can be clicked. */
+.tr-ach-card .tr-confirm-bar { position: relative; z-index: 3; }
+</style>
 <script type="application/json" id="tr-page-data"><?= json_encode($tr_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
 <script src="/js/training_common.js?v=<?= filemtime(__DIR__ . '/../js/training_common.js') ?>" defer></script>
 <script src="/agent/js/training_achievements.js?v=<?= filemtime(__DIR__ . '/js/training_achievements.js') ?>" defer></script>

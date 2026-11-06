@@ -86,7 +86,7 @@ if (isset($_POST['add_portal_user'])) {
 
     logAction("Department Login", "Create", "$session_name created a $role department login for $name", $client_id, $user_id);
 
-    flash_alert("Department login for <strong>$name</strong> created as $role");
+    flash_alert("Department login for <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created as $role");
 
     redirect();
 }
@@ -166,7 +166,10 @@ if (isset($_POST['edit_portal_user'])) {
     }
     $update_user = $mysqli->prepare("UPDATE users SET user_name = ?, user_email = ?, user_role_id = ?,
         user_auth_method = ?, user_oidc_issuer = ?, user_oidc_subject = ? WHERE user_id = ? AND user_type = 2");
-    $update_user->bind_param('ssisssi', $name, $email, $agent_role_id, $auth_method, $oidc_issuer, $subject_value, $user_id);
+    // $name/$email are already SQL-escaped for the string-built queries; bind the plain values to avoid double escaping.
+    $name_plain = stripslashes($name);
+    $email_plain = stripslashes($email);
+    $update_user->bind_param('ssisssi', $name_plain, $email_plain, $agent_role_id, $auth_method, $oidc_issuer, $subject_value, $user_id);
     $update_user->execute();
     mysqli_query($mysqli, "UPDATE contacts SET contact_name = '$name', contact_email = '$email', contact_title = '$title', contact_portal_role = '$role' WHERE contact_id = $contact_id");
 
@@ -187,7 +190,7 @@ if (isset($_POST['edit_portal_user'])) {
 
     logAction("Department Login", "Edit", "$session_name edited department login $name (role $role, agent role id $agent_role_id)", intval($t['contact_client_id']), $user_id);
 
-    flash_alert("Department login for <strong>$name</strong> updated");
+    flash_alert("Department login for <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> updated");
 
     redirect();
 }
@@ -215,7 +218,7 @@ if (isset($_GET['disable_portal_user']) || isset($_GET['activate_portal_user']))
 
     logAction("Department Login", $enable ? "Activate" : "Disable", "$session_name " . ($enable ? "activated" : "disabled") . " department login $name", intval($t['contact_client_id']), $user_id);
 
-    flash_alert("Department login for <strong>$name</strong> " . ($enable ? "activated" : "disabled"), $enable ? 'success' : 'error');
+    flash_alert("Department login for <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> " . ($enable ? "activated" : "disabled"), $enable ? 'success' : 'error');
 
     redirect();
 }
@@ -240,7 +243,7 @@ if (isset($_GET['disable_portal_2fa'])) {
 
     logAction("Department Login", "Edit", "$session_name disabled 2FA for department login $name", intval($t['contact_client_id']), $user_id);
 
-    flash_alert("2FA disabled for <strong>$name</strong>.", 'warning');
+    flash_alert("2FA disabled for <strong>" . htmlspecialchars(stripslashes($name)) . "</strong>.", 'warning');
 
     redirect();
 }

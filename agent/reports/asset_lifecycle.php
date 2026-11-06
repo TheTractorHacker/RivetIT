@@ -15,21 +15,21 @@ $tot = $al['totals'];
 render_page_header('Asset Lifecycle and Warranty', 'Warranty status, device age and replacement candidates across the assets you can see.');
 ?>
 
-<form class="mb-3 d-print-none row g-2 align-items-end">
+<form class="mb-3 d-print-none row g-3 align-items-end">
     <?php foreach (['f_client', 'f_location'] as $keep) { if (!empty($_GET[$keep])) { ?>
         <input type="hidden" name="<?php echo $keep; ?>" value="<?php echo intval($_GET[$keep]); ?>">
     <?php } } ?>
     <div class="col-auto">
-        <label class="mb-1 d-block" for="al-days">Warranty expiring within</label>
-        <select class="form-control form-control-sm auto-submit-select" id="al-days" name="days">
+        <label class="form-label mb-1 d-block" for="al-days">Warranty expiring within</label>
+        <select class="form-select auto-submit-select" id="al-days" name="days">
             <?php foreach ([30, 60, 90, 180, 365] as $d) { ?>
                 <option value="<?php echo $d; ?>"<?php echo $d === $window ? ' selected' : ''; ?>><?php echo $d; ?> days</option>
             <?php } ?>
         </select>
     </div>
     <div class="col-auto">
-        <label class="mb-1 d-block" for="al-age">Replacement age</label>
-        <select class="form-control form-control-sm auto-submit-select" id="al-age" name="age_years">
+        <label class="form-label mb-1 d-block" for="al-age">Replacement age</label>
+        <select class="form-select auto-submit-select" id="al-age" name="age_years">
             <?php foreach ([3, 4, 5, 6, 7, 10] as $y) { ?>
                 <option value="<?php echo $y; ?>"<?php echo $y === $age_years ? ' selected' : ''; ?>><?php echo $y; ?> years</option>
             <?php } ?>
@@ -59,7 +59,7 @@ rpt_table('By department', ['Department', 'Assets', 'Warranty expired', 'Expirin
     array_map(static fn ($r) => [$r['label'], $r['count'], $r['expired'], $r['expiring'], $r['aged']], $al['by_client']));
 $rows = [];
 foreach ($al['assets'] as $a) {
-    $rows[] = [['html' => '<a href="/agent/asset_details.php?asset_id=' . intval($a['asset_id']) . '">' . nullable_htmlentities($a['asset_name']) . '</a>'],
+    $rows[] = [['html' => '<a class="text-nowrap" href="/agent/asset_details.php?asset_id=' . intval($a['asset_id']) . '">' . nullable_htmlentities($a['asset_name']) . '</a>'],
         $a['asset_type'], trim(($a['asset_make'] ?? '') . ' ' . ($a['asset_model'] ?? '')), $a['asset_serial'] ?? '', $a['client_name'] ?? '', $a['location_name'] ?? '',
         $a['asset_purchase_date'] ?? ($a['asset_install_date'] ?? ''), $a['asset_warranty_expire'] ?? '',
         $a['days_left'] === null ? '' : ((int) $a['days_left'] < 0 ? 'Expired ' . abs((int) $a['days_left']) . 'd ago' : (int) $a['days_left'] . 'd left'),

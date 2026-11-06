@@ -8,7 +8,7 @@
  * that are waiting ("pending"). All data comes from fleet_list / fleet_* in KioskAdminActions.
  */
 
-$page_extra_css = ['/css/itflow_training.css'];
+$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuardKiosk(3)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
@@ -46,7 +46,7 @@ render_page_header(
     <div class="alert alert-info" role="note">
         Other ways to set up devices still work: <a href="/agent/training_device_setup.php">Set up this device</a> (sign in on the tablet),
         a per-device start URL, or <a href="/agent/training_device_bulk.php">printed setup codes</a>. A fleet link is for rolling out many tablets from an MDM
-        with one shared URL. See <code>docs/training-kiosk-setup.md</code> for the Apple and Android steps.
+        with one shared URL. The Apple and Android steps are in the <a href="/agent/training_devices.php?tab=guide">setup guide</a>.
     </div>
 
     <div class="card mb-3" id="trf-pending-card" hidden>

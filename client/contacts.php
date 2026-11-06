@@ -79,7 +79,7 @@ $contacts_sql = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_
                     ?>
 
                     <tr>
-                        <td><a href="contact_edit.php?id=<?php echo $contact_id?>"><?php echo $contact_name ?></a><?php if ($contact_id === intval($session_contact_id)) { ?> <span class="portal-badge portal-badge--muted ms-1">You</span><?php } ?></td>
+                        <td><?php if ($contact_primary || $contact_id === intval($session_contact_id)) { echo $contact_name; } else { ?><a href="contact_edit.php?id=<?php echo $contact_id?>"><?php echo $contact_name ?></a><?php } ?><?php if ($contact_id === intval($session_contact_id)) { ?> <span class="portal-badge portal-badge--muted ms-1">You</span><?php } ?></td>
                         <td><?php echo $contact_email; ?></td>
                         <td><span class="badge <?php echo ($contact_primary || $contact_technical || $contact_billing) ? 'text-bg-primary' : 'text-bg-secondary'; ?>"><?php echo $contact_roles_display ?></span></td>
                         <td class="text-end"><?php if ($contact_primary || $contact_id === intval($session_contact_id)) { ?><span class="text-secondary small">Managed by IT</span><?php } else { ?><a href="contact_edit.php?id=<?php echo $contact_id?>" class="btn btn-sm btn-outline-secondary" aria-label="Edit <?php echo $contact_name; ?>"><i class="fas fa-pen me-1"></i>Edit</a><?php } ?></td>

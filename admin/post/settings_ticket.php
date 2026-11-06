@@ -17,13 +17,33 @@ if (isset($_POST['edit_ticket_settings'])) {
     // cron/ticket_email_parser.php and admin/mailbox.php). Its column/value is left untouched
     // in the DB rather than silently reset on every settings save.
     $config_ticket_autoclose_hours = intval($_POST['config_ticket_autoclose_hours']);
+
+    // Same rules the form states (letters and hyphens for the prefix); the browser check alone is not enough.
+    $ts_errors = [];
+    if (!preg_match('/^[A-Za-z-]{1,20}$/', (string) ($_POST['config_ticket_prefix'] ?? ''))) {
+        $ts_errors[] = 'Ticket Prefix (letters and hyphens only, for example TCK-)';
+    }
+    if ($config_ticket_next_number < 1) {
+        $ts_errors[] = 'Next Number (1 or more)';
+    }
+    if ($config_ticket_autoclose_hours < 0) {
+        $ts_errors[] = 'Hours to auto close resolved tickets (0 or more)';
+    }
+    $ts_email_raw = trim((string) ($_POST['config_ticket_new_ticket_notification_email'] ?? ''));
+    if ($ts_email_raw !== '' && !filter_var($ts_email_raw, FILTER_VALIDATE_EMAIL)) {
+        $ts_errors[] = 'New Ticket Alert Email (not a valid address)';
+    }
+    if ($ts_errors) {
+        flash_alert('Nothing was saved. Check: ' . implode('; ', $ts_errors) . '.', 'error');
+        redirect();
+    }
     $config_ticket_new_ticket_notification_email = '';
-    if (filter_var($_POST['config_ticket_new_ticket_notification_email'], FILTER_VALIDATE_EMAIL)) {
+    if (filter_var($_POST['config_ticket_new_ticket_notification_email'] ?? '', FILTER_VALIDATE_EMAIL)) {
         $config_ticket_new_ticket_notification_email = sanitizeInput($_POST['config_ticket_new_ticket_notification_email']);
     }
-    $config_ticket_default_view = intval($_POST['config_ticket_default_view']);
-    $config_ticket_moving_columns = intval($_POST['config_ticket_moving_columns']);
-    $config_ticket_ordering = intval($_POST['config_ticket_ordering']);
+    $config_ticket_default_view = intval($_POST['config_ticket_default_view'] ?? 0);
+    $config_ticket_moving_columns = intval($_POST['config_ticket_moving_columns'] ?? 0);
+    $config_ticket_ordering = intval($_POST['config_ticket_ordering'] ?? 0);
     $config_ticket_timer_autostart = intval($_POST['config_ticket_timer_autostart'] ?? 0);
     $config_ticket_csat_enable = intval($_POST['config_ticket_csat_enable'] ?? 0);
     $config_ticket_csat_reminder_days = max(1, intval($_POST['config_ticket_csat_reminder_days'] ?? 3));

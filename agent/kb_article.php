@@ -263,6 +263,7 @@ $sql_attachments = mysqli_query(
                     <?php echo $kb_article_content; ?>
                 </div>
             </div>
+            <?php $rel_type = 'kb_article'; $rel_id = $kb_article_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
         </div>
 
         <div class="col-md-3 d-print-none">
@@ -323,7 +324,7 @@ $sql_attachments = mysqli_query(
                         <i class="fas fa-fw fa-history me-2"></i>Version History
                     </a>
                     <?php if (lookupUserPermission('module_kb') >= 3) { ?>
-                    <a class="btn btn-danger btn-block confirm-link" href="post.php?delete_kb_article=<?php echo $kb_article_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
+                    <a class="btn btn-danger btn-block confirm-link" data-confirm="Delete this article? It is removed from the Knowledge Base." href="post.php?delete_kb_article=<?php echo $kb_article_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
                         <i class="fas fa-fw fa-trash-alt me-2"></i>Delete
                     </a>
                     <?php } ?>
@@ -364,7 +365,7 @@ $sql_attachments = mysqli_query(
                                     <i class="fas fa-fw fa-download me-2"></i>Download
                                 </a>
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item text-danger confirm-link" href="post.php?delete_kb_article_attachment=<?php echo $att_id; ?>&kb_article_id=<?php echo $kb_article_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
+                                <a class="dropdown-item text-danger confirm-link" data-confirm="Delete this attachment?" href="post.php?delete_kb_article_attachment=<?php echo $att_id; ?>&kb_article_id=<?php echo $kb_article_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
                                     <i class="fas fa-fw fa-trash me-2"></i>Delete
                                 </a>
                             </div>
@@ -385,7 +386,6 @@ $sql_attachments = mysqli_query(
 
 </div>
 
-<?php $rel_type = 'kb_article'; $rel_id = $kb_article_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
 
 <?php /*
     The render layer, loaded from the page rather than from the shared footer

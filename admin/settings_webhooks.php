@@ -18,7 +18,6 @@ $wh_popular = ['n8n', 'slack', 'discord', 'teams', 'ntfy', 'home-assistant', 'ge
 <div class="card">
     <div class="card-header py-3 d-flex align-items-center gap-3">
         <h3 class="card-title me-auto mb-0"><i class="fas fa-fw fa-satellite-dish me-2"></i>Webhooks</h3>
-        <a href="settings_webhook_guides.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-book me-1"></i>Guides</a>
         <a href="webhook_new.php" class="btn btn-primary btn-sm">
             <i class="fas fa-plus me-1"></i>Add Webhook
         </a>

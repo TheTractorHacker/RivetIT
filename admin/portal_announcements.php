@@ -82,11 +82,15 @@ $sev_badge = ['info' => 'secondary', 'important' => 'warning', 'urgent' => 'dang
     </div>
 </div>
 
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+.ann-table th:first-child, .ann-table td:first-child { padding-left: 1.25rem; }
+.ann-table th:last-child, .ann-table td:last-child { padding-right: 1.25rem; }
+</style>
 <div class="card">
-    <div class="card-header py-3"><h3 class="card-title">All announcements</h3></div>
+    <div class="card-header py-3"><h3 class="card-title"><i class="fas fa-fw fa-list me-2"></i>All announcements</h3></div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 ann-table">
                 <thead><tr><th>Title</th><th>Who sees it</th><th>Importance</th><th>State</th><th>Publish</th><th>Expires</th><th></th></tr></thead>
                 <tbody>
                 <?php if (!$list) { ?>

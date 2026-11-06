@@ -15,7 +15,7 @@ if (isset($_POST['add_payroll_deduction_category'])) {
 
     logAction("Payroll", "Create", "$session_name created payroll deduction category $name");
 
-    flash_alert("Deduction category <strong>$name</strong> created");
+    flash_alert("Deduction category <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
     redirect();
 }
 
@@ -32,7 +32,7 @@ if (isset($_POST['edit_payroll_deduction_category'])) {
 
     logAction("Payroll", "Edit", "$session_name edited payroll deduction category $name");
 
-    flash_alert("Deduction category <strong>$name</strong> updated");
+    flash_alert("Deduction category <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> updated");
     redirect();
 }
 
@@ -41,13 +41,13 @@ if (isset($_GET['delete_payroll_deduction_category'])) {
     validateCSRFToken($_GET['csrf_token']);
 
     $payroll_deduction_category_id = intval($_GET['delete_payroll_deduction_category']);
-    $name = sanitizeInput(getFieldById('payroll_deduction_categories', $payroll_deduction_category_id, 'payroll_deduction_category_name'));
+    $name = getFieldById('payroll_deduction_categories', $payroll_deduction_category_id, 'payroll_deduction_category_name'); // already SQL-escaped
 
     mysqli_query($mysqli, "UPDATE payroll_deduction_categories SET payroll_deduction_category_archived_at=NOW() WHERE payroll_deduction_category_id=$payroll_deduction_category_id");
     mysqli_query($mysqli, "UPDATE payroll_employee_deductions SET payroll_employee_deduction_archived_at=NOW() WHERE payroll_employee_deduction_category_id=$payroll_deduction_category_id AND payroll_employee_deduction_archived_at IS NULL");
 
     logAction("Payroll", "Delete", "$session_name deleted payroll deduction category $name");
 
-    flash_alert("Deduction category <strong>$name</strong> deleted", 'error');
+    flash_alert("Deduction category <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> deleted", 'error');
     redirect();
 }

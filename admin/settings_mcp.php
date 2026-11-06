@@ -131,13 +131,14 @@ $csrf = $_SESSION['csrf_token'];
         <p class="text-muted"><?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> acts as its own OAuth server for MCP. Add the address above to Claude (Settings &rarr; Connectors) or ToolHive; the person signs in to <?= htmlspecialchars(defined('APP_NAME') ? APP_NAME : 'RivetIT') ?> as usual (password, 2FA) and approves a read-only connection. No API key and no other identity provider. While this is on, tokens from an external identity provider are not accepted.</p>
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-            <div class="form-check form-switch mb-2">
+            <div class="form-check form-switch mb-3">
                 <input type="checkbox" class="form-check-input" id="mcp_oauth_builtin" name="mcp_oauth_builtin" value="1" <?= $oauth['builtin'] ? 'checked' : '' ?>>
                 <label class="form-check-label" for="mcp_oauth_builtin">Use built-in sign-in (also needs <strong>Turn on Remote MCP</strong> above)</label>
             </div>
             <div class="form-check form-switch mb-3">
                 <input type="checkbox" class="form-check-input" id="mcp_oauth_registration" name="mcp_oauth_registration" value="1" <?= $oauth['registration'] ? 'checked' : '' ?>>
-                <label class="form-check-label" for="mcp_oauth_registration">Let MCP apps register themselves. Off (recommended): you add each app below and give it its client ID, or let Claude identify itself with its published document (below). Switching this off only stops <em>new</em> registrations; apps already registered, and their connections, keep working.</label>
+                <label class="form-check-label" for="mcp_oauth_registration">Let MCP apps register themselves</label>
+                <div class="form-text">Off is recommended: you add each app below and give it its client ID, or let Claude identify itself with its published document (below). Switching this off only stops <em>new</em> registrations; apps already registered, and their connections, keep working.</div>
             </div>
             <button type="submit" name="save_mcp_oauth_settings" class="btn btn-primary"><i class="fa fa-check me-2"></i>Save</button>
         </form>

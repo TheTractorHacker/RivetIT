@@ -29,6 +29,11 @@ $year  = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 if ($month < 1 || $month > 12) {
     $month = intval(date('n'));
 }
+// the picker offers this year and the two before it; anything else (a hand-typed ?year=) falls back to the current year
+$year_now = intval(date('Y'));
+if ($year > $year_now || $year < $year_now - 2) {
+    $year = $year_now;
+}
 
 $period_start = new DateTime(sprintf('%04d-%02d-01', $year, $month));
 $period_end   = (clone $period_start)->modify('last day of this month')->setTime(23, 59, 59);
@@ -107,20 +112,22 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
 ?>
 <div class="container-fluid px-0">
 <div class="card">
-    <div class="card-header d-flex align-items-center flex-wrap">
-        <h4 class="mb-0 me-auto"><i class="fas fa-hourglass-half me-2"></i>Monthly Support Allowance</h4>
-        <form method="get" class="d-flex gap-2">
-            <select class="form-control form-control-sm" name="month">
+    <div class="card-header d-flex align-items-center flex-wrap gap-2">
+        <h4 class="mb-0 me-auto"><i class="fas fa-hourglass-half me-2"></i>Monthly support allowance</h4>
+        <form method="get" class="d-flex gap-2 align-items-center flex-nowrap portal-allowance-picker">
+            <label class="visually-hidden" for="allowanceMonth">Month</label>
+            <select class="form-select form-select-sm w-auto pe-5" name="month" id="allowanceMonth">
                 <?php foreach ($month_names as $m => $mname) { ?>
                     <option value="<?= $m ?>" <?= $m == $month ? 'selected' : '' ?>><?= $mname ?></option>
                 <?php } ?>
             </select>
-            <select class="form-control form-control-sm" name="year">
+            <label class="visually-hidden" for="allowanceYear">Year</label>
+            <select class="form-select form-select-sm w-auto pe-5" name="year" id="allowanceYear">
                 <?php for ($y = intval(date('Y')); $y >= intval(date('Y')) - 2; $y--) { ?>
                     <option value="<?= $y ?>" <?= $y == $year ? 'selected' : '' ?>><?= $y ?></option>
                 <?php } ?>
             </select>
-            <button type="submit" class="btn btn-sm btn-primary">View</button>
+            <button type="submit" class="btn btn-sm btn-primary text-nowrap">View</button>
         </form>
     </div>
     <div class="card-body p-0">
@@ -136,7 +143,7 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
             <div class="card mb-2 border">
                 <div class="card-header py-2 cursor-pointer" id="ah<?= $cid ?>"
                      data-bs-toggle="collapse" data-bs-target="#ac<?= $cid ?>" aria-expanded="<?= $i===0?'true':'false' ?>">
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex align-items-center w-100">
                         <i class="fas fa-file-contract me-3 text-primary"></i>
                         <strong class="flex-grow-1"><?= $cname ?></strong>
                         <span class="badge text-bg-secondary me-3"><?= $ticket_count ?> ticket<?= $ticket_count!==1?'s':'' ?> this month</span>
@@ -173,7 +180,7 @@ function portalRenderAllowanceRow(string $label, string $icon, array $u): void {
                                     $date = date('Y-m-d', strtotime($t['ticket_created_at']));
                                 ?>
                                 <tr>
-                                    <td class="text-nowrap"><a href="ticket.php?id=<?= $ticket_id ?>">#<?= $ticket_number ?></a> <?= $ticket_subject ?></td>
+                                    <td><a href="ticket.php?id=<?= $ticket_id ?>">#<?= $ticket_number ?></a> <?= $ticket_subject ?></td>
                                     <td><span class="badge <?= $method_badge ?>"><?= $method ?></span></td>
                                     <td class="text-muted small"><?= $date ?></td>
                                     <td class="text-end"><?= number_format($t['hours_charged'], 2) ?> hrs</td>

@@ -53,6 +53,8 @@ $priority_colors = [
 <!-- Responsive chart helpers -->
 <style>
   .chart-h-320 { position: relative; height: 320px; }
+  .info-box .info-box-number { white-space: nowrap; font-size: 1.2rem; }
+  .info-box .info-box-content { min-width: 0; }
   @media (max-width: 576px) { .chart-h-320 { height: 260px; } }
 
   /* KPI stat tiles: Bootstrap's .bg-* utilities only set background-color, so the
@@ -105,7 +107,6 @@ if ($sd_res === null && $sd_rsp === null) {
 <div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-headset me-2"></i>Service Desk &amp; SLA Ops</h3>
-    </div>
     </div>
     <div class="card-body p-0">
 
@@ -171,7 +172,7 @@ if ($sd_res === null && $sd_rsp === null) {
                     <span class="info-box-icon"><i class="fas fa-smile"></i></span>
                     <div class="info-box-content">
                         <span class="info-box-text">CSAT</span>
-                        <span class="info-box-number"><?php echo $report['csat']['avg_rating'] !== null ? $report['csat']['avg_rating'] . ' / 5' : '—'; ?></span>
+                        <span class="info-box-number"><?php echo $report['csat']['avg_rating'] !== null ? $report['csat']['avg_rating'] . '<small class="fw-normal text-muted">/5</small>' : '—'; ?></span>
                         <?php if ($report['csat']['rated'] > 0) { ?>
                         <span class="info-box-text" style="font-size:10px"><?php echo intval($report['csat']['rated']); ?> rated · <?php echo $report['csat']['satisfied_pct']; ?>% satisfied</span>
                         <?php } ?>
@@ -347,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } },
                     y: { beginAtZero: true, ticks: { maxTicksLimit: 6 }, grid: { color: 'rgba(0,0,0,.125)' } }
                 },
-                plugins: { legend: { display: true } }
+                plugins: { legend: { display: true, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } } }
             }
         });
     })();

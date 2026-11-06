@@ -60,6 +60,7 @@ $page_title = $row['project_name'];
     <li class="breadcrumb-item active">Gantt</li>
 </ol>
 
+<link rel="stylesheet" href="css/area_projects.css">
 <!-- Project view tabs -->
 <ul class="nav nav-pills mb-3 d-print-none">
     <li class="nav-item">
@@ -74,6 +75,7 @@ $page_title = $row['project_name'];
 </ul>
 
 <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    #project-gantt .gantt .bar-wrapper { cursor: pointer; }
     #project-gantt .gantt .bar-wrapper.bar-overdue .bar { fill: #dc3545; }
     #project-gantt .gantt .bar-wrapper.bar-overdue .bar-progress { fill: #a71d2a; }
     .gantt-legend i { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:6px; }
@@ -163,6 +165,9 @@ $page_title = $row['project_name'];
             var tl = document.createElement('span');
             tl.textContent = 'Today ' + today.toISOString().slice(0, 10) + (last ? ' | schedule ends ' + last.toISOString().slice(0, 10) : '');
             sum.appendChild(tl);
+            var hint = document.createElement('span');
+            hint.textContent = 'Click a task to open it. Drag a bar to reschedule it.';
+            sum.appendChild(hint);
             sum.style.display = '';
             gantt = new Gantt(target, tasks, {
                 view_mode: currentView,
@@ -185,6 +190,22 @@ $page_title = $row['project_name'];
             empty.textContent = 'Failed to load Gantt data.';
             empty.style.display = '';
         });
+
+    // A plain click (press and release without dragging) on a task bar opens that task's detail modal.
+    // Done here from the mouse events because the chart redraws the bars when a drag starts.
+    var pressed = null;
+    target.addEventListener('mousedown', function (ev) {
+        var w = ev.target.closest ? ev.target.closest('.bar-wrapper') : null;
+        pressed = w ? { id: w.getAttribute('data-id'), x: ev.clientX, y: ev.clientY } : null;
+    });
+    document.addEventListener('mouseup', function (ev) {
+        var p = pressed; pressed = null;
+        if (!p || Math.abs(ev.clientX - p.x) > 3 || Math.abs(ev.clientY - p.y) > 3) { return; }
+        var m = /^task_(\d+)$/.exec(String(p.id || ''));
+        if (m && window.openAjaxModal) {
+            window.openAjaxModal('modals/project/task_detail.php?id=' + m[1], 'lg', { onHidden: function () { location.reload(); } });
+        }
+    });
 
     document.querySelectorAll('[data-gantt-view]').forEach(function (btn) {
         btn.addEventListener('click', function () {

@@ -103,7 +103,13 @@ if ($tbt_rows && $tbt_total > 0) {
 
 ?>
 
-    <div class="card card-dark">
+    <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+  /* Nested report cards: no second inner padding, and headers may wrap so wide tables fit without sideways scroll. */
+  .report-nested .card .card .card-body { padding: 0; }
+  .report-nested .card .card .card-header { border-bottom: 1px solid var(--if-border, rgba(0,0,0,.08)); }
+  .report-nested table th { white-space: normal; vertical-align: bottom; }
+</style>
+<div class="report-nested"><div class="card card-dark">
         <div class="card-header py-2">
             <h3 class="card-title mt-2"><i class="fas fa-fw fa-life-ring me-2"></i>Time Logged By Technician</h3>
         </div>
@@ -167,5 +173,6 @@ if ($tbt_rows && $tbt_total > 0) {
         </div>
     </div>
 
+</div>
 <?php
 require_once "../../includes/footer.php";

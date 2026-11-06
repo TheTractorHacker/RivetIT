@@ -20,7 +20,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
     <div class="card">
         <div class="card-header py-3">
-            <h3 class="card-title"><i class="fas fa-fw fa-mail-bulk me-2"></i>Email Queue</h3>
+            <h3 class="card-title"><i class="fas fa-fw fa-mail-bulk me-2"></i>Mail Queue</h3>
         </div>
         <div class="card-body">
             <form class="mb-4" autocomplete="off">
@@ -69,7 +69,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
                 <div class="table-responsive-sm">
-                    <table class="table table-sm table-striped table-borderless table-hover">
+                    <table class="table table-sm table-striped table-borderless table-hover" style="min-width:900px;">
                         <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                         <tr>
                             <td class="bg-light checkbox-column">
@@ -107,7 +107,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     Attempts <?php if ($sort == 'email_attempts') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th class="text-center">Action</th>
+                            <th class="text-start">Action</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -146,13 +146,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <?php } ?>
                                 </td>
                                 <td><?php echo $email_queued_at; ?></td>
-                                <td><?php echo "$email_from<br><small class='text-secondary'>$email_from_name</small>"?></td>
-                                <td><?php echo "$email_recipient<br><small class='text-secondary'>$email_recipient_name</small>"?></td>
+                                <td><?php echo str_replace(['@', '.'], ['@<wbr>', '.<wbr>'], $email_from) . "<br><small class='text-secondary'>$email_from_name</small>"?></td>
+                                <td><?php echo str_replace(['@', '.'], ['@<wbr>', '.<wbr>'], $email_recipient) . "<br><small class='text-secondary'>$email_recipient_name</small>"?></td>
                                 <td><?php echo $email_subject; ?></td>
                                 <td><?php echo $email_status_display; ?></td>
                                 <td><?php echo $email_attempts; ?></td>
-                                <td class="text-center text-nowrap">
-                                    <a class="btn btn-sm btn-secondary ajax-modal" href="#"
+                                <td class="text-start text-nowrap" style="min-width:9rem">
+                                    <a class="btn btn-sm btn-secondary ajax-modal" href="#" title="View message" aria-label="View message"
                                         data-modal-size="lg"
                                         data-modal-url="modals/mail_queue/mail_queue_message_view.php?id=<?= $email_id ?>">
                                         <i class="fas fa-fw fa-eye"></i>
@@ -160,12 +160,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                                     <!-- Show force resend if all retries have failed -->
                                     <?php if ($email_status == 2 && $email_attempts >= \ITFlow\Mail\MailQueuePolicy::MAX_ATTEMPTS) { ?>
-                                        <a class="btn btn-sm btn-success" href="post.php?send_failed_mail=<?php echo $email_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-paper-plane"></i></a>
+                                        <a class="btn btn-sm btn-success" title="Resend this email" aria-label="Resend this email" href="post.php?send_failed_mail=<?php echo $email_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-paper-plane"></i></a>
                                     <?php } ?>
 
                                     <!-- Allow cancelling a message if it hasn't yet been picked up (e.g. stuck/bugged) -->
                                     <?php if ($email_status !== 3) { ?>
-                                        <a class="btn btn-sm btn-danger confirm-link" href="post.php?cancel_mail=<?php echo $email_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash"></i></a>
+                                        <a class="btn btn-sm btn-danger confirm-link" title="Cancel and remove this email" aria-label="Cancel and remove this email" href="post.php?cancel_mail=<?php echo $email_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash"></i></a>
                                     <?php } ?>
 
                                 </td>

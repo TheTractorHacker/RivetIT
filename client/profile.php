@@ -82,7 +82,7 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
                 <div><dt>Start date</dt><dd><?= nullable_htmlentities($profile_facts['contact_start_date'] ?: '-') ?></dd></div>
                 <div><dt>My devices</dt><dd>
                     <?php if (!$profile_devices) { ?><span class="text-secondary">None assigned</span><?php } else { ?>
-                        <?= count($profile_devices) ?>: <?= nullable_htmlentities(implode(', ', array_map(static fn($d) => $d['asset_name'], array_slice($profile_devices, 0, 5)))) ?><?= count($profile_devices) > 5 ? ', ...' : '' ?>
+                        <?= count($profile_devices) > 1 ? count($profile_devices) . ' devices: ' : '' ?><?= nullable_htmlentities(implode(', ', array_map(static fn($d) => $d['asset_name'], array_slice($profile_devices, 0, 5)))) ?><?= count($profile_devices) > 5 ? ', ...' : '' ?>
                         <a href="assets.php" class="ms-1">Details</a>
                     <?php } ?>
                 </dd></div>
@@ -128,6 +128,7 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
         </div>
     <?php } ?>
 
+    <?php require_once __DIR__ . '/../includes/security_policy.php'; $portal_min_pw = max(8, secSettingInt('password_min_length')); ?>
     <?php /* ?? '': the agent login flow never sets login_method, so an admin preview would otherwise warn on every view. */ ?>
     <?php if ($profile_is_local) { ?>
         <div class="card portal-card">
@@ -135,10 +136,15 @@ $profile_is_local = ($_SESSION['login_method'] ?? '') == 'local';
             <div class="card-body">
                 <form action="post.php" method="post" autocomplete="off">
                     <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                    <label class="form-label" for="portal_current_password_pw">Current password</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
+                        <input type="password" class="form-control" id="portal_current_password_pw" name="current_password" required autocomplete="current-password">
+                    </div>
                     <label class="form-label" for="portal_new_password">New password</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa fa-fw fa-lock"></i></span>
-                        <input type="password" class="form-control" id="portal_new_password" minlength="8" required data-toggle="password" name="new_password" placeholder="At least 8 characters" autocomplete="new-password">
+                        <input type="password" class="form-control" id="portal_new_password" minlength="<?= $portal_min_pw ?>" required data-toggle="password" name="new_password" placeholder="At least <?= $portal_min_pw ?> characters" autocomplete="new-password">
                     </div>
                     <button type="submit" name="edit_profile" class="btn btn-primary mt-3"><i class="fas fa-check me-2"></i>Save password</button>
                 </form>

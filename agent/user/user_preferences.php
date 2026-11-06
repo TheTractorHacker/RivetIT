@@ -76,7 +76,7 @@ $records_per_page    = intval($pref['user_config_records_per_page'] ?: 10);
 
             <hr>
 
-            <button type="submit" name="edit_your_user_preferences" class="btn btn-primary btn-sm">
+            <button type="submit" name="edit_your_user_preferences" class="btn btn-primary">
                 <i class="fas fa-check me-1"></i>Save Preferences
             </button>
         </form>

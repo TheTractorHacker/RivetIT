@@ -33,7 +33,7 @@ $h = static fn($v) => nullable_htmlentities((string) $v);
     </div>
     <div class="card-body">
         <?php if (!$hr_ready) { ?>
-            <p class="text-secondary mb-0">Run the database update first.</p>
+            <p class="text-secondary mb-0"><i class="fas fa-info-circle me-1"></i>HR requests are not set up on this system yet. An administrator needs to apply the pending database update (Administration &rarr; Update) before requests from the portal can be reviewed here.</p>
         <?php } else { ?>
         <p class="text-secondary small">Managers and department administrators ask for these from the employee portal (when Administration &gt; Settings &gt; Employee portal allows it). <strong>Nothing has been started or changed</strong> until you approve a request here.</p>
         <?php if (!$rows) { ?><p class="text-secondary">No <?= $h($status) ?> requests.</p><?php } ?>

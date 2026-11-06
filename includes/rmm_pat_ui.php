@@ -1104,7 +1104,7 @@ function rivetRmmPatRulesCard(array $vm): string
             . ($r['ring'] !== null ? ' + ring ' . rmmH($r['ring']) : '') . '</td><td class="small">' . rmmH($cl) . '</td><td class="rmm-table-actions">'
             . ($can ? '<a class="btn btn-sm btn-outline-primary" href="' . $self . '?rule_id=' . $rid . '#rules">Edit</a> ' . rivetRmmAutoActionForm(RIVET_RMM_PAT_HANDLER, 'delete_rule', ['rule_id' => $rid], $csrf, $self . '#rules', 'Delete', 'btn btn-sm btn-outline-danger', 'Delete the rule "' . $r['name'] . '"? Updates it already approved stay approved.') : '') . '</td></tr>';
     }
-    $tbl = $rows === '' ? '<p class="small text-muted px-3 pt-3 mb-2">No rule yet. A rule approves matching updates by itself, once they have been missing long enough.</p>'
+    $tbl = $rows === '' ? '<p class="small text-muted px-3 pt-3 mb-2">No approval rule yet.</p>'
         : '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Patch approval rules</caption>' . rivetRmmUiThead(['Rule', 'State', 'Matches', 'Approves after', 'Applies to', '']) . '<tbody>' . $rows . '</tbody></table></div>';
     $e = $vm['edit_rule'];
     $form = '';

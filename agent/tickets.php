@@ -823,10 +823,10 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                             <?php ticketFilterCheckGroup('tvp_due', 'Due', 'due[]', ['overdue' => 'Overdue', 'due_today' => 'Due today'], array_values(array_filter([$filter_sets['overdue'] ? 'overdue' : '', $filter_sets['due_today'] ? 'due_today' : ''])), ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                         </div>
                         <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Project</label>
-                                <select class="form-control select2 auto-submit-select" name="project">
-                                    <option value="" <?php if ($ticket_project_filter_id == "") { echo "selected"; } ?>>Any</option>
+                            <div class="form-group mb-2">
+                                <label class="visually-hidden" for="ticketProjectFilter">Project</label>
+                                <select class="form-control select2 auto-submit-select" id="ticketProjectFilter" name="project">
+                                    <option value="" <?php if ($ticket_project_filter_id == "") { echo "selected"; } ?>>Project: any</option>
 
                                     <?php
                                     $sql_projects = mysqli_query($mysqli, "SELECT * FROM projects WHERE project_completed_at IS NULL and project_archived_at IS NULL ORDER BY project_name ASC");
