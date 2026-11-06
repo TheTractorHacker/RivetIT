@@ -1,0 +1,3907 @@
+[
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ai_model.php",
+  "url": "/admin/ai_model.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ai_model.php",
+    "status": 200,
+    "final": "/admin/ai_model.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 629,
+    "title": "Summit Ridge Manufacturing - AI Model",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "llama3.1:8b-instruct",
+     "Edit",
+     "llama3.1:8b-instruct",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ai_provider.php",
+  "url": "/admin/ai_provider.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ai_provider.php",
+    "status": 200,
+    "final": "/admin/settings_ai.php#providers",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 878,
+    "title": "Summit Ridge Manufacturing - Settings AI",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Local LLM Gateway",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/api_docs.php",
+  "url": "/admin/api_docs.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/api_docs.php",
+    "status": 200,
+    "final": "/admin/api_docs.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 385,
+    "title": "Summit Ridge Manufacturing - API Docs",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/api_keys.php",
+  "url": "/admin/api_keys.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/api_keys.php",
+    "status": 200,
+    "final": "/admin/api_keys.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 584,
+    "title": "Summit Ridge Manufacturing - API Keys",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/app_log.php",
+  "url": "/admin/app_log.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/app_log.php",
+    "status": 200,
+    "final": "/admin/app_log.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1151,
+    "title": "Summit Ridge Manufacturing - App Log",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/audit_log.php",
+  "url": "/admin/audit_log.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/audit_log.php",
+    "status": 200,
+    "final": "/admin/audit_log.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2043,
+    "title": "Summit Ridge Manufacturing - Audit Log",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/audit_trail.php",
+  "url": "/admin/audit_trail.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/audit_trail.php",
+    "status": 200,
+    "final": "/admin/audit_trail.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 7669,
+    "title": "Summit Ridge Manufacturing - Audit Trail",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/automation.php",
+  "url": "/admin/automation.php?rule_id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/automation.php?rule_id=1",
+    "status": 200,
+    "final": "/admin/automation.php?rule_id=1",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 708,
+    "title": "Summit Ridge Manufacturing - Automation",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   },
+   {
+    "url": "/admin/automation.php?tab=log",
+    "status": 200,
+    "final": "/admin/automation.php?tab=log",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 971,
+    "title": "Summit Ridge Manufacturing - Automation",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/automation_test.php",
+  "url": "/admin/automation_test.php?rule_id=1",
+  "skipped": "fires an automation test"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/backup.php",
+  "url": "/admin/backup.php",
+  "skipped": "backup feature (view-only page skipped to be safe)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/backup_recovery_panel.php",
+  "url": "/admin/backup_recovery_panel.php",
+  "skipped": "backup feature"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/canned_responses.php",
+  "url": "/admin/canned_responses.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/canned_responses.php",
+    "status": 200,
+    "final": "/admin/canned_responses.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 873,
+    "title": "Summit Ridge Manufacturing - Canned Responses",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Password reset instructions",
+     "Edit",
+     "Request more information",
+     "Edit",
+     "Resolved - please confirm",
+     "Edit",
+     "Ticket received"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/catalog_setup.php",
+  "url": "/admin/catalog_setup.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/catalog_setup.php",
+    "status": 200,
+    "final": "/admin/catalog_setup.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 733,
+    "title": "Summit Ridge Manufacturing - Catalog Setup",
+    "h1": "Tags & categories",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/category.php",
+  "url": "/admin/category.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/category.php",
+    "status": 200,
+    "final": "/admin/category.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 444,
+    "title": "Summit Ridge Manufacturing - Category",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Advertising",
+     "Edit",
+     "Office Supplies",
+     "Edit",
+     "Travel",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/comet_status.php",
+  "url": "/admin/comet_status.php",
+  "skipped": "Comet backup integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/compliance_report.php",
+  "url": "/admin/compliance_report.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/compliance_report.php",
+    "status": 200,
+    "final": "/admin/compliance_report.php",
+    "php_error": null,
+    "hscroll": 0,
+    "js": {
+     "jquery": false,
+     "bootstrap": false
+    },
+    "bodyLen": 10393,
+    "title": "Compliance status report",
+    "h1": "Compliance status report",
+    "sheets": 1,
+    "styled": "system-ui, sans-serif|rgba(0, 0, 0, 0)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "shot": "admin__admin_compliance_report_php.png",
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/compliance_status.php",
+  "url": "/admin/compliance_status.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/compliance_status.php",
+    "status": 200,
+    "final": "/admin/compliance_status.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 15344,
+    "title": "Summit Ridge Manufacturing - Compliance Status",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/contract_template.php",
+  "url": "/admin/contract_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/contract_template.php",
+    "status": 200,
+    "final": "/admin/contract_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 296,
+    "title": "Summit Ridge Manufacturing - Contract Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/credential_restore.php",
+  "url": "/admin/credential_restore.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/credential_restore.php",
+    "status": 200,
+    "final": "/admin/credential_restore.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 724,
+    "title": "Summit Ridge Manufacturing - Credential Restore",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/cron.php",
+  "url": "/admin/cron.php",
+  "skipped": "cron page - cron features out of scope"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/custom_link.php",
+  "url": "/admin/custom_link.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/custom_link.php",
+    "status": 200,
+    "final": "/admin/custom_link.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 689,
+    "title": "Summit Ridge Manufacturing - Custom Link",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Docs",
+     "Edit",
+     "Employee Handbook",
+     "Edit",
+     "IT Runbook Wiki",
+     "Edit",
+     "Monthly IT Scorecard"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/database_updates.php",
+  "url": "/admin/database_updates.php",
+  "skipped": "DB migration include - runs updates when loaded"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/debug.php",
+  "url": "/admin/debug.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/debug.php",
+    "status": 200,
+    "final": "/admin/debug.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 27884,
+    "title": "Summit Ridge Manufacturing - Debug",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/document_template.php",
+  "url": "/admin/document_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/document_template.php",
+    "status": 200,
+    "final": "/admin/document_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 296,
+    "title": "Summit Ridge Manufacturing - Document Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/document_template_details.php",
+  "url": "/admin/document_template_details.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/document_template_details.php",
+    "status": 500,
+    "final": "/admin/document_template_details.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": false
+    },
+    "bodyLen": 196,
+    "title": "Summit Ridge Manufacturing",
+    "h1": "",
+    "sheets": 27,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "shot": "admin__admin_document_template_details_php.png",
+    "console": [
+     "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "pageerrors": [],
+    "bad_requests": [
+     "500 GET /admin/document_template_details.php"
+    ],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/email_log.php",
+  "url": "/admin/email_log.php?mailbox_id=3",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/email_log.php?mailbox_id=3",
+    "status": 200,
+    "final": "/admin/email_log.php?mailbox_id=3",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2049,
+    "title": "Summit Ridge Manufacturing - Email Log",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/employee_workflow_template_details.php",
+  "url": "/admin/employee_workflow_template_details.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/employee_workflow_template_details.php",
+    "status": 200,
+    "final": "/admin/employee_workflow_templates.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1305,
+    "title": "Summit Ridge Manufacturing - Employee Workflow Templates",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit",
+     "Edit",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/employee_workflow_templates.php",
+  "url": "/admin/employee_workflow_templates.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/employee_workflow_templates.php",
+    "status": 200,
+    "final": "/admin/employee_workflow_templates.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1283,
+    "title": "Summit Ridge Manufacturing - Employee Workflow Templates",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit",
+     "Edit",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/event_rules.php",
+  "url": "/admin/event_rules.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/event_rules.php",
+    "status": 200,
+    "final": "/admin/event_rules.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2409,
+    "title": "Summit Ridge Manufacturing - Event Rules",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/holidays.php",
+  "url": "/admin/holidays.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/holidays.php",
+    "status": 200,
+    "final": "/admin/holidays.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1095,
+    "title": "Summit Ridge Manufacturing - Holidays",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Custom Holiday",
+     "Jan 1, 2026",
+     "Edit",
+     "Jan 19, 2026",
+     "Edit",
+     "Feb 16, 2026",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/identity_provider.php",
+  "url": "/admin/identity_provider.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/identity_provider.php",
+    "status": 200,
+    "final": "/admin/identity_provider.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1902,
+    "title": "Summit Ridge Manufacturing - Identity Provider",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/index.php",
+  "url": "/admin/index.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/index.php",
+    "status": 200,
+    "final": "/admin/users.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 934,
+    "title": "Summit Ridge Manufacturing - Users",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Export",
+     "IR",
+     "AM\n\n\nAlex Morgan",
+     "Edit",
+     "ML\n\n\nMarcus Lee",
+     "Edit",
+     "Archive"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/job_queue.php",
+  "url": "/admin/job_queue.php",
+  "skipped": "job queue (cron/sync jobs)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/kb_articles_archive.php",
+  "url": "/admin/kb_articles_archive.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/kb_articles_archive.php",
+    "status": 200,
+    "final": "/admin/kb_articles_archive.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 713,
+    "title": "Summit Ridge Manufacturing - KB Articles Archive",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Verify"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/labor_type.php",
+  "url": "/admin/labor_type.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/labor_type.php",
+    "status": 200,
+    "final": "/admin/labor_type.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 429,
+    "title": "Summit Ridge Manufacturing - Labor Type",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/mail_queue.php",
+  "url": "/admin/mail_queue.php",
+  "skipped": "mail queue - send side effects if retry GET used"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/mail_requests.php",
+  "url": "/admin/mail_requests.php",
+  "skipped": "mail requests - Email sync area"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/mailbox.php",
+  "url": "/admin/mailbox.php",
+  "skipped": "Email sync / mailbox integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/maintenance.php",
+  "url": "/admin/maintenance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/maintenance.php",
+    "status": 200,
+    "final": "/admin/maintenance.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1252,
+    "title": "Summit Ridge Manufacturing - Maintenance",
+    "h1": "Maintenance",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/modules.php",
+  "url": "/admin/modules.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/modules.php",
+    "status": 200,
+    "final": "/admin/modules.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 957,
+    "title": "Summit Ridge Manufacturing - Modules",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "module_training_kiosk",
+     "Edit",
+     "module_training",
+     "Edit",
+     "module_support",
+     "module_sales",
+     "module_rmm_sync"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/oauth_microsoft_mail_callback.php",
+  "url": "/admin/oauth_microsoft_mail_callback.php",
+  "skipped": "OAuth callback (Email sync integration)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/onboarding_template_details.php",
+  "url": "/admin/onboarding_template_details.php?project_template_id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/onboarding_template_details.php?project_template_id=1",
+    "status": 200,
+    "final": "/admin/onboarding_template_details.php?project_template_id=1",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 735,
+    "title": "Summit Ridge Manufacturing - Onboarding Template Details",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit Template",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [
+     "/admin/admin_user.php"
+    ],
+    "tabs": [],
+    "modals": [],
+    "console": [
+     "Failed to load resource: net::ERR_TOO_MANY_REDIRECTS"
+    ],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": [
+     "net::ERR_TOO_MANY_REDIRECTS /admin/js/users.php"
+    ]
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/onboarding_templates.php",
+  "url": "/admin/onboarding_templates.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/onboarding_templates.php",
+    "status": 200,
+    "final": "/admin/onboarding_templates.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 434,
+    "title": "Summit Ridge Manufacturing - Onboarding Templates",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payment_method.php",
+  "url": "/admin/payment_method.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payment_method.php",
+    "status": 200,
+    "final": "/admin/payment_method.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 387,
+    "title": "Summit Ridge Manufacturing - Payment Method",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "ACH",
+     "Edit",
+     "Cash",
+     "Edit",
+     "Check",
+     "Edit",
+     "Credit Card"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payment_provider.php",
+  "url": "/admin/payment_provider.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payment_provider.php",
+    "status": 200,
+    "final": "/admin/payment_provider.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 323,
+    "title": "Summit Ridge Manufacturing - Payment Provider",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_deductions.php",
+  "url": "/admin/payroll_deductions.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_deductions.php",
+    "status": 200,
+    "final": "/admin/payroll_deductions.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 489,
+    "title": "Summit Ridge Manufacturing - Payroll Deductions",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_employee.php",
+  "url": "/admin/payroll_employee.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_employee.php",
+    "status": 200,
+    "final": "/admin/payroll_employees.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 708,
+    "title": "Summit Ridge Manufacturing - Payroll Employees",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_employees.php",
+  "url": "/admin/payroll_employees.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_employees.php",
+    "status": 200,
+    "final": "/admin/payroll_employees.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 685,
+    "title": "Summit Ridge Manufacturing - Payroll Employees",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_period.php",
+  "url": "/admin/payroll_period.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_period.php",
+    "status": 200,
+    "final": "/admin/payroll_periods.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 297,
+    "title": "Summit Ridge Manufacturing - Payroll Periods",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_periods.php",
+  "url": "/admin/payroll_periods.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_periods.php",
+    "status": 200,
+    "final": "/admin/payroll_periods.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 272,
+    "title": "Summit Ridge Manufacturing - Payroll Periods",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_run.php",
+  "url": "/admin/payroll_run.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_run.php",
+    "status": 200,
+    "final": "/admin/payroll_runs.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 309,
+    "title": "Summit Ridge Manufacturing - Payroll Runs",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_runs.php",
+  "url": "/admin/payroll_runs.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_runs.php",
+    "status": 200,
+    "final": "/admin/payroll_runs.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 283,
+    "title": "Summit Ridge Manufacturing - Payroll Runs",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/payroll_settings.php",
+  "url": "/admin/payroll_settings.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/payroll_settings.php",
+    "status": 200,
+    "final": "/admin/payroll_settings.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 852,
+    "title": "Summit Ridge Manufacturing - Payroll Settings",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/people_import.php",
+  "url": "/admin/people_import.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/people_import.php",
+    "status": 200,
+    "final": "/admin/people_import.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 937,
+    "title": "Summit Ridge Manufacturing - People Import",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/portal_preview.php",
+  "url": "/admin/portal_preview.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/portal_preview.php",
+    "status": 200,
+    "final": "/admin/portal_preview.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1188,
+    "title": "Summit Ridge Manufacturing - Portal Preview",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/portal_users.php",
+  "url": "/admin/portal_users.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/portal_users.php",
+    "status": 200,
+    "final": "/admin/portal_users.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 654,
+    "title": "Summit Ridge Manufacturing - Portal Users",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/post.php",
+  "url": "/admin/post.php",
+  "skipped": "POST handler (no GET view)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/project_template.php",
+  "url": "/admin/project_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/project_template.php",
+    "status": 200,
+    "final": "/admin/project_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 526,
+    "title": "Summit Ridge Manufacturing - Project Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/project_template_details.php",
+  "url": "/admin/project_template_details.php?project_template_id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/project_template_details.php?project_template_id=1",
+    "status": 200,
+    "final": "/admin/project_template_details.php?project_template_id=1",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 974,
+    "title": "Summit Ridge Manufacturing - Project Template Details",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Edit Template",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [
+     "/admin/admin_user.php"
+    ],
+    "tabs": [],
+    "modals": [],
+    "console": [
+     "Failed to load resource: net::ERR_TOO_MANY_REDIRECTS"
+    ],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": [
+     "net::ERR_TOO_MANY_REDIRECTS /admin/js/users.php"
+    ]
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/roles.php",
+  "url": "/admin/roles.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/roles.php",
+    "status": 200,
+    "final": "/admin/roles.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1223,
+    "title": "Summit Ridge Manufacturing - Roles",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Accountant\nBuilt-in - Limited access to ",
+     "Edit",
+     "Technician\nBuilt-in - Limited access to ",
+     "Edit",
+     "Help Desk Lead\nRuns the service desk day",
+     "Edit",
+     "QA-UI-Training-L2\nqa\nDepartments Modify "
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/saved_payment_method.php",
+  "url": "/admin/saved_payment_method.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/saved_payment_method.php",
+    "status": 200,
+    "final": "/admin/saved_payment_method.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 403,
+    "title": "Summit Ridge Manufacturing - Saved Payment Method",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/server_tasks.php",
+  "url": "/admin/server_tasks.php",
+  "skipped": "server tasks (update/backup/cron runners)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/service_catalog.php",
+  "url": "/admin/service_catalog.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/service_catalog.php",
+    "status": 200,
+    "final": "/admin/service_catalog.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1992,
+    "title": "Summit Ridge Manufacturing - Service Catalog",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "New laptop or desktop\nAsk for a new or r",
+     "Edit",
+     "Request a New Laptop\nOrder a laptop for ",
+     "Edit",
+     "Install or update software\nNeed a progra",
+     "Edit",
+     "Install Software\nAsk for an application "
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings.php",
+  "url": "/admin/settings.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings.php",
+    "status": 200,
+    "final": "/admin/settings.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2469,
+    "title": "Summit Ridge Manufacturing - Settings",
+    "h1": "Settings",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_ai.php",
+  "url": "/admin/settings_ai.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_ai.php",
+    "status": 200,
+    "final": "/admin/settings_ai.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 878,
+    "title": "Summit Ridge Manufacturing - Settings AI",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Local LLM Gateway",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_appearance.php",
+  "url": "/admin/settings_appearance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_appearance.php",
+    "status": 200,
+    "final": "/admin/settings_appearance.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1188,
+    "title": "Summit Ridge Manufacturing - Settings Appearance",
+    "h1": "",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_calendar_sync.php",
+  "url": "/admin/settings_calendar_sync.php",
+  "skipped": "calendar sync integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_comet.php",
+  "url": "/admin/settings_comet.php",
+  "skipped": "Comet integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_company.php",
+  "url": "/admin/settings_company.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_company.php",
+    "status": 200,
+    "final": "/admin/settings_company.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2604,
+    "title": "Summit Ridge Manufacturing - Settings Company",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_compliance.php",
+  "url": "/admin/settings_compliance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_compliance.php",
+    "status": 200,
+    "final": "/admin/settings_compliance.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1978,
+    "title": "Summit Ridge Manufacturing - Settings Compliance",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_custom_fields.php",
+  "url": "/admin/settings_custom_fields.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_custom_fields.php",
+    "status": 200,
+    "final": "/admin/settings_custom_fields.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 570,
+    "title": "Summit Ridge Manufacturing - Settings Custom Fields",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [
+     {
+      "trigger": "Create",
+      "shown": true,
+      "body_len": 102,
+      "php_error": false,
+      "offscreen": null,
+      "new_errors": 0
+     },
+     {
+      "trigger": "Cost Centre",
+      "shown": true,
+      "body_len": 107,
+      "php_error": false,
+      "offscreen": null,
+      "new_errors": 0
+     },
+     {
+      "trigger": "Purchase Order",
+      "shown": true,
+      "body_len": 110,
+      "php_error": false,
+      "offscreen": null,
+      "new_errors": 0
+     }
+    ],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_default.php",
+  "url": "/admin/settings_default.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_default.php",
+    "status": 200,
+    "final": "/admin/settings_default.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 753,
+    "title": "Summit Ridge Manufacturing - Settings Default",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_endpoint_agent.php",
+  "url": "/admin/settings_endpoint_agent.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_endpoint_agent.php",
+    "status": 200,
+    "final": "/admin/settings_endpoint_agent.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 3043,
+    "title": "Summit Ridge Manufacturing - Settings Endpoint Agent",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_integrations.php",
+  "url": "/admin/settings_integrations.php",
+  "skipped": "Integrations (live side effects)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_invoice.php",
+  "url": "/admin/settings_invoice.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_invoice.php",
+    "status": 200,
+    "final": "/admin/settings_invoice.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 665,
+    "title": "Summit Ridge Manufacturing - Settings Invoice",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_kb.php",
+  "url": "/admin/settings_kb.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_kb.php",
+    "status": 200,
+    "final": "/admin/settings_kb.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1514,
+    "title": "Summit Ridge Manufacturing - Settings KB",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_localization.php",
+  "url": "/admin/settings_localization.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_localization.php",
+    "status": 200,
+    "final": "/admin/settings_localization.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 18104,
+    "title": "Summit Ridge Manufacturing - Settings Localization",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_mail.php",
+  "url": "/admin/settings_mail.php",
+  "skipped": "mail integration settings"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_mail_templates.php",
+  "url": "/admin/settings_mail_templates.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_mail_templates.php",
+    "status": 200,
+    "final": "/admin/settings_mail_templates.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1090,
+    "title": "Summit Ridge Manufacturing - Settings Mail Templates",
+    "h1": "",
+    "sheets": 30,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [
+     {
+      "tab": "Visual",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "HTML source",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Visual",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "HTML source",
+      "activated": true,
+      "new_errors": 0
+     }
+    ],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_manageengine_mdm.php",
+  "url": "/admin/settings_manageengine_mdm.php",
+  "skipped": "MDM integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_mcp.php",
+  "url": "/admin/settings_mcp.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_mcp.php",
+    "status": 200,
+    "final": "/admin/settings_mcp.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2055,
+    "title": "Summit Ridge Manufacturing - Settings Mcp",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_mesh_wizard.php",
+  "url": "/admin/settings_mesh_wizard.php",
+  "skipped": "MeshCentral wizard (live connection)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_module.php",
+  "url": "/admin/settings_module.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_module.php",
+    "status": 200,
+    "final": "/admin/settings_module.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 950,
+    "title": "Summit Ridge Manufacturing - Settings Module",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_notification.php",
+  "url": "/admin/settings_notification.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_notification.php",
+    "status": 200,
+    "final": "/admin/settings_notification.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2001,
+    "title": "Summit Ridge Manufacturing - Settings Notification",
+    "h1": "",
+    "sheets": 30,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_portal.php",
+  "url": "/admin/settings_portal.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_portal.php",
+    "status": 200,
+    "final": "/admin/settings_portal.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1218,
+    "title": "Summit Ridge Manufacturing - Settings Portal",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_project.php",
+  "url": "/admin/settings_project.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_project.php",
+    "status": 200,
+    "final": "/admin/settings_project.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 277,
+    "title": "Summit Ridge Manufacturing - Settings Project",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_quote.php",
+  "url": "/admin/settings_quote.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_quote.php",
+    "status": 200,
+    "final": "/admin/settings_quote.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 379,
+    "title": "Summit Ridge Manufacturing - Settings Quote",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_redis.php",
+  "url": "/admin/settings_redis.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_redis.php",
+    "status": 200,
+    "final": "/admin/settings_redis.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2002,
+    "title": "Summit Ridge Manufacturing - Settings Redis",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_rmm.php",
+  "url": "/admin/settings_rmm.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_rmm.php",
+    "status": 200,
+    "final": "/admin/settings_integrations.php?tab=rmm",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 4121,
+    "title": "Summit Ridge Manufacturing - Settings Integrations",
+    "h1": "Integrations",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [
+     {
+      "tab": "RMM",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Backups",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Firewalls",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "UniFi",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Directory Sync",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Odoo",
+      "activated": true,
+      "new_errors": 0
+     },
+     {
+      "tab": "Device Sync",
+      "activated": true,
+      "new_errors": 0
+     }
+    ],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_security.php",
+  "url": "/admin/settings_security.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_security.php",
+    "status": 200,
+    "final": "/admin/settings_security.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 5670,
+    "title": "Summit Ridge Manufacturing - Settings Security",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_telemetry.php",
+  "url": "/admin/settings_telemetry.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_telemetry.php",
+    "status": 200,
+    "final": "/admin/settings_telemetry.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 464,
+    "title": "Summit Ridge Manufacturing - Settings Telemetry",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_theme.php",
+  "url": "/admin/settings_theme.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_theme.php",
+    "status": 200,
+    "final": "/admin/settings_theme.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 632,
+    "title": "Summit Ridge Manufacturing - Settings Theme",
+    "h1": "",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_ticket.php",
+  "url": "/admin/settings_ticket.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_ticket.php",
+    "status": 200,
+    "final": "/admin/settings_ticket.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2846,
+    "title": "Summit Ridge Manufacturing - Settings Ticket",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_training.php",
+  "url": "/admin/settings_training.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_training.php",
+    "status": 200,
+    "final": "/admin/settings_training.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 11054,
+    "title": "Summit Ridge Manufacturing - Settings Training",
+    "h1": "Training",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_training_compliance.php",
+  "url": "/admin/settings_training_compliance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_training_compliance.php",
+    "status": 200,
+    "final": "/admin/settings_training.php#compliance",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 11054,
+    "title": "Summit Ridge Manufacturing - Settings Training",
+    "h1": "Training",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_training_kiosk.php",
+  "url": "/admin/settings_training_kiosk.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_training_kiosk.php",
+    "status": 200,
+    "final": "/admin/settings_training.php#kiosk",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 11054,
+    "title": "Summit Ridge Manufacturing - Settings Training",
+    "h1": "Training",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_unifi.php",
+  "url": "/admin/settings_unifi.php",
+  "skipped": "UniFi integration"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_webhook_guides.php",
+  "url": "/admin/settings_webhook_guides.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_webhook_guides.php",
+    "status": 200,
+    "final": "/admin/settings_webhook_guides.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 5207,
+    "title": "All platforms 24 | Summit Ridge Manufacturing - Settings Webhook Guides",
+    "h1": "",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/settings_webhooks.php",
+  "url": "/admin/settings_webhooks.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/settings_webhooks.php",
+    "status": 200,
+    "final": "/admin/settings_webhooks.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2534,
+    "title": "Summit Ridge Manufacturing - Settings Webhooks",
+    "h1": "",
+    "sheets": 30,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/sla_calendars.php",
+  "url": "/admin/sla_calendars.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/sla_calendars.php",
+    "status": 200,
+    "final": "/admin/sla_calendars.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 465,
+    "title": "Summit Ridge Manufacturing - SLA Calendars",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Plant Shift Coverage",
+     "Edit",
+     "Standard Support",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/sla_policies.php",
+  "url": "/admin/sla_policies.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/sla_policies.php",
+    "status": 200,
+    "final": "/admin/sla_policies.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 679,
+    "title": "Summit Ridge Manufacturing - SLA Policies",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Plant Floor Priority",
+     "Edit",
+     "Standard Support",
+     "Edit"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/software_template.php",
+  "url": "/admin/software_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/software_template.php",
+    "status": 200,
+    "final": "/admin/software_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 301,
+    "title": "Summit Ridge Manufacturing - Software Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/sync_watch_panel.php",
+  "url": "/admin/sync_watch_panel.php",
+  "skipped": "sync panel (integration)"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/tag.php",
+  "url": "/admin/tag.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/tag.php",
+    "status": 200,
+    "final": "/admin/tag.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 394,
+    "title": "Summit Ridge Manufacturing - Tag",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Customer-facing",
+     "Edit",
+     "Plant Floor",
+     "Edit",
+     "Regulated",
+     "Edit",
+     "Shared Services"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/tax.php",
+  "url": "/admin/tax.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/tax.php",
+    "status": 200,
+    "final": "/admin/tax.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 226,
+    "title": "Summit Ridge Manufacturing - Tax",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/template_library.php",
+  "url": "/admin/template_library.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/template_library.php",
+    "status": 200,
+    "final": "/admin/template_library.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1045,
+    "title": "Summit Ridge Manufacturing - Template Library",
+    "h1": "Templates",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticket_automation.php",
+  "url": "/admin/ticket_automation.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticket_automation.php",
+    "status": 200,
+    "final": "/admin/ticket_automation.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1196,
+    "title": "Summit Ridge Manufacturing - Ticket Automation",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticket_automation_log.php",
+  "url": "/admin/ticket_automation_log.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticket_automation_log.php",
+    "status": 200,
+    "final": "/admin/ticket_automation_log.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 961,
+    "title": "Summit Ridge Manufacturing - Ticket Automation Log",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticket_status.php",
+  "url": "/admin/ticket_status.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticket_status.php",
+    "status": 200,
+    "final": "/admin/ticket_status.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 586,
+    "title": "Summit Ridge Manufacturing - Ticket Status",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "New",
+     "Edit",
+     "Open",
+     "Edit",
+     "On Hold",
+     "Edit",
+     "Resolved"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticket_template.php",
+  "url": "/admin/ticket_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticket_template.php",
+    "status": 200,
+    "final": "/admin/ticket_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1089,
+    "title": "Summit Ridge Manufacturing - Ticket Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticket_template_details.php",
+  "url": "/admin/ticket_template_details.php?ticket_template_id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticket_template_details.php?ticket_template_id=1",
+    "status": 200,
+    "final": "/admin/ticket_template_details.php?ticket_template_id=1",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 626,
+    "title": "Summit Ridge Manufacturing - Ticket Template Details",
+    "h1": "",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>",
+     "Edit",
+     "<a href=\"#\" class=\"drag-handle\"><i class=\"fas fa-bars text-muted me-2\"></i></a>"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [
+     {
+      "trigger": "",
+      "shown": true,
+      "body_len": 120,
+      "php_error": false,
+      "offscreen": null,
+      "new_errors": 0
+     }
+    ],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/ticketing_setup.php",
+  "url": "/admin/ticketing_setup.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/ticketing_setup.php",
+    "status": 200,
+    "final": "/admin/ticketing_setup.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 865,
+    "title": "Summit Ridge Manufacturing - Ticketing Setup",
+    "h1": "Ticketing",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/update.php",
+  "url": "/admin/update.php",
+  "skipped": "runs git/update logic - update feature"
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/users.php",
+  "url": "/admin/users.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/users.php",
+    "status": 200,
+    "final": "/admin/users.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 934,
+    "title": "Summit Ridge Manufacturing - Users",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3",
+     "Export",
+     "IR",
+     "AM\n\n\nAlex Morgan",
+     "Edit",
+     "ML\n\n\nMarcus Lee",
+     "Edit",
+     "Archive"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/vendor_template.php",
+  "url": "/admin/vendor_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/vendor_template.php",
+    "status": 200,
+    "final": "/admin/vendor_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 297,
+    "title": "Summit Ridge Manufacturing - Vendor Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/webhook_edit.php",
+  "url": "/admin/webhook_edit.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/webhook_edit.php",
+    "status": 200,
+    "final": "/admin/settings_webhooks.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2556,
+    "title": "Summit Ridge Manufacturing - Settings Webhooks",
+    "h1": "",
+    "sheets": 30,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/webhook_new.php",
+  "url": "/admin/webhook_new.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/webhook_new.php",
+    "status": 200,
+    "final": "/admin/webhook_new.php?step=platform",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 3107,
+    "title": "Summit Ridge Manufacturing - Webhook New",
+    "h1": "Add webhook",
+    "sheets": 29,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/worksheet_template.php",
+  "url": "/admin/worksheet_template.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/worksheet_template.php",
+    "status": 200,
+    "final": "/admin/worksheet_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 392,
+    "title": "Summit Ridge Manufacturing - Worksheet Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "admin",
+  "module": "admin",
+  "file": "admin/worksheet_template_details.php",
+  "url": "/admin/worksheet_template_details.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/admin/worksheet_template_details.php",
+    "status": 200,
+    "final": "/admin/worksheet_template.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 392,
+    "title": "Summit Ridge Manufacturing - Worksheet Template",
+    "h1": "",
+    "sheets": 28,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [
+     "3"
+    ],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ }
+]
