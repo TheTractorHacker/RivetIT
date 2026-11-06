@@ -19,7 +19,6 @@ $st = [
     'idp' => $config_oidc_enabled ? ['ok', 'Single sign-on on'] : ['off', 'Not configured'],
     'webhooks' => (int) $st_webhooks['enabled'] > 0 ? ['ok', (int) $st_webhooks['enabled'] . ' active'] : ['off', 'None active'],
     'ai' => $config_ai_enable ? ['ok', 'On'] : ['off', 'Off'],
-    'telemetry' => $config_telemetry ? ['ok', 'Sharing on'] : ['off', 'Sharing off'],
     'mcp' => !empty($config_module_enable_mcp) ? ['ok', 'On'] : ['off', 'Off'],
     'ticketing' => $config_module_enable_ticketing ? ['ok', 'On'] : ['off', 'Off'],
 ];
@@ -85,7 +84,6 @@ $settings_groups = [
             ['Webhooks', 'Send events to other systems.', 'settings_webhooks.php', 'fa-satellite-dish', true, null, $st['webhooks']],
             ['Chat', 'Slack and Teams: two-way tickets, commands, actions, virtual agent.', 'settings_chat.php', 'fa-comments'],
             ['AI', 'Configure AI features.', 'settings_ai.php', 'fa-robot', true, null, $st['ai']],
-            ['Telemetry', 'Manage usage data sharing.', 'settings_telemetry.php', 'fa-chart-line', true, null, $st['telemetry']],
         ],
     ],
 ];

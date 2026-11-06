@@ -36,7 +36,7 @@ namespace ITFlow\KB;
  * WHY NOT $installation_id. agent/calendar_feed.php signs its ICS feed with
  * hash_hmac('sha256', $user_id, $installation_id) and that is the established
  * "URL that must work without a session" pattern here - but $installation_id is
- * NOT a secret on this install. admin/settings_telemetry.php:11 prints it in
+ * NOT a secret on this install. the removed Telemetry settings page used to print it in
  * plaintext on a settings page, and cron/cron.php + admin/post/update.php POST
  * it to telemetry.itflow.org. Signing media with it would put the key one
  * dropdown away from a third party and one HTTP request away from a vendor. So

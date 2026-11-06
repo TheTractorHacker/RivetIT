@@ -308,17 +308,6 @@ const cardWith = (text) => `.card:has(.card-title:has-text("${text}"))`;
     await clearCallouts(page);
   }
 
-  // 15 - Telemetry (the installation id also signs calendar-feed links, so it is blanked in the picture)
-  if (want('telemetry')) {
-    await goto(page, '/admin/settings_telemetry.php');
-    await phpErrors(page, 'telemetry');
-    await page.evaluate(() => {
-      const s = document.querySelector('.card-body p strong');
-      if (s) s.textContent = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-    });
-    await shotEl(page, `${G}/15-telemetry`, '.card >> nth=0');
-  }
-
   // Backup page
   if (want('backup')) {
     await goto(page, '/admin/backup.php');

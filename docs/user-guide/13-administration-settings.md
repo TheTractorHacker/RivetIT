@@ -36,7 +36,7 @@ The Administration sidebar has these groups:
 | **Knowledge Base**, **Training** | Settings for those modules | Their own guides |
 | **Templates** | Ticket, project, onboarding, document, worksheet, vendor, licence and contract templates; Service Catalog; Canned Responses | [13b](13b-administration-ticketing-and-automation.md) |
 | **Maintenance** | Cron, Mail Queue, Email Log, Audit Logs, App Logs, Backup, Credential Restore, Debug, Update | Below (logs in their own guide) |
-| **Settings** | Company Details, Localization, Theme, Appearance, Security, Mail, Notifications, Defaults, Project, Ticket, AI, Identity Provider, Portal Preview, Calendar Sync, Telemetry, Modules, Webhooks, Integrations | Below |
+| **Settings** | Company Details, Localization, Theme, Appearance, Security, Mail, Notifications, Defaults, Project, Ticket, AI, Identity Provider, Portal Preview, Calendar Sync, Modules, Webhooks, Integrations | Below |
 
 Two things to know. Custom links you create with location **Admin Nav** appear at the bottom of this sidebar. And the **Ticketing** group disappears when the Ticketing module is off, and the **Templates** group disappears when the IT Documentation module is off, even though ticket templates and canned responses live in it.
 
@@ -244,14 +244,6 @@ The app picks the model by use case and falls back to **General**, so one Genera
 #### Outlook calendar sync
 
 **Settings → Calendar Sync** stores the Azure app credentials (Tenant ID, Application ID, Client Secret) and shows the Redirect URI to register in Azure. Once saved, users can connect their Outlook calendars from their own profile. It needs a Microsoft Entra app registration, so it depends on Microsoft 365.
-
-#### Telemetry
-
-**Settings → Telemetry** shows this installation's ID and the statement "RivetIT does not collect or send telemetry. Nothing about this installation is ever sent anywhere." (the feature came from ITFlow, whose optional telemetry service this fork does not use). There is nothing to configure or switch on.
-
-![The Telemetry page](images/admin-config/15-telemetry.png)
-
-*Figure 15 — Telemetry. The installation ID is hidden in this picture: the app also uses it to sign calendar-feed links, so do not paste it into tickets or chat.*
 
 ### Back up RivetIT
 
