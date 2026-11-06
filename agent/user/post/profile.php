@@ -81,7 +81,7 @@ if (isset($_POST['edit_your_user_details'])) {
             // unlinks the user's upload directory itself, since there's no
             // filename to append, and throws a warning on every first upload)
             if ($existing_file_name) {
-                unlink("../../uploads/users/$session_user_id/$existing_file_name");
+                if (isUploadReferenceName($existing_file_name)) { unlink("../../uploads/users/$session_user_id/$existing_file_name"); }
             }
 
             // Set Avatar

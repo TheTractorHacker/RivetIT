@@ -157,7 +157,7 @@ if (isset($_POST['edit_asset'])) {
         move_uploaded_file($file_tmp_path, $dest_path);
 
         //Delete old file
-        unlink("../uploads/clients/$client_id/$existing_file_name");
+        if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/clients/$client_id/$existing_file_name"); }
 
         mysqli_query($mysqli,"UPDATE assets SET asset_photo = '$new_file_name' WHERE asset_id = $asset_id");
     }
