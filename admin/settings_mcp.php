@@ -440,21 +440,21 @@ $csrf = $_SESSION['csrf_token'];
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
     fastcgi_param SCRIPT_NAME /mcp_server/index.php;
-    fastcgi_pass unix:/run/php/php8.4-fpm.sock;   # use your site's PHP-FPM socket
+    fastcgi_pass unix:/run/php/php8.5-fpm.sock;   # use your site's PHP-FPM socket
     fastcgi_buffering off;
 }
 location = /.well-known/oauth-protected-resource {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
     fastcgi_param SCRIPT_NAME /mcp_server/index.php;
-    fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    fastcgi_pass unix:/run/php/php8.5-fpm.sock;
 }
 # Only for the built-in sign-in (RFC 8414 metadata):
 location = /.well-known/oauth-authorization-server {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME $document_root/mcp_server/index.php;
     fastcgi_param SCRIPT_NAME /mcp_server/index.php;
-    fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    fastcgi_pass unix:/run/php/php8.5-fpm.sock;
 }</pre>
             </div>
         </details>
