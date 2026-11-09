@@ -6,7 +6,7 @@ function itflowAdminNavAreas(): array
     return [
         'catalog_setup' => [
             'title' => 'Tags & categories', 'icon' => 'fa-sliders-h',
-            'pages' => ['catalog_setup.php', 'tag.php', 'category.php', 'custom_link.php', 'people_import.php', 'bulk_onboarding.php', 'employee_workflow_templates.php', 'employee_workflow_template_details.php'],
+            'pages' => ['catalog_setup.php', 'tag.php', 'category.php', 'custom_link.php', 'ai_provider.php', 'ai_model.php', 'people_import.php', 'bulk_onboarding.php', 'employee_workflow_templates.php', 'employee_workflow_template_details.php'],
         ],
         'ticketing_setup' => [
             'title' => 'Ticketing', 'icon' => 'fa-life-ring',

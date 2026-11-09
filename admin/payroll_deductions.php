@@ -43,11 +43,11 @@ $sql = mysqli_query($mysqli, "SELECT * FROM payroll_deduction_categories WHERE p
                     <td><?= $dc_name ?></td>
                     <td class="text-muted"><?= $dc_desc !== '' ? $dc_desc : '—' ?></td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/payroll_deduction/payroll_deduction_edit.php?id=<?= $dc_id ?>">
+                        <a href="#" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/payroll_deduction/payroll_deduction_edit.php?id=<?= $dc_id ?>">
                             <i class="fas fa-fw fa-edit me-1"></i> Edit
                         </a>
                         <a href="post.php?delete_payroll_deduction_category=<?= $dc_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-sm btn-danger confirm-link ms-1" data-confirm-message="Delete the deduction category &quot;<?= $dc_name ?>&quot;?">
+                           class="btn btn-xs btn-danger confirm-link ms-1">
                             <i class="fas fa-fw fa-trash me-1"></i> Delete
                         </a>
                     </td>

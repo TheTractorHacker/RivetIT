@@ -112,7 +112,7 @@ class CredentialProvider
                 self::getConfigFileName()
             );
             $defaultChain['ini_config'] = self::ini(
-                'profile ' . $profileName,
+                'profile '. $profileName,
                 self::getConfigFileName()
             );
         }
@@ -492,17 +492,10 @@ class CredentialProvider
      */
     public static function ini($profile = null, $filename = null, array $config = [])
     {
-        $useProfileFallback = $filename !== null
-            && $filename === self::getConfigFileName();
         $filename = self::getCredentialsFileName($filename);
         $profile = $profile ?: (getenv(self::ENV_PROFILE) ?: 'default');
 
-        return function () use (
-            $profile,
-            $filename,
-            $config,
-            $useProfileFallback
-        ) {
+        return function () use ($profile, $filename, $config) {
             $preferStaticCredentials = $config['preferStaticCredentials'] ?? false;
             $disableAssumeRole = $config['disableAssumeRole'] ?? false;
             $stsClient = $config['stsClient'] ?? null;
@@ -514,11 +507,6 @@ class CredentialProvider
             if ($data === false) {
                 return self::reject("Invalid credentials file: $filename");
             }
-            $profile = self::resolveProfileName(
-                $data,
-                $profile,
-                $useProfileFallback
-            );
             if (!isset($data[$profile])) {
                 return self::reject("'$profile' not found in credentials file");
             }
@@ -594,12 +582,10 @@ class CredentialProvider
      */
     public static function process($profile = null, $filename = null)
     {
-        $useProfileFallback = $filename !== null
-            && $filename === self::getConfigFileName();
         $filename = self::getCredentialsFileName($filename);
         $profile = $profile ?: (getenv(self::ENV_PROFILE) ?: 'default');
 
-        return function () use ($profile, $filename, $useProfileFallback) {
+        return function () use ($profile, $filename) {
             if (!@is_readable($filename)) {
                 return self::reject("Cannot read process credentials from $filename");
             }
@@ -607,11 +593,6 @@ class CredentialProvider
             if ($data === false) {
                 return self::reject("Invalid credentials file: $filename");
             }
-            $profile = self::resolveProfileName(
-                $data,
-                $profile,
-                $useProfileFallback
-            );
             if (!isset($data[$profile])) {
                 return self::reject("'$profile' not found in credentials file");
             }
@@ -675,33 +656,6 @@ class CredentialProvider
                 )
             );
         };
-    }
-
-    /**
-     * Resolves the alternate config-file form of a profile section.
-     *
-     * @param array  $data
-     * @param string $profile
-     * @param bool   $useProfileFallback
-     *
-     * @return string
-     */
-    private static function resolveProfileName(
-        array $data,
-        string $profile,
-        bool $useProfileFallback
-    ): string
-    {
-        if (isset($data[$profile])
-            || !$useProfileFallback
-            || strpos($profile, 'profile ') !== 0
-        ) {
-            return $profile;
-        }
-
-        $fallbackProfile = substr($profile, strlen('profile '));
-
-        return isset($data[$fallbackProfile]) ? $fallbackProfile : $profile;
     }
 
     /**

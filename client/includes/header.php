@@ -208,16 +208,6 @@ $portal_org_html  = nullable_htmlentities((string) ($session_company_name ?? '')
          row has gone missing still renders a sane title rather than a stray
          leading space. -->
     <title><?php if ($portal_preview_banner !== null) echo '[PREVIEW] '; ?><?php
-        // Page name first, so tabs, history and bookmarks tell the portal's pages apart (they all used to read the same). A page may set
-        // $portal_page_title itself; otherwise it comes from the file name (assets.php -> Assets).
-        $portal_page_script = basename($_SERVER['SCRIPT_NAME'] ?? '', '.php');
-        $portal_page_title = $portal_page_title ?? ([
-            'tickets' => 'Tickets', 'ticket' => 'Ticket', 'ticket_add' => 'New ticket', 'ticket_view_all' => 'All tickets', 'kb_articles' => 'Knowledge Base',
-            'kb_article' => 'Knowledge Base', 'my_approvals' => 'My approvals', 'service_catalog' => 'Request something', 'hr_request' => 'HR requests',
-            'onboarding_request' => 'Onboarding request', 'contact_add' => 'Add contact', 'contact_edit' => 'Edit contact', 'allowance' => 'Support allowance',
-            'compliance' => 'Security and compliance', 'training_manage' => 'Training: my team', 'quality_manage' => 'Quality: my team',
-        ][$portal_page_script] ?? ucfirst(str_replace('_', ' ', $portal_page_script)));
-        if ($portal_page_title !== '' && $portal_page_title !== 'Index') { echo nullable_htmlentities($portal_page_title) . ' | '; }
         echo $portal_dept_html !== ''
             ? "$portal_dept_html Department Portal | $portal_org_html"
             : "$portal_org_html | Department Portal";
@@ -701,7 +691,7 @@ $portal_resource_pages =['contacts.php', 'contact_add.php', 'contact_edit.php', 
             $_SESSION['alert_type'] = "info";
         }
         ?>
-        <div class="alert alert-<?php echo $_SESSION['alert_type'] === 'error' ? 'danger' : nullable_htmlentities($_SESSION['alert_type']); ?> portal-alert" id="alert">
+        <div class="alert alert-<?php echo $_SESSION['alert_type']; ?> portal-alert" id="alert">
             <?php echo nullable_htmlentities($_SESSION['alert_message']); ?>
             <button class='close' data-bs-dismiss='alert'>&times;</button>
         </div>

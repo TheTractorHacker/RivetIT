@@ -501,7 +501,7 @@ final class WidgetRegistry
 
     private static function assetsByStatus(\mysqli $db, WidgetContext $ctx): array
     {
-        $res = mysqli_query($db, "SELECT COALESCE(NULLIF(TRIM(asset_status), ''), 'Unknown') AS n, COUNT(*) AS c FROM assets WHERE asset_archived_at IS NULL"
+        $res = mysqli_query($db, "SELECT COALESCE(asset_status, 'Unknown') AS n, COUNT(*) AS c FROM assets WHERE asset_archived_at IS NULL"
             . $ctx->scope('asset_client_id') . " GROUP BY n ORDER BY c DESC");
         $items = [];
         while ($r = mysqli_fetch_assoc($res)) {

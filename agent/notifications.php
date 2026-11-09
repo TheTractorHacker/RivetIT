@@ -65,7 +65,7 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
         <div class="d-flex align-items-center" style="gap:.5rem;">
             <?php if (!$dismissed_filter && $num_rows[0] > 0) { ?>
             <a href="post.php?dismiss_all_notifications&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-               class="btn btn-sm btn-outline-secondary confirm-link" title="Dismiss All" data-confirm="Dismiss all <?= intval($num_rows[0]) ?> notifications? You can still find them under Dismissed.">
+               class="btn btn-sm btn-outline-secondary confirm-link" title="Dismiss All">
                 <i class="fas fa-check-double me-1"></i>Dismiss All
             </a>
             <?php } ?>
@@ -101,7 +101,7 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
         <?php if ($num_rows[0] == 0) { ?>
         <div class="text-center py-5 text-muted">
             <i class="fas fa-bell-slash fa-3x mb-3 d-block"></i>
-            <?php if (trim((string) ($_GET['q'] ?? '')) !== '' || !empty($_GET['dtf'])) { echo 'No notifications match your search or date range.'; } else { echo $dismissed_filter ? 'No dismissed notifications.' : 'All caught up — no notifications.'; } ?>
+            <?= $dismissed_filter ? 'No dismissed notifications.' : 'All caught up — no notifications.' ?>
         </div>
         <?php } else { ?>
         <div class="notif-feed">

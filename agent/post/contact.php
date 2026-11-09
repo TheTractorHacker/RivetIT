@@ -203,7 +203,7 @@ if (isset($_POST['edit_contact'])) {
             move_uploaded_file($file_tmp_path, $dest_path);
 
             //Delete old file
-            if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/clients/$client_id/$existing_file_name"); }
+            unlink("../uploads/clients/$client_id/$existing_file_name");
 
             mysqli_query($mysqli,"UPDATE contacts SET contact_photo = '$new_file_name' WHERE contact_id = $contact_id");
 

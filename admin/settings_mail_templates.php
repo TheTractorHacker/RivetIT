@@ -45,10 +45,10 @@ while ($row = mysqli_fetch_assoc($sql_mt)) {
 .mt-drag-handle:active { cursor: grabbing; }
 .mt-inline-placeholders .btn { font-size: .68rem; padding: .1rem .4rem; }
 
-.mt-preview-pane { position: sticky; top: 4.5rem; max-height: calc(100vh - 6rem); border: 1px solid var(--color-border, #dee2e6); border-radius: .6rem; overflow: hidden; display: flex; flex-direction: column; background: var(--color-surface, #fff); }
+.mt-preview-pane { border: 1px solid var(--color-border, #dee2e6); border-radius: .6rem; overflow: hidden; height: 100%; display: flex; flex-direction: column; background: var(--color-surface, #fff); }
 .mt-preview-pane-header { background: rgba(0,0,0,.03); border-bottom: 1px solid var(--color-border, #dee2e6); padding: .5rem .75rem; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--tblr-secondary, #6c757d); display: flex; align-items: center; gap: .4rem; }
 .mt-preview-pane-subject { padding: .5rem .75rem; font-size: .82rem; font-weight: 600; border-bottom: 1px solid var(--color-border, #dee2e6); word-break: break-word; }
-.mt-preview-iframe { flex: 1; width: 100%; min-height: 360px; height: 70vh; border: 0; background: #fff; }
+.mt-preview-iframe { flex: 1; width: 100%; min-height: 360px; border: 0; background: #fff; }
 @media (max-width: 991.98px) { .mt-preview-pane { margin-top: 1rem; } .mt-preview-iframe { min-height: 260px; } }
 </style>
 
@@ -202,7 +202,7 @@ tinymce.init({
     browser_spellcheck: true,
     contextmenu: false,
     resize: true,
-    min_height: 140, height: 220,
+    min_height: 220,
     max_height: 600,
     promotion: false,
     branding: false,
@@ -413,7 +413,7 @@ var MT = {
         tinymce.init({
             selector: '#' + id,
             browser_spellcheck: true, contextmenu: false, resize: true,
-            min_height: type === 'html' ? 160 : 90, height: type === 'html' ? 200 : 150, max_height: 400,
+            min_height: type === 'html' ? 160 : 90, max_height: 400,
             promotion: false, branding: false, menubar: false, statusbar: false,
             toolbar: toolbar, convert_urls: false,
             plugins: type === 'html' ? 'link lists code' : 'link lists',

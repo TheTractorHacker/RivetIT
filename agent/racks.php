@@ -32,8 +32,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 ?>
 <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-.table.rack-props > :not(caption) > * > th, .table.rack-props > :not(caption) > * > td { vertical-align: baseline !important; padding: .4rem .5rem !important; line-height: 1.4 !important; font-size: inherit !important; }
-.table.rack-props > :not(caption) > * > th { white-space: nowrap; width: 1%; padding-right: 1rem !important; color: var(--bs-secondary-color,#6c757d); font-weight: 600; }
+.rack-props th{white-space:nowrap;vertical-align:top;width:1%;padding-right:1rem;color:var(--bs-secondary-color,#6c757d);font-weight:600}
+.rack-props td{vertical-align:top}
 </style>
 
 <div class="card card-dark">
@@ -73,19 +73,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </form>
         <hr>
 
-        <?php if (intval($num_rows[0]) === 0) { ?>
-            <div class="text-center py-5 mx-auto" style="max-width:520px">
-                <i class="fas fa-fw fa-server fa-2x text-primary opacity-75 mb-3" aria-hidden="true"></i>
-                <h5 class="mb-2"><?= (!empty($_GET['q']) || $archived) ? 'No racks match' : 'No racks documented for this department yet' ?></h5>
-                <?php if (empty($_GET['q']) && !$archived) { ?>
-                <p class="text-muted mb-3">Add each rack with its height and location, then place devices in its units so anyone can find where a server or switch is mounted.</p>
-                <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/rack/rack_add.php?client_id=<?= intval($client_id) ?>"><i class="fas fa-plus me-2"></i>Add the first rack</button>
-                <?php } else { ?>
-                <p class="text-muted mb-0"><?= $archived ? 'There are no archived racks.' : 'Try a different search.' ?></p>
-                <?php } ?>
-            </div>
-        <?php } ?>
-
         <div class="row">
 
             <?php
@@ -120,7 +107,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                             <div class="card-tools">
                                 <div class="dropdown dropleft">
-                                    <button class="btn btn-tool" type="button" data-bs-toggle="dropdown" aria-label="Rack actions" title="Rack actions">
+                                    <button class="btn btn-tool" type="button" data-bs-toggle="dropdown">
                                         <i class="fas fa-fw fa-ellipsis-v"></i>
                                     </button>
                                     <div class="dropdown-menu">
@@ -135,17 +122,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         </a>
                                         <?php if ($session_user_role == 3) { ?>
                                             <div class="dropdown-divider"></div>
-                                            <?php if ($archived) { ?>
-                                            <a class="dropdown-item text-info confirm-link" data-confirm-message="Restore this rack to the active list?" href="post.php?restore_rack=<?php echo $rack_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                                <i class="fas fa-fw fa-redo me-2"></i>Restore
-                                            </a>
-                                            <?php } else { ?>
-                                            <a class="dropdown-item text-danger confirm-link" data-confirm-message="Archive this rack? You can restore it from the Archived view." href="post.php?archive_rack=<?php echo $rack_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger confirm-link" href="post.php?archive_rack=<?php echo $rack_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-archive me-2"></i>Archive
                                             </a>
-                                            <?php } ?>
                                             <div class="dropdown-divider"></div>
-                                            <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Permanently delete this rack and its device placements? This cannot be undone." href="post.php?delete_rack=<?php echo $rack_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_rack=<?php echo $rack_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
                                             </a>
                                         <?php } ?>
@@ -301,7 +282,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                                     <i class="fas fa-fw fa-ellipsis-v"></i>
                                                                 </button>
                                                                 <div class="dropdown-menu">
-                                                                    <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Remove this device from the rack? The asset itself is not deleted."
+                                                                    <a class="dropdown-item text-danger text-bold confirm-link"
                                                                        href="post.php?remove_rack_unit=<?php echo $d['unit_id']; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                                        <i class="fas fa-fw fa-minus me-2"></i>Remove
                                                                     </a>
@@ -333,7 +314,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                             </button>
                                                             <div class="dropdown-menu">
                                                                 <?php foreach ($unit_devices as $d) { ?>
-                                                                    <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Remove this device from the rack? The asset itself is not deleted."
+                                                                    <a class="dropdown-item text-danger text-bold confirm-link"
                                                                        href="post.php?remove_rack_unit=<?php echo $d['unit_id']; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                                        <i class="fas fa-fw fa-minus me-2"></i>Remove
                                                                     </a>

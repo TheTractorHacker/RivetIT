@@ -75,22 +75,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result createPresignedNotebookUrl(array{SessionId?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise createPresignedNotebookUrlAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise createPresignedNotebookUrlAsync(array{SessionId?: string, ...} $args = [])
- * @method \Aws\Result createSystemTableConfiguration(array $args = [])
- * @phpstan-method \Aws\Result createSystemTableConfiguration(array{
- *     ClientRequestToken?: string,
- *     TableName?: 'ALL',
- *     KmsKeyArn?: string,
- *     Tags?: list<array{Key?: string, Value?: string, ...}>,
- *     ...,
- * } $args = [])
- * @method \GuzzleHttp\Promise\Promise createSystemTableConfigurationAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise createSystemTableConfigurationAsync(array{
- *     ClientRequestToken?: string,
- *     TableName?: 'ALL',
- *     KmsKeyArn?: string,
- *     Tags?: list<array{Key?: string, Value?: string, ...}>,
- *     ...,
- * } $args = [])
  * @method \Aws\Result createWorkGroup(array $args = [])
  * @phpstan-method \Aws\Result createWorkGroup(array{
  *     Name?: string,
@@ -134,7 +118,6 @@ use Aws\AwsClient;
  *             AuthenticationType?: 'DIRECTORY_IDENTITY',
  *             ...,
  *         },
- *         SystemTableStatuses?: list<array>,
  *         ...,
  *     },
  *     Description?: string,
@@ -184,7 +167,6 @@ use Aws\AwsClient;
  *             AuthenticationType?: 'DIRECTORY_IDENTITY',
  *             ...,
  *         },
- *         SystemTableStatuses?: list<array>,
  *         ...,
  *     },
  *     Description?: string,
@@ -211,10 +193,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result deletePreparedStatement(array{StatementName?: string, WorkGroup?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise deletePreparedStatementAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise deletePreparedStatementAsync(array{StatementName?: string, WorkGroup?: string, ...} $args = [])
- * @method \Aws\Result deleteSystemTableConfiguration(array $args = [])
- * @phpstan-method \Aws\Result deleteSystemTableConfiguration(array{TableName?: 'ALL', ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise deleteSystemTableConfigurationAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise deleteSystemTableConfigurationAsync(array{TableName?: 'ALL', ...} $args = [])
  * @method \Aws\Result deleteWorkGroup(array $args = [])
  * @phpstan-method \Aws\Result deleteWorkGroup(array{WorkGroup?: string, RecursiveDeleteOption?: bool, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise deleteWorkGroupAsync(array $args = [])
@@ -303,10 +281,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result getSessionStatus(array{SessionId?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getSessionStatusAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise getSessionStatusAsync(array{SessionId?: string, ...} $args = [])
- * @method \Aws\Result getSystemTableConfiguration(array $args = [])
- * @phpstan-method \Aws\Result getSystemTableConfiguration(array{TableName?: 'ALL', ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise getSystemTableConfigurationAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getSystemTableConfigurationAsync(array{TableName?: 'ALL', ...} $args = [])
  * @method \Aws\Result getTableMetadata(array $args = [])
  * @phpstan-method \Aws\Result getTableMetadata(array{CatalogName?: string, DatabaseName?: string, TableName?: string, WorkGroup?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getTableMetadataAsync(array $args = [])
@@ -423,10 +397,6 @@ use Aws\AwsClient;
  *     NextToken?: string,
  *     ...,
  * } $args = [])
- * @method \Aws\Result listSystemTableStatuses(array $args = [])
- * @phpstan-method \Aws\Result listSystemTableStatuses(array{NextToken?: string, MaxResults?: int, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise listSystemTableStatusesAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise listSystemTableStatusesAsync(array{NextToken?: string, MaxResults?: int, ...} $args = [])
  * @method \Aws\Result listTableMetadata(array $args = [])
  * @phpstan-method \Aws\Result listTableMetadata(array{
  *     CatalogName?: string,
@@ -673,10 +643,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result updatePreparedStatement(array{StatementName?: string, WorkGroup?: string, QueryStatement?: string, Description?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise updatePreparedStatementAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise updatePreparedStatementAsync(array{StatementName?: string, WorkGroup?: string, QueryStatement?: string, Description?: string, ...} $args = [])
- * @method \Aws\Result updateSystemTableConfiguration(array $args = [])
- * @phpstan-method \Aws\Result updateSystemTableConfiguration(array{TableName?: 'ALL', KmsKeyArn?: string, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise updateSystemTableConfigurationAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise updateSystemTableConfigurationAsync(array{TableName?: 'ALL', KmsKeyArn?: string, ...} $args = [])
  * @method \Aws\Result updateWorkGroup(array $args = [])
  * @phpstan-method \Aws\Result updateWorkGroup(array{
  *     WorkGroup?: string,

@@ -183,13 +183,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             <form id="bulkActions" action="post.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-                <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                .certs-table > tbody > tr > td:nth-child(2) { min-width: 200px; }
-                .certs-table > tbody > tr > td:nth-child(3) { min-width: 15rem; overflow-wrap: anywhere; }
-                .certs-table > tbody > tr > td:nth-child(2) .media-body { min-width: 0; overflow-wrap: anywhere; }
-                .certs-table > tbody > tr > td:nth-child(2) .media > i { flex: 0 0 auto; }
-            </style>
-            <table class="table table-striped table-borderless table-hover certs-table">
+                <table class="table table-striped table-borderless table-hover">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <td class="checkbox-column">

@@ -22,14 +22,14 @@ jobs:
     steps:
       - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_message: |
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
             Hello & Welcome! :)
             
             Thanks for taking the time to get in touch.
             
             A maintainer will take a look shortly. If this is a security issue, please close this issue and report it privately instead (Security > Report a vulnerability, see SECURITY.md).
-          pr_message: |
+          pr-message: |
             Hello & Welcome! :)
             
             Thanks for taking the time to help improve RivetIT. We're excited to review your contributions - we'll review this PR as soon as we can!

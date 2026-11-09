@@ -57,7 +57,7 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
                 </div>
             </div>
 
-            <label class="form-label">Roles</label>
+            <label>Roles:</label>
             <div class="form-row">
                 <div class="col-md-4">
                     <div class="form-group">
@@ -83,7 +83,7 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>
                     </div>
-                    <select class="form-select pe-5 authMethod" name="contact_auth_method">
+                    <select class="form-control select2 authMethod" name="contact_auth_method">
                         <option value="">No portal access</option>
                         <option value="local">Local (Email and password)</option>
                         <?php if (!empty($config_azure_client_id)) { ?>
@@ -91,11 +91,9 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
                         <?php } ?>
                     </select>
                 </div>
-                <div class="form-text small text-secondary">With "Local", they can sign in once they choose a password with "Forgot password" on the sign-in page (needs outgoing email to be set up). "No portal access" keeps them as a contact only.</div>
             </div>
 
-            <button class="btn btn-primary" name="add_contact">Add contact</button>
-            <a href="contacts.php" class="btn btn-link text-secondary">Cancel</a>
+            <button class="btn btn-primary" name="add_contact">Add</button>
         </form>
     </div>
 

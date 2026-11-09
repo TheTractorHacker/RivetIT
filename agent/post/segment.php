@@ -29,7 +29,7 @@ if (isset($_POST['add_segment'])) {
 
     logAction("CRM Segment", "Create", "$session_name created segment $segment_name", 0, $segment_id);
 
-    flash_alert("Segment <strong>" . htmlspecialchars(trim(strip_tags((string) ($_POST['name'] ?? ''))) ?: 'Untitled Segment', ENT_QUOTES) . "</strong> created");
+    flash_alert("Segment <strong>$segment_name</strong> created");
 
     redirect();
 }
@@ -55,7 +55,7 @@ if (isset($_POST['edit_segment'])) {
 
     logAction("CRM Segment", "Edit", "$session_name edited segment $segment_name", 0, $segment_id);
 
-    flash_alert("Segment <strong>" . htmlspecialchars(trim(strip_tags((string) ($_POST['name'] ?? ''))) ?: 'Untitled Segment', ENT_QUOTES) . "</strong> updated");
+    flash_alert("Segment <strong>$segment_name</strong> updated");
 
     redirect();
 }

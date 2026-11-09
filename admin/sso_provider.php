@@ -81,7 +81,7 @@ if ($sso_tables_ok) {
             <div class="col-md-6"><label class="form-label small mb-0">Discovery URL</label>
                 <div class="input-group">
                     <input type="text" class="form-control js-select-on-click" id="ssoDiscovery" readonly value="<?php echo nullable_htmlentities($sso_issuer . '/.well-known/openid-configuration'); ?>">
-                    <button type="button" class="btn btn-outline-secondary js-copy-text" data-copy-target="ssoDiscovery"><i class="fas fa-copy me-1" aria-hidden="true"></i>Copy</button>
+                    <button type="button" class="btn btn-outline-secondary js-copy-text" data-copy-target="ssoDiscovery"><i class="fas fa-copy"></i> Copy</button>
                 </div></div>
         </div>
         <?php } ?>

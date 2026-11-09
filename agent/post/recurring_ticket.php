@@ -34,7 +34,7 @@ if (isset($_POST['add_recurring_ticket'])) {
 
     logAction("Recurring Ticket", "Create", "$session_name created recurring ticket for $subject - $frequency", $client_id, $recurring_ticket_id);
 
-    flash_alert("Recurring ticket <strong>" . htmlspecialchars(stripslashes($subject), ENT_QUOTES) . " - " . htmlspecialchars(stripslashes($frequency), ENT_QUOTES) . "</strong> created");
+    flash_alert("Recurring ticket <strong>$subject - $frequency</strong> created");
 
     redirect();
 
@@ -68,7 +68,7 @@ if (isset($_POST['edit_recurring_ticket'])) {
 
     logAction("Recurring Ticket", "Edit", "$session_name edited recurring ticket $subject", $client_id, $recurring_ticket_id);
 
-    flash_alert("Recurring ticket <strong>" . htmlspecialchars(stripslashes($subject), ENT_QUOTES) . " - " . htmlspecialchars(stripslashes($frequency), ENT_QUOTES) . "</strong> updated");
+    flash_alert("Recurring ticket <strong>$subject - $frequency</strong> updated");
 
     redirect();
 
@@ -390,7 +390,7 @@ if (isset($_GET['delete_recurring_ticket'])) {
 
     logAction("Recurring Ticket", "Delete", "$session_name deleted recurring ticket $subject", $client_id, $recurring_ticket_id);
 
-    flash_alert("Recurring ticket <strong>" . htmlspecialchars(stripslashes($subject), ENT_QUOTES) . " - " . htmlspecialchars(stripslashes($frequency), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Recurring ticket <strong>$subject - $frequency</strong> deleted", 'error');
 
     redirect();
 
@@ -521,7 +521,7 @@ if (isset($_POST['bulk_assign_recurring_ticket'])) {
         }
     }
 
-    flash_alert("Assigned <strong>$recurring_ticket_count</strong> Recurring Tickets to <strong>" . htmlspecialchars(stripslashes($agent_name), ENT_QUOTES) . "</strong>");
+    flash_alert("Assigned <strong>$recurring_ticket_count</strong> Recurring Tickets to <strong>$agent_name</strong>");
 
     redirect();
 
@@ -605,7 +605,7 @@ if (isset($_POST['bulk_edit_recurring_ticket_category'])) {
 
         logAction("Recurring Ticket", " Bulk Edit", "$session_name updated the category to $category_name for $recurring_ticket_count Recurring Tickets");
 
-        flash_alert("Category set to " . htmlspecialchars(stripslashes($category_name), ENT_QUOTES) . " for <strong>$recurring_ticket_count</strong> Recurring Tickets");
+        flash_alert("Category set to $category_name for <strong>$recurring_ticket_count</strong> Recurring Tickets");
     }
 
     redirect();

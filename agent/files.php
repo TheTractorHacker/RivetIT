@@ -388,7 +388,6 @@ if ($view == 1) {
             'description'       => $document_description,
             'mime'              => 'Document',
             'size'              => null,
-            'created_at'        => $document_created_at,
             'updated_at'        => $document_updated_at,
             'created_by'        => $document_created_by_name,
             'archived_at'       => $document_archived_at,
@@ -782,8 +781,8 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                                     </div>
                                                 </a>
                                             </td>
-                                            <td class="text-nowrap"><?php echo $file_mime_type; ?></td>
-                                            <td class="text-nowrap"><?php echo ($item["size"] ?? 0) > 0 && ($item["size"] ?? 0) < 1024 ? "&lt;1 KB" : $file_size_KB . " KB"; ?></td>
+                                            <td><?php echo $file_mime_type; ?></td>
+                                            <td><?php echo $file_size_KB; ?> KB</td>
                                             <td>
                                                 <?php echo $file_created_at; ?>
                                                 <div class="text-secondary mt-1"><?php echo $file_uploaded_by; ?></div>
@@ -852,7 +851,7 @@ $num_root_items = intval($row_root_files['num']) + intval($row_root_docs['num'])
                                         $document_name            = $item['name'];
                                         $document_description     = $item['description'];
                                         $document_created_by_name = $item['created_by'];
-                                        $document_created_at      = date("Y-m-d H:i:s", strtotime($item['updated_at']));
+                                        $document_created_at      = date("m/d/Y", strtotime($item['updated_at']));
                                         //$document_updated_at      = date("m/d/Y", strtotime($item['updated_at']));
                                         $document_archived_at     = $item['archived_at'];
 

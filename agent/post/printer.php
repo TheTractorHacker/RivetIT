@@ -24,7 +24,7 @@ if (isset($_POST['add_printer'])) {
 
     logAction("Printer", "Create", "$session_name created printer $name", $client_id, $printer_id);
 
-    flash_alert("Printer <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
+    flash_alert("Printer <strong>$name</strong> created");
 
     redirect();
 
@@ -48,7 +48,7 @@ if (isset($_POST['edit_printer'])) {
 
     logAction("Printer", "Edit", "$session_name edited printer $name", $client_id, $printer_id);
 
-    flash_alert("Printer <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> edited");
+    flash_alert("Printer <strong>$name</strong> edited");
 
     redirect();
 
@@ -72,7 +72,7 @@ if (isset($_GET['archive_printer'])) {
 
     logAction("Printer", "Archive", "$session_name archived printer $printer_name", $client_id, $printer_id);
 
-    flash_alert("Printer <strong>" . htmlspecialchars(stripslashes($printer_name), ENT_QUOTES) . "</strong> archived", 'error');
+    flash_alert("Printer <strong>$printer_name</strong> archived", 'error');
 
     redirect();
 
@@ -96,7 +96,7 @@ if (isset($_GET['restore_printer'])) {
 
     logAction("Printer", "Restore", "$session_name restored printer $printer_name", $client_id, $printer_id);
 
-    flash_alert("Printer <strong>" . htmlspecialchars(stripslashes($printer_name), ENT_QUOTES) . "</strong> restored");
+    flash_alert("Printer <strong>$printer_name</strong> restored");
 
     redirect();
 
@@ -120,7 +120,7 @@ if (isset($_GET['delete_printer'])) {
 
     logAction("Printer", "Delete", "$session_name deleted printer $printer_name", $client_id);
 
-    flash_alert("Printer <strong>" . htmlspecialchars(stripslashes($printer_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Printer <strong>$printer_name</strong> deleted", 'error');
 
     redirect();
 

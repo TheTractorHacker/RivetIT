@@ -61,7 +61,7 @@ if (isset($_POST['add_opportunity'])) {
 
     logAction("Opportunity", "Create", "$session_name created opportunity $opportunity_name", $client_id, $opportunity_id);
 
-    flash_alert("Opportunity <strong>" . nullable_htmlentities(strip_tags((string) ($_POST['name'] ?? ''))) . "</strong> created");
+    flash_alert("Opportunity <strong>$opportunity_name</strong> created");
 
     redirect();
 }
@@ -128,7 +128,7 @@ if (isset($_POST['edit_opportunity'])) {
 
     logAction("Opportunity", "Edit", "$session_name edited opportunity $opportunity_name", $client_id, $opportunity_id);
 
-    flash_alert("Opportunity <strong>" . nullable_htmlentities(strip_tags((string) ($_POST['name'] ?? ''))) . "</strong> updated");
+    flash_alert("Opportunity <strong>$opportunity_name</strong> updated");
 
     redirect();
 }
@@ -152,7 +152,7 @@ if (isset($_GET['delete_opportunity'])) {
 
     logAction("Opportunity", "Delete", "$session_name deleted opportunity $opportunity_name", $client_id, $opportunity_id);
 
-    flash_alert("Opportunity <strong>" . nullable_htmlentities($row['opportunity_name'] ?? '') . "</strong> deleted");
+    flash_alert("Opportunity <strong>$opportunity_name</strong> deleted");
 
     redirect();
 }

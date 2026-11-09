@@ -51,7 +51,7 @@ final class WidgetRenderer
                 if (empty($d['rows'])) {
                     return '<div class="text-muted">' . self::esc($d['empty'] ?? 'Nothing to show.') . '</div>';
                 }
-                $h = '<div class="table-responsive-sm"><table class="table table-sm mb-0" style="min-width:26rem"><thead><tr>';
+                $h = '<div class="table-responsive-sm"><table class="table table-sm mb-0"><thead><tr>';
                 foreach ($d['columns'] as $c) {
                     $h .= '<th>' . self::esc($c) . '</th>';
                 }
@@ -70,9 +70,7 @@ final class WidgetRenderer
                                 $txt = '<a href="' . self::esc($r['href']) . '">' . $txt . '</a>';
                             }
                         }
-                        // Short identifiers (ticket numbers, types) and timestamps stay on one line; long subjects wrap.
-                        $nowrap = ($n === 0 || (is_string($cell) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/', $cell))) ? ' class="text-nowrap"' : '';
-                        $h .= '<td' . $nowrap . '>' . $txt . '</td>';
+                        $h .= '<td>' . $txt . '</td>';
                     }
                     $h .= '</tr>';
                 }

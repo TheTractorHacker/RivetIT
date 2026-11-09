@@ -70,7 +70,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     requestHeaderConfiguration?: array{requestHeaderAllowlist?: list<string>, ...},
- *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', port?: int, path?: string, ...},
+ *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', ...},
  *     lifecycleConfiguration?: array{idleRuntimeSessionTimeout?: int, maxLifetime?: int, ...},
  *     environmentVariables?: array<string, string>,
  *     filesystemConfigurations?: list<array{
@@ -83,7 +83,6 @@ use Aws\AwsClient;
  *     capacityProviderConfiguration?: array{capacityProviderArn?: string, ...},
  *     tags?: array<string, string>,
  *     platformVersion?: string,
- *     allowedPorts?: list<array{port?: int, portRange?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createAgentRuntimeAsync(array $args = [])
@@ -123,7 +122,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     requestHeaderConfiguration?: array{requestHeaderAllowlist?: list<string>, ...},
- *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', port?: int, path?: string, ...},
+ *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', ...},
  *     lifecycleConfiguration?: array{idleRuntimeSessionTimeout?: int, maxLifetime?: int, ...},
  *     environmentVariables?: array<string, string>,
  *     filesystemConfigurations?: list<array{
@@ -136,7 +135,6 @@ use Aws\AwsClient;
  *     capacityProviderConfiguration?: array{capacityProviderArn?: string, ...},
  *     tags?: array<string, string>,
  *     platformVersion?: string,
- *     allowedPorts?: list<array{port?: int, portRange?: array, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createAgentRuntimeEndpoint(array $args = [])
@@ -1873,10 +1871,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result putResourcePolicy(array{resourceArn?: string, policy?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise putResourcePolicyAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise putResourcePolicyAsync(array{resourceArn?: string, policy?: string, ...} $args = [])
- * @method \Aws\Result resetTokenVaultKeyMaterial(array $args = [])
- * @phpstan-method \Aws\Result resetTokenVaultKeyMaterial(array{tokenVaultId?: string, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise resetTokenVaultKeyMaterialAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise resetTokenVaultKeyMaterialAsync(array{tokenVaultId?: string, ...} $args = [])
  * @method \Aws\Result rotatePaymentConnectorCredentials(array $args = [])
  * @phpstan-method \Aws\Result rotatePaymentConnectorCredentials(array{
  *     paymentManagerId?: string,
@@ -1975,7 +1969,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     requestHeaderConfiguration?: array{requestHeaderAllowlist?: list<string>, ...},
- *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', port?: int, path?: string, ...},
+ *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', ...},
  *     lifecycleConfiguration?: array{idleRuntimeSessionTimeout?: int, maxLifetime?: int, ...},
  *     metadataConfiguration?: array{requireMMDSV2?: bool, ...},
  *     environmentVariables?: array<string, string>,
@@ -1988,7 +1982,6 @@ use Aws\AwsClient;
  *     }>,
  *     capacityProviderConfiguration?: array{capacityProviderArn?: string, ...},
  *     platformVersion?: string,
- *     allowedPorts?: list<array{port?: int, portRange?: array, ...}>,
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -2028,7 +2021,7 @@ use Aws\AwsClient;
  *         ...,
  *     },
  *     requestHeaderConfiguration?: array{requestHeaderAllowlist?: list<string>, ...},
- *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', port?: int, path?: string, ...},
+ *     protocolConfiguration?: array{serverProtocol?: 'A2A'|'AGUI'|'HTTP'|'MCP', ...},
  *     lifecycleConfiguration?: array{idleRuntimeSessionTimeout?: int, maxLifetime?: int, ...},
  *     metadataConfiguration?: array{requireMMDSV2?: bool, ...},
  *     environmentVariables?: array<string, string>,
@@ -2041,7 +2034,6 @@ use Aws\AwsClient;
  *     }>,
  *     capacityProviderConfiguration?: array{capacityProviderArn?: string, ...},
  *     platformVersion?: string,
- *     allowedPorts?: list<array{port?: int, portRange?: array, ...}>,
  *     clientToken?: string,
  *     ...,
  * } $args = [])

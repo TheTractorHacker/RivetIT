@@ -743,9 +743,8 @@ $mysqli->close();
 
 
         <!-- Database Structure Comparison Table -->
-        <h3 class="mt-3">Database Structure Comparison<?php if (!empty($dbComparison)) { echo ' <small class="text-muted fs-6">(' . count($dbComparison) . ' differences)</small>'; } ?></h3>
-        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.debug-scroll{max-height:420px;overflow:auto}</style>
-        <div class="table-responsive debug-scroll">
+        <h3 class="mt-3">Database Structure Comparison</h3>
+        <div class="table-responsive">
             <table class="table table-sm table-bordered">
                 <tbody>
                     <?php if (!empty($dbComparison)): ?>
@@ -796,7 +795,7 @@ $mysqli->close();
 
         <!-- Table Stats Table -->
         <h3 class="mt-3">Table Stats</h3>
-        <div class="table-responsive debug-scroll">
+        <div class="table-responsive">
             <table class="table table-sm table-bordered">
                 <thead>
                     <tr>

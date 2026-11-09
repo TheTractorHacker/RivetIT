@@ -20,7 +20,7 @@ if(isset($_POST['create_custom_field'])){
 
     logAction("Custom Field", "Create", "$session_name created custom field $label", 0, $custom_field_id);
 
-    flash_alert("Custom field <strong>" . htmlspecialchars(stripslashes($label)) . "</strong> created");
+    flash_alert("Custom field <strong>$label</strong> created");
 
     redirect();
 
@@ -38,7 +38,7 @@ if(isset($_POST['edit_custom_field'])){
 
     logAction("Custom Field", "Edit", "$session_name edited custom field $label", 0, $custom_field_id);
 
-    flash_alert("Custom field <strong>" . htmlspecialchars(stripslashes($label)) . "</strong> edited");
+    flash_alert("Custom field <strong>$label</strong> edited");
 
     redirect();
 
@@ -50,13 +50,13 @@ if(isset($_GET['delete_custom_field'])){
 
     $custom_field_id = intval($_GET['delete_custom_field']);
 
-    $label = getFieldById('custom_fields', $custom_field_id, 'custom_field_label');
+    $label = sanitizeInput(getFieldById('custom_fields', $custom_field_id, 'custom_field_label'));
 
     mysqli_query($mysqli,"DELETE FROM custom_fields WHERE custom_field_id = $custom_field_id");
 
     logAction("Custom Field", "Delete", "$session_name deleted custom field $label");
 
-    flash_alert("Custom field <strong>" . htmlspecialchars(stripslashes($label)) . "</strong> deleted", 'error');
+    flash_alert("Custom field <strong>$label</strong> deleted", 'error');
 
     redirect();
 

@@ -10,7 +10,7 @@
  * untouched (CoverLibrary::removeCustom()). Both are ownership-checked server-side (the sharer, or an admin).
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_covers.css', '/css/area_training.css'];   // BEFORE inc_all: header.php reads it
+$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_covers.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(2)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);

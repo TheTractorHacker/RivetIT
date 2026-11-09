@@ -10,7 +10,7 @@ if (isset($_GET['client_id'])) {
 
 enforceUserPermission('module_kb');
 
-$kb_article_id = intval($_GET['kb_article_id'] ?? $_GET['id'] ?? 0);
+$kb_article_id = intval($_GET['kb_article_id']);
 
 $sql = mysqli_query($mysqli, "SELECT kb_article_id, kb_article_title, kb_article_client_id FROM kb_articles WHERE kb_article_id = $kb_article_id LIMIT 1");
 
@@ -97,7 +97,7 @@ $sql_versions = mysqli_query(
                                     <form action="post.php" method="post" class="d-inline" autocomplete="off">
                                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                         <input type="hidden" name="kb_article_id" value="<?php echo $kb_article_id; ?>">
-                                        <button type="submit" name="restore_kb_article_version" value="<?php echo $kb_article_version_id; ?>" class="btn btn-sm btn-outline-warning confirm-link" data-confirm="Restore this version? The current article is kept in the history.">
+                                        <button type="submit" name="restore_kb_article_version" value="<?php echo $kb_article_version_id; ?>" class="btn btn-sm btn-outline-warning confirm-link">
                                             <i class="fas fa-fw fa-undo me-1"></i>Restore
                                         </button>
                                     </form>

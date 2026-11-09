@@ -13,7 +13,7 @@
  * agent/js/training_insight.js with textContent only. Export CSV = insight_items_csv.
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_reports.css', '/css/itflow_training_insight.css', '/css/area_training.css'];   // BEFORE inc_all
+$page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_reports.css', '/css/itflow_training_insight.css'];   // BEFORE inc_all
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(2)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);

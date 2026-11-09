@@ -36,7 +36,7 @@ ob_start();
             <label>Amount (per pay period) <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend"><span class="input-group-text">$</span></div>
-                <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}" title="Enter an amount like 25.00 (numbers only, up to 2 decimals)" name="amount" value="0.00" required>
+                <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}" name="amount" value="0.00" required>
             </div>
         </div>
 

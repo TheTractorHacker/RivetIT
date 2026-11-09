@@ -14,17 +14,10 @@ if (isset($_POST['edit_your_user_details'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    // Column limits (users.user_name/email/title varchar(200), user_phone varchar(50)): say so instead of a database error.
-    if (mb_strlen((string) ($_POST['name'] ?? '')) > 200 || mb_strlen((string) ($_POST['email'] ?? '')) > 200
-        || mb_strlen((string) ($_POST['title'] ?? '')) > 200 || mb_strlen((string) ($_POST['phone'] ?? '')) > 50) {
-        flash_alert('Name, email and job title can be at most 200 characters, and phone at most 50. Nothing was saved.', 'error');
-        redirect();
-    }
-
     $name = sanitizeInput($_POST['name']);
     $email = sanitizeInput($_POST['email']);
-    $title = sanitizeInput($_POST['title'] ?? '');
-    $phone = sanitizeInput($_POST['phone'] ?? '');
+    $title = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['title'] ?? ''));
+    $phone = mysqli_real_escape_string($mysqli, sanitizeInput($_POST['phone'] ?? ''));
     $signature = mysqli_escape_string($mysqli,$_POST['signature']);
 
     $existing_file_name = sanitizeInput(getFieldById('users', $session_user_id, 'user_avatar'));
@@ -81,7 +74,7 @@ if (isset($_POST['edit_your_user_details'])) {
             // unlinks the user's upload directory itself, since there's no
             // filename to append, and throws a warning on every first upload)
             if ($existing_file_name) {
-                if (isUploadReferenceName($existing_file_name)) { unlink("../../uploads/users/$session_user_id/$existing_file_name"); }
+                unlink("../../uploads/users/$session_user_id/$existing_file_name");
             }
 
             // Set Avatar
@@ -261,8 +254,6 @@ if (isset($_POST['edit_your_user_preferences'])) {
     $calendar_first_day = intval($_POST['calendar_first_day']);
     $dark_mode = in_array(intval($_POST['dark_mode'] ?? 0), [0, 1, 2]) ? intval($_POST['dark_mode'] ?? 0) : 0; // 0 company default, 1 dark, 2 light
 
-    $extended_log_description = '';
-
     // Calendar
     $records_per_page = normalizeRecordsPerPage($_POST['records_per_page'] ?? null, intval($user_config_records_per_page ?? 10) ?: 10);
 
@@ -276,7 +267,7 @@ if (isset($_POST['edit_your_user_preferences'])) {
             $extension_key = randomString(32);
             mysqli_query($mysqli, "UPDATE users SET user_extension_key = '$extension_key' WHERE user_id = $session_user_id");
 
-            $extended_log_description .= "(browser extension access enabled)";
+            $extended_log_description .= "enabled browser extension access";
             $logout = true;
         }
     }
@@ -284,10 +275,10 @@ if (isset($_POST['edit_your_user_preferences'])) {
     // Disable extension access
     if (!isset($_POST['extension'])) {
         mysqli_query($mysqli, "UPDATE users SET user_extension_key = '' WHERE user_id = $session_user_id");
-        $extended_log_description .= "(browser extension access disabled)";
+        $extended_log_description .= "disabled browser extension access";
     }
 
-    logAction("User Account", "Edit", trim("$session_name edited their preferences $extended_log_description"));
+    logAction("User Account", "Edit", "$session_name $extended_log_description");
 
     flash_alert("User preferences updated");
 

@@ -29,7 +29,7 @@ require_once "includes/inc_all_admin.php";
                         <div class="input-group-prepend">
                             <span class="input-group-text"><i class="fa fa-fw fa-barcode"></i></span>
                         </div>
-                        <input type="number" min="1" class="form-control" name="config_project_next_number" placeholder="Next Project Number" value="<?php echo intval($config_project_next_number); ?>" required>
+                        <input type="number" min="0" class="form-control" name="config_project_next_number" placeholder="Next Project Number" value="<?php echo intval($config_project_next_number); ?>" required>
                     </div>
                 </div>
 

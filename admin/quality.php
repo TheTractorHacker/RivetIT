@@ -35,12 +35,7 @@ if ($q_ready) {
 }
 ?>
 
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-.quality-page .border.rounded h4.h5:not(.mb-0) { margin-bottom: .75rem; }
-.quality-page .form-check.form-switch { margin-bottom: .6rem; }
-.quality-page .form-check.form-switch + .row, .quality-page .form-text + .form-check.form-switch { margin-top: .75rem; }
-</style>
-<div class="card card-dark quality-page">
+<div class="card card-dark">
     <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-clipboard-check me-2"></i>Quality (quality management system integration)</h3>
     </div>

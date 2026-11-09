@@ -243,8 +243,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         }
                         if ($software_expire) {
                             $software_expire_ago = timeAgo($software_expire);
-                            $software_expire_ago_html = (strtotime($row['software_expire']) < time()) ? '' : "<small>$software_expire_ago</small> ";   // an expired date already carries its own "Expired Nd ago" chip
-                            $software_expire_display = "<div>$software_expire</div><div>$software_expire_ago_html" . orgExpiryChip($row['software_expire'], 45, 7) . "</div>";
+                            $software_expire_display = "<div>$software_expire</div><div><small>$software_expire_ago</small>" . orgExpiryChip($row['software_expire'], 45, 7) . "</div>";
 
                             // Convert the expiry date to a timestamp
                             $software_expire_timestamp = strtotime($row['software_expire']);
@@ -328,8 +327,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <i class="fas fa-fw fa-project-diagram me-2"></i>Relationships
                                         </a>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger confirm-link" title="Archives this license and removes its seat assignments" href="post.php?archive_software=<?php echo $software_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                            <i class="fas fa-fw fa-archive me-2"></i>Archive</a>
+                                        <a class="dropdown-item text-danger confirm-link" href="post.php?archive_software=<?php echo $software_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <i class="fas fa-fw fa-archive me-2"></i>Archive and<br><small>Remove Licenses</small></a>
                                         <?php if ($session_user_role == 3) { ?>
                                             <?php if ($config_destructive_deletes_enable) { ?>
                                             <div class="dropdown-divider"></div>
@@ -356,13 +355,5 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </div>
     </div>
 
-<?php
-?>
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-/* Phone widths: the first (name) column keeps a readable width and the table scrolls sideways instead of wrapping the name one letter per line. */
-@media (max-width: 767.98px) {
-    .table-responsive > .table > tbody > tr > td:first-child { min-width: 11rem; }
-}
-</style>
 <?php
 require_once "../includes/footer.php";

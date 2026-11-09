@@ -1442,13 +1442,13 @@ if (isset($_GET['asset_id'])) {
                                                 <?= $interface_name ?> <?php if($interface_primary) { echo "<small class='text-primary'>(Primary)</small>"; } ?>
                                             </a>
                                         </td>
-                                        <td class="text-nowrap"><?= $interface_type_display; ?></td>
+                                        <td><?= $interface_type_display; ?></td>
                                         <td><?= $network_name_display; ?></td>
-                                        <td class="text-nowrap">
+                                        <td>
                                             <?= $interface_ip_display; ?>
                                             <div><small class="text-secondary"><?= $interface_ipv6 ?></small></div>
                                         </td>
-                                        <td class="text-nowrap"><?= $interface_mac_display; ?></td>
+                                        <td><?= $interface_mac_display; ?></td>
                                         <td><?= $connected_to_display; ?></td>
                                         <td>
                                             <div class="dropdown dropleft text-center">
@@ -1522,7 +1522,7 @@ if (isset($_GET['asset_id'])) {
                                     if (empty($credential_otp_secret)) {
                                         $otp_display = "-";
                                     } else {
-                                        $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover to show</i></span></span>";
+                                        $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
                                     }
                                     $credential_note = nullable_htmlentities($row['credential_note']);
                                     $credential_favorite = intval($row['credential_favorite']);
@@ -2093,6 +2093,8 @@ if (isset($_GET['asset_id'])) {
             require_once "modals/share_modal.php";
         }
 
+        }
+
         ?>
 
     <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
@@ -2142,9 +2144,6 @@ if (isset($_GET['asset_id'])) {
     require_once "modals/asset/asset_interface_multiple_add.php";
     require_once "modals/asset/asset_interface_import.php";
     require_once "modals/asset/asset_interface_export.php";
-
-    // end of the "asset found" branch (these scripts and modals need the asset's own variables, so a nonexistent asset_id shows only the not-found page)
-    }
 
 }
 

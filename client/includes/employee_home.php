@@ -174,62 +174,8 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
         <?= $eh_training_html ?>
     </div></div>
     <?php } elseif ($eh_training_html !== '') { ?>
-    <div class="col-lg col-md-12"><div class="portal-stack"><?= $eh_training_html ?></div></div>
+    <div class="col-lg-5 col-md-12"><div class="portal-stack"><?= $eh_training_html ?></div></div>
     <?php } ?>
-
-    <?php if ($eh_show('approvals') && ($eh_approvals || $eh->isManager($eh_cid, $eh_client))) { ?>
-    <div class="col-lg col-md-12">
-        <div class="card portal-card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-check" aria-hidden="true"></i></span>Waiting on me</h2>
-                <a href="my_approvals.php" class="btn btn-sm btn-outline-primary">Open</a>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    <?php if (!$eh_approvals) { ?>
-                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Nothing is waiting for your approval.</div></li>
-                    <?php }
-                    foreach (array_slice($eh_approvals, 0, 5) as $a) { ?>
-                        <li class="list-group-item">
-                            <a href="my_approvals.php"><?= nullable_htmlentities($a['item_name']) ?></a>
-                            <span class="text-secondary small">from <?= nullable_htmlentities($a['requester_name']) ?>, <?= nullable_htmlentities(timeAgo($a['created_at'])) ?></span>
-                        </li>
-                    <?php } ?>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <?php } ?>
-
-    <?php
-    if ($eh_show('onboarding')) {
-        $eh_check = $eh->myChecklist($eh_cid, $eh_client);
-        if ($eh_check) { ?>
-    <div class="col-lg col-md-12" id="checklist">
-        <div class="card portal-card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h2>
-                <span class="portal-badge portal-badge--muted"><?= intval($eh_check['done']) ?> of <?= intval($eh_check['total']) ?> done</span>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
-                    <?php foreach ($eh_check['tasks'] as $t) {
-                        $eh_done = in_array($t['status'], ['completed', 'skipped'], true);
-                        $eh_label = $eh_done ? 'Done' : ($t['task_type'] === 'approval' && $t['approval_status'] === 'pending' ? 'Awaiting approval' : ($t['status'] === 'blocked' ? 'Not started' : 'To do'));
-                        ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>
-                                <i class="fas fa-fw <?= $eh_done ? 'fa-check-circle text-success' : 'fa-circle text-secondary' ?> me-2" aria-hidden="true"></i><?= nullable_htmlentities($t['title']) ?>
-                                <?php if ($t['default_owner']) { ?><span class="text-secondary small">(<?= nullable_htmlentities($t['default_owner']) ?>)</span><?php } ?>
-                            </span>
-                            <span class="small text-secondary text-nowrap"><?= !$eh_done && $t['due_at'] ? 'due ' . nullable_htmlentities(substr($t['due_at'], 0, 10)) . ' &middot; ' : '' ?><?= $eh_label ?></span>
-                        </li>
-                    <?php } ?>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <?php } } ?>
 
     <?php if ($eh_show('kb') && intval($config_module_enable_kb ?? 0) === 1) {
         $eh_kb_popular = $eh->popularArticles($eh_client, 5, 30);
@@ -259,5 +205,60 @@ $eh_devices = $eh_show('devices') ? $eh->myDeviceDetails($eh_cid, $eh_client) : 
         </div>
     </div>
     <?php } } ?>
+
+    <?php if ($eh_show('approvals') && ($eh_approvals || $eh->isManager($eh_cid, $eh_client))) { ?>
+    <div class="col-lg-6 col-md-12">
+        <div class="card portal-card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-user-check" aria-hidden="true"></i></span>Waiting on me</h2>
+                <a href="my_approvals.php" class="btn btn-sm btn-outline-primary">Open</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <?php if (!$eh_approvals) { ?>
+                        <li class="list-group-item"><div class="portal-empty"><i class="fas fa-check-circle" aria-hidden="true"></i>Nothing is waiting for your approval.</div></li>
+                    <?php }
+                    foreach (array_slice($eh_approvals, 0, 5) as $a) { ?>
+                        <li class="list-group-item">
+                            <a href="my_approvals.php"><?= nullable_htmlentities($a['item_name']) ?></a>
+                            <span class="text-secondary small">from <?= nullable_htmlentities($a['requester_name']) ?>, <?= nullable_htmlentities(timeAgo($a['created_at'])) ?></span>
+                        </li>
+                    <?php } ?>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <?php } ?>
+
+    <?php
+    if ($eh_show('onboarding')) {
+        $eh_check = $eh->myChecklist($eh_cid, $eh_client);
+        if ($eh_check) { ?>
+    <div class="col-lg-6 col-md-12" id="checklist">
+        <div class="card portal-card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h2 class="card-title"><span class="portal-card-chip"><i class="fas fa-tasks" aria-hidden="true"></i></span>My <?= $eh_check['run']['type'] === 'offboarding' ? 'offboarding' : 'onboarding' ?> checklist</h2>
+                <span class="portal-badge portal-badge--muted"><?= intval($eh_check['done']) ?> of <?= intval($eh_check['total']) ?> done</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($eh_check['tasks'] as $t) {
+                        $eh_done = in_array($t['status'], ['completed', 'skipped'], true);
+                        $eh_label = $eh_done ? 'Done' : ($t['task_type'] === 'approval' && $t['approval_status'] === 'pending' ? 'Awaiting approval' : ($t['status'] === 'blocked' ? 'Not started' : 'To do'));
+                        ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="fas fa-fw <?= $eh_done ? 'fa-check-circle text-success' : 'fa-circle text-secondary' ?> me-2" aria-hidden="true"></i><?= nullable_htmlentities($t['title']) ?>
+                                <?php if ($t['default_owner']) { ?><span class="text-secondary small">(<?= nullable_htmlentities($t['default_owner']) ?>)</span><?php } ?>
+                            </span>
+                            <span class="small text-secondary text-nowrap"><?= !$eh_done && $t['due_at'] ? 'due ' . nullable_htmlentities(substr($t['due_at'], 0, 10)) . ' &middot; ' : '' ?><?= $eh_label ?></span>
+                        </li>
+                    <?php } ?>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <?php } } ?>
+
 
 </div>

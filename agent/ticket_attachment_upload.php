@@ -14,13 +14,7 @@ require_once "../includes/check_login.php";
 header('Content-Type: application/json');
 
 enforceUserPermission('module_support', 2);
-// A bad/expired token must answer in JSON (the editor shows the message); validateCSRFToken() would redirect to an HTML page.
-$posted_csrf = $_POST['csrf_token'] ?? null;
-if (!is_string($posted_csrf) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), $posted_csrf)) {
-    http_response_code(403);
-    echo json_encode(['error' => ['message' => 'Your session token expired. Reload the page and try again.']]);
-    exit;
-}
+validateCSRFToken($_POST['csrf_token'] ?? null);
 
 $ticket_id = intval($_POST['ticket_id'] ?? 0);
 

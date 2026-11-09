@@ -50,21 +50,7 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
             )
         );
         $calculatedCrc = hash_final($this->hashContext, true);
-        $messageCrc = '';
-        while (
-            strlen($messageCrc) < self::BYTES_TRAILING
-            && !$this->stream->eof()
-        ) {
-            $chunk = $this->stream->read(
-                self::BYTES_TRAILING - strlen($messageCrc)
-            );
-            if ($chunk === '') {
-                break;
-            }
-
-            $messageCrc .= $chunk;
-        }
-
+        $messageCrc = $this->stream->read(4);
         if ($calculatedCrc !== $messageCrc) {
             throw new ParserException('Message checksum mismatch.');
         }
@@ -109,9 +95,7 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
     public function next()
     {
         $this->tempBuffer[] = $this->stream->read(1);
-        if ($this->stream->eof()) {
-            $this->currentEvent = null;
-        } else {
+        if ($this->valid()) {
             $this->key++;
             $this->currentEvent = $this->parseEvent();
         }
@@ -123,6 +107,6 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
     #[\ReturnTypeWillChange]
     public function valid()
     {
-        return $this->currentEvent !== null;
+        return !$this->stream->eof();
     }
 }

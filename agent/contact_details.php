@@ -284,15 +284,16 @@ if (isset($_GET['contact_id'])) {
                         <div><i class="fa fa-fw fa-map-marker-alt text-secondary me-2"></i><?php echo $location_name; ?></div>
                     <?php }
                     if ($contact_email) { ?>
-                        <div class="mt-2 d-flex align-items-start"><i class="fa fa-fw fa-envelope text-secondary me-2 mt-1 flex-shrink-0"></i><a class="text-break" style="min-width:0" href='mailto:<?php echo $contact_email; ?>'><?php echo $contact_email; ?></a><button class='btn btn-sm clipboardjs flex-shrink-0 py-0' type='button' aria-label='Copy email' data-clipboard-text='<?php echo $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
+                        <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $contact_email; ?>'><?php echo $contact_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $contact_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                     <?php }
                     if ($contact_phone) { ?>
-                        <div class="mt-2"><i class="fa fa-fw fa-phone text-secondary me-2"></i><a href="tel:<?php echo "$contact_phone"?>"><?php echo $contact_phone; ?></a><?php if ($contact_extension) { ?> <span class="text-secondary text-nowrap">x<?php echo $contact_extension; ?></span><?php } ?></div>
-                    <?php } elseif ($contact_extension) { ?>
-                        <div class="mt-2 ms-4 text-nowrap">x<?php echo $contact_extension; ?></div>
+                        <div class="mt-2"><i class="fa fa-fw fa-phone text-secondary me-2"></i><a href="tel:<?php echo "$contact_phone"?>"><?php echo $contact_phone; ?></a></div>
+                    <?php }
+                    if ($contact_extension) { ?>
+                        <div class="ms-4">x<?php echo $contact_extension; ?></div>
                     <?php }
                     if ($contact_mobile) { ?>
-                        <div class="mt-2">
+                        <div class="mt-l">
                             <i class="fa fa-fw fa-mobile-alt text-secondary me-2"></i><a href="tel:<?php echo $contact_mobile; ?>"><?php echo $contact_mobile; ?></a>
                             <?php if ($config_whatsapp_enabled && $contact_mobile_whatsapp_digits) { ?>
                                 <a href="https://wa.me/<?php echo $contact_mobile_whatsapp_digits; ?>" target="_blank" rel="noopener" title="Chat on WhatsApp" class="ms-1"><i class="fab fa-whatsapp text-success"></i></a>

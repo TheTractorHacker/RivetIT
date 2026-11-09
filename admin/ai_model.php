@@ -4,8 +4,6 @@
 $sort = "ai_model_name";
 $order = "ASC";
 
-$admin_breadcrumb_trail = [['AI', '/admin/settings_ai.php#providers'], ['Models', null]];
-
 require_once "includes/inc_all_admin.php";
 
 $sql = mysqli_query($mysqli, "SELECT * FROM ai_models LEFT JOIN ai_providers ON ai_model_ai_provider_id = ai_provider_id ORDER BY $sort $order");

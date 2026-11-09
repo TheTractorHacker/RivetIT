@@ -196,7 +196,7 @@ use Aws\AwsClient;
  *     kubernetesNetworkConfig?: array{
  *         serviceIpv4Cidr?: string,
  *         ipFamily?: 'ipv4'|'ipv6',
- *         elasticLoadBalancing?: array{enabled?: bool, gatewayApi?: array, ...},
+ *         elasticLoadBalancing?: array{enabled?: bool, ...},
  *         ...,
  *     },
  *     logging?: array{clusterLogging?: list<array>, ...},
@@ -250,7 +250,7 @@ use Aws\AwsClient;
  *     kubernetesNetworkConfig?: array{
  *         serviceIpv4Cidr?: string,
  *         ipFamily?: 'ipv4'|'ipv6',
- *         elasticLoadBalancing?: array{enabled?: bool, gatewayApi?: array, ...},
+ *         elasticLoadBalancing?: array{enabled?: bool, ...},
  *         ...,
  *     },
  *     logging?: array{clusterLogging?: list<array>, ...},
@@ -858,7 +858,7 @@ use Aws\AwsClient;
  *     kubernetesNetworkConfig?: array{
  *         serviceIpv4Cidr?: string,
  *         ipFamily?: 'ipv4'|'ipv6',
- *         elasticLoadBalancing?: array{enabled?: bool, gatewayApi?: array, ...},
+ *         elasticLoadBalancing?: array{enabled?: bool, ...},
  *         ...,
  *     },
  *     storageConfig?: array{blockStorage?: array{enabled?: bool, ...}, ...},
@@ -895,7 +895,7 @@ use Aws\AwsClient;
  *     kubernetesNetworkConfig?: array{
  *         serviceIpv4Cidr?: string,
  *         ipFamily?: 'ipv4'|'ipv6',
- *         elasticLoadBalancing?: array{enabled?: bool, gatewayApi?: array, ...},
+ *         elasticLoadBalancing?: array{enabled?: bool, ...},
  *         ...,
  *     },
  *     storageConfig?: array{blockStorage?: array{enabled?: bool, ...}, ...},

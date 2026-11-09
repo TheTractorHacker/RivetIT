@@ -152,11 +152,3 @@ body.dark-mode .org-d3-frame {
 
 /* The organization name wraps to two lines instead of running out of the card. */
 .org-d3-root strong { max-width: 100%; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }
-
-/* Phone width: keep each cell on one line and let the list scroll sideways, instead of breaking names mid-word. */
-@media (max-width: 767.98px) {
-    .org-list-scroll td, .org-list-scroll th { white-space: nowrap; }
-}
-
-/* The match counter under the Search box must not push the other filters down. */
-.org-filter-row.align-items-end { align-items: flex-start !important; }

@@ -6,15 +6,6 @@ if (isset($_POST['save_outlook_cal_settings'])) {
 
     $tenant_id     = sanitizeInput($_POST['outlook_cal_tenant_id']);
     $client_id     = sanitizeInput($_POST['outlook_cal_client_id']);
-    // Azure tenant and application IDs are GUIDs; refuse anything else instead of saving junk (blank clears).
-    $guid = '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/';
-    foreach (['outlook_cal_tenant_id' => 'Tenant ID', 'outlook_cal_client_id' => 'Application (Client) ID'] as $guid_field => $guid_label) {
-        $guid_value = trim((string) ($_POST[$guid_field] ?? ''));
-        if ($guid_value !== '' && !preg_match($guid, $guid_value)) {
-            flash_alert("$guid_label must look like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (copy it from the Azure Overview page). Nothing was saved.", 'error');
-            redirect();
-        }
-    }
     $client_secret = mysqli_real_escape_string($mysqli, encryptSetting(trim($_POST['outlook_cal_client_secret'] ?? '')));
 
     if ($client_secret) {

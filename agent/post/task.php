@@ -27,7 +27,7 @@ if (isset($_POST['add_task'])) {
 
     logAction("Task", "Create", "$session_name created task $task_name", $client_id, $task_id);
 
-    flash_alert("You created Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong>");
+    flash_alert("You created Task <strong>$task_name</strong>");
 
     redirect();
 
@@ -56,11 +56,6 @@ if (isset($_POST['add_project_task'])) {
         enforceClientAccess($client_id);
     }
 
-    if ($task_start !== '' && $task_due !== '' && $task_due < $task_start) {
-        flash_alert("The due date cannot be before the start date. Nothing was saved.", 'error');
-        redirect();
-    }
-
     $milestone_id_sql = $milestone_id ? $milestone_id : "NULL";
     $assigned_to_sql = $assigned_to ? $assigned_to : "NULL";
     $task_start_sql = $task_start ? "'$task_start'" : "NULL";
@@ -75,7 +70,7 @@ if (isset($_POST['add_project_task'])) {
 
     logAction("Task", "Create", "$session_name created task $task_name", $client_id, $task_id);
 
-    flash_alert("You created Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong>");
+    flash_alert("You created Task <strong>$task_name</strong>");
 
     redirect();
 
@@ -109,11 +104,6 @@ if (isset($_POST['edit_project_task'])) {
         enforceClientAccess($client_id);
     }
 
-    if ($task_start !== '' && $task_due !== '' && $task_due < $task_start) {
-        flash_alert("The due date cannot be before the start date. Nothing was saved.", 'error');
-        redirect();
-    }
-
     $milestone_id_sql = $milestone_id ? $milestone_id : "NULL";
     $assigned_to_sql = $assigned_to ? $assigned_to : "NULL";
     $task_start_sql = $task_start ? "'$task_start'" : "NULL";
@@ -126,7 +116,7 @@ if (isset($_POST['edit_project_task'])) {
 
     logAction("Task", "Edit", "$session_name edited task $task_name", $client_id, $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> edited");
+    flash_alert("Task <strong>$task_name</strong> edited");
 
     redirect();
 
@@ -155,7 +145,7 @@ if (isset($_POST['delete_project_task'])) {
 
     logAction("Task", "Delete", "$session_name deleted task $task_name", $ctx['client_id'], $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Task <strong>$task_name</strong> deleted", 'error');
 
     redirect();
 
@@ -183,7 +173,7 @@ if (isset($_POST['duplicate_project_task'])) {
 
     logAction("Task", "Create", "$session_name duplicated task $task_name", $ctx['client_id'], $new_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> duplicated");
+    flash_alert("Task <strong>$task_name</strong> duplicated");
 
     redirect();
 
@@ -222,7 +212,7 @@ if (isset($_POST['move_project_task'])) {
 
     logAction("Task", "Edit", "$session_name moved task $task_name to project #$target_project_id", $ctx['client_id'], $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> moved");
+    flash_alert("Task <strong>$task_name</strong> moved");
 
     redirect();
 
@@ -249,7 +239,7 @@ if (isset($_POST['edit_ticket_task'])) {
 
     logAction("Task", "Edit", "$session_name edited task $task_name", $client_id, $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> edited");
+    flash_alert("Task <strong>$task_name</strong> edited");
 
     redirect();
 
@@ -270,7 +260,7 @@ if (isset($_POST['edit_ticket_template_task'])) {
 
     logAction("Task", "Edit", "$session_name edited task $task_name", 0, $task_template_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> edited");
+    flash_alert("Task <strong>$task_name</strong> edited");
 
     redirect();
 
@@ -298,7 +288,7 @@ if (isset($_GET['delete_task'])) {
 
     logAction("Task", "Delete", "$session_name deleted task $task_name", $client_id, $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Task <strong>$task_name</strong> deleted", 'error');
 
     redirect();
 
@@ -351,7 +341,7 @@ if (isset($_GET['complete_task'])) {
 
     logAction("Task", "Edit", "$session_name completed task $task_name", $client_id, $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> Completed");
+    flash_alert("Task <strong>$task_name</strong> Completed");
 
     redirect();
 
@@ -393,7 +383,7 @@ if (isset($_GET['undo_complete_task'])) {
 
     logAction("Task", "Edit", "$session_name marked task $task_name as incomplete", $client_id, $task_id);
 
-    flash_alert("Task <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> marked as incomplete", 'error');
+    flash_alert("Task <strong>$task_name</strong> marked as incomplete", 'error');
 
     redirect();
 

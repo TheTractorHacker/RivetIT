@@ -125,7 +125,7 @@ $price_quote_status_colors = [
         <div class="row g-2 my-3" id="quotePipeline">
             <?php foreach ($pq_pipe as $st => $d) { $c = $price_quote_status_colors[$st]; ?>
             <div class="col-6 col-lg-3">
-                <a href="?<?= $client_url ?>status=<?= $pq_status === $st ? '' : urlencode($st) ?>" class="card card-body py-2 text-decoration-none <?= $pq_status === $st ? 'border-' . $c : '' ?>"<?= $pq_status === $st ? ' aria-current="true" title="Showing only ' . htmlspecialchars($st, ENT_QUOTES) . ' quotes. Click again to show all."' : '' ?> style="border-left:4px solid var(--tblr-<?= $c ?>, #888);<?= $pq_status === $st ? 'box-shadow:0 0 0 2px var(--tblr-' . $c . ', #888);' : '' ?>">
+                <a href="?<?= $client_url ?>status=<?= $pq_status === $st ? '' : urlencode($st) ?>" class="card card-body py-2 text-decoration-none <?= $pq_status === $st ? 'border-' . $c : '' ?>" style="border-left:4px solid var(--tblr-<?= $c ?>, #888)">
                     <div class="d-flex justify-content-between align-items-baseline">
                         <span class="text-secondary text-uppercase small"><?= $st ?></span>
                         <span class="fw-bold fs-4"><?= $d['n'] ?></span>
@@ -198,11 +198,11 @@ $price_quote_status_colors = [
                         </td>
                         <?php } ?>
                         <td><span class="badge text-bg-<?= $price_quote_status_color ?>"><?= $price_quote_status ?></span></td>
-                        <td class="text-end text-nowrap"><?= numfmt_format_currency($currency_format, $price_quote_total, $session_company_currency); ?></td>
-                        <td class="text-nowrap"><?= $price_quote_created_at ?></td>
+                        <td class="text-end"><?= numfmt_format_currency($currency_format, $price_quote_total, $session_company_currency); ?></td>
+                        <td><?= $price_quote_created_at ?></td>
                         <td class="text-center">
                             <div class="dropdown dropstart">
-                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-label="Actions" title="Actions">
+                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
                                     <i class="fas fa-ellipsis-h"></i>
                                 </button>
                                 <div class="dropdown-menu">
@@ -212,7 +212,7 @@ $price_quote_status_colors = [
                                     <?php if (lookupUserPermission("module_client") >= 2) { ?>
                                         <?php if (!$archived) { ?>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger confirm-link" data-confirm-message="Archive this price quote? You can restore it from the Archived view." href="post.php?archive_price_quote=<?= $price_quote_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <a class="dropdown-item text-danger confirm-link" href="post.php?archive_price_quote=<?= $price_quote_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                             <i class="fas fa-fw fa-archive me-2"></i>Archive
                                         </a>
                                         <?php } else { ?>

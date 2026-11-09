@@ -112,6 +112,7 @@ if ($tp) {
              success green (#2fb344) is not one of this app's greens, and on a red-accent
              install btn-primary made "Print" wear the destructive colour. -->
     </div>
+    </div>
     <div class="card-body p-0">
 
         <!-- Date range filter -->

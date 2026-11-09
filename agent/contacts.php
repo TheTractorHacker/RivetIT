@@ -291,13 +291,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <form id="bulkActions" action="post.php" method="post" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
 
-            <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                /* keep phone/email on one line each instead of breaking mid-address */
-                .contact-info-cell { white-space: nowrap; }
-                .contact-info-cell .clipboardjs { padding: 0 .35rem; }
-                .contact-info-cell + td { min-width: 7.6rem; }
-                .table > tbody > tr > td:nth-child(3) { min-width: 5rem; }
-            </style>
             <div class="table-responsive">
                 <table class="table border">
                     <thead class="thead-light <?php if (!$num_rows[0]) { echo "d-none"; } ?>">
@@ -511,7 +504,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                             </td>
                             <td><?php echo $contact_department_display; ?></td>
-                            <td class="contact-info-cell"><?php echo $contact_info_display; ?></td>
+                            <td><?php echo $contact_info_display; ?></td>
                             <td><?php echo $location_name_display; ?></td>
                             <td>
                                 <?php echo "$asset_count_display$credential_count_display$software_count_display$ticket_count_display"; ?>

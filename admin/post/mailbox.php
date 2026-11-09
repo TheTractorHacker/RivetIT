@@ -137,7 +137,7 @@ if (isset($_POST['add_mailbox'])) {
 
     logAction("Mailbox", "Create", "$session_name created mailbox $name ($email)", 0, $new_mailbox_id);
 
-    flash_alert("Mailbox <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
+    flash_alert("Mailbox <strong>$name</strong> created");
     redirect();
 }
 
@@ -208,7 +208,7 @@ if (isset($_POST['edit_mailbox'])) {
 
     logAction("Mailbox", "Edit", "$session_name edited mailbox $name ($email)", 0, $mailbox_id);
 
-    flash_alert("Mailbox <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> updated");
+    flash_alert("Mailbox <strong>$name</strong> updated");
     redirect();
 }
 
@@ -217,13 +217,13 @@ if (isset($_GET['delete_mailbox'])) {
     validateCSRFToken($_GET['csrf_token']);
 
     $mailbox_id = intval($_GET['delete_mailbox']);
-    $name = getFieldById('mailboxes', $mailbox_id, 'mailbox_name'); // already SQL-escaped
+    $name = sanitizeInput(getFieldById('mailboxes', $mailbox_id, 'mailbox_name'));
 
     mysqli_query($mysqli, "UPDATE mailboxes SET mailbox_archived_at = NOW() WHERE mailbox_id = $mailbox_id");
 
     logAction("Mailbox", "Delete", "$session_name deleted mailbox $name", 0, $mailbox_id);
 
-    flash_alert("Mailbox <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Mailbox <strong>$name</strong> deleted", 'error');
     redirect();
 }
 
@@ -577,7 +577,7 @@ if (isset($_POST['add_verified_mailbox'])) {
 
     logAction("Mailbox", "Create", "$session_name added mailbox $name ($email) via shared-mailbox access check, reusing the {$source_mailbox['mailbox_imap_username']} connection", 0, $new_mailbox_id);
 
-    flash_alert("Mailbox <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> ($email) added and connected. Edit it to rename it or set a default department.");
+    flash_alert("Mailbox <strong>$name</strong> ($email) added and connected. Edit it to rename it or set a default department.");
     redirect("mailbox.php");
 }
 

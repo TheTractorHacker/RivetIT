@@ -42,9 +42,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             </div>
 
             <hr>
-            <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.cl-table td:nth-child(1){min-width:11rem}.cl-table td:nth-child(3){min-width:15rem;word-break:break-all}.cl-table td:nth-child(4){white-space:nowrap}</style>
             <div class="table-responsive-sm">
-                <table class="table table-striped table-borderless table-hover cl-table">
+                <table class="table table-striped table-borderless table-hover">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>

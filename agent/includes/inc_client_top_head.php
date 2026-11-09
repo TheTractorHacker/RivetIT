@@ -139,15 +139,6 @@ $client_header_can_edit_sites = (lookupUserPermission("module_support") >= 1);
                             <i class="fas fa-fw fa-life-ring me-2"></i>New Ticket
                         </a>
                     <?php } ?>
-                    <?php
-                    // Optional RivetDocs add-on: only rendered when an admin has switched it on and given an address.
-                    require_once dirname(__DIR__, 2) . '/includes/rivetdocs.php';
-                    $rivetdocs_link = rivetdocsClientLink((bool) $config_rivetdocs_enabled, $config_rivetdocs_url, html_entity_decode((string) $client_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-                    if ($rivetdocs_link !== '') { ?>
-                        <a class="dropdown-item" href="<?= htmlspecialchars($rivetdocs_link, ENT_QUOTES) ?>" target="_blank" rel="noopener noreferrer">
-                            <i class="fas fa-fw fa-book me-2"></i>Open in RivetDocs
-                        </a>
-                    <?php } ?>
                     <?php if ($rmm_inst_ctx !== null) { echo rivetRmmInstallerTrigger('item', (int) $client_id, 'Download agent installer'); } // the RMM "Add device" dialog, below ?>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item ajax-modal" href="#"

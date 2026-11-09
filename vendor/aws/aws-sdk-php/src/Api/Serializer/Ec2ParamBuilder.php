@@ -1,28 +1,38 @@
 <?php
 namespace Aws\Api\Serializer;
 
-use Aws\Api\Serde\Query\Ec2QueryEncodePlanProvider;
-use Aws\Api\Serde\Query\QueryEncodePlan;
+use Aws\Api\Shape;
+use Aws\Api\ListShape;
 
 /**
  * @internal
  */
 class Ec2ParamBuilder extends QueryParamBuilder
 {
-    public function __construct()
+    protected function queryName(Shape $shape, $default = null)
     {
-        parent::__construct(new Ec2QueryEncodePlanProvider());
+        return ($shape['queryName']
+            ?: ucfirst(@$shape['locationName'] ?: ""))
+                ?: $default;
     }
 
-    protected function formatList(
-        QueryEncodePlan $plan,
+    protected function isFlat(Shape $shape)
+    {
+        return false;
+    }
+
+    protected function format_list(
+        ListShape $shape,
         array $value,
         $prefix,
-        array &$query
+        &$query
     ) {
-        // EC2 omits empty lists and appends indexes without a member segment.
-        if ($value) {
-            $this->formatItems($plan, $value, $prefix . '.', $query);
+        // Handle empty list serialization
+        if (!empty($value)) {
+            $items = $shape->getMember();
+            foreach ($value as $k => $v) {
+                $this->format($items, $v, $prefix . '.' . ($k + 1), $query);
+            }
         }
     }
 }

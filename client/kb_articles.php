@@ -19,15 +19,11 @@ if ($config_module_enable_kb != 1) {
     exit();
 }
 
-$q = isset($_GET['q']) && is_string($_GET['q']) ? sanitizeInput($_GET['q']) : '';
-// what the person typed, for showing back to them (sanitizeInput() output is SQL-escaped, so it would show stray backslashes)
-$q_display = isset($_GET['q']) && is_string($_GET['q']) ? mb_substr(trim(strip_tags($_GET['q'])), 0, 200) : '';
+$q = isset($_GET['q']) ? sanitizeInput($_GET['q']) : '';
 
 if ($q) {
     $q_escaped = mysqli_real_escape_string($mysqli, $q);
-    // a typed % or _ is a letter to search for here, not a wildcard
-    $q_like = str_replace(['%', '_'], ['\\%', '\\_'], $q);
-    $kb_search_query = "AND (kb_article_title LIKE '%$q_like%' OR MATCH(kb_article_content_raw) AGAINST ('$q_escaped'))";
+    $kb_search_query = "AND (kb_article_title LIKE '%$q%' OR MATCH(kb_article_content_raw) AGAINST ('$q_escaped'))";
 } else {
     $kb_search_query = '';
 }
@@ -69,18 +65,15 @@ if (isset($kb_groups['Uncategorized'])) {
     <div class="col-md-12">
         <form autocomplete="off" class="mb-3">
             <div class="input-group portal-search-group">
-                <input type="search" class="form-control" name="q" value="<?= nullable_htmlentities($q_display) ?>" placeholder="Search Knowledge Base" aria-label="Search Knowledge Base" maxlength="200">
+                <input type="search" class="form-control" name="q" value="<?= nullable_htmlentities($q) ?>" placeholder="Search Knowledge Base">
                 <div class="input-group-append">
-                    <button class="btn btn-primary" aria-label="Search"><i class="fa fa-search"></i></button>
+                    <button class="btn btn-primary"><i class="fa fa-search"></i></button>
                 </div>
             </div>
-            <?php if ($q !== '') { ?>
-                <div class="small text-secondary mt-2">Showing results for <strong><?= nullable_htmlentities($q_display) ?></strong>. <a href="kb_articles.php">Show all articles</a></div>
-            <?php } ?>
         </form>
 
         <?php if (empty($kb_groups)) { ?>
-            <p class="text-muted text-center py-4"><?= $q !== '' ? 'No articles match your search. Try different words, or ' : 'No articles are available yet.' ?><?= $q !== '' ? '<a href="ticket_add.php">raise a ticket</a>.' : '' ?></p>
+            <p class="text-muted text-center py-4">No articles found.</p>
         <?php } ?>
 
         <?php foreach ($kb_groups as $group_name => $articles) { ?>
@@ -109,7 +102,7 @@ if (isset($kb_groups['Uncategorized'])) {
                             <div class="card-footer d-flex align-items-center justify-content-between bg-white">
                                 <small class="text-muted"><?= date('Y-m-d', strtotime($kb_article_updated_at)) ?></small>
                                 <a href="kb_article.php?id=<?= $kb_article_id ?>" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye me-1" aria-hidden="true"></i>View
+                                    <i class="fas fa-eye"></i> View
                                 </a>
                             </div>
                         </div>

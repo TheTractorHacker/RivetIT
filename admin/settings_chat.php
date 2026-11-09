@@ -199,7 +199,7 @@ $secret_state = static fn (string $col): string => $cfg->rawSecret($col) !== '' 
                     <form action="post.php" method="post" class="d-inline">
                         <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                         <input type="hidden" name="identity_id" value="<?= (int) $l['identity_id'] ?>">
-                        <button type="submit" name="delete_chat_identity" class="btn btn-sm btn-outline-danger confirm-link" data-confirm="Remove this chat link? That person can no longer use chat actions until it is re-added." aria-label="Remove link" title="Remove link"><i class="fas fa-trash-alt"></i></button>
+                        <button type="submit" name="delete_chat_identity" class="btn btn-sm btn-outline-danger" aria-label="Remove link"><i class="fas fa-trash-alt"></i></button>
                     </form>
                 </td>
             </tr>
@@ -211,10 +211,10 @@ $secret_state = static fn (string $col): string => $cfg->rawSecret($col) !== '' 
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <div class="col-sm-3 col-md-2"><label class="form-label" for="idPlat">Platform</label><select class="form-select" name="identity_platform" id="idPlat"><option value="slack">Slack</option><option value="teams">Teams</option></select></div>
             <div class="col-sm-5 col-md-3"><label class="form-label" for="idExt">Member ID / Entra object ID</label><input type="text" class="form-control font-monospace" name="identity_external_id" id="idExt" required maxlength="128" placeholder="U01ABCDE23"></div>
-            <div class="col-sm-4 col-md-2"><label class="form-label" for="idTeam">Workspace / tenant</label><input type="text" class="form-control font-monospace" name="identity_team_id" id="idTeam" maxlength="64" placeholder="optional"></div>
+            <div class="col-sm-4 col-md-2"><label class="form-label" for="idTeam">Workspace / tenant <small class="text-secondary">(optional)</small></label><input type="text" class="form-control font-monospace" name="identity_team_id" id="idTeam" maxlength="64"></div>
             <div class="col-sm-6 col-md-3"><label class="form-label" for="idUser">Agent</label><select class="form-select" name="identity_user_id" id="idUser"><option value="0">(none, use a contact)</option><?php foreach ($agents as $a) { ?><option value="<?= (int) $a['user_id'] ?>"><?= nullable_htmlentities($a['user_name']) ?> (<?= nullable_htmlentities($a['user_email']) ?>)</option><?php } ?></select></div>
             <div class="col-sm-6 col-md-3"><label class="form-label" for="idContact">or contact email</label><input type="email" class="form-control" name="identity_contact_email" id="idContact" maxlength="200" placeholder="person@client.example"></div>
-            <div class="col-12 col-md-auto"><button type="submit" name="add_chat_identity" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add link</button></div>
+            <div class="col-12 col-md-auto"><button type="submit" name="add_chat_identity" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Add link</button></div>
         </form>
     </div>
 </div>

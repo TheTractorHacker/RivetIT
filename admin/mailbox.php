@@ -44,16 +44,8 @@ $mb_ago = function ($secs): string {
 </div>
 <?php } ?>
 
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-    @media (max-width: 575.98px) {
-        .mailbox-card-header { flex-wrap: wrap; gap: .5rem; }
-        .mailbox-card-header .card-tools { display: flex; flex-wrap: wrap; gap: .5rem; margin-left: 0; width: 100%; }
-        .mailbox-card-header .card-tools .btn { flex: 1 1 auto; white-space: normal; }
-        .mb-compact { min-width: 820px; }
-    }
-</style>
 <div class="card">
-    <div class="card-header py-2 mailbox-card-header">
+    <div class="card-header py-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-inbox me-2"></i>Mailboxes</h3>
         <div class="card-tools">
             <button type="button" class="btn btn-outline-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_check_access.php">
@@ -68,7 +60,7 @@ $mb_ago = function ($secs): string {
     <div class="card-body">
         <p class="text-muted">Manage the mailboxes <?= htmlspecialchars(APP_NAME) ?> monitors for email-to-ticket parsing. Each mailbox can use standard IMAP credentials or connect to Google Workspace / Microsoft 365 via OAuth.</p>
         <hr>
-        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}@media (max-width: 767.98px){.mb-compact{min-width:760px}.mb-compact td:nth-child(2){min-width:13rem}}</style>
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.mb-compact th,.mb-compact td{padding-left:.5rem;padding-right:.5rem}</style>
         <div class="table-responsive">
             <table class="table table-sm table-striped table-borderless table-hover mb-compact">
                 <thead class="text-dark">
@@ -156,11 +148,11 @@ $mb_ago = function ($secs): string {
                         <?php } ?>
                     </td>
                     <td class="text-center" style="white-space:nowrap;">
-                        <a href="#" title="Edit mailbox" class="btn btn-sm btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
+                        <a href="#" title="Edit mailbox" class="btn btn-xs btn-secondary ajax-modal" data-modal-url="modals/mailbox/mailbox_edit.php?id=<?= $mb_id ?>">
                             <i class="fas fa-fw fa-edit"></i><span class="visually-hidden">Edit</span>
                         </a>
                         <a href="post.php?delete_mailbox=<?= $mb_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           title="Delete mailbox" class="btn btn-sm btn-danger confirm-link ms-1">
+                           title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1">
                             <i class="fas fa-fw fa-trash"></i><span class="visually-hidden">Delete</span>
                         </a>
                     </td>
@@ -187,7 +179,7 @@ $quarantine_sql = mysqli_query($mysqli, "SELECT s.*, m.mailbox_name, m.mailbox_e
             <p class="mb-0"><i class="fas fa-check-circle text-success me-1"></i>Nothing is quarantined.</p>
         <?php } else { ?>
         <div class="table-responsive-sm">
-            <table class="table table-sm table-striped table-borderless" style="min-width:640px">
+            <table class="table table-sm table-striped table-borderless">
                 <thead class="text-dark"><tr><th>Mailbox</th><th>From</th><th>Subject</th><th>Attempts</th><th>Last error</th><th>Since</th><th class="text-center">Action</th></tr></thead>
                 <tbody>
                 <?php while ($qrow = mysqli_fetch_assoc($quarantine_sql)) { $q_id = intval($qrow['intake_id']); ?>
@@ -199,8 +191,8 @@ $quarantine_sql = mysqli_query($mysqli, "SELECT s.*, m.mailbox_name, m.mailbox_e
                         <td class="small"><?= nullable_htmlentities(mb_strimwidth((string) $qrow['intake_last_error'], 0, 140, '...')) ?></td>
                         <td><?= nullable_htmlentities($qrow['intake_quarantined_at']) ?></td>
                         <td class="text-center" style="white-space:nowrap;">
-                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-fw fa-redo me-1"></i> Reset</a>
-                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Delete mailbox" class="btn btn-sm btn-danger confirm-link ms-1"><i class="fas fa-fw fa-times me-1"></i> Dismiss</a>
+                            <a href="post.php?reset_intake_attempts=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-xs btn-secondary" title="Give it a fresh set of attempts"><i class="fas fa-fw fa-redo me-1"></i> Reset</a>
+                            <a href="post.php?dismiss_intake=<?= $q_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" title="Delete mailbox" class="btn btn-xs btn-danger confirm-link ms-1"><i class="fas fa-fw fa-times me-1"></i> Dismiss</a>
                         </td>
                     </tr>
                 <?php } ?>

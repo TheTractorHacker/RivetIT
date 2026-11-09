@@ -516,7 +516,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
     }
 })();
 </script>
-<?php } else if ($num_rows[0] > 0 && empty($archived)) { ?>
+<?php } else if ($num_rows[0] > 0) { ?>
 <div class="card card-dark mt-3">
     <div class="card-body text-center text-secondary py-4">
         <i class="fa fa-fw fa-map-marker-alt fa-2x mb-2"></i>

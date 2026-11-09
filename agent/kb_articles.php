@@ -182,7 +182,7 @@ if (isset($kb_groups['Uncategorized'])) {
         <hr>
 
         <?php if ($num_rows[0] == 0) { ?>
-            <div class="text-center text-muted py-5"><i class="far fa-folder-open fa-2x d-block mb-3 opacity-50"></i><p class="mb-0"><?= ($q !== '' || !empty($_GET['filter_category_id']) || !empty($_GET['filter_client_id']) || !empty($_GET['filter_needs_review'])) ? 'No articles match your search or filters.' : 'No articles yet. Use New to write the first one.' ?></p></div>
+            <p class="text-secondary text-center py-4">No articles found.</p>
         <?php } ?>
 
         <?php foreach ($kb_groups as $group_name => $articles) { ?>
@@ -249,7 +249,7 @@ if (isset($kb_groups['Uncategorized'])) {
                                         <?php } ?>
                                         <?php if ($kb_can_delete) { ?>
                                             <div class="dropdown-divider"></div>
-                                            <a class="dropdown-item text-danger text-bold confirm-link" data-confirm="Delete this article? It is removed from the Knowledge Base." href="post.php?delete_kb_article=<?= $kb_article_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_kb_article=<?= $kb_article_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
                                             </a>
                                         <?php } ?>
@@ -262,7 +262,7 @@ if (isset($kb_groups['Uncategorized'])) {
             </div>
         <?php } ?>
 
-        <?php $suppress_filter_empty = true; require_once "../includes/filter_footer.php"; ?>
+        <?php require_once "../includes/filter_footer.php"; ?>
 
     </div>
 </div>

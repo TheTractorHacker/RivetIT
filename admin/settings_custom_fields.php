@@ -92,7 +92,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger text-bold confirm-link" data-confirm="Delete this custom field definition? Any values stored against it are removed too." href="post.php?delete_custom_field=<?php echo $custom_field_id; ?>&csrf_token=<?php echo urlencode($_SESSION['csrf_token']); ?>">
+                                        <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_custom_field=<?php echo $custom_field_id; ?>&csrf_token=<?php echo urlencode($_SESSION['csrf_token']); ?>">
                                             <i class="fas fa-fw fa-trash me-2"></i>Delete
                                         </a>
                                     </div>

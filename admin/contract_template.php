@@ -39,14 +39,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </form>
         <hr>
 
-        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.table.contract-tpl-table thead th{white-space:normal !important;vertical-align:bottom;font-size:.68rem !important}.table.contract-tpl-table thead th:nth-last-child(-n+2),.table.contract-tpl-table thead th:nth-child(3){white-space:nowrap !important}.table.contract-tpl-table th,.table.contract-tpl-table td{padding-left:.45rem !important;padding-right:.45rem !important}</style>
         <div class="table-responsive">
-            <table class="table table-striped table-borderless table-hover contract-tpl-table">
+            <table class="table table-striped table-borderless table-hover">
                 <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?>">
                     <tr>
                         <th>Template Name</th>
                         <th>Type</th>
-                        <th>Updates</th>
+                        <th>Update Frequency</th>
                         <th>SLA (L/M/H Response)</th>
                         <th>SLA (L/M/H Resolution)</th>
                         <th>Hourly Rate</th>

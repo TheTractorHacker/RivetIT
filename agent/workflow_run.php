@@ -53,7 +53,7 @@ $status_badge = [
         <h3 class="card-title me-auto">
             <i class="fas fa-fw fa-tasks me-2"></i><?= nullable_htmlentities($run['contact_name']) ?>
             <span class="badge <?= ['onboarding' => 'text-bg-success', 'offboarding' => 'text-bg-danger'][$run['type']] ?? 'text-bg-info' ?> ms-2"><?= ucwords(str_replace('_', ' ', $run['type'])) ?></span>
-            <span class="badge <?= $status_badge ?>"><?= ucfirst(str_replace('_', ' ', $run['status'])) ?></span>
+            <span class="badge <?= $status_badge ?>"><?= ucwords(str_replace('_', ' ', $run['status'])) ?></span>
         </h3>
         <a href="contact_details.php?contact_id=<?= intval($run['contact_id']) ?>&client_id=<?= $client_id ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-left me-1"></i>Back to Contact</a>
     </div>
@@ -204,9 +204,9 @@ $status_badge = [
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="run_task_id" value="<?= intval($task['run_task_id']) ?>">
                             <input type="hidden" name="run_id" value="<?= $run_id ?>">
-                            <button type="submit" name="complete_workflow_run_task" class="btn btn-sm btn-success" title="Mark done" aria-label="Mark done"><i class="fas fa-check"></i></button>
+                            <button type="submit" name="complete_workflow_run_task" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button>
                         </form>
-                        <button type="button" class="btn btn-sm btn-outline-warning" title="Skip this task" aria-label="Skip this task" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#skipTaskModal<?= intval($task['run_task_id']) ?>"><i class="fas fa-forward"></i></button>
                     <?php } else { ?>
                         <form action="post.php" method="post">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -228,8 +228,8 @@ $status_badge = [
                                             <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
                                         </div>
                                         <div class="modal-body">
-                                            <label class="form-label">Reason <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" name="skip_reason" maxlength="500" placeholder="Why is this task being skipped?" required>
+                                            <label>Reason</label>
+                                            <input type="text" class="form-control" name="skip_reason" required>
                                         </div>
                                         <div class="modal-footer">
                                             <button type="submit" name="skip_workflow_run_task" class="btn btn-warning">Skip Task</button>

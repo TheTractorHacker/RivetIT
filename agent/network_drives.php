@@ -149,7 +149,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </td>
                             <td>
                                 <a class="ajax-modal" href="#" data-modal-url="modals/network_drive/network_drive_details.php?id=<?= $network_drive_id ?>">
-                                    <div class="d-flex align-items-center">
+                                    <div class="media">
                                         <i class="fas fa-fw fa-2x fa-hdd text-dark me-2"></i>
                                         <div class="media-body">
                                             <div><?php echo $network_drive_name; ?></div>
@@ -158,7 +158,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </a>
                             </td>
                             <td><?php echo $network_drive_letter ?: '-'; ?></td>
-                            <td><?php echo $network_drive_path ? '<code>' . $network_drive_path . '</code>' : '<span class="text-muted">-</span>'; ?></td>
+                            <td><code><?php echo $network_drive_path ?: '-'; ?></code></td>
                             <td><?php echo $network_drive_purpose ?: '-'; ?></td>
                             <td>
                                 <div class="dropdown dropleft text-center">

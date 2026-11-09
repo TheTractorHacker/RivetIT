@@ -174,9 +174,6 @@ use Aws\AwsClient;
  *     skipHealthValidation?: bool,
  *     connectorArn?: string,
  *     currentVersion?: string,
- *     plugins?: list<array{customPlugin?: array, ...}>,
- *     workerConfiguration?: array{revision?: int, workerConfigurationArn?: string, ...},
- *     useDefaultWorkerConfiguration?: bool,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateConnectorAsync(array $args = [])
@@ -198,9 +195,6 @@ use Aws\AwsClient;
  *     skipHealthValidation?: bool,
  *     connectorArn?: string,
  *     currentVersion?: string,
- *     plugins?: list<array{customPlugin?: array, ...}>,
- *     workerConfiguration?: array{revision?: int, workerConfigurationArn?: string, ...},
- *     useDefaultWorkerConfiguration?: bool,
  *     ...,
  * } $args = [])
  */

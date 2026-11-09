@@ -7,7 +7,7 @@
  * reason (run_unlock; ledger run.unlocked + audit). Rows are limited to the agent's departments.
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];   // BEFORE inc_all: header.php reads it
+$page_extra_css = ['/css/itflow_training.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(2)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);
@@ -26,7 +26,7 @@ render_page_header(
 <div class="card" id="tr-locked">
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
         <label class="form-label mb-0 me-1" for="tr-locked-dept">Department</label>
-        <select class="form-select w-auto pe-5" id="tr-locked-dept">
+        <select class="form-select form-select-sm w-auto" id="tr-locked-dept">
             <option value="">All departments</option>
         </select>
         <span class="ms-auto text-secondary small" id="tr-locked-count" aria-live="polite"></span>

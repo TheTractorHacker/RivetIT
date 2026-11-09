@@ -170,7 +170,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     data-modal-size="xl"
                                     data-modal-url="modals/service/service_details.php?id=<?= $service_id ?>">
                                     <div class="media">
-                                        <span class="d-inline-flex align-items-center justify-content-center rounded text-primary me-3" style="width:36px;height:36px;flex:none;background:color-mix(in srgb, var(--bs-primary, #2563eb) 12%, transparent)"><i class="fa fa-fw fa-stream"></i></span>
+                                        <span class="d-inline-flex align-items-center justify-content-center rounded bg-primary bg-opacity-10 text-primary me-3" style="width:36px;height:36px;flex:none"><i class="fa fa-fw fa-stream"></i></span>
                                         <div class="media-body">
                                             <div><?php echo $service_name; ?></div>
                                             <div><small class="text-secondary"><?php echo $service_description; ?></small></div>
@@ -183,7 +183,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <td><?php
                                 $imp_class = ['critical' => 'danger', 'high' => 'warning', 'medium' => 'info', 'low' => 'secondary'][strtolower(trim($row['service_importance']))] ?? 'secondary';
                                 echo $service_importance !== '' ? "<span class='badge text-bg-$imp_class'>$service_importance</span>" : '<span class="text-muted">-</span>'; ?></td>
-                            <td class="text-nowrap"><?= $service_updated_at ? nullable_htmlentities(date("$config_date_format $config_time_format", strtotime($row['service_updated_at']))) : '-' ?></td>
+                            <td><?php echo $service_updated_at ?></td>
                             <?php if (!$client_url) { ?>
                             <td><a href="services.php?client_id=<?php echo $client_id; ?>"><?php echo $client_name; ?></a></td>
                             <?php } ?>
@@ -224,13 +224,5 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         </div>
     </div>
 
-<?php
-?>
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-/* Phone widths: the first (name) column keeps a readable width and the table scrolls sideways instead of wrapping the name one letter per line. */
-@media (max-width: 767.98px) {
-    .table-responsive > .table > tbody > tr > td:first-child { min-width: 11rem; }
-}
-</style>
 <?php
 require_once "../includes/footer.php";

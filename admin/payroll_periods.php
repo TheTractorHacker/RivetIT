@@ -75,7 +75,7 @@ $suggest_end = date('Y-m-d', strtotime($suggest_start . " +$suggest_days days"))
                         <?php } ?>
                     </td>
                     <td class="text-center">
-                        <a href="payroll_period.php?id=<?= $p_id ?>" class="btn btn-sm btn-secondary">
+                        <a href="payroll_period.php?id=<?= $p_id ?>" class="btn btn-xs btn-secondary">
                             <i class="fas fa-fw fa-arrow-right me-1"></i> Open
                         </a>
                     </td>

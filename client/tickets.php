@@ -126,7 +126,9 @@ $tickets_badge = static function (string $name): string {
     </div>
 </div>
 
-
+<?php if ($tickets_is_admin) { ?>
+    <p class="mt-3"><a href="ticket_view_all.php" class="btn btn-dark"><i class="fas fa-fw fa-users me-1"></i>All company tickets</a></p>
+<?php } ?>
 
 
 <?php require_once "includes/footer.php";

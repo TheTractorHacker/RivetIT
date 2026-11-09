@@ -788,7 +788,7 @@ function rivetRmmAlrWindowForm(array $vm): string
 function rivetRmmAlrMaintenancePage(array $vm): string
 {
     $canCreate = $vm['scopes']['allowed'] !== [];
-    $o = rivetRmmAutoHeader('Maintenance windows', 'wrench', $canCreate ? '<a class="btn btn-primary" href="/agent/rmm_maintenance.php?new=1#alr-window-form"><i class="fas fa-plus me-1" aria-hidden="true"></i>New window</a>' : '',
+    $o = rivetRmmAutoHeader('Maintenance windows', 'wrench', $canCreate ? '<a class="btn btn-sm btn-primary" href="/agent/rmm_maintenance.php?new=1#alr-window-form"><i class="fas fa-plus me-1" aria-hidden="true"></i>New window</a>' : '',
         'While a window is open, alerts of the devices it covers are muted or not evaluated, so planned work does not page anyone.');
     if ($vm['error'] !== '') {
         $o .= '<div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-circle me-2" aria-hidden="true"></i>' . rmmH($vm['error']) . '</div>';
@@ -951,7 +951,7 @@ function rivetRmmAlrStormWords(array $s): string
 function rivetRmmAlrEscalationPage(array $vm): string
 {
     $admin = $vm['perm']['admin'];
-    $o = rivetRmmAutoHeader('Escalation policies', 'level-up-alt', $admin ? '<a class="btn btn-primary" href="/agent/rmm_escalations.php?new=1#alr-policy-form"><i class="fas fa-plus me-1" aria-hidden="true"></i>New policy</a>' : '',
+    $o = rivetRmmAutoHeader('Escalation policies', 'level-up-alt', $admin ? '<a class="btn btn-sm btn-primary" href="/agent/rmm_escalations.php?new=1#alr-policy-form"><i class="fas fa-plus me-1" aria-hidden="true"></i>New policy</a>' : '',
         'An escalation policy says who is told when an alert stays open: after how many minutes, and whether it is repeated. Acknowledging or resolving an alert stops it.');
     if ($vm['error'] !== '') {
         $o .= '<div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-circle me-2" aria-hidden="true"></i>' . rmmH($vm['error']) . '</div>';

@@ -1213,7 +1213,6 @@ use Aws\AwsClient;
  *     configurationName?: string,
  *     sessionPolicy?: string,
  *     engineSettings?: array,
- *     outputUriPrefixMode?: 'NONE_WITH_OVERWRITE'|'SERVICE_DEFINED',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise startRunAsync(array $args = [])
@@ -1242,7 +1241,6 @@ use Aws\AwsClient;
  *     configurationName?: string,
  *     sessionPolicy?: string,
  *     engineSettings?: array,
- *     outputUriPrefixMode?: 'NONE_WITH_OVERWRITE'|'SERVICE_DEFINED',
  *     ...,
  * } $args = [])
  * @method \Aws\Result startRunBatch(array $args = [])

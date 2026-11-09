@@ -232,13 +232,13 @@ if (isset($_POST['delete_file'])) {
 
     enforceClientAccess();
 
-    if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/$file_reference_name"); }
+    unlink("../uploads/clients/$client_id/$file_reference_name");
 
     if ($file_has_thumbnail == 1) {
-        if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/thumbnail_$file_reference_name"); }
+        unlink("../uploads/clients/$client_id/thumbnail_$file_reference_name");
     }
     if ($file_has_preview == 1) {
-        if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/preview_$file_reference_name"); }
+        unlink("../uploads/clients/$client_id/preview_$file_reference_name");
     }
 
     mysqli_query($mysqli,"DELETE FROM files WHERE file_id = $file_id");
@@ -340,13 +340,13 @@ if (isset($_POST['bulk_delete_files'])) {
 
             enforceClientAccess();
 
-            if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/$file_reference_name"); }
+            unlink("../uploads/clients/$client_id/$file_reference_name");
 
             if ($file_has_thumbnail == 1) {
-                if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/thumbnail_$file_reference_name"); }
+                unlink("../uploads/clients/$client_id/thumbnail_$file_reference_name");
             }
             if ($file_has_preview == 1) {
-                if (isUploadReferenceName($file_reference_name)) { unlink("../uploads/clients/$client_id/preview_$file_reference_name"); }
+                unlink("../uploads/clients/$client_id/preview_$file_reference_name");
             }
 
             mysqli_query($mysqli,"DELETE FROM files WHERE file_id = $file_id");

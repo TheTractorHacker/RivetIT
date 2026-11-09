@@ -45,7 +45,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-paint-brush"></i></span>
                 </div>
-                <input type="color" class="form-control form-control-color flex-grow-0" style="width:4rem" title="Pick a colour" name="color" value="<?php echo $ticket_status_color; ?>" required>
+                <input type="color" class="form-control col-3" name="color" value="<?php echo $ticket_status_color; ?>" required>
             </div>
         </div>
 

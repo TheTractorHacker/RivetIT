@@ -176,7 +176,7 @@ ob_start();
     <div class="modal-footer">
         <button type="submit" name="edit_opportunity" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
         <?php if (lookupUserPermission('module_sales') >= 3) { ?>
-            <a href="post.php?delete_opportunity=<?php echo $opportunity_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-danger js-confirm-native" data-confirm-message="Delete this opportunity? This cannot be undone."><i class="fas fa-trash me-2"></i>Delete</a>
+            <a href="post.php?delete_opportunity=<?php echo $opportunity_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>" class="btn btn-danger confirm-link"><i class="fas fa-trash me-2"></i>Delete</a>
         <?php } ?>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>

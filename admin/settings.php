@@ -56,7 +56,6 @@ $settings_groups = [
         'items' => [
             ['Security', 'Sign-in and security options.', 'settings_security.php', 'fa-shield-alt', true, null, $st['security']],
             ['Compliance', 'Retention presets and audit-trail retention.', 'settings_compliance.php', 'fa-clipboard-check'],
-            ['RivetDocs', 'Optional add-on: link to your RivetDocs documentation app.', 'settings_rivetdocs.php', 'fa-book'],
             ['Compliance status', 'Checks, manual checklist and auditor export for ISO 27001, SOC 2, PCI DSS and HIPAA.', 'compliance_status.php', 'fa-clipboard-list'],
             ['Compliance framework', 'Pick a framework profile (retention minimums, backup RPO, restore tests); import or export it.', 'compliance_framework.php', 'fa-balance-scale'],
             ['Security and trust', 'Security baseline, self-assessment and the public trust page.', 'security_trust.php', 'fa-user-shield'],

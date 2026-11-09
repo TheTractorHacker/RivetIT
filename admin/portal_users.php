@@ -134,10 +134,10 @@ require "includes/users_toggle.php";
                                     <i class="fas fa-fw fa-user-edit me-1"></i>Edit
                                 </a>
                                 <div class="dropdown dropleft">
-                                    <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-label="More actions" title="More actions"><i class="fas fa-ellipsis-h"></i></button>
+                                    <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-h"></i></button>
                                     <div class="dropdown-menu">
                                         <?php if ($pu_status == 1) { ?>
-                                            <a class="dropdown-item text-danger confirm-link" data-confirm="Disable this department login? They cannot sign in until you activate it again." href="post.php?disable_portal_user=<?= $pu_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                            <a class="dropdown-item text-danger" href="post.php?disable_portal_user=<?= $pu_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                 <i class="fas fa-fw fa-user-slash me-2"></i>Disable
                                             </a>
                                         <?php } else { ?>

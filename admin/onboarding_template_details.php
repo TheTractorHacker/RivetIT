@@ -51,7 +51,7 @@ if (isset($_GET['project_template_id'])) {
 </ol>
 
 <!-- Header -->
-<div class="card card-body mb-3">
+<div class="card card-body">
     <div class="row">
         <div class="col-sm-7">
             <div class="media">
@@ -68,7 +68,7 @@ if (isset($_GET['project_template_id'])) {
                 <i class="fa fa-fw fa-2x fa-file-contract text-secondary me-3"></i>
                 <div class="media-body">
                     <div>Default Contract</div>
-                    <h6 class="mb-0"><?php echo $project_template_default_contract_template_name ?: '<span class="text-secondary fw-normal">None set</span>'; ?></h6>
+                    <h6 class="mb-0"><?php echo $project_template_default_contract_template_name ?: '-'; ?></h6>
                 </div>
             </div>
         </div>
@@ -97,20 +97,20 @@ if (isset($_GET['project_template_id'])) {
 </div>
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-md-6">
 
         <!-- Checklist Card -->
         <div class="card card-body">
             <h5 class="text-secondary"><i class="fas fa-fw fa-tasks me-2"></i>Onboarding Checklist</h5>
 
-            <form action="post.php" method="post" autocomplete="off" class="mb-2">
+            <form action="post.php" method="post" autocomplete="off">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="ticket_template_id" value="<?php echo $ticket_template_id; ?>">
                 <div class="form-group">
-                    <div class="input-group">
-                        <input type="text" class="form-control" name="task_name" placeholder="Add a checklist item and press Enter" aria-label="New checklist item" required maxlength="200">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" name="task_name" placeholder="Add a checklist item" required maxlength="200">
                         <div class="input-group-append">
-                            <button type="submit" name="add_checklist_task" class="btn btn-primary" title="Add checklist item" aria-label="Add checklist item"><i class="fas fa-fw fa-plus"></i></button>
+                            <button type="submit" name="add_checklist_task" class="btn btn-primary"><i class="fas fa-fw fa-check"></i></button>
                         </div>
                     </div>
                 </div>
@@ -185,9 +185,6 @@ new Sortable(document.querySelector('table#checklist_tasks tbody'), {
 
 <?php
 
-} else {
-    flash_alert("Choose an onboarding template first.", 'warning');
-    redirect('onboarding_templates.php');
 }
 
 require_once "../includes/footer.php";

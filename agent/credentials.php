@@ -518,7 +518,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     URI <?php if ($sort == 'credential_uri') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <th>Linked to</th>
+                            <th></th>
                             <?php if (!$client_url) { ?>
                             <th>
                                 <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=client_name&order=<?php echo sortLinkOrder('client_name'); ?>">
@@ -558,7 +558,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             if (empty($credential_otp_secret)) {
                                 $otp_display = "-";
                             } else {
-                                $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover to show</i></span></span>";
+                                $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
                             }
                             $credential_type = in_array($row['credential_type'] ?? '', ['Login', 'API Key'], true) ? $row['credential_type'] : 'Login';
                             $credential_note = nullable_htmlentities($row['credential_note']);

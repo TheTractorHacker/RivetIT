@@ -177,7 +177,7 @@ if(isset($_POST['edit_location'])){
         move_uploaded_file($file_tmp_path, $dest_path);
 
         //Delete old file
-        if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/clients/$client_id/$existing_file_name"); }
+        unlink("../uploads/clients/$client_id/$existing_file_name");
 
         mysqli_query($mysqli,"UPDATE locations SET location_photo = '$new_file_name' WHERE location_id = $location_id");
 

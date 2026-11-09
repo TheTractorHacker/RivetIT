@@ -66,7 +66,7 @@ $sql_fields = mysqli_query($mysqli, "SELECT * FROM worksheet_template_fields WHE
                     $fid = intval($frow['field_id']);
                     $fname = nullable_htmlentities($frow['field_name']);
                     $ftype = nullable_htmlentities($frow['field_type']);
-                    $fopts = nullable_htmlentities(implode(", ", array_filter(array_map("trim", preg_split("/\\R/", (string) $frow["field_options"])))));
+                    $fopts = nullable_htmlentities($frow['field_options']);
                     $freq = intval($frow['field_required']);
                 ?>
                 <tr data-id="<?= $fid ?>">
@@ -76,8 +76,8 @@ $sql_fields = mysqli_query($mysqli, "SELECT * FROM worksheet_template_fields WHE
                     <td><small><?= $fopts ?></small></td>
                     <td><?= $freq ? '<i class="fas fa-check text-success"></i>' : '-' ?></td>
                     <td class="text-center">
-                        <a href="modals/worksheet_template/worksheet_field_edit.php?field_id=<?= $fid ?>" class="btn btn-sm btn-secondary ajax-modal" aria-label="Edit field" title="Edit field"><i class="fas fa-edit"></i></a>
-                        <a href="post.php?delete_worksheet_field=<?= $fid ?>&template_id=<?= $template_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-danger confirm-link" aria-label="Delete field" title="Delete field"><i class="fas fa-trash"></i></a>
+                        <a href="modals/worksheet_template/worksheet_field_edit.php?field_id=<?= $fid ?>" class="btn btn-sm btn-secondary ajax-modal"><i class="fas fa-edit"></i></a>
+                        <a href="post.php?delete_worksheet_field=<?= $fid ?>&template_id=<?= $template_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-danger confirm-link"><i class="fas fa-trash"></i></a>
                     </td>
                 </tr>
                 <?php } ?>

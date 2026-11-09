@@ -36,21 +36,9 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise disconnectParticipantAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise disconnectParticipantAsync(array{ClientToken?: string, ConnectionToken?: string, ...} $args = [])
  * @method \Aws\Result getAttachment(array $args = [])
- * @phpstan-method \Aws\Result getAttachment(array{
- *     AttachmentId?: string,
- *     ConnectionToken?: string,
- *     UrlExpiryInSeconds?: int,
- *     UrlContentDisposition?: 'ATTACHMENT'|'INLINE',
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result getAttachment(array{AttachmentId?: string, ConnectionToken?: string, UrlExpiryInSeconds?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getAttachmentAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getAttachmentAsync(array{
- *     AttachmentId?: string,
- *     ConnectionToken?: string,
- *     UrlExpiryInSeconds?: int,
- *     UrlContentDisposition?: 'ATTACHMENT'|'INLINE',
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getAttachmentAsync(array{AttachmentId?: string, ConnectionToken?: string, UrlExpiryInSeconds?: int, ...} $args = [])
  * @method \Aws\Result getAuthenticationUrl(array $args = [])
  * @phpstan-method \Aws\Result getAuthenticationUrl(array{SessionId?: string, RedirectUri?: string, ConnectionToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getAuthenticationUrlAsync(array $args = [])

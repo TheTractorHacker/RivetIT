@@ -209,12 +209,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <?php if ($client_url) { ?>
                 <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
                 <?php } ?>
-                <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                .domains-table > tbody > tr > td:nth-child(2) { min-width: 220px; }
-                .domains-table > tbody > tr > td:nth-child(2) .media-body { min-width: 0; overflow-wrap: anywhere; }
-                .domains-table > tbody > tr > td:nth-child(2) .media > i { flex: 0 0 auto; }
-            </style>
-            <table class="table table-striped table-borderless table-hover domains-table">
+                <table class="table table-striped table-borderless table-hover">
                     <thead class="text-dark <?php if ($num_rows[0] == 0) { echo "d-none"; } ?> text-nowrap">
                     <tr>
                         <td class="checkbox-column">

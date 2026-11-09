@@ -507,7 +507,6 @@ use Aws\AwsClient;
  *         dataset?: array{datasetId?: string, trimSettings?: array, exportDataTypes?: list<'ANNOTATION'|'TELEMETRY'|'VIDEO'>, ...},
  *         ...,
  *     },
- *     jobName?: string,
  *     errorReportLocation?: array{s3Uri?: string, ...},
  *     ...,
  * } $args = [])
@@ -521,7 +520,6 @@ use Aws\AwsClient;
  *         dataset?: array{datasetId?: string, trimSettings?: array, exportDataTypes?: list<'ANNOTATION'|'TELEMETRY'|'VIDEO'>, ...},
  *         ...,
  *     },
- *     jobName?: string,
  *     errorReportLocation?: array{s3Uri?: string, ...},
  *     ...,
  * } $args = [])

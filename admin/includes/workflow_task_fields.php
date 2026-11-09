@@ -58,7 +58,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
         </div>
         <div class="col-md-3 form-group">
             <label>Waits for <span class="text-muted small">(dependencies)</span></label>
-            <select class="form-control" style="min-width:0;max-width:100%;box-sizing:border-box" name="depends_on[]" multiple size="3">
+            <select class="form-control" name="depends_on[]" multiple size="3">
                 <?php while ($o = mysqli_fetch_assoc($others)) { ?>
                     <option value="<?= intval($o['template_task_id']) ?>" <?= in_array(intval($o['template_task_id']), $deps, true) ? 'selected' : '' ?>><?= $h($o['title']) ?></option>
                 <?php } ?>

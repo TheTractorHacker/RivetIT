@@ -123,8 +123,8 @@ $sql_campaigns = mysqli_query($mysqli, "SELECT crm_campaigns.*, segment_name,
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <input type="hidden" name="send_campaign" value="1">
                         <input type="hidden" name="campaign_id" value="<?= $campaign_id ?>">
-                        <button type="submit" class="btn btn-success btn-block" <?= $campaign_segment_id ? '' : 'disabled title="Choose a target segment and save the draft first"' ?>><i class="fas fa-paper-plane me-2"></i>Send Campaign</button>
-                        <small class="text-muted d-block mt-1"><?= $campaign_segment_id ? 'Save your latest changes first, then send.' : 'Choose a target segment and save the draft before sending.' ?></small>
+                        <button type="submit" class="btn btn-success btn-block"><i class="fas fa-paper-plane me-2"></i>Send Campaign</button>
+                        <small class="text-muted d-block mt-1">Save your latest changes first, then send.</small>
                     </form>
                 <?php } ?>
 

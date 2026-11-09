@@ -8,19 +8,13 @@ if (isset($_POST['save_payroll_pay_rate'])) {
 
     $user_id = intval($_POST['user_id']);
     $pay_type = sanitizeInput($_POST['pay_type'] ?? 'hourly');
-    $pay_amount_raw = trim((string) ($_POST['pay_amount'] ?? ''));
-    $pay_amount = round(floatval($pay_amount_raw), 2);
-    $pay_user_back = intval($_POST['user_id'] ?? 0);
-    if ($pay_amount_raw === '' || !is_numeric($pay_amount_raw) || $pay_amount < 0 || $pay_amount > 1000000) {
-        flash_alert("Enter a pay rate between 0.00 and 1,000,000.00.", 'error');
-        redirect("/admin/payroll_employee.php?id=$pay_user_back");
-    }
+    $pay_amount = round(floatval($_POST['pay_amount'] ?? 0), 2);
 
     if (!in_array($pay_type, ['hourly', 'salary'], true)) {
         $pay_type = 'hourly';
     }
 
-    $user_name = getFieldById('users', $user_id, 'user_name'); // already SQL-escaped
+    $user_name = sanitizeInput(getFieldById('users', $user_id, 'user_name'));
     if ($user_id <= 0 || $user_name === '') {
         flash_alert("Employee not found.", 'error');
         redirect('/admin/payroll_employees.php');
@@ -37,7 +31,7 @@ if (isset($_POST['save_payroll_pay_rate'])) {
 
     logAction("Payroll", "Edit", "$session_name set $user_name's payroll pay rate to $pay_type \$$pay_amount");
 
-    flash_alert("Pay rate for <strong>" . htmlspecialchars(stripslashes($user_name), ENT_QUOTES) . "</strong> saved");
+    flash_alert("Pay rate for <strong>$user_name</strong> saved");
     redirect("/admin/payroll_employee.php?id=$user_id");
 }
 
@@ -46,13 +40,13 @@ if (isset($_GET['unenroll_payroll_employee'])) {
     validateCSRFToken($_GET['csrf_token']);
 
     $user_id = intval($_GET['unenroll_payroll_employee']);
-    $user_name = getFieldById('users', $user_id, 'user_name'); // already SQL-escaped
+    $user_name = sanitizeInput(getFieldById('users', $user_id, 'user_name'));
 
     mysqli_query($mysqli, "UPDATE payroll_pay_rates SET payroll_pay_rate_archived_at = NOW() WHERE payroll_pay_rate_user_id = $user_id AND payroll_pay_rate_archived_at IS NULL");
 
     logAction("Payroll", "Delete", "$session_name removed $user_name from payroll");
 
-    flash_alert("<strong>" . htmlspecialchars(stripslashes($user_name), ENT_QUOTES) . "</strong> removed from payroll", 'error');
+    flash_alert("<strong>$user_name</strong> removed from payroll", 'error');
     redirect("/admin/payroll_employee.php?id=$user_id");
 }
 
@@ -64,14 +58,9 @@ if (isset($_POST['add_payroll_employee_deduction'])) {
     $category_id = intval($_POST['category_id']);
     $amount = round(floatval($_POST['amount'] ?? 0), 2);
 
-    $category_name = getFieldById('payroll_deduction_categories', $category_id, 'payroll_deduction_category_name'); // already SQL-escaped
+    $category_name = sanitizeInput(getFieldById('payroll_deduction_categories', $category_id, 'payroll_deduction_category_name'));
     if ($user_id <= 0 || $category_id <= 0 || $category_name === '') {
         flash_alert("Invalid employee or deduction category.", 'error');
-        redirect("/admin/payroll_employee.php?id=$user_id");
-    }
-
-    if (!is_numeric($_POST['amount'] ?? '') || $amount < 0 || $amount > 1000000) {
-        flash_alert("Enter a deduction amount between 0.00 and 1,000,000.00.", 'error');
         redirect("/admin/payroll_employee.php?id=$user_id");
     }
 
@@ -79,7 +68,7 @@ if (isset($_POST['add_payroll_employee_deduction'])) {
 
     logAction("Payroll", "Create", "$session_name assigned deduction $category_name to user #$user_id");
 
-    flash_alert("Deduction <strong>" . htmlspecialchars(stripslashes($category_name), ENT_QUOTES) . "</strong> added");
+    flash_alert("Deduction <strong>$category_name</strong> added");
     redirect("/admin/payroll_employee.php?id=$user_id");
 }
 

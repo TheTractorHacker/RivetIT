@@ -43,7 +43,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-key"></i></span>
                 </div>
-                <input type="password" class="form-control" name="api_key" placeholder="Enter API key here (optional for a local model)" autocomplete="new-password">
+                <input type="text" class="form-control" name="api_key" placeholder="Enter API key here">
             </div>
         </div>
 

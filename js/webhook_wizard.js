@@ -17,13 +17,8 @@
   var destId = root.getAttribute('data-wz-dest') || '';
   var destName = root.getAttribute('data-wz-dest-name') || '';
   var webhookId = root.getAttribute('data-wz-id') || '';
-  // a navigation target taken from the page must stay on this origin: never a scheme (javascript:, data:) or another host
-  function sameOriginPath(href, fallback) {
-    try { var u = new URL(String(href || ''), location.href); if (u.origin === location.origin) { return u.pathname + u.search + u.hash; } } catch (e) { /* fall through */ }
-    return fallback;
-  }
-  var networksUrl = sameOriginPath(root.getAttribute('data-wz-networks'), 'settings_webhooks.php#internal-networks');
-  var editUrl = sameOriginPath(root.getAttribute('data-wz-edit'), 'webhook_edit.php');
+  var networksUrl = root.getAttribute('data-wz-networks') || 'settings_webhooks.php#internal-networks';
+  var editUrl = root.getAttribute('data-wz-edit') || 'webhook_edit.php';
 
   // ---- small helpers ---------------------------------------------------------------------------------------------
   function $(sel, ctx) { return (ctx || root).querySelector(sel); }

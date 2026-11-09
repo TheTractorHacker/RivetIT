@@ -33,7 +33,7 @@ function catalog_approval_card(array $a, bool $override) {
                 <span class="align-self-start"><?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($a['risk_score'])) ?: '<span class="badge text-bg-secondary">Not rated</span>' ?></span>
             </div>
             <p class="text-secondary small mb-2">
-                <?= nullable_htmlentities($a['client_name']) ?> &middot; requested by <?= nullable_htmlentities($a['requester_name'] ?: 'an agent') ?> on <?= nullable_htmlentities(date('M j, Y g:i A', strtotime((string) $a['created_at']))) ?>
+                <?= nullable_htmlentities($a['client_name']) ?> &middot; requested by <?= nullable_htmlentities($a['requester_name'] ?: 'an agent') ?> on <?= nullable_htmlentities($a['created_at']) ?>
                 &middot; <a href="ticket.php?ticket_id=<?= intval($a['ticket_id']) ?>&amp;client_id=<?= intval($a['client_id']) ?>"><?= nullable_htmlentities($a['ticket_prefix']) . intval($a['ticket_number']) ?> - <?= nullable_htmlentities($a['ticket_subject']) ?></a>
                 &middot; step <?= intval($a['step_order']) ?>
             </p>
@@ -72,21 +72,21 @@ function catalog_approval_card(array $a, bool $override) {
             <p class="small text-secondary">While you are away, approvals addressed to you go to the person you pick. Requests you already have pending are handed over too when the approval worker is on.</p>
             <?php foreach ($my_delegations as $dl) { ?>
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span><i class="fas fa-fw fa-share me-2"></i><strong><?= nullable_htmlentities($dl['delegate_name'] ?? 'Unknown') ?></strong> covers from <?= nullable_htmlentities(date('M j, Y', strtotime((string) $dl['starts_at']))) ?> to <?= nullable_htmlentities(date('M j, Y', strtotime((string) $dl['ends_at']))) ?><?= (string) $dl['note'] !== '' ? ' (' . nullable_htmlentities($dl['note']) . ')' : '' ?></span>
+                    <span><i class="fas fa-fw fa-share me-2"></i><strong><?= nullable_htmlentities($dl['delegate_name'] ?? 'Unknown') ?></strong> covers from <?= nullable_htmlentities($dl['starts_at']) ?> to <?= nullable_htmlentities($dl['ends_at']) ?><?= (string) $dl['note'] !== '' ? ' (' . nullable_htmlentities($dl['note']) . ')' : '' ?></span>
                     <form action="post.php" method="post"><input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>"><input type="hidden" name="delegation_id" value="<?= intval($dl['delegation_id']) ?>"><button class="btn btn-sm btn-outline-danger" type="submit" name="delete_service_catalog_delegation"><i class="fas fa-times me-1"></i>End</button></form>
                 </div>
             <?php } ?>
             <form action="post.php" method="post" autocomplete="off" class="row g-2 align-items-end">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <div class="col-md-3"><label class="form-label mb-1" for="delegateUser">Delegate to</label>
-                    <select class="form-select" name="delegate_user_id" id="delegateUser" required>
+                <div class="col-md-3"><label class="form-label small mb-0" for="delegateUser">Delegate to</label>
+                    <select class="form-select form-select-sm" name="delegate_user_id" id="delegateUser" required>
                         <option value="">- pick an agent -</option>
                         <?php foreach ($delegate_candidates as $d) { ?><option value="<?= intval($d['user_id']) ?>"><?= nullable_htmlentities($d['user_name']) ?></option><?php } ?>
                     </select></div>
-                <div class="col-md-2 col-6"><label class="form-label mb-1" for="delegateFrom">From</label><input type="date" class="form-control" name="delegate_from" id="delegateFrom" value="<?= date('Y-m-d') ?>" required></div>
-                <div class="col-md-2 col-6"><label class="form-label mb-1" for="delegateTo">Until (inclusive)</label><input type="date" class="form-control" name="delegate_to" id="delegateTo" value="<?= date('Y-m-d', time() + 7 * 86400) ?>" required></div>
-                <div class="col-md-3"><label class="form-label mb-1" for="delegateNote">Note</label><input type="text" class="form-control" name="delegate_note" id="delegateNote" maxlength="200" placeholder="Optional"></div>
-                <div class="col-md-2"><button class="btn btn-primary w-100" type="submit" name="add_service_catalog_delegation"><i class="fas fa-plus me-1"></i>Add</button></div>
+                <div class="col-md-2 col-6"><label class="form-label small mb-0" for="delegateFrom">From</label><input type="date" class="form-control form-control-sm" name="delegate_from" id="delegateFrom" value="<?= date('Y-m-d') ?>" required></div>
+                <div class="col-md-2 col-6"><label class="form-label small mb-0" for="delegateTo">Until (inclusive)</label><input type="date" class="form-control form-control-sm" name="delegate_to" id="delegateTo" value="<?= date('Y-m-d', time() + 7 * 86400) ?>" required></div>
+                <div class="col-md-3"><label class="form-label small mb-0" for="delegateNote">Note</label><input type="text" class="form-control form-control-sm" name="delegate_note" id="delegateNote" maxlength="200" placeholder="Optional"></div>
+                <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="submit" name="add_service_catalog_delegation"><i class="fas fa-plus me-1"></i>Add</button></div>
             </form>
         </div>
 

@@ -56,7 +56,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-external-link-alt"></i></span>
                 </div>
-                <input type="text" class="form-control" name="uri" placeholder="https://example.com or /path" pattern="(https?://\S+|mailto:\S+|tel:\S+|/\S*|#\S*|[A-Za-z0-9_.\-]+\.php\S*)" title="A full web address (https://...), a path such as /agent/tickets.php, mailto: or tel:" maxlength="500" value="<?php echo $custom_link_uri; ?>" required>
+                <input type="text" class="form-control" name="uri" placeholder="Enter Link" maxlength="500" value="<?php echo $custom_link_uri; ?>" required>
                 <div class="input-group-append">
                     <div class="input-group-text">
                         <input type="checkbox" name="new_tab" value="1" <?php if ($custom_link_new_tab == 1) { echo "checked"; } ?>>

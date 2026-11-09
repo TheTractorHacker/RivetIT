@@ -63,12 +63,7 @@ if (isset($_GET['q'])) {
 
 // Sortby
 if (!empty($_GET['sort'])) {
-    // JQ 2023-05-09 - See issue #673 on GitHub to see the reasoning why we used preg_replace technically sanitizeInput() should have been enough to escape SQL Commands
-    // One table-qualified column (problems.title) is allowed; anything that cannot be a column keeps the page's default sort instead of producing an empty ORDER BY (HTTP 500).
-    $requested_sort = preg_replace('/[^a-z_.]/', '', $_GET['sort']);
-    if (preg_match('/^[a-z_]+(\.[a-z_]+)?$/', $requested_sort)) {
-        $sort = sanitizeInput($requested_sort);
-    }
+    $sort = sanitizeInput(preg_replace('/[^a-z_]/', '', $_GET['sort'])); // JQ 2023-05-09 - See issue #673 on GitHub to see the reasoning why we used preg_replace technically sanitizeInput() should have been enough to escape SQL Commands
 }
 
 // An unknown ?sort= column reaches the page's ORDER BY and throws; send the visitor to the same list without the sort

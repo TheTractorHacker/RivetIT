@@ -81,7 +81,7 @@ ob_start();
             <label>Rate for this job (per hour) <strong class="text-danger">*</strong></label>
             <div class="input-group">
                 <div class="input-group-prepend"><span class="input-group-text">$</span></div>
-                <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}" title="Enter an amount like 25.00 (numbers only, up to 2 decimals)" name="rate" placeholder="0.00" required>
+                <input type="text" class="form-control" inputmode="decimal" pattern="[0-9]*\.?[0-9]{0,2}" name="rate" placeholder="0.00" required>
             </div>
             <small class="form-text text-muted">A one-off rate for this job only - the employee's standard rate is untouched, and these hours don't count toward the weekly overtime threshold.</small>
         </div>

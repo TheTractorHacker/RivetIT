@@ -18,7 +18,7 @@ use Aws\AwsClient;
  *     accountIds?: list<string>,
  *     taxRegistrationEntry?: array{
  *         registrationId?: string,
- *         registrationType?: 'CDI'|'CI'|'CNPJ'|'CPF'|'CUIT'|'GST'|'NIE'|'NIP'|'NRIC'|'PAN'|'RUT'|'SST'|'TIN'|'VAT',
+ *         registrationType?: 'CNPJ'|'CPF'|'GST'|'NIP'|'NRIC'|'PAN'|'SST'|'TIN'|'VAT',
  *         legalName?: string,
  *         legalAddress?: array{
  *             addressLine1?: string,
@@ -57,8 +57,6 @@ use Aws\AwsClient;
  *             chileAdditionalInfo?: array,
  *             franceAdditionalInfo?: array,
  *             monacoAdditionalInfo?: array,
- *             germanyAdditionalInfo?: array,
- *             mexicoAdditionalInfo?: array,
  *             ...,
  *         },
  *         verificationDetails?: array{dateOfBirth?: string, taxRegistrationDocuments?: list<array>, ...},
@@ -72,7 +70,7 @@ use Aws\AwsClient;
  *     accountIds?: list<string>,
  *     taxRegistrationEntry?: array{
  *         registrationId?: string,
- *         registrationType?: 'CDI'|'CI'|'CNPJ'|'CPF'|'CUIT'|'GST'|'NIE'|'NIP'|'NRIC'|'PAN'|'RUT'|'SST'|'TIN'|'VAT',
+ *         registrationType?: 'CNPJ'|'CPF'|'GST'|'NIP'|'NRIC'|'PAN'|'SST'|'TIN'|'VAT',
  *         legalName?: string,
  *         legalAddress?: array{
  *             addressLine1?: string,
@@ -111,8 +109,6 @@ use Aws\AwsClient;
  *             chileAdditionalInfo?: array,
  *             franceAdditionalInfo?: array,
  *             monacoAdditionalInfo?: array,
- *             germanyAdditionalInfo?: array,
- *             mexicoAdditionalInfo?: array,
  *             ...,
  *         },
  *         verificationDetails?: array{dateOfBirth?: string, taxRegistrationDocuments?: list<array>, ...},
@@ -232,7 +228,7 @@ use Aws\AwsClient;
  *     accountId?: string,
  *     taxRegistrationEntry?: array{
  *         registrationId?: string,
- *         registrationType?: 'CDI'|'CI'|'CNPJ'|'CPF'|'CUIT'|'GST'|'NIE'|'NIP'|'NRIC'|'PAN'|'RUT'|'SST'|'TIN'|'VAT',
+ *         registrationType?: 'CNPJ'|'CPF'|'GST'|'NIP'|'NRIC'|'PAN'|'SST'|'TIN'|'VAT',
  *         legalName?: string,
  *         legalAddress?: array{
  *             addressLine1?: string,
@@ -271,8 +267,6 @@ use Aws\AwsClient;
  *             chileAdditionalInfo?: array,
  *             franceAdditionalInfo?: array,
  *             monacoAdditionalInfo?: array,
- *             germanyAdditionalInfo?: array,
- *             mexicoAdditionalInfo?: array,
  *             ...,
  *         },
  *         verificationDetails?: array{dateOfBirth?: string, taxRegistrationDocuments?: list<array>, ...},
@@ -286,7 +280,7 @@ use Aws\AwsClient;
  *     accountId?: string,
  *     taxRegistrationEntry?: array{
  *         registrationId?: string,
- *         registrationType?: 'CDI'|'CI'|'CNPJ'|'CPF'|'CUIT'|'GST'|'NIE'|'NIP'|'NRIC'|'PAN'|'RUT'|'SST'|'TIN'|'VAT',
+ *         registrationType?: 'CNPJ'|'CPF'|'GST'|'NIP'|'NRIC'|'PAN'|'SST'|'TIN'|'VAT',
  *         legalName?: string,
  *         legalAddress?: array{
  *             addressLine1?: string,
@@ -325,8 +319,6 @@ use Aws\AwsClient;
  *             chileAdditionalInfo?: array,
  *             franceAdditionalInfo?: array,
  *             monacoAdditionalInfo?: array,
- *             germanyAdditionalInfo?: array,
- *             mexicoAdditionalInfo?: array,
  *             ...,
  *         },
  *         verificationDetails?: array{dateOfBirth?: string, taxRegistrationDocuments?: list<array>, ...},

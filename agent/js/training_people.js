@@ -439,7 +439,7 @@
                             var id = 'tro-jg-t' + i;
                             var cb = el('input', { type: 'checkbox', class: 'form-check-input', id: id, checked: chosen[t] ? true : null });
                             cb.addEventListener('change', function () { if (cb.checked) { chosen[t] = true; } else { delete chosen[t]; } sync(); });
-                            list.appendChild(el('div', { class: 'form-check' }, [cb, el('label', { class: 'form-check-label', for: id, text: t.replace(/(^|[\s\/-])([a-z])/g, function (m, a, c) { return a + c.toUpperCase(); }) }),
+                            list.appendChild(el('div', { class: 'form-check' }, [cb, el('label', { class: 'form-check-label', for: id, text: t }),
                                 el('span', { class: 'tro-count', text: counts[t] ? u.plural(counts[t], 'person', 'people') : 'no one now' })]));
                         });
                         if (!shown) { list.appendChild(el('div', { class: 'text-muted small py-2', text: keys.length ? 'No job title matches.' : 'No job titles on the roster yet.' })); }

@@ -106,9 +106,9 @@ $problem_status_badge = [
                             <?php } ?>
                         </td>
                         <td><?= nullable_htmlentities($row['created_by_name']) ?></td>
-                        <td class="text-nowrap"><?= nullable_htmlentities($row['created_at']) ?></td>
+                        <td><?= nullable_htmlentities($row['created_at']) ?></td>
                         <td class="text-center">
-                            <a class="btn btn-secondary btn-sm" href="problem_details.php?id=<?= $problem_id ?>" title="View problem" aria-label="View problem"><i class="fas fa-eye"></i></a>
+                            <a class="btn btn-secondary btn-sm" href="problem_details.php?id=<?= $problem_id ?>"><i class="fas fa-eye"></i></a>
                         </td>
                     </tr>
                 <?php } ?>

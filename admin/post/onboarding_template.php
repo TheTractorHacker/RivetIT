@@ -19,7 +19,7 @@ if (isset($_POST['edit_onboarding_template'])) {
 
     logAction("Onboarding Template", "Edit", "$session_name edited onboarding template $name", 0, $project_template_id);
 
-    flash_alert("Onboarding Template <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> edited");
+    flash_alert("Onboarding Template <strong>$name</strong> edited");
 
     redirect();
 
@@ -31,7 +31,7 @@ if (isset($_GET['delete_onboarding_template'])) {
 
     $project_template_id = intval($_GET['delete_onboarding_template']);
 
-    $project_template_name = getFieldById('project_templates', $project_template_id, 'project_template_name'); // already SQL-escaped
+    $project_template_name = sanitizeInput(getFieldById('project_templates', $project_template_id, 'project_template_name'));
 
     $sql_ticket_templates = mysqli_query($mysqli, "SELECT ticket_template_id FROM project_template_ticket_templates WHERE project_template_id = $project_template_id");
     while ($row = mysqli_fetch_assoc($sql_ticket_templates)) {
@@ -45,7 +45,7 @@ if (isset($_GET['delete_onboarding_template'])) {
 
     logAction("Onboarding Template", "Delete", "$session_name deleted onboarding template $project_template_name and its checklist");
 
-    flash_alert("Onboarding Template <strong>" . htmlspecialchars(stripslashes($project_template_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Onboarding Template <strong>$project_template_name</strong> deleted", 'error');
 
     redirect("onboarding_templates.php");
 
@@ -64,7 +64,7 @@ if (isset($_POST['add_checklist_task'])) {
 
     logAction("Onboarding Template", "Edit", "$session_name added checklist item $task_name to onboarding template", 0, $ticket_template_id);
 
-    flash_alert("Added checklist item <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong>");
+    flash_alert("Added checklist item <strong>$task_name</strong>");
 
     redirect();
 
@@ -82,7 +82,7 @@ if (isset($_POST['edit_ticket_template_task'])) {
 
     logAction("Onboarding Template", "Edit", "$session_name edited checklist item $task_name");
 
-    flash_alert("Checklist item <strong>" . htmlspecialchars(stripslashes($task_name), ENT_QUOTES) . "</strong> updated");
+    flash_alert("Checklist item <strong>$task_name</strong> updated");
 
     redirect();
 
@@ -94,13 +94,13 @@ if (isset($_GET['delete_task_template'])) {
 
     $task_template_id = intval($_GET['delete_task_template']);
 
-    $task_template_name = getFieldById('task_templates', $task_template_id, 'task_template_name'); // already SQL-escaped
+    $task_template_name = sanitizeInput(getFieldById('task_templates', $task_template_id, 'task_template_name'));
 
     mysqli_query($mysqli, "DELETE FROM task_templates WHERE task_template_id = $task_template_id");
 
     logAction("Onboarding Template", "Edit", "$session_name deleted checklist item $task_template_name");
 
-    flash_alert("Checklist item <strong>" . htmlspecialchars(stripslashes($task_template_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Checklist item <strong>$task_template_name</strong> deleted", 'error');
 
     redirect();
 

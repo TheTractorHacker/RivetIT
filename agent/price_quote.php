@@ -97,7 +97,7 @@ if ($price_quote_print) {
 }
 ?>
 
-<div class="card card-dark">
+<div class="card card-dark d-print-none">
     <div class="card-header py-2">
         <h3 class="card-title mt-2">
             <i class="fas fa-fw fa-file-invoice-dollar me-2"></i><?= $price_quote_title ?>
@@ -106,7 +106,7 @@ if ($price_quote_print) {
                 <span class="badge text-bg-dark ms-1">Archived</span>
             <?php } ?>
         </h3>
-        <div class="card-tools d-print-none">
+        <div class="card-tools">
             <a href="?<?= isset($_GET['client_id']) ? 'client_id=' . $price_quote_client_id . '&' : '' ?>price_quote_id=<?= $price_quote_id ?>&print=1" target="_blank" class="btn btn-secondary">
                 <i class="fas fa-fw fa-print me-2"></i>Print / PDF
             </a>
@@ -138,7 +138,7 @@ if ($price_quote_print) {
         <?php } ?>
 
         <?php if ($price_quote_can_edit && !$price_quote_archived) { ?>
-        <div class="mb-3 d-print-none">
+        <div class="mb-3">
             <label class="form-label mb-1">Where is this quote?</label>
             <form action="post.php" method="post" class="d-print-none">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -196,8 +196,8 @@ if ($price_quote_print) {
                             <td class="text-end"><?= numfmt_format_currency($currency_format, $item_total, $session_company_currency); ?></td>
                             <td class="text-end d-print-none">
                                 <?php if ($price_quote_can_edit && !$price_quote_archived) { ?>
-                                <a href="#" class="ajax-modal" data-modal-url="modals/price_quote/price_quote_item_edit.php?price_quote_item_id=<?= $item_id ?>" title="Edit" aria-label="Edit line item"><i class="fas fa-edit"></i></a>
-                                <a href="post.php?delete_price_quote_item=<?= $item_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="confirm-link ms-2 text-danger" data-confirm-message="Delete this line item? This cannot be undone." title="Delete" aria-label="Delete line item"><i class="fas fa-trash"></i></a>
+                                <a href="#" class="ajax-modal" data-modal-url="modals/price_quote/price_quote_item_edit.php?price_quote_item_id=<?= $item_id ?>" title="Edit"><i class="fas fa-edit"></i></a>
+                                <a href="post.php?delete_price_quote_item=<?= $item_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="confirm-link ms-2 text-danger" title="Delete"><i class="fas fa-trash"></i></a>
                                 <?php } ?>
                             </td>
                         </tr>
@@ -219,16 +219,16 @@ if ($price_quote_print) {
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <input type="hidden" name="price_quote_id" value="<?= $price_quote_id ?>">
                 <div class="col-md-5">
-                    <label class="form-label mb-1" for="pqItemDesc">Description</label>
-                    <input type="text" id="pqItemDesc" class="form-control" name="description" maxlength="255" placeholder="e.g. Dell Latitude 5440 laptop" required>
+                    <label class="form-label mb-1">Description</label>
+                    <input type="text" class="form-control" name="description" maxlength="255" placeholder="e.g. Dell Latitude 5440 laptop" required>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label mb-1" for="pqItemQty">Qty</label>
-                    <input type="text" id="pqItemQty" class="form-control" inputmode="decimal" name="quantity" value="1" required>
+                    <label class="form-label mb-1">Qty</label>
+                    <input type="text" class="form-control" inputmode="decimal" name="quantity" value="1" required>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label mb-1" for="pqItemPrice">Unit Price</label>
-                    <input type="text" id="pqItemPrice" class="form-control" inputmode="decimal" name="unit_price" value="0.00" required>
+                    <label class="form-label mb-1">Unit Price</label>
+                    <input type="text" class="form-control" inputmode="decimal" name="unit_price" value="0.00" required>
                 </div>
                 <div class="col-md-3">
                     <button type="submit" name="add_price_quote_item" class="btn btn-primary w-100"><i class="fas fa-plus me-2"></i>Add Item</button>

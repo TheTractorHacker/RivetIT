@@ -107,7 +107,7 @@ use Generator;
  *     logGroupName?: string,
  *     kmsKeyId?: string,
  *     tags?: array<string, string>,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     deletionProtectionEnabled?: bool,
  *     ...,
  * } $args = [])
@@ -116,7 +116,7 @@ use Generator;
  *     logGroupName?: string,
  *     kmsKeyId?: string,
  *     tags?: array<string, string>,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     deletionProtectionEnabled?: bool,
  *     ...,
  * } $args = [])
@@ -207,15 +207,13 @@ use Generator;
  * @method \Aws\Result deleteAccountPolicy(array $args = [])
  * @phpstan-method \Aws\Result deleteAccountPolicy(array{
  *     policyName?: string,
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
- *     dryRun?: bool,
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise deleteAccountPolicyAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise deleteAccountPolicyAsync(array{
  *     policyName?: string,
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
- *     dryRun?: bool,
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     ...,
  * } $args = [])
  * @method \Aws\Result deleteDataProtectionPolicy(array $args = [])
@@ -300,7 +298,7 @@ use Generator;
  * @phpstan-method \GuzzleHttp\Promise\Promise deleteTransformerAsync(array{logGroupIdentifier?: string, ...} $args = [])
  * @method \Aws\Result describeAccountPolicies(array $args = [])
  * @phpstan-method \Aws\Result describeAccountPolicies(array{
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     policyName?: string,
  *     accountIdentifiers?: list<string>,
  *     nextToken?: string,
@@ -308,7 +306,7 @@ use Generator;
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise describeAccountPoliciesAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise describeAccountPoliciesAsync(array{
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     policyName?: string,
  *     accountIdentifiers?: list<string>,
  *     nextToken?: string,
@@ -426,7 +424,7 @@ use Generator;
  *     nextToken?: string,
  *     limit?: int,
  *     includeLinkedAccounts?: bool,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     logGroupIdentifiers?: list<string>,
  *     ...,
  * } $args = [])
@@ -438,7 +436,7 @@ use Generator;
  *     nextToken?: string,
  *     limit?: int,
  *     includeLinkedAccounts?: bool,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     logGroupIdentifiers?: list<string>,
  *     ...,
  * } $args = [])
@@ -684,7 +682,7 @@ use Generator;
  * @phpstan-method \Aws\Result listAggregateLogGroupSummaries(array{
  *     accountIdentifiers?: list<string>,
  *     includeLinkedAccounts?: bool,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     logGroupNamePattern?: string,
  *     dataSources?: list<array{name?: string, type?: string, ...}>,
  *     groupBy?: 'DATA_SOURCE_NAME_AND_TYPE'|'DATA_SOURCE_NAME_TYPE_AND_FORMAT',
@@ -696,7 +694,7 @@ use Generator;
  * @phpstan-method \GuzzleHttp\Promise\Promise listAggregateLogGroupSummariesAsync(array{
  *     accountIdentifiers?: list<string>,
  *     includeLinkedAccounts?: bool,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     logGroupNamePattern?: string,
  *     dataSources?: list<array{name?: string, type?: string, ...}>,
  *     groupBy?: 'DATA_SOURCE_NAME_AND_TYPE'|'DATA_SOURCE_NAME_TYPE_AND_FORMAT',
@@ -741,7 +739,7 @@ use Generator;
  * @method \Aws\Result listLogGroups(array $args = [])
  * @phpstan-method \Aws\Result listLogGroups(array{
  *     logGroupNamePattern?: string,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     includeLinkedAccounts?: bool,
  *     accountIdentifiers?: list<string>,
  *     nextToken?: string,
@@ -754,7 +752,7 @@ use Generator;
  * @method \GuzzleHttp\Promise\Promise listLogGroupsAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise listLogGroupsAsync(array{
  *     logGroupNamePattern?: string,
- *     logGroupClass?: 'DELIVERY'|'ESSENTIALS'|'INFREQUENT_ACCESS'|'STANDARD',
+ *     logGroupClass?: 'DELIVERY'|'INFREQUENT_ACCESS'|'STANDARD',
  *     includeLinkedAccounts?: bool,
  *     accountIdentifiers?: list<string>,
  *     nextToken?: string,
@@ -804,20 +802,18 @@ use Generator;
  * @phpstan-method \Aws\Result putAccountPolicy(array{
  *     policyName?: string,
  *     policyDocument?: string,
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     scope?: 'ALL',
  *     selectionCriteria?: string,
- *     dryRun?: bool,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise putAccountPolicyAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise putAccountPolicyAsync(array{
  *     policyName?: string,
  *     policyDocument?: string,
- *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'RETENTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
+ *     policyType?: 'DATA_PROTECTION_POLICY'|'FIELD_INDEX_POLICY'|'METRIC_EXTRACTION_POLICY'|'SUBSCRIPTION_FILTER_POLICY'|'TRANSFORMER_POLICY',
  *     scope?: 'ALL',
  *     selectionCriteria?: string,
- *     dryRun?: bool,
  *     ...,
  * } $args = [])
  * @method \Aws\Result putBearerTokenAuthentication(array $args = [])

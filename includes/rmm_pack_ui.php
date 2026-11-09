@@ -257,7 +257,7 @@ function rivetRmmPackCard(array $vm, array $ctx): string
     $params = rivetRmmPackParamsBlock($vm['items'], $paramVals);
     $c = $vm['counts'];
     $seg = static fn (string $key, string $label, int $n, string $tip, bool $on = false): string => '<button type="button" class="' . ($on ? 'is-active' : '') . '" data-pack-filter="' . $key . '" aria-pressed="' . ($on ? 'true' : 'false') . '" title="' . rmmH($tip) . '"' . ($n === 0 && $key !== 'all' ? ' data-zero="1"' : '') . '>' . rmmH($label) . ' <span class="rmmx-count">' . $n . '</span></button>';
-    $chips = '<div class="rmmx-seg mb-3" style="max-width:100%;overflow-x:auto" role="group" aria-label="Filter the items by state">'
+    $chips = '<div class="rmmx-seg mb-3" role="group" aria-label="Filter the items by state">'
         . $seg('all', 'All', (int) $c['not_installed'] + (int) $c['installed'] + (int) $c['update_available'] + (int) $c['edited'], 'Show every item', true)
         . $seg('not_installed', 'Not installed', (int) $c['not_installed'], 'Items that are not installed yet')
         . $seg('installed', 'Installed', (int) $c['installed'], 'Items installed and unchanged from the pack')
@@ -273,7 +273,7 @@ function rivetRmmPackCard(array $vm, array $ctx): string
         $notice . $chips
         . '<form method="post" action="/agent/post/' . RIVET_RMM_PACK_HANDLER . '.php" id="pack-form" class="rmmx-pad-bottom">' . rivetRmmAutoHidden($csrf, $returnTo)
         . $table
-        . ($params === '' ? '' : '<details class="p-3 border-top"><summary class="fw-semibold">Install-time parameters <span class="text-muted fw-normal small">(optional: leave a field empty to use its default)</span></summary><div class="mt-3">' . $params . '</div></details>')
+        . ($params === '' ? '' : '<div class="p-3 border-top"><div class="small text-muted mb-2">Install-time parameters. Leave a field at its default unless you need another value.</div>' . $params . '</div>')
         . '<div class="px-3 pb-3">' . $actions . '</div></form>',
         '', '<span class="small text-muted">' . rmmH($vm['pack']['name']) . ' ' . rmmH($vm['pack']['version']) . '</span>', true, 'pack-card');
 

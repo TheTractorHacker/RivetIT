@@ -16,7 +16,7 @@ if (isset($_POST['add_labor_type'])) {
 
     logAction("Labor Type", "Create", "$session_name created labor type $name");
 
-    flash_alert("Labor type <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> created");
+    flash_alert("Labor type <strong>$name</strong> created");
     redirect();
 }
 
@@ -34,7 +34,7 @@ if (isset($_POST['edit_labor_type'])) {
 
     logAction("Labor Type", "Edit", "$session_name edited labor type $name");
 
-    flash_alert("Labor type <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> updated");
+    flash_alert("Labor type <strong>$name</strong> updated");
     redirect();
 }
 
@@ -43,12 +43,12 @@ if (isset($_GET['delete_labor_type'])) {
     validateCSRFToken($_GET['csrf_token']);
 
     $labor_type_id = intval($_GET['delete_labor_type']);
-    $name = getFieldById('labor_types', $labor_type_id, 'labor_type_name'); // already SQL-escaped
+    $name = sanitizeInput(getFieldById('labor_types', $labor_type_id, 'labor_type_name'));
 
     mysqli_query($mysqli, "UPDATE labor_types SET labor_type_archived_at=NOW() WHERE labor_type_id=$labor_type_id");
 
     logAction("Labor Type", "Delete", "$session_name deleted labor type $name");
 
-    flash_alert("Labor type <strong>" . htmlspecialchars(stripslashes($name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Labor type <strong>$name</strong> deleted", 'error');
     redirect();
 }

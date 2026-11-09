@@ -69,7 +69,7 @@ if (isset($_POST['add_role'])) {
     logAction("User Role", "Create", "$session_name created user role $name", 0, $role_id);
     itflow_audit_role_change('role.created', intval($role_id), $name, [], itflow_role_levels_snapshot($mysqli, intval($role_id)), null, $admin === 1);
 
-    flash_alert("User Role <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
+    flash_alert("User Role <strong>$name</strong> created");
 
     redirect();
 
@@ -105,7 +105,7 @@ if (isset($_POST['edit_role'])) {
     logAction("User Role", "Edit", "$session_name edited user role $name", 0, $role_id);
     itflow_audit_role_change('role.permissions_changed', $role_id, $name, $levels_before, itflow_role_levels_snapshot($mysqli, $role_id), $was_admin, $admin === 1);
 
-    flash_alert("User Role <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> edited");
+    flash_alert("User Role <strong>$name</strong> edited");
 
     redirect();
 
@@ -135,11 +135,11 @@ if (isset($_GET['archive_role'])) {
 
     mysqli_query($mysqli, "UPDATE user_roles SET role_archived_at = NOW() WHERE role_id = $role_id");
 
-    $role_name = getFieldById('user_roles', $role_id, 'role_name');
+    $role_name = sanitizeInput(getFieldById('user_roles', $role_id, 'role_name'));
 
     logAction("User Role", "Archive", "$session_name archived user role $role_name", 0, $role_id);
 
-    flash_alert("User Role <strong>" . htmlspecialchars(stripslashes($role_name)) . "</strong> archived", 'error');
+    flash_alert("User Role <strong>$role_name</strong> archived", 'error');
 
     redirect();
 

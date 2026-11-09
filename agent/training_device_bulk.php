@@ -15,7 +15,7 @@
  * (kiosk/index.php kx-code-open -> enroll_code) - no admin session ever touches the device itself.
  */
 
-$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];
+$page_extra_css = ['/css/itflow_training.css'];
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuardKiosk(3)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);

@@ -228,7 +228,6 @@ use Aws\Middleware;
  *             SchemaValidationConfigs?: list<array>,
  *             ...,
  *         },
- *         ConsumptionMode?: 'Queue'|'Stream',
  *         ...,
  *     },
  *     DocumentDBEventSourceConfig?: array{DatabaseName?: string, CollectionName?: string, FullDocument?: 'Default'|'UpdateLookup', ...},
@@ -285,7 +284,6 @@ use Aws\Middleware;
  *             SchemaValidationConfigs?: list<array>,
  *             ...,
  *         },
- *         ConsumptionMode?: 'Queue'|'Stream',
  *         ...,
  *     },
  *     DocumentDBEventSourceConfig?: array{DatabaseName?: string, CollectionName?: string, FullDocument?: 'Default'|'UpdateLookup', ...},
@@ -1012,7 +1010,6 @@ use Aws\Middleware;
  *             SchemaValidationConfigs?: list<array>,
  *             ...,
  *         },
- *         ConsumptionMode?: 'Queue'|'Stream',
  *         ...,
  *     },
  *     DocumentDBEventSourceConfig?: array{DatabaseName?: string, CollectionName?: string, FullDocument?: 'Default'|'UpdateLookup', ...},
@@ -1063,7 +1060,6 @@ use Aws\Middleware;
  *             SchemaValidationConfigs?: list<array>,
  *             ...,
  *         },
- *         ConsumptionMode?: 'Queue'|'Stream',
  *         ...,
  *     },
  *     DocumentDBEventSourceConfig?: array{DatabaseName?: string, CollectionName?: string, FullDocument?: 'Default'|'UpdateLookup', ...},
@@ -1250,19 +1246,13 @@ class LambdaClient extends AwsClient
     }
 
     /**
-     * Provides a middleware that sets default Curl options for the command.
-     * Streamed commands are skipped, as they are served by a stream handler
-     * that rejects Curl options.
+     * Provides a middleware that sets default Curl options for the command
      *
      * @return callable
      */
     public function getDefaultCurlOptionsMiddleware()
     {
         return Middleware::mapCommand(function (CommandInterface $cmd) {
-            if (!empty($cmd['@http']['stream'])) {
-                return $cmd;
-            }
-
             $defaultCurlOptions = [
                 CURLOPT_TCP_KEEPALIVE => 1,
             ];

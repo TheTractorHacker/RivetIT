@@ -1536,7 +1536,7 @@
             var submit = el('button', { type: 'button', class: 'btn btn-primary', text: 'Save record' });
             var h = sheet({
                 title: 'Record external card or paper record', subtitle: 'Training done outside the LMS, entered by the office.', body: body,
-                foot: [el('span', { class: 'tro-oc__note', text: 'Saved records are final; void a wrong one.' }), cancelBtn(), submit],
+                foot: [el('span', { class: 'tro-oc__note', text: 'Records cannot be edited after saving. A wrong record is voided.' }), cancelBtn(), submit],
                 onHidden: function () { resolve(result); }
             });
 

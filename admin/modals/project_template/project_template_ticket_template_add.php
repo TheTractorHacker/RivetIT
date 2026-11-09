@@ -57,7 +57,7 @@ ob_start();
                 <div class="input-group-prepend">
                     <span class="input-group-text"><i class="fa fa-fw fa-sort-numeric-down"></i></span>
                 </div>
-                <input type="text" class="form-control" name="order" value="1" inputmode="numeric" pattern="[0-9]{1,4}" title="A whole number, e.g. 1 for first" maxlength="4">
+                <input type="text" class="form-control" name="order" value="1">
             </div>
         </div>
 

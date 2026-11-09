@@ -33,9 +33,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                 <div class="col-md-4">
                     <div class="input-group mb-3 mb-md-0">
-                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search Vendor Templates">
+                        <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search Vendors Templates">
                         <div class="input-group-append">
-                            <button class="btn btn-primary"><i class="fa fa-search"></i></button>
+                            <button class="btn btn-dark"><i class="fa fa-search"></i></button>
                         </div>
                     </div>
                 </div>
@@ -91,7 +91,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                     ?>
                     <tr>
-                        <td class="fw-bold">
+                        <th>
                             <a class="text-dark ajax-modal" href="#"
                                 data-modal-url="modals/vendor_template/vendor_template_edit.php?id=<?= $vendor_template_id ?>">
                                 <i class="fa fa-fw fa-building text-secondary me-2"></i><?php echo $vendor_template_name; ?>
@@ -104,7 +104,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <?php
                             }
                             ?>
-                        </td>
+                        </th>
                         <td><?php echo $vendor_template_description_display; ?></td>
                         <td>
                             <?php

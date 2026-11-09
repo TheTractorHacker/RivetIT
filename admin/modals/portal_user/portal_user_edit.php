@@ -84,7 +84,7 @@ $cur_role_id = intval($row['user_role_id']);
             </select>
             <?php if ($odoo_link) { ?><small class="form-text text-muted">Linked Odoo employee #<?= (int) $odoo_link['odoo_employee_id'] ?>. Odoo sign-in uses this ID, even if the email changes.</small><?php } ?>
         </div>
-        <div class="form-group" id="pu_edit_subject_group<?= $user_id ?>"<?= $row['user_auth_method'] === 'oidc' ? '' : ' hidden' ?>>
+        <div class="form-group">
             <label for="pu_edit_subject<?= $user_id ?>">OpenID Connect subject (sub)</label>
             <input class="form-control" id="pu_edit_subject<?= $user_id ?>" name="oidc_subject" value="<?= nullable_htmlentities($row['user_oidc_subject'] ?? '') ?>" maxlength="255" autocomplete="off">
             <small class="form-text text-muted">Copy the user's immutable subject from the configured identity provider. Required when OpenID Connect is selected<?= $config_oidc_link_by_email ? ', unless left blank: the first sign-in with this login\'s verified email then links the subject automatically' : '' ?>. Email is never used for later sign-ins.</small>
@@ -143,12 +143,6 @@ $cur_role_id = intval($row['user_role_id']);
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
 (function () {
-    // The OpenID subject only matters for OpenID sign-in; hide it for every other method.
-    var authSel = document.getElementById('pu_edit_auth<?= $user_id ?>');
-    var subjGroup = document.getElementById('pu_edit_subject_group<?= $user_id ?>');
-    if (authSel && subjGroup) {
-        authSel.addEventListener('change', function () { subjGroup.hidden = authSel.value !== 'oidc'; });
-    }
     if (window.rivetPortalUserModalWired) { return; }
     window.rivetPortalUserModalWired = true;
     document.addEventListener('click', function (e) {

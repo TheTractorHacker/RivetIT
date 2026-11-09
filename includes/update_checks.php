@@ -177,7 +177,7 @@ function updateChecks(string $dir, ?string $currentDbVersion = null, ?string $la
             $add('composer', 'Composer files are clean', 'ok', 'vendor/composer matches the release.');
         }
         if ($other) {
-            $add('dirty', 'No hand-edited files', 'warn', count($other) . (count($other) === 1 ? ' tracked file was' : ' tracked files were') . ' changed on this server (for example ' . $other[0] . '). A normal update may refuse to overwrite them.',
+            $add('dirty', 'No hand-edited files', 'warn', count($other) . ' tracked file(s) were changed on this server (for example ' . $other[0] . '). A normal update may refuse to overwrite them.',
                 'Keep the changes (commit or stash them), or use FORCE Update App, which discards them.');
         } else {
             $add('dirty', 'No hand-edited files', 'ok', 'No tracked file has been changed on this server.');

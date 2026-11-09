@@ -521,12 +521,10 @@ foreach ($_cat_subs as $_pid => $_subs) {
 .tkt-pill-badge {
     font-size: 12px; font-weight: 600; padding: 4px 10px;
     white-space: nowrap; cursor: pointer; user-select: none;
-    max-width: 8rem; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+    max-width: 11rem; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
 }
 .table.table-tight > tbody > tr > td { vertical-align: middle; padding-top: .4rem; padding-bottom: .4rem; }
 .table-tight .tk-col-subject { min-width: 180px; }
-.table.table-tight > tbody > tr > td, .table.table-tight > thead > tr > th { padding-left: .25rem; padding-right: .25rem; }
-.table-tight .tk-num { white-space: nowrap; }
 .table-tight td, .table-tight th { overflow-wrap: normal; }
 .table-tight .tk-num { font-size: 12px; padding: 5px 9px; }
 .tkt-pill-badge.dropdown-toggle::after { display: none; }

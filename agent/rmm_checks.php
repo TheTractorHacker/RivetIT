@@ -33,9 +33,6 @@ $type_meta = [
     'script'    => ['icon' => 'fas fa-code',         'label' => 'Script'],
 ];
 ?>
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-    @media (max-width: 991.98px) { .rmm-checks-table { min-width: 820px; } }
-</style>
 
 <div class="d-flex align-items-center mb-3">
     <h4 class="mb-0 mr-auto"><i class="fas fa-heartbeat me-2"></i>Alert Check Policies</h4>
@@ -86,17 +83,17 @@ foreach ($platform_order as $plat):
             <i class="fas fa-cloud-upload-alt me-1"></i><?= $plat === 'any' ? 'Push to all agents' : 'Push all to ' . $pm['label'] . ' agents' ?>
         </button>
     </div>
-    <div class="card-body p-0 table-responsive">
-    <table class="table table-sm table-hover mb-0 rmm-checks-table" style="table-layout:fixed">
+    <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0" style="table-layout:fixed">
         <thead class="text-muted border-bottom" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">
             <tr>
-                <th class="ps-3" style="width:24%">Check Name</th>
+                <th class="ps-3" style="width:26%">Check Name</th>
                 <th class="text-center" style="width:16%;font-size:12px">Type</th>
                 <th class="text-center" style="width:14%;font-size:12px">Thresholds</th>
                 <th class="text-center" style="width:9%;font-size:12px">Interval</th>
                 <th class="text-center" style="width:11%;font-size:12px">Deployed</th>
                 <th class="text-center" style="width:10%;font-size:12px">Status</th>
-                <th style="width:16%"></th>
+                <th style="width:14%"></th>
             </tr>
         </thead>
         <tbody>
@@ -146,7 +143,7 @@ foreach ($platform_order as $plat):
                     ? '<span class="badge text-bg-success" style="font-size:90%">Active</span>'
                     : '<span class="badge text-bg-secondary" style="font-size:90%">Disabled</span>' ?>
             </td>
-            <td class="text-end pe-3" style="white-space:nowrap">
+            <td class="text-end pe-2" style="white-space:nowrap">
                 <button class="btn btn-xs btn-outline-success me-1 js-push-policy" title="Push to matching agents" aria-label="Push to matching agents"
                         data-policy-id="<?= $pid ?>" data-policy-name="<?= nullable_htmlentities($pol['name']) ?>">
                     <i class="fas fa-cloud-upload-alt"></i>
@@ -183,7 +180,7 @@ foreach ($platform_order as $plat):
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0">Please Confirm</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body" id="confirmActionBody"></div>
             <div class="modal-footer py-2">
@@ -202,11 +199,10 @@ foreach ($platform_order as $plat):
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0" id="policyModalTitle">New Check Policy</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit_id" value="">
-                <div class="alert alert-danger d-none py-2 small" id="policyModalMsg" role="alert"></div>
                 <div class="form-group">
                     <label class="text-muted small">Policy Name</label>
                     <input type="text" class="form-control form-control-sm" id="p_name" placeholder="e.g. Disk Space C: Drive">
@@ -463,7 +459,6 @@ function openNewPolicy() {
     document.getElementById('p_description').value = '';
     document.getElementById('p_enabled').checked = true;
     updateParamsHint();
-    policyModalError('');
     $('#policyModal').modal('show');
 }
 
@@ -481,7 +476,6 @@ function editPolicy(pol) {
     document.getElementById('p_description').value = pol.description || '';
     document.getElementById('p_enabled').checked   = pol.enabled == 1;
     updateParamsHint();
-    policyModalError('');
     $('#policyModal').modal('show');
 }
 
@@ -519,19 +513,7 @@ function updateParamsHint() {
     document.getElementById('threshold_row').style.display = noThresh ? 'none' : '';
 }
 
-function policyModalError(text) {
-    const el = document.getElementById('policyModalMsg');
-    el.textContent = text;
-    el.classList.toggle('d-none', !text);
-}
-
 function savePolicy() {
-    policyModalError('');
-    if (document.getElementById('p_name').value.trim() === '') {
-        policyModalError('Enter a name for the policy.');
-        document.getElementById('p_name').focus();
-        return;
-    }
     const params = {
         csrf_token:         CSRF,
         action:             'save_policy',
@@ -555,9 +537,9 @@ function savePolicy() {
             showMsg('Policy saved.', 'success');
             setTimeout(() => location.reload(), 800);
         } else {
-            policyModalError(d.error || 'The policy could not be saved.');
+            showMsg('Failed: ' + (d.error || 'Unknown error'), 'danger');
         }
-    }).catch(() => policyModalError('Network error: the policy was not saved. Try again.'));
+    });
 }
 </script>
 

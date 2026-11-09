@@ -13,13 +13,6 @@ if (isset($_POST['save_compliance_settings'])) {
         flash_alert('Choose one of the listed presets.', 'error');
         redirect();
     }
-    foreach (['audit_retention_days' => 'Audit trail retention', 'log_retention_days' => 'Activity log retention'] as $rf => $rl) {
-        $rv = trim((string) ($_POST[$rf] ?? ''));
-        if (!ctype_digit($rv) || intval($rv) > 36500) {
-            flash_alert("$rl must be a whole number of days from 0 to 36500 (0 keeps records forever). Nothing was saved.", 'error');
-            redirect();
-        }
-    }
     $audit_days = max(0, min(36500, intval($_POST['audit_retention_days'] ?? 0)));
     $log_days = max(0, min(36500, intval($_POST['log_retention_days'] ?? 0)));
 

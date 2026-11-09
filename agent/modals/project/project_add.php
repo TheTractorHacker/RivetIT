@@ -59,7 +59,7 @@ ob_start();
                     <span class="input-group-text"><i class="fa fa-fw fa-cube"></i></span>
                 </div>
                 <select class="form-control select2" name="project_template_id" id="project_template_id">
-                    <option value="">- No template -</option>
+                    <option value="">Template</option>
                     <?php
                     $sql = mysqli_query($mysqli, "SELECT * FROM project_templates WHERE project_template_archived_at IS NULL ORDER BY project_template_name ASC");
                     while ($row = mysqli_fetch_assoc($sql)) {

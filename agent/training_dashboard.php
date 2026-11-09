@@ -145,7 +145,7 @@ $trr_actions = '<a class="btn btn-outline-secondary" href="' . trr_h($trr_csv) .
             <div class="trr-kpi__sub"><?= (int) $trr_k['renewals_assigned'] ?> <?= $trr_k['renewals_assigned'] === 1 ? 'renewal' : 'renewals' ?> already assigned</div>
         </a>
         <div class="trr-kpi">
-            <div class="trr-kpi__label">Completed in <?= trr_h(date("M")) ?> <span class="trr-kpi__icon trr-kpi__icon--ok"><i class="far fa-check-circle" aria-hidden="true"></i></span></div>
+            <div class="trr-kpi__label">Completions this month <span class="trr-kpi__icon trr-kpi__icon--ok"><i class="far fa-check-circle" aria-hidden="true"></i></span></div>
             <div class="trr-kpi__value"><?= (int) $trr_k['completions_month'] ?></div>
             <div class="trr-kpi__sub">
                 <?php $trr_d = (int) $trr_k['completions_month'] - (int) $trr_k['completions_prev_month']; ?>

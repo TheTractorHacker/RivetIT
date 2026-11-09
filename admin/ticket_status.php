@@ -92,7 +92,6 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </td>
                         <td>
                             <span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span>
-                        </td>
                         <td><?php echo !empty($row['ticket_status_pauses_sla']) ? "<span class='badge text-bg-secondary'>Paused</span>" : "<span class='text-muted'>Runs</span>"; ?></td>
                         <td><?php echo $ticket_status_display; ?></td>
                         <td>

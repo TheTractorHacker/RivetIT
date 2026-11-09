@@ -88,12 +88,6 @@ if ($ready && isset($_GET['edit'])) {
 }
 ?>
 
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-/* QA3: condition rows - field picker, operator and value share one height and font size */
-.er-cond-row .ts-wrapper .ts-control { min-height: 34px; height: 34px; font-size: .8125rem; padding-top: 4px; padding-bottom: 4px; align-items: center; }
-.er-cond-row .form-select-sm, .er-cond-row .form-control-sm { min-height: 34px; height: 34px; font-size: .8125rem; }
-</style>
-
 <div class="er-page" id="er-root">
 <?php if (!$ready) { ?>
     <div class="alert alert-warning">Run the database update first (Administration &rarr; Update) to turn on event rules.</div>

@@ -56,67 +56,67 @@ if (isset($_POST['edit_vendor_template'])) {
     $code = sanitizeInput($_POST['code']);
     $notes = sanitizeInput($_POST['notes']);
 
-    if (($_POST['global_update_vendor_name'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_name'] == 1 ?? 0) {
         $sql_global_update_vendor_name = ", vendor_name = '$name'";
     } else {
         $sql_global_update_vendor_name = "";
     }
 
-    if (($_POST['global_update_vendor_description'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_description'] == 1) {
         $sql_global_update_vendor_description = ", vendor_description = '$description'";
     } else {
         $sql_global_update_vendor_description = "";
     }
 
-    if (($_POST['global_update_vendor_account_number'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_account_number'] == 1) {
         $sql_global_update_vendor_account_number = ", vendor_account_number = '$account_number'";
     } else {
         $sql_global_update_vendor_account_number = "";
     }
 
-    if (($_POST['global_update_vendor_contact_name'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_contact_name'] == 1) {
         $sql_global_update_vendor_contact_name = ", vendor_contact_name = '$contact_name'";
     } else {
         $sql_global_update_vendor_contact_name = "";
     }
 
-    if (($_POST['global_update_vendor_phone'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_phone'] == 1) {
         $sql_global_update_vendor_phone = ", vendor_phone_country_code = '$phone_country_code', vendor_phone = '$phone', vendor_extension = '$extension'";
     } else {
         $sql_global_update_vendor_phone = "";
     }
 
-    if (($_POST['global_update_vendor_hours'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_hours'] == 1) {
         $sql_global_update_vendor_hours = ", vendor_hours = '$hours'";
     } else {
         $sql_global_update_vendor_hours = "";
     }
 
-    if (($_POST['global_update_vendor_email'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_email'] == 1) {
         $sql_global_update_vendor_email = ", vendor_email = '$email'";
     } else {
         $sql_global_update_vendor_email = "";
     }
 
-    if (($_POST['global_update_vendor_website'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_website'] == 1) {
         $sql_global_update_vendor_website = ", vendor_website = '$website'";
     } else {
         $sql_global_update_vendor_website = "";
     }
 
-    if (($_POST['global_update_vendor_sla'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_sla'] == 1) {
         $sql_global_update_vendor_sla = ", vendor_sla = '$sla'";
     } else {
         $sql_global_update_vendor_sla = "";
     }
 
-    if (($_POST['global_update_vendor_code'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_code'] == 1) {
         $sql_global_update_vendor_code = ", vendor_code = '$code'";
     } else {
         $sql_global_update_vendor_code = "";
     }
 
-    if (($_POST['global_update_vendor_notes'] ?? 0) == 1) {
+    if ($_POST['global_update_vendor_notes'] == 1) {
         $sql_global_update_vendor_notes = ", vendor_notes = '$notes'";
     } else {
         $sql_global_update_vendor_notes = "";
@@ -125,7 +125,7 @@ if (isset($_POST['edit_vendor_template'])) {
     // Update just the template
     mysqli_query($mysqli,"UPDATE vendor_templates SET vendor_template_name = '$name', vendor_template_description = '$description', vendor_template_contact_name = '$contact_name', vendor_template_phone_country_code = '$phone_country_code', vendor_template_phone = '$phone', vendor_template_extension = '$extension', vendor_template_email = '$email', vendor_template_website = '$website', vendor_template_hours = '$hours', vendor_template_sla = '$sla', vendor_template_code = '$code', vendor_template_account_number = '$account_number', vendor_template_notes = '$notes' WHERE vendor_template_id = $vendor_template_id");
 
-    if (($_POST['update_base_vendors'] ?? 0) == 1) {
+    if ($_POST['update_base_vendors'] == 1) {
         // Update client related vendors if anything is checked
         $sql = "$sql_global_update_vendor_name $sql_global_update_vendor_description $sql_global_update_vendor_account_number $sql_global_update_vendor_contact_name $sql_global_update_vendor_phone $sql_global_update_vendor_hours $sql_global_update_vendor_email $sql_global_update_vendor_website $sql_global_update_vendor_sla $sql_global_update_vendor_code $sql_global_update_vendor_notes";
 

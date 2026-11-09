@@ -124,7 +124,7 @@ ob_start();
                             <span class="input-group-text"><i class="fa fa-fw fa-user-check"></i></span>
                         </div>
                         <select class="form-control select2" name="assigned_to">
-                            <option value="0">- Not Assigned -</option>
+                            <option value="0">- Select Agent -</option>
                             <?php
                             $sql_users_select = mysqli_query($mysqli, "SELECT user_id, user_name FROM users
                                 WHERE user_type = 1

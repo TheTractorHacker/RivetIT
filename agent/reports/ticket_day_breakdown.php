@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } },
                 y: { beginAtZero: true, ticks: { maxTicksLimit: 6, precision: 0 }, grid: { color: 'rgba(0,0,0,.125)' } }
             },
-            plugins: { legend: { display: true, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } } }
+            plugins: { legend: { display: true } }
         }
     });
 });

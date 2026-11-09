@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var ctx = document.getElementById("tickets");
         if (!ctx) return;
 
-        var dataPoints = <?= json_encode(array_map(function ($m) use ($monthly, $last_month, $year, $cur_year) { return ($m <= $last_month && !($m == $last_month && $last_month == intval(date('n')) && $year == $cur_year && $monthly[$m] == 0)) ? $monthly[$m] : null; }, range(1, 12))) ?>;
+        var dataPoints = <?= json_encode(array_map(function ($m) use ($monthly, $last_month) { return ($m <= $last_month && !($m == $last_month && $last_month == intval(date('n')) && $year == $cur_year && $monthly[$m] == 0)) ? $monthly[$m] : null; }, range(1, 12))) ?>;
 
         const chartAccent = (getComputedStyle(document.body).getPropertyValue('--if-primary') || '').trim() || '#007bff';
         new Chart(ctx, {

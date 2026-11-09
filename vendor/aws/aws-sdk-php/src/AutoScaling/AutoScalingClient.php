@@ -342,7 +342,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result describeAutoScalingGroups(array{
  *     AutoScalingGroupNames?: list<string>,
  *     IncludeInstances?: bool,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
@@ -352,16 +351,15 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise describeAutoScalingGroupsAsync(array{
  *     AutoScalingGroupNames?: list<string>,
  *     IncludeInstances?: bool,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result describeAutoScalingInstances(array $args = [])
- * @phpstan-method \Aws\Result describeAutoScalingInstances(array{InstanceIds?: list<string>, IncludeManagedResources?: bool, MaxRecords?: int, NextToken?: string, ...} $args = [])
+ * @phpstan-method \Aws\Result describeAutoScalingInstances(array{InstanceIds?: list<string>, MaxRecords?: int, NextToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise describeAutoScalingInstancesAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise describeAutoScalingInstancesAsync(array{InstanceIds?: list<string>, IncludeManagedResources?: bool, MaxRecords?: int, NextToken?: string, ...} $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise describeAutoScalingInstancesAsync(array{InstanceIds?: list<string>, MaxRecords?: int, NextToken?: string, ...} $args = [])
  * @method \Aws\Result describeAutoScalingNotificationTypes(array $args = [])
  * @phpstan-method \Aws\Result describeAutoScalingNotificationTypes(array{...} $args = [])
  * @method \GuzzleHttp\Promise\Promise describeAutoScalingNotificationTypesAsync(array $args = [])
@@ -407,27 +405,14 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise describeMetricCollectionTypesAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise describeMetricCollectionTypesAsync(array{...} $args = [])
  * @method \Aws\Result describeNotificationConfigurations(array $args = [])
- * @phpstan-method \Aws\Result describeNotificationConfigurations(array{
- *     AutoScalingGroupNames?: list<string>,
- *     IncludeManagedResources?: bool,
- *     NextToken?: string,
- *     MaxRecords?: int,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result describeNotificationConfigurations(array{AutoScalingGroupNames?: list<string>, NextToken?: string, MaxRecords?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise describeNotificationConfigurationsAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise describeNotificationConfigurationsAsync(array{
- *     AutoScalingGroupNames?: list<string>,
- *     IncludeManagedResources?: bool,
- *     NextToken?: string,
- *     MaxRecords?: int,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise describeNotificationConfigurationsAsync(array{AutoScalingGroupNames?: list<string>, NextToken?: string, MaxRecords?: int, ...} $args = [])
  * @method \Aws\Result describePolicies(array $args = [])
  * @phpstan-method \Aws\Result describePolicies(array{
  *     AutoScalingGroupName?: string,
  *     PolicyNames?: list<string>,
  *     PolicyTypes?: list<string>,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,
@@ -437,7 +422,6 @@ use Aws\AwsClient;
  *     AutoScalingGroupName?: string,
  *     PolicyNames?: list<string>,
  *     PolicyTypes?: list<string>,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,
@@ -447,7 +431,6 @@ use Aws\AwsClient;
  *     ActivityIds?: list<string>,
  *     AutoScalingGroupName?: string,
  *     IncludeDeletedGroups?: bool,
- *     IncludeManagedResources?: bool,
  *     MaxRecords?: int,
  *     NextToken?: string,
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
@@ -458,7 +441,6 @@ use Aws\AwsClient;
  *     ActivityIds?: list<string>,
  *     AutoScalingGroupName?: string,
  *     IncludeDeletedGroups?: bool,
- *     IncludeManagedResources?: bool,
  *     MaxRecords?: int,
  *     NextToken?: string,
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
@@ -474,7 +456,6 @@ use Aws\AwsClient;
  *     ScheduledActionNames?: list<string>,
  *     StartTime?: int|string|\DateTimeInterface,
  *     EndTime?: int|string|\DateTimeInterface,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,
@@ -485,7 +466,6 @@ use Aws\AwsClient;
  *     ScheduledActionNames?: list<string>,
  *     StartTime?: int|string|\DateTimeInterface,
  *     EndTime?: int|string|\DateTimeInterface,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,
@@ -493,7 +473,6 @@ use Aws\AwsClient;
  * @method \Aws\Result describeTags(array $args = [])
  * @phpstan-method \Aws\Result describeTags(array{
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,
@@ -501,7 +480,6 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise describeTagsAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise describeTagsAsync(array{
  *     Filters?: list<array{Name?: string, Values?: list<string>, ...}>,
- *     IncludeManagedResources?: bool,
  *     NextToken?: string,
  *     MaxRecords?: int,
  *     ...,

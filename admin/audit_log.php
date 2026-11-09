@@ -252,7 +252,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                         <tr>
                             <td class="text-nowrap"><?php echo $log_created_at; ?></td>
-                            <td class="text-nowrap"><?php echo $user_name_display; ?></td>
+                            <td><?php echo $user_name_display; ?></td>
                             <?php if(empty($client)) { ?>
                             <td><?php echo $client_name_display; ?></td>
                             <?php } ?>

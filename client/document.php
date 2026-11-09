@@ -52,10 +52,8 @@ if ($row) {
     $document_content = $purifier->purify($row['document_content']);
     $document_description = nullable_htmlentities($row['document_description']);
 } else {
-    // an unknown, hidden or other-department id is just a dead link, not a reason to end the whole portal session
     ob_end_clean();
-    flash_alert('That document could not be found', 'warning');
-    header("Location: documents.php");
+    header("Location: post.php?logout");
     exit();
 }
 
@@ -101,7 +99,7 @@ if (mysqli_num_rows($sql_files) > 0) {
         ?>
         <div class="card">
             <div class="card-header">
-                <div class="row align-items-center w-100 g-2">
+                <div class="row align-items-center">
                     <div class="col">
                         <h3 class="mb-0"><i class="fas fa-file-pdf text-danger me-2"></i><?php echo $document_name; ?></h3>
                         <?php if (!empty($document_description)) { ?>
@@ -129,7 +127,7 @@ if (mysqli_num_rows($sql_files) > 0) {
         ?>
         <div class="card">
             <div class="card-header">
-                <div class="row align-items-center w-100 g-2">
+                <div class="row align-items-center">
                     <div class="col">
                         <h3 class="mb-0"><i class="fas fa-image text-primary me-2"></i><?php echo $document_name; ?></h3>
                         <?php if (!empty($document_description)) { ?>
@@ -158,7 +156,7 @@ if (mysqli_num_rows($sql_files) > 0) {
         ?>
         <div class="card">
             <div class="card-header">
-                <div class="row align-items-center w-100 g-2">
+                <div class="row align-items-center">
                     <div class="col">
                         <h3 class="mb-0"><i class="fas fa-<?php echo $file_icon; ?> me-2"></i><?php echo $document_name; ?></h3>
                         <?php if (!empty($document_description)) { ?>
@@ -186,7 +184,7 @@ if (mysqli_num_rows($sql_files) > 0) {
                             <strong>Type:</strong> <?php echo strtoupper($file_ext); ?> File<br>
                             <strong>Size:</strong> <?php echo $file_size_formatted; ?>
                         </p>
-                        <?php if (!empty($document_content) && strpos($document_content, '<p>Uploaded file:') !== 0) { ?>
+                        <?php if (!empty($document_content) && $document_content != "<p>Uploaded file: <strong>$file_name</strong></p><p>$document_description</p>") { ?>
                             <div class="mt-3">
                                 <?php echo $document_content; ?>
                             </div>
@@ -204,7 +202,6 @@ if (mysqli_num_rows($sql_files) > 0) {
     <div class="card">
         <div class="card-body prettyContent">
             <h3><?php echo $document_name; ?></h3>
-            <?php if (!empty($document_description)) { ?><p class="text-secondary"><?php echo $document_description; ?></p><?php } ?>
             <?php echo $document_content; ?>
         </div>
     </div>

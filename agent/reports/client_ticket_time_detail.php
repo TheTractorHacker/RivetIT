@@ -139,6 +139,7 @@ $result = $stmt->get_result();
             <?php } ?>
         </h3>
     </div>
+    </div>
 
     <div class="card-header d-print-none">
         <!-- Filters -->
@@ -256,7 +257,7 @@ $result = $stmt->get_result();
 
                 // Reply content: escape for safety, keep line breaks readable
                 $reply_content_raw = $r['reply_content'] ?? '';
-                $reply_content_clean = strip_tags(preg_replace('~</(p|div|li|h[1-6]|tr)>|<br\s*/?>~i', "\n", $reply_content_raw));
+                $reply_content_clean = strip_tags($reply_content_raw);
                 $reply_content_clean = str_replace(["\r\n", "\r"], "\n", $reply_content_clean);
                 $reply_content_clean = preg_replace("/\n{3,}/", "\n\n", $reply_content_clean);
                 $reply_content_html = nl2br(nullable_htmlentities(trim($reply_content_clean)));

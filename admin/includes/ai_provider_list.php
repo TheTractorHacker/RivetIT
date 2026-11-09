@@ -73,7 +73,7 @@ $num_rows = mysqli_num_rows($sql);
                                         <i class="fas fa-fw fa-edit me-2"></i>Edit
                                     </a>
                                     <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item text-danger confirm-link" data-confirm="Delete this AI provider and all of its models? AI features that use them stop working." href="post.php?delete_ai_provider=<?php echo $provider_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
+                                    <a class="dropdown-item text-danger confirm-link" href="post.php?delete_ai_provider=<?php echo $provider_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token'] ?>">
                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                     </a>
                                 </div>

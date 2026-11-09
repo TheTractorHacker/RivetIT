@@ -190,7 +190,7 @@ $job_hours_sql = mysqli_query(
                     <?php if (!$period_locked) { ?>
                     <td class="text-center">
                         <a href="post.php?remove_payroll_job_hours=<?= $j_id ?>&period_id=<?= $period_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"
-                           class="btn btn-sm btn-danger confirm-link">
+                           class="btn btn-xs btn-danger confirm-link">
                             <i class="fas fa-trash"></i>
                         </a>
                     </td>

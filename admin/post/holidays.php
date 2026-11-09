@@ -74,7 +74,7 @@ if (isset($_POST['add_holiday'])) {
     $holiday_id = mysqli_insert_id($mysqli);
 
     logAction("Holidays", "Create", "$session_name added custom holiday $holiday_name ($holiday_date)", 0, $holiday_id);
-    flash_alert("Holiday <strong>" . htmlspecialchars(stripslashes($holiday_name), ENT_QUOTES) . "</strong> created");
+    flash_alert("Holiday <strong>$holiday_name</strong> created");
     redirect();
 
 }
@@ -98,7 +98,7 @@ if (isset($_POST['edit_holiday'])) {
     mysqli_query($mysqli, "UPDATE holidays SET holiday_name = '$holiday_name', holiday_country = '$holiday_country', holiday_date = '$holiday_date', holiday_year = $holiday_year WHERE holiday_id = $holiday_id");
 
     logAction("Holidays", "Edit", "$session_name edited holiday $holiday_name", 0, $holiday_id);
-    flash_alert("Holiday <strong>" . htmlspecialchars(stripslashes($holiday_name), ENT_QUOTES) . "</strong> saved");
+    flash_alert("Holiday <strong>$holiday_name</strong> saved");
     redirect();
 
 }
@@ -108,12 +108,12 @@ if (isset($_GET['delete_holiday'])) {
     validateCSRFToken($_GET['csrf_token']);
 
     $holiday_id = intval($_GET['delete_holiday']);
-    $holiday_name = getFieldById('holidays', $holiday_id, 'holiday_name') /* already SQL-escaped */;
+    $holiday_name = sanitizeInput(getFieldById('holidays', $holiday_id, 'holiday_name'));
 
     mysqli_query($mysqli, "DELETE FROM holidays WHERE holiday_id = $holiday_id");
 
     logAction("Holidays", "Delete", "$session_name deleted holiday $holiday_name");
-    flash_alert("Holiday <strong>" . htmlspecialchars(stripslashes($holiday_name), ENT_QUOTES) . "</strong> deleted", 'error');
+    flash_alert("Holiday <strong>$holiday_name</strong> deleted", 'error');
     redirect();
 
 }

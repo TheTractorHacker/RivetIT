@@ -177,24 +177,16 @@ $csrf = $_SESSION['csrf_token'];
                     </select>
                     <div class="form-text">New assets go here when a customer / account has no saved mapping. Without it they wait in the <a href="/admin/settings_integrations.php?tab=rmm#client-mapping">Client mapping</a> queue.</div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-label">Assets</div>
-                    <div class="form-check form-switch">
-                        <input type="checkbox" class="form-check-input" name="auto_create_assets" value="1" id="mdm_auto_create" <?= $mdm_auto_create ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="mdm_auto_create">Create and maintain assets</label>
-                    </div>
-                    <div class="form-text">A device that matches none gets a Phone / Tablet asset, and linked assets keep make, model, OS and contact in step with the MDM, never over a person's edit. Off: devices wait for review and a sync writes nothing on an asset.</div>
-                </div>
-                <div class="col-12">
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <div class="form-check form-switch mb-0">
-                            <input type="checkbox" class="form-check-input" name="stale_retire_enabled" value="1" id="mdm_retire" <?= $mdm_retire ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="mdm_retire">Retire assets whose MDM device has been gone or removed for</label>
-                        </div>
-                        <div class="input-group" style="max-width:10rem"><input type="number" class="form-control" name="stale_retire_days" min="7" max="3650" value="<?= $mdm_retire_days ?>" aria-label="Days before retiring"><span class="input-group-text">days</span></div>
-                    </div>
-                    <div class="form-text">Off by default. Retired assets are archived (never deleted) and listed under Integrations &gt; RMM &gt; Stale assets for review.</div>
-                </div>
+                <div class="col-md-6 d-flex align-items-center"><div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="auto_create_assets" value="1" id="mdm_auto_create" <?= $mdm_auto_create ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="mdm_auto_create">Create and maintain assets: a device that matches none gets a Phone / Tablet asset, and linked assets keep make, model, OS and contact in step with the MDM, never over a person's edit (off: devices wait for review and a sync writes nothing on an asset)</label>
+                </div></div>
+                <div class="col-md-6"><div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" name="stale_retire_enabled" value="1" id="mdm_retire" <?= $mdm_retire ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="mdm_retire">Retire assets whose MDM device is gone or removed for</label>
+                </div></div>
+                <div class="col-md-6"><div class="input-group" style="max-width:14rem"><input type="number" class="form-control" name="stale_retire_days" min="7" max="3650" value="<?= $mdm_retire_days ?>"><span class="input-group-text">days</span></div>
+                    <div class="form-text">Off by default. Retired assets are archived (never deleted) and listed under Integrations &gt; RMM &gt; Stale assets for review.</div></div>
             </div>
 
             <div class="row g-3 mt-0">

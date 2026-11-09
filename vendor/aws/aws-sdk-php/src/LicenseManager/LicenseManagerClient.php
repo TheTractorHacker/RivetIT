@@ -82,14 +82,8 @@ use Aws\AwsClient;
  *     LicenseArn?: string,
  *     Principals?: list<string>,
  *     HomeRegion?: string,
- *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'|'ListReceivedLicenses'>,
+ *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'>,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
- *     GrantType?: 'BuyerGrant'|'DelegateGrant',
- *     Options?: array{
- *         ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY',
- *         DesiredStatus?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
- *         ...,
- *     },
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createGrantAsync(array $args = [])
@@ -99,14 +93,8 @@ use Aws\AwsClient;
  *     LicenseArn?: string,
  *     Principals?: list<string>,
  *     HomeRegion?: string,
- *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'|'ListReceivedLicenses'>,
+ *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'>,
  *     Tags?: list<array{Key?: string, Value?: string, ...}>,
- *     GrantType?: 'BuyerGrant'|'DelegateGrant',
- *     Options?: array{
- *         ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY',
- *         DesiredStatus?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
- *         ...,
- *     },
  *     ...,
  * } $args = [])
  * @method \Aws\Result createGrantVersion(array $args = [])
@@ -114,15 +102,11 @@ use Aws\AwsClient;
  *     ClientToken?: string,
  *     GrantArn?: string,
  *     GrantName?: string,
- *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'|'ListReceivedLicenses'>,
+ *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'>,
  *     Status?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
  *     StatusReason?: string,
  *     SourceVersion?: string,
- *     Options?: array{
- *         ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY',
- *         DesiredStatus?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
- *         ...,
- *     },
+ *     Options?: array{ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY', ...},
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise createGrantVersionAsync(array $args = [])
@@ -130,15 +114,11 @@ use Aws\AwsClient;
  *     ClientToken?: string,
  *     GrantArn?: string,
  *     GrantName?: string,
- *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'|'ListReceivedLicenses'>,
+ *     AllowedOperations?: list<'CheckInLicense'|'CheckoutBorrowLicense'|'CheckoutLicense'|'CreateGrant'|'CreateToken'|'ExtendConsumptionLicense'|'ListPurchasedLicenses'>,
  *     Status?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
  *     StatusReason?: string,
  *     SourceVersion?: string,
- *     Options?: array{
- *         ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY',
- *         DesiredStatus?: 'ACTIVE'|'DELETED'|'DISABLED'|'FAILED_WORKFLOW'|'PENDING_ACCEPT'|'PENDING_DELETE'|'PENDING_WORKFLOW'|'REJECTED'|'WORKFLOW_COMPLETED',
- *         ...,
- *     },
+ *     Options?: array{ActivationOverrideBehavior?: 'ALL_GRANTS_PERMITTED_BY_ISSUER'|'DISTRIBUTED_GRANTS_ONLY', ...},
  *     ...,
  * } $args = [])
  * @method \Aws\Result createLicense(array $args = [])

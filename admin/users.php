@@ -24,7 +24,7 @@ $user_counts = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(*) AS tota
 
 $sql = mysqli_query(
     $mysqli,
-    "SELECT SQL_CALC_FOUND_ROWS *, users.user_id AS user_id FROM users
+    "SELECT SQL_CALC_FOUND_ROWS * FROM users
     LEFT JOIN user_roles ON user_role_id = role_id
     LEFT JOIN user_settings ON users.user_id = user_settings.user_id
     WHERE (user_name LIKE '%$q%' OR user_email LIKE '%$q%')
@@ -61,7 +61,7 @@ require "includes/users_toggle.php";
                         <a class="dropdown-item text-danger ajax-modal" href="#"
                             data-modal-url="modals/user/user_all_reset_password.php"
                             data-modal-size="lg">
-                            <i class="fas fa-fw fa-skull-crossbones me-2"></i>Reset all passwords (incident response)
+                            <i class="fas fa-skull-crossbones me-2"></i>IR
                         </a>
                     <?php } ?>
                 </div>
@@ -174,8 +174,7 @@ require "includes/users_toggle.php";
                         $log_user_agent = nullable_htmlentities($row['log_user_agent']);
                         $log_user_os = getOS($log_user_agent);
                         $log_user_browser = getWebBrowser($log_user_agent);
-                        $log_os_browser = trim(implode(' / ', array_filter([$log_user_os, $log_user_browser], function ($v) { $v = trim(strip_tags((string) $v)); return $v !== '' && $v !== '-'; })));
-                        $last_login = "$log_created_at<small class='text-secondary'>" . ($log_os_browser !== '' ? "<div class='mt-1'>$log_os_browser</div>" : '') . "<div class='mt-1'><i class='fa fa-fw fa-globe'></i> $log_ip</div></small>";
+                        $last_login = "$log_created_at<small class='text-secondary'><div class='mt-1'>$log_user_os</div><div class='mt-1'>$log_user_browser</div><div class='mt-1'><i class='fa fa-fw fa-globe'></i> $log_ip</div></small>";
                     }
 
                     // Get User Client Access Permissions
@@ -269,6 +268,9 @@ require "includes/users_toggle.php";
                 </tbody>
             </table>
         </div>
+        <?php if ($num_rows[0] == 0) { ?>
+            <div class="text-center text-muted py-4">No users match<?= $user_filter ? ' this filter' : '' ?>. <a href="users.php">Clear filters</a></div>
+        <?php } ?>
         <?php require_once "../includes/filter_footer.php";
  ?>
     </div>

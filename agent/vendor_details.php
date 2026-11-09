@@ -31,7 +31,7 @@ if (isset($_GET['vendor_id'])) {
     } else {
         $vendor_contact_name_display = $vendor_contact_name;
     }
-    $vendor_phone = nullable_htmlentities(formatPhoneNumber($row['vendor_phone'], $row['vendor_phone_country_code'] ?: '1'));
+    $vendor_phone = formatPhoneNumber($row['vendor_phone']);
     $vendor_extension = nullable_htmlentities($row['vendor_extension']);
     $vendor_email = nullable_htmlentities($row['vendor_email']);
     $vendor_website = nullable_htmlentities($row['vendor_website']);
@@ -74,9 +74,6 @@ if (isset($_GET['vendor_id'])) {
                     <hr>
                     <?php
                     // These blocks read $contact_* variables that no longer exist (left over from the dropped vendor_contacts layout): PHP warnings on every load and the vendor's own email/phone never shown.
-                    if ($vendor_contact_name) { ?>
-                        <div class="mt-2"><i class="fa fa-fw fa-user text-secondary me-2"></i><?php echo $vendor_contact_name; ?></div>
-                    <?php }
                     if ($vendor_email) { ?>
                         <div class="mt-2"><i class="fa fa-fw fa-envelope text-secondary me-2"></i><a href='mailto:<?php echo $vendor_email; ?>'><?php echo $vendor_email; ?></a><button class='btn btn-sm clipboardjs' data-clipboard-text='<?php echo $vendor_email; ?>'><i class='far fa-copy text-secondary'></i></button></div>
                     <?php }
@@ -86,7 +83,7 @@ if (isset($_GET['vendor_id'])) {
                     if ($vendor_extension) { ?>
                         <div class="ms-4">x<?php echo $vendor_extension; ?></div>
                     <?php } ?>
-                    <div class="mt-2 text-secondary" title="Date this vendor was added"><i class="fa fa-fw fa-clock me-2"></i>Added <?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
+                    <div class="mt-2"><i class="fa fa-fw fa-clock text-secondary me-2"></i><?php echo date('Y-m-d', strtotime($vendor_created_at)); ?></div>
 
                     <?php // The edit form is the on-demand modal modals/vendor/vendor_edit.php (button above); the old include vendor_edit_modal.php no longer exists. ?>
 
@@ -97,7 +94,7 @@ if (isset($_GET['vendor_id'])) {
                 <div class="card-header">
                     <h5 class="card-title">Notes</h5>
                 </div>
-                <textarea class="form-control" rows=6 id="vendorNotes" readonly aria-label="Vendor notes (read only; use Edit to change)" placeholder="No notes. Use Edit to add some."><?php echo $vendor_notes ?></textarea>
+                <textarea class="form-control" rows=6 id="vendorNotes" placeholder="Notes"><?php echo $vendor_notes ?></textarea>
             </div>
 
         </div>
@@ -121,13 +118,58 @@ if (isset($_GET['vendor_id'])) {
                 <li class="breadcrumb-item active"><i class="fas fa-building me-1"></i><?php echo "$vendor_name";?></li>
             </ol>
 
+            <div class="btn-group mb-3">
+                <div class="dropdown dropleft me-2">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-plus me-2"></i>New</button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#addVendorContactModal">
+                            <i class="fa fa-fw fa-user me-2"></i>New Vendor Contact
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#createVendorNoteModal<?php echo $vendor_id; ?>">
+                            <i class="fa fa-fw fa-sticky-note me-2"></i>New Note
+                        </a>
+                    </div>
+                </div>
+
+                <div class="dropdown dropleft">
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-boundary="window"><i class="fas fa-link me-2"></i>Link</button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkAssetModal">
+                            <i class="fa fa-fw fa-desktop me-2"></i>Asset (WIP)
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkSoftwareModal">
+                            <i class="fa fa-fw fa-cube me-2"></i>License (WIP)
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkCredentialModal">
+                            <i class="fa fa-fw fa-key me-2"></i>Credential (WIP)
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkServiceModal">
+                            <i class="fa fa-fw fa-stream me-2"></i>Service (WIP)
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkDocumentModal">
+                            <i class="fa fa-fw fa-folder me-2"></i>Document (WIP)
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-dark" href="#" data-bs-toggle="modal" data-bs-target="#linkFileModal">
+                            <i class="fa fa-fw fa-paperclip me-2"></i>File (WIP)
+                        </a>
+
+
+                    </div>
+                </div>
+            </div>
 
             <?php if ($vendor_contact_count == 0) { ?>
             <div class="card card-dark">
                 <div class="card-body text-center text-muted py-5">
-                    <div class="mb-2"><i class="fa fa-users fa-2x" aria-hidden="true"></i></div>
+                    <i class="fa fa-fw fa-users fa-2x mb-2 d-block"></i>
                     <p class="mb-1">No contacts for this vendor yet.</p>
-                    <small>Contact details are on the vendor card at left.</small>
+                    <small>Use <strong>New</strong> above to add a vendor contact or a note.</small>
                 </div>
             </div>
             <?php } ?>

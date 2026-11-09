@@ -31,7 +31,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result associateResourceSharePermission(array{
  *     resourceShareArn?: string,
  *     permissionArn?: string,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
  *     replace?: bool,
  *     clientToken?: string,
  *     permissionVersion?: int,
@@ -41,7 +40,6 @@ use Aws\AwsClient;
  * @phpstan-method \GuzzleHttp\Promise\Promise associateResourceSharePermissionAsync(array{
  *     resourceShareArn?: string,
  *     permissionArn?: string,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
  *     replace?: bool,
  *     clientToken?: string,
  *     permissionVersion?: int,
@@ -52,7 +50,6 @@ use Aws\AwsClient;
  *     name?: string,
  *     resourceType?: string,
  *     policyTemplate?: string,
- *     permissionTemplateParameters?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', description?: string, ...}>,
  *     clientToken?: string,
  *     tags?: list<array{key?: string, value?: string, ...}>,
  *     ...,
@@ -62,27 +59,14 @@ use Aws\AwsClient;
  *     name?: string,
  *     resourceType?: string,
  *     policyTemplate?: string,
- *     permissionTemplateParameters?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', description?: string, ...}>,
  *     clientToken?: string,
  *     tags?: list<array{key?: string, value?: string, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result createPermissionVersion(array $args = [])
- * @phpstan-method \Aws\Result createPermissionVersion(array{
- *     permissionArn?: string,
- *     policyTemplate?: string,
- *     permissionTemplateParameters?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', description?: string, ...}>,
- *     clientToken?: string,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result createPermissionVersion(array{permissionArn?: string, policyTemplate?: string, clientToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise createPermissionVersionAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise createPermissionVersionAsync(array{
- *     permissionArn?: string,
- *     policyTemplate?: string,
- *     permissionTemplateParameters?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', description?: string, ...}>,
- *     clientToken?: string,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise createPermissionVersionAsync(array{permissionArn?: string, policyTemplate?: string, clientToken?: string, ...} $args = [])
  * @method \Aws\Result createResourceShare(array $args = [])
  * @phpstan-method \Aws\Result createResourceShare(array{
  *     name?: string,
@@ -93,7 +77,6 @@ use Aws\AwsClient;
  *     clientToken?: string,
  *     permissionArns?: list<string>,
  *     sources?: list<string>,
- *     permissionTemplateParameters?: list<array{permissionArn?: string, permissionTemplateParameters?: list<array>, ...}>,
  *     resourceShareConfiguration?: array{retainSharingOnAccountLeaveOrganization?: bool, ...},
  *     ...,
  * } $args = [])
@@ -107,7 +90,6 @@ use Aws\AwsClient;
  *     clientToken?: string,
  *     permissionArns?: list<string>,
  *     sources?: list<string>,
- *     permissionTemplateParameters?: list<array{permissionArn?: string, permissionTemplateParameters?: list<array>, ...}>,
  *     resourceShareConfiguration?: array{retainSharingOnAccountLeaveOrganization?: bool, ...},
  *     ...,
  * } $args = [])
@@ -150,19 +132,9 @@ use Aws\AwsClient;
  * @method \GuzzleHttp\Promise\Promise enableSharingWithAwsOrganizationAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise enableSharingWithAwsOrganizationAsync(array{...} $args = [])
  * @method \Aws\Result getPermission(array $args = [])
- * @phpstan-method \Aws\Result getPermission(array{
- *     permissionArn?: string,
- *     permissionVersion?: int,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
- *     ...,
- * } $args = [])
+ * @phpstan-method \Aws\Result getPermission(array{permissionArn?: string, permissionVersion?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getPermissionAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise getPermissionAsync(array{
- *     permissionArn?: string,
- *     permissionVersion?: int,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
- *     ...,
- * } $args = [])
+ * @phpstan-method \GuzzleHttp\Promise\Promise getPermissionAsync(array{permissionArn?: string, permissionVersion?: int, ...} $args = [])
  * @method \Aws\Result getResourcePolicies(array $args = [])
  * @phpstan-method \Aws\Result getResourcePolicies(array{resourceArns?: list<string>, principal?: string, nextToken?: string, maxResults?: int, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise getResourcePoliciesAsync(array $args = [])
@@ -255,8 +227,6 @@ use Aws\AwsClient;
  *     resourceType?: string,
  *     featureSet?: 'CREATED_FROM_POLICY'|'PROMOTING_TO_STANDARD'|'STANDARD',
  *     defaultVersion?: bool,
- *     resourceOwner?: 'OTHER-ACCOUNTS'|'SELF',
- *     resourceShareArn?: string,
  *     nextToken?: string,
  *     maxResults?: int,
  *     ...,
@@ -269,8 +239,6 @@ use Aws\AwsClient;
  *     resourceType?: string,
  *     featureSet?: 'CREATED_FROM_POLICY'|'PROMOTING_TO_STANDARD'|'STANDARD',
  *     defaultVersion?: bool,
- *     resourceOwner?: 'OTHER-ACCOUNTS'|'SELF',
- *     resourceShareArn?: string,
  *     nextToken?: string,
  *     maxResults?: int,
  *     ...,
@@ -282,21 +250,17 @@ use Aws\AwsClient;
  * @method \Aws\Result listPermissions(array $args = [])
  * @phpstan-method \Aws\Result listPermissions(array{
  *     resourceType?: string,
- *     resourceOwner?: 'OTHER-ACCOUNTS'|'SELF',
  *     nextToken?: string,
  *     maxResults?: int,
  *     permissionType?: 'ALL'|'AWS_MANAGED'|'CUSTOMER_MANAGED',
- *     permissionStatus?: 'ATTACHABLE'|'DELETED'|'DELETING'|'DEPRECATED'|'UNATTACHABLE',
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise listPermissionsAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise listPermissionsAsync(array{
  *     resourceType?: string,
- *     resourceOwner?: 'OTHER-ACCOUNTS'|'SELF',
  *     nextToken?: string,
  *     maxResults?: int,
  *     permissionType?: 'ALL'|'AWS_MANAGED'|'CUSTOMER_MANAGED',
- *     permissionStatus?: 'ATTACHABLE'|'DELETED'|'DELETING'|'DEPRECATED'|'UNATTACHABLE',
  *     ...,
  * } $args = [])
  * @method \Aws\Result listPrincipals(array $args = [])
@@ -406,7 +370,6 @@ use Aws\AwsClient;
  *     fromPermissionArn?: string,
  *     fromPermissionVersion?: int,
  *     toPermissionArn?: string,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -415,7 +378,6 @@ use Aws\AwsClient;
  *     fromPermissionArn?: string,
  *     fromPermissionVersion?: int,
  *     toPermissionArn?: string,
- *     permissionTemplateParameters?: list<array{name?: string, values?: list<string>, ...}>,
  *     clientToken?: string,
  *     ...,
  * } $args = [])
@@ -441,10 +403,6 @@ use Aws\AwsClient;
  * @phpstan-method \Aws\Result untagResource(array{resourceShareArn?: string, tagKeys?: list<string>, resourceArn?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise untagResourceAsync(array $args = [])
  * @phpstan-method \GuzzleHttp\Promise\Promise untagResourceAsync(array{resourceShareArn?: string, tagKeys?: list<string>, resourceArn?: string, ...} $args = [])
- * @method \Aws\Result updatePermission(array $args = [])
- * @phpstan-method \Aws\Result updatePermission(array{permissionArn?: string, status?: 'ATTACHABLE'|'DEPRECATED', clientToken?: string, ...} $args = [])
- * @method \GuzzleHttp\Promise\Promise updatePermissionAsync(array $args = [])
- * @phpstan-method \GuzzleHttp\Promise\Promise updatePermissionAsync(array{permissionArn?: string, status?: 'ATTACHABLE'|'DEPRECATED', clientToken?: string, ...} $args = [])
  * @method \Aws\Result updateResourceShare(array $args = [])
  * @phpstan-method \Aws\Result updateResourceShare(array{resourceShareArn?: string, name?: string, allowExternalPrincipals?: bool, clientToken?: string, ...} $args = [])
  * @method \GuzzleHttp\Promise\Promise updateResourceShareAsync(array $args = [])

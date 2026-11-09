@@ -44,13 +44,6 @@ if (!$catalog_item && $prefill_subject === '' && isset($_GET['subject']) && is_s
     $prefill_subject = trim(preg_replace('/\s+/', ' ', strip_tags($_GET['subject'])));
     $prefill_subject = function_exists('mb_substr') ? mb_substr($prefill_subject, 0, 200) : substr($prefill_subject, 0, 200);
 }
-// Coming back from a failed submit (client/post.php add_ticket): put back what was typed.
-$prefill_details = '';
-if (isset($_SESSION['ticket_add_old']) && is_array($_SESSION['ticket_add_old'])) {
-    $prefill_subject = (string) ($_SESSION['ticket_add_old']['subject'] ?? $prefill_subject);
-    $prefill_details = (string) ($_SESSION['ticket_add_old']['details'] ?? '');
-}
-unset($_SESSION['ticket_add_old']);
 $prefill_priority = 'Low';
 $prefill_category = 0;
 $catalog_icon = 'fa-ticket-alt';
@@ -91,7 +84,7 @@ if ($catalog_item) {
             <a href="service_catalog.php" class="btn btn-sm btn-outline-secondary">Change</a>
         </div>
         <?php if ($catalog_needs_approval) { ?>
-            <div class="alert alert-info portal-form-card"><i class="fas fa-user-check me-2" aria-hidden="true"></i>This request needs approval before the IT team starts on it. You will be told the outcome.</div>
+            <div class="alert alert-info"><i class="fas fa-user-check me-2" aria-hidden="true"></i>This request needs approval before the IT team starts on it. You will be told the outcome.</div>
         <?php } ?>
     <?php } ?>
 
@@ -186,8 +179,8 @@ if ($catalog_item) {
             <?php } ?>
 
             <div class="form-group">
-                <label>Details <?= $catalog_item ? '<span class="text-secondary fw-normal">(optional)</span>' : '<strong class="text-danger">*</strong>' ?></label>
-                <textarea class="form-control tinymce" name="details"><?= nullable_htmlentities($prefill_details) ?></textarea>
+                <label>Details <strong class="text-danger">*</strong></label>
+                <textarea class="form-control tinymce" name="details"></textarea>
             </div>
 
             <button class="btn btn-primary" name="add_ticket"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Raise ticket</button>

@@ -124,65 +124,50 @@
 }
 
 /* ---------- Dark mode ---------- */
-body.dark-mode .gantt .grid-row,
-[data-bs-theme="dark"] .gantt .grid-row {
+body.dark-mode .gantt .grid-row {
     fill: #2b2f36;
 }
-body.dark-mode .gantt .grid-row.odd,
-[data-bs-theme="dark"] .gantt .grid-row.odd {
+body.dark-mode .gantt .grid-row.odd {
     fill: #313640;
 }
-body.dark-mode .gantt .grid-header,
-[data-bs-theme="dark"] .gantt .grid-header {
+body.dark-mode .gantt .grid-header {
     fill: #232830;
     stroke: #3a4049;
 }
-body.dark-mode .gantt .row-line,
-[data-bs-theme="dark"] .gantt .row-line {
+body.dark-mode .gantt .row-line {
     stroke: #3a4049;
 }
-body.dark-mode .gantt .tick,
-[data-bs-theme="dark"] .gantt .tick {
+body.dark-mode .gantt .tick {
     stroke: #3a4049;
 }
-body.dark-mode .gantt .weekend-highlight,
-[data-bs-theme="dark"] .gantt .weekend-highlight {
+body.dark-mode .gantt .weekend-highlight {
     fill: rgba(255, 255, 255, 0.03);
 }
-body.dark-mode .gantt .lower-text,
-[data-bs-theme="dark"] .gantt .lower-text {
+body.dark-mode .gantt .lower-text {
     fill: #b6bcc4;
 }
-body.dark-mode .gantt .upper-text,
-[data-bs-theme="dark"] .gantt .upper-text {
+body.dark-mode .gantt .upper-text {
     fill: #e2e6ea;
 }
-body.dark-mode .gantt .bar,
-[data-bs-theme="dark"] .gantt .bar {
+body.dark-mode .gantt .bar {
     fill: #5a636e;
     stroke: #6b7480;
 }
-body.dark-mode .gantt .bar-wrapper:hover .bar,
-[data-bs-theme="dark"] .gantt .bar-wrapper:hover .bar {
+body.dark-mode .gantt .bar-wrapper:hover .bar {
     fill: #67707c;
 }
-body.dark-mode .gantt .bar-label.outside,
-[data-bs-theme="dark"] .gantt .bar-label.outside {
+body.dark-mode .gantt .bar-label.outside {
     fill: #e2e6ea;
 }
-body.dark-mode .gantt .bar-wrapper.bar-milestone .bar-label,
-[data-bs-theme="dark"] .gantt .bar-wrapper.bar-milestone .bar-label {
+body.dark-mode .gantt .bar-wrapper.bar-milestone .bar-label {
     fill: #e2e6ea;
 }
 body.dark-mode .gantt .arrow,
-body.dark-mode .gantt .arrow-head,
-[data-bs-theme="dark"] .gantt .arrow,
-[data-bs-theme="dark"] .gantt .arrow-head {
+body.dark-mode .gantt .arrow-head {
     stroke: #6b7480;
     fill: #6b7480;
 }
-body.dark-mode .gantt .arrow,
-[data-bs-theme="dark"] .gantt .arrow {
+body.dark-mode .gantt .arrow {
     fill: none;
 }
 

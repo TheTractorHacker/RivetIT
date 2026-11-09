@@ -14,20 +14,6 @@ if (isset($_POST['edit_appearance_settings'])) {
 
     // Custom accent hex - only accept a valid #RRGGBB value, otherwise clear it (NULL) so the preset is used.
     $accent_input = trim($_POST['config_theme_accent_custom'] ?? '');
-    if ($accent_input !== '' && !preg_match('/^#[0-9A-Fa-f]{6}$/', $accent_input)) {
-        flash_alert("The custom accent colour must be a 6-digit hex value such as #0D9488 (or left blank). Nothing was saved.", 'error');
-        redirect();
-    }
-    $radius_raw = trim((string) ($_POST['config_theme_card_radius'] ?? ''));
-    if ($radius_raw !== '' && (!ctype_digit($radius_raw) || intval($radius_raw) > 40)) {
-        flash_alert("Card corner radius must be a whole number from 0 to 40 (or left blank). Nothing was saved.", 'error');
-        redirect();
-    }
-    $logo_bg_check = trim($_POST['config_login_logo_bg'] ?? '');
-    if (empty($_POST['config_login_logo_bg_none']) && $logo_bg_check !== '' && !preg_match('/^#[0-9A-Fa-f]{6}$/', $logo_bg_check)) {
-        flash_alert("The logo background must be a 6-digit hex colour such as #FFFFFF. Nothing was saved.", 'error');
-        redirect();
-    }
     if (preg_match('/^#[0-9A-Fa-f]{6}$/', $accent_input)) {
         $accent_custom_sql = "'" . strtoupper(mysqli_real_escape_string($mysqli, $accent_input)) . "'";
     } else {

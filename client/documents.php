@@ -24,11 +24,11 @@ if ($session_contact_primary == 0 && !$session_contact_is_technical_contact) {
 $documents_sql = mysqli_query($mysqli, "SELECT document_id, document_name, document_created_at, folder_name FROM documents LEFT JOIN folders ON document_folder_id = folder_id WHERE document_client_visible = 1 AND document_client_id = $session_client_id AND document_archived_at IS NULL ORDER BY folder_id, document_name DESC");
 ?>
 
-<div class="row align-items-center gy-2">
-    <div class="col-12 col-sm">
-        <h3 class="mb-0"><i class="fas fa-file-alt me-2"></i>Documents</h3>
+<div class="row">
+    <div class="col">
+        <h3><i class="fas fa-file-alt me-2"></i>Documents</h3>
     </div>
-    <div class="col-12 col-sm-auto">
+    <div class="col-auto">
         <div class="btn-group">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentModal">
                 <i class="fas fa-plus me-2"></i>New Document

@@ -128,7 +128,7 @@ if ($run['payroll_run_finalized_by']) {
                     <tr class="fw-bold">
                         <td colspan="6" class="text-end">Totals</td>
                         <td class="text-end">$<?= number_format((float) $run['payroll_run_total_gross'], 2) ?></td>
-                        <td>$<?= number_format((float) $run['payroll_run_total_deductions'], 2) ?></td>
+                        <td class="text-end">$<?= number_format((float) $run['payroll_run_total_deductions'], 2) ?></td>
                         <td class="text-end">$<?= number_format((float) $run['payroll_run_total_net'], 2) ?></td>
                         <?php if (!$is_finalized) { ?><td></td><?php } ?>
                     </tr>
@@ -148,7 +148,7 @@ if ($run['payroll_run_finalized_by']) {
         <form action="post.php" method="post" class="d-inline">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="run_id" value="<?= $run_id ?>">
-            <button type="submit" name="finalize_payroll_run" class="btn btn-success confirm-link" data-confirm="Finalize this payroll run? It and its pay period are locked permanently and the figures can never be changed.">
+            <button type="submit" name="finalize_payroll_run" class="btn btn-success confirm-link">
                 <i class="fas fa-lock me-2"></i>Finalize
             </button>
         </form>

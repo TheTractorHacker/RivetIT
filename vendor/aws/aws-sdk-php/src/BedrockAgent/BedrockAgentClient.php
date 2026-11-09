@@ -1126,7 +1126,6 @@ use Aws\AwsClient;
  *         s3VectorsConfiguration?: array{vectorBucketArn?: string, indexArn?: string, indexName?: string, ...},
  *         ...,
  *     },
- *     metadataConfigurations?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', searchability?: 'DISABLED'|'ENABLED', ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise updateKnowledgeBaseAsync(array $args = [])
@@ -1184,7 +1183,6 @@ use Aws\AwsClient;
  *         s3VectorsConfiguration?: array{vectorBucketArn?: string, indexArn?: string, indexName?: string, ...},
  *         ...,
  *     },
- *     metadataConfigurations?: list<array{name?: string, type?: 'STRING'|'STRING_LIST', searchability?: 'DISABLED'|'ENABLED', ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result updatePrompt(array $args = [])

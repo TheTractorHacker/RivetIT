@@ -85,7 +85,7 @@ $day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                         </td>
                         <td>
                             <?php if (empty($open_days)) { echo "<span class='text-secondary'>24/7 (no windows)</span>"; } else { echo implode(', ', $open_days); } ?>
-                            <?php if ($holiday_count > 0) { echo " <span class='badge text-bg-secondary'>" . $holiday_count . ($holiday_count === 1 ? " holiday" : " holidays") . "</span>"; } ?>
+                            <?php if ($holiday_count > 0) { echo " <span class='badge text-bg-secondary'>$holiday_count holiday(s)</span>"; } ?>
                         </td>
                         <td><?php echo $calendar_timezone; ?></td>
                         <td>
@@ -116,9 +116,6 @@ $day_names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                     <?php
                 }
                 ?>
-                <?php if ($num_rows[0] == 0) { ?>
-                    <tr><td colspan="5" class="text-center text-secondary py-4"><?php echo $q !== '' ? 'No calendars match your search.' : 'No business hours calendars yet. Click <strong>New Calendar</strong> to add one.'; ?></td></tr>
-                <?php } ?>
                 </tbody>
             </table>
         </div>

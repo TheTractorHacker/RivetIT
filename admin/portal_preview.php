@@ -45,9 +45,6 @@ $sql_departments = mysqli_query($mysqli,
 
 ?>
 
-<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-.alert .alert-title { font-size: 1rem; margin-bottom: .25rem; }
-</style>
 <div class="card">
     <div class="card-header py-2 d-flex align-items-center">
         <h3 class="card-title me-auto"><i class="fas fa-fw fa-eye me-2"></i>Department Portal Preview</h3>
@@ -59,7 +56,7 @@ $sql_departments = mysqli_query($mysqli,
     </div>
 
     <div class="card-body">
-        <p class="text-muted mb-3">
+        <p class="text-muted small mb-3">
             Open a <strong>read-only</strong> preview of a department's portal to see exactly what that
             department sees. You stay signed in as yourself the whole time &mdash; the preview uses a
             separate session, so your <?= htmlspecialchars(APP_NAME) ?> session is untouched and you can leave it at any point

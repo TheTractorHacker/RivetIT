@@ -130,8 +130,7 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
                        (display:block; margin:0; padding:0 20px 20px;
                        text-align:center) with no first-party replacement. */
                     ?>
-                    <h2 class="h3 text-center mb-1">Set up two-factor authentication</h2>
-                    <p class="text-center text-muted mb-3">Your administrator requires it. Scan the code with an authenticator app, then type the 6-digit code it shows.</p>
+                    <p class="text-center mb-3">Multi-Factor Authentication Enforced</p>
 
                     <form action="post.php" method="post" autocomplete="off">
                         <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?>">
@@ -152,9 +151,8 @@ $data = "otpauth://totp/" . rawurlencode(APP_NAME) . ":$session_email?secret=$to
                             </div>
                         </div>
 
-                        <button type="submit" name="enable_mfa" class="btn btn-primary w-100 mb-3"><i class="fa fa-check me-2"></i>Enable MFA</button>
+                        <button type="submit" name="enable_mfa" class="btn btn-primary btn-block mb-3"><i class="fa fa-check me-2"></i>Enable MFA</button>
                     </form>
-                    <a href="/agent/post.php?logout" class="small text-muted">Sign out instead</a>
 
                 </div>
                 <!-- /.card-body -->

@@ -162,8 +162,6 @@ while ($row = mysqli_fetch_assoc($sql)) {
             <p class="fw-semibold mb-1">Your pipeline is empty</p>
             <p class="text-secondary mb-0">Add an opportunity, then drag its card across the stages as the deal moves. Totals and forecast above update on every move.</p>
         </div>
-        <?php } else { ?>
-        <p class="text-secondary small mb-2"><i class="fas fa-fw fa-info-circle me-1"></i>Drag a card to move it to another stage. Double-click a card to open and edit it.</p>
         <?php } ?>
         <div class="container-fluid" id="pipeline-board">
             <?php foreach ($columns as $stage_name => $column) {
@@ -190,7 +188,7 @@ while ($row = mysqli_fetch_assoc($sql)) {
                             $opp_close = nullable_htmlentities($opp['opportunity_close_date']);
                             $opp_owner = nullable_htmlentities($opp['user_name']);
                             ?>
-                            <div title="Double-click to edit" class="task grab-cursor js-open-opportunity<?= (!empty($opp['opportunity_close_date']) && $opp['opportunity_close_date'] < date('Y-m-d') && !in_array($stage_name, ['Won', 'Lost'], true)) ? ' close-late' : '' ?>"
+                            <div class="task grab-cursor js-open-opportunity<?= (!empty($opp['opportunity_close_date']) && $opp['opportunity_close_date'] < date('Y-m-d') && !in_array($stage_name, ['Won', 'Lost'], true)) ? ' close-late' : '' ?>"
                                  data-opportunity-id="<?php echo $opp_id; ?>"
                                  data-stage="<?php echo htmlspecialchars($stage_name); ?>">
 

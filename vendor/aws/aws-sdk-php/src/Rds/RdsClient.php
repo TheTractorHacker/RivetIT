@@ -65,7 +65,6 @@ use Aws\PresignUrlMiddleware;
  *     SnapshotTarget?: string,
  *     CopyOptionGroup?: bool,
  *     SnapshotAvailabilityZone?: string,
- *     TagSpecifications?: list<array{ResourceType?: string, Tags?: list<array>, ...}>,
  *     ...,
  * } $args = [])
  * @method \GuzzleHttp\Promise\Promise copyDBSnapshotAsync(array $args = [])
@@ -81,7 +80,6 @@ use Aws\PresignUrlMiddleware;
  *     SnapshotTarget?: string,
  *     CopyOptionGroup?: bool,
  *     SnapshotAvailabilityZone?: string,
- *     TagSpecifications?: list<array{ResourceType?: string, Tags?: list<array>, ...}>,
  *     ...,
  * } $args = [])
  * @method \Aws\Result copyOptionGroup(array $args = [])

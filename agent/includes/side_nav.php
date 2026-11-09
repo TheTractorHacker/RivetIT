@@ -32,7 +32,7 @@ $section_pages = [
         'rmm_hypervisors.php'],
     'backups'       => ['backups.php'],
 ];
-$section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_device_bulk.php', 'training_device_fleet.php', 'training_device_slips.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php', 'training_settings.php']);
+$section_pages['training'] = array_merge($section_pages['training'], ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php', 'training_locked.php', 'training_awards.php', 'training_settings.php']);
 
 // Roles audit P0: a module-only (limited) login - no Departments, Tickets/assets/docs or Assets - sees only
 // the modules its role holds: no Dashboard, no Work group, no custom links, and the logo goes to its own
@@ -344,7 +344,7 @@ foreach ($section_pages as $key => $pages) {
                             <span class="text-truncate">People</span>
                         </a>
                         <?php if (lookupUserPermission("module_training_kiosk") >= 1) { ?>
-                        <a href="/agent/training_devices.php" class="dropdown-item<?php if (in_array($current_page, ['training_devices.php', 'training_device_setup.php', 'training_device_bulk.php', 'training_device_fleet.php', 'training_device_slips.php', 'training_pin_slips.php'], true)) { echo " active"; } ?>">
+                        <a href="/agent/training_devices.php" class="dropdown-item<?php if (in_array($current_page, ['training_devices.php', 'training_device_setup.php', 'training_pin_slips.php'], true)) { echo " active"; } ?>">
                             <span class="dropdown-item-icon"><i class="fas fa-tablet-alt"></i></span>
                             <span class="text-truncate">Devices &amp; PINs</span>
                         </a>

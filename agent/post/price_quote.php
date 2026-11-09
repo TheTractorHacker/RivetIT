@@ -158,14 +158,11 @@ if (isset($_POST['add_price_quote_item'])) {
     enforceClientAccess($client_id);
 
     $description = sanitizeInput(trim($_POST['description']));
-    // Accept "1,299.50" and "$1,299.50"; anything else that is not a number is rejected below instead of silently becoming 0.
-    $quantity_raw = str_replace([',', ' '], '', trim((string) ($_POST['quantity'] ?? '')));
-    $unit_price_raw = str_replace([',', ' ', '$'], '', trim((string) ($_POST['unit_price'] ?? '')));
-    $quantity = is_numeric($quantity_raw) ? (float) $quantity_raw : 0;
-    $unit_price = is_numeric($unit_price_raw) ? (float) $unit_price_raw : -1;
+    $quantity = is_numeric($_POST['quantity'] ?? null) ? (float) $_POST['quantity'] : 0;
+    $unit_price = is_numeric($_POST['unit_price'] ?? null) ? (float) $_POST['unit_price'] : 0;
 
     if ($description === '' || $quantity <= 0 || $unit_price < 0) {
-        flash_alert("Enter a description, a quantity above 0 and a unit price of 0 or more (numbers only, for example 1299.50).", "danger");
+        flash_alert("A description, a positive quantity and a non-negative unit price are required", "danger");
         redirect("price_quote.php?client_id=$client_id&price_quote_id=$price_quote_id");
     }
 
@@ -200,14 +197,11 @@ if (isset($_POST['edit_price_quote_item'])) {
     enforceClientAccess($client_id);
 
     $description = sanitizeInput(trim($_POST['description']));
-    // Accept "1,299.50" and "$1,299.50"; anything else that is not a number is rejected below instead of silently becoming 0.
-    $quantity_raw = str_replace([',', ' '], '', trim((string) ($_POST['quantity'] ?? '')));
-    $unit_price_raw = str_replace([',', ' ', '$'], '', trim((string) ($_POST['unit_price'] ?? '')));
-    $quantity = is_numeric($quantity_raw) ? (float) $quantity_raw : 0;
-    $unit_price = is_numeric($unit_price_raw) ? (float) $unit_price_raw : -1;
+    $quantity = is_numeric($_POST['quantity'] ?? null) ? (float) $_POST['quantity'] : 0;
+    $unit_price = is_numeric($_POST['unit_price'] ?? null) ? (float) $_POST['unit_price'] : 0;
 
     if ($description === '' || $quantity <= 0 || $unit_price < 0) {
-        flash_alert("Enter a description, a quantity above 0 and a unit price of 0 or more (numbers only, for example 1299.50).", "danger");
+        flash_alert("A description, a positive quantity and a non-negative unit price are required", "danger");
         redirect("price_quote.php?client_id=$client_id&price_quote_id=$price_quote_id");
     }
 

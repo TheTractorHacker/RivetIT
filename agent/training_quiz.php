@@ -20,7 +20,6 @@
 $page_extra_css = ['/css/itflow_training.css', '/css/itflow_training_quiz.css', '/css/itflow_training_player.css'];   // BEFORE inc_all: header.php reads it
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuard(2)) { require_once "../includes/footer.php"; exit; }
-echo '<link rel="stylesheet" href="/css/area_training.css">';
 define('TRAINING_PAGE', 1);
 
 $tr_ctx = \ITFlow\Training\Core\Access::ctx($mysqli);
