@@ -197,7 +197,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     </a>
                                     <?php if (lookupUserPermission("module_sales") >= 3) { ?>
                                         <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item text-danger confirm-link" href="post.php?delete_opportunity=<?php echo $opportunity_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
+                                        <a class="dropdown-item text-danger confirm-link" data-confirm="Delete this opportunity? This cannot be undone." href="post.php?delete_opportunity=<?php echo $opportunity_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>">
                                             <i class="fas fa-fw fa-trash me-2"></i>Delete
                                         </a>
                                     <?php } ?>
@@ -211,9 +211,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <tfoot>
                     <tr class="fw-bold">
                         <td colspan="<?= $client_url ? 2 : 3 ?>" class="text-end text-secondary">Total on this page</td>
-                        <td class="text-end"><?= numfmt_format_currency($currency_format, $sum_amount, "$session_company_currency") ?></td>
+                        <td class="text-end text-nowrap"><?= numfmt_format_currency($currency_format, $sum_amount, "$session_company_currency") ?></td>
                         <td></td>
-                        <td class="text-end"><?= numfmt_format_currency($currency_format, $sum_weighted, "$session_company_currency") ?></td>
+                        <td class="text-end text-nowrap"><?= numfmt_format_currency($currency_format, $sum_weighted, "$session_company_currency") ?></td>
                         <td colspan="3"></td>
                     </tr>
                 </tfoot>

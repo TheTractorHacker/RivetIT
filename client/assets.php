@@ -135,20 +135,19 @@ if ($assets_scope === 'mine') {
 
                     <tr>
                         <td>
-                            <a href="#"><?php echo $asset_name ?></a>
-                            <br>
-                            <small class="text-secondary"><?php echo $asset_description; ?></small>
+                            <strong><?php echo $asset_name ?></strong>
+                            <?php if ($asset_description !== '') { ?><br><small class="text-secondary"><?php echo $asset_description; ?></small><?php } ?>
                         </td>
-                        <td><?php echo $asset_type; ?></td>
-                        <td><?php echo "$asset_make<br><span class='text-secondary'>$asset_model</span>"; ?></td>
-                        <td><?php echo $asset_serial; ?></td>
-                        <td><?php echo $assigned_to; ?></td>
-                        <td><?php echo $asset_purchase_date; ?></td>
-                        <td><?php echo $asset_warranty_expire; ?></td>
-                        <td><span class="badge badge-secondary"><?php echo $asset_status; ?></span></td>
+                        <td class="text-nowrap"><?php echo $asset_type; ?></td>
+                        <td><?php echo $asset_make . ($asset_model !== '' ? "<br><span class='text-secondary'>$asset_model</span>" : ''); ?></td>
+                        <td class="text-nowrap"><?php echo $asset_serial ?: '-'; ?></td>
+                        <td class="text-nowrap"><?php echo $assigned_to; ?></td>
+                        <td class="text-nowrap"><?php echo $asset_purchase_date; ?></td>
+                        <td class="text-nowrap"><?php echo $asset_warranty_expire; ?></td>
+                        <td><span class="badge text-bg-secondary"><?php echo $asset_status; ?></span></td>
                         <td>
                             <?php if ($asset_uri_client) { ?>
-                            <i class="fa fa-fw fa-link text-secondary me-1"></i><a href="<?php echo $asset_uri_client; ?>" target="_blank" title="<?php echo $asset_uri_client; ?>"><?php echo truncate($asset_uri_client, 40); ?></a>
+                            <i class="fa fa-fw fa-link text-secondary me-1"></i><a href="<?php echo $asset_uri_client; ?>" target="_blank" rel="noopener noreferrer" title="<?php echo $asset_uri_client; ?>"><?php echo truncate($asset_uri_client, 40); ?></a>
                             <?php } else { ?>
                             -
                         <?php } ?>

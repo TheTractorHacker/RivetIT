@@ -22,7 +22,7 @@ foreach (['HTTP_SEC_PURPOSE', 'HTTP_PURPOSE', 'HTTP_X_MOZ', 'HTTP_X_PURPOSE'] as
 header('Cache-Control: no-store');
 header('Referrer-Policy: no-referrer');
 
-$page_extra_css = ['/css/itflow_training.css'];
+$page_extra_css = ['/css/itflow_training.css', '/css/area_training.css'];
 require_once "includes/inc_all.php";
 if (\ITFlow\Training\Core\Access::pageGuardKiosk(3)) { require_once "../includes/footer.php"; exit; }
 define('TRAINING_PAGE', 1);

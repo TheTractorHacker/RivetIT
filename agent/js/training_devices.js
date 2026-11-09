@@ -256,7 +256,7 @@
         }
 
         function deviceCard(k) {
-            var body = el('div', { class: 'card-body' });
+            var body = el('div', { class: 'card-body d-flex flex-column' });
             var same = function (a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); };
             var sub = k.asset
                 ? [k.asset.type, same(k.asset.name, k.label) ? '' : k.asset.name, k.asset.serial ? 'SN ' + k.asset.serial : ''].filter(Boolean).join(' · ') + (k.asset.archived ? ' (archived)' : '')
@@ -328,7 +328,7 @@
                     icon('fa-pause-circle'), el('span', { text: 'Sign-in paused until ' + when(k.cooldown_until) + ' after repeated wrong PINs' + (k.cooldown_reason && k.cooldown_reason !== 'fail_cap' ? ' (24-hour limit)' : '') + '.' })
                 ]));
             }
-            var actions = el('div', { class: 'd-flex flex-wrap gap-2 mt-3' });
+            var actions = el('div', { class: 'd-flex flex-wrap gap-2 mt-auto pt-3' });
             if (k.cooldown_until && level >= 2) {
                 var cc = el('button', { type: 'button', class: 'btn btn-sm btn-warning' }, [icon('fa-play', 'me-1'), 'Clear cooldown']);
                 cc.addEventListener('click', function () {

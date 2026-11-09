@@ -1,0 +1,1200 @@
+[
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/allowance.php",
+  "url": "/client/allowance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/allowance.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/assets.php",
+  "url": "/client/assets.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/assets.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/certificates.php",
+  "url": "/client/certificates.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/certificates.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/compliance.php",
+  "url": "/client/compliance.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/compliance.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/contact_add.php",
+  "url": "/client/contact_add.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/contact_add.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/contact_edit.php",
+  "url": "/client/contact_edit.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/contact_edit.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/contacts.php",
+  "url": "/client/contacts.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/contacts.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/contracts.php",
+  "url": "/client/contracts.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/contracts.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/document.php",
+  "url": "/client/document.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/document.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/documents.php",
+  "url": "/client/documents.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/documents.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/domains.php",
+  "url": "/client/domains.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/domains.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/functions.php",
+  "url": "/client/functions.php",
+  "skipped": "include file, not a page"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/index.php",
+  "url": "/client/index.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/index.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/invoices.php",
+  "url": "/client/invoices.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/invoices.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/kb_article.php",
+  "url": "/client/kb_article.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_article.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/kb_articles.php",
+  "url": "/client/kb_articles.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_articles.php",
+    "status": 200,
+    "final": "/client/kb_articles.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 3397,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/kb_embed.php",
+  "url": "/client/kb_embed.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_embed.php",
+    "status": 404,
+    "final": "/client/kb_embed.php",
+    "php_error": null,
+    "hscroll": 0,
+    "js": {
+     "jquery": false,
+     "bootstrap": false
+    },
+    "bodyLen": 9,
+    "title": "",
+    "h1": "",
+    "sheets": 0,
+    "styled": "\"Times New Roman\"|rgba(0, 0, 0, 0)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "shot": "portal__client_kb_embed_php.png",
+    "console": [
+     "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageerrors": [],
+    "bad_requests": [
+     "404 GET /client/kb_embed.php"
+    ],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/kb_media.php",
+  "url": "/client/kb_media.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_media.php",
+    "status": 404,
+    "ctype": "text/plain; charset=utf-8",
+    "bytes": 9,
+    "php_error": false,
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/kb_progress.php",
+  "url": "/client/kb_progress.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_progress.php",
+    "status": 400,
+    "final": "/client/kb_progress.php",
+    "php_error": null,
+    "hscroll": 0,
+    "js": {
+     "jquery": false,
+     "bootstrap": false
+    },
+    "bodyLen": 34,
+    "title": "",
+    "h1": "",
+    "sheets": 0,
+    "styled": "\"Times New Roman\"|rgba(0, 0, 0, 0)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "shot": "portal__client_kb_progress_php.png",
+    "console": [
+     "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    ],
+    "pageerrors": [],
+    "bad_requests": [
+     "400 GET /client/kb_progress.php"
+    ],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/login_microsoft.php",
+  "url": "/client/login_microsoft.php",
+  "skipped": "SSO flow (integration)"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/login_odoo.php",
+  "url": "/client/login_odoo.php",
+  "skipped": "Odoo login flow (Odoo)"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/login_oidc.php",
+  "url": "/client/login_oidc.php",
+  "skipped": "SSO flow (integration)"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/login_reset.php",
+  "url": "/client/login_reset.php",
+  "skipped": "password reset flow (sends email)"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/my_approvals.php",
+  "url": "/client/my_approvals.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/my_approvals.php",
+    "status": 200,
+    "final": "/client/index.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 942,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/onboarding_request.php",
+  "url": "/client/onboarding_request.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/onboarding_request.php",
+    "status": 200,
+    "final": "/client/index.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 931,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/portal_theme.css.php",
+  "url": "/client/portal_theme.css.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/portal_theme.css.php",
+    "status": 200,
+    "ctype": "text/css; charset=utf-8",
+    "bytes": 0,
+    "php_error": false,
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/post.php",
+  "url": "/client/post.php?approval_id=1",
+  "skipped": "POST handler"
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/profile.php",
+  "url": "/client/profile.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/profile.php",
+    "status": 200,
+    "final": "/client/profile.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 936,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/quotes.php",
+  "url": "/client/quotes.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/quotes.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/recurring_invoices.php",
+  "url": "/client/recurring_invoices.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/recurring_invoices.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/saved_payment_methods.php",
+  "url": "/client/saved_payment_methods.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/saved_payment_methods.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/service_catalog.php",
+  "url": "/client/service_catalog.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/service_catalog.php",
+    "status": 200,
+    "final": "/client/service_catalog.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1666,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/sse_ticket_stream.php",
+  "url": "/client/sse_ticket_stream.php?ticket_id=248",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/sse_ticket_stream.php?ticket_id=248",
+    "status": 404,
+    "note": "sse responded",
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/ticket.php",
+  "url": "/client/ticket.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/ticket.php",
+    "status": 200,
+    "final": "/client/index.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 899,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/ticket_add.php",
+  "url": "/client/ticket_add.php?catalog_item_id=1&asset_id=92",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/ticket_add.php?catalog_item_id=1&asset_id=92",
+    "status": 200,
+    "final": "/client/ticket_add.php?catalog_item_id=1&asset_id=92",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 883,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 15,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/ticket_view_all.php",
+  "url": "/client/ticket_view_all.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/ticket_view_all.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/tickets.php",
+  "url": "/client/tickets.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/tickets.php",
+    "status": 200,
+    "final": "/client/tickets.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 655,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/training.php",
+  "url": "/client/training.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/training.php",
+    "status": 200,
+    "final": "/client/training.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 541,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/training_manage.php",
+  "url": "/client/training_manage.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/training_manage.php",
+    "status": 200,
+    "final": "/client/training.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 541,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/training_start.php",
+  "url": "/client/training_start.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/training_start.php",
+    "status": 200,
+    "final": "/client/training.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 541,
+    "title": "Human Resources Department Portal | Summit Ridge Manufacturing",
+    "h1": "Sophie Tran",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal",
+  "module": "client",
+  "file": "client/unpaid_invoices.php",
+  "url": "/client/unpaid_invoices.php",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/unpaid_invoices.php",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ }
+]

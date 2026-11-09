@@ -1,0 +1,8 @@
+/* Edition-owned portal page tweaks (client/ pages). Not a Core file. */
+.portal-reply-avatar {
+    width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #64748b; color: #fff; font: 600 .95rem/1 inherit; font-family: inherit;
+    margin-right: .9rem; object-fit: cover; vertical-align: middle;
+}
+.card-title .media { display: flex; align-items: center; }

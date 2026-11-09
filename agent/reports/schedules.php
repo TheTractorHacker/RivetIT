@@ -166,7 +166,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
         || ($delivery !== 'summary' && (!ReportCatalog::exists($report) || !$can_module_row($report)))
         || ($report === '')) {
         $_SESSION['alert_type'] = 'danger';
-        $_SESSION['alert_message'] = 'Please choose a valid report to schedule (a headline summary is only available for some reports, and you need access to the report).';
+        if ($report !== '' && isset($valid_formats[$delivery]) && $delivery === 'summary' && !isset($schedulable[$report]) && $saved_view_id <= 0) {
+            $_SESSION['alert_message'] = 'That report has no headline summary. Choose CSV, tables or PDF delivery for it, or pick a different report.';
+        } else {
+            $_SESSION['alert_message'] = 'Please choose a valid report to schedule (a headline summary is only available for some reports, and you need access to the report).';
+        }
     } elseif (!$can_schedule_report($report)) {
         $_SESSION['alert_type'] = 'danger';
         $_SESSION['alert_message'] = 'Your role does not have access to the data in that report.';
@@ -291,13 +295,13 @@ $all_reports = ReportCatalog::definitions();
         <form method="post" class="p-3 form-row align-items-end">
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
             <input type="hidden" name="add_schedule" value="1">
-            <div class="col-md-3 col-6 mb-2">
+            <div class="col-md-3 col-12 mb-2">
                 <label class="mb-1">Report or saved view</label>
                 <select class="form-control" name="schedule_source" required>
                     <optgroup label="Reports">
                         <?php foreach ($all_reports as $key => $def) {
                             if (!$can_module_row($key)) { continue; } ?>
-                            <option value="r:<?php echo nullable_htmlentities($key); ?>"><?php echo nullable_htmlentities($def['label']); ?></option>
+                            <option value="r:<?php echo nullable_htmlentities($key); ?>"<?php if (!isset($sched_default_set) && isset($schedulable[$key])) { $sched_default_set = true; echo ' selected'; } ?>><?php echo nullable_htmlentities($def['label']); ?></option>
                         <?php } ?>
                     </optgroup>
                     <?php if ($my_views) { ?>
@@ -309,7 +313,7 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-2 col-6 mb-2">
+            <div class="col-md-3 col-12 mb-2">
                 <label class="mb-1">Delivery</label>
                 <select class="form-control" name="schedule_delivery" required>
                     <?php foreach ($valid_formats as $key => $label) { ?>
@@ -317,7 +321,7 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-2 col-6 mb-2">
+            <div class="col-md-2 col-12 mb-2">
                 <label class="mb-1">Frequency</label>
                 <select class="form-control" name="schedule_frequency" required>
                     <?php foreach ($valid_frequencies as $key => $label) { ?>
@@ -325,12 +329,12 @@ $all_reports = ReportCatalog::definitions();
                     <?php } ?>
                 </select>
             </div>
-            <div class="col-md-3 col-8 mb-2">
+            <div class="col-md-4 col-12 mb-2">
                 <label class="mb-1">Recipients</label>
-                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com (or choose groups below)">
+                <input type="text" class="form-control" name="schedule_recipients" placeholder="ops@example.com, owner@example.com">
             </div>
-            <div class="col-md-2 col-4 mb-2">
-                <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-fw fa-plus me-1"></i>Add</button>
+            <div class="col-12 mb-2">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-fw fa-plus me-1"></i>Add</button>
             </div>
             <?php if ($recipient_groups) { ?>
             <div class="col-12 mb-2">
@@ -447,7 +451,7 @@ $all_reports = ReportCatalog::definitions();
                             <td><?php echo nullable_htmlentities($report_name); ?></td>
                             <td><?php echo nullable_htmlentities($delivery_label); ?></td>
                             <td><?php echo nullable_htmlentities($frequency); ?></td>
-                            <td>
+                            <td class="text-break">
                                 <?php echo nullable_htmlentities($row['schedule_recipients']); ?>
                                 <?php foreach ($row_targets as $rt) {
                                     $rt_view = !empty($rt['target_saved_report_id']) ? SavedReports::get($mysqli, intval($rt['target_saved_report_id'])) : null; ?>

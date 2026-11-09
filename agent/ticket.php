@@ -1830,7 +1830,7 @@ if (isset($_GET['ticket_id'])) {
                             </div>
 
                             <!-- Task name -->
-                            <span class="flex-grow-1" style="font-size:13px;<?= $is_done ? 'text-decoration:line-through;color:#aaa;' : 'color:#333;' ?>"><?= $task_name ?></span>
+                            <span class="flex-grow-1" style="font-size:13px;<?= $is_done ? 'text-decoration:line-through;color:var(--if-muted, #8a929b);' : 'color:var(--if-ink, inherit);' ?>"><?= $task_name ?></span>
 
                             <!-- Actions -->
                             <div class="d-flex align-items-center" style="flex-shrink:0;gap:2px;">
@@ -1976,8 +1976,8 @@ if (isset($_GET['ticket_id'])) {
                                     ?>
 
                                     <?php if ($ftype === 'heading') { ?>
-                                        <div class="mt-3 mb-2 mx-n3 px-3 py-2" style="background:#e9ecef;border-top:1px solid #dee2e6;border-bottom:1px solid #dee2e6;">
-                                            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#495057;"><?= $fname ?></span>
+                                        <div class="mt-3 mb-2 mx-n3 px-3 py-2" style="background:var(--if-bg, #e9ecef);border-top:1px solid var(--if-border, #dee2e6);border-bottom:1px solid var(--if-border, #dee2e6);">
+                                            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--if-muted, #495057);"><?= $fname ?></span>
                                         </div>
                                     <?php } elseif ($ftype === 'checkbox') { ?>
                                         <div class="d-flex align-items-center py-1 border-bottom">

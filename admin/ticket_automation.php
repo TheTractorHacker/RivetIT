@@ -112,15 +112,19 @@ function ticket_automation_actions(array $rule): array {
     return [];
 }
 ?>
+<style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+    .ta-toggle { min-width: 4.5rem; text-align: center; }
+    .card-header .card-tools { min-width: 0; max-width: 100%; }
+</style>
 
 <div class="card">
-    <div class="card-header py-2">
-        <h3 class="card-title mt-2"><i class="fas fa-fw fa-robot me-2"></i>Ticket Automation Rules</h3>
-        <div class="card-tools">
-            <a href="automation.php" class="btn btn-secondary me-2">
+    <div class="card-header py-2 flex-wrap gap-2">
+        <h3 class="card-title mt-2 me-auto"><i class="fas fa-fw fa-robot me-2"></i>Ticket Automation Rules</h3>
+        <div class="card-tools d-flex flex-wrap gap-2">
+            <a href="automation.php" class="btn btn-secondary">
                 <i class="fas fa-cogs me-2"></i>All automation
             </a>
-            <a href="ticket_automation_log.php" class="btn btn-secondary me-2">
+            <a href="ticket_automation_log.php" class="btn btn-secondary">
                 <i class="fas fa-history me-2"></i>Run Log
             </a>
             <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket_automation/add_rule.php" data-modal-size="lg">
@@ -133,7 +137,7 @@ function ticket_automation_actions(array $rule): array {
             <i class="fas fa-info-circle me-2"></i>
             Scheduled checks and vacation-return rules run with the main cron job. Ticket-created rules run when a ticket opens; RMM and asset rules run when cron processes new events.
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive position-relative">
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
@@ -195,7 +199,7 @@ function ticket_automation_actions(array $rule): array {
                     <td class="small text-nowrap">
                         <?php $rr = $rule_runs[$rule_id] ?? null; if ($rr): ?>
                             <?php echo nullable_htmlentities(date('M j, H:i', strtotime($rr['last_run']))); ?>
-                            <div class="text-muted"><?php echo (int) $rr['runs_30d']; ?> in 30 days</div>
+                            <div class="text-muted"><?php echo (int) $rr['runs_30d']; ?> run<?php echo (int) $rr['runs_30d'] === 1 ? '' : 's'; ?> in 30 days</div>
                         <?php else: ?>
                             <span class="text-muted">Never</span>
                         <?php endif; ?>
@@ -205,7 +209,7 @@ function ticket_automation_actions(array $rule): array {
                             <i class="fas fa-edit"></i>
                         </button>
                         <a href="post.php?toggle=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
-                           class="btn btn-sm btn-<?php echo $enabled ? 'warning' : 'success'; ?>">
+                           class="btn btn-sm btn-<?php echo $enabled ? 'warning' : 'success'; ?> ta-toggle">
                             <?php echo $enabled ? 'Disable' : 'Enable'; ?>
                         </a>
                         <a href="post.php?delete=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"

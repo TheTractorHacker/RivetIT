@@ -1,0 +1,22 @@
+# RivetIT Android - bottom nav + drawer tour (logged-in session required).
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp
+- assertVisible: "Good morning|Good afternoon|Good evening"
+- tapOn: "Tickets"
+- assertVisible: "Search tickets.*"
+- tapOn: "Depts"
+- assertVisible: "Search departments.*"
+- tapOn: "Assets"
+- assertVisible: "Search assets.*"
+- tapOn: "Appts"
+- assertVisible: "Upcoming"
+- tapOn: "Home"
+- tapOn: "Menu"
+- tapOn: "Projects"
+- assertVisible: "Search projects.*"
+- back
+- tapOn: "Menu"
+- tapOn: "Reports"
+- assertVisible: "Time Summary"
+- back

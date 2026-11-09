@@ -19,7 +19,8 @@
 #   1. Copies the repository into the scratch app directory.
 #   2. Drops/recreates the demo database and runs scripts/setup_cli.php for the fictional company
 #      "Summit Ridge Manufacturing" (administrator Alex Morgan).
-#   3. Turns on the modules the guide documents (KB, Training, Live Chat, Department Portal, CSAT).
+#   3. Turns on the modules the guide documents (KB, Training, Live Chat, Department Portal, CSAT),
+#      then applies database migrations (the setup baseline lags the current schema).
 #   4. Replays every file in tools/seed/ in filename order (.sql via mysql, .php via php with
 #      RIVETIT_APP_DIR pointing at the scratch app).
 #   5. Starts PHP's built-in web server on 127.0.0.1:PORT.
@@ -112,13 +113,14 @@ rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}"
 tar -C "${REPO_ROOT}" \
     --exclude=.git --exclude=node_modules --exclude=./config.php \
+    --exclude=./backups --exclude=./.claude --exclude=./uploads \
     --exclude=./docs/user-guide/images \
     -cf - . | tar -xf - -C "${APP_DIR}"
 touch "${APP_DIR}/${MARKER}"
-# keep only the tracked placeholders inside uploads/ (drop anything a developer's own use left behind)
-if [[ -d "${APP_DIR}/uploads" ]]; then
-    find "${APP_DIR}/uploads" -type f ! -name index.php ! -name .htaccess -delete
-fi
+# backups/ (live DB dumps, some root-only) and uploads/ (user files) are never copied; recreate the
+# empty directories the app expects, with the tracked placeholders where the repo has them.
+mkdir -p "${APP_DIR}/backups" "${APP_DIR}/uploads"
+git -C "${REPO_ROOT}" ls-files backups uploads | tar -C "${REPO_ROOT}" -cf - -T - | tar -xf - -C "${APP_DIR}"
 
 # ---- 2. database + first-run setup -------------------------------------------------------------
 step "Creating database ${DB_NAME}"
@@ -148,6 +150,10 @@ if [[ "${SKIP_SETUP}" -eq 0 ]]; then
   # ---- 3. modules the guide documents ------------------------------------------------------------
   step "Enabling the documented modules"
   ${MYSQL_ROOT} "${DB_NAME}" -e "UPDATE settings SET config_module_enable_kb=1, config_module_enable_training=1, config_module_enable_live_chat=1, config_client_portal_enable=1, config_ticket_csat_enable=1 WHERE company_id=1;"
+
+  # setup_cli installs the db.sql baseline; bring it to the current schema before the seeds run
+  step "Applying database migrations"
+  ( cd "${APP_DIR}/scripts" && php update_cli.php --update_db ) | tail -2
 
   # ---- 4. demo data ------------------------------------------------------------------------------
   step "Replaying seed files"

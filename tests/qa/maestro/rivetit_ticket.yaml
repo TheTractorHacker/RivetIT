@@ -1,0 +1,36 @@
+# RivetIT Android - create a ticket, add an internal note, then a public reply (needs a signed-in session).
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp
+- tapOn: "Ticket"
+- assertVisible: "Log a new ticket"
+- tapOn: "Subject.*"
+- inputText: "QA-maestro-ticket"
+- hideKeyboard
+# Creation can be slow on a loaded emulator host; wait for the detail screen rather than a fixed delay.
+- tapOn: "Create Ticket"
+- extendedWaitUntil:
+    visible: "Reply / note"
+    timeout: 45000
+- tapOn: "Reply / note"
+# "Internal note" appears twice in the sheet: the visibility chip, then the text field's label.
+- tapOn:
+    text: "Internal note"
+    index: 1
+- inputText: "maestro_note"
+- hideKeyboard
+- tapOn: "Add internal note"
+- assertVisible: "maestro_note"
+- tapOn: "Reply / note"
+- tapOn: "Public reply"
+- tapOn:
+    text: "Public reply"
+    index: 1
+- inputText: "maestro_public"
+- hideKeyboard
+- tapOn: "Send public reply"
+# The POST can take a while on a loaded host; the sheet closes only once the reply is accepted.
+- extendedWaitUntil:
+    notVisible: "Send public reply"
+    timeout: 60000
+- assertVisible: "maestro_public"

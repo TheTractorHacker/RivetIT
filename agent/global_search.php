@@ -187,7 +187,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Departments</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -213,7 +213,7 @@ if (isset($_GET['query'])) {
                             <?php } ?>
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -230,7 +230,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-users me-2"></i>Contacts</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -272,7 +272,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -288,7 +288,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-building me-2"></i>Vendors</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -329,7 +329,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -345,7 +345,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-globe me-2"></i>Domains</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -373,7 +373,7 @@ if (isset($_GET['query'])) {
                             <?php } ?>
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -389,7 +389,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-file-alt me-2"></i>Documents</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Document</th>
@@ -417,7 +417,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -433,7 +433,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-paperclip me-2"></i>Files</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>File Name</th>
@@ -467,7 +467,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -483,7 +483,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-life-ring me-2"></i>Tickets</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Ticket ID</th>
@@ -516,7 +516,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -533,7 +533,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-undo-alt me-2"></i>Recurring Tickets</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Subject</th>
@@ -565,7 +565,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -582,7 +582,7 @@ if (isset($_GET['query'])) {
                         <h3 class="card-title"><i class="fas fa-fw fa-key me-2"></i>Credentials</h3>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -618,7 +618,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -635,7 +635,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-desktop me-2"></i>Assets</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Asset</th>
@@ -707,7 +707,7 @@ if (isset($_GET['query'])) {
 
 
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -724,7 +724,7 @@ if (isset($_GET['query'])) {
                     <div class="card-header">
                         <h6 class="card-title"><i class="fas fa-fw fa-reply me-2"></i>Ticket Replies</h6>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body gs-replies-body">
 
                     <?php
                     $last_ticket_id = null; // Track the last ticket ID processed
@@ -801,7 +801,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-book me-2"></i>Knowledge Base</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Title</th>
@@ -818,7 +818,7 @@ if (isset($_GET['query'])) {
                                 </tr>
                             <?php } ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -842,7 +842,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw <?php echo $gs_icon; ?> me-2"></i><?php echo $gs_title; ?></h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Name</th>
@@ -859,7 +859,7 @@ if (isset($_GET['query'])) {
                                 </tr>
                             <?php } ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -875,7 +875,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-project-diagram me-2"></i>Linked records</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Record</th>
@@ -890,7 +890,7 @@ if (isset($_GET['query'])) {
                                 </tr>
                             <?php } ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -907,7 +907,7 @@ if (isset($_GET['query'])) {
                         <h6 class="card-title"><i class="fas fa-fw fa-cog me-2"></i>Settings</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-striped table-borderless">
+                        <div class="table-responsive"><table class="table table-striped table-borderless">
                             <thead>
                             <tr>
                                 <th>Section</th>
@@ -920,7 +920,7 @@ if (isset($_GET['query'])) {
                                 </tr>
                             <?php } ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -943,6 +943,7 @@ if (isset($_GET['query'])) {
         .gs-masonry > [class*="col-"] { width: 100%; max-width: none; padding: 0; break-inside: avoid; display: inline-block; }
         @media (max-width: 991px) { .gs-masonry { column-count: 1; } }
         .gs-jump a { text-decoration: none; }
+        .gs-replies-body { max-height: 26rem; overflow-y: auto; }
         .gs-masonry td { overflow-wrap: normal !important; }
         .gs-jump .badge { font-weight: 600; }
     </style>

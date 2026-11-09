@@ -45,7 +45,7 @@ if (isset($_GET['project_template_id'])) {
         WHERE ticket_templates.ticket_template_id = project_template_ticket_templates.ticket_template_id
         AND project_template_ticket_templates.project_template_id = $project_template_id
         AND ticket_templates.ticket_template_id = task_template_ticket_template_id
-        ORDER BY task_template_created_at ASC"
+        ORDER BY ticket_template_order ASC, ticket_templates.ticket_template_id ASC, task_template_order ASC, task_template_created_at ASC"
     );
     $task_template_count = mysqli_num_rows($sql_task_templates);
 
@@ -63,7 +63,7 @@ if (isset($_GET['project_template_id'])) {
 </ol>
 
 <!-- Project Header -->
-<div class="card card-body">
+<div class="card card-body mb-3">
     <div class="row">
         <div class="col-sm-3">
             <div class="media">
@@ -75,7 +75,7 @@ if (isset($_GET['project_template_id'])) {
             </div>
         </div>
 
-        <div class="col-sm-3">
+        <div class="col-sm-2">
             <div class="media">
                 <i class="fa fa-fw fa-2x fa-life-ring text-secondary me-3"></i>
                 <div class="media-body">
@@ -85,7 +85,7 @@ if (isset($_GET['project_template_id'])) {
             </div>
         </div>
 
-        <div class="col-sm-3">
+        <div class="col-sm-2">
             <div class="media">
                 <i class="fa fa-fw fa-2x fa-tasks text-secondary me-3"></i>
                 <div class="media-body">
@@ -105,13 +105,13 @@ if (isset($_GET['project_template_id'])) {
             </div>
         </div>
 
-        <div class="col-12 col-xl-auto ms-xl-auto mt-2 mt-xl-0">
+        <div class="col-12 col-xl ms-xl-auto mt-2 mt-xl-0">
             <div class="d-flex align-items-center gap-2 justify-content-xl-end">
                 <button type="button" class="btn btn-primary btn-sm ajax-modal" href="#" data-modal-url="modals/project_template/project_template_ticket_template_add.php?project_template_id=<?= $project_template_id ?>">
                     <i class="fas fa-fw fa-plus me-2"></i>Add Ticket Template
                 </button>
                 <div class="dropdown dropleft text-center ms-3">
-                    <button class="btn btn-secondary btn-sm" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" data-boundary="window">
+                    <button class="btn btn-secondary btn-sm" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" data-boundary="window" aria-label="Template actions" title="Actions">
                         <i class="fas fa-fw fa-ellipsis-v"></i>
                     </button>
                     <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
@@ -120,13 +120,7 @@ if (isset($_GET['project_template_id'])) {
                         </a>
                         <?php if ($session_user_role == 3) { ?>
                             <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?archive_project_template=<?php echo $project_template_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                <i class="fas fa-fw fa-archive me-2"></i>Archive (not yet implemented)
-                            </a>
-                        <?php } ?>
-                        <?php if ($session_user_role == 3) { ?>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item text-danger confirm-link" href="post.php?delete_project_template=<?php echo $project_template_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                            <a class="dropdown-item text-danger confirm-link" data-confirm="Delete this project template, with all of its ticket templates and tasks? This cannot be undone." href="post.php?delete_project_template=<?php echo $project_template_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                 <i class="fas fa-fw fa-trash me-2"></i>Delete
                             </a>
                         <?php } ?>
@@ -183,7 +177,8 @@ if (isset($_GET['project_template_id'])) {
                                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                                         <input type="hidden" name="project_template_id" value="<?php echo $project_template_id; ?>">
                                         <input type="hidden" name="ticket_template_id" value="<?php echo $ticket_template_id; ?>">
-                                        <button type="submit" class="btn btn-default btn-sm confirm-link"
+                                        <button type="submit" class="btn btn-default btn-sm confirm-link" title="Remove from this project template" aria-label="Remove from this project template"
+                                            data-confirm="Remove this ticket template from the project template? The ticket template itself is kept."
                                             name="remove_ticket_template_from_project_template">
                                             <i class="fa fa-fw fa-times"></i>
                                         </button>
@@ -197,6 +192,12 @@ if (isset($_GET['project_template_id'])) {
                     </table>
                 </div>
             </div>
+        <?php } else { ?>
+            <div class="card card-body mb-3 text-center text-muted py-5">
+                <i class="fa fa-2x fa-life-ring mb-2"></i>
+                <div>No ticket templates in this project template yet.</div>
+                <div class="small">Use <strong>Add Ticket Template</strong> above to attach one; its tasks then appear on the right.</div>
+            </div>
         <?php } ?>
     </div>
 
@@ -206,7 +207,7 @@ if (isset($_GET['project_template_id'])) {
         <?php if (mysqli_num_rows($sql_task_templates) > 0) { ?>
         <div class="card card-body">
             <h5 class="text-secondary"><i class="fas fa-fw fa-tasks me-2"></i>Project Task Templates</h5>
-            <table class="table">
+            <table class="table mb-0">
                 <?php
                 while($row = mysqli_fetch_assoc($sql_task_templates)){
                     $task_template_id = intval($row['task_template_id']);
@@ -214,14 +215,19 @@ if (isset($_GET['project_template_id'])) {
                 ?>
                     <tr>
                         <td>
-                            <i class="far fa-fw fa-check-square text-primary me-3"></i>
+                            <i class="far fa-fw fa-square text-muted me-3"></i>
                             <?php echo $task_template_name; ?>
                         </td>
                     </tr>
                 <?php } ?>
             </table>
         </div>
-        <?php  } ?>
+        <?php  } else { ?>
+        <div class="card card-body text-center text-muted py-4">
+            <i class="fas fa-tasks mb-2"></i>
+            <div class="small">No task templates yet. Tasks come from the ticket templates you add.</div>
+        </div>
+        <?php } ?>
         <!-- End Task TemplatesCard -->
 
     </div> <!-- End col-3 -->

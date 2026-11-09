@@ -60,7 +60,7 @@ $sql_segments = mysqli_query($mysqli, "SELECT * FROM crm_segments ORDER BY segme
 
                     <div class="form-group">
                         <label>Lead / Customer Status</label>
-                        <select class="form-control" name="lead_status" id="seg_lead_status">
+                        <select class="form-control select2" name="lead_status" id="seg_lead_status">
                             <option value="">Any</option>
                             <option value="lead">Leads only</option>
                             <option value="customer">Customers only</option>
@@ -163,6 +163,12 @@ $sql_segments = mysqli_query($mysqli, "SELECT * FROM crm_segments ORDER BY segme
                 li.textContent = p.name + (p.email ? ' (' + p.email + ')' : '');
                 list.appendChild(li);
             });
+            if (res.count > res.preview.length) {
+                var more = document.createElement('li');
+                more.className = 'fst-italic';
+                more.textContent = '+ ' + (res.count - res.preview.length) + ' more';
+                list.appendChild(more);
+            }
         });
     }
 

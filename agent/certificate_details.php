@@ -100,7 +100,7 @@ if (mysqli_num_rows($sql) == 0) {
                     <table class="table table-sm table-borderless mb-0">
                         <tr>
                             <td class="text-secondary" style="width:180px">Department</td>
-                            <td><a href="clients.php?client_id=<?= $client_id ?>"><?= $client_name ?></a></td>
+                            <td><a href="client_overview.php?client_id=<?= $client_id ?>"><?= $client_name ?></a></td>
                         </tr>
                         <tr>
                             <td class="text-secondary">Domain</td>

@@ -512,3 +512,25 @@ sudo /path/to/app/deploy/setup-build-host.sh --uninstall [--purge-docker]
 **Menu.** One entry, Add device (`/agent/rmm_add_device.php`). `Quick download` on that page and the Add device button on the fleet page open the quick dialog; `rmm_fleet.php?installer=1` redirects to the Add device page.
 
 **Linux enrollment.** Core's `DeviceValidator` admits `os=linux` only when the edition passes `allow_linux`. `includes/rmm_bootstrap.php` now passes the administrator's switch "Allow Linux devices to enroll" (Overview tab, `platform_settings.rmm_allow_linux`, default on, read once per request with the module; audit entries "Linux Enrollment Allowed" / "Linux Enrollment Blocked") OR the config.php constant `EA_ALLOW_NON_WINDOWS = true` (an override that forces it on). Off refuses a new Linux device with Core's existing 422 `device.os is invalid`; enrolled Linux devices keep working. Test: `tests/rmm_rc25_linux.php` (run with `EA_TEST_NO_FORCE=1` so the scratch config does not force the constant).
+
+## Running behind a WAF (Cloudflare managed rules, ModSecurity / OWASP CRS)
+
+Agent traffic is script and command text by design, so a generic WAF reads it as an attack. Seen in practice on Cloudflare (log action "would block"):
+
+| Path | Rules that fire | Why |
+|---|---|---|
+| `POST /api/v1/agent_checkin` | 932120 (PowerShell command), 932260 (direct Unix command) | check-ins carry job output and logs |
+| `POST /api/v1/agent_jobs` | 932235, 932380 (command injection) | the body is the script the agent is asked to run |
+
+These are false positives. Do not turn the rules off for the whole site. Skip them only for the agent API and keep every other control on those paths (rate limiting, geo, IP reputation).
+
+**Cloudflare** (Security, WAF, Custom rules, action *Skip*, placed above the managed rules):
+
+- Expression: `starts_with(http.request.uri.path, "/api/v1/agent_") and http.request.method eq "POST"`
+- Skip: *All managed rules* (or the managed ruleset and OWASP Core Ruleset only), plus *Log matching requests*.
+
+Agent requests are authenticated per device (enrolment token, then a per-device credential), so skipping content inspection there does not open the rest of the site. Browser pages and every `/api/v1/` endpoint other than `agent_*` stay fully inspected.
+
+**ModSecurity / CRS:** `SecRule REQUEST_URI "@beginsWith /api/v1/agent_" "id:1000100,phase:1,pass,nolog,ctl:ruleRemoveById=932100-932999"`.
+
+Also allow request bodies of a few MB on these paths (software inventories, log batches), and do not apply bot challenges: agents cannot solve them.

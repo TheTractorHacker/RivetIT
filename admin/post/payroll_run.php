@@ -80,16 +80,34 @@ if (isset($_POST['edit_payroll_run_hours'])) {
         $valid_week_starts[$bucket['start']] = true;
     }
 
+    // The employee must actually be on this run.
+    $on_run = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT 1 AS ok FROM payroll_run_line_items WHERE payroll_run_line_item_run_id = $run_id AND payroll_run_line_item_user_id = $user_id LIMIT 1"));
+    if (!$on_run) {
+        flash_alert("That employee is not on this payroll run.", 'error');
+        redirect("/admin/payroll_run.php?id=$run_id");
+    }
+
+    // Validate every entry first so a typo never silently zeroes a week; nothing is saved unless all of it is valid.
     $weeks_input = $_POST['weeks'] ?? [];
+    $to_save = [];
     if (is_array($weeks_input)) {
         foreach ($weeks_input as $week_start => $hm) {
             if (!isset($valid_week_starts[$week_start]) || !is_array($hm)) {
                 continue;
             }
-            $h = intval($hm['h'] ?? 0);
-            $m = intval($hm['m'] ?? 0);
-            payrollUpsertHoursEntry($mysqli, $user_id, $week_start, $h, $m);
+            $h_raw = trim((string) ($hm['h'] ?? '0'));
+            $m_raw = trim((string) ($hm['m'] ?? '0'));
+            $h_raw = $h_raw === '' ? '0' : $h_raw;
+            $m_raw = $m_raw === '' ? '0' : $m_raw;
+            if (!ctype_digit($h_raw) || !ctype_digit($m_raw) || intval($h_raw) > 168 || intval($m_raw) > 59) {
+                flash_alert("Hours must be whole numbers (0-168) and minutes 0-59. Nothing was saved.", 'error');
+                redirect("/admin/payroll_run.php?id=$run_id");
+            }
+            $to_save[$week_start] = [intval($h_raw), intval($m_raw)];
         }
+    }
+    foreach ($to_save as $week_start => $hm) {
+        payrollUpsertHoursEntry($mysqli, $user_id, $week_start, $hm[0], $hm[1]);
     }
 
     logAction("Payroll", "Edit", "$session_name corrected hours for user #$user_id on payroll run #$run_id");

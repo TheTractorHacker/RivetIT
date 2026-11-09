@@ -61,7 +61,7 @@ $sql = mysqli_query(
                         <?php } ?>
                     </td>
                     <td class="text-center">
-                        <a href="payroll_employee.php?id=<?= $u_id ?>" class="btn btn-xs btn-secondary">
+                        <a href="payroll_employee.php?id=<?= $u_id ?>" class="btn btn-sm btn-secondary" style="min-width:5.5rem">
                             <i class="fas fa-fw fa-edit me-1"></i> <?= $pay_type ? 'Edit' : 'Enroll' ?>
                         </a>
                     </td>

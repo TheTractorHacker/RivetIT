@@ -14,7 +14,7 @@ $catalog_service = new \ITFlow\ITSM\ServiceCatalogService($mysqli);
 
 // Gate: only a contact who is (or has been) an approver, i.e. a manager somebody reports to, sees this page.
 if (!$catalog_service->contactIsApprover($session_contact_id, $session_client_id)) {
-    flash_alert('You are not an approver for any requests', 'danger');
+    flash_alert('You are not an approver for any requests, so there is nothing to approve.', 'warning');
     redirect('index.php');
 }
 
@@ -41,9 +41,9 @@ $approvals = $catalog_service->pendingApprovals(null, $session_contact_id, $sess
     ?>
         <div class="card portal-card mb-3">
             <div class="card-body">
-                <h5 class="mb-1"><?= nullable_htmlentities($a['item_name']) ?> <?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($a['risk_score'])) ?></h5>
+                <h5 class="mb-2"><?= nullable_htmlentities($a['item_name']) ?> <?= \ITFlow\ITSM\ServiceCatalogService::riskBadgeHtml(intval($a['risk_score'])) ?></h5>
                 <p class="text-secondary small mb-3">
-                    Requested by <strong><?= nullable_htmlentities($a['requester_name']) ?></strong> on <?= nullable_htmlentities($a['created_at']) ?>
+                    Requested by <strong><?= nullable_htmlentities($a['requester_name']) ?></strong> on <?= nullable_htmlentities(date('M j, Y g:i A', strtotime((string) $a['created_at']))) ?>
                     &middot; Ticket <?= nullable_htmlentities($a['ticket_prefix']) . intval($a['ticket_number']) ?> - <?= nullable_htmlentities($a['ticket_subject']) ?>
                 </p>
                 <?php if ($values) { ?>

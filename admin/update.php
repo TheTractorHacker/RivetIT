@@ -523,8 +523,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
     document.addEventListener('click', function (e) {
         var a = e.target.closest('a[data-upd]');
         if (!a) { return; }
-        var body = document.querySelector('#confirmationModal .modal-body');
-        if (body) { body.textContent = (backupOn() ? 'Take a backup, then ' : 'Skip the backup and ') + (messages[a.getAttribute('data-upd-what')] || 'run the update') + '?'; }
+        a.setAttribute('data-confirm', (backupOn() ? 'Take a backup, then ' : 'Skip the backup and ') + (messages[a.getAttribute('data-upd-what')] || 'run the update') + '?');
     }, true);
 })();
 </script>

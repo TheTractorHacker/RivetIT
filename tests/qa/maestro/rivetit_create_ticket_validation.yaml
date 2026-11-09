@@ -1,0 +1,12 @@
+# RIVETIT-ANDROID-003: a missing subject must show an error that is visible without scrolling
+# (snackbar above the Create button), and typed text survives the failed submit.
+# Needs a signed-in session.
+appId: com.foleyit.itflow.internal.beta
+---
+- launchApp
+- tapOn: "Ticket"
+- assertVisible: "Log a new ticket"
+- tapOn: "Create Ticket"
+- assertVisible:
+    text: "Subject required"
+    index: 1

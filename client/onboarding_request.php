@@ -15,7 +15,7 @@ $eh = new \ITFlow\Portal\EmployeeHome($mysqli);
 $ob_is_admin = ($session_contact_primary == 1 || $session_contact_is_technical_contact);
 
 if (!empty($portal_preview_active) || !$eh->canRequestOnboarding(intval($config_portal_onboarding_requests ?? 0) === 1, intval($session_contact_id), intval($session_client_id), $ob_is_admin)) {
-    flash_alert('You cannot request onboarding', 'danger');
+    flash_alert('Onboarding requests are not available for your account.', 'warning');
     ob_end_clean();
     redirect('index.php');
 }

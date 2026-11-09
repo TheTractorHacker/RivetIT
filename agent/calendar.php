@@ -165,6 +165,19 @@ while ($row = mysqli_fetch_assoc($sql)) {
 
 ?>
 
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+    // Confirm before deleting an event from the edit modal (bound once here: js/app.js is re-run on every modal load,
+    // so its delegated js-confirm-native handler fires twice for links inside an AJAX modal and never completes).
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('a.cal-event-delete') : null;
+        if (!a) { return; }
+        e.preventDefault();
+        RivetDialog.confirm('Delete this event? This cannot be undone.', { variant: 'danger', title: 'Delete event', okText: 'Delete' }).then(function (ok) {
+            if (ok) { window.location.href = a.href; }
+        });
+    });
+</script>
+
 <?php require_once "../includes/footer.php";
 ?>
 

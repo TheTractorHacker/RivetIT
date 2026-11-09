@@ -1,0 +1,15 @@
+# RivetMSP Android - form state survives rotation (Create Ticket used plain remember{}, so a rotation
+# wiped the typed subject). Needs a logged-in session.
+appId: com.foleyit.itflow.beta
+---
+- stopApp
+- launchApp
+- tapOn: "Ticket"
+- tapOn: "Subject.*"
+- inputText: "rotate-me"
+- hideKeyboard
+- setOrientation: LANDSCAPE_LEFT
+- assertVisible: "rotate-me"
+- setOrientation: PORTRAIT
+- assertVisible: "rotate-me"
+- assertVisible: "Create Ticket"

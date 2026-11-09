@@ -20,7 +20,7 @@ $sql_activity = mysqli_query($mysqli,
         <h3 class="card-title"><i class="fas fa-fw fa-sign-in-alt me-2"></i>Recent Sign-ins</h3>
     </div>
     <div class="card-body p-0">
-        <table class="table table-sm table-borderless table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0">
             <thead class="text-muted small border-bottom">
                 <tr>
                     <th class="ps-3">When</th>
@@ -59,7 +59,7 @@ $sql_activity = mysqli_query($mysqli,
                 <tr><td colspan="4" class="text-center text-muted py-3">No sign-in history found.</td></tr>
             <?php } ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
     <?php if ($session_is_admin) { ?>
     <div class="card-footer py-2">
@@ -76,7 +76,7 @@ $sql_activity = mysqli_query($mysqli,
         <h3 class="card-title"><i class="fas fa-fw fa-history me-2"></i>Recent Activity</h3>
     </div>
     <div class="card-body p-0">
-        <table class="table table-sm table-borderless table-hover mb-0">
+        <div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0">
             <thead class="text-muted small border-bottom">
                 <tr>
                     <th class="ps-3" style="width:140px;">When</th>
@@ -118,7 +118,7 @@ $sql_activity = mysqli_query($mysqli,
                 <tr><td colspan="3" class="text-center text-muted py-3">No activity recorded yet.</td></tr>
             <?php } ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
     <?php if ($session_is_admin) { ?>
     <div class="card-footer py-2">

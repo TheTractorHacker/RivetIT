@@ -22,6 +22,24 @@ if (isset($_POST['edit_company'])) {
     $security_contact_email = sanitizeInput($_POST['security_contact_email'] ?? '');
     $hr_contact_email = sanitizeInput($_POST['hr_contact_email'] ?? '');
 
+    // Refuse malformed values by name instead of storing them.
+    $company_errors = [];
+    if (trim($name) === '') { $company_errors[] = 'A company name is required.'; }
+    if ($email !== '' && !filter_var(stripslashes($email), FILTER_VALIDATE_EMAIL)) { $company_errors[] = 'The company email is not a valid address.'; }
+    foreach (['security contact' => $security_contact_email, 'HR contact' => $hr_contact_email] as $ce_label => $ce_value) {
+        if ($ce_value !== '' && !filter_var(stripslashes($ce_value), FILTER_VALIDATE_EMAIL)) { $company_errors[] = "The $ce_label email is not a valid address."; }
+    }
+    if ($ms_tenant_id !== '' && !preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $ms_tenant_id)) {
+        $company_errors[] = 'The Microsoft/Entra Tenant ID must be a GUID like 72f988bf-86f1-41af-91ab-2d7cd011db47.';
+    }
+    if ($default_email_domain !== '' && !preg_match('/^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/', $default_email_domain)) {
+        $company_errors[] = 'The default email domain must be a domain name such as example.com (no @, spaces or http://).';
+    }
+    if ($company_errors) {
+        flash_alert(implode(' ', $company_errors) . ' Nothing was saved.', 'error');
+        redirect();
+    }
+
     $sql = mysqli_query($mysqli,"SELECT company_logo FROM companies WHERE company_id = 1");
     $row = mysqli_fetch_assoc($sql);
     $existing_file_name = sanitizeInput($row['company_logo']);
@@ -41,7 +59,7 @@ if (isset($_POST['edit_company'])) {
             // unlinks the uploads/settings/ directory itself (no filename to
             // append) and throws a warning on every first-ever logo upload.
             if ($existing_file_name) {
-                unlink("../uploads/settings/$existing_file_name");
+                if (isUploadReferenceName($existing_file_name)) { unlink("../uploads/settings/$existing_file_name"); }
             }
 
             // Set Logo

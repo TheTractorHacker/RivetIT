@@ -12,6 +12,12 @@ if (isset($_POST['add_custom_link'])) {
 
     requireFilledPost(['name' => 'Name', 'uri' => 'URL']);
 
+    // Only real destinations: http(s) URL, mailto/tel, or a path/anchor on this site (blocks javascript: and data: links).
+    if (!preg_match('~^(https?://[^\s]+|mailto:[^\s]+|tel:[^\s]+|/[^\s]*|#[^\s]*|[A-Za-z0-9_.-]+\.php[^\s]*)$~i', trim($_POST['uri']))) {
+        flash_alert("Enter a valid link: a full web address (https://...), a path such as /agent/tickets.php, mailto: or tel:.", 'error');
+        redirect();
+    }
+
     $name = sanitizeInput($_POST['name']);
     $uri = sanitizeInput($_POST['uri']);
     $new_tab = intval($_POST['new_tab'] ?? 0);
@@ -37,6 +43,12 @@ if (isset($_POST['edit_custom_link'])) {
     validateCSRFToken($_POST['csrf_token']);
 
     requireFilledPost(['name' => 'Name', 'uri' => 'URL']);
+
+    // Only real destinations: http(s) URL, mailto/tel, or a path/anchor on this site (blocks javascript: and data: links).
+    if (!preg_match('~^(https?://[^\s]+|mailto:[^\s]+|tel:[^\s]+|/[^\s]*|#[^\s]*|[A-Za-z0-9_.-]+\.php[^\s]*)$~i', trim($_POST['uri']))) {
+        flash_alert("Enter a valid link: a full web address (https://...), a path such as /agent/tickets.php, mailto: or tel:.", 'error');
+        redirect();
+    }
 
     $custom_link_id = intval($_POST['custom_link_id']);
     $name = sanitizeInput($_POST['name']);

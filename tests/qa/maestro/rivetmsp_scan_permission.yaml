@@ -1,0 +1,23 @@
+# RivetMSP Android - barcode scanner camera permission: deny, retry, deny again -> "Open Settings"
+# (RIVETMSP-ANDROID-005: "Grant Permission" was dead after a permanent deny). Needs a logged-in session.
+# For the full path start from an un-prompted state: adb shell pm revoke com.foleyit.itflow.beta android.permission.CAMERA
+#   && adb shell pm clear-permission-flags com.foleyit.itflow.beta android.permission.CAMERA user-set user-fixed
+appId: com.foleyit.itflow.beta
+---
+- launchApp:
+    permissions:
+      android.permission.CAMERA: deny
+- tapOn: "Scan"
+- runFlow:
+    when:
+      visible: "Allow RivetMSP Beta to take pictures.*"
+    commands:
+      - tapOn: "Don.t allow"
+      - assertVisible: "Camera Permission Required"
+      - tapOn: "Grant Permission"
+      - tapOn: "Don.t allow"
+# Android will not prompt again: the screen must now offer the app's system settings
+- assertVisible: "Open Settings"
+- assertNotVisible: "Grant Permission"
+- tapOn: "Open Settings"
+- assertVisible: "RivetMSP Beta"

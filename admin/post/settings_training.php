@@ -74,6 +74,35 @@ if (isset($_POST['edit_training_settings'])) {
 
     // Validation and the write live in the shared Training settings service (also used by
     // agent/training_settings.php for Training level 3); admins save every field here.
+    // The service quietly clamps a number outside its range (a pass mark of 150 became 100, "-4" attempts became 0 = unlimited).
+    // On this page say so instead, like the compliance settings do, and save nothing.
+    $tr_cap = \ITFlow\Training\Core\TrainingSettings::UPLOAD_CAP_MB;
+    $tr_ranges = [
+        'config_training_default_pass_pct' => ['Default pass mark', 50, 100, '%'],
+        'config_training_default_max_attempts' => ['Default attempts', 0, 10, ''],
+        'config_training_pdf_max_pages' => ['PDF pages', 1, 1000, ''],
+        'config_training_media_budget_mb' => ['Media budget', 100, 1048576, ' MB'],
+        'config_training_video_max_mb' => ['Video upload', 1, $tr_cap, ' MB'],
+        'config_training_pdf_max_mb' => ['PDF upload', 1, $tr_cap, ' MB'],
+        'config_training_image_max_mb' => ['Image upload', 1, $tr_cap, ' MB'],
+        'config_training_file_max_mb' => ['Resource file', 1, $tr_cap, ' MB'],
+    ];
+    $tr_bad = [];
+    foreach ($tr_ranges as $tr_f => [$tr_label, $tr_min, $tr_max, $tr_unit]) {
+        if (!isset($_POST[$tr_f])) {
+            continue;
+        }
+        $tr_v = trim((string) $_POST[$tr_f]);
+        if ($tr_v === '' || !preg_match('/^-?\d+$/', $tr_v) || (int) $tr_v < $tr_min || (int) $tr_v > $tr_max) {
+            $tr_bad[] = $tr_label . ' (' . $tr_min . ' to ' . $tr_max . $tr_unit . ')';
+        }
+    }
+    if ($tr_bad) {
+        flash_alert('Nothing was saved. Check: ' . implode(', ', $tr_bad) . '.', 'error');
+        redirect();
+    }
+    unset($tr_cap, $tr_ranges, $tr_bad, $tr_f, $tr_label, $tr_min, $tr_max, $tr_unit, $tr_v);
+
     $tr_out = (new \ITFlow\Training\Settings\SettingsService($mysqli, intval($session_user_id), $session_name))->saveGeneral($_POST, true);
     flash_alert($tr_out['message'], $tr_out['type']);
     redirect();

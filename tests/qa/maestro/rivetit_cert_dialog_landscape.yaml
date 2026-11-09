@@ -1,0 +1,34 @@
+# RIVETIT-ANDROID-004: in landscape the keyboard covered "Trust & Connect" in the certificate dialog.
+# Pass -e CERT_SUFFIX=<last 6 hex chars of the TLS proxy cert SHA-256>.
+appId: com.foleyit.itflow.internal.beta
+env:
+  SERVER_HOST: 10.0.2.2:9443
+  CERT_SUFFIX: 81A13D
+---
+- clearState
+- launchApp:
+    permissions: { all: allow }
+- setOrientation: LANDSCAPE_LEFT
+- waitForAnimationToEnd
+- tapOn:
+    point: 95%,45%
+- eraseText: 40
+- inputText: ${SERVER_HOST}
+- hideKeyboard
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn: Connect
+      - extendedWaitUntil:
+          visible: Untrusted Certificate
+          timeout: 8000
+- tapOn:
+    below: ".*last 6 characters.*"
+- inputText: ${CERT_SUFFIX}
+# The keyboard must have been dismissed so the button is on screen and enabled.
+- assertVisible: "Trust & Connect"
+- tapOn: "Trust & Connect"
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 60000
+- setOrientation: PORTRAIT

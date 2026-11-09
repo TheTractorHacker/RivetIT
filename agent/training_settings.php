@@ -365,13 +365,14 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
     }
     .ts-nav li { flex: 0 0 auto; }
     .ts-nav a {
-        display: flex; align-items: center; gap: .45rem; padding: .45rem .8rem; border-radius: 8px;
-        font-weight: 500; white-space: nowrap; text-decoration: none; color: var(--if-muted, #5d6f76);
+        display: flex; align-items: center; gap: .35rem; padding: .45rem .4rem; border-radius: 8px;
+        font-weight: 500; font-size: .8125rem; white-space: nowrap; text-decoration: none; color: var(--if-muted, #5d6f76);
     }
     .ts-nav a:hover { color: var(--if-ink, #16232a); background: rgba(var(--if-primary-rgb, 13, 148, 136), .06); }
     .ts-nav a:focus-visible { outline: 2px solid var(--if-primary, #0d9488); outline-offset: 1px; }
     .ts-nav a[aria-current="true"] { color: var(--if-primary, #0d9488); background: rgba(var(--if-primary-rgb, 13, 148, 136), .12); }
     .ts-nav a.ts-dirty::after { content: ""; flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--tblr-warning, #f59f00); }
+    .ts-dot { display: inline-block; width: .7rem; height: .7rem; min-width: 0; padding: 0; border-radius: 50%; vertical-align: -1px; }
     .ts-section + .ts-section { margin-top: 2.25rem; }
     .ts-section-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .5rem 1rem;
         margin-bottom: .9rem; padding-bottom: .6rem; border-bottom: 1px solid var(--if-border-strong, #d3dbdc); }
@@ -522,7 +523,7 @@ $ts_update_card = static function (string $title, string $icon, bool $error, str
             <ul class="list-inline small text-muted mb-3">
                 <?php foreach ($tr_usage as $tr_kind => $tr_k) { ?>
                     <li class="list-inline-item me-3">
-                        <span class="badge <?php echo nullable_htmlentities($tr_kind_colors[$tr_kind] ?? 'bg-secondary'); ?> me-1">&nbsp;</span>
+                        <span class="badge ts-dot <?php echo nullable_htmlentities($tr_kind_colors[$tr_kind] ?? 'bg-secondary'); ?> me-1"></span>
                         <?php echo nullable_htmlentities(($tr_kind_labels[$tr_kind] ?? $tr_kind) . ': ' . ts_fmt_bytes($tr_k['bytes']) . ' (' . $tr_k['count'] . ')'); ?>
                     </li>
                 <?php } ?>

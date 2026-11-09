@@ -52,21 +52,22 @@ if ($dead_groups) { $dead_total = array_sum($dead_groups); ?>
         <div class="small">Fix the cause first (for example a webhook URL), then retry them together.</div>
     </div>
     <form action="post.php" method="post" class="m-0"><input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-        <button class="btn btn-danger btn-sm text-nowrap" name="retry_all_failed"><i class="fas fa-redo me-1"></i>Retry all failed</button></form>
+        <button type="submit" class="btn btn-danger btn-sm text-nowrap confirm-link" data-confirm-message="Put every failed job back in the queue to be tried again? Fix the cause first (for example a webhook URL) or they will fail again." name="retry_all_failed"><i class="fas fa-redo me-1"></i>Retry all failed</button></form>
 </div>
 <?php } ?>
 <div class="card mb-3">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+    <div class="card-header py-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
         <h4 class="card-title mb-0">Jobs <?= $filter ? '<small class="text-muted">(' . $h($filter) . ')</small> <a class="small" href="job_queue.php">show all</a>' : '' ?></h4>
-        <form action="post.php" method="post" class="d-flex gap-2">
+        <form action="post.php" method="post" class="d-flex flex-wrap gap-2">
             <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
             <button class="btn btn-primary btn-sm" name="run_job_worker"><i class="fas fa-play me-1"></i>Process jobs now</button>
-            <button class="btn btn-outline-secondary btn-sm" name="purge_completed_jobs" title="Remove completed jobs older than 30 days">Clear old completed</button>
+            <button type="submit" class="btn btn-outline-secondary btn-sm confirm-link" data-confirm-message="Remove completed jobs older than 30 days? This cannot be undone." name="purge_completed_jobs" title="Remove completed jobs older than 30 days">Clear old completed</button>
         </form>
     </div>
     <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+        <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">.qa3-jq th:first-child, .qa3-jq td:first-child { padding-left: 1rem; } .qa3-jq th:last-child, .qa3-jq td:last-child { padding-right: 1rem; }</style>
+        <table class="table table-sm align-middle mb-0 qa3-jq">
+            <thead><tr><th>#</th><th>Type</th><th>Status</th><th>Tries</th><th>Next try</th><th>Error</th><th class="position-relative"><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
             <?php if (!$jobs) { ?><tr><td colspan="7" class="text-center text-muted py-4">No jobs<?= $filter ? ' with this status' : ' yet. Webhook deliveries and event-rule actions appear here' ?>.</td></tr><?php } ?>
             <?php foreach ($jobs as $j) { ?>

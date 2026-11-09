@@ -1,0 +1,179 @@
+[
+ {
+  "role": "portal2",
+  "module": "client",
+  "file": "client/contact_edit.php",
+  "url": "/client/contact_edit.php?id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/contact_edit.php?id=1",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal2",
+  "module": "client",
+  "file": "client/document.php",
+  "url": "/client/document.php?id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/document.php?id=1",
+    "status": 200,
+    "final": "/login.php",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 116,
+    "title": "Summit Ridge Manufacturing | Login",
+    "h1": "",
+    "sheets": 11,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(52, 58, 64)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal2",
+  "module": "client",
+  "file": "client/kb_article.php",
+  "url": "/client/kb_article.php?id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_article.php?id=1",
+    "status": 200,
+    "final": "/client/kb_article.php?id=1",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 2183,
+    "title": "Finance & Accounting Department Portal | Summit Ridge Manufacturing",
+    "h1": "Grace Okafor",
+    "sheets": 14,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [
+     "Applying inline style violates the following Content Security Policy directive 'default-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-PuRj8hIbGF2Xwva4mBDI8U/VgFKNWWY3199lrgJgeqw='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to e"
+    ],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal2",
+  "module": "client",
+  "file": "client/kb_embed.php",
+  "url": "/client/kb_embed.php?id=1",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/kb_embed.php?id=1",
+    "status": 404,
+    "final": "/client/kb_embed.php?id=1",
+    "php_error": null,
+    "hscroll": 0,
+    "js": {
+     "jquery": false,
+     "bootstrap": false
+    },
+    "bodyLen": 9,
+    "title": "",
+    "h1": "",
+    "sheets": 0,
+    "styled": "\"Times New Roman\"|rgba(0, 0, 0, 0)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "shot": "portal2__client_kb_embed_php_id_1.png",
+    "console": [
+     "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageerrors": [],
+    "bad_requests": [
+     "404 GET /client/kb_embed.php?id=1"
+    ],
+    "failed_requests": []
+   }
+  ]
+ },
+ {
+  "role": "portal2",
+  "module": "client",
+  "file": "client/ticket.php",
+  "url": "/client/ticket.php?id=5",
+  "skipped": null,
+  "variants": [
+   {
+    "url": "/client/ticket.php?id=5",
+    "status": 200,
+    "final": "/client/ticket.php?id=5",
+    "php_error": null,
+    "hscroll": -10,
+    "js": {
+     "jquery": true,
+     "bootstrap": true
+    },
+    "bodyLen": 1190,
+    "title": "Finance & Accounting Department Portal | Summit Ridge Manufacturing",
+    "h1": "Grace Okafor",
+    "sheets": 15,
+    "styled": "\"Plex Sans\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif|rgb(238, 242, 242)",
+    "dead_links": [],
+    "dead_anchors": [],
+    "broken_hrefs": [],
+    "tabs": [],
+    "modals": [],
+    "console": [],
+    "pageerrors": [],
+    "bad_requests": [],
+    "failed_requests": []
+   }
+  ]
+ }
+]

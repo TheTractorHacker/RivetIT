@@ -80,6 +80,7 @@ require_once "includes/inc_all_admin.php";
                     <input type="checkbox" class="form-check-input" name="config_client_portal_enable" <?php if ($config_client_portal_enable == 1) { echo "checked"; } ?> value="1" id="customSwitch4">
                     <label class="form-check-label" for="customSwitch4">Enable Department Portal</label>
                 </div>
+                <small class="form-text text-muted">The self-service site where departments and employees sign in to see their tickets, devices, documents and training.</small>
             </div>
 
             <div class="form-group">
@@ -87,7 +88,7 @@ require_once "includes/inc_all_admin.php";
                     <input type="checkbox" class="form-check-input" name="config_module_enable_mcp" value="1" id="customSwitchMcp" <?php if ($config_module_enable_mcp === 1) echo 'checked'; ?> <?php if (!$config_mcp_schema_ready) echo 'disabled'; ?>>
                     <label class="form-check-label" for="customSwitchMcp">Enable Remote MCP <span class="badge bg-warning text-dark ms-2">Experimental</span></label>
                 </div>
-                <small class="form-text text-muted">Optional read-only access for AI clients. Requires an OAuth provider and server configuration. Disabled by default; live OAuth testing is still pending.</small>
+                <small class="form-text text-muted">Optional read-only access for AI clients. Requires an OAuth provider and server configuration. Off by default. Set it up under Remote MCP.</small>
                 <?php if (!$config_mcp_schema_ready) { ?><small class="form-text text-warning">Apply the database update before enabling this module.</small><?php } ?>
             </div>
 

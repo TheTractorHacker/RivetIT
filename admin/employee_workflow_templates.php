@@ -24,13 +24,15 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
     <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Start workflows automatically</h5></div>
     <div class="card-body">
         <p class="text-muted small">When on, a hire, a departure, a new job title or a move to another department raises an <code>employee.hired</code>, <code>employee.terminated</code>, <code>employee.role_changed</code> (new job title) or <code>employee.transferred</code> (new department) event (a contact edit, the people import, or the Microsoft, Google and Odoo directory syncs). An <a href="event_rules.php">event rule</a> with the action &ldquo;Start an employee workflow&rdquo; then starts the template you choose, once per person. Off by default: with it off, nothing is detected and workflows only start when someone starts them.</p>
-        <form action="post.php" method="post" class="d-flex align-items-center gap-3">
+        <form action="post.php" method="post" class="d-flex flex-wrap align-items-end justify-content-between gap-3">
+            <div class="d-flex flex-column gap-2">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_auto_start" value="1" id="lifecycle_auto_start" <?= $lifecycle_on ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_auto_start">Detect hires, departures, role changes and transfers and let event rules start workflows</label></div>
             <?php if ($odoo_ready) { ?>
             <div class="form-check"><input class="form-check-input" type="checkbox" name="lifecycle_odoo_actions" value="1" id="lifecycle_odoo_actions" <?= $odoo_on ? 'checked' : '' ?>><label class="form-check-label" for="lifecycle_odoo_actions">Allow workflows to create / archive employees in Odoo <span class="text-muted">(off by default; Odoo is a live system)</span></label></div>
             <?php } ?>
-            <button type="submit" name="save_lifecycle_settings" class="btn btn-sm btn-primary">Save</button>
+            </div>
+            <button type="submit" name="save_lifecycle_settings" class="btn btn-primary">Save</button>
         </form>
     </div>
 </div>
@@ -56,9 +58,9 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
 <?php } ?>
 
 <div class="card">
-    <div class="card-header py-2">
+    <div class="card-header py-2 flex-wrap gap-2">
         <h3 class="card-title mt-2"><i class="fas fa-fw fa-tasks me-2"></i>Employee Workflow Templates</h3>
-        <div class="card-tools">
+        <div class="card-tools d-flex flex-wrap gap-1">
             <a href="bulk_onboarding.php" class="btn btn-outline-secondary me-1"><i class="fas fa-users me-2"></i>Start for many people</a>
             <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_add.php"><i class="fas fa-plus me-2"></i>New Template</button>
         </div>
@@ -94,13 +96,13 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
                         <td><?= intval($row['task_count']) ?></td>
                         <td><?= $row['is_active'] ? '<span class="text-success">Active</span>' : '<span class="text-muted">Inactive</span>' ?></td>
                         <td class="text-end">
-                            <a href="employee_workflow_template_details.php?id=<?= intval($row['workflow_template_id']) ?>" class="btn btn-sm btn-default"><i class="fas fa-cog"></i></a>
+                            <a href="employee_workflow_template_details.php?id=<?= intval($row['workflow_template_id']) ?>" class="btn btn-sm btn-default" title="Manage tasks" aria-label="Manage tasks"><i class="fas fa-cog"></i></a>
                             <div class="dropdown d-inline-block">
-                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown">
+                                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" title="More actions" aria-label="More actions">
                                     <i class="fas fa-ellipsis-h"></i>
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-end">
-                                    <a class="dropdown-item ajax-modal" href="#"
+                                    <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg"
                                         data-modal-url="modals/employee_workflow/employee_workflow_template_edit.php?id=<?= intval($row['workflow_template_id']) ?>">
                                         <i class="fas fa-fw fa-edit me-2"></i>Edit
                                     </a>

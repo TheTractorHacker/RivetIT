@@ -66,6 +66,7 @@ $admin_settings_labels = [
     'webhook_new.php' => 'Webhooks',
     'webhook_edit.php' => 'Webhooks',
     'settings_ai.php' => 'AI',
+    'ai_model.php' => 'AI models',
     'settings_comet.php' => 'Integrations',
     'comet_status.php' => 'Integrations',
     'settings_rmm.php' => 'Integrations',
@@ -142,6 +143,7 @@ $admin_loose_crumbs = [
     'people_import.php'        => ['Tags & categories', '/admin/catalog_setup.php', 'People import'],
     'bulk_onboarding.php'      => ['Tags & categories', '/admin/catalog_setup.php', 'Start workflows for many people'],
     'portal_users.php'         => ['All settings', '/admin/settings.php', 'Department logins'],
+    'quality.php'              => ['All settings', '/admin/settings.php', 'Quality'],
 ];
 if (empty($admin_area_crumb_done) && !isset($admin_settings_labels[$admin_settings_page]) && isset($admin_loose_crumbs[$admin_settings_page])) {
     [$loose_parent, $loose_url, $loose_label] = $admin_loose_crumbs[$admin_settings_page]; ?>

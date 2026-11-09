@@ -152,7 +152,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <div class="col-sm-2">
                     <div class="form-group">
                         <select class="form-control select2 auto-submit-select" name="billable">
-                            <option value="">Billable Status</option>
+                            <option value="">All Billing</option>
                             <option <?php if ($billable_filter == 1) { echo "selected"; } ?> value="1">Billable</option>
                             <option <?php if ($billable_filter == 0) { echo "selected"; } ?> value="0">Non-Billable</option>
                         </select>
@@ -166,8 +166,8 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <i class="fas fa-fw fa-layer-group me-2"></i>Bulk Action (<span id="selectedCount">0</span>)
                             </button>
                             <div class="dropdown-menu">
-                                <button class="dropdown-item confirm-link" type="submit" form="bulkActions" name="bulk_force_recurring_tickets">
-                                    <i class="fas fa-fw fa-paper-plane me-2"></i>Force Reoccur
+                                <button class="dropdown-item confirm-link" data-confirm-message="Create a ticket now from each selected recurring ticket? Their next run dates move forward as usual." type="submit" form="bulkActions" name="bulk_force_recurring_tickets">
+                                    <i class="fas fa-fw fa-paper-plane me-2"></i>Create Tickets Now
                                 </button>
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item ajax-modal" href="#"
@@ -287,9 +287,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $recurring_ticket_next_run = nullable_htmlentities($row['recurring_ticket_next_run']);
                             $recurring_ticket_billable = intval($row['recurring_ticket_billable']);
                             if ($recurring_ticket_billable) {
-                                $recurring_ticket_billable_display = "<i class='fas fa-fw fa-check text-success'></i>";
+                                $recurring_ticket_billable_display = "<i class='fas fa-fw fa-check text-success' title='Billable' aria-label='Billable'></i>";
                             } else {
-                                $recurring_ticket_billable_display = "-";
+                                $recurring_ticket_billable_display = "<span class='text-secondary' title='Not billable'>No</span>";
                             }
                             $recurring_ticket_category = getFallBack(nullable_htmlentities($row['category_name']));
                             $recurring_ticket_client_name = nullable_htmlentities($row['client_name']);
@@ -325,7 +325,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <td><?= $recurring_ticket_priority ?></td>
                                 <td><?= $recurring_ticket_frequency ?></td>
                                 <td class="text-center"><?= $recurring_ticket_billable_display ?></td>
-                                <td><?= $assigned_to ?></td>
+                                <td class="text-nowrap"><?= $assigned_to ?></td>
                                 <?php if (!$client_url) { ?>
                                 <td><a href="recurring_tickets.php?client_id=<?= $recurring_ticket_client_id ?>"><?= $recurring_ticket_client_name ?></a>
                                 </td>
@@ -334,7 +334,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <?php if (lookupUserPermission("module_support") >= 2) { ?>
                                     <td>
                                         <div class="dropdown dropleft text-center">
-                                            <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" data-boundary="window">
+                                            <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-label="Actions" title="Actions" data-boundary="window">
                                                 <i class="fas fa-ellipsis-h"></i>
                                             </button>
                                             <div class="dropdown-menu">
@@ -344,12 +344,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                     <i class="fas fa-fw fa-edit me-2"></i>Edit
                                                 </a>
                                                 <div class="dropdown-divider"></div>
-                                                <a class="dropdown-item" href="post.php?force_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
-                                                    <i class="fa fa-fw fa-paper-plane text-secondary me-2"></i>Force Reoccur
+                                                <a class="dropdown-item confirm-link" data-confirm-message="Create a ticket now from this recurring ticket? Its next run date moves forward as usual." href="post.php?force_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                                    <i class="fa fa-fw fa-paper-plane text-secondary me-2"></i>Create Ticket Now
                                                 </a>
                                                 <?php if (lookupUserPermission("module_support") == 3) { ?>
                                                     <div class="dropdown-divider"></div>
-                                                    <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                                    <a class="dropdown-item text-danger text-bold confirm-link" data-confirm-message="Delete this recurring ticket? Tickets it already created are kept." href="post.php?delete_recurring_ticket=<?= $recurring_ticket_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                                     </a>
                                                 <?php } ?>

@@ -24,6 +24,17 @@ if (isset($_POST['add_project'])) {
         enforceClientAccess();
     }
 
+    // A project needs a due date, and it cannot fall before the start date. Checked before a project number is used up.
+    $project_start_check = trim((string) ($_POST['start_date'] ?? ''));
+    if ($due_date === '') {
+        flash_alert("A due date is required to create a project. Nothing was saved.", 'error');
+        redirect();
+    }
+    if ($project_start_check !== '' && $due_date < $project_start_check) {
+        flash_alert("The due date cannot be before the start date. Nothing was saved.", 'error');
+        redirect();
+    }
+
     // Sanitize Project Prefix
     $config_project_prefix = sanitizeInput($config_project_prefix);
 
@@ -182,7 +193,7 @@ if (isset($_POST['add_project'])) {
 
     logAction("Project", "Create", "$session_name created project $project_name", $client_id, $project_id);
 
-    flash_alert("You created Project <strong>$project_name</strong>");
+    flash_alert("You created Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong>");
 
     redirect();
 
@@ -220,6 +231,11 @@ if (isset($_POST['edit_project'])) {
         enforceClientAccess($client_id);
     }
 
+    if (trim((string) ($_POST['start_date'] ?? '')) !== '' && $due_date !== '' && $due_date < trim((string) $_POST['start_date'])) {
+        flash_alert("The due date cannot be before the start date. Nothing was saved.", 'error');
+        redirect();
+    }
+
     // Optional planning/budget fields
     $project_start = sanitizeInput($_POST['start_date'] ?? '');
     $project_estimated_hours = floatval($_POST['estimated_hours'] ?? 0);
@@ -234,7 +250,7 @@ if (isset($_POST['edit_project'])) {
 
     logAction("Project", "Edit", "$session_name edited project $project_name", $client_id, $project_id);
 
-    flash_alert("Project <strong>$project_name</strong> edited");
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> edited");
 
     redirect();
 
@@ -263,7 +279,39 @@ if (isset($_GET['close_project'])) {
 
     logAction("Project", "Close", "$session_name closed project $project_name", $client_id, $project_id);
 
-    flash_alert("Project <strong>$project_name</strong> closed");
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> closed");
+
+    redirect();
+
+}
+
+if (isset($_GET['reopen_project'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    enforceUserPermission('module_support', 2);
+
+    $project_id = intval($_GET['reopen_project']);
+
+    $sql = mysqli_query($mysqli, "SELECT project_name, project_client_id FROM projects WHERE project_id = $project_id");
+    $row = mysqli_fetch_assoc($sql);
+    if (!$row) {
+        flash_alert("That project no longer exists", 'error');
+        redirect("projects.php");
+    }
+    $project_name = sanitizeInput($row['project_name']);
+    $client_id = intval($row['project_client_id']);
+
+    // Same department check as closing a project
+    if ($client_id) {
+        enforceClientAccess($client_id);
+    }
+
+    mysqli_query($mysqli, "UPDATE projects SET project_completed_at = NULL WHERE project_id = $project_id AND project_archived_at IS NULL");
+
+    logAction("Project", "Edit", "$session_name reopened project $project_name", $client_id, $project_id);
+
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> reopened");
 
     redirect();
 
@@ -292,7 +340,7 @@ if (isset($_GET['archive_project'])) {
 
     logAction("Project", "Archive", "$session_name archived project $project_name", $client_id, $project_id);
 
-    flash_alert("Project <strong>$project_name</strong> archived", 'error');
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> archived", 'error');
 
     redirect();
 
@@ -321,7 +369,7 @@ if (isset($_GET['restore_project'])) {
 
     logAction("Project", "Restore", "$session_name restored project $project_name", $client_id, $project_id);
 
-    flash_alert("Project <strong>$project_name</strong> restored");
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> restored");
 
     redirect();
 
@@ -355,7 +403,7 @@ if (isset($_GET['delete_project'])) {
 
     logAction("Project", "Delete", "$session_name deleted project $project_name", $client_id, $project_id);
 
-    flash_alert("Project <strong>$project_name</strong> Deleted", 'error');
+    flash_alert("Project <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong> Deleted", 'error');
 
     redirect();
 
@@ -404,7 +452,7 @@ if (isset($_POST['link_ticket_to_project'])) {
 
         logAction("Project", "Bulk Edit", "$session_name added $count ticket(s) to project $project_name", $client_id, $project_id);
 
-        flash_alert("<strong>$count</strong> Ticket(s) added to <strong>$project_name</strong>");
+        flash_alert("<strong>$count</strong> Ticket(s) added to <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong>");
     }
 
     redirect();
@@ -461,7 +509,7 @@ if (isset($_POST['link_closed_ticket_to_project'])) {
 
     logAction("Project", "Edit", "$session_name added ticket $ticket_prefix$ticket_number - $ticket_subject to project $project_name", $client_id, $project_id);
 
-    flash_alert("Ticket added to <strong>$project_name</strong>");
+    flash_alert("Ticket added to <strong>" . htmlspecialchars(stripslashes($project_name), ENT_QUOTES) . "</strong>");
 
     redirect();
 
@@ -493,7 +541,7 @@ if (isset($_POST['add_milestone'])) {
 
     logAction("Project", "Edit", "$session_name added milestone $milestone_name", $client_id, $project_id);
 
-    flash_alert("Milestone <strong>$milestone_name</strong> created");
+    flash_alert("Milestone <strong>" . htmlspecialchars(stripslashes($milestone_name), ENT_QUOTES) . "</strong> created");
 
     redirect();
 
@@ -525,7 +573,7 @@ if (isset($_POST['edit_milestone'])) {
 
     logAction("Project", "Edit", "$session_name edited milestone $milestone_name", $client_id, $project_id);
 
-    flash_alert("Milestone <strong>$milestone_name</strong> edited");
+    flash_alert("Milestone <strong>" . htmlspecialchars(stripslashes($milestone_name), ENT_QUOTES) . "</strong> edited");
 
     redirect();
 
@@ -552,11 +600,11 @@ if (isset($_GET['toggle_milestone'])) {
     if ($milestone_status == 'completed') {
         mysqli_query($mysqli, "UPDATE project_milestones SET milestone_status = 'open', milestone_completed_at = NULL WHERE milestone_id = $milestone_id");
         logAction("Project", "Edit", "$session_name reopened milestone $milestone_name", $client_id, $project_id);
-        flash_alert("Milestone <strong>$milestone_name</strong> reopened");
+        flash_alert("Milestone <strong>" . htmlspecialchars(stripslashes($milestone_name), ENT_QUOTES) . "</strong> reopened");
     } else {
         mysqli_query($mysqli, "UPDATE project_milestones SET milestone_status = 'completed', milestone_completed_at = NOW() WHERE milestone_id = $milestone_id");
         logAction("Project", "Edit", "$session_name completed milestone $milestone_name", $client_id, $project_id);
-        flash_alert("Milestone <strong>$milestone_name</strong> completed");
+        flash_alert("Milestone <strong>" . htmlspecialchars(stripslashes($milestone_name), ENT_QUOTES) . "</strong> completed");
     }
 
     redirect();
@@ -587,7 +635,7 @@ if (isset($_GET['delete_milestone'])) {
 
     logAction("Project", "Delete", "$session_name deleted milestone $milestone_name", $client_id, $project_id);
 
-    flash_alert("Milestone <strong>$milestone_name</strong> deleted", 'error');
+    flash_alert("Milestone <strong>" . htmlspecialchars(stripslashes($milestone_name), ENT_QUOTES) . "</strong> deleted", 'error');
 
     redirect();
 

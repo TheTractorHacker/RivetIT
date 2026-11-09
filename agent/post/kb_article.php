@@ -1128,13 +1128,14 @@ if (isset($_GET['delete_kb_article'])) {
         enforceClientAccess($kb_article_client_id);
     }
 
-    $kb_article_title = sanitizeInput(getFieldById('kb_articles', $kb_article_id, 'kb_article_title'));
+    $kb_article_title = getFieldById('kb_articles', $kb_article_id, 'kb_article_title'); // already SQL-escaped by getFieldById
+    $kb_article_title_html = nullable_htmlentities(stripslashes((string) $kb_article_title));
 
     mysqli_query($mysqli, "UPDATE kb_articles SET kb_article_archived_at = NOW() WHERE kb_article_id = $kb_article_id");
 
     logAction("Knowledge Base", "Delete", "$session_name deleted KB article: $kb_article_title");
 
-    flash_alert("Knowledge Base article <strong>$kb_article_title</strong> deleted", 'error');
+    flash_alert("Knowledge Base article <strong>$kb_article_title_html</strong> deleted", 'error');
 
     redirect();
 
