@@ -30,6 +30,18 @@ function rivetRmmHvH($v): string
     return nullable_htmlentities((string) $v);
 }
 
+/** "5 min ago" as plain text (for a KPI value); "never" when nothing has been collected. */
+function rivetRmmHvAgo(?string $iso): string
+{
+    $t = $iso === null || $iso === '' ? false : strtotime($iso);
+    if ($t === false) {
+        return 'never';
+    }
+    $d = max(0, time() - $t);
+
+    return $d < 60 ? 'just now' : ($d < 3600 ? intdiv($d, 60) . ' min ago' : ($d < 86400 ? intdiv($d, 3600) . ' h ago' : intdiv($d, 86400) . ' d ago'));
+}
+
 /** Status pill kind for a VM/host state word. */
 function rivetRmmHvStateKind(string $state): string
 {
@@ -172,68 +184,106 @@ function rivetRmmHvHostPage(array $vm, array $ctx): string
 {
     $h = 'rivetRmmHvH';
     if ($vm['error'] !== '') {
-        return rivetRmmAutoHeader('Hypervisor host', 'server') . '<div class="alert alert-warning" role="alert">' . $h($vm['error']) . ' <a href="rmm_hypervisors.php">Back to hosts</a></div>';
+        return rmmxHead('server', 'Hypervisor host') . '<div class="alert alert-warning" role="alert">' . $h($vm['error']) . ' <a href="rmm_hypervisors.php">Back to hosts</a></div>';
     }
     $hst = $vm['host'];
     $csrf = (string) $ctx['csrf'];
     $can = !empty($ctx['perm']['admin']) || !empty($ctx['perm']['manage']);
-    $acts = $can ? rivetRmmAutoActionForm(RIVET_RMM_HV_HANDLER, $hst['ignored'] ? 'unignore_host' : 'ignore_host', ['device_id' => $hst['device_id']], $csrf, '/agent/rmm_hypervisors.php?host_id=' . (int) $hst['device_id'],
-        $hst['ignored'] ? '<i class="fas fa-eye me-1" aria-hidden="true"></i>Stop ignoring' : '<i class="fas fa-eye-slash me-1" aria-hidden="true"></i>Ignore this host', 'btn btn-sm btn-outline-secondary',
-        $hst['ignored'] ? '' : 'Stop storing what "' . $hst['hostname'] . '" reports? Its VMs and storage are kept but no longer updated.') : '';
-    $o = rivetRmmAutoHeader($hst['hostname'], 'server', $acts, ($hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V') . ' ' . $hst['version'] . '.'
-        . ($hst['cluster'] !== null ? ' Cluster "' . $hst['cluster']['name'] . '"' . ($hst['cluster']['quorate'] === false ? ', no quorum.' : ', quorate.') : ' Standalone.'));
-    $o .= '<p class="small"><a href="rmm_hypervisors.php">&larr; All hosts</a>'
-        . ($hst['asset_id'] !== null ? ' &middot; <a href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&asset_id=' . (int) $hst['asset_id'] . '"><i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Open the asset</a>' : '') . '</p>';
+    $acts = '<a class="btn btn-sm btn-outline-secondary" href="rmm_hypervisors.php"><i class="fas fa-arrow-left me-1" aria-hidden="true"></i>All hosts</a>'
+        . ($hst['asset_id'] !== null ? '<a class="btn btn-sm btn-outline-secondary" href="/agent/asset_details.php?client_id=' . (int) $hst['client_id'] . '&amp;asset_id=' . (int) $hst['asset_id'] . '"><i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Open the asset</a>' : '')
+        . ($can ? rivetRmmAutoActionForm(RIVET_RMM_HV_HANDLER, $hst['ignored'] ? 'unignore_host' : 'ignore_host', ['device_id' => $hst['device_id']], $csrf, '/agent/rmm_hypervisors.php?host_id=' . (int) $hst['device_id'],
+            $hst['ignored'] ? '<i class="fas fa-eye me-1" aria-hidden="true"></i>Stop ignoring' : '<i class="fas fa-eye-slash me-1" aria-hidden="true"></i>Ignore this host', 'btn btn-sm btn-outline-secondary',
+            $hst['ignored'] ? '' : 'Stop storing what "' . $hst['hostname'] . '" reports? Its VMs and storage are kept but no longer updated.') : '');
+    $platformName = $hst['platform'] === 'proxmox' ? 'Proxmox VE' : 'Hyper-V';
+    $o = rmmxHead($hst['platform'] === 'proxmox' ? 'fa-server' : 'fa-desktop', $hst['hostname'], $platformName . ' ' . $hst['version'] . '.'
+        . ($hst['cluster'] !== null ? ' Cluster "' . $hst['cluster']['name'] . '"' . ($hst['cluster']['quorate'] === false ? ', no quorum.' : ', quorate.') : ' Standalone.'), $acts);
 
-    // Cluster membership (Proxmox only - Hyper-V failover clustering isn't collected): the node list is already
-    // gathered (pvesh cluster status) but was going entirely unused until now, visible only as a name + quorum pill.
+    // What the collector said went wrong on this host, in words, above everything else.
+    if (($hst['error'] ?? '') !== '') {
+        $o .= '<div class="alert alert-warning d-flex align-items-start gap-2" role="alert"><i class="fas fa-exclamation-triangle mt-1" aria-hidden="true"></i><div><strong>The collector reported a problem on this host.</strong> '
+            . $h($hst['error']) . '</div></div>';
+    } elseif (!empty($hst['stale'])) {
+        $o .= '<div class="alert alert-warning d-flex align-items-start gap-2" role="alert"><i class="fas fa-clock mt-1" aria-hidden="true"></i><div><strong>This host has not reported recently.</strong> What follows is the last good report.</div></div>';
+    }
+
+    // At a glance: the four things asked first. Counts come from the host summary (the VM table below may be filtered).
+    $vmCount = (int) ($hst['vm_count'] ?? count($hst['vms']));
+    $vmRunning = (int) ($hst['vms_running'] ?? 0);
+    $stoCount = (int) ($hst['storages'] ?? count($hst['storage']));
+    $stoBad = (int) ($hst['storages_unhealthy'] ?? 0);
+    $nodes = $hst['cluster'] !== null ? $hst['cluster']['nodes'] : [];
+    $nodesUp = count(array_filter($nodes, static fn ($n): bool => !empty($n['online'])));
+    $kpis = [
+        ['icon' => 'fa-cubes', 'label' => 'Virtual machines', 'value' => $vmRunning . ' / ' . $vmCount, 'sub' => $vmCount > 0 ? 'running' . ((int) ($hst['templates'] ?? 0) > 0 ? ', ' . (int) $hst['templates'] . ' template' . ((int) $hst['templates'] === 1 ? '' : 's') : '') : 'none reported', 'tone' => 'neutral'],
+        ['icon' => 'fa-hdd', 'label' => 'Storage', 'value' => $stoBad > 0 ? $stoBad . ' of ' . $stoCount : (string) $stoCount, 'sub' => $stoBad > 0 ? 'need attention' : 'all healthy', 'tone' => $stoBad > 0 ? 'warn' : 'ok'],
+    ];
+    if ($hst['cluster'] !== null) {
+        $kpis[] = ['icon' => 'fa-sitemap', 'label' => 'Cluster', 'value' => $nodesUp . ' / ' . count($nodes), 'sub' => $hst['cluster']['quorate'] === false ? 'nodes online, no quorum' : 'nodes online, quorate', 'tone' => $hst['cluster']['quorate'] === false || $nodesUp < count($nodes) ? 'danger' : 'ok'];
+    }
+    $kpis[] = ['icon' => 'fa-sync-alt', 'label' => 'Last report', 'value' => rivetRmmHvAgo($hst['last_collected_at'] ?? null), 'sub' => !empty($hst['stale']) ? 'stale' : 'up to date', 'tone' => !empty($hst['stale']) ? 'warn' : 'ok'];
+    $o .= rmmxKpiGrid($kpis);
+
+    // Cluster membership (Proxmox only - Hyper-V failover clustering isn't collected).
     if ($hst['cluster'] !== null) {
         $nrows = '';
-        foreach ($hst['cluster']['nodes'] as $n) {
+        foreach ($nodes as $n) {
             $nname = (string) ($n['name'] ?? '');
             $isThis = strcasecmp($nname, $hst['hostname']) === 0;
-            $nrows .= '<tr' . ($isThis ? ' class="table-active"' : '') . '><td class="ps-3">' . $h($nname) . ($isThis ? ' <span class="small text-muted">(this host)</span>' : '') . '</td>'
+            $nrows .= '<tr><td>' . $h($nname) . ($isThis ? ' <span class="rmmx-tag">this host</span>' : '') . '</td>'
                 . '<td>' . rivetRmmUiPill(!empty($n['online']) ? 'ok' : 'crit', !empty($n['online']) ? 'Online' : 'Offline') . '</td></tr>';
         }
-        $clusterBody = '<p class="small text-muted px-3 pt-2 mb-2">' . (int) count($hst['cluster']['nodes']) . ' node' . (count($hst['cluster']['nodes']) === 1 ? '' : 's')
-            . ($hst['cluster']['quorate'] === false ? ', <span class="text-danger">no quorum</span>' : ($hst['cluster']['quorate'] === true ? ', quorate' : ''))
-            . ($hst['cluster']['failed_groups'] > 0 ? ', ' . (int) $hst['cluster']['failed_groups'] . ' failed HA group' . ($hst['cluster']['failed_groups'] === 1 ? '' : 's') : '') . '.</p>'
-            . ($nrows === '' ? '' : '<div class="table-responsive"><table class="table table-sm mb-0">' . rivetRmmUiThead(['Node', 'Status']) . '<tbody>' . $nrows . '</tbody></table></div>');
-        $o .= rivetRmmUiCard('Cluster "' . $h($hst['cluster']['name']) . '"', 'sitemap', $clusterBody, $hst['cluster']['quorate'] === false ? 'danger' : '', '', true);
+        $meta = (int) count($nodes) . ' node' . (count($nodes) === 1 ? '' : 's')
+            . ($hst['cluster']['quorate'] === false ? ', no quorum' : ($hst['cluster']['quorate'] === true ? ', quorate' : ''))
+            . ($hst['cluster']['failed_groups'] > 0 ? ', ' . (int) $hst['cluster']['failed_groups'] . ' failed HA group' . ($hst['cluster']['failed_groups'] === 1 ? '' : 's') : '');
+        $o .= '<div class="rmmx-card"><div class="rmmx-card-head"><i class="fas fa-sitemap text-secondary" aria-hidden="true"></i>Cluster &ldquo;' . $h($hst['cluster']['name']) . '&rdquo;<span class="rmmx-card-meta">' . $h($meta) . '</span></div>'
+            . ($nrows === '' ? rmmxEmpty('fa-sitemap', 'No node list reported') : '<div class="rmmx-scroll"><table class="rmmx-table hvx-table"><caption class="visually-hidden">Cluster nodes</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th></tr></thead><tbody>' . $nrows . '</tbody></table></div>')
+            . '</div>';
     }
 
-    // Storage
+    // Storage, with how full each one is.
     $srows = '';
     foreach ($hst['storage'] as $s) {
-        $srows .= '<tr><td class="ps-3">' . $h($s['name']) . ($s['shared'] ? ' <span class="badge bg-secondary-lt text-secondary">shared</span>' : '') . '</td><td>' . $h($s['type']) . '</td>'
-            . '<td>' . ($s['used_pct'] === null ? '<span class="text-muted small">unsized</span>' : $s['used_pct'] . '%') . '</td>'
+        $pct = $s['used_pct'] === null ? null : max(0, min(100, (int) $s['used_pct']));
+        $meter = $pct === null ? '<span class="text-muted">unsized</span>'
+            : '<div class="rmmx-ratio" title="' . $pct . '% used"><span class="rmmx-num">' . $pct . '%</span><span class="rmmx-meter" aria-hidden="true"><span style="width:' . $pct . '%' . ($pct >= 90 ? ';background:#c2272d' : ($pct >= 75 ? ';background:#d9822b' : '')) . '"></span></span></div>';
+        $srows .= '<tr><td class="fw-semibold">' . $h($s['name']) . ($s['shared'] ? ' <span class="rmmx-tag">shared</span>' : '') . '</td><td>' . $h($s['type']) . '</td><td>' . $meter . '</td>'
             . '<td>' . rivetRmmUiPill(['ok' => 'ok', 'warn' => 'warn', 'error' => 'crit'][$s['health']] ?? 'off', ucfirst($s['health'])) . '</td></tr>';
     }
-    $o .= rivetRmmUiCard('Storage', 'hdd', $hst['storage'] === [] ? rivetRmmUiEmpty('fas fa-hdd', 'No storage reported') :
-        '<div class="table-responsive"><table class="table table-sm mb-0">' . rivetRmmUiThead(['Name', 'Type', 'Used', 'Health']) . '<tbody>' . $srows . '</tbody></table></div>', '', '', true);
+    $o .= '<div class="rmmx-card"><div class="rmmx-card-head"><i class="fas fa-hdd text-secondary" aria-hidden="true"></i>Storage<span class="rmmx-card-meta">' . $stoCount . ' &middot; ' . ($stoBad > 0 ? $stoBad . ' need attention' : 'all healthy') . '</span></div>'
+        . ($hst['storage'] === [] ? rmmxEmpty('fa-hdd', 'No storage reported') : '<div class="rmmx-scroll"><table class="rmmx-table hvx-table"><caption class="visually-hidden">Storage</caption><thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Used</th><th scope="col">Health</th></tr></thead><tbody>' . $srows . '</tbody></table></div>')
+        . '</div>';
 
-    // VM filters + table
-    $o .= '<form method="get" class="row g-2 align-items-end mb-2 mt-3"><input type="hidden" name="host_id" value="' . (int) $hst['device_id'] . '">'
-        . '<div class="col-auto"><label class="form-label small mb-1" for="hv-vm-q">Search VMs</label><input class="form-control form-control-sm" id="hv-vm-q" name="q" value="' . $h($_GET['q'] ?? '') . '"></div>'
-        . '<div class="col-auto"><label class="form-label small mb-1" for="hv-vm-state">State</label><select class="form-select form-select-sm" id="hv-vm-state" name="state"><option value="">Any</option>'
-        . implode('', array_map(static fn (string $s): string => '<option value="' . $s . '"' . (($_GET['state'] ?? '') === $s ? ' selected' : '') . '>' . ucfirst($s) . '</option>', ['running', 'stopped', 'paused', 'suspended', 'transitioning', 'error', 'unknown']))
-        . '</select></div>'
-        . '<div class="col-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button></div></form>';
+    // VMs: the filter sits in the card header, one aligned row.
+    $stateOpts = implode('', array_map(static fn (string $st): string => '<option value="' . $st . '"' . (($_GET['state'] ?? '') === $st ? ' selected' : '') . '>' . ucfirst($st) . '</option>', ['running', 'stopped', 'paused', 'suspended', 'transitioning', 'error']));
+    $filter = '<form method="get" class="hvx-filter" role="search" aria-label="Filter virtual machines"><input type="hidden" name="host_id" value="' . (int) $hst['device_id'] . '">'
+        . '<input class="form-control form-control-sm" type="search" name="q" value="' . $h($_GET['q'] ?? '') . '" placeholder="Search VMs" aria-label="Search VMs">'
+        . '<select class="form-select form-select-sm" name="state" aria-label="State" data-searchable="0"><option value="">Any state</option>' . $stateOpts . '</select>'
+        . '<button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-filter me-1" aria-hidden="true"></i>Filter</button>'
+        . (($_GET['q'] ?? '') !== '' || ($_GET['state'] ?? '') !== '' ? '<a class="btn btn-sm btn-outline-secondary" href="?host_id=' . (int) $hst['device_id'] . '">Reset</a>' : '') . '</form>';
     $vrows = '';
     foreach ($hst['vms'] as $v) {
-        $vrows .= '<tr' . ($v['ignored'] ? ' class="rmm-dim"' : '') . '><td class="ps-3"><a href="?host_id=' . (int) $hst['device_id'] . '&vm_id=' . (int) $v['vm_id'] . '">' . $h($v['name']) . '</a>'
-            . ($v['template'] ? ' <span class="badge bg-secondary-lt text-secondary">template</span>' : '') . ($v['ignored'] ? ' ' . rivetRmmUiPill('off', 'Ignored') : '') . '</td>'
+        $bk = $v['last_backup'] === null ? '<span class="text-muted">No backup</span>' : rivetRmmUiPill($v['last_backup']['result'] === 'ok' ? 'ok' : 'warn', ucfirst($v['last_backup']['result']));
+        $vrows .= '<tr' . ($v['ignored'] ? ' class="rmm-dim"' : '') . '><td><a class="fw-semibold" href="?host_id=' . (int) $hst['device_id'] . '&amp;vm_id=' . (int) $v['vm_id'] . '">' . $h($v['name']) . '</a>'
+            . ($v['template'] ? ' <span class="rmmx-tag">template</span>' : '') . ($v['ignored'] ? ' ' . rivetRmmUiPill('off', 'Ignored') : '') . '</td>'
             . '<td>' . $h(strtoupper($v['type'])) . '</td>'
             . '<td>' . rivetRmmUiPill(rivetRmmHvStateKind($v['state']), ucfirst($v['state'])) . '</td>'
-            . '<td>' . ($v['cpu_pct'] === null ? '<span class="text-muted small">&mdash;</span>' : round($v['cpu_pct'], 1) . '%') . '</td>'
-            . '<td>' . ($v['mem_bytes'] === null ? '<span class="text-muted small">&mdash;</span>' : rivetRmmUiBytes((float) $v['mem_bytes'])) . '</td>'
-            . '<td>' . ($v['last_backup'] === null ? '<span class="text-muted small">none</span>' : rivetRmmUiPill($v['last_backup']['result'] === 'ok' ? 'ok' : 'warn', ucfirst($v['last_backup']['result']))) . '</td>'
-            . '<td class="small text-muted">' . $h($v['node']) . '</td></tr>';
+            . '<td class="rmmx-num text-end">' . ($v['cpu_pct'] === null ? '<span class="text-muted">&mdash;</span>' : round($v['cpu_pct'], 1) . '%') . '</td>'
+            . '<td class="rmmx-num text-end">' . ($v['mem_bytes'] === null ? '<span class="text-muted">&mdash;</span>' : rivetRmmUiBytes((float) $v['mem_bytes'])) . '</td>'
+            . '<td>' . $bk . '</td>'
+            . '<td>' . $h($v['node']) . '</td></tr>';
     }
-    $o .= rivetRmmUiCard('Virtual machines', 'desktop', $hst['vms'] === [] ? rivetRmmUiEmpty('fas fa-desktop', 'No VM matches') :
-        '<div class="table-responsive"><table class="table table-sm table-hover mb-0">' . rivetRmmUiThead(['VM', 'Type', 'State', 'CPU', 'Memory', 'Last backup', 'Node']) . '<tbody>' . $vrows . '</tbody></table></div>', '', '', true);
+    $o .= '<div class="rmmx-card"><div class="rmmx-card-head hvx-vmhead"><span><i class="fas fa-desktop text-secondary me-2" aria-hidden="true"></i>Virtual machines</span>' . $filter . '</div>'
+        . ($hst['vms'] === [] ? rmmxEmpty('fa-desktop', 'No VM matches', 'Try a different search or state.')
+            : '<div class="rmmx-scroll"><table class="rmmx-table hvx-table hvx-vms"><caption class="visually-hidden">Virtual machines</caption><thead><tr><th scope="col">VM</th><th scope="col">Type</th><th scope="col">State</th><th scope="col" class="text-end">CPU</th><th scope="col" class="text-end">Memory</th><th scope="col">Last backup</th><th scope="col">Node</th></tr></thead><tbody>' . $vrows . '</tbody></table></div>')
+        . '</div>';
 
-    return $o;
+    return '<style nonce="' . $h($GLOBALS['csp_nonce'] ?? '') . '">'
+        . '.hvx-table{min-width:0}.hvx-table tbody td{height:3rem}'
+        . '.hvx-vmhead{flex-wrap:wrap}.hvx-filter{margin-left:auto;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-weight:400}'
+        . '.hvx-filter .form-control{width:13rem}.hvx-filter .form-select{width:9.5rem}'
+        . '.hvx-table .rmmx-ratio{min-width:7rem;max-width:12rem}'
+        . '@media (max-width:575.98px){.hvx-filter{margin-left:0;width:100%}.hvx-filter .form-control{flex:1 1 100%;width:auto}}'
+        . '</style>' . $o;
 }
 
 // ------------------------------------------------------------------ one VM
