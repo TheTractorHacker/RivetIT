@@ -99,7 +99,7 @@ if ($f['group'] !== '') {
 
 <?= rmmxKpiGrid([
     ['icon' => 'fa-exclamation-circle', 'label' => 'New alerts', 'value' => $tot['new'], 'sub' => 'Open, not yet acknowledged', 'tone' => 'danger', 'href' => $url(['status' => 'new']), 'active' => $f['status'] === 'new', 'title' => 'Show new alerts'],
-    ['icon' => 'fa-fire', 'label' => 'Critical + error open', 'value' => $tot['crit_open'], 'sub' => 'Needs action now', 'tone' => 'danger', 'href' => $url(['status' => 'new', 'severity' => 'critical']), 'active' => $f['severity'] === 'critical', 'title' => 'Show open critical alerts'],
+    ['icon' => 'fa-fire', 'label' => 'Critical + error open', 'value' => $tot['crit_open'], 'sub' => 'Needs action now', 'tone' => 'danger', 'href' => $url(['status' => 'new', 'severity' => 'critical']), 'active' => $f['status'] === 'new' && $f['severity'] === 'critical', 'title' => 'Show open critical alerts'],
     ['icon' => 'fa-eye', 'label' => 'Acknowledged', 'value' => $tot['acknowledged'], 'sub' => 'Someone is on it', 'tone' => 'warn', 'href' => $url(['status' => 'acknowledged']), 'active' => $f['status'] === 'acknowledged', 'title' => 'Show acknowledged alerts'],
     ['icon' => 'fa-check-circle', 'label' => 'Resolved', 'value' => $tot['resolved'], 'sub' => 'Closed', 'tone' => 'ok', 'href' => $url(['status' => 'resolved']), 'active' => $f['status'] === 'resolved', 'title' => 'Show resolved alerts'],
 ]) ?>
