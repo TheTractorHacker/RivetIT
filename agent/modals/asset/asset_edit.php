@@ -131,13 +131,13 @@ ob_start();
 
             <div class="tab-pane fade show active" id="pills-details">
                 <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                    #pills-details{display:grid;grid-template-columns:1fr 1fr;column-gap:1rem;align-items:start}
+                    #pills-details.active{display:grid;grid-template-columns:1fr 1fr;column-gap:1rem;align-items:start}
                     #pills-details>*{grid-column:1/-1}
                     #pills-details>.asset-f-type,#pills-details>.asset-f-name,#pills-details>.asset-f-make,#pills-details>.asset-f-model,#pills-details>.asset-f-serial,#pills-details>.asset-f-tag,#pills-details>.asset-f-pin,#pills-details>.asset-f-os{grid-column:auto}
                     #pills-details>.asset-f-type{order:1}#pills-details>.asset-f-name{order:2}#pills-details>.asset-f-make{order:3}#pills-details>.asset-f-model{order:4}
                     #pills-details>.asset-f-serial{order:5}#pills-details>.asset-f-tag{order:6}#pills-details>.asset-f-os{order:7}#pills-details>.asset-f-pin{order:8}
                     #pills-details>.asset-f-desc{order:9}#pills-details>:not(.asset-f){order:10}
-                    @media (max-width:575.98px){#pills-details{display:block}}
+                    @media (max-width:575.98px){#pills-details.active{display:block}}
                 </style>
 
 
