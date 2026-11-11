@@ -606,6 +606,7 @@ if ($method === 'POST' && $id === null) {
     $assigned = resolveTicketAssignee(isset($body['assigned_to']) ? intval($body['assigned_to']) : 0);
     $contact  = isset($body['contact_id']) ? intval($body['contact_id']) : 0;
     $contract = isset($body['contract_id']) ? intval($body['contract_id']) : 0;
+    $asset_in = isset($body['asset_id']) ? intval($body['asset_id']) : 0;
     $category = isset($body['category_id']) ? intval($body['category_id']) : 0;
     $hostname = mysqli_real_escape_string($mysqli, trim($body['hostname'] ?? ''));
 
@@ -674,9 +675,18 @@ if ($method === 'POST' && $id === null) {
     // does - fall back to "Remote" instead of leaving the ticket uncategorized.
     $category = resolveTicketCategory($category);
 
-    // Auto-link to a matching asset for this client by hostname/asset name
+    // An explicitly-submitted asset_id (the mobile app's "create ticket" on an asset) must exist, be live and belong to
+    // $client, for the same cross-tenant reason as contact_id and contract_id above. Otherwise fall back to the hostname match.
     $asset_id = 0;
-    if ($hostname && $client) {
+    if ($asset_in) {
+        if (!$client) api_error(400, 'client_id required with asset_id');
+        $asset_ok = mysqli_fetch_assoc(mysqli_query($mysqli,
+            "SELECT asset_id FROM assets WHERE asset_id = $asset_in AND asset_client_id = $client AND asset_archived_at IS NULL LIMIT 1"));
+        if (!$asset_ok) api_error(400, 'asset_id does not belong to client_id');
+        $asset_id = $asset_in;
+    }
+    // Auto-link to a matching asset for this client by hostname/asset name
+    if (!$asset_id && $hostname && $client) {
         $asset_row = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT asset_id FROM assets WHERE asset_client_id = $client AND asset_archived_at IS NULL
              AND (asset_name = '$hostname' OR asset_tag = '$hostname') LIMIT 1"));
