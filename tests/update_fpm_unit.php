@@ -46,5 +46,36 @@ $check('both active: the full-version unit wins', str_contains($o, 'systemctl re
 $o = $run([], '8.5.12');
 $check('none active: warns, names what it tried, reloads nothing', str_contains($o, 'WARN') && str_contains($o, 'php8.5.12-fpm, php8.5-fpm') && !str_contains($o, 'systemctl reload'), $o);
 
+// deploy/harden.sh picks the unit the same way (PHP_FPM_SVC)
+$harden = (string) file_get_contents(__DIR__ . '/../deploy/harden.sh');
+if (!preg_match('/^# BEGIN fpm-unit\n(.*?)^# END fpm-unit/ms', $harden, $hm)) {
+    $check('harden.sh has the fpm-unit block', false);
+} else {
+    $runHarden = static function (array $installed, string $phpv) use ($hm): string {
+        $dir = sys_get_temp_dir() . '/fpmharden_' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents("$dir/php", "#!/bin/bash\ncase \"\$2\" in\n  *PHP_VERSION*) echo -n \"$phpv\";;\nesac\n");
+        chmod("$dir/php", 0755);
+        $list = '';
+        foreach ($installed as $u) {
+            $list .= "echo '$u.service enabled'; ";
+        }
+        file_put_contents("$dir/systemctl", "#!/bin/bash\n[[ \"\$1\" == list-unit-files ]] && { $list [[ -n \"\$2\" ]] ; for u in " . implode(' ', array_map('escapeshellarg', $installed)) . "; do [[ \"\$2\" == \"\$u.service\" ]] && echo \"\$u.service enabled\"; done; exit 0; }\n");
+        chmod("$dir/systemctl", 0755);
+        $parts = explode('.', $phpv);
+        file_put_contents("$dir/h.sh", "PHP_VER=\"{$parts[0]}.{$parts[1]}\"\n" . $hm[1] . "\necho \"SVC=\$PHP_FPM_SVC\"\n");
+        $out = (string) shell_exec('PATH=' . escapeshellarg($dir) . ':$PATH bash ' . escapeshellarg("$dir/h.sh") . ' 2>&1');
+        array_map('unlink', glob("$dir/*") ?: []);
+        rmdir($dir);
+        return $out;
+    };
+    $o = $runHarden(['php8.5.12-fpm'], '8.5.12');
+    $check('harden.sh: source build uses php8.5.12-fpm', str_contains($o, 'SVC=php8.5.12-fpm'), $o);
+    $o = $runHarden(['php8.5-fpm'], '8.5.12');
+    $check('harden.sh: distro package keeps php8.5-fpm', str_contains($o, 'SVC=php8.5-fpm'), $o);
+    $o = $runHarden([], '8.5.12');
+    $check('harden.sh: nothing installed falls back to the short name (the later check reports it)', str_contains($o, 'SVC=php8.5-fpm'), $o);
+}
+
 echo $fails === 0 ? "all passed\n" : "$fails failed\n";
 exit($fails === 0 ? 0 : 1);
