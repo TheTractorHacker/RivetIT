@@ -88,7 +88,7 @@ function sec_run(string $relFile, string $key, array $post, array $globals = [])
     $_POST = $post; $_GET = []; $_FILES = $GLOBALS['T_files'] ?? [];
     foreach ($globals as $k => $v) { $GLOBALS[$k] = $v; }
     $block = sec_block($relFile, $key);
-    $block = str_replace("require_once 'recurring_ticket_model.php'", "require 'recurring_ticket_model.php'", $block);   // re-run the model per call
+    $block = preg_replace("/require_once '([a-z_]+_model\\.php)'/", "require '\$1'", $block);   // re-run the model per call
     $names = ['mysqli', 'client_id', 'session_user_id', 'session_name', 'session_is_admin', 'session_client_id', 'session_contact_id', 'session_contact_primary',
         'session_contact_name', 'session_contact_is_technical_contact', 'config_mail_from_email', 'config_mail_from_name', 'config_invoice_from_email',
         'config_invoice_from_name', 'config_quote_from_email', 'config_quote_from_name', 'config_ticket_from_email', 'config_ticket_from_name'];
