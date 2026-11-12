@@ -130,7 +130,7 @@
 .tro-mono { font-family: var(--if-mono, ui-monospace, monospace); font-size: 12.5px; letter-spacing: 0; }
 .tro-nowrap { white-space: nowrap; }
 .tro-link-strong { font-weight: 600; color: var(--if-ink, #16232a); text-decoration: none; }
-.tro-link-strong:hover { color: var(--if-primary); text-decoration: underline; }
+.tro-link-strong:hover { color: var(--if-primary); text-decoration: none; }
 
 .tro-person { display: flex; align-items: center; gap: 10px; min-width: 180px; }
 .tro-person__text { min-width: 0; }

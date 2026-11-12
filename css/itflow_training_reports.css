@@ -207,7 +207,7 @@ a.trr-kpi:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 
 .trr-card__title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--if-ink); }
 .trr-card__sub { margin: 2px 0 0; font-size: .8125rem; color: var(--if-muted); }
 .trr-card__link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .875rem; text-decoration: none; }
-.trr-card__link:hover { text-decoration: underline; }
+.trr-card__link:hover { text-decoration: none; }
 .trr-card__link i { font-size: .75rem; }
 .trr-card__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; font-size: .8125rem; }
 
@@ -277,7 +277,7 @@ a.trr-kpi:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 
 .trr-longest li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .trr-longest a { color: var(--if-ink); text-decoration: none; }
 .trr-longest__course { min-width: 0; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trr-longest a:hover { text-decoration: underline; }
+.trr-longest a:hover { text-decoration: none; }
 
 /* ---- Heatmap ---------------------------------------------------------------------------- */
 .trr-heat-wrap { position: relative; overflow-x: auto; margin: 0 -4px; padding: 0 4px; }   /* relative: the cells' visually-hidden text stays inside the scroller */
@@ -370,7 +370,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-rows__main { flex: 1; min-width: 0; }
 .trr-rows__main > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trr-rows__main a { color: var(--if-ink); text-decoration: none; }
-.trr-rows__main a:hover { text-decoration: underline; }
+.trr-rows__main a:hover { text-decoration: none; }
 .trr-rows__when { min-width: 5.5rem; text-align: right; white-space: nowrap; }
 .trr-avatar {
   flex: none;
@@ -405,7 +405,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-people li:last-child { border-bottom: 0; }
 .trr-people__main { flex: 1; min-width: 0; font-size: .875rem; }
 .trr-people__main a { font-weight: 600; color: var(--if-ink); text-decoration: none; }
-.trr-people__main a:hover { text-decoration: underline; }
+.trr-people__main a:hover { text-decoration: none; }
 .trr-people__sub { color: var(--if-muted); font-size: .8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Tables (reports, transcript) ------------------------------------------------------------------ */
@@ -567,7 +567,7 @@ a.trr-seg__btn { display: inline-flex; align-items: center; text-decoration: non
 .trr-struck { text-decoration: line-through; color: var(--if-muted); }
 .trr-warn-text { color: var(--trr-warn-fg) !important; }
 .trr-link-ink { color: var(--if-ink); text-decoration: none; }
-.trr-link-ink:hover { color: var(--if-ink); text-decoration: underline; }
+.trr-link-ink:hover { color: var(--if-ink); text-decoration: none; }
 .trr-table tr.is-revoked > td { background: color-mix(in srgb, var(--trr-neutral-bg) 45%, transparent); }
 .trr-table tr[hidden] { display: none; }
 .trr-table .trr-sub .trr-chip { min-height: 18px; padding: 0 6px; font-size: .6875rem; }

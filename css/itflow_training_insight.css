@@ -66,7 +66,7 @@
   text-align: left;
   cursor: pointer;
 }
-.tri-q__toggle:hover .tri-q__text { text-decoration: underline; text-underline-offset: 2px; }
+.tri-q__toggle:hover .tri-q__text { text-decoration: none; }
 .tri-q__toggle:focus-visible { outline: 2px solid var(--if-primary); outline-offset: 3px; border-radius: 4px; }
 .tri-q__chev { flex: none; margin-top: .3em; font-size: .7rem; color: var(--if-muted); transition: transform .15s ease; }
 .tri-q__toggle[aria-expanded="true"] .tri-q__chev { transform: rotate(90deg); }

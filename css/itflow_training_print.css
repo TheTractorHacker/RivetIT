@@ -66,7 +66,7 @@ body.trr-print {
   padding: 16px;
 }
 .trr-toolbar__link { color: var(--trr-ink-2); font-weight: 500; text-decoration: none; }
-.trr-toolbar__link:hover { text-decoration: underline; }
+.trr-toolbar__link:hover { text-decoration: none; }
 .trr-toolbar__hint { flex: 1 1 16rem; color: var(--trr-muted); font-size: 13px; }
 .trr-toolbar__btn {
   min-height: 40px;
