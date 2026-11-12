@@ -69,7 +69,9 @@ function rivetRmmModule($mysqli = null): RmmModule
     ];
     // RivetCore 1.0.0-rc.44 customizable frameworks: the selected profile's retention minimums. Lazy and tolerant: no profile selected, or the compliance tables
     // not installed yet, means no minimum (RetentionFloors treats a failed read as "none"); it adds nothing until an administrator selects a framework.
-    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class)) {
+    // profilesReady() first: on a database that has not run Core migration 0046 the store read throws (table compliance_profile_selection missing)
+    // and every check-in logged "compliance retention floors unavailable" (cron.php already guards the same way).
+    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class) && \ITFlow\Compliance\ComplianceService::profilesReady($mysqli)) {
         $options['retention_floors'] = \RivetCore\Compliance\Profile\RetentionFloors::fromStore(\ITFlow\Compliance\ComplianceService::profiles($mysqli));
     }
     if (defined('EA_BINARY_MAX_BYTES')) {

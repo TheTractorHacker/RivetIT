@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Fix: beta log noise and missing compliance tables.** `includes/rmm_bootstrap.php` only reads the compliance retention floors when the compliance tables exist (every check-in on a database without Core migration 0046 logged "compliance retention floors unavailable" every few minutes). New DB step 2.6.234 re-runs RivetCore's migrations (idempotent), so a database whose step 2.6.199 ran against an older Core now gets 0045 to 0048.
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
