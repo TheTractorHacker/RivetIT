@@ -35,7 +35,10 @@ if ($article === null) {
 }
 
 require_once dirname(__DIR__) . '/plugins/htmlpurifier/HTMLPurifier.standalone.php';
+
+require_once dirname(__DIR__) . '/plugins/htmlpurifier/rivet_html_policy.php';
 $pc = HTMLPurifier_Config::createDefault();
+rivet_html_policy_apply($pc, 'rich');
 $pc->set('Cache.DefinitionImpl', null);
 $pc->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
 $pc->set('Attr.DefaultImageAlt', '');

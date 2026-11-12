@@ -55,8 +55,11 @@ if (!$row) {
     <?php
 } else {
     require "../../../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+    require_once "../../../plugins/htmlpurifier/rivet_html_policy.php";
 
     $purifier_config = HTMLPurifier_Config::createDefault();
+
+    rivet_html_policy_apply($purifier_config, 'rich');
     $purifier_config->set('Cache.DefinitionImpl', null);
     $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
     $purifier_config->set('Attr.DefaultImageAlt', '');

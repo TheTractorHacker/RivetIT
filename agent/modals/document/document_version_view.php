@@ -4,8 +4,11 @@ require_once '../../../includes/modal_header.php';
 
 // Initialize the HTML Purifier to prevent XSS
 require_once "../../../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../../../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'rich');
 $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting a non-existent directory or an invalid one
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);

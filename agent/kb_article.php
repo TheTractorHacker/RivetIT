@@ -10,8 +10,11 @@ enforceUserPermission('module_kb');
 
 // Initialize the HTML Purifier to prevent XSS
 require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'rich');
 $purifier_config->set('Cache.DefinitionImpl', null);
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 /* KB media URLs carry their parameters in a query string, and HTMLPurifier

@@ -232,7 +232,7 @@ class MicrosoftDirectoryMapper
     {
         $m = $this->mysqli;
 
-        $name = trim((string) ($user['displayName'] ?? ''));
+        $name = \ITFlow\Security\PlainText::clean($user['displayName'] ?? '');
         // `mail` is Graph's real mailbox address; `userPrincipalName` is the
         // sign-in name and is usually (not always, e.g. B2B guests) also an
         // email — the same fallback GraphClient::listUsers() already uses
@@ -257,7 +257,7 @@ class MicrosoftDirectoryMapper
         $active = !empty($user['accountEnabled']);
         $employment_status = $active ? 'active' : 'terminated';
 
-        $dept_name = trim((string) ($user['department'] ?? ''));
+        $dept_name = \ITFlow\Security\PlainText::clean($user['department'] ?? '');
         $contact_client_id = $dept_name !== '' ? intval($departmentIdMap[$this->departmentKey($dept_name)] ?? 0) : 0;
 
         $mapped_set_sql = $this->buildMappedFieldsSql($user, $fieldMap);
@@ -465,7 +465,7 @@ class MicrosoftDirectoryMapper
                 continue;
             }
 
-            $value_esc = mysqli_real_escape_string($m, $sourceValues[$sourceField]);
+            $value_esc = mysqli_real_escape_string($m, \ITFlow\Security\PlainText::clean($sourceValues[$sourceField]));
             $assignments[] = "`$targetField`='$value_esc'";
         }
 
@@ -475,7 +475,7 @@ class MicrosoftDirectoryMapper
     private function extractDepartmentName($entry): string
     {
         if (is_string($entry)) {
-            return trim($entry);
+            return \ITFlow\Security\PlainText::clean($entry);
         }
         if (is_array($entry)) {
             // Every real caller (settings_directory_sync.php) passes raw Graph
@@ -488,7 +488,7 @@ class MicrosoftDirectoryMapper
             // blank department means "no department", full stop, not "guess
             // one from the name". No fallback for a user-shaped entry.
             $name = $entry['department'] ?? '';
-            return trim((string) $name);
+            return \ITFlow\Security\PlainText::clean($name);
         }
 
         return '';
