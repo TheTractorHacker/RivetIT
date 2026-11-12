@@ -10,6 +10,8 @@ $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
 $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
 $ticket_status_pauses_sla = intval($row['ticket_status_pauses_sla'] ?? 0);
 $ticket_status_pauses_sla_available = array_key_exists('ticket_status_pauses_sla', $row);
+$ticket_status_parked = intval($row['ticket_status_parked'] ?? 0);
+$ticket_status_parked_available = array_key_exists('ticket_status_parked', $row);
 $ticket_status_order = intval($row['ticket_status_order']);
 $ticket_status_active = intval($row['ticket_status_active']);
 
@@ -56,6 +58,16 @@ ob_start();
                 <label class="form-check-label" for="pauses_sla_edit"><strong>Pauses the SLA clock</strong></label>
             </div>
             <small class="text-muted">While a ticket is in this status its SLA does not run and it is not shown as breached because of the wait. Open tickets already in the status are updated when you save.</small>
+        </div>
+        <?php } ?>
+
+        <?php if ($ticket_status_parked_available) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="parked" value="1" id="parked_edit" <?php if ($ticket_status_parked) { echo "checked"; } ?>>
+                <label class="form-check-label" for="parked_edit"><strong>Parked (hidden from dashboards and metrics)</strong></label>
+            </div>
+            <small class="text-muted">The ticket stays unresolved, but it disappears from the dashboards, the default ticket list and board, the open-ticket counts and the overdue and SLA-breach alerts. It is still found by search, on the client, contact, asset and project ticket tabs, in the &quot;All&quot; view and with &quot;Show parked&quot;. <strong>Parked does not pause the SLA clock</strong>: a parked ticket whose clock keeps running will still breach, so normally tick &quot;Pauses the SLA clock&quot; as well.</small>
         </div>
         <?php } ?>
 

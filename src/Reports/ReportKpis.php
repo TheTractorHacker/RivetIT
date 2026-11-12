@@ -20,7 +20,9 @@ final class ReportKpis
         $one = static fn (string $sql) => mysqli_fetch_row(mysqli_query($db, $sql)) ?: [null];
         $monthStart = substr($now, 0, 7) . '-01 00:00:00';
 
-        $open = (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL$scope")[0];
+        // Open Tickets excludes Parked statuses (they stay unresolved but are not part of the open-ticket metric).
+        require_once dirname(__DIR__, 2) . '/includes/ticket_parked.php';
+        $open = (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL$scope" . \ticketNotParkedSql($db))[0];
         $month = (int) $one("SELECT COUNT(*) FROM tickets WHERE ticket_archived_at IS NULL AND ticket_created_at >= '$monthStart' AND ticket_created_at <= '$now'$scope")[0];
 
         $rs = function_exists('ticketResolutionStartSql') ? ticketResolutionStartSql('t.') : 't.ticket_created_at';

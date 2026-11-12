@@ -8,7 +8,7 @@ require_once "includes/inc_all_reports.php";
 $reports_show_technical = ($config_module_enable_ticketing == 1 && lookupUserPermission('module_support') >= 1);
 if ($reports_show_technical) {
     $reports_kpis = \ITFlow\Reports\ReportKpis::headline($mysqli);
-    $reports_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
+    $reports_unassigned_tickets = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE ticket_closed_at IS NULL" . ticketNotParkedSql($mysqli) . " AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
     $reports_opened_today = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM tickets WHERE DATE(ticket_created_at) = CURDATE()" . \ITFlow\Reports\ReportScope::clause('ticket_client_id')))[0]);
 }
 

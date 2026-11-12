@@ -59,7 +59,7 @@ $sql_open_tickets = mysqli_query($mysqli,
             ticket_updated_at, ticket_status_name, ticket_status_color
      FROM tickets
      LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4 $co_support_sql
+     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4" . ticketNotParkedSql($mysqli) . " $co_support_sql
      ORDER BY ticket_updated_at DESC LIMIT 6");
 
 /*
@@ -105,7 +105,7 @@ $sql_shared_items = mysqli_query($mysqli,
 $sql_stale_tickets = mysqli_query($mysqli,
     "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_updated_at FROM tickets
      WHERE ticket_client_id = $client_id AND ticket_updated_at < CURRENT_DATE - INTERVAL 7 DAY $co_support_sql
-       AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL
+       AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL" . ticketNotParkedSql($mysqli) . "
      ORDER BY ticket_updated_at ASC");
 
 // Expiring (45 day window)

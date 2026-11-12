@@ -57,6 +57,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         </a>
                     </th>
                     <th>SLA clock</th>
+                    <th>Parked</th>
                     <th>
                         <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status_active&order=<?php echo sortLinkOrder('ticket_status_active'); ?>">
                             Status <?php if ($sort == 'ticket_status_active') { echo $order_icon; } ?>
@@ -94,6 +95,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             <span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span>
                         </td>
                         <td><?php echo !empty($row['ticket_status_pauses_sla']) ? "<span class='badge text-bg-secondary'>Paused</span>" : "<span class='text-muted'>Runs</span>"; ?></td>
+                        <td><?php echo !empty($row['ticket_status_parked']) ? "<span class='badge text-bg-warning' title='Hidden from dashboards, the default ticket list and the open-ticket counts'>Parked</span>" : "<span class='text-muted'>-</span>"; ?></td>
                         <td><?php echo $ticket_status_display; ?></td>
                         <td>
                             <div class="dropdown dropleft text-center">
