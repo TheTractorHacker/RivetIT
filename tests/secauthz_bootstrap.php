@@ -85,7 +85,7 @@ function sec_block(string $relFile, string $key): string {
  */
 function sec_run(string $relFile, string $key, array $post, array $globals = []): string {
     $GLOBALS['T_flash'] = []; $GLOBALS['T_log'] = []; $GLOBALS['T_queue'] = [];
-    $_POST = $post; $_GET = []; $_FILES = [];
+    $_POST = $post; $_GET = []; $_FILES = $GLOBALS['T_files'] ?? [];
     foreach ($globals as $k => $v) { $GLOBALS[$k] = $v; }
     $block = sec_block($relFile, $key);
     $names = ['mysqli', 'client_id', 'session_user_id', 'session_name', 'session_is_admin', 'session_client_id', 'session_contact_id', 'session_contact_primary',
