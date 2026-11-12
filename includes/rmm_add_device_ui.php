@@ -75,6 +75,7 @@ function rivetRmmAddDevicePage(array $ctx, array $linux): string
         . $plat('windows-amd64', 'ad-p-wx64', 'fab fa-windows', 'Windows x64', true) . $plat('windows-arm64', 'ad-p-warm', 'fab fa-windows', 'Windows ARM64', false)
         . $plat('linux-amd64', 'ad-p-lx64', 'fab fa-linux', 'Linux x64', false) . $plat('linux-arm64', 'ad-p-larm', 'fab fa-linux', 'Linux ARM64', false) . '</div></div>'
         . $mesh
+        . rivetRmmManagedExternallyField('ad-managed')
         . $apps
         . '<div class="col-12"><details id="ad-adv"><summary class="small fw-bold">Advanced: how long the token works, how many machines</summary><div class="row g-3 pt-2">'
         . '<div class="col-md-4"><label class="form-label" for="ad-ttl">Token lifetime (hours)</label><input class="form-control" type="number" id="ad-ttl" name="ttl_hours" min="1" max="' . (int) $ctx['ttl_max'] . '" value="' . (int) min(24, $ctx['ttl_max']) . '"></div>'

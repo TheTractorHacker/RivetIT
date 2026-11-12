@@ -13041,3 +13041,16 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
     }
+
+    if ($rivetit_db_version() == '2.6.235') {
+        // DB 2.6.236: RivetCore 1.0.0-rc.60. Re-runs CoreMigrations::all() (idempotent) to pick up 0049 (rc.59: endpoint_agent_installer_options.managed_externally,
+        // the "managed by another RMM" installer option). One additive column; no existing token or device changes, nothing is switched on.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
+        }
+    }

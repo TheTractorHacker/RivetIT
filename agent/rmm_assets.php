@@ -6,14 +6,28 @@ enforceUserPermission('module_rmm');
 $filter_status    = sanitizeInput($_GET['status'] ?? '');
 $filter_client_id = intval($_GET['client_id'] ?? 0);
 $filter_intg_id   = intval($_GET['integration_id'] ?? 0);
+$filter_q         = trim((string) ($_GET['q'] ?? ''));
+$filter_os        = in_array($_GET['os'] ?? '', ['windows', 'macos', 'linux', 'other'], true) ? $_GET['os'] : '';
+$filter_seen      = in_array(intval($_GET['unseen_days'] ?? 0), [1, 7, 30, 90], true) ? intval($_GET['unseen_days']) : 0;   // not seen in the last N days
 
-// Build WHERE clause
+// Build WHERE clause. $where_base is everything except the status, so the stat cards count within the other filters.
 $where = "1=1";
-if ($filter_status)    { $where .= " AND arl.rmm_status='" . mysqli_real_escape_string($mysqli, $filter_status) . "'"; }
-if ($filter_client_id) { $where .= " AND a.asset_client_id=$filter_client_id"; }
+if ($filter_client_id === -1) { $where .= " AND a.asset_client_id = 0"; }   // -1 = no department assigned yet
+elseif ($filter_client_id > 0) { $where .= " AND a.asset_client_id=$filter_client_id"; }
 if ($filter_intg_id)   { $where .= " AND arl.integration_id=$filter_intg_id"; }
+if ($filter_q !== '') {
+    $like = mysqli_real_escape_string($mysqli, addcslashes(mb_substr($filter_q, 0, 100), '%_\\'));
+    $where .= " AND (arl.hostname LIKE '%$like%' OR a.asset_name LIKE '%$like%' OR c.client_name LIKE '%$like%' OR arl.logged_in_user LIKE '%$like%' OR arl.os_name LIKE '%$like%' OR arl.model LIKE '%$like%')";
+}
+if ($filter_os === 'windows')    { $where .= " AND arl.os_name LIKE '%windows%'"; }
+elseif ($filter_os === 'macos')  { $where .= " AND (arl.os_name LIKE '%mac%' OR arl.os_name LIKE '%darwin%')"; }
+elseif ($filter_os === 'linux')  { $where .= " AND (arl.os_name LIKE '%linux%' OR arl.os_name LIKE '%ubuntu%' OR arl.os_name LIKE '%debian%' OR arl.os_name LIKE '%centos%' OR arl.os_name LIKE '%red hat%' OR arl.os_name LIKE '%fedora%')"; }
+elseif ($filter_os === 'other')  { $where .= " AND arl.os_name NOT LIKE '%windows%' AND arl.os_name NOT LIKE '%mac%' AND arl.os_name NOT LIKE '%darwin%' AND arl.os_name NOT LIKE '%linux%' AND arl.os_name NOT LIKE '%ubuntu%' AND arl.os_name NOT LIKE '%debian%'"; }
+if ($filter_seen)      { $where .= " AND (arl.last_seen IS NULL OR arl.last_seen < (UTC_TIMESTAMP() - INTERVAL $filter_seen DAY))"; }
 // Client-restricted techs should only see assets for clients they have access to
 if ($client_access_string && !$session_is_admin) { $where .= " AND a.asset_client_id IN ($client_access_string)"; }
+$where_base = $where;
+if ($filter_status)    { $where .= " AND arl.rmm_status='" . mysqli_real_escape_string($mysqli, $filter_status) . "'"; }
 
 $sql_links = mysqli_query($mysqli,
     "SELECT arl.*, a.asset_id, a.asset_name, a.asset_type, a.asset_client_id, a.asset_archived_at,
@@ -50,15 +64,27 @@ usort($rmm_link_rows, function ($a, $b) {
     return strcasecmp($a['hostname'] ?? '', $b['hostname'] ?? '');
 });
 
-// Counts for stat cards
+// Counts for stat cards: within every filter except the status (the cards ARE the status filter). One row per asset, like the table.
 $cnt = mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT
-       SUM(rmm_status='online') as online,
-       SUM(rmm_status='offline') as offline,
-       SUM(rmm_status='unknown') as unknown,
+       COALESCE(SUM(st='online'),0) as online,
+       COALESCE(SUM(st='offline'),0) as offline,
+       COALESCE(SUM(st='unknown'),0) as unknown,
        COUNT(*) as total
-     FROM asset_rmm_links WHERE integration_id=" . ($filter_intg_id ?: 'integration_id')
+     FROM (SELECT arl.asset_id, MIN(arl.rmm_status) AS st
+           FROM asset_rmm_links arl
+           JOIN assets a ON a.asset_id = arl.asset_id
+           LEFT JOIN clients c ON c.client_id = a.asset_client_id
+           WHERE $where_base GROUP BY arl.asset_id) t"
 ));
+
+// Keep every other filter when a stat card or a clear link is used
+$rmm_filter_qs = function (array $override = []) use ($filter_status, $filter_client_id, $filter_intg_id, $filter_q, $filter_os, $filter_seen) {
+    $p = array_merge(['status' => $filter_status, 'client_id' => $filter_client_id ?: '', 'integration_id' => $filter_intg_id ?: '', 'q' => $filter_q, 'os' => $filter_os, 'unseen_days' => $filter_seen ?: ''], $override);
+
+    return '?' . http_build_query(array_filter($p, fn($v) => $v !== '' && $v !== null));
+};
+$rmm_filters_active = $filter_status || $filter_client_id || $filter_q !== '' || $filter_os || $filter_seen;
 
 $sql_integrations = mysqli_query($mysqli, "SELECT id, name FROM rmm_integrations WHERE enabled=1 ORDER BY name");
 $sql_clients = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_archived_at IS NULL" . ($client_access_string && !$session_is_admin ? " AND client_id IN ($client_access_string)" : '') . " ORDER BY client_name ASC");
@@ -74,6 +100,16 @@ if ($filter_intg_id) {
 }
 $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
 $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1;
+// RivetCore 1.0.0-rc.60: "Mark / Clear managed by another RMM" in the Bulk Action menu, only for a user who holds rmm.device.manage. Cosmetic: agent/post/rmm_agent.php
+// (action=bulk_managed_externally) re-checks the ability and the CSRF token, and Core decides per device.
+require_once dirname(__DIR__) . '/includes/rmm_device_actions.php';
+$can_bulk_managed = false;
+try {
+    $can_bulk_managed = rivetRmmEnabled($mysqli) && rivetRmmCanManageDevices(rivetRmmModule($mysqli), (int) $session_user_id, 0);
+} catch (\Throwable $e) {
+    $can_bulk_managed = false;
+}
+$can_bulk_assign = lookupUserPermission('module_rmm_sync') >= 1;
 ?>
 
 <div class="d-flex align-items-center mb-3">
@@ -94,28 +130,28 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
         <div class="small-box bg-success">
             <div class="inner"><h3><?= intval($cnt['online']) ?></h3><p>Online</p></div>
             <div class="icon"><i class="fas fa-check-circle"></i></div>
-            <a href="?status=online" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
+            <a href="<?= $rmm_filter_qs(['status' => 'online']) ?>" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
         </div>
     </div>
     <div class="col-md-3">
         <div class="small-box bg-danger">
             <div class="inner"><h3><?= intval($cnt['offline']) ?></h3><p>Offline</p></div>
             <div class="icon"><i class="fas fa-times-circle"></i></div>
-            <a href="?status=offline" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
+            <a href="<?= $rmm_filter_qs(['status' => 'offline']) ?>" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
         </div>
     </div>
     <div class="col-md-3">
         <div class="small-box bg-secondary">
             <div class="inner"><h3><?= intval($cnt['unknown']) ?></h3><p>Unknown</p></div>
             <div class="icon"><i class="fas fa-question-circle"></i></div>
-            <a href="?status=unknown" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
+            <a href="<?= $rmm_filter_qs(['status' => 'unknown']) ?>" class="small-box-footer">Filter <i class="fas fa-arrow-circle-right"></i></a>
         </div>
     </div>
     <div class="col-md-3">
         <div class="small-box bg-info">
             <div class="inner"><h3><?= intval($cnt['total']) ?></h3><p>Total Managed</p></div>
             <div class="icon"><i class="fas fa-desktop"></i></div>
-            <a href="?" class="small-box-footer">Show All <i class="fas fa-arrow-circle-right"></i></a>
+            <a href="<?= $rmm_filter_qs(['status' => '']) ?>" class="small-box-footer">Show All <i class="fas fa-arrow-circle-right"></i></a>
         </div>
     </div>
 </div>
@@ -128,8 +164,9 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 <!-- Filter bar -->
 <div class="card card-dark mb-2">
     <div class="card-body py-2">
-        <form method="get" class="form-inline">
-            <select name="integration_id" class="form-control form-control-sm me-2 auto-submit-select">
+        <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+            <input type="search" name="q" value="<?= nullable_htmlentities($filter_q) ?>" class="form-control form-control-sm w-auto" placeholder="Search hostname, department, user, OS..." aria-label="Search devices" style="min-width:16rem">
+            <select name="integration_id" class="form-control form-control-sm w-auto auto-submit-select" aria-label="Integration">
                 <option value="">All Integrations</option>
                 <?php while ($i = mysqli_fetch_assoc($sql_integrations)): ?>
                 <option value="<?= $i['id'] ?>" <?= $filter_intg_id == $i['id'] ? 'selected' : '' ?>>
@@ -137,15 +174,36 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
                 </option>
                 <?php endwhile; ?>
             </select>
-            <select name="status" class="form-control form-control-sm me-2 auto-submit-select">
+            <select name="client_id" class="form-control form-control-sm w-auto auto-submit-select" aria-label="Department">
+                <option value="">All Departments</option>
+                <option value="-1" <?= $filter_client_id === -1 ? 'selected' : '' ?>>Not assigned yet</option>
+                <?php foreach ($clients_list as $cl): ?>
+                <option value="<?= intval($cl['client_id']) ?>" <?= $filter_client_id === intval($cl['client_id']) ? 'selected' : '' ?>><?= nullable_htmlentities($cl['client_name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select name="status" class="form-control form-control-sm w-auto auto-submit-select" aria-label="Status">
                 <option value="">All Statuses</option>
                 <option value="online"  <?= $filter_status === 'online'  ? 'selected' : '' ?>>Online</option>
                 <option value="offline" <?= $filter_status === 'offline' ? 'selected' : '' ?>>Offline</option>
                 <option value="unknown" <?= $filter_status === 'unknown' ? 'selected' : '' ?>>Unknown</option>
             </select>
-            <?php if ($filter_status || $filter_client_id): ?>
-                <a href="?" class="btn btn-secondary btn-sm">Clear Filters</a>
+            <select name="os" class="form-control form-control-sm w-auto auto-submit-select" aria-label="Operating system">
+                <option value="">All Operating Systems</option>
+                <?php foreach (['windows' => 'Windows', 'macos' => 'macOS', 'linux' => 'Linux', 'other' => 'Other'] as $ov => $ol): ?>
+                <option value="<?= $ov ?>" <?= $filter_os === $ov ? 'selected' : '' ?>><?= $ol ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select name="unseen_days" class="form-control form-control-sm w-auto auto-submit-select" aria-label="Last seen">
+                <option value="">Any Last Seen</option>
+                <?php foreach ([1 => 'Not seen in 1 day', 7 => 'Not seen in 7 days', 30 => 'Not seen in 30 days', 90 => 'Not seen in 90 days'] as $dv => $dl): ?>
+                <option value="<?= $dv ?>" <?= $filter_seen === $dv ? 'selected' : '' ?>><?= $dl ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search me-1"></i>Search</button>
+            <?php if ($rmm_filters_active): ?>
+                <a href="<?= $rmm_filter_qs(['status' => '', 'client_id' => '', 'q' => '', 'os' => '', 'unseen_days' => '']) ?>" class="btn btn-secondary btn-sm">Clear Filters</a>
             <?php endif; ?>
+            <span class="small text-muted ms-auto"><?= count($rmm_link_rows) ?> shown</span>
         </form>
     </div>
 </div>
@@ -153,18 +211,47 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 <!-- Bulk actions bar: hidden until at least one row is ticked (js/bulk_actions.js toggles #bulkActionButton by its id) -->
 <div class="card card-dark mb-2" id="bulkActionButton" hidden>
     <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+        <?php if ($can_bulk_assign || $can_bulk_managed): ?>
+        <div class="dropdown">
+            <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-fw fa-layer-group me-2"></i>Bulk Action (<span id="selectedCount">0</span>)
+            </button>
+            <div class="dropdown-menu">
+                <?php if ($can_bulk_assign): ?>
+                <a class="dropdown-item" href="#" id="bulkAssignOpen">
+                    <i class="fas fa-fw fa-arrow-right me-2"></i>Assign department...
+                </a>
+                <?php endif; ?>
+                <?php if ($can_bulk_managed): ?>
+                <a class="dropdown-item" href="#" id="bulkManagedOn" data-disabled-value="1">
+                    <i class="fas fa-fw fa-user-lock me-2"></i><?= nullable_htmlentities('Mark as managed by another RMM') ?>
+                </a>
+                <a class="dropdown-item" href="#" id="bulkManagedOff" data-disabled-value="0">
+                    <i class="fas fa-fw fa-unlock me-2"></i><?= nullable_htmlentities('Clear managed by another RMM') ?>
+                </a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php if ($can_bulk_assign): ?>
+        <span id="bulkAssignRow" class="d-flex flex-wrap align-items-center gap-2" hidden>
+            <select class="form-control form-control-sm w-auto" id="bulkAssignClient">
+                <option value="">Choose department...</option>
+                <?php foreach ($clients_list as $cl): ?>
+                <option value="<?= intval($cl['client_id']) ?>"><?= nullable_htmlentities($cl['client_name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="button" class="btn btn-sm btn-primary" id="bulkAssignGo" disabled>Apply to selected</button>
+        </span>
+        <?php endif; ?>
+        <?php else: ?>
         <span class="small text-muted"><span id="selectedCount">0</span> selected</span>
-        <?php if (lookupUserPermission('module_rmm_sync') >= 1): ?>
-        <select class="form-control form-control-sm w-auto" id="bulkAssignClient">
-            <option value="">Assign department...</option>
-            <?php foreach ($clients_list as $cl): ?>
-            <option value="<?= intval($cl['client_id']) ?>"><?= nullable_htmlentities($cl['client_name']) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <button type="button" class="btn btn-sm btn-primary" id="bulkAssignGo" disabled>Apply to selected</button>
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($can_bulk_managed): ?>
+<div class="alert alert-info d-none mb-2" id="bulkManagedResult" role="status" aria-live="polite"></div>
+<?php endif; ?>
 
 <!-- Asset table -->
 <div class="card card-dark">
@@ -204,7 +291,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
             ?>
             <tr>
                 <td class="ps-3 checkbox-column">
-                    <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>"></div>
+                    <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>" data-hostname="<?= nullable_htmlentities($row['hostname']) ?>"></div>
                 </td>
                 <td>
                     <i class="fas <?= $icon ?>" data-bs-toggle="tooltip" title="<?= ucfirst($status) ?>"></i>
@@ -386,6 +473,11 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
     var sel = document.getElementById('bulkAssignClient');
     var go = document.getElementById('bulkAssignGo');
     if (!sel || !go) { return; }
+    document.getElementById('bulkAssignOpen').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.getElementById('bulkAssignRow').hidden = false;
+        sel.focus();
+    });
     sel.addEventListener('change', function () { go.disabled = sel.value === ''; });
     go.addEventListener('click', function () {
         var clientId = sel.value;
@@ -416,5 +508,57 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
     });
 })();
 </script>
+
+<?php if ($can_bulk_managed): ?>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+// Bulk "Mark / Clear managed by another RMM" (RivetCore 1.0.0-rc.60). Confirms first, then one request to agent/post/rmm_agent.php (action=bulk_managed_externally), which asks
+// Core per device. At most 500 are sent. The answer is written with textContent only. getBulkCheckboxes() is js/bulk_actions.js's helper.
+(function () {
+    var MAX = <?= (int) RIVET_RMM_BULK_DEVICE_MAX ?>;
+    var CSRF = <?= json_encode((string) ($_SESSION['csrf_token'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var CONFIRM_ON = <?= json_encode(RIVET_RMM_BULK_MANAGED_CONFIRM_ON, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var CONFIRM_OFF = <?= json_encode(RIVET_RMM_BULK_MANAGED_CONFIRM_OFF, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var box = document.getElementById('bulkManagedResult');
+    function show(lines, kind) {
+        if (!box) { return; }
+        box.textContent = '';
+        lines.forEach(function (t) { var p = document.createElement('div'); p.textContent = t; box.appendChild(p); });
+        box.className = 'alert alert-' + kind + ' mb-2';
+    }
+    function run(disabled) {
+        var rows = getBulkCheckboxes().filter(function (cb) { return cb.checked; });
+        if (rows.length === 0) { return; }
+        if (rows.length > MAX) { show(['Select at most ' + MAX + ' computers at a time (you selected ' + rows.length + ').'], 'warning'); return; }
+        var names = {};
+        rows.forEach(function (cb) { names[cb.value] = cb.getAttribute('data-hostname') || ('asset ' + cb.value); });
+        var verb = disabled ? 'Mark ' + rows.length + ' computers as managed by another RMM?' : 'Clear "managed by another RMM" on ' + rows.length + ' computers?';
+        RivetDialog.confirm(verb + ' ' + (disabled ? CONFIRM_ON : CONFIRM_OFF), { title: disabled ? 'Mark as managed by another RMM' : 'Clear managed by another RMM', okText: disabled ? 'Mark them' : 'Clear it' }).then(function (yes) {
+            if (!yes) { return; }
+            var body = new URLSearchParams();
+            body.set('csrf_token', CSRF);
+            body.set('action', 'bulk_managed_externally');
+            body.set('disabled', disabled ? '1' : '');
+            rows.forEach(function (cb) { body.append('asset_ids[]', cb.value); });
+            fetch('/agent/post/rmm_agent.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.success) { show([d.error || 'Nothing was changed.'], 'danger'); return; }
+                    var lines = [d.counts.changed + ' changed, ' + d.counts.unchanged + ' already set, ' + d.counts.skipped + ' skipped.'];
+                    if (d.skipped && d.skipped.length) {
+                        // Never says which: the person may lack the right, the computer may not use the RivetIT agent, or it no longer exists.
+                        lines.push('not changed: you cannot manage these or they no longer exist: ' + d.skipped.map(function (id) { return names[String(id)] || ('asset ' + id); }).join(', '));
+                    }
+                    show(lines, d.counts.skipped > 0 ? 'warning' : 'success');
+                })
+                .catch(function () { show(['Network error. Nothing was confirmed.'], 'danger'); });
+        });
+    }
+    [['bulkManagedOn', true], ['bulkManagedOff', false]].forEach(function (p) {
+        var a = document.getElementById(p[0]);
+        if (a) { a.addEventListener('click', function (e) { e.preventDefault(); run(p[1]); }); }
+    });
+})();
+</script>
+<?php endif; ?>
 
 <?php require_once "../includes/footer.php"; ?>
