@@ -540,6 +540,12 @@ if (isset($_POST['bulk_assign_asset_contact'])) {
 
             enforceClientAccess($asset_client_id);
 
+            // The contact must belong to the same department as the asset (no cross-department assignment)
+            if ($asset_client_id !== $client_id) {
+                flash_alert("Asset <strong>" . htmlspecialchars(stripslashes($asset_name), ENT_QUOTES) . "</strong> is not in the contact's department", 'error');
+                redirect();
+            }
+
             mysqli_query($mysqli,"UPDATE assets SET asset_contact_id = $contact_id WHERE asset_id = $asset_id");
 
             (new \ITFlow\Assets\AssetAssignmentService($mysqli))->recordChangeIfNeeded($asset_id, $contact_id, $session_user_id);
