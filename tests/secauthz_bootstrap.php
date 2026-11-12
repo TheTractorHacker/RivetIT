@@ -85,7 +85,7 @@ function sec_block(string $relFile, string $key): string {
  */
 function sec_run(string $relFile, string $key, array $post, array $globals = []): string {
     $GLOBALS['T_flash'] = []; $GLOBALS['T_log'] = []; $GLOBALS['T_queue'] = [];
-    $_POST = $post; $_GET = []; $_FILES = $GLOBALS['T_files'] ?? [];
+    $_GET = (array) ($post['__get'] ?? []); unset($post['__get']); $_POST = $post; $_FILES = $GLOBALS['T_files'] ?? [];
     foreach ($globals as $k => $v) { $GLOBALS[$k] = $v; }
     $block = sec_block($relFile, $key);
     $block = preg_replace("/require_once '([a-z_]+_model\\.php)'/", "require '\$1'", $block);   // re-run the model per call

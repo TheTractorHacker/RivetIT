@@ -127,6 +127,10 @@ if (isset($_GET['approve_ticket_task'])) {
 
     $approval_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM task_approvals LEFT JOIN tasks on task_id = approval_task_id WHERE approval_id = $approval_id AND approval_task_id = $task_id AND approval_url_key = '$url_key' AND approval_status = 'pending' AND approval_scope = 'client'"));
 
+    if (!$approval_row) {
+        exit("Cannot find/approve that task");
+    }
+
     $task_name = nullable_htmlentities($approval_row['task_name']);
     $scope = nullable_htmlentities($approval_row['approval_scope']);
     $type = nullable_htmlentities($approval_row['approval_type']);
@@ -134,12 +138,13 @@ if (isset($_GET['approve_ticket_task'])) {
     $created_by = intval($approval_row['approval_created_by']);
     $ticket_id = intval($approval_row['task_ticket_id']);
 
-    if (!$approval_row) {
-        exit("Cannot find/approve that task");
-    }
+    // Record WHO actually approved: a guest holding the emailed link, not the user the task asked for. Attributing it
+    // to the required user (as this used to) made a forwarded link look like that person's own approval.
+    // The link is single-use: the UPDATE only matches a still-pending approval.
+    $approved_by = sanitizeInput('Guest link (' . getIP() . ')' . ($required_user ? " - requested of user #$required_user" : ''));
 
     // Approve
-    mysqli_query($mysqli, "UPDATE task_approvals SET approval_status = 'approved', approval_approved_by = $required_user WHERE approval_id = $approval_id AND approval_task_id = $task_id AND approval_url_key = '$url_key' AND approval_status = 'pending' AND approval_scope = 'client'");
+    mysqli_query($mysqli, "UPDATE task_approvals SET approval_status = 'approved', approval_approved_by = '$approved_by' WHERE approval_id = $approval_id AND approval_task_id = $task_id AND approval_url_key = '$url_key' AND approval_status = 'pending' AND approval_scope = 'client'");
 
     // Notify tech
     mysqli_query($mysqli, "INSERT INTO notifications SET notification_type = 'Ticket', notification = 'Guest approved ticket task $task_name', notification_action = 'ticket.php?ticket_id=$ticket_id', notification_user_id = $created_by");
