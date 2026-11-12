@@ -434,6 +434,17 @@ if (isset($_POST['link_ticket_to_project'])) {
         // Get Selected Count
         $count = count($_POST['tickets']);
 
+        // The ticket end needs the same department check as the project end: otherwise a department-restricted
+        // agent could pull another department's ticket into a project they can read. Check every ticket
+        // before linking any, so a refusal doesn't leave a half-linked batch.
+        foreach ($_POST['tickets'] as $ticket) {
+            $check_ticket_id = intval($ticket);
+            $ticket_client_id = intval(getFieldById('tickets', $check_ticket_id, 'ticket_client_id'));
+            if ($ticket_client_id) {
+                enforceClientAccess($ticket_client_id);
+            }
+        }
+
         foreach ($_POST['tickets'] as $ticket) {
             $ticket_id = intval($ticket);
 

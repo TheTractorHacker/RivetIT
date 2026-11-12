@@ -28,6 +28,13 @@ if (isset($_POST['convert_mail_request'])) {
         enforceClientAccess($client_id);
     }
 
+    // ...and on the request itself: it belongs to its mailbox's department (same scope as the Requests list),
+    // so a restricted agent can't pull another department's inbound mail into their own by converting it.
+    $mr_owner_client_id = mailRequestOwnerClientId($mail_request_id);
+    if ($mr_owner_client_id > 0) {
+        enforceClientAccess($mr_owner_client_id);
+    }
+
     $ticket_id = convertMailRequestToTicket($mail_request_id, $client_id);
 
     if (!$ticket_id) {

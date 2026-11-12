@@ -19,7 +19,7 @@ if (isset($_GET['status']) && $_GET['status'] !== '') {
 $sql = mysqli_query(
     $mysqli,
     "SELECT SQL_CALC_FOUND_ROWS problems.*, u.user_name AS created_by_name, c.title AS change_title,
-        (SELECT COUNT(*) FROM tickets WHERE ticket_problem_id = problems.problem_id) AS linked_ticket_count
+        (SELECT COUNT(*) FROM tickets WHERE ticket_problem_id = problems.problem_id" . clientAccessScopeSql('tickets.ticket_client_id') . ") AS linked_ticket_count
      FROM problems
      LEFT JOIN users u ON u.user_id = problems.created_by
      LEFT JOIN changes c ON c.change_id = problems.change_problem_id

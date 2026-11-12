@@ -3,6 +3,9 @@
 require_once '../../../includes/modal_header.php';
 
 $client_id = intval($_GET['client_id']);
+
+// The contact list below is this department's: a restricted agent must not get another department's.
+enforceClientAccess($client_id);
 $asset_ids = array_map('intval', $_GET['asset_ids'] ?? []);
 
 $count = count($asset_ids);

@@ -529,16 +529,28 @@ if (isset($_POST['bulk_assign_asset_contact'])) {
         // Get Selected Contacts Count
         $asset_count = count($_POST['asset_ids']);
 
+        // Validate EVERY asset first (access + same department as the contact), only then update any of them,
+        // so a mismatch part-way through never leaves a half-applied change.
+        $valid_assets = [];
         foreach($_POST['asset_ids'] as $asset_id) {
             $asset_id = intval($asset_id);
 
-            // Get Asset Details for Logging
             $sql = mysqli_query($mysqli,"SELECT asset_name, asset_client_id FROM assets WHERE asset_id = $asset_id");
             $row = mysqli_fetch_assoc($sql);
-            $asset_name = sanitizeInput($row['asset_name']);
-            $asset_client_id = intval($row['asset_client_id']);
+            $asset_client_id = intval($row['asset_client_id'] ?? 0);
 
             enforceClientAccess($asset_client_id);
+
+            // The contact must belong to the same department as the asset (no cross-department assignment)
+            if (!$row || $asset_client_id !== $client_id) {
+                flash_alert("Asset #$asset_id is not in the contact's department - nothing was changed", 'error');
+                redirect();
+            }
+
+            $valid_assets[$asset_id] = sanitizeInput($row['asset_name']);
+        }
+
+        foreach($valid_assets as $asset_id => $asset_name) {
 
             mysqli_query($mysqli,"UPDATE assets SET asset_contact_id = $contact_id WHERE asset_id = $asset_id");
 

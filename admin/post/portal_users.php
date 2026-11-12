@@ -104,6 +104,8 @@ if (isset($_POST['edit_portal_user'])) {
     $new_password = trim((string) ($_POST['new_password'] ?? ''));
     $auth_method = (string) ($_POST['auth_method'] ?? '');
     $oidc_subject = trim((string) ($_POST['oidc_subject'] ?? ''));
+    $azure_tenant = strtolower(trim((string) ($_POST['azure_tenant'] ?? '')));
+    $azure_object = strtolower(trim((string) ($_POST['azure_object'] ?? '')));
 
     $t = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT users.user_auth_method, users.user_oidc_issuer, users.user_oidc_subject, contacts.contact_id, contacts.contact_client_id
         FROM users INNER JOIN contacts ON contacts.contact_user_id = users.user_id
@@ -142,6 +144,32 @@ if (isset($_POST['edit_portal_user'])) {
         flash_alert('Choose an available sign-in method. Odoo requires an active integration and an employee link; OpenID Connect needs an immutable subject (or leave it blank when first sign-in linking is on); switching to local needs a new password.', 'error');
         redirect();
     }
+    // Microsoft Entra: the login is bound to (tenant id, object id), see includes/portal_entra.php. The tenant is
+    // required (an unlinked Entra login cannot sign in); the object id may be left blank and is then bound on the first
+    // sign-in from that tenant. Blank fields on an already-linked login keep the existing link.
+    $azure_issuer = null; $azure_subject = null;
+    if ($auth_method === 'azure') {
+        require_once __DIR__ . '/../../includes/portal_entra.php';
+        if ($azure_tenant === '' && $t['user_auth_method'] === 'azure' && !empty($t['user_oidc_issuer'])) {
+            $azure_issuer = $t['user_oidc_issuer']; $azure_subject = $t['user_oidc_subject'];
+        } elseif (portalEntraGuid($azure_tenant) && ($azure_object === '' || portalEntraGuid($azure_object))) {
+            $azure_issuer = portalEntraIssuer($azure_tenant);
+            $azure_subject = $azure_object !== '' ? $azure_object : null;
+            if ($azure_subject === null && $t['user_auth_method'] === 'azure' && ($t['user_oidc_issuer'] ?? '') === $azure_issuer) {
+                $azure_subject = $t['user_oidc_subject'];   // same tenant, no new object id typed: keep the bound one
+            }
+        } else {
+            flash_alert('Microsoft Entra needs the customer\'s tenant ID (a GUID); the object ID is optional (a GUID, bound on first sign-in when blank).', 'error');
+            redirect();
+        }
+        $dup = $mysqli->prepare("SELECT user_id FROM users WHERE user_oidc_issuer = ? AND user_oidc_subject = ? AND user_id <> ? LIMIT 1");
+        $dup->bind_param('ssi', $azure_issuer, $azure_subject, $user_id);
+        $dup->execute();
+        if ($azure_subject !== null && $dup->get_result()->num_rows !== 0) {
+            flash_alert('That Entra object is already linked to a different login.', 'error');
+            redirect();
+        }
+    }
     $oidc_issuer = $auth_method === 'oidc'
         ? ($config_oidc_enabled ? (string) $config_oidc_issuer : (string) ($t['user_oidc_issuer'] ?? ''))
         : null;
@@ -169,6 +197,10 @@ if (isset($_POST['edit_portal_user'])) {
     // $name/$email are already SQL-escaped for the string-built queries; bind the plain values to avoid double escaping.
     $name_plain = stripslashes($name);
     $email_plain = stripslashes($email);
+    if ($auth_method === 'azure') {
+        $oidc_issuer = $azure_issuer;
+        $subject_value = $azure_subject;
+    }
     $update_user->bind_param('ssisssi', $name_plain, $email_plain, $agent_role_id, $auth_method, $oidc_issuer, $subject_value, $user_id);
     $update_user->execute();
     mysqli_query($mysqli, "UPDATE contacts SET contact_name = '$name', contact_email = '$email', contact_title = '$title', contact_portal_role = '$role' WHERE contact_id = $contact_id");
