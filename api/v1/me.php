@@ -33,12 +33,53 @@ if ($method === 'PUT' && isset(json_decode(file_get_contents('php://input'), tru
     // Registers/replaces this device's biometric-gate public key, used by
     // api/v1/credentials.php to verify a signed step-up challenge instead of
     // trusting a client-supplied "biometric happened" claim. One key per
-    // user (single-device model, matching how api_tokens are already
-    // per-login rather than per-device) - re-registering (e.g. reinstall,
-    // new device, or a biometric-enrollment-invalidated key regenerating)
-    // simply overwrites the previous key.
+    // user (single-device model) - re-registering (reinstall, new device, a
+    // biometric-enrollment-invalidated key regenerating) overwrites the previous key.
+    //
+    // IT-INJ-6: the bearer token alone must NOT be able to do this, or whoever holds a stolen token enrols their own
+    // key and passes the very step-up that is meant to protect the credentials. So enrolment needs the account password
+    // (and the TOTP / recovery code when MFA is on) in the body - the same proof PUT /me asks for to change the password.
+    // Every attempt and outcome is written to the audit trail.
     $body = json_decode(file_get_contents('php://input'), true) ?? [];
     $pem  = trim($body['device_public_key_pem'] ?? '');
+
+    require_once __DIR__ . '/../../includes/security_policy.php';
+    require_once __DIR__ . '/../../includes/security_crypto.php';
+    require_once $DOCUMENT_ROOT . '/plugins/totp/totp.php';
+
+    $bio_audit = static function (string $result, string $why) use ($api_user_id, $session_name): void {
+        \ITFlow\Audit\AuditService::record('vault.api_stepup_key_enrol', (int) $api_user_id, 'user', (int) $api_user_id, $result, ($session_name ?? 'User') . ' - API biometric step-up key enrolment: ' . $why, ['via' => 'api']);
+    };
+
+    // Brute-force guard on the password check: the app's API limiter (needs Redis; fails open without it) plus a count of
+    // recent denied attempts from the audit trail, which works without Redis.
+    $bio_denied = mysqli_fetch_row(mysqli_query($mysqli,
+        "SELECT COUNT(*) FROM audit_events WHERE event_type = 'vault.api_stepup_key_enrol' AND action = 'denied' AND actor_user_id = " . intval($api_user_id) . " AND created_at > (NOW() - INTERVAL 10 MINUTE)"));
+    if (!api_rate_limit('stepup_enrol:' . intval($api_user_id), 10, 600) || (int) ($bio_denied[0] ?? 0) >= 5) {
+        $bio_audit('blocked', 'rate limited');
+        header('Retry-After: ' . api_rate_limit_retry_after());
+        api_error(429, 'Too many attempts. Try again later.');
+    }
+
+    $bio_user = mysqli_fetch_assoc(mysqli_query($mysqli,
+        "SELECT user_password, user_token FROM users WHERE user_id = " . intval($api_user_id) . " LIMIT 1"));
+    $bio_pass = (string) ($body['current_password'] ?? '');
+    if (!$bio_user || $bio_pass === '' || !password_verify($bio_pass, (string) $bio_user['user_password'])) {
+        $bio_audit('denied', 'current password missing or wrong');
+        api_error(401, 'Current password is required to register a biometric key');
+    }
+    $bio_totp_secret = secUserTotpSecret($bio_user['user_token'] ?? '', (int) $api_user_id);
+    if (!empty($bio_totp_secret)) {
+        $bio_code = trim((string) ($body['totp_code'] ?? ''));
+        $bio_code_ok = $bio_code !== '' && (
+            TokenAuth6238::verifyOnce($bio_totp_secret, $bio_code)
+            || (secLooksLikeRecoveryCode($bio_code) && secRecoveryCodeConsume($mysqli, (int) $api_user_id, $bio_code, (string) ($_SERVER['REMOTE_ADDR'] ?? '')))
+        );
+        if (!$bio_code_ok) {
+            $bio_audit('denied', 'MFA code missing or wrong');
+            api_error(401, 'MFA code required to register a biometric key');
+        }
+    }
 
     if (!preg_match('/^-----BEGIN PUBLIC KEY-----.+-----END PUBLIC KEY-----\s*$/s', $pem)) {
         api_error(400, 'Invalid public key format');
@@ -46,6 +87,9 @@ if ($method === 'PUT' && isset(json_decode(file_get_contents('php://input'), tru
     if (!openssl_pkey_get_public($pem)) {
         api_error(400, 'Invalid public key');
     }
+
+    $bio_had_key = (bool) mysqli_fetch_row(mysqli_query($mysqli, "SELECT 1 FROM api_biometric_keys WHERE user_id = " . intval($api_user_id) . " LIMIT 1"));
+    $bio_audit('success', $bio_had_key ? 'replaced the registered key' : 'registered a new key');
 
     $esc_pem = mysqli_real_escape_string($mysqli, $pem);
     mysqli_query($mysqli,

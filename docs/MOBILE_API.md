@@ -84,3 +84,13 @@ An approval request keeps its recipients and message; only the identifiers are n
 
 - `POST /api/v1/tickets` accepts an optional `asset_id` next to `client_id`. The asset must exist, not be archived and belong to `client_id`, otherwise `400 asset_id does not belong to client_id` (an `asset_id` without a `client_id` is `400 client_id required with asset_id`). Without `asset_id` the old behaviour stays: a `hostname` that matches an asset name or tag of that department links it.
 - `GET /api/v1/assets/{id}` returns `client_id`, and `GET /api/v1/assets?client_id=` lists one department's assets, which is all the app needs to start a ticket from an asset or to pick one on the new-ticket form. The created ticket's detail returns `ticket_asset_id`.
+
+
+## Biometric step-up key enrolment (contract change)
+
+`PUT /api/v1/me` with `device_public_key_pem` now requires `current_password` in the JSON body, plus `totp_code`
+when the account has MFA enabled. Previously the bearer token alone was enough, which let a stolen token enrol its own
+key and pass the credential-reveal step-up. A missing or wrong value returns 401 (`Current password is required to register a
+biometric key` / `MFA code required to register a biometric key`); repeated failures return 429. The app must prompt for
+the password (and MFA code) when it enrols or re-enrols the key. `GET /api/v1/credentials/{id}` may now also return 429
+when the per-user reveal limit is reached; each reveal is audited.

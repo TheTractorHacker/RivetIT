@@ -291,7 +291,7 @@ there's no specific user for it to represent.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/me` | Current user profile |
-| PUT | `/me` | Update profile/password, or register an FCM push token or biometric key |
+| PUT | `/me` | Update profile/password, or register an FCM push token or biometric key (a biometric key also needs `current_password`, and `totp_code` when MFA is on) |
 | POST | `/me` | Alias of `PUT /me` for profile/password updates (FCM push and biometric key registration require `PUT`) |
 
 ### Dashboard
@@ -474,6 +474,16 @@ the device:
 - `X-Biometric-Challenge-Token` — the `challengeToken` returned by `GET /auth`
 - `X-Biometric-Signature` — a base64 signature of the challenge bytes,
   produced by the device's registered biometric key
+
+**Registering the biometric key (`PUT /me {device_public_key_pem}`)** needs more than
+the bearer token: the body must also carry `current_password` and, when the account has
+MFA, `totp_code` (a TOTP or recovery code). Without them the call returns 401 and the stored
+key is unchanged, so a stolen token cannot enrol its own key. Every enrolment attempt
+and outcome is written to the audit trail (`vault.api_stepup_key_enrol`), and repeated
+wrong passwords return 429. Each successful reveal is audited
+(`vault.credential_revealed`, `via: api`) and counts toward the per-user limit
+(Admin > Settings > Security, `vault_reveal_limit` per 10 minutes, shared with the web vault);
+past it the call returns 429 with `Retry-After`.
 
 This is the one read endpoint in the API with an extra proof-of-presence
 step, because it's the one endpoint that returns plaintext secrets.
