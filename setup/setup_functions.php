@@ -649,6 +649,7 @@ if (!function_exists('applyManifestSettingsEncKey')) {
      *   'not_found'       - no backup-manifest.json[.enc] in this backup (pre-manifest backup)
      *   'decrypt_failed'  - backup-manifest.json.enc present but $passphrase didn't decrypt it
      *   'passphrase_needed' - .enc present, no $passphrase was submitted
+     *   'bad_key'         - the key was not a hex string; refused, config.php untouched
      *   'no_key'          - manifest read fine but had no usable settings_enc_key
      *   'no_config_line'  - config.php has no $config_settings_enc_key line to replace
      */
@@ -658,9 +659,9 @@ if (!function_exists('applyManifestSettingsEncKey')) {
         $manifestFile = null;
         $decryptedTmp = null;
 
-        if (is_file($plain)) {
-            $manifestFile = $plain;
-        } elseif (is_file($enc)) {
+        // An encrypted manifest always wins: a plaintext one sitting next to it can only be a tampering attempt (or a stale
+        // leftover), so it is never read. (IT-WEB-4)
+        if (is_file($enc)) {
             if ($passphrase === null || $passphrase === '') {
                 return ['status' => 'passphrase_needed', 'message' => "This backup's manifest is encrypted (a backup passphrase was set in Admin > Backup when it was taken) - enter that passphrase to recover its settings-encryption key, or SMTP/IMAP passwords, RMM/webhook secrets and the credential vault will not decrypt after this restore."];
             }
@@ -682,6 +683,8 @@ if (!function_exists('applyManifestSettingsEncKey')) {
                 return ['status' => 'decrypt_failed', 'message' => "This backup's manifest (backup-manifest.json.enc) could not be decrypted with the passphrase entered - it's either wrong, or the file is corrupt. Settings-encryption-key recovery was skipped; SMTP/IMAP passwords, RMM/webhook secrets and the credential vault may not decrypt correctly."];
             }
             $manifestFile = $decryptedTmp;
+        } elseif (is_file($plain)) {
+            $manifestFile = $plain;
         } else {
             return ['status' => 'not_found', 'message' => "This backup has no backup-manifest.json (it predates settings-encryption-key capture). config_settings_enc_key was left as-is; if this isn't a restore onto its own original config.php, SMTP/IMAP passwords, RMM/webhook secrets and the credential vault will need to be re-entered by hand."];
         }
@@ -709,17 +712,23 @@ if (!function_exists('applyManifestSettingsEncKey')) {
             }
         }
 
+        // The key ends up inside config.php, which is PHP code: it must be exactly a hex string (what bin2hex() produces),
+        // whatever came from the manifest or the operator. \z, not $, so a trailing newline does not slip through. (IT-WEB-4)
+        if (!preg_match('/^[0-9a-fA-F]{32,128}\z/', $key)) {
+            return ['status' => 'bad_key', 'message' => "The settings-encryption key in this backup's manifest is not a hex string, so it was NOT written to config.php (a tampered or corrupt manifest). config_settings_enc_key was left as-is."];
+        }
+
         $configContents = @file_get_contents($configPath);
         if ($configContents === false || !preg_match('/^\$config_settings_enc_key = \'.*\';$/m', $configContents)) {
             return ['status' => 'no_config_line', 'message' => "config.php has no \$config_settings_enc_key line to update - this instance's config.php may predate that setting. Investigate before trusting restored SMTP/IMAP/RMM/webhook secrets."];
         }
 
-        // setup_cli.php / deploy/restore.sh's own equivalent both rely on this same
-        // guarantee: $config_settings_enc_key is always bin2hex() output through a
-        // single-quoted var_export-style literal, so no escaping is needed here.
-        $newContents = preg_replace(
+        // var_export() quotes the (already validated) value as a PHP string literal; the callback form keeps preg_replace from
+        // interpreting $ or \ in the replacement.
+        $newLine = '$config_settings_enc_key = ' . var_export($key, true) . ';';
+        $newContents = preg_replace_callback(
             '/^\$config_settings_enc_key = \'.*\';$/m',
-            "\$config_settings_enc_key = '" . $key . "';",
+            static fn(array $m): string => $newLine,
             $configContents,
             1
         );
