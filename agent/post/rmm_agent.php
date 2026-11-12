@@ -61,6 +61,9 @@ $posted_ids = static function (string $key): array {
 
     return $ids;
 };
+if (in_array($action, ['move_options', 'move_locations'], true) && !$rmm->enabled()) {
+    $json(404, ['success' => false, 'code' => 'module_off', 'error' => RIVET_RMM_MODULE_OFF_MESSAGE]);
+}
 switch ($action) {
     case 'move_options':
         $dev = $tech->visibleDevice($uid, $device_id);

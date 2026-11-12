@@ -185,6 +185,35 @@ $ok((int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id = $
 $ok((int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id = $d1") === 9802 && (int) $one("SELECT asset_client_id FROM assets WHERE asset_id = $a1") === 9802 && (int) $one("SELECT asset_archived_at IS NULL FROM assets WHERE asset_id = $a1") === 1, "bulk handler, admin ($c): the device asset keeps its id and moved with its device");
 $ok((int) $one("SELECT asset_archived_at IS NOT NULL FROM assets WHERE asset_id = $aNone") === 1 && (int) $one("SELECT COUNT(*) FROM assets WHERE asset_name = 'NO-AGENT' AND asset_client_id = 9802 AND asset_archived_at IS NULL") === 1, 'bulk handler: the asset without a device took the old copy-and-archive path');
 
+// ---------------------------------------------------------------- tenancy adapter: clientName() is Core's existence check
+$q("INSERT INTO clients SET client_id = 9803, client_name = 'Archived Dept', client_archived_at = NOW(), client_created_at = NOW()");
+$ten = new \ITFlow\Core\Adapter\Endpoint\EndpointTenancy(rivetCoreDb($db));
+$ok($ten->clientName(9802) === 'New Dept', 'clientName: a valid department answers its name');
+$ok($ten->clientName(99999999) === null, 'clientName: a nonexistent id answers null');
+$ok($ten->clientName(0) === null && $ten->clientName(-5) === null, 'clientName: 0 and a negative id answer null');
+$ok($ten->clientName(9803) === null, 'clientName: an archived department answers null');
+$hashA = (string) $one("SELECT token_hash FROM endpoint_agent_devices WHERE device_id = $d1");
+foreach ([99999999, 0, 9803] as $bad) {
+    $ok($rmm->deviceService()->transfer($d1, $bad, 0, 951) === false, "DeviceService::transfer() to department $bad returns false");
+    $rr = rivetRmmMoveDevice($db, $rmm, $admin, $d1, $bad, 0);
+    $ok(!$rr['ok'], "rivetRmmMoveDevice() to department $bad is refused (" . $rr['message'] . ')');
+}
+$ok((int) $one("SELECT client_id FROM endpoint_agent_devices WHERE device_id = $d1") === 9802, 'no device moved to a bad department');
+
+// ---------------------------------------------------------------- module off: a clear message first, never a bare 404
+$rmm->settings()->set(['enabled' => 0]);   // through Core so the module's settings cache follows
+$rmmOff = $rmm;
+$off = fn (array $r) => !$r['ok'] && $r['code'] === 'module_off' && $r['message'] === 'Remote management is turned off.';
+$ok($off(rivetRmmMoveDevice($db, $rmmOff, $admin, $d1, 9801, 0)), 'module off: move says "Remote management is turned off."');
+$ok($off(rivetRmmBulkManagedExternally($db, $rmmOff, $admin, [$a1], true)), 'module off: the bulk switch says so');
+$resOff = rivetRmmBulkTransferAssets($db, $rmmOff, $admin, [$a1, $aNone], 9801);
+$ok($resOff['moved'] === [] && count($resOff['refused']) === 1 && $resOff['refused'][0]['reason'] === 'Remote management is turned off.' && $resOff['without_device'] === [$aNone], 'module off: bulk transfer refuses the device asset with that message and hands the plain one back');
+foreach (['move_options', 'move_locations', 'move_department', 'bulk_managed_externally'] as $act) {
+    [$c, $j] = $hit($sAdmin, ['action' => $act, 'device_id' => $d1, 'client_id' => 9801, 'asset_ids' => [$a1], 'disabled' => '1']);
+    $ok($c === 404 && ($j['code'] ?? '') === 'module_off' && ($j['error'] ?? '') === 'Remote management is turned off.', "module off: handler action $act answers module_off with the message");
+}
+$rmm->settings()->set(['enabled' => 1]);
+
 // ---------------------------------------------------------------- 0. migration step 2.6.236
 $src = (string) file_get_contents("$root/admin/database_updates.php");
 $start = strpos($src, "if (\$rivetit_db_version() == '2.6.235') {");

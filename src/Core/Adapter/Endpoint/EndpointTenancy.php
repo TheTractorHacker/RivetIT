@@ -39,7 +39,11 @@ final class EndpointTenancy implements RmmTenancyInterface
 
     public function clientName(int $clientId): ?string
     {
-        $row = $this->database->fetchOne('SELECT client_name FROM clients WHERE client_id = ?', [$clientId]);
+        if ($clientId <= 0) {
+            return null;   // "no department" is not an existing one: Core uses null as its existence check (e.g. a device transfer target)
+        }
+        // RmmTenancyInterface contract: null for a deleted OR archived client, so an archived department is never a transfer, panel or token target.
+        $row = $this->database->fetchOne('SELECT client_name FROM clients WHERE client_id = ? AND client_archived_at IS NULL', [$clientId]);
 
         return $row === null ? null : (string) $row['client_name'];
     }

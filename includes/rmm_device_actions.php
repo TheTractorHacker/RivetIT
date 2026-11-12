@@ -25,6 +25,9 @@ const RIVET_RMM_BULK_DEVICE_MAX = 500;
 const RIVET_RMM_MANAGED_EXTERNALLY_LABEL = 'Managed by another RMM';
 const RIVET_RMM_MANAGED_EXTERNALLY_HELP = 'The computers this installer enrolls are already managed by another RMM or patch tool. RivetIT will monitor them and collect inventory, but will not run scheduled scripts, install patches or deploy software on them. You can change this per computer later.';
 
+/** Said first by every move / bulk path while the module is switched off (Core's visibleDevice() would answer a bare 404). Status code style of agent/post/rmm_installer.php. */
+const RIVET_RMM_MODULE_OFF_MESSAGE = 'Remote management is turned off.';
+
 /** The plain-words confirmation of a move (the prompt's exact text). */
 const RIVET_RMM_MOVE_CONFIRM_TEXT = 'The computer\'s agent and its credential stay the same. It keeps reporting without being reinstalled. Its open alerts, queued jobs, patch and software state and history move to the new department, and technicians of the old department will no longer see it.';
 
@@ -135,6 +138,9 @@ function rivetRmmMoveDevice(\mysqli $mysqli, RmmModule $rmm, RmmPrincipal $who, 
 {
     $fail = static fn (int $http, string $code, string $message, int $from = 0, int $asset = 0): array => ['ok' => false, 'http' => $http, 'code' => $code, 'message' => $message,
         'device_id' => $deviceId, 'client_id' => $clientId, 'asset_id' => $asset, 'from_client_id' => $from];
+    if (!$rmm->enabled()) {
+        return $fail(404, 'module_off', RIVET_RMM_MODULE_OFF_MESSAGE);
+    }
     $dev = $rmm->technician()->visibleDevice($who->userId, $deviceId);
     if ($dev === null) {
         return $fail(404, 'not_found', 'Device not found.');
@@ -195,6 +201,9 @@ function rivetRmmBulkManagedExternally(\mysqli $mysqli, RmmModule $rmm, RmmPrinc
 {
     $none = ['changed' => 0, 'unchanged' => 0, 'skipped' => 0];
     $fail = static fn (int $http, string $code, string $message): array => ['ok' => false, 'http' => $http, 'code' => $code, 'message' => $message, 'counts' => $none, 'changed' => [], 'unchanged' => [], 'skipped' => []];
+    if (!$rmm->enabled()) {
+        return $fail(404, 'module_off', RIVET_RMM_MODULE_OFF_MESSAGE);
+    }
     if (!rivetRmmCanManageDevices($rmm, $who->userId, 0)) {
         return $fail(403, 'forbidden', 'You do not have permission to change this setting on computers.');
     }
