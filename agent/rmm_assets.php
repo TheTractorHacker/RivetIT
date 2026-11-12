@@ -192,7 +192,8 @@ $th = static function (string $key, string $label) use ($f_sort, $f_order, $self
 
     <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
         #rmm-assets-table td { vertical-align: middle; }
-        #rmm-assets-table { min-width: 1080px; }
+            #rmm-assets-table th, #rmm-assets-table td { padding-left: .55rem; padding-right: .55rem; }
+        #rmm-assets-table { min-width: 1040px; }
             #rmm-assets-table .rmm-os { min-width: 11rem; }
         #rmm-assets-table .rmm-host { white-space: nowrap; }
         #rmm-assets-table .rmm-user { overflow-wrap: normal; word-break: normal; }
@@ -372,8 +373,8 @@ $th = static function (string $key, string $label) use ($f_sort, $f_order, $self
                     <?php endif; ?>
                     <?php if ($badges !== ''): ?><div class="mt-1"><?= $badges ?></div><?php elseif ($disk === null): ?><span class="text-muted small">—</span><?php endif; ?>
                 </td>
-                <td class="text-muted small text-nowrap" title="<?= $row['last_sync'] ? 'Last sync ' . nullable_htmlentities(rivetFormatTime($row['last_sync'], 'local', true, 'Y-m-d H:i')) : '' ?>">
-                    <?= $row['last_seen'] ? nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'Y-m-d H:i')) : '—' ?>
+                <td class="text-muted small text-nowrap" title="<?= ($row['last_seen'] ? 'Last seen ' . nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'Y-m-d H:i')) . '. ' : '') . ($row['last_sync'] ? 'Last sync ' . nullable_htmlentities(rivetFormatTime($row['last_sync'], 'local', true, 'Y-m-d H:i')) : '') ?>">
+                    <?= $row['last_seen'] ? nullable_htmlentities(rivetFormatTime($row['last_seen'], 'local', true, 'M j, H:i')) : '—' ?>
                 </td>
                 <td class="rmm-actions pe-2">
                     <div class="btn-group">
@@ -381,8 +382,8 @@ $th = static function (string $key, string $label) use ($f_sort, $f_order, $self
                             <i class="fas fa-arrow-right" aria-hidden="true"></i><span class="d-none d-xxl-inline ms-1">Open</span>
                         </a>
                         <?php if ($can_rmm_remote_connect && !empty($row['tactical_agent_id'])): ?>
-                            <button type="button" class="btn btn-success btn-sm" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="tactical" title="Remote connect">
-                                <i class="fas fa-desktop me-1" aria-hidden="true"></i>Connect
+                            <button type="button" class="btn btn-success btn-sm" data-rmm-action="connect" data-link-id="<?= intval($row['id']) ?>" data-rmm-type="tactical" title="Remote connect" aria-label="Remote connect to <?= nullable_htmlentities($row['hostname']) ?>">
+                                <i class="fas fa-desktop" aria-hidden="true"></i><span class="d-none d-xxl-inline ms-1">Connect</span>
                             </button>
                             <?php if (!empty($row['mesh_node_id'])): ?>
                             <button type="button" class="btn btn-success btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-boundary="window" aria-label="More ways to connect"></button>
