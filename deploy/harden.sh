@@ -239,7 +239,15 @@ detect_os
 
 PHP_VER="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)"
 [[ -n "$PHP_VER" ]] || PHP_VER="8.4"   # fall back to this box's known version if detection fails
+# BEGIN fpm-unit
+# A distro package runs as php<major.minor>-fpm; a PHP built from source runs as php<major.minor.patch>-fpm (php8.5.12-fpm).
+# Prefer the full-version unit when it is installed, otherwise the short name (same rule as deploy/update.sh).
 PHP_FPM_SVC="php${PHP_VER}-fpm"
+PHP_FULL_VER="$(php -r 'echo PHP_VERSION;' 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || true)"
+if [[ -n "$PHP_FULL_VER" ]] && systemctl list-unit-files "php${PHP_FULL_VER}-fpm.service" 2>/dev/null | grep -q "php${PHP_FULL_VER}-fpm.service"; then
+    PHP_FPM_SVC="php${PHP_FULL_VER}-fpm"
+fi
+# END fpm-unit
 PHP_FPM_BIN="php-fpm${PHP_VER}"
 PHP_FPM_CONF_DIR="/etc/php/${PHP_VER}/fpm/conf.d"
 PHP_SOCK_DEFAULT="/run/php/php${PHP_VER}-fpm.sock"

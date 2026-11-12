@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
