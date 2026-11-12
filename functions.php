@@ -3060,6 +3060,36 @@ function generateReadablePassword($security_level)
     return $password;
 }
 
+/**
+ * Sender for bulk mail (contacts / departments). The From address is the company's own identity, never a
+ * request value: a posted mail_from is honoured only when it equals one of the four configured addresses
+ * (the same ones the bulk-mail form offers), anything else falls back to the main configured sender. The
+ * display name always comes from config, so a caller cannot send as "The CEO".
+ * @return array{email: string, name: string}
+ */
+function resolveBulkMailSender($requested_email = ''): array {
+    global $config_mail_from_email, $config_mail_from_name, $config_invoice_from_email, $config_invoice_from_name,
+           $config_quote_from_email, $config_quote_from_name, $config_ticket_from_email, $config_ticket_from_name;
+
+    $identities = [
+        [(string) $config_mail_from_email, (string) $config_mail_from_name],
+        [(string) $config_invoice_from_email, (string) $config_invoice_from_name],
+        [(string) $config_quote_from_email, (string) $config_quote_from_name],
+        [(string) $config_ticket_from_email, (string) $config_ticket_from_name],
+    ];
+    $requested_email = strtolower(trim((string) $requested_email));
+
+    if ($requested_email !== '') {
+        foreach ($identities as [$email, $name]) {
+            if ($email !== '' && strtolower($email) === $requested_email) {
+                return ['email' => $email, 'name' => $name];
+            }
+        }
+    }
+
+    return ['email' => $identities[0][0], 'name' => $identities[0][1]];
+}
+
 function addToMailQueue($data) {
 
     global $mysqli;

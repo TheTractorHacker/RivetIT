@@ -40,7 +40,7 @@ ob_start();
             </div>
 
             <div class="form-group col-sm-6">
-                <input type="text" class="form-control" name="mail_from_name" placeholder="From Name" maxlength="255"
+                <input type="text" class="form-control" name="mail_from_name" placeholder="From Name" maxlength="255" readonly title="The sender name comes from the configured mail identity"
                     value="<?php echo nullable_htmlentities($config_mail_from_name); ?>">
             </div>
         </div>

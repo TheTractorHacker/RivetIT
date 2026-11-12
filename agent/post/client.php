@@ -1318,7 +1318,8 @@ if (isset($_POST['bulk_send_client_email']) && isset($_POST['client_ids'])) {
 
     validateCSRFToken($_POST['csrf_token']);
 
-    enforceUserPermission('module_client', 1);
+    // Sending mail is a write action: a view-only role must not be able to send from the company's mail server.
+    enforceUserPermission('module_client', 2);
 
     $client_ids = array_map('intval', $_POST['client_ids']);
     $count = count($client_ids);
@@ -1328,8 +1329,10 @@ if (isset($_POST['bulk_send_client_email']) && isset($_POST['client_ids'])) {
     }
 
     // Email metadata
-    $mail_from = sanitizeInput($_POST['mail_from']);
-    $mail_from_name = sanitizeInput($_POST['mail_from_name']);
+    // From is the configured company identity; the posted mail_from / mail_from_name are not trusted.
+    $bulk_sender = resolveBulkMailSender($_POST['mail_from'] ?? '');
+    $mail_from = sanitizeInput($bulk_sender['email']);
+    $mail_from_name = sanitizeInput($bulk_sender['name']);
     $subject = sanitizeInput($_POST['subject']);
     $body = mysqli_real_escape_string($mysqli, $_POST['body']);
     $queued_at = sanitizeInput($_POST['queued_at']);
