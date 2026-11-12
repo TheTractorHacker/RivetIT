@@ -613,6 +613,22 @@ function rivetRmmUiAutomationCard(array $vm): string
         . ($on ? rivetRmmUiPill('off', 'Disabled here') : rivetRmmUiPill('ok', 'Managed by RivetCore')) . '</div>' . $body . '</section></div>';
 }
 
+/**
+ * "Move to Department" (RivetCore 1.0.0-rc.60): only for a user who holds rmm.device.manage. The move itself, and the permission, are checked again by
+ * agent/post/rmm_agent.php and Core's TechnicianActions::transfer(); this only draws the button.
+ */
+function rivetRmmUiMoveCard(array $vm): string
+{
+    if (empty($vm['perm']['manage'])) {
+        return '';
+    }
+    require_once __DIR__ . '/rmm_device_actions.php';
+
+    return '<div class="col-lg-6"><section class="card card-dark mb-3" id="rmm-move"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-exchange-alt me-2 text-secondary" aria-hidden="true"></i>Department</h6></div>'
+        . '<div class="card-body py-2"><p class="small text-muted mb-2">Move this computer, its agent and its history to another department. The agent keeps reporting without being reinstalled.</p>'
+        . rivetRmmMoveButton((int) $vm['device_id'], (string) ($vm['hostname'] ?? ''), '') . '</div></section></div>';
+}
+
 function rivetRmmUiChecksCard(array $vm): string
 {
     $c = $vm['check_counts'];
@@ -651,7 +667,7 @@ function rivetRmmUiOverview(array $vm, string $performanceHtml, string $performa
     } elseif ($performanceNote !== '') {
         $o .= '<h6 class="ifm-family mt-3">Performance</h6><div class="card card-dark mb-3"><div class="card-body">' . $performanceNote . '</div></div>';
     }
-    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . rivetRmmUiAutomationCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
+    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . rivetRmmUiAutomationCard($vm) . rivetRmmUiMoveCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
 
     return $o;
 }

@@ -6,6 +6,7 @@ $rmm_launch_scripts = true;   // includes/footer.php links js/rmm_launch.js (a r
 require_once dirname(__DIR__) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__) . '/includes/rmm_mesh_cards.php';   // rc.12: the device's Mesh agent state
 require_once dirname(__DIR__) . '/includes/rmm_mesh_push.php';    // rc.16: Install / Remove MeshCentral agent
+require_once dirname(__DIR__) . '/includes/rmm_device_actions.php';   // rc.60: Move to Department
 
 use RivetCore\Rmm\Authz\RmmAbility;
 use RivetCore\Rmm\Support\Sql;
@@ -222,6 +223,12 @@ if ($st['state'] === 'never' && $clockNotice !== null && $clockNotice['reject'] 
         <label class="form-check-label" for="ea-automation-disabled">Another tool already manages this device</label>
     </div>
     <div class="form-text">Turns off this device's scheduled scripts and scheduled patch installs - for a device a different RMM or patch agent already handles, so the two never fight. Monitoring, inventory, patch scanning/compliance and running a script on this device right now are unaffected; so is manually installing a patch.</div>
+</div></div>
+<?php } ?>
+<?php if ($authz->allowed($uid, RmmAbility::DEVICE_MANAGE, $client_id)) { $rmm_move_scripts = true; ?>
+<div class="card mb-3"><div class="card-header"><h5 class="card-title mb-0">Department</h5></div><div class="card-body">
+    <p class="small text-muted mb-2">Move this computer, its agent and its history to another department. The agent keeps reporting without being reinstalled.</p>
+    <?= rivetRmmMoveButton($device_id, (string) ($dev['hostname'] ?? ''), (string) $_SESSION['csrf_token']) ?>
 </div></div>
 <?php } ?>
 <?php if ($cfg['coexistence_policy'] !== '') { ?><div class="small text-muted mb-3"><?= nl2br($h($cfg['coexistence_policy'])) ?></div><?php } ?>

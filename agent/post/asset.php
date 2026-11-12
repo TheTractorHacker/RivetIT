@@ -430,6 +430,22 @@ if (isset($_POST['bulk_transfer_client_asset'])) {
     // Transfer selected asset to new client
     if (isset($_POST['asset_ids'])) {
 
+        // RivetCore 1.0.0-rc.60: an asset that has an endpoint device (agent) is NOT copied and archived: the copy would be a new asset and the device would stay linked to the
+        // archived original, its agent state orphaned in the old department. Each such asset goes through TechnicianActions::transfer() (rmm.device.manage on the old and the new
+        // department, checked by Core), which moves the device and the asset together and keeps the agent's credential. Assets without a device take the path below, unchanged.
+        require_once dirname(__DIR__, 2) . '/includes/rmm_device_actions.php';
+        $device_asset_ids = array_values(array_filter(array_map('intval', (array) $_POST['asset_ids']), static fn (int $i): bool => $i > 0));
+        $device_move = rivetRmmBulkTransferAssets($mysqli, rivetRmmModule($mysqli), rivetRmmPrincipal((int) $session_user_id, (string) $session_name), $device_asset_ids, $new_client_id);
+        $new_client_name = sanitizeInput(getFieldById('clients', $new_client_id, 'client_name'));
+        foreach ($device_move['moved'] as $moved_dev) {
+            $moved_name = sanitizeInput(getFieldById('assets', $moved_dev['asset_id'], 'asset_name'));
+            if ($moved_dev['from_client_id'] !== $new_client_id) {
+                moveAssetPhotoToClient($moved_dev['asset_id'], $moved_dev['from_client_id'], $new_client_id);
+                logAction("Asset", "Transfer", "$session_name moved asset $moved_name (with its endpoint agent) to department $new_client_name", $new_client_id, $moved_dev['asset_id']);
+            }
+        }
+        $_POST['asset_ids'] = $device_move['without_device'];
+
         // Get Count
         $asset_count = count($_POST['asset_ids']);
 
@@ -498,9 +514,26 @@ if (isset($_POST['bulk_transfer_client_asset'])) {
 
         } // End Transfer to Client Loop
 
-        logAction("Asset", "Bulk Transfer", "$session_name transferred $asset_count assets to $new_client_name", $new_client_id);
+        if ($asset_count > 0) {
+            logAction("Asset", "Bulk Transfer", "$session_name transferred $asset_count assets to $new_client_name", $new_client_id);
+            flash_alert("Transferred <strong>$asset_count</strong> assets to <strong>$new_client_name</strong>.");
+        }
 
-        flash_alert("Transferred <strong>$asset_count</strong> assets to <strong>$new_client_name</strong>.");
+        if ($device_move['moved'] || $device_move['refused']) {
+            $moved_n = count($device_move['moved']);
+            logAction("Asset", "Bulk Transfer", "$session_name moved $moved_n assets with an endpoint agent to $new_client_name; " . count($device_move['refused']) . " refused", $new_client_id);
+            if ($moved_n > 0) {
+                flash_alert("Moved <strong>$moved_n</strong> computers with an agent to <strong>$new_client_name</strong> (agent, history and asset together).");
+            }
+            if ($device_move['refused']) {
+                $refused_lines = [];
+                foreach ($device_move['refused'] as $refused) {
+                    $refused_name = nullable_htmlentities((string) getFieldById('assets', $refused['asset_id'], 'asset_name', 'raw'));
+                    $refused_lines[] = "<strong>$refused_name</strong>: " . nullable_htmlentities($refused['reason']);
+                }
+                flash_alert("Not moved (" . count($refused_lines) . "): " . implode('; ', $refused_lines), 'error');
+            }
+        }
     }
 
     redirect();

@@ -100,6 +100,16 @@ if ($filter_intg_id) {
 }
 $sync_target_name_js = json_encode($sync_target_name, JSON_HEX_TAG);
 $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1;
+// RivetCore 1.0.0-rc.60: "Mark / Clear managed by another RMM" in the Bulk Action menu, only for a user who holds rmm.device.manage. Cosmetic: agent/post/rmm_agent.php
+// (action=bulk_managed_externally) re-checks the ability and the CSRF token, and Core decides per device.
+require_once dirname(__DIR__) . '/includes/rmm_device_actions.php';
+$can_bulk_managed = false;
+try {
+    $can_bulk_managed = rivetRmmEnabled($mysqli) && rivetRmmCanManageDevices(rivetRmmModule($mysqli), (int) $session_user_id, 0);
+} catch (\Throwable $e) {
+    $can_bulk_managed = false;
+}
+$can_bulk_assign = lookupUserPermission('module_rmm_sync') >= 1;
 ?>
 
 <div class="d-flex align-items-center mb-3">
@@ -201,17 +211,28 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
 <!-- Bulk actions bar: hidden until at least one row is ticked (js/bulk_actions.js toggles #bulkActionButton by its id) -->
 <div class="card card-dark mb-2" id="bulkActionButton" hidden>
     <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
-        <?php if (lookupUserPermission('module_rmm_sync') >= 1): ?>
+        <?php if ($can_bulk_assign || $can_bulk_managed): ?>
         <div class="dropdown">
             <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 <i class="fas fa-fw fa-layer-group me-2"></i>Bulk Action (<span id="selectedCount">0</span>)
             </button>
             <div class="dropdown-menu">
+                <?php if ($can_bulk_assign): ?>
                 <a class="dropdown-item" href="#" id="bulkAssignOpen">
                     <i class="fas fa-fw fa-arrow-right me-2"></i>Assign department...
                 </a>
+                <?php endif; ?>
+                <?php if ($can_bulk_managed): ?>
+                <a class="dropdown-item" href="#" id="bulkManagedOn" data-disabled-value="1">
+                    <i class="fas fa-fw fa-user-lock me-2"></i><?= nullable_htmlentities('Mark as managed by another RMM') ?>
+                </a>
+                <a class="dropdown-item" href="#" id="bulkManagedOff" data-disabled-value="0">
+                    <i class="fas fa-fw fa-unlock me-2"></i><?= nullable_htmlentities('Clear managed by another RMM') ?>
+                </a>
+                <?php endif; ?>
             </div>
         </div>
+        <?php if ($can_bulk_assign): ?>
         <span id="bulkAssignRow" class="d-flex flex-wrap align-items-center gap-2" hidden>
             <select class="form-control form-control-sm w-auto" id="bulkAssignClient">
                 <option value="">Choose department...</option>
@@ -221,11 +242,16 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
             </select>
             <button type="button" class="btn btn-sm btn-primary" id="bulkAssignGo" disabled>Apply to selected</button>
         </span>
+        <?php endif; ?>
         <?php else: ?>
         <span class="small text-muted"><span id="selectedCount">0</span> selected</span>
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($can_bulk_managed): ?>
+<div class="alert alert-info d-none mb-2" id="bulkManagedResult" role="status" aria-live="polite"></div>
+<?php endif; ?>
 
 <!-- Asset table -->
 <div class="card card-dark">
@@ -265,7 +291,7 @@ $can_rmm_remote_connect = lookupUserPermission('module_rmm_remote_connect') >= 1
             ?>
             <tr>
                 <td class="ps-3 checkbox-column">
-                    <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>"></div>
+                    <div class="form-check"><input class="form-check-input bulk-select" type="checkbox" name="asset_ids[]" value="<?= intval($row['asset_id']) ?>" data-hostname="<?= nullable_htmlentities($row['hostname']) ?>"></div>
                 </td>
                 <td>
                     <i class="fas <?= $icon ?>" data-bs-toggle="tooltip" title="<?= ucfirst($status) ?>"></i>
@@ -482,5 +508,57 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
     });
 })();
 </script>
+
+<?php if ($can_bulk_managed): ?>
+<script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+// Bulk "Mark / Clear managed by another RMM" (RivetCore 1.0.0-rc.60). Confirms first, then one request to agent/post/rmm_agent.php (action=bulk_managed_externally), which asks
+// Core per device. At most 500 are sent. The answer is written with textContent only. getBulkCheckboxes() is js/bulk_actions.js's helper.
+(function () {
+    var MAX = <?= (int) RIVET_RMM_BULK_DEVICE_MAX ?>;
+    var CSRF = <?= json_encode((string) ($_SESSION['csrf_token'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var CONFIRM_ON = <?= json_encode(RIVET_RMM_BULK_MANAGED_CONFIRM_ON, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var CONFIRM_OFF = <?= json_encode(RIVET_RMM_BULK_MANAGED_CONFIRM_OFF, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var box = document.getElementById('bulkManagedResult');
+    function show(lines, kind) {
+        if (!box) { return; }
+        box.textContent = '';
+        lines.forEach(function (t) { var p = document.createElement('div'); p.textContent = t; box.appendChild(p); });
+        box.className = 'alert alert-' + kind + ' mb-2';
+    }
+    function run(disabled) {
+        var rows = getBulkCheckboxes().filter(function (cb) { return cb.checked; });
+        if (rows.length === 0) { return; }
+        if (rows.length > MAX) { show(['Select at most ' + MAX + ' computers at a time (you selected ' + rows.length + ').'], 'warning'); return; }
+        var names = {};
+        rows.forEach(function (cb) { names[cb.value] = cb.getAttribute('data-hostname') || ('asset ' + cb.value); });
+        var verb = disabled ? 'Mark ' + rows.length + ' computers as managed by another RMM?' : 'Clear "managed by another RMM" on ' + rows.length + ' computers?';
+        RivetDialog.confirm(verb + ' ' + (disabled ? CONFIRM_ON : CONFIRM_OFF), { title: disabled ? 'Mark as managed by another RMM' : 'Clear managed by another RMM', okText: disabled ? 'Mark them' : 'Clear it' }).then(function (yes) {
+            if (!yes) { return; }
+            var body = new URLSearchParams();
+            body.set('csrf_token', CSRF);
+            body.set('action', 'bulk_managed_externally');
+            body.set('disabled', disabled ? '1' : '');
+            rows.forEach(function (cb) { body.append('asset_ids[]', cb.value); });
+            fetch('/agent/post/rmm_agent.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.success) { show([d.error || 'Nothing was changed.'], 'danger'); return; }
+                    var lines = [d.counts.changed + ' changed, ' + d.counts.unchanged + ' already set, ' + d.counts.skipped + ' skipped.'];
+                    if (d.skipped && d.skipped.length) {
+                        // Never says which: the person may lack the right, the computer may not use the RivetIT agent, or it no longer exists.
+                        lines.push('not changed: you cannot manage these or they no longer exist: ' + d.skipped.map(function (id) { return names[String(id)] || ('asset ' + id); }).join(', '));
+                    }
+                    show(lines, d.counts.skipped > 0 ? 'warning' : 'success');
+                })
+                .catch(function () { show(['Network error. Nothing was confirmed.'], 'danger'); });
+        });
+    }
+    [['bulkManagedOn', true], ['bulkManagedOff', false]].forEach(function (p) {
+        var a = document.getElementById(p[0]);
+        if (a) { a.addEventListener('click', function (e) { e.preventDefault(); run(p[1]); }); }
+    });
+})();
+</script>
+<?php endif; ?>
 
 <?php require_once "../includes/footer.php"; ?>
