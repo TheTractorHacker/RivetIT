@@ -279,8 +279,10 @@ behaviourally by serving the original inline vhost, the new split vhost and the 
 private nginx and asking 79 questions (status and every header identical). Two deliberate differences:
 
 1. `/plugins/`: the original answered the portal's TOTP QR code (`plugins/barcode/barcode.php`) and every other
-   plugin `.php` as raw source text (this "^~" prefix skips the generic PHP location). Now `barcode.php` and
-   PHPMailer's `get_oauth_token.php` run through PHP-FPM (never cached), any other plugin `.php` answers 403.
+   plugin `.php` as raw source text (this "^~" prefix skips the generic PHP location). Now `barcode.php` runs
+   through PHP-FPM (never cached), any other plugin `.php` answers 403. (PHPMailer's `get_oauth_token.php` was also
+   allowed until 2026-11; nothing in the app calls it, so it is no longer shipped or allowed. To mint a Google or Microsoft refresh token,
+   run PHPMailer's helper once from a CLI or a temporary allow-list.)
    (The beta box's shared snippet already ran PHP there.)
 2. In proxy mode the original still sent HSTS from the four static-asset locations (`/plugins/ /fonts/ /css/
    /js/`), against its own comment that the upstream proxy owns HSTS. The shared file sends none when
