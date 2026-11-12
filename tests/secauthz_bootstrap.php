@@ -52,7 +52,7 @@ function sec_fn(array $names, string $file = SECAUTHZ_ROOT . '/functions.php'): 
         eval($m[0]);
     }
 }
-sec_fn(['sanitizeInput', 'enforceClientAccess', 'getFieldById', 'cleanInput']);
+sec_fn(['sanitizeInput', 'enforceClientAccess', 'getFieldById', 'cleanInput', 'randomString']);
 
 /** Source of the top-level `if (isset($_POST|$_GET['key'])) {...}` block. */
 function sec_block(string $relFile, string $key): string {

@@ -1001,7 +1001,7 @@ if (isset($_POST['edit_contact'])) {
     // password reset (client/login_reset.php matches on exactly those two fields) and own the
     // primary account. contact_edit.php only hides the Save button for these cases; the rule has
     // to be enforced here, since the button is not what stops a hand-crafted POST.
-    $sql = mysqli_query($mysqli,"SELECT contact_user_id FROM contacts WHERE contact_id = $contact_id AND contact_client_id = $session_client_id AND contact_archived_at IS NULL AND contact_primary = 0 LIMIT 1");
+    $sql = mysqli_query($mysqli,"SELECT contact_user_id, contact_email, user_auth_method FROM contacts LEFT JOIN users ON user_id = contact_user_id WHERE contact_id = $contact_id AND contact_client_id = $session_client_id AND contact_archived_at IS NULL AND contact_primary = 0 LIMIT 1");
     $row = mysqli_fetch_assoc($sql);
 
     // Reject anything the form would not have offered a Save button for: a contact that isn't ours,
@@ -1015,9 +1015,20 @@ if (isset($_POST['edit_contact'])) {
 
     $contact_user_id = intval($row['contact_user_id']);
 
+    // Login identity (email, auth method, the login row itself) is account-takeover material: changing a
+    // peer's login email lets the new address pull a password reset (client/login_reset.php) and own that
+    // account. Only the department's primary contact may change it. Any other (technical) contact can still
+    // edit the person's name and Billing/Technical flags, but the email and auth method stay exactly as
+    // stored whatever was posted, and the users row is never written.
+    $can_edit_login = ($session_contact_primary == 1);
+    if (!$can_edit_login) {
+        $contact_email = sanitizeInput($row['contact_email']);
+        $contact_auth_method = sanitizeInput($row['user_auth_method'] ?? '');
+    }
+
     // Check the email isn't already in use
     $sql = mysqli_query($mysqli, "SELECT user_id FROM users WHERE user_email = '$contact_email' AND user_id != $contact_user_id");
-    if ($sql && mysqli_num_rows($sql) > 0) {
+    if ($can_edit_login && $sql && mysqli_num_rows($sql) > 0) {
         flash_alert("Cannot update contact as that email address is already in use", 'danger');
         redirect('contact_edit.php?id=' . $contact_id);
     }
@@ -1026,7 +1037,9 @@ if (isset($_POST['edit_contact'])) {
     // Belt and braces on top of the scoped lookup above: this statement rewrites the login identity
     // (user_email / user_auth_method), so it also refuses to touch an agent account (user_type 2 is
     // a portal contact) or the editor's own user row, whatever contact_user_id happens to hold.
-    if ($contact_user_id > 0) {
+    if (!$can_edit_login) {
+        // Non-primary editor: no write to the users table at all (see above).
+    } elseif ($contact_user_id > 0) {
         mysqli_query($mysqli, "UPDATE users SET user_name = '$contact_name', user_email = '$contact_email', user_auth_method = '$contact_auth_method' WHERE user_id = $contact_user_id AND user_type = 2 AND user_id != $session_user_id");
 
     // Else, create New User
