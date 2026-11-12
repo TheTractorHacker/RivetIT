@@ -4931,6 +4931,24 @@ function ticketReferenceOutsideClient($client_id, $contact_id = 0, $asset_id = 0
 }
 
 /**
+ * " AND (<column> = 0 OR <column> IN (allowed departments))" for a department-restricted agent; '' for an administrator
+ * or an unrestricted agent. For company-wide pages (problems) that list tickets of every department: the same
+ * rule enforceClientAccess() applies, expressed as SQL. $column must be a trusted literal column name.
+ */
+function clientAccessScopeSql(string $column): string {
+    global $client_access_string, $session_is_admin;
+
+    if (!empty($session_is_admin) || !preg_match('/^[a-z_.]+$/i', $column)) {
+        return preg_match('/^[a-z_.]+$/i', $column) ? '' : ' AND 1 = 0';
+    }
+    $ids = array_filter(array_map('intval', explode(',', (string) ($client_access_string ?? ''))));
+    if (!$ids) {
+        return '';   // no per-department restriction rows = access to everything (enforceClientAccess() does the same)
+    }
+    return " AND ($column = 0 OR $column IN (" . implode(',', $ids) . "))";
+}
+
+/**
  * The department a mail request "belongs to": its mailbox's default client (0 = shared/general inbox, no
  * department to scope by). Same rule as the Requests list page and the dismiss handler; the view modal and the
  * convert handler use it with enforceClientAccess() so a restricted agent cannot read or convert a request that

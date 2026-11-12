@@ -46,7 +46,7 @@ $linked_tickets = mysqli_query(
      FROM tickets
      LEFT JOIN ticket_statuses ON ticket_statuses.ticket_status_id = tickets.ticket_status
      LEFT JOIN clients ON clients.client_id = tickets.ticket_client_id
-     WHERE tickets.ticket_problem_id = $problem_id
+     WHERE tickets.ticket_problem_id = $problem_id" . clientAccessScopeSql('tickets.ticket_client_id') . "
      ORDER BY tickets.ticket_created_at DESC"
 );
 
