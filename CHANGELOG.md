@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Parked ticket statuses.** An administrator can mark a ticket status (On Hold is ticked once on upgrade) as Parked in Administration, Ticket Statuses (DB 2.6.235). Tickets in it stay unresolved but leave the dashboards, the default ticket list and board, the stat cards, the open-ticket counts and the SLA warning / breach events and overdue rule pass. They stay in search, the client ticket tab, single-ticket views, the All view, a Status filter that picks the status, and a new Show parked toggle. Parking does not pause the SLA or change time or billing. The `rpt_tickets` reporting view gains a trailing `is_parked` column; `is_open` is unchanged, so "open and not parked" is `is_open = 1 AND is_parked = 0`.
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.

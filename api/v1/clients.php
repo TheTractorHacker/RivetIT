@@ -90,9 +90,11 @@ while ($c = mysqli_fetch_assoc($csql)) {
     ];
 }
 
+// Open-ticket metric: Parked statuses are not counted (the client's ticket list still shows those tickets).
+require_once dirname(__DIR__, 2) . '/includes/ticket_parked.php';
 $open_tickets = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
     "SELECT COUNT(*) AS cnt FROM tickets
-     WHERE ticket_client_id = $id AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL"))['cnt']);
+     WHERE ticket_client_id = $id AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL" . ticketNotParkedSql($mysqli)))['cnt']);
 
 api_response(200, [
     'id'           => intval($row['client_id']),

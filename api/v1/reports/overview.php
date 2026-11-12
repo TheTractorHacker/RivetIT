@@ -11,11 +11,14 @@ $year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 // see another client's (or the whole company's) ticket overview - an unrestricted key
 // keeps the same company-wide behavior as the classic web dashboard.
 $client_where = api_key_client_filter('ticket_client_id');
+// Open-ticket metrics leave out Parked statuses (resolved-time metrics below keep using $client_where alone).
+require_once dirname(__DIR__, 3) . '/includes/ticket_parked.php';
+$open_not_parked = ticketNotParkedSql($mysqli, 'ticket_status');
 
 $by_priority = [];
 $sql = mysqli_query($mysqli,
     "SELECT ticket_priority, COUNT(ticket_id) AS c FROM tickets
-     WHERE ticket_closed_at IS NULL$client_where
+     WHERE ticket_closed_at IS NULL$client_where$open_not_parked
      GROUP BY ticket_priority
      ORDER BY FIELD(ticket_priority, 'High', 'Medium', 'Low')"
 );
@@ -27,7 +30,7 @@ $by_status = [];
 $sql = mysqli_query($mysqli,
     "SELECT ticket_status_name, ticket_status_color, COUNT(ticket_id) AS c
      FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-     WHERE ticket_closed_at IS NULL$client_where
+     WHERE ticket_closed_at IS NULL$client_where$open_not_parked
      GROUP BY ticket_status_name, ticket_status_color
      ORDER BY c DESC
      LIMIT 8"
@@ -44,7 +47,7 @@ $by_category = [];
 $sql = mysqli_query($mysqli,
     "SELECT COALESCE(category_name, 'Uncategorized') AS cat, category_color, COUNT(ticket_id) AS c
      FROM tickets LEFT JOIN categories ON ticket_category = category_id
-     WHERE ticket_closed_at IS NULL$client_where
+     WHERE ticket_closed_at IS NULL$client_where$open_not_parked
      GROUP BY cat, category_color
      ORDER BY c DESC
      LIMIT 8"

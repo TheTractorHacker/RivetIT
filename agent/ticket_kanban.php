@@ -22,6 +22,14 @@ while ($row = mysqli_fetch_assoc($status_sql)) {
     );
 }
 
+// The default board hides the Parked statuses' columns (their tickets are already filtered out by $ticket_status_snippet);
+// "Show parked", a search term or picking a status brings them back.
+if ($status === 'Open' && !empty($parked_hidden)) {
+    foreach (ticketParkedStatusIds($mysqli) as $_parked_id) {
+        unset($statuses[$_parked_id]);
+    }
+}
+
 $ordering_snippet = "ORDER BY
     CASE
         WHEN ticket_priority = 'High' THEN 1

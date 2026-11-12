@@ -13013,3 +13013,31 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_token` text DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.233'");
     }
+
+    if ($rivetit_db_version() == '2.6.233') {
+        // DB 2.6.234: re-run RivetCore migrations (idempotent). Stub on this branch: the real step is carried by the it-sec-ops branch; this only bumps the version so the chain is contiguous.
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.234'");
+    }
+
+    if ($rivetit_db_version() == '2.6.234') {
+        // DB 2.6.235: parked ticket statuses (RivetCore docs/design/parked-ticket-statuses.md). Additive and idempotent.
+        // ticket_statuses.ticket_status_parked  1 = tickets in this status stay unresolved but are hidden from dashboards, the default
+        //                                        ticket list / board, the open-ticket counts and overdue / breach alerts. Default 0.
+        // It is ticked ONCE, for the status named exactly 'On Hold' (never the "Waiting on ..." ones, which still need follow-up), and only
+        // when this step adds the column: after that only an administrator changes it, and a re-run never overrides their choice.
+        $parked_new = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_statuses` LIKE 'ticket_status_parked'")) === 0;
+        mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_parked` tinyint(1) NOT NULL DEFAULT 0");
+        if ($parked_new) {
+            mysqli_query($mysqli, "UPDATE `ticket_statuses` SET `ticket_status_parked` = 1 WHERE `ticket_status_name` = 'On Hold'");
+        }
+        // rpt_tickets gains a trailing is_parked column (is_open keeps its meaning). CREATE OR REPLACE, nothing else changes.
+        try {
+            $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
+            foreach ($rpt['errors'] as $rpt_error) {
+                error_log('DB 2.6.235 reporting view not created: ' . $rpt_error);
+            }
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.235 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
+    }

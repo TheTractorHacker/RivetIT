@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/mail_templates.php';
 require_once __DIR__ . '/includes/module_access.php';
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
+require_once __DIR__ . '/includes/ticket_parked.php';   // parked ticket statuses: ticketParkedStatusIds() and the SQL fragment builders
 
 // Role check failed wording
 DEFINE("WORDING_ROLECHECK_FAILED", "You are not permitted to do that!");
@@ -1752,7 +1753,9 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
     }
 
     // --- Open-ticket aging buckets (point-in-time snapshot of all open tickets) ---
-    $open_open = "ticket_closed_at IS NULL AND ticket_archived_at IS NULL$client_clause";
+    // Parked tickets are unresolved but not part of the open-ticket metrics (docs/design/parked-ticket-statuses.md).
+    require_once __DIR__ . '/includes/ticket_parked.php';
+    $open_open = "ticket_closed_at IS NULL AND ticket_archived_at IS NULL$client_clause" . ticketNotParkedSql($mysqli);
     $aging = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT
             SUM(CASE WHEN TIMESTAMPDIFF(HOUR, ticket_created_at, NOW()) < 24  THEN 1 ELSE 0 END) AS b0,
@@ -1836,7 +1839,7 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
     $res = mysqli_query($mysqli,
         "SELECT t.ticket_assigned_to AS uid, u.user_name, COUNT(t.ticket_id) AS c
          FROM tickets t LEFT JOIN users u ON u.user_id = t.ticket_assigned_to
-         WHERE t.ticket_closed_at IS NULL AND t.ticket_archived_at IS NULL AND t.ticket_assigned_to > 0$client_clause_t
+         WHERE t.ticket_closed_at IS NULL AND t.ticket_archived_at IS NULL AND t.ticket_assigned_to > 0$client_clause_t" . ticketNotParkedSql($mysqli, 't.ticket_status') . "
          GROUP BY t.ticket_assigned_to, u.user_name");
     while ($row = mysqli_fetch_assoc($res)) {
         $uid = intval($row['uid']);

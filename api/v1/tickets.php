@@ -105,6 +105,12 @@ if ($method === 'GET' && $id === null && $resource === 'tickets') {
         api_client_scope_sql('t.ticket_client_id'),
     ];
     if ($status === 'open')   $where[] = 't.ticket_resolved_at IS NULL';
+    // The default open queue leaves out Parked statuses. A lookup (a search term, one client or contact) or show_parked=1 includes them.
+    if ($status === 'open' && !$search && !$contact_id && !$client_id && ($_GET['show_parked'] ?? '') !== '1') {
+        require_once __DIR__ . '/../../includes/ticket_parked.php';
+        $api_not_parked = ticketNotParkedSql($mysqli, 't.ticket_status');
+        if ($api_not_parked !== '') $where[] = substr($api_not_parked, 5); // drop the leading " AND "
+    }
     if ($status === 'closed') $where[] = 't.ticket_resolved_at IS NOT NULL';
     if ($mine)                $where[] = "t.ticket_assigned_to = $uid";
     if ($search)              $where[] = "(t.ticket_subject LIKE '%$search%' OR t.ticket_number LIKE '%$search%')";

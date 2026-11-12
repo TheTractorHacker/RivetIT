@@ -49,6 +49,15 @@ enforceUserPermission('module_support');
 $ticket_date_field = ticketDateFieldFromRequest($_GET);
 $ticket_date_query = dateRangeSqlBetween(ticketDateFields()[$ticket_date_field]['column'], $date_range);
 
+// Parked statuses (On Hold and similar) stay out of the default view and the stat cards; "Show parked" brings them back.
+require_once dirname(__DIR__) . '/includes/ticket_parked.php';
+$show_parked = isset($_GET['show_parked']) && $_GET['show_parked'] === '1';
+$parked_status_ids = ticketParkedStatusIds($mysqli);
+// A client / department ticket tab (?client_id=N) is a lookup: it always lists and counts parked tickets, so it has no toggle either.
+$parked_in_client_tab = isset($_GET['client_id']);
+$parked_not_sql = $parked_in_client_tab ? '' : ticketNotParkedSql($mysqli); // "AND ticket_status NOT IN (...)" or ''
+$parked_hidden = !$parked_in_client_tab && !$show_parked && trim((string) $q) === '' && $parked_status_ids !== [];
+
 // Ticket status from GET
 $status_filter_id = '';
 $status_list = isset($_GET['status']) && is_array($_GET['status']) ? ticketFilterIds($_GET['status']) : [];
@@ -80,7 +89,8 @@ if ($status_list) {
     } else {
         // Default - Show open tickets
         $status = 'Open';
-        $ticket_status_snippet = "ticket_resolved_at IS NULL";
+        // Typing a search term, "Show parked" and the client tab are lookups: parked tickets are included then.
+        $ticket_status_snippet = "ticket_resolved_at IS NULL" . ($parked_hidden ? $parked_not_sql : '');
     }
 }
 
@@ -183,7 +193,7 @@ $sql = mysqli_query($mysqli,$query);
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 //Get Total tickets open
-$sql_total_tickets_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_open FROM tickets WHERE ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_open FROM tickets WHERE ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_open);
 $total_tickets_open = intval($row['total_tickets_open']);
 
@@ -193,29 +203,36 @@ $row = mysqli_fetch_assoc($sql_total_tickets_closed);
 $total_tickets_closed = intval($row['total_tickets_closed']);
 
 //Get Unassigned tickets
-$sql_total_tickets_unassigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_unassigned FROM tickets WHERE ticket_assigned_to = '0' AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_unassigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_unassigned FROM tickets WHERE ticket_assigned_to = '0' AND ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_unassigned);
 $total_tickets_unassigned = intval($row['total_tickets_unassigned']);
 
 //Get Total tickets assigned to me
-$sql_total_tickets_assigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_assigned FROM tickets WHERE ticket_assigned_to = $session_user_id AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_assigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_assigned FROM tickets WHERE ticket_assigned_to = $session_user_id AND ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_assigned);
 $user_active_assigned_tickets = intval($row['total_tickets_assigned']);
 
 //Get Overdue tickets (past due, still open)
-$sql_total_tickets_overdue = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_overdue FROM tickets WHERE ticket_due_at IS NOT NULL AND ticket_due_at < NOW() AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_overdue = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_overdue FROM tickets WHERE ticket_due_at IS NOT NULL AND ticket_due_at < NOW() AND ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_overdue);
 $total_tickets_overdue = intval($row['total_tickets_overdue']);
 
 //Get tickets due today (still open)
-$sql_total_tickets_due_today = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_due_today FROM tickets WHERE ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE() AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_due_today = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_due_today FROM tickets WHERE ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE() AND ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_due_today);
 $total_tickets_due_today = intval($row['total_tickets_due_today']);
 
 //Get open on-site tickets
-$sql_total_tickets_onsite_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_onsite_open FROM tickets WHERE ticket_onsite = 1 AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_onsite_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_onsite_open FROM tickets WHERE ticket_onsite = 1 AND ticket_resolved_at IS NULL$parked_not_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_onsite_open);
 $total_tickets_onsite_open = intval($row['total_tickets_onsite_open']);
+
+//Get parked tickets (unresolved, in a Parked status): not part of any attention count above
+$total_tickets_parked = 0;
+if ($parked_status_ids) {
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS c FROM tickets WHERE ticket_resolved_at IS NULL AND ticket_status IN (" . implode(',', $parked_status_ids) . ") $client_query $access_permission_query_overide"));
+    $total_tickets_parked = intval($row['c']);
+}
 
 //Get All tickets (open + closed)
 $sql_total_tickets_all = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_all FROM tickets WHERE 1=1 $client_query $access_permission_query_overide");
@@ -704,6 +721,17 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                             </div>
                         </div>
                     </div>
+                    <?php if ($parked_status_ids && !$parked_in_client_tab) {
+                        // A plain link (the page CSP blocks inline handlers): the current filters with show_parked switched.
+                        $_parked_qs = $_GET;
+                        if ($show_parked) { unset($_parked_qs['show_parked']); } else { $_parked_qs['show_parked'] = '1'; }
+                    ?>
+                    <div class="col-auto mb-2 d-flex align-items-center">
+                        <a class="btn <?= $show_parked ? 'btn-secondary' : 'btn-outline-secondary' ?>" href="?<?= nullable_htmlentities(http_build_query($_parked_qs)) ?>" aria-pressed="<?= $show_parked ? 'true' : 'false' ?>" title="Tickets in a Parked status are hidden from the open list and the counts above unless you turn this on or pick that status.">
+                            <i class="fas fa-fw fa-pause-circle me-1"></i>Show parked (<?= (int) $total_tickets_parked ?>)
+                        </a>
+                    </div>
+                    <?php } ?>
                     <div class="col-auto mb-2">
                         <?php ticketFilterCheckGroup('tvp_priority', 'Priority', 'priority[]', ['High' => 'High', 'Medium' => 'Medium', 'Low' => 'Low'], $priority_filter, ['mode' => 'dropdown', 'autosubmit' => true, 'dots' => ['High' => 'high', 'Medium' => 'medium', 'Low' => 'low']]); ?>
                     </div>
