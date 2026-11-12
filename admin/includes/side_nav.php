@@ -63,6 +63,8 @@ $admin_current_page = basename($_SERVER['PHP_SELF']);
                         <span class="nav-link-title">API Keys</span>
                     </a>
                 </li>
+                <?php // The Quality system integration (Admin > Modules): its sign-on provider page and its settings page only appear while the module is on. ?>
+                <?php if (\ITFlow\Quality\QualityConfig::moduleOn($mysqli)) { ?>
                 <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == "sso_provider.php") {echo " active";} ?>">
                     <a href="/admin/sso_provider.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "sso_provider.php") {echo "active";} ?>">
                         <span class="nav-link-icon"><i class="fas fa-id-badge"></i></span>
@@ -75,6 +77,7 @@ $admin_current_page = basename($_SERVER['PHP_SELF']);
                         <span class="nav-link-title">Quality</span>
                     </a>
                 </li>
+                <?php } ?>
                 <li class="nav-item<?php if (basename($_SERVER["PHP_SELF"]) == "api_docs.php") {echo " active";} ?>">
                     <a href="/admin/api_docs.php" class="nav-link <?php if (basename($_SERVER["PHP_SELF"]) == "api_docs.php") {echo "active";} ?>">
                         <span class="nav-link-icon"><i class="fas fa-code"></i></span>

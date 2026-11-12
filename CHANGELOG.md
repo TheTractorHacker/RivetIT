@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Quality is hidden while its module is off.** The admin side nav entries "Quality" and "Single sign-on provider" (the provider exists only to sign people in to Quality) and their settings-search results appear only when Admin > Modules > Quality is on. Single sign-on to Quality was already refused at `/oidc/authorize` and the "Open Quality" menu item already followed the switch. New `tests/quality_nav_gate.php`.
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
