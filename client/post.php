@@ -1020,6 +1020,10 @@ if (isset($_POST['edit_contact'])) {
     // account. Only the department's primary contact may change it. Any other (technical) contact can still
     // edit the person's name and Billing/Technical flags, but the email and auth method stay exactly as
     // stored whatever was posted, and the users row is never written.
+    // ASSUMPTION: a login row (users.user_id) is not shared across departments - one login belongs to exactly one
+    // contact. The same-department rule is enforced through the contact (contact_client_id = session department), so
+    // if two contacts of different departments ever pointed at the same user_id, editing one would also rewrite the
+    // login the other department uses. Nothing in the app creates that state; there is no guard for it here.
     $can_edit_login = ($session_contact_primary == 1);
     if (!$can_edit_login) {
         $contact_email = sanitizeInput($row['contact_email']);

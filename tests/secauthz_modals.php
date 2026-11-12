@@ -31,4 +31,11 @@ $ok((int) $one("SELECT asset_contact_id FROM assets WHERE asset_id = 1") === 1, 
 $GLOBALS['session_is_admin'] = true; $q("UPDATE assets SET asset_contact_id = 0");
 $r = sec_run($F, 'bulk_assign_asset_contact', ['bulk_assign_asset_contact' => 1, 'csrf_token' => 't', 'bulk_contact_id' => 2, 'asset_ids' => [1]]);
 $ok((int) $one("SELECT asset_contact_id FROM assets WHERE asset_id = 1") === 0, "bulk assign: even an administrator cannot cross-assign a contact to another department's asset ($r)");
+// all-or-nothing: a mismatching asset LATER in the batch must not leave the earlier (valid) asset already updated
+$q("UPDATE assets SET asset_contact_id = 0");
+foreach ([false, true] as $adm) {
+    $GLOBALS['session_is_admin'] = $adm;
+    $r = sec_run($F, 'bulk_assign_asset_contact', ['bulk_assign_asset_contact' => 1, 'csrf_token' => 't', 'bulk_contact_id' => 1, 'asset_ids' => [1, 2]]);
+    $ok((int) $one("SELECT COUNT(*) FROM assets WHERE asset_contact_id <> 0") === 0, "bulk assign (" . ($adm ? 'admin' : 'restricted') . "): valid asset first, foreign asset second -> nothing is changed ($r)");
+}
 exit($T_fails ? 1 : 0);
