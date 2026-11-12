@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **PHPMailer's `get_oauth_token.php` is no longer public.** It is PHPMailer's interactive refresh-token helper; nothing in the app calls it. It is removed from the shipped plugin and from the `/plugins/` PHP allow-list in `deploy/templates/rivetit-locations.conf`. The live nginx snippets (`rivetit-locations.conf`, `itflow-locations.conf`) still carry the old allow-list until the web-routes apply procedure is run (docs/WEB_ROUTES.md); with the file gone the old rule only produces a 404.
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
