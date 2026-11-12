@@ -1,6 +1,9 @@
 {
     "require": {
         "webklex/php-imap": "^6.2",
-        "symfony/http-foundation": "^7.4.13"
+        "symfony/http-foundation": "^7.4.23",
+        "illuminate/support": "^12.28",
+        "symfony/translation": "^7.4",
+        "symfony/clock": "^7.4"
     }
 }
