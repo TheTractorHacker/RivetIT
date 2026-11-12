@@ -6,6 +6,19 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.85] - 2026-11-12
+
+Requires RivetCore 1.0.0-rc.60 (CSS/JS and agent fixes; its migration 0049, the "managed by another RMM" installer column, is not used by RivetIT yet and is applied by the database step that adopts the feature).
+
+- **No underline on hover, anywhere.** One last rule in the shared design CSS overrides Tabler's hover underline and every per-page copy of it (asset names, interface links, report, training and webhook links, kanban task titles).
+- **Assets list: no sliver above the sticky table header.** Collapsed borders painted the sticky header about a pixel low, so scrolled rows showed through above it.
+- **RMM Assets: advanced filters.** Search, integration, status, department (including "none assigned"), last seen (within an hour to 30 days, or not seen for 7 or 30+ days), operating system, manufacturer and model, remote agent, asset record and rows per page; health checks (needs reboot, patches pending, maintenance mode, disk, CPU or memory 85% or more); removable filter chips, sortable columns, paging, status pills, disk-usage bars and reboot/patch badges, tiles for reboot and patches.
+- **Fix: "N of N could not be assigned" on RMM Assets.** Assigning a department (single or bulk) failed with "No integration configured" when no default RMM integration was set; it needs none. The dialog now also says why a bulk assignment failed.
+- **Hypervisor host page redesigned** (Proxmox/Hyper-V): at-a-glance tiles, a clear banner when the collector reports a problem or the host is stale, aligned cluster/storage/VM cards with usage bars, the VM filter in the card header. A Proxmox host with `ceph-common` but no Ceph cluster no longer shows "ceph: /usr/bin/ceph exited with status 1" (server drops it from reports of older agents; new agents do not send it).
+- **API: `POST /api/v1/tickets` accepts `asset_id`** (must belong to `client_id`).
+- **Alerts:** the Critical + error open tile is highlighted only when both its filters are active. **Asset edit modal:** the Details grid shows only while its tab is active.
+
+
 ## [26.10.84] - 2026-11-06
 
 - **Production branch renamed.** The production release channel now follows the git branch `production` (it was `main`). New installs and the setup script use it. A server already on the Production channel needs one step after this release: `git fetch origin && git branch -m main production && git branch -u origin/production production`. Servers on Beta are not affected.
