@@ -49,6 +49,12 @@ if (isset($_POST['add_ticket'])) {
 
     enforceClientAccess();
 
+    // The contact / asset / location / vendor must belong to this ticket's department
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+        flash_alert("That $bad_ref does not belong to this department", 'error');
+        redirect();
+    }
+
     // Raised from Request Something? Re-read the active item and validate its request form BEFORE a ticket number is used.
     // Items with no form and no approval add nothing here (the ticket is just remembered as coming from the item).
     require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
@@ -326,6 +332,12 @@ if (isset($_POST['edit_ticket'])) {
         enforceClientAccess();
     }
 
+    // The contact / asset / location / vendor must belong to this ticket's department
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+        flash_alert("That $bad_ref does not belong to this ticket's department", 'error');
+        redirect();
+    }
+
     // Per-category SLA-exempt / Non-billable (DB 2.6.205): snapshot the OLD category/billable state before the UPDATE.
     $old_ticket_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_category, ticket_billable" . (ticketBillableOverrideColumnExists($mysqli) ? ", ticket_billable_overridden" : "") . " FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
     $old_category_id = intval($old_ticket_row['ticket_category'] ?? 0);
@@ -601,6 +613,11 @@ if (isset($_POST['edit_ticket_contact'])) {
     // Don't Enforce Client Access if Ticket doesn't have an assigned client
     if ($client_id) {
         enforceClientAccess();
+    }
+
+    if (ticketReferenceOutsideClient($client_id, $contact_id)) {
+        flash_alert("That contact does not belong to this ticket's department", 'error');
+        redirect();
     }
 
     // Update the contact
@@ -908,6 +925,11 @@ if (isset($_POST['edit_ticket_asset'])) {
     // Don't Enforce Client Access if Ticket doesn't have an assigned client
     if ($client_id) {
         enforceClientAccess();
+    }
+
+    if (ticketReferenceOutsideClient($client_id, 0, $asset_id, 0, 0, array_map('intval', (array) ($_POST['additional_assets'] ?? [])))) {
+        flash_alert("That asset does not belong to this ticket's department", 'error');
+        redirect();
     }
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_asset_id = $asset_id WHERE ticket_id = $ticket_id");

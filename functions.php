@@ -4896,6 +4896,41 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
 }
 
 /**
+ * Does every contact/asset/location/vendor a ticket is about to reference belong to the ticket's own client?
+ * The ticket's department is already enforced by the handlers, but the referenced ids come straight from the
+ * form: without this a restricted agent could attach another department's contact (name/email/phone then render
+ * on the ticket page) or asset. Mirrors the API (api/v1/tickets.php). 0 / empty = "none", always fine. A vendor may
+ * also be a global one (vendor_client_id 0). Returns the name of the first offending reference, or null.
+ * @param int[] $asset_ids extra assets
+ */
+function ticketReferenceOutsideClient($client_id, $contact_id = 0, $asset_id = 0, $location_id = 0, $vendor_id = 0, array $asset_ids = []): ?string {
+    global $mysqli;
+
+    $client_id = intval($client_id);
+    $checks = [
+        'contact'  => ['contacts', 'contact_id', 'contact_client_id', [intval($contact_id)], false],
+        'asset'    => ['assets', 'asset_id', 'asset_client_id', array_merge([intval($asset_id)], array_map('intval', $asset_ids)), false],
+        'location' => ['locations', 'location_id', 'location_client_id', [intval($location_id)], false],
+        'vendor'   => ['vendors', 'vendor_id', 'vendor_client_id', [intval($vendor_id)], true],
+    ];
+
+    foreach ($checks as $label => [$table, $id_col, $client_col, $ids, $allow_global]) {
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (!$ids) {
+            continue;
+        }
+        $in = implode(',', $ids);
+        $allowed = $allow_global ? "($client_col = $client_id OR $client_col = 0)" : "$client_col = $client_id";
+        $ok_count = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM $table WHERE $id_col IN ($in) AND $allowed"))[0] ?? 0);
+        if ($ok_count !== count($ids)) {
+            return $label;
+        }
+    }
+
+    return null;
+}
+
+/**
  * The department a mail request "belongs to": its mailbox's default client (0 = shared/general inbox, no
  * department to scope by). Same rule as the Requests list page and the dismiss handler; the view modal and the
  * convert handler use it with enforceClientAccess() so a restricted agent cannot read or convert a request that
