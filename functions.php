@@ -69,6 +69,16 @@ function nullable_htmlentities($unsanitizedInput) {
 }
 
 // Returns 'text-dark' or 'text-light' depending on which gives better contrast against the given hex color
+/**
+ * A colour that is safe to hand to the status pills' --pill CSS variable (.tk-pill in css/itflow_custom.edition.css): a 3, 6 or 8 digit hex value,
+ * or a neutral grey. The pill derives its own light tint and a readable text colour from it, so any status colour (neon green, near-black, pastel pink)
+ * stays legible in light and dark mode.
+ */
+function ticketPillColor($color) {
+    $color = trim((string) html_entity_decode((string) $color, ENT_QUOTES));
+    return preg_match('/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3}([0-9a-fA-F]{2})?)?$/', $color) ? $color : '#6c757d';
+}
+
 function tagTextClass($hex_color) {
     $hex = ltrim((string) $hex_color, '#');
     if (strlen($hex) === 3) {

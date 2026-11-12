@@ -863,7 +863,7 @@ if (isset($_GET['project_id'])) {
 
                                         <!-- Ticket Status -->
                                         <td>
-                                            <span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span>
+                                            <span class='badge rounded-pill tk-pill p-2' style="--pill:<?php echo ticketPillColor($ticket_status_color); ?>"><?php echo $ticket_status_name; ?></span>
                                         </td>
 
                                         <!-- Ticket Assigned agent -->

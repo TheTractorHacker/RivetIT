@@ -420,8 +420,8 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <td>
                                     <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                                     <div class="dropdown">
-                                        <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?> dropdown-toggle"
-                                              style="background-color:<?= $ticket_status_color ?>;cursor:pointer;"
+                                        <span class="badge rounded-pill tkt-pill-badge tk-pill dropdown-toggle"
+                                              style="--pill:<?= ticketPillColor($ticket_status_color) ?>;cursor:pointer;"
                                               data-bs-toggle="dropdown" data-boundary="window">
                                             <?= $ticket_status_name ?>
                                         </span>
@@ -436,7 +436,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                         </div>
                                     </div>
                                     <?php } else { ?>
-                                    <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?>" style="background-color:<?= $ticket_status_color ?>">
+                                    <span class="badge rounded-pill tkt-pill-badge tk-pill" style="--pill:<?= ticketPillColor($ticket_status_color) ?>">
                                         <?= $ticket_status_name ?>
                                     </span>
                                     <?php } ?>
@@ -513,7 +513,19 @@ foreach ($_cat_subs as $_pid => $_subs) {
                     </table>
                 </div>
             </form>
-            <?php require_once "../includes/filter_footer.php"; ?>
+            <?php
+            if (!$num_rows[0]) {
+                // Nothing matched: say which filters are doing it (a saved default view can carry several the person never sees) and give the way out.
+                $_empty_q = $ticket_default_view ? (string) $ticket_default_view['ticket_saved_view_query'] : http_build_query(array_diff_key($_GET, array_flip(['client_id', 'page'])));
+                $_empty_desc = ticketViewDescribe($mysqli, $_empty_q);
+                $_empty_open = '?' . ($client_url ?? '') . 'status=Open';
+                $empty_state_extra = "<div class='mt-3 small text-secondary mx-auto' style='max-width:46rem'>"
+                    . ($ticket_default_view ? 'Your default view <strong>' . nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) . '</strong> is applied: ' : 'Filters applied: ')
+                    . nullable_htmlentities($_empty_desc) . "</div>"
+                    . "<p class='mt-3 mb-0 d-flex flex-wrap justify-content-center gap-2'><a class='btn btn-sm btn-primary text-decoration-none' href='" . htmlspecialchars($_empty_open, ENT_QUOTES) . "'><i class='fas fa-list me-1' aria-hidden='true'></i>Show all open tickets</a>"
+                    . "<a class='btn btn-sm btn-outline-secondary text-decoration-none' href='?" . htmlspecialchars(($client_url ?? '') . 'status=All', ENT_QUOTES) . "'>Include closed</a></p>";
+            }
+            require_once "../includes/filter_footer.php"; ?>
         </div>
     </div>
 

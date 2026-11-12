@@ -266,3 +266,11 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 }
 /* Portal: the unread badge sits after the "Notifications" label instead of over its last letter. */
 .client-portal-nav .nav-link .badge { position: static; margin-left: .35rem; transform: none; }
+
+/* Ticket status pills: the status colour is data (any hex an admin picks), so the pill derives a light tint for the background and a darker shade of the
+   same hue for the text instead of painting the raw colour and guessing a text colour. Neon green, near-black and pastel pink all stay readable and
+   look like one family. Dark theme flips it: a deep tint with a light text shade. */
+.tk-pill { --pill: #6c757d; background-color: color-mix(in srgb, var(--pill) 17%, var(--tblr-bg-surface, #fff)) !important; color: color-mix(in srgb, var(--pill) 45%, #000) !important;
+  border: 1px solid color-mix(in srgb, var(--pill) 40%, transparent); font-weight: 600; letter-spacing: .01em; }
+[data-bs-theme="dark"] .tk-pill { background-color: color-mix(in srgb, var(--pill) 30%, #141a22) !important; color: color-mix(in srgb, var(--pill) 50%, #fff) !important; border-color: color-mix(in srgb, var(--pill) 55%, transparent); }
+.tk-pill.dropdown-toggle::after { margin-left: .4em; }

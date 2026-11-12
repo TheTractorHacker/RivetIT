@@ -49,6 +49,16 @@ enforceUserPermission('module_support');
 $ticket_date_field = ticketDateFieldFromRequest($_GET);
 $ticket_date_query = dateRangeSqlBetween(ticketDateFields()[$ticket_date_field]['column'], $date_range);
 
+// Which statuses mean "done" on this install. The built-in ids are 4 (Resolved) and 5 (Closed), but status ids differ per install and a ticket can sit in a
+// Resolved status without ticket_resolved_at set (a status changed by an API client, a kanban move, an older version); such a ticket must not be counted
+// or listed as unresolved, so the open/closed split also looks at the status NAME.
+$tk_done_ids = [4, 5];
+$_done_res = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name IN ('Resolved', 'Closed')");
+while ($_done_res && ($_done_row = mysqli_fetch_row($_done_res))) { $tk_done_ids[] = (int) $_done_row[0]; }
+$tk_done_list = implode(',', array_values(array_unique($tk_done_ids)));
+$tk_open_sql = "(ticket_resolved_at IS NULL AND ticket_status NOT IN ($tk_done_list))";
+$tk_closed_sql = "(ticket_resolved_at IS NOT NULL OR ticket_status IN ($tk_done_list))";
+
 // Ticket status from GET
 $status_filter_id = '';
 $status_list = isset($_GET['status']) && is_array($_GET['status']) ? ticketFilterIds($_GET['status']) : [];
@@ -68,7 +78,7 @@ if ($status_list) {
     // TODO: Convert this to use the status IDs
     if (isset($_GET['status']) && $_GET['status'] === 'Closed') {
         $status = 'Closed';
-        $ticket_status_snippet = "ticket_resolved_at IS NOT NULL";
+        $ticket_status_snippet = $tk_closed_sql;
     } elseif (isset($_GET['status']) && $_GET['status'] === 'All') {
         // "All Tickets" stat box - genuinely no status filter, open or closed
         $status = 'All';
@@ -80,7 +90,7 @@ if ($status_list) {
     } else {
         // Default - Show open tickets
         $status = 'Open';
-        $ticket_status_snippet = "ticket_resolved_at IS NULL";
+        $ticket_status_snippet = $tk_open_sql;
     }
 }
 
@@ -183,37 +193,37 @@ $sql = mysqli_query($mysqli,$query);
 $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
 //Get Total tickets open
-$sql_total_tickets_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_open FROM tickets WHERE ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_open FROM tickets WHERE $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_open);
 $total_tickets_open = intval($row['total_tickets_open']);
 
 //Get Total tickets closed
-$sql_total_tickets_closed = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_closed FROM tickets WHERE ticket_resolved_at IS NOT NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_closed = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_closed FROM tickets WHERE $tk_closed_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_closed);
 $total_tickets_closed = intval($row['total_tickets_closed']);
 
 //Get Unassigned tickets
-$sql_total_tickets_unassigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_unassigned FROM tickets WHERE ticket_assigned_to = '0' AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_unassigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_unassigned FROM tickets WHERE ticket_assigned_to = '0' AND $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_unassigned);
 $total_tickets_unassigned = intval($row['total_tickets_unassigned']);
 
 //Get Total tickets assigned to me
-$sql_total_tickets_assigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_assigned FROM tickets WHERE ticket_assigned_to = $session_user_id AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_assigned = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_assigned FROM tickets WHERE ticket_assigned_to = $session_user_id AND $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_assigned);
 $user_active_assigned_tickets = intval($row['total_tickets_assigned']);
 
 //Get Overdue tickets (past due, still open)
-$sql_total_tickets_overdue = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_overdue FROM tickets WHERE ticket_due_at IS NOT NULL AND ticket_due_at < NOW() AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_overdue = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_overdue FROM tickets WHERE ticket_due_at IS NOT NULL AND ticket_due_at < NOW() AND $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_overdue);
 $total_tickets_overdue = intval($row['total_tickets_overdue']);
 
 //Get tickets due today (still open)
-$sql_total_tickets_due_today = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_due_today FROM tickets WHERE ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE() AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_due_today = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_due_today FROM tickets WHERE ticket_due_at IS NOT NULL AND DATE(ticket_due_at) = CURDATE() AND $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_due_today);
 $total_tickets_due_today = intval($row['total_tickets_due_today']);
 
 //Get open on-site tickets
-$sql_total_tickets_onsite_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_onsite_open FROM tickets WHERE ticket_onsite = 1 AND ticket_resolved_at IS NULL $client_query $access_permission_query_overide");
+$sql_total_tickets_onsite_open = mysqli_query($mysqli, "SELECT COUNT(ticket_id) AS total_tickets_onsite_open FROM tickets WHERE ticket_onsite = 1 AND $tk_open_sql $client_query $access_permission_query_overide");
 $row = mysqli_fetch_assoc($sql_total_tickets_onsite_open);
 $total_tickets_onsite_open = intval($row['total_tickets_onsite_open']);
 
