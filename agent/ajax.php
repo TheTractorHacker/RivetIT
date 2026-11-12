@@ -18,6 +18,12 @@ require_once "../plugins/totp/totp.php";
 require_once "../includes/sla_functions.php";
 ob_end_clean();
 
+// IT-WEB-2: every branch is JSON unless it says otherwise. PHP's default Content-Type is text/html, which turned a JSON
+// response carrying a stored value like <img onerror=...> into a reflected-XSS page when opened as a top-level navigation.
+// The few HTML-fragment branches below (AI text, summaries, Comet panel) send their own text/html header, which overrides this.
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+
 /*
  * Live global-search dropdown (top nav). Read-only GET, no CSRF needed (mirrors
  * certificate_fetch_parse_json_details below). Auth already enforced by check_login.php above.
@@ -1698,8 +1704,10 @@ if (isset($_GET['ai_ticket_summary'])) {
 
             if (!class_exists('HTMLPurifier')) {
                 require_once __DIR__ . '/../plugins/htmlpurifier/HTMLPurifier.standalone.php';
+                require_once __DIR__ . '/../plugins/htmlpurifier/rivet_html_policy.php';
             }
             $purifier_config = HTMLPurifier_Config::createDefault();
+            rivet_html_policy_apply($purifier_config, 'strict');
             $purifier_config->set('Cache.DefinitionImpl', null);
             $purifier_config->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
             $purifier = new HTMLPurifier($purifier_config);

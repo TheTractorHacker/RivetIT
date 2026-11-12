@@ -6,7 +6,12 @@
 // template autofill, tag/select wiring, etc.) would otherwise silently never run.
 // This clones each script node into a freshly-created <script> element (which DOES
 // execute when attached), preserving a valid CSP nonce along the way.
-function executeInjectedScripts(container) {
+//
+// SECURITY (IT-WEB-1): only scripts carrying data-modal-script="<token>" are re-run, where <token> is the per-response random
+// value the server put in the X-Rivet-Modal-Token response header (includes/modal_footer.php stamps it on the template's own
+// scripts). Anything else - a script inside user-supplied markup, or from a response that is not a real modal - is removed, never
+// executed with the page nonce. Cross-origin script src is never re-run.
+function executeInjectedScripts(container, token) {
   // window.CSP_NONCE is set once, server-side, in includes/footer.php - reading
   // a plain global is reliable, unlike trying to read another script tag's live
   // .nonce IDL property (which - at least in this app's testing - came back empty
@@ -20,7 +25,14 @@ function executeInjectedScripts(container) {
   // script's own load/error event is what advances to the next one; inline
   // scripts execute synchronously the moment they're attached, so they advance
   // immediately.
-  var oldScripts = Array.prototype.slice.call(container.querySelectorAll('script'));
+  var oldScripts = Array.prototype.slice.call(container.querySelectorAll('script')).filter(function (s) {
+    var ok = !!token && s.getAttribute('data-modal-script') === token;
+    if (ok && s.getAttribute('src')) {
+      try { ok = new URL(s.getAttribute('src'), window.location.href).origin === window.location.origin; } catch (e) { ok = false; }
+    }
+    if (!ok) { s.remove(); }
+    return ok;
+  });
 
   function runNext(i) {
     if (i >= oldScripts.length) { return; }
@@ -48,11 +60,28 @@ function executeInjectedScripts(container) {
   runNext(0);
 }
 
+// SECURITY (IT-WEB-1): an ajax-modal trigger can sit inside user-supplied HTML (ticket replies etc.), so the URL it names is
+// untrusted. Only same-origin PHP pop-up endpoints under a modals/ directory (agent/modals, admin/modals, modals/) are fetched -
+// never uploads or any other same-origin resource.
+window.isAllowedModalUrl = function (rawUrl) {
+  var u;
+  try { u = new URL(String(rawUrl), window.location.href); } catch (e) { return false; }
+  if (u.origin !== window.location.origin) { return false; }
+  var p = u.pathname;
+  if (p.indexOf('..') !== -1 || p.indexOf('%') !== -1 || p.indexOf('//') !== -1 || /\/uploads\//i.test(p)) { return false; }
+  return /^(\/(agent|admin)(\/user)?)?\/modals\/[A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*\.php$/.test(p);
+};
+
 // Reusable helper: fetch modal content via fetch() and show it in a Bootstrap 5 modal.
 // options: { modalTab, onShown(modalEl), onHidden(), onError(error) }
 window.openAjaxModal = function (modalUrl, modalSize, options) {
   options = options || {};
   modalSize = modalSize || 'md';
+  if (!window.isAllowedModalUrl(modalUrl)) {
+    console.warn('ajax-modal: refused non-modal URL', modalUrl);
+    if (options.onError) { options.onError(new Error('Refused: not a modal endpoint')); }
+    return;
+  }
   const modalId = 'ajaxModal_' + Date.now();
 
   // Where dynamically-loaded modals live (AL4 renamed .content-wrapper -> .app-content)
@@ -65,8 +94,14 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
   spinner.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x text-muted"></i>';
   host.appendChild(spinner);
 
-  fetch(modalUrl, { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  let modalToken = '';
+  fetch(modalUrl, { method: 'GET', credentials: 'same-origin', redirect: 'error', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function (response) {
+      // The endpoint really answers application/json (includes/modal_header.php). Anything else is not a modal.
+      const ct = (response.headers.get('Content-Type') || '').toLowerCase();
+      if (ct.indexOf('application/json') !== 0) { throw new Error('Unexpected content type'); }
+      if (response.url && !window.isAllowedModalUrl(response.url)) { throw new Error('Unexpected response URL'); }
+      modalToken = response.headers.get('X-Rivet-Modal-Token') || '';
       // A denied pop-up answers 403 with {"error": "..."} (includes/module_access.php): show that message
       // through the data.error path below instead of the generic "Error loading modal content".
       if (response.status === 403) {
@@ -96,7 +131,7 @@ window.openAjaxModal = function (modalUrl, modalSize, options) {
       const modalEl = wrapper.firstElementChild;
       host.appendChild(modalEl);
       if (window.enhanceFileUploads) { window.enhanceFileUploads(modalEl); }
-      executeInjectedScripts(modalEl);
+      executeInjectedScripts(modalEl, modalToken);
 
       // Bootstrap tooltips/popovers only auto-init on elements present at the page's
       // own DOMContentLoaded (see js/app.js) - anything arriving later via this

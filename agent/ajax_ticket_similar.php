@@ -12,6 +12,7 @@ require_once "../functions.php";
 require_once "../includes/check_login.php";
 ob_end_clean();
 
+header('X-Content-Type-Options: nosniff');
 header('Content-Type: application/json');
 
 if (lookupUserPermission('module_support') < 1) {
