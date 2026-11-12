@@ -205,6 +205,11 @@ run_db_migrations() {
     fi
 }
 
+# Note: plugins/composer.json (webklex/php-imap) is a separate, nested Composer
+# project whose plugins/vendor/ is committed to git, so the git pull above already
+# delivers its code; it is intentionally NOT installed here. Keep it current with
+# `composer update --working-dir=plugins` + `composer audit --locked --working-dir=plugins`
+# and commit plugins/vendor (Dependabot watches /plugins too).
 run_composer_install() {
     if [[ ! -f "${APP_DIR}/composer.json" ]]; then
         info "No composer.json at ${APP_DIR}; skipping composer install."
