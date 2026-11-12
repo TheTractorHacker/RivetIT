@@ -4895,6 +4895,24 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
     return $mail_request_id;
 }
 
+/**
+ * The department a mail request "belongs to": its mailbox's default client (0 = shared/general inbox, no
+ * department to scope by). Same rule as the Requests list page and the dismiss handler; the view modal and the
+ * convert handler use it with enforceClientAccess() so a restricted agent cannot read or convert a request that
+ * arrived on a mailbox of a department they cannot access.
+ */
+function mailRequestOwnerClientId($mail_request_id): int {
+    global $mysqli;
+
+    $mail_request_id = intval($mail_request_id);
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT m.mailbox_default_client_id
+        FROM mail_requests mr
+        LEFT JOIN mailboxes m ON m.mailbox_id = mr.mail_request_mailbox_id
+        WHERE mr.mail_request_id = $mail_request_id AND mr.mail_request_archived_at IS NULL LIMIT 1"));
+
+    return intval($row['mailbox_default_client_id'] ?? 0);
+}
+
 // Converts a pending mail request into a real ticket via addTicket(), resolving/creating
 // a contact under $client_id first (skipped entirely for Guest, client_id = 0 - matches
 // today's unknown-sender ticket behavior). Returns the new ticket id, or null if the
