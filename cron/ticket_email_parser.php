@@ -989,7 +989,15 @@ function graphFindOrCreateItflowFolder(string $graph_base, string $access_token,
         return $create['json']['id'];
     }
 
-    throw new \RuntimeException("Microsoft Graph: could not find or create the $name mail folder.");
+    // Say WHY (HTTP status and Graph error code of both calls, never a token or the response body) so the mailbox alert is actionable:
+    // 401/403 = consent or permission, 404 ErrorInvalidUser/MailboxNotEnabledForRESTAPI = mailbox, 429/503 = Microsoft throttling or an outage.
+    $why = static function (array $r): string {
+        $code = (string) ($r['code'] ?? 0);
+        $gc = is_array($r['json'] ?? null) ? (string) ($r['json']['error']['code'] ?? '') : '';
+        $net = ($r['code'] ?? 0) == 0 && !empty($r['error']) ? ' network: ' . substr(preg_replace('/[^\x20-\x7e]/', '', (string) $r['error']), 0, 80) : '';
+        return 'HTTP ' . $code . ($gc !== '' ? ' ' . preg_replace('/[^A-Za-z0-9_.-]/', '', $gc) : '') . $net;
+    };
+    throw new \RuntimeException("Microsoft Graph: could not find or create the $name mail folder (lookup: " . $why($resp) . "; create: " . $why($create) . ").");
 }
 
 // Fetches, normalizes, classifies, and marks read/moves (or flags) a single Graph message.
