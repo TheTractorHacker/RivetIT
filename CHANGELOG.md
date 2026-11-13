@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Ticket reply/note editors no longer leave dead white space.** The reply, internal note and ticket-details editors had a 130px minimum (the edit-note and bulk reply/resolve editors 300px), so a one-line note sat above a hundred pixels of nothing; the minimum is now about three lines and the editor grows as you type.
+
 - **Tickets: "Filtered by" chips only show filters you chose**, not the ones a saved default view applies (those are already shown on the pills). Active filter pills are marked quietly (ink outline and count) instead of in the accent colour; "Reset to my default" is just "Reset"; pagination links no longer underline at rest.
 - **Fix: tickets created from the mobile app read "in 5 hours".** The API connection stamped times in the database server's zone instead of the company zone; `POST /api/v1/tickets` (and replies) now use the company time zone like the web app. Tickets already created that way keep their stored time.
 
