@@ -520,8 +520,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                 $_empty_desc = ticketViewDescribe($mysqli, $_empty_q);
                 $_empty_open = '?' . ($client_url ?? '') . 'status=Open';
                 $empty_state_extra = "<div class='mt-3 small text-secondary mx-auto' style='max-width:46rem'>"
-                    . ($ticket_default_view ? 'Your default view <strong>' . nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) . '</strong> is applied: ' : 'Filters applied: ')
-                    . nullable_htmlentities($_empty_desc) . "</div>"
+                    . ($ticket_default_view ? 'Your default view <strong>' . nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) . '</strong> is applied: remove a filter above, or look at everything.' : 'Remove a filter above, or look at everything.') . "</div>"
                     . "<p class='mt-3 mb-0 d-flex flex-wrap justify-content-center gap-2'><a class='btn btn-sm btn-primary text-decoration-none' href='" . htmlspecialchars($_empty_open, ENT_QUOTES) . "'><i class='fas fa-list me-1' aria-hidden='true'></i>Show all open tickets</a>"
                     . "<a class='btn btn-sm btn-outline-secondary text-decoration-none' href='?" . htmlspecialchars(($client_url ?? '') . 'status=All', ENT_QUOTES) . "'>Include closed</a></p>";
             }

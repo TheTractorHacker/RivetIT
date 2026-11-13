@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Tickets filter bar tidied.** Search leads, the main filter pills share one height on one wrapping row, and the occasional filters (tags, date field, where, due, project) sit behind "More filters" with a count. What is narrowing the list shows as removable chips ("Filtered by Status: New, Open x, Due: Overdue x ... Clear all"); removing one no longer lets a saved default view quietly come back.
+- **Default-view banner is one line** ("Your default view X is applied. Show all open tickets") instead of a wall of text; the filters it applies are the chips under the bar.
+
 ## [26.10.85] - 2026-11-12
 
 Requires RivetCore 1.0.0-rc.60 (CSS/JS and agent fixes; its migration 0049, the "managed by another RMM" installer column, is not used by RivetIT yet and is applied by the database step that adopts the feature).

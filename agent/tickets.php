@@ -601,11 +601,12 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
     </div>
 
     <?php if ($ticket_default_view) { ?>
-    <div class="alert alert-info py-2 d-flex flex-wrap align-items-center gap-2 mb-3 tv-default-banner" role="status">
-        <i class="fas fa-star" aria-hidden="true"></i>
-        <span>Showing <?= $ticket_default_view['default_source'] === 'shared' ? 'the default view' : 'your default view' ?> <strong><?= nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) ?></strong>
-            <span class="text-muted">(<?= nullable_htmlentities(ticketViewDescribe($mysqli, (string) $ticket_default_view['ticket_saved_view_query'])) ?>)</span></span>
-        <a class="ms-auto" href="?status=Open">Show all open tickets</a>
+    <div class="tv-default-banner" role="status">
+        <i class="fas fa-star text-warning" aria-hidden="true"></i>
+        <span><?= $ticket_default_view['default_source'] === 'shared' ? 'Default view' : 'Your default view' ?> <strong><?= nullable_htmlentities($ticket_default_view['ticket_saved_view_name']) ?></strong> is applied.</span>
+        <span class="ms-auto d-inline-flex gap-3">
+            <a href="?<?= $client_url ?>status=Open&amp;nodefault=1">Show all open tickets</a>
+        </span>
     </div>
     <?php } elseif ($_effective_default && !$client_url) { ?>
     <div class="small text-muted mb-2 tv-default-hint">
@@ -720,7 +721,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     <div class="col-auto mb-2">
                         <?php ticketFilterCheckGroup('tvp_assigned', 'Assigned to', 'assigned[]', $_opts_assigned, $_sel_assigned, ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                     </div>
-                    <div class="col-auto mb-2" style="width:220px;">
+                    <div class="col-auto mb-2 tf-search">
                         <div class="input-group">
                             <input type="search" class="form-control" name="q" value="<?php if (isset($q)) { echo stripslashes(nullable_htmlentities($q)); } ?>" placeholder="Search tickets...">
                             <div class="input-group-append">
@@ -728,32 +729,15 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                             </div>
                         </div>
                     </div>
-                    <div class="col-auto mb-2">
+                    <div class="col-auto mb-2 tf-date">
                         <?php echo dateRangePickerField($date_range, 'canned_date', ['id' => 'ticketDateRange', 'label' => 'Ticket date range']); ?>
                     </div>
-                    <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="datefield" data-placeholder="Date field" data-searchable="0" style="width:150px;" title="Which ticket date the range applies to" aria-label="Date field">
-                            <?php foreach (ticketDateFields() as $df_key => $df) { ?>
-                                <option value="<?= $df_key ?>" <?= $ticket_date_field === $df_key ? 'selected' : '' ?>><?= nullable_htmlentities($df['label']) ?></option>
-                            <?php } ?>
-                        </select>
-                    </div>
-                    <div class="col-auto mb-2">
-                        <select class="form-control select2 auto-submit-select" name="tags[]" data-placeholder="Tags Filter" multiple style="width:160px;">
-                            <?php
-                            while ($row = mysqli_fetch_assoc($sql_ticket_tags_filter)) {
-                                $tag_id = intval($row['tag_id']);
-                                $tag_name = nullable_htmlentities($row['tag_name']);
-                            ?>
-                                <option value="<?php echo $tag_id; ?>" <?php if (in_array($tag_id, $ticket_tag_filter)) { echo "selected"; } ?>><?php echo $tag_name; ?></option>
-                            <?php } ?>
-                        </select>
-                    </div>
-                    <div class="col-auto mb-2">
+                    <div class="col-auto mb-2 tf-reset">
                         <a href="?<?= $client_url ?>" class="btn btn-outline-secondary" <?= $_effective_default ? 'title="Back to your default view: ' . nullable_htmlentities($_effective_default['ticket_saved_view_name']) . '"' : '' ?>><i class="fas fa-undo me-1"></i><?= $_effective_default ? 'Reset to my default' : 'Reset Filters' ?></a>
                     </div>
-                    <div class="col-auto mb-2">
-                        <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-sliders-h me-1"></i>More Filters</button>
+                    <?php $_more_count = ($filter_sets['onsite'] ? 1 : 0) + (($filter_sets['overdue'] || $filter_sets['due_today']) ? 1 : 0) + ($ticket_project_filter_id !== '' ? 1 : 0) + ($ticket_tag_filter ? 1 : 0) + ($ticket_date_field !== ticketDateFieldFromRequest([]) ? 1 : 0); ?>
+                    <div class="col-auto mb-2 tf-more">
+                        <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilter"><i class="fas fa-sliders-h me-1"></i>More filters<?= $_more_count ? ' <span class="badge bg-primary rounded-pill ms-1">' . $_more_count . '</span>' : '' ?></button>
                     </div>
                 </div>
                 </div>
@@ -823,16 +807,34 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     </div>
                 </div>
 
-                <?php $_more_open = $filter_sets['onsite'] || $filter_sets['overdue'] || $filter_sets['due_today'] || $ticket_project_filter_id !== ''; ?>
+                <?php $_more_open = $filter_sets['onsite'] || $filter_sets['overdue'] || $filter_sets['due_today'] || $ticket_project_filter_id !== '' || $ticket_tag_filter || $ticket_date_field !== ticketDateFieldFromRequest([]); ?>
                 <div class="collapse mt-3 <?= $_more_open ? 'show' : '' ?>" id="advancedFilter">
-                    <div class="row align-items-start">
+                    <div class="row align-items-start tf-more-row">
+                        <div class="col-auto mb-2">
+                            <select class="form-control select2 auto-submit-select" name="tags[]" data-placeholder="Tags Filter" multiple style="width:160px;">
+                                <?php
+                                while ($row = mysqli_fetch_assoc($sql_ticket_tags_filter)) {
+                                    $tag_id = intval($row['tag_id']);
+                                    $tag_name = nullable_htmlentities($row['tag_name']);
+                                ?>
+                                    <option value="<?php echo $tag_id; ?>" <?php if (in_array($tag_id, $ticket_tag_filter)) { echo "selected"; } ?>><?php echo $tag_name; ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
+                        <div class="col-auto mb-2">
+                            <select class="form-control select2 auto-submit-select" name="datefield" data-placeholder="Date field" data-searchable="0" style="width:150px;" title="Which ticket date the range applies to" aria-label="Date field">
+                                <?php foreach (ticketDateFields() as $df_key => $df) { ?>
+                                    <option value="<?= $df_key ?>" <?= $ticket_date_field === $df_key ? 'selected' : '' ?>><?= nullable_htmlentities($df['label']) ?></option>
+                                <?php } ?>
+                            </select>
+                        </div>
                         <div class="col-auto mb-2">
                             <?php ticketFilterCheckGroup('tvp_onsite', 'Where', 'onsite[]', ['1' => 'On-site', '0' => 'Remote'], array_map('strval', $onsite_filter), ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                         </div>
                         <div class="col-auto mb-2">
                             <?php ticketFilterCheckGroup('tvp_due', 'Due', 'due[]', ['overdue' => 'Overdue', 'due_today' => 'Due today'], array_values(array_filter([$filter_sets['overdue'] ? 'overdue' : '', $filter_sets['due_today'] ? 'due_today' : ''])), ['mode' => 'dropdown', 'autosubmit' => true]); ?>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 tf-project">
                             <div class="form-group mb-2">
                                 <label class="visually-hidden" for="ticketProjectFilter">Project</label>
                                 <select class="form-control select2 auto-submit-select" id="ticketProjectFilter" name="project">
@@ -857,6 +859,46 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                     </div>
                 </div>
             </form>
+            <?php
+            // What is narrowing the list, one removable chip per filter group (a saved default view carries several the person never sees). Removing one
+            // sends nodefault=1 so the saved default does not quietly come back.
+            $_chip_href = static function (string $key) use ($client_url): string {
+                $q = $_GET;
+                unset($q[$key], $q['page'], $q['client_id']);
+                $q['nodefault'] = 1;
+                return '?' . $client_url . http_build_query($q);
+            };
+            $_chip_names = static function (array $values, array $map): string {
+                $names = [];
+                foreach ($values as $v) { $names[] = $map[(string) $v] ?? (string) $v; }
+                return count($names) > 3 ? implode(', ', array_slice($names, 0, 3)) . ' +' . (count($names) - 3) : implode(', ', $names);
+            };
+            $_tf_chips = [];
+            if ($_sel_status_ids) {
+                $_sn = [];
+                $_sr = mysqli_query($mysqli, "SELECT ticket_status_id, ticket_status_name FROM ticket_statuses WHERE ticket_status_id IN (" . implode(',', array_map('intval', $_sel_status_ids)) . ") ORDER BY ticket_status_order");
+                while ($_sr && ($_srow = mysqli_fetch_assoc($_sr))) { $_sn[(string) $_srow['ticket_status_id']] = $_srow['ticket_status_name']; }
+                $_tf_chips[] = ['Status', $_chip_names($_sel_status_ids, $_sn), $_chip_href('status')];
+            }
+            if ($_sel_assigned) { $_tf_chips[] = ['Assigned', $_chip_names($_sel_assigned, $_opts_assigned), $_chip_href('assigned')]; }
+            if ($board_filter) { $_tf_chips[] = ['Board', $_chip_names(array_map('strval', $board_filter), $_opts_boards), $_chip_href('board')]; }
+            if ($category_filter) { $_tf_chips[] = ['Category', $_chip_names(array_map('strval', $category_filter), $_opts_categories), $_chip_href('category')]; }
+            if ($priority_filter) { $_tf_chips[] = ['Priority', implode(', ', array_map('strval', $priority_filter)), $_chip_href('priority')]; }
+            if ($filter_sets['onsite']) { $_tf_chips[] = ['Where', $_chip_names(array_map('strval', $onsite_filter), ['1' => 'On-site', '0' => 'Remote']), $_chip_href('onsite')]; }
+            if ($filter_sets['overdue'] || $filter_sets['due_today']) { $_tf_chips[] = ['Due', implode(', ', array_filter([$filter_sets['overdue'] ? 'Overdue' : '', $filter_sets['due_today'] ? 'Due today' : ''])), $_chip_href('due')]; }
+            if ($ticket_tag_filter) { $_tf_chips[] = ['Tags', count($ticket_tag_filter) . ' selected', $_chip_href('tags')]; }
+            if ($ticket_project_filter_id !== '') { $_tf_chips[] = ['Project', 'one project', $_chip_href('project')]; }
+            if (isset($q) && trim((string) $q) !== '') { $_tf_chips[] = ['Search', stripslashes((string) $q), $_chip_href('q')]; }
+            if ($_tf_chips) { ?>
+            <div class="tf-chips d-flex flex-wrap align-items-center gap-2 mt-2" aria-label="Active filters">
+                <span class="small text-secondary">Filtered by</span>
+                <?php foreach ($_tf_chips as [$_cl, $_cv, $_ch]) { ?>
+                    <span class="filter-chip" title="<?= nullable_htmlentities($_cl . ': ' . $_cv) ?>"><span class="filter-chip-label"><?= nullable_htmlentities($_cl) ?>: <strong><?= nullable_htmlentities($_cv) ?></strong></span>
+                        <a class="filter-chip-x" href="<?= htmlspecialchars($_ch) ?>" aria-label="Remove the <?= nullable_htmlentities($_cl) ?> filter" title="Remove"><i class="fas fa-times" aria-hidden="true"></i></a></span>
+                <?php } ?>
+                <a class="small ms-1" href="?<?= $client_url ?>status=Open&amp;nodefault=1">Clear all</a>
+            </div>
+            <?php } ?>
         </div>
     </div>
 

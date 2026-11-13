@@ -274,3 +274,18 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
   border: 1px solid color-mix(in srgb, var(--pill) 40%, transparent); font-weight: 600; letter-spacing: .01em; }
 [data-bs-theme="dark"] .tk-pill { background-color: color-mix(in srgb, var(--pill) 30%, #141a22) !important; color: color-mix(in srgb, var(--pill) 50%, #fff) !important; border-color: color-mix(in srgb, var(--pill) 55%, transparent); }
 .tk-pill.dropdown-toggle::after { margin-left: .4em; }
+
+/* Tickets: one tidy filter bar. Search leads, the main pills follow on one wrapping row at one height, the occasional filters sit behind "More filters", and what is
+   narrowing the list shows as removable chips under the bar instead of as a wall of text. */
+.ticket-filter-bar .filter-row-nowrap { display: flex !important; flex-wrap: wrap; align-items: center; gap: .5rem .6rem; margin: 0 !important; }
+.ticket-filter-bar .filter-row-nowrap > [class*="col-"] { width: auto; flex: 0 0 auto; margin: 0 !important; padding: 0 !important; }
+.ticket-filter-bar .filter-row-nowrap > .tf-search { order: -1; flex: 1 1 15rem; max-width: 24rem; }
+.ticket-filter-bar .filter-row-nowrap > .tf-date { order: 10; }
+.ticket-filter-bar .filter-row-nowrap > .tf-reset { order: 20; margin-left: auto !important; }
+.ticket-filter-bar .filter-row-nowrap > .tf-more { order: 21; }
+.ticket-filter-bar .tf-more-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .6rem; margin: 0; padding-top: .75rem; border-top: 1px solid var(--if-border, #dfe5e8); }
+.ticket-filter-bar .tf-more-row > [class*="col-"] { width: auto; flex: 0 0 auto; margin: 0 !important; padding: 0 !important; }
+.ticket-filter-bar .tf-more-row > .tf-project { min-width: 16rem; }
+.tf-chips { padding-top: .5rem; }
+.tv-default-banner { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .5rem .85rem; margin-bottom: .75rem; border: 1px solid var(--if-border, #dfe5e8); border-radius: 10px;
+  background: var(--bs-tertiary-bg, #f5f8fa); font-size: .9rem; }
