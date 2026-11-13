@@ -43,7 +43,7 @@ ob_start();
                         LEFT JOIN vendor_documents
                             ON vendors.vendor_id = vendor_documents.vendor_id
                             AND vendor_documents.document_id = $document_id
-                        WHERE vendor_client_id = $client_id
+                        WHERE " . vendorVisibleSql($client_id, 'vendors') . "
                         AND vendor_archived_at IS NULL
                         AND vendor_documents.vendor_id IS NULL
                         ORDER BY vendor_name ASC

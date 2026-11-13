@@ -363,7 +363,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                     }
 
                     // Vendors Count
-                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('vendor_id') AS num FROM vendors WHERE vendor_client_id = $client_id AND vendor_archived_at IS NULL"));
+                    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('vendor_id') AS num FROM vendors WHERE " . vendorVisibleSql($client_id) . " AND vendor_archived_at IS NULL"));
                     $vendor_count = $row['num'];
                     if ($vendor_count) {
                         $vendor_count_display = "<a href='vendors.php?client_id=$client_id'><i class='fas fa-fw fa-building text-dark me-2'></i><strong>$vendor_count</strong> Vendors</a>";

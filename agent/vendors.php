@@ -7,18 +7,31 @@ $order = "ASC";
 // If client_id is in URI then show client Side Bar and client header
 if (isset($_GET['client_id'])) {
     require_once "includes/inc_all_client.php";
-    $client_query = "AND vendor_client_id = $client_id";
+    // A department's Vendors tab: its own vendors plus the shared central ones (shown read-only, badged Central). The department itself is
+    // already access-checked by inc_all_client.php, so the per-department $access_permission_query (which would drop central rows) is not applied.
+    $client_query = "AND " . vendorVisibleSql($client_id, 'vendors');
     $client_url = "client_id=$client_id&";
+    $access_permission_query = "";
+    $vendor_dept_view = true;
 } else {
     require_once "includes/inc_all.php";
     $client_query = "AND vendor_client_id = 0";
     $client_url = '';
+    $vendor_dept_view = false;
+    // Central list filter: only the vendors shared with all departments
+    $vendor_shared_filter = vendorSharedColumnExists($mysqli) && !empty($_GET['shared']);
+    if ($vendor_shared_filter) {
+        $client_query .= " AND vendors.vendor_shared = 1";
+    }
 }
+$vendor_shared_filter = $vendor_shared_filter ?? false;
+$vendor_shared_supported = !$vendor_dept_view && vendorSharedColumnExists($mysqli);
 
 // Perms: company-wide vendors are readable with Support access; the account number needs Finance access
 enforceUserPermission('module_support');
 $vendor_show_account = vendorCanSeeAccountNumber($client_id ?? 0);
-$vendor_account_search = $vendor_show_account ? "OR vendor_account_number LIKE '%$q%'" : "";
+// In a department's tab the central (shared) vendors' account numbers are finance data too: never matched by search, never shown
+$vendor_account_search = $vendor_show_account ? ($vendor_dept_view ? "OR (vendor_client_id > 0 AND vendor_account_number LIKE '%$q%')" : "OR vendor_account_number LIKE '%$q%'") : "";
 
 $sql = mysqli_query(
     $mysqli,
@@ -69,6 +82,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                 <input type="hidden" name="client_id" value="<?php echo $client_id; ?>">
             <?php } ?>
             <input type="hidden" name="archived" value="<?php echo $archived; ?>">
+            <?php if ($vendor_shared_filter) { ?><input type="hidden" name="shared" value="1"><?php } ?>
             <div class="row">
 
                 <div class="col-md-4">
@@ -82,6 +96,12 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
 
                 <div class="col-md-8">
                     <div class="btn-group float-end">
+                        <?php if ($vendor_shared_supported) { ?>
+                        <a href="?<?php echo "$client_url"; ?>archived=<?php echo intval($archived); ?>&shared=<?php echo $vendor_shared_filter ? 0 : 1; ?>"
+                            class="btn btn-<?php echo $vendor_shared_filter ? "primary" : "default"; ?> me-2" title="Only vendors shared with all departments">
+                            <i class="fa fa-fw fa-share-alt me-2"></i>Shared
+                        </a>
+                        <?php } ?>
                         <a href="?<?php echo "$client_url"; ?>archived=<?php if($archived == 1){ echo 0; } else { echo 1; } ?>"
                             class="btn btn-<?php if($archived == 1){ echo "primary"; } else { echo "default"; } ?>">
                             <i class="fa fa-fw fa-archive me-2"></i>Archived
@@ -170,7 +190,10 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         } else {
                             $vendor_description_display = "-";
                         }
-                        $vendor_account_number = $vendor_show_account ? nullable_htmlentities($row['vendor_account_number']) : '';
+                        // A shared central vendor seen from a department: read-only, badged Central, no account number
+                        $vendor_row_central = $vendor_dept_view && intval($row['vendor_client_id']) === 0;
+                        $vendor_row_shared = !$vendor_dept_view && !empty($row['vendor_shared']);
+                        $vendor_account_number = ($vendor_show_account && !$vendor_row_central) ? nullable_htmlentities($row['vendor_account_number']) : '';
                         if ($vendor_account_number) {
                             $vendor_account_number_display = "<div class='text-secondary'>Account #: $vendor_account_number</div>";
                         } else {
@@ -210,15 +233,20 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                         <tr>
                             <td class="bg-light checkbox-column">
                                 <div class="form-check">
+                                    <?php if (!$vendor_row_central) { ?>
                                     <input class="form-check-input bulk-select" type="checkbox" name="vendor_ids[]" value="<?php echo $vendor_id ?>">
+                                    <?php } ?>
                                 </div>
                             </td>
                             <td>
-                                <a class="ajax-modal" href="#" data-modal-url="modals/vendor/vendor_details.php?id=<?= $vendor_id ?>">
+                                <a class="ajax-modal" href="#" data-modal-url="modals/vendor/vendor_details.php?id=<?= $vendor_id ?><?= $vendor_row_central ? '&client_id=' . intval($client_id) : '' ?>">
                                     <div class="media vendor-media">
                                         <i class="fas fa-fw fa-2x fa-building text-dark me-2"></i>
                                         <div class="media-body">
-                                            <div><?php echo $vendor_name; ?></div>
+                                            <div><?php echo $vendor_name; ?>
+                                                <?php if ($vendor_row_central) { ?><span class="badge bg-info-lt ms-1" title="Added centrally and shared with all departments. Edit it in Vendors (central).">Central</span><?php } ?>
+                                                <?php if ($vendor_row_shared) { ?><span class="badge bg-info-lt ms-1" title="Available to all departments">Shared</span><?php } ?>
+                                            </div>
                                             <div><?php echo $vendor_account_number_display; ?></div>
                                         </div>
                                     </div>
@@ -255,10 +283,16 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <i class="fas fa-ellipsis-h"></i>
                                     </button>
                                     <div class="dropdown-menu">
+                                        <?php if ($vendor_row_central) { ?>
+                                        <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/vendor/vendor_details.php?id=<?= $vendor_id ?>&client_id=<?= intval($client_id) ?>">
+                                            <i class="fas fa-fw fa-eye me-2"></i>View (read-only)
+                                        </a>
+                                        <?php } else { ?>
                                         <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/vendor/vendor_edit.php?id=<?= $vendor_id ?>">
                                             <i class="fas fa-fw fa-edit me-2"></i>Edit
                                         </a>
-                                        <?php if ($session_user_role == 3) { ?>
+                                        <?php } ?>
+                                        <?php if ($session_user_role == 3 && !$vendor_row_central) { ?>
                                             <?php if ($vendor_archived_at) { ?>
                                             <div class="dropdown-divider"></div>
                                             <a class="dropdown-item text-info confirm-link" href="post.php?restore_vendor=<?= $vendor_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">

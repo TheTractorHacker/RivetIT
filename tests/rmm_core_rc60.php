@@ -222,7 +222,8 @@ $ok($start !== false && $end !== false, 'migration step 2.6.235 -> 2.6.236 is pr
 $step = substr($src, (int) $start, (int) $end - (int) $start + 7);
 $ok(!preg_match('/0049|managed_externally/', preg_replace('~^\s*//.*$~m', '', $step)), 'the step hard-codes no migration id: it runs CoreMigrations::all()');
 $ok(str_contains($step, 'CoreMigrations::all()') && str_contains($step, 'MigrationRunner') && str_contains($step, "'2.6.236'"), 'the step runs CoreMigrations::all() through MigrationRunner and sets 2.6.236');
-$ok(str_contains((string) file_get_contents("$root/includes/database_version.php"), '"2.6.236"'), 'LATEST_DATABASE_VERSION is 2.6.236');
+preg_match('/"LATEST_DATABASE_VERSION", "([0-9.]+)"/', (string) file_get_contents("$root/includes/database_version.php"), $lv236);
+$ok(version_compare($lv236[1] ?? '0', '2.6.236', '>='), 'LATEST_DATABASE_VERSION is 2.6.236 or later (' . ($lv236[1] ?? '?') . ')');
 $before = $rows("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_installer_options' ORDER BY ORDINAL_POSITION");
 $q("TRUNCATE endpoint_agent_installer_options");
 $q("ALTER TABLE endpoint_agent_installer_options DROP COLUMN managed_externally");

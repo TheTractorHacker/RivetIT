@@ -157,6 +157,8 @@ ob_start();
 
         </div>
 
+        <?php echo vendorSharedCheckboxHtml($client_id); ?>
+
     </div>
     <div class="modal-footer">
         <button type="submit" name="add_vendor" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Create</button>

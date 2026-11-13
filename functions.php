@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/mail_templates.php';
 require_once __DIR__ . '/includes/module_access.php';
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
+require_once __DIR__ . '/includes/vendor_sharing.php';   // shared central vendors: vendorVisibleSql() and the assignment checks
 require_once __DIR__ . '/includes/ticket_parked.php';   // parked ticket statuses: ticketParkedStatusIds() and the SQL fragment builders
 
 // Role check failed wording

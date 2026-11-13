@@ -8,7 +8,22 @@ $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_id = $vendor_id
 
 $row = mysqli_fetch_assoc($sql);
 $client_id = intval($row['vendor_client_id']);
-enforceVendorPermission($client_id, 1);
+
+// A shared central vendor opened from a department's Vendors tab (?client_id=N): read-only, vendor's own fields only. The person needs
+// access to that department and the vendor must currently be shared; an unshared central vendor, or any other department's vendor, is refused.
+$dept_ctx = intval($_GET['client_id'] ?? 0);
+$dept_view = false;
+if ($client_id === 0 && $dept_ctx > 0) {
+    enforceUserPermission('module_client');
+    enforceUserPermission('module_support');
+    enforceClientAccess($dept_ctx);
+    if (!vendorIsSharedCentral($mysqli, $vendor_id)) {
+        itflow_render_denied('That vendor is not available for this department.');
+    }
+    $dept_view = true;
+} else {
+    enforceVendorPermission($client_id, 1);
+}
 
 $name = sanitizeInput($row['vendor_name']);
 $description = sanitizeInput($row['vendor_description']);
@@ -22,6 +37,11 @@ $hours = sanitizeInput($row['vendor_hours']);
 $sla = sanitizeInput($row['vendor_sla']);
 $code = sanitizeInput($row['vendor_code']);
 $notes = sanitizeInput($row['vendor_notes']);
+if ($dept_view) {
+    // Central-only fields never reach a department: account number (finance data) and the owner's internal notes
+    $account_number = '';
+    $notes = '';
+}
 
 // Generate the HTML form content using output buffering.
 ob_start();
@@ -48,7 +68,7 @@ ob_start();
             <h6 class="text-secondary"><i class="fas fa-info-circle me-2"></i>Vendor Details</h6>
             <div class="row">
                 <div class="col-sm-6">
-                    <?php if (vendorCanSeeAccountNumber($client_id)) { ?>
+                    <?php if (!$dept_view && vendorCanSeeAccountNumber($client_id)) { ?>
                     <div><strong>Account Number:</strong> <?php echo getFallback($account_number); ?></div>
                     <?php } ?>
                     <div><strong>Hours:</strong> <?php echo getFallback($hours); ?></div>
@@ -78,6 +98,9 @@ ob_start();
         </div>
     </div>
 
+    <?php if ($dept_view) { ?>
+    <div class="text-secondary small mb-3"><i class="fas fa-info-circle me-1"></i>Central vendor shared with all departments. It is edited in Vendors (central), not here.</div>
+    <?php } else { ?>
     <!-- Notes Card -->
     <div class="card mb-3 shadow-sm rounded">
         <div class="card-body">
@@ -87,11 +110,15 @@ ob_start();
             </div>
         </div>
     </div>
+    <?php } ?>
 
     <?php
     // Relationships card: this pop-up is the vendor's details view (agent/vendor_details.php is a retired page), so the Link item form is inline.
-    $rel_type = 'vendor'; $rel_id = $vendor_id; $rel_in_modal = true;
-    require __DIR__ . '/../../../includes/relationships_card.php';
+    // Not for a department's read-only view: a central vendor's links reach records of other departments.
+    if (!$dept_view) {
+        $rel_type = 'vendor'; $rel_id = $vendor_id; $rel_in_modal = true;
+        require __DIR__ . '/../../../includes/relationships_card.php';
+    }
     ?>
 
 </div>

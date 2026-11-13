@@ -97,7 +97,7 @@ $rel_types = \ITFlow\Links\EntityTypes::all();
                         <select class="form-select form-select-sm" name="vendor_id" required>
                             <option value="">Add a vendor...</option>
                             <?php
-                            $rel_vq = mysqli_query($mysqli, 'SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND (vendor_client_id = ' . (int) $rel_client . ' OR vendor_client_id = 0) ORDER BY vendor_name LIMIT 500');
+                            $rel_vq = mysqli_query($mysqli, 'SELECT vendor_id, vendor_name FROM vendors WHERE vendor_archived_at IS NULL AND ' . vendorVisibleSql((int) $rel_client) . ' ORDER BY vendor_name LIMIT 500');
                             while ($rel_vq && ($rv = mysqli_fetch_assoc($rel_vq))) { echo '<option value="' . (int) $rv['vendor_id'] . '">' . $rel_h($rv['vendor_name']) . '</option>'; }
                             ?>
                         </select>

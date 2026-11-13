@@ -48,6 +48,16 @@ if (isset($_GET['vendor_id'])) {
         enforceClientAccess($vendor_client_id);
     }
 
+    // Opened from a department (?client_id=N) a central vendor must currently be shared, and shows only its own contact fields:
+    // never the account number (finance data) or the owner's internal notes.
+    if (!$vendor_client_id && isset($_GET['client_id'])) {
+        if (!vendorIsSharedCentral($mysqli, $vendor_id)) {
+            itflow_render_denied('That vendor is not available for this department.');
+        }
+        $vendor_account_number = '';
+        $vendor_notes = '';
+    }
+
     // Vendor Contacts
     // vendor_contacts was dropped by DB 1.7.3; querying it fatalled the whole page (HTTP 500), so only read it where it still exists.
     $sql_vendor_contacts = false;

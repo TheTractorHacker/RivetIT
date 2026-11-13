@@ -94,6 +94,12 @@ final class LinkService
         if ($src['client_id'] > 0 && $dst['client_id'] > 0 && $src['client_id'] !== $dst['client_id']) {
             return self::fail('cross_client', 'Both records must belong to the same department (only global records, such as a vendor or KB article kept in no department, can be linked across departments).');
         }
+        // A central vendor may be linked to a department's record only while it is shared with all departments (includes/vendor_sharing.php).
+        foreach ([[$srcType, $srcId, $src, $dst], [$dstType, $dstId, $dst, $src]] as [$vType, $vId, $v, $other]) {
+            if ($vType === 'vendor' && $v['client_id'] === 0 && $other['client_id'] > 0 && !vendorIsSharedCentral($this->db, (int) $vId)) {
+                return self::fail('cross_client', 'That vendor is not available for this department.');
+            }
+        }
         $client = $src['client_id'] > 0 ? $src['client_id'] : $dst['client_id'];
         $note = mb_substr(trim(strip_tags($note)), 0, 500);
 
