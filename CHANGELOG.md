@@ -6,10 +6,6 @@ continues unchanged.
 
 ## [Unreleased]
 
-- **Tickets: a ticket in a Resolved or Closed status is no longer counted or listed as unresolved.** The open/closed split also looks at the status name, so tickets moved to Resolved by the API, the Kanban board or an older version leave the Unresolved tile, the Open count and the open list.
-- **Ticket status pills** use a light tint of the status colour with a darker shade for the text (deep tint, light text in dark mode), so neon, near-black and pastel status colours stay readable.
-- **Empty ticket lists say why.** The empty state names the applied filters (including a saved default view) and offers "Show all open tickets", "Include closed" or "Clear filters".
-
 ## [26.10.85] - 2026-11-12
 
 Requires RivetCore 1.0.0-rc.60 (CSS/JS and agent fixes; its migration 0049, the "managed by another RMM" installer column, is not used by RivetIT yet and is applied by the database step that adopts the feature).
@@ -21,7 +17,9 @@ Requires RivetCore 1.0.0-rc.60 (CSS/JS and agent fixes; its migration 0049, the 
 - **Hypervisor host page redesigned** (Proxmox/Hyper-V): at-a-glance tiles, a clear banner when the collector reports a problem or the host is stale, aligned cluster/storage/VM cards with usage bars, the VM filter in the card header. A Proxmox host with `ceph-common` but no Ceph cluster no longer shows "ceph: /usr/bin/ceph exited with status 1" (server drops it from reports of older agents; new agents do not send it).
 - **API: `POST /api/v1/tickets` accepts `asset_id`** (must belong to `client_id`).
 - **Alerts:** the Critical + error open tile is highlighted only when both its filters are active. **Asset edit modal:** the Details grid shows only while its tab is active.
-
+- **Tickets: a ticket in a Resolved or Closed status is no longer counted or listed as unresolved.** The open/closed split also looks at the status name, so tickets moved to Resolved by the API, the Kanban board or an older version leave the Unresolved tile, the Open count and the open list.
+- **Ticket status pills** use a light tint of the status colour with a darker shade for the text (deep tint, light text in dark mode), so neon, near-black and pastel status colours stay readable.
+- **Empty ticket lists say why.** The empty state names the applied filters (including a saved default view) and offers "Show all open tickets", "Include closed" or "Clear filters".
 
 ## [26.10.84] - 2026-11-06
 
