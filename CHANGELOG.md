@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Tickets: "Filtered by" chips only show filters you chose**, not the ones a saved default view applies (those are already shown on the pills). Active filter pills are marked quietly (ink outline and count) instead of in the accent colour; "Reset to my default" is just "Reset"; pagination links no longer underline at rest.
+- **Fix: tickets created from the mobile app read "in 5 hours".** The API connection stamped times in the database server's zone instead of the company zone; `POST /api/v1/tickets` (and replies) now use the company time zone like the web app. Tickets already created that way keep their stored time.
+
 - **Tickets filter bar tidied.** Search leads, the main filter pills share one height on one wrapping row, and the occasional filters (tags, date field, where, due, project) sit behind "More filters" with a count. What is narrowing the list shows as removable chips ("Filtered by Status: New, Open x, Due: Overdue x ... Clear all"); removing one no longer lets a saved default view quietly come back.
 - **Default-view banner is one line** ("Your default view X is applied. Show all open tickets") instead of a wall of text; the filters it applies are the chips under the bar.
 

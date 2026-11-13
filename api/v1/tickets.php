@@ -6,6 +6,15 @@
 defined('FROM_API') || die();
 require_once __DIR__ . '/includes/api_permissions.php';
 
+// Stamp times in the company zone, exactly like the web app (includes/inc_set_timezone.php). The API connection otherwise runs in the database server's
+// zone, so a ticket or reply created from the mobile app was stored hours ahead of the company clock and the list read "in 5 hours".
+$_api_tz = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1"));
+if (!empty($_api_tz['config_timezone']) && in_array($_api_tz['config_timezone'], timezone_identifiers_list(), true)) {
+    date_default_timezone_set($_api_tz['config_timezone']);
+    mysqli_query($mysqli, "SET time_zone = '" . (new DateTime('now', new DateTimeZone($_api_tz['config_timezone'])))->format('P') . "'");
+}
+unset($_api_tz);
+
 $uid = $api_user_id;
 
 // Gate on the support module permission, mirroring every sibling endpoint

@@ -733,7 +733,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         <?php echo dateRangePickerField($date_range, 'canned_date', ['id' => 'ticketDateRange', 'label' => 'Ticket date range']); ?>
                     </div>
                     <div class="col-auto mb-2 tf-reset">
-                        <a href="?<?= $client_url ?>" class="btn btn-outline-secondary" <?= $_effective_default ? 'title="Back to your default view: ' . nullable_htmlentities($_effective_default['ticket_saved_view_name']) . '"' : '' ?>><i class="fas fa-undo me-1"></i><?= $_effective_default ? 'Reset to my default' : 'Reset Filters' ?></a>
+                        <a href="?<?= $client_url ?>" class="btn btn-outline-secondary" <?= $_effective_default ? 'title="Back to your default view: ' . nullable_htmlentities($_effective_default['ticket_saved_view_name']) . '"' : '' ?>><i class="fas fa-undo me-1"></i><?= $_effective_default ? 'Reset' : 'Reset filters' ?></a>
                     </div>
                     <?php $_more_count = ($filter_sets['onsite'] ? 1 : 0) + (($filter_sets['overdue'] || $filter_sets['due_today']) ? 1 : 0) + ($ticket_project_filter_id !== '' ? 1 : 0) + ($ticket_tag_filter ? 1 : 0) + ($ticket_date_field !== ticketDateFieldFromRequest([]) ? 1 : 0); ?>
                     <div class="col-auto mb-2 tf-more">
@@ -889,7 +889,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             if ($ticket_tag_filter) { $_tf_chips[] = ['Tags', count($ticket_tag_filter) . ' selected', $_chip_href('tags')]; }
             if ($ticket_project_filter_id !== '') { $_tf_chips[] = ['Project', 'one project', $_chip_href('project')]; }
             if (isset($q) && trim((string) $q) !== '') { $_tf_chips[] = ['Search', stripslashes((string) $q), $_chip_href('q')]; }
-            if ($_tf_chips) { ?>
+            if ($_tf_chips && !$ticket_default_view) { ?>
             <div class="tf-chips d-flex flex-wrap align-items-center gap-2 mt-2" aria-label="Active filters">
                 <span class="small text-secondary">Filtered by</span>
                 <?php foreach ($_tf_chips as [$_cl, $_cv, $_ch]) { ?>

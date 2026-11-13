@@ -289,3 +289,11 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 .tf-chips { padding-top: .5rem; }
 .tv-default-banner { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .5rem .85rem; margin-bottom: .75rem; border: 1px solid var(--if-border, #dfe5e8); border-radius: 10px;
   background: var(--bs-tertiary-bg, #f5f8fa); font-size: .9rem; }
+
+/* Tickets (round 2): an ACTIVE filter pill is marked quietly (ink outline, light fill, ink count) instead of in the accent colour, which on a red-accent install reads as
+   an error state and made half the bar look alarming. Pagination links never underline at rest. */
+.tv-ms-btn.tv-active { border-color: var(--tblr-border-color-dark, #aab4bf) !important; background: var(--tblr-bg-surface-secondary, #eef2f5) !important; color: var(--tblr-body-color) !important; }
+.tv-ms-btn .tv-count { background: #26323f !important; color: #fff !important; }
+[data-bs-theme="dark"] .tv-ms-btn .tv-count { background: #d5dde6 !important; color: #111a22 !important; }
+.ticket-filter-bar .filter-row-nowrap > .tf-search { max-width: 18rem; }
+.pagination .page-link, .pagination .page-link:hover { text-decoration: none; }
