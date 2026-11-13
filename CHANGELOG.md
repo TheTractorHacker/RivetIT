@@ -6,6 +6,10 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.86] - 2026-11-13
+
+Database 2.6.233 to 2.6.234 (repairs ticket times the mobile API stamped in the future). Requires RivetCore 1.0.0-rc.60.
+
 - **Ticket list calmer.** Only the status is a pill now; the ticket number is a plain chip, category and priority are a coloured dot and a word, the assignee is initials in the agent's colour and a name (quick-change dropdowns still work and update in place), the grey box around the filter bar is gone, and CSAT and Tags yield below 1500px so the table fits a laptop without sideways scrolling. Changing a status from the list now updates the pill colour immediately.
 
 - **Database 2.6.233 to 2.6.234: repair ticket times stamped in the future by the API.** Tickets and replies created from the mobile app before this release were stored in the database server's time zone, so they read "in 5 hours". The update shifts only values that are provably wrong (a created, updated, first-response or reply time later than now; due dates are never touched) back into the company zone, and does nothing on a server whose zone already matches the company's. Idempotent. Rows stamped in the past by the same bug (a ticket made more than the zone offset ago) are not changed.
