@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Microsoft 365 mailbox alerts say why.** "could not find or create the ITFlow mail folder" now includes the HTTP status and Graph error code of the lookup and the create call (never a token or response body), so an alert tells you whether it is consent/permission (401/403), the mailbox (404), or Microsoft throttling/an outage (429/503). New `tests/graph_folder_error_detail.php`.
+
 ## [26.10.86] - 2026-11-13
 
 Database 2.6.233 to 2.6.234 (repairs ticket times the mobile API stamped in the future). Requires RivetCore 1.0.0-rc.60.
