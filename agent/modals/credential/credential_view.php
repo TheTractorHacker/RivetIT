@@ -27,7 +27,7 @@ $credential_created_at   = nullable_htmlentities($row['credential_created_at']);
 if (empty($credential_otp_secret)) {
     $otp_display = '<span class="text-muted">—</span>';
 } else {
-    $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock me-1'></i><span id='otp_$credential_id'><em class='text-muted'>Hover to reveal…</em></span></span>";
+    $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><span id='otp_$credential_id'><button type='button' class='btn btn-sm btn-outline-secondary totp-show' data-totp-show='$credential_id' title='Show the one-time code'><i class='fas fa-shield-alt me-1' aria-hidden='true'></i>Show code</button></span></span>";
 }
 
 enforceClientAccess();

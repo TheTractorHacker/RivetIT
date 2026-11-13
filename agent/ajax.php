@@ -1115,8 +1115,18 @@ if (isset($_GET['get_totp_token_via_id'])) {
 
     enforceClientAccess();
 
+    if (trim((string) $totp_secret) === '') {
+        http_response_code(404);
+        echo json_encode(['error' => 'No one-time code is set for this credential']);
+        exit;
+    }
     $otp = TokenAuth6238::getTokenCode(strtoupper($totp_secret));
-    echo json_encode($otp);
+    if (isset($_GET['detail'])) {
+        // The code AND how long it still lives (the 30 second step is counted on the server, so the browser's clock does not matter).
+        echo json_encode(['code' => (string) $otp, 'remaining' => 30 - (time() % 30), 'period' => 30]);
+    } else {
+        echo json_encode($otp);
+    }
 
     // Logging
     //  Only log the TOTP view if the user hasn't already viewed this specific login entry recently, this prevents logs filling if a user hovers across an entry a few times

@@ -297,3 +297,25 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 [data-bs-theme="dark"] .tv-ms-btn .tv-count { background: #d5dde6 !important; color: #111a22 !important; }
 .ticket-filter-bar .filter-row-nowrap > .tf-search { max-width: 18rem; }
 .pagination .page-link, .pagination .page-link:hover { text-decoration: none; }
+
+/* One-time codes (TOTP) of credentials: a code with a countdown ring that runs to the next change (green, amber under 10 seconds, red under 5), a copy and a hide button. */
+.totp { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.totp-code { font-family: var(--if-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 1.05rem; font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums; min-width: 4.6rem; }
+.totp-ring { position: relative; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; }
+.totp-ring svg { position: absolute; inset: 0; }
+.totp-ring-bg { stroke: var(--bs-tertiary-bg, rgba(100, 116, 139, .22)); }
+.totp-ring-fg { stroke: #1b7f46; stroke-linecap: round; transition: stroke-dashoffset .25s linear, stroke .2s; }
+.totp-sec { position: relative; font-size: .62rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bs-secondary-color, #5d6f76); }
+.totp--warn .totp-ring-fg { stroke: #d9822b; }
+.totp--low .totp-ring-fg { stroke: #c2272d; }
+.totp--low .totp-code, .totp--low .totp-sec { color: #c2272d; }
+.totp--error .totp-code { color: var(--bs-secondary-color, #5d6f76); font-weight: 500; letter-spacing: 0; font-family: inherit; font-size: .9rem; }
+.totp--error .totp-ring, .totp--error .totp-copy { display: none; }
+.totp-show { white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .totp-ring-fg { transition: none; } }
+
+/* Credentials list: the name column gets a fixed comfortable width, the description is one line (full text on hover) so a row is two lines tall instead of five, and the tags sit under the name. */
+.cred-compact .cred-name-cell { min-width: 12rem; max-width: 18rem; }
+.cred-compact .cred-desc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.cred-compact .cred-tags { margin-top: .2rem; }
+@media (max-width: 1439.98px) and (min-width: 992px) { .cred-compact th:nth-child(7), .cred-compact td:nth-child(7) { display: none; } }

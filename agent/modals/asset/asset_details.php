@@ -551,7 +551,7 @@ ob_start();
                         if (empty($credential_otp_secret)) {
                             $otp_display = "-";
                         } else {
-                            $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
+                            $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><span id='otp_$credential_id'><button type='button' class='btn btn-sm btn-outline-secondary totp-show' data-totp-show='$credential_id' title='Show the one-time code'><i class='fas fa-shield-alt me-1' aria-hidden='true'></i>Show code</button></span></span>";
                         }
                         $credential_note = nullable_htmlentities($row['credential_note']);
                         $credential_favorite = intval($row['credential_favorite']);

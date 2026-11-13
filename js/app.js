@@ -1344,10 +1344,10 @@ function initPasswordToggles() {
         if (fn && typeof window[fn] === 'function') { window[fn](el); }
     });
 
-    // data-otp-credential-id="<id>": show the one-time code of that credential on hover (was onmouseenter; mouseover is the bubbling form).
-    document.addEventListener('mouseover', function (e) {
+    // data-otp-credential-id="<id>": show the one-time code of that credential (a click now; it used to appear when the pointer merely passed over).
+    document.addEventListener('click', function (e) {
         var el = e.target.closest ? e.target.closest('[data-otp-credential-id]') : null;
-        if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) { return; }
+        if (!el || (e.target.closest && e.target.closest('.totp'))) { return; }
         if (typeof window.showOTPViaCredentialID === 'function') { window.showOTPViaCredentialID(el.getAttribute('data-otp-credential-id')); }
     });
 

@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Credentials: live one-time codes (TOTP).** "Show code" (a click, not a hover) shows the code with a countdown ring to the next change (green, amber under 10 seconds, red under 5), a copy button and a hide button; the next code is fetched by itself when the ring runs out, the countdown comes from the server's clock, and a code hides itself after two minutes or when the tab was hidden for 30 seconds. Works on the credentials list, the credential dialog, asset, contact and department pages.
+- **Credentials list is tighter:** the description is one line (full text on hover) so rows are two lines tall instead of five, the name column has a fixed comfortable width, and the Linked column yields below 1440px so the table fits.
+
 - **Ticket reply/note editors no longer leave dead white space.** The reply, internal note and ticket-details editors had a 130px minimum (the edit-note and bulk reply/resolve editors 300px), so a one-line note sat above a hundred pixels of nothing; the minimum is now about three lines and the editor grows as you type.
 
 - **Tickets: "Filtered by" chips only show filters you chose**, not the ones a saved default view applies (those are already shown on the pills). Active filter pills are marked quietly (ink outline and count) instead of in the accent colour; "Reset to my default" is just "Reset"; pagination links no longer underline at rest.
