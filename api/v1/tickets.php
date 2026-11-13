@@ -368,6 +368,7 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
         } else {
             $new_status_id = $status_id_raw;
             mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $new_status_id WHERE ticket_id = $id");
+            ticketSyncClosingStatus($mysqli, $id, $sla_old_status_id, $new_status_id, (int) $uid);   // "Counts as closed" statuses
         }
 
         require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
@@ -816,6 +817,10 @@ if ($method === 'POST' && $id !== null && $sub === 'status') {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW(), ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $closed_by WHERE ticket_id = $id");
         require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
         slaStampResponseIfMissing($mysqli, $id);
+    } elseif (in_array((int) $status, ticketClosingStatusIds($mysqli), true)) {
+        // A "Counts as closed" status (Administration > Ticket Statuses): stamped closed like Closed, without the Closed bookkeeping.
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW() WHERE ticket_id = $id");
+        ticketSyncClosingStatus($mysqli, $id, 0, (int) $status, $closed_by);
     } else {
         // Moving to any non-Closed status reopens the ticket if it was closed.
         // ticket_closed_by is NOT NULL (default 0), unlike the two timestamp columns.

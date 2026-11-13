@@ -52,7 +52,7 @@ $ticket_date_query = dateRangeSqlBetween(ticketDateFields()[$ticket_date_field][
 // Which statuses mean "done" on this install. The built-in ids are 4 (Resolved) and 5 (Closed), but status ids differ per install and a ticket can sit in a
 // Resolved status without ticket_resolved_at set (a status changed by an API client, a kanban move, an older version); such a ticket must not be counted
 // or listed as unresolved, so the open/closed split also looks at the status NAME.
-$tk_done_ids = [4, 5];
+$tk_done_ids = array_merge([4, 5], ticketClosingStatusIds($mysqli));   // plus the statuses flagged "Counts as closed"
 $_done_res = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_name IN ('Resolved', 'Closed')");
 while ($_done_res && ($_done_row = mysqli_fetch_row($_done_res))) { $tk_done_ids[] = (int) $_done_row[0]; }
 $tk_done_list = implode(',', array_values(array_unique($tk_done_ids)));

@@ -4347,6 +4347,62 @@ function ticketResolutionColumnExists($mysqli = null): bool {
  * when the ticket really was resolved or closed - dragging an open ticket around a board must not reset anything. It has to come
  * FIRST in the SET list, because MySQL evaluates assignments left to right and the reopen clears the columns it reads.
  */
+/** Does ticket_statuses.ticket_status_closes_ticket exist yet? (False until the database update that adds it has run.) */
+function ticketStatusClosesColumnExists($mysqli = null): bool {
+    static $exists = null;
+    if ($exists === null) {
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        $res = $mysqli ? @mysqli_query($mysqli, "SHOW COLUMNS FROM ticket_statuses LIKE 'ticket_status_closes_ticket'") : false;
+        $exists = (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+
+    return $exists;
+}
+
+/**
+ * Status ids flagged "Counts as closed" (Administration > Ticket Statuses): a ticket in one of them leaves the open lists and every open count exactly like a
+ * Closed ticket ("Unresolved" - closed without a resolution - is the usual one).
+ *
+ * @return list<int>
+ */
+function ticketClosingStatusIds($mysqli = null): array {
+    static $ids = null;
+    if ($ids === null) {
+        $ids = [];
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        if ($mysqli && ticketStatusClosesColumnExists($mysqli)) {
+            $res = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_closes_ticket = 1");
+            while ($res && ($r = mysqli_fetch_assoc($res))) {
+                $ids[] = intval($r['ticket_status_id']);
+            }
+        }
+    }
+
+    return $ids;
+}
+
+/**
+ * Keep resolved/closed stamps in step with a status change for the "Counts as closed" statuses, silently (no e-mail, no CSAT, no reply entry): moving INTO one
+ * stamps the ticket closed; moving OUT of one (to a status that is not Resolved/Closed or another closing one) reopens it. Returns true when the new status is a
+ * closing one, so callers can skip their own "not closed, so clear the stamps" step.
+ */
+function ticketSyncClosingStatus($mysqli, int $ticket_id, int $old_status_id, int $new_status_id, int $user_id): bool {
+    $closing = ticketClosingStatusIds($mysqli);
+    if (!$closing) {
+        return false;
+    }
+    if (in_array($new_status_id, $closing, true)) {
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = COALESCE(ticket_resolved_at, NOW()), ticket_closed_at = COALESCE(ticket_closed_at, NOW()), ticket_closed_by = IF(ticket_closed_by = 0, " . intval($user_id) . ", ticket_closed_by) WHERE ticket_id = " . intval($ticket_id));
+
+        return true;
+    }
+    if (in_array($old_status_id, $closing, true) && !in_array($new_status_id, [4, 5], true)) {
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = " . intval($ticket_id));
+    }
+
+    return false;
+}
+
 function ticketReopenSql(): string {
     return ticketResolutionColumnExists()
         ? 'ticket_resolution_started_at = IF(ticket_resolved_at IS NOT NULL OR ticket_closed_at IS NOT NULL, NOW(), ticket_resolution_started_at), '

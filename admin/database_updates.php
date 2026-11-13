@@ -13040,3 +13040,11 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.234'");
     }
+
+    if ($rivetit_db_version() == '2.6.234') {
+        // DB 2.6.235: ticket_statuses.ticket_status_closes_ticket ("Counts as closed", Administration > Ticket Statuses). A ticket in a flagged status (for example
+        // "Unresolved": finished without a resolution) leaves the open lists and every open count like a Closed ticket, silently. Off for every status until an
+        // administrator ticks it. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_closes_ticket` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
+    }

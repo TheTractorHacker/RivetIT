@@ -14,6 +14,9 @@ if (isset($_POST['add_ticket_status'])) {
     if (slaStatusColumnExists($mysqli)) {
         $pauses_sla_sql = ', ticket_status_pauses_sla = ' . (isset($_POST['pauses_sla']) ? 1 : 0);
     }
+    if (ticketStatusClosesColumnExists($mysqli)) {
+        $pauses_sla_sql .= ', ticket_status_closes_ticket = ' . (isset($_POST['closes_ticket']) ? 1 : 0);
+    }
 
     mysqli_query($mysqli, "INSERT INTO ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color'$pauses_sla_sql");
 
@@ -41,8 +44,24 @@ if (isset($_POST['edit_ticket_status'])) {
     if (slaStatusColumnExists($mysqli)) {
         $pauses_sla_sql = ', ticket_status_pauses_sla = ' . (isset($_POST['pauses_sla']) ? 1 : 0);
     }
+    $closes_changed = false;
+    if (ticketStatusClosesColumnExists($mysqli)) {
+        $closes_new = isset($_POST['closes_ticket']) ? 1 : 0;
+        $closes_old = intval(getFieldById('ticket_statuses', $ticket_status_id, 'ticket_status_closes_ticket'));
+        $closes_changed = $closes_new !== $closes_old;
+        $pauses_sla_sql .= ', ticket_status_closes_ticket = ' . $closes_new;
+    }
 
     mysqli_query($mysqli, "UPDATE ticket_statuses SET ticket_status_name = '$name', ticket_status_color = '$color', ticket_status_order = $order, ticket_status_active = $status$pauses_sla_sql WHERE ticket_status_id = $ticket_status_id");
+
+    // Tickets already sitting in a status whose "Counts as closed" setting changed follow it: stamped closed, or reopened.
+    if ($closes_changed) {
+        if ($closes_new === 1) {
+            mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = COALESCE(ticket_resolved_at, NOW()), ticket_closed_at = COALESCE(ticket_closed_at, NOW()), ticket_closed_by = IF(ticket_closed_by = 0, " . intval($session_user_id) . ", ticket_closed_by) WHERE ticket_status = $ticket_status_id");
+        } elseif ($ticket_status_id !== 4 && $ticket_status_id !== 5) {
+            mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_status = $ticket_status_id");
+        }
+    }
 
     // Open tickets already sitting in this status start or stop their SLA pause to match the new setting.
     if ($pauses_sla_sql !== '') {

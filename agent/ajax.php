@@ -1354,6 +1354,7 @@ if (isset($_POST['update_kanban_ticket'])) {
             } else {
                 // If the ticket was moved from any status to another status
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_order = $kanban, ticket_status = $status, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+                ticketSyncClosingStatus($mysqli, $ticket_id, (int) $oldStatus, (int) $status, (int) $session_user_id);   // "Counts as closed" statuses
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id);
                 customAction('ticket_update', $ticket_id);
             }
