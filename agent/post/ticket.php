@@ -3221,7 +3221,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
             'recipient' => $contact_email,
             'recipient_name' => $contact_name,
             'subject' => "Ticket Scheduled - [$ticket_prefix$ticket_number] - $ticket_subject",
-            'body' => mysqli_escape_string($mysqli, "<div class='header'>
+            'body' => "<div class='header'>
                                 Hello, $contact_name
                             </div>
                             Your ticket regarding $ticket_subject has been scheduled for $email_datetime.
@@ -3241,7 +3241,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
                             </div>
                             <div class='no-reply'>
                                 This is an automated message. Please do not reply directly to this email.
-                            </div>"),
+                            </div>",
             'cal_str' => $cal_str
         ];
 
@@ -3256,7 +3256,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
                 'recipient' => $watcher_email,
                 'recipient_name' => $watcher_email,
                 'subject' => "Ticket Scheduled - [$ticket_prefix$ticket_number] - $ticket_subject",
-                'body' => mysqli_escape_string($mysqli, nullable_htmlentities("<div class='header'>
+                'body' => nullable_htmlentities("<div class='header'>
             Hello,
         </div>
         The ticket regarding $ticket_subject has been scheduled for $email_datetime.
@@ -3277,7 +3277,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
         </div>
         <div class='no-reply'>
             This is an automated message. Please do not reply directly to this email.
-        </div>")),
+        </div>"),
                 'cal_str' => $cal_str
             ];
         }
@@ -3391,7 +3391,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
             'recipient' => $contact_email,
             'recipient_name' => $contact_name,
             'subject' => "Ticket Schedule Cancelled - [$ticket_prefix$ticket_number] - $ticket_subject",
-            'body' => mysqli_escape_string($mysqli, "<div class='header'>
+            'body' => "<div class='header'>
                                 Hello, $contact_name
                             </div>
                             Scheduled work for your ticket regarding $ticket_subject has been cancelled.
@@ -3411,7 +3411,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
                             </div>
                             <div class='no-reply'>
                                 This is an automated message. Please do not reply directly to this email.
-                            </div>"),
+                            </div>",
             'cal_str' => $cal_str
         ];
 
@@ -3425,7 +3425,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
                 'recipient' => $watcher_email,
                 'recipient_name' => $watcher_email,
                 'subject' => "Ticket Schedule Cancelled - [$ticket_prefix$ticket_number] - $ticket_subject",
-                'body' => mysqli_escape_string($mysqli, nullable_htmlentities("<div class='header'>
+                'body' => nullable_htmlentities("<div class='header'>
             Hello,
         </div>
         Scheduled work for the ticket regarding $ticket_subject has been cancelled.
@@ -3446,7 +3446,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
         </div>
         <div class='no-reply'>
             This is an automated message. Please do not reply directly to this email.
-        </div>")),
+        </div>"),
                 'cal_str' => $cal_str
             ];
         }

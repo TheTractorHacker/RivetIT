@@ -4422,6 +4422,9 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
 
     // Clean up the message
     $message = trim($message);
+    // A short plain-text excerpt of what the person sent, for the "ticket created" e-mail (so it shows what was logged instead of an empty box).
+    $mail_excerpt = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(preg_replace('~<(style|script)\b.*?</\1>~is', ' ', $message)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $mail_excerpt = mb_strlen($mail_excerpt) > 500 ? rtrim(mb_substr($mail_excerpt, 0, 500)) . '...' : $mail_excerpt;
     // Remove DOCTYPE and meta tags
     $message = preg_replace('/<!DOCTYPE[^>]*>/i', '', $message);
     $message = preg_replace('/<meta[^>]*>/i', '', $message);
@@ -4524,7 +4527,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             'contact_name' => $contact_name, 'ticket_number' => "$config_ticket_prefix$ticket_number", 'subject' => $subject,
             'status' => 'New', 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$id&url_key=$url_key",
             'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $from_email,
-            'ticket_details' => '',
+            'ticket_details' => $mail_excerpt !== '' ? nl2br(htmlspecialchars($mail_excerpt, ENT_QUOTES, 'UTF-8')) : '',
         ]);
         if ($mt !== null) {
             $data[] = [
@@ -4533,7 +4536,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
                 'recipient' => $contact_email,
                 'recipient_name' => $contact_name,
                 'subject' => $mt['subject'],
-                'body' => mysqli_real_escape_string($mysqli, $mt['body']),
+                'body' => $mt['body'],
                 'ticket_id' => $id
             ];
         }
@@ -4559,7 +4562,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             'recipient' => $config_ticket_new_ticket_notification_email,
             'recipient_name' => $from_name,
             'subject' => $email_subject,
-            'body' => mysqli_real_escape_string($mysqli, $email_body)
+            'body' => $email_body
         ];
     }
 
@@ -4667,7 +4670,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                     'recipient' => $from_email,
                     'recipient_name' => $from_email,
                     'subject' => $email_subject,
-                    'body' => mysqli_real_escape_string($mysqli, $email_body),
+                    'body' => $email_body,
                     'ticket_id' => $ticket_id
                 ]
             ];
@@ -4771,8 +4774,8 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                         'from_name' => $outbound_from_name,
                         'recipient' => $tech_email,
                         'recipient_name' => $tech_name,
-                        'subject' => mysqli_real_escape_string($mysqli, $email_subject),
-                        'body' => mysqli_real_escape_string($mysqli, $email_body),
+                        'subject' => $email_subject,
+                        'body' => $email_body,
                         'ticket_id' => $ticket_id
                     ]
                 ];

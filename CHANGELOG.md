@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Fix: ticket e-mails showed backslashes.** The "ticket created" e-mail (and the new-ticket notice, the scheduled-work and cancelled-work notices and others) read `\"Fw: ...\"` and `[\"https://...\"]View ticket`, with a broken logo: the body was escaped for SQL by the caller and the mail queue already binds parameters, so every quote got a backslash. Callers no longer pre-escape, and the template engine also undoes SQL escaping on values it is given (names, subjects with apostrophes or quotes).
+- **Better "ticket created" e-mail for tickets that arrive by e-mail:** it now quotes the first 500 characters of what the person sent (it was an empty grey box), and an empty quote box is no longer sent at all.
+
 ## [26.10.86] - 2026-11-13
 
 Database 2.6.233 to 2.6.234 (repairs ticket times the mobile API stamped in the future). Requires RivetCore 1.0.0-rc.60.
