@@ -23,6 +23,9 @@ if (isset($_POST['add_service'])) {
 
     enforceClientAccess();
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php), checked before anything is written
+    enforceVendorListAssignable($_POST['vendors'] ?? [], $client_id);
+
     // Create Service
     mysqli_query($mysqli, "INSERT INTO services SET service_name = '$service_name', service_description = '$service_description', service_category = '$service_category', service_importance = '$service_importance', service_backup = '$service_backup', service_notes = '$service_notes', service_client_id = $client_id");
 
@@ -106,6 +109,12 @@ if (isset($_POST['edit_service'])) {
     $client_id = intval(getFieldById('services', $service_id, 'service_client_id'));
 
     enforceClientAccess();
+
+    // Vendors already linked keep saving (history, a vendor since un-shared); any other must be assignable. Checked before anything is written.
+    $existing_service_vendors = [];
+    $esv = mysqli_query($mysqli, "SELECT vendor_id FROM service_vendors WHERE service_id = $service_id");
+    while ($esv && ($esv_row = mysqli_fetch_assoc($esv))) { $existing_service_vendors[] = (int) $esv_row['vendor_id']; }
+    enforceVendorListAssignable($_POST['vendors'] ?? [], $client_id, $existing_service_vendors);
 
     // Update main service details
     mysqli_query($mysqli, "UPDATE services SET service_name = '$service_name', service_description = '$service_description', service_category = '$service_category', service_importance = '$service_importance', service_backup = '$service_backup', service_notes = '$service_notes' WHERE service_id = $service_id");

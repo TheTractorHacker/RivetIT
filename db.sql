@@ -8291,6 +8291,7 @@ CREATE TABLE `vendors` (
   `vendor_accessed_at` datetime DEFAULT NULL,
   `vendor_client_id` int(11) NOT NULL DEFAULT 0,
   `vendor_template_id` int(11) NOT NULL DEFAULT 0,
+  `vendor_shared` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`vendor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

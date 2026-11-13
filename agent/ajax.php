@@ -186,7 +186,7 @@ if (isset($_GET['global_search_live'])) {
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
             AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%')
-            $access_permission_query
+            " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_id DESC LIMIT 5"
     );
     $rows = [];
@@ -1085,8 +1085,8 @@ if (isset($_GET['get_client_vendors'])) {
         $mysqli,
         "SELECT vendor_id, vendor_name FROM vendors
         LEFT JOIN clients on vendor_client_id = client_id
-        WHERE vendors.vendor_archived_at IS NULL AND vendor_client_id = $client_id
-        $access_permission_query
+        WHERE vendors.vendor_archived_at IS NULL AND " . vendorVisibleSql($client_id, 'vendors') . "
+        " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_name ASC"
     );
 

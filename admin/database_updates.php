@@ -13054,3 +13054,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
             mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
         }
     }
+
+    if ($rivetit_db_version() == '2.6.236') {
+        // DB 2.6.237: shared central vendors. vendors.vendor_shared = 1 on a central vendor (vendor_client_id = 0) offers it to every department
+        // (pickers, Vendors tab read-only). Meaningful only for central vendors; every existing vendor stays unshared (default 0). Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `vendors` ADD COLUMN IF NOT EXISTS `vendor_shared` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+    }

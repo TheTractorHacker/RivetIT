@@ -233,6 +233,11 @@ if (isset($_GET['ticket_id'])) {
         $vendor_sla = nullable_htmlentities($row['vendor_sla']);
         $vendor_code = nullable_htmlentities($row['vendor_code']);
         $vendor_notes = nullable_htmlentities($row['vendor_notes']);
+        // A central vendor on a department's ticket: the central-only / financial fields never reach the department page
+        // (includes/vendor_sharing.php). The vendor's own contact fields stay.
+        if ($vendor_id && intval($row['vendor_client_id'] ?? 0) === 0) {
+            $vendor_account_number = $vendor_code = $vendor_sla = $vendor_notes = '';
+        }
 
         $location_id = intval($row['location_id']);
         $location_name = nullable_htmlentities($row['location_name']);

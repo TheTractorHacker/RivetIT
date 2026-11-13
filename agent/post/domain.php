@@ -18,6 +18,11 @@ if (isset($_POST['add_domain'])) {
 
     enforceClientAccess();
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    foreach ([$registrar, $webhost, $dnshost, $mailhost] as $domain_vendor_check) {
+        enforceVendorAssignable($domain_vendor_check, $client_id);
+    }
+
     // Set/check/lookup expiry date
     if (strtotime($expire)) {
         $expire = "'" . $expire . "'";
@@ -77,6 +82,12 @@ if (isset($_POST['edit_domain'])) {
     $client_id = intval(getFieldById('domains', $domain_id, 'domain_client_id'));
 
     enforceClientAccess();
+
+    // A vendor already on the domain keeps saving (history, a vendor since un-shared); a changed one must be assignable to this department.
+    enforceVendorAssignable($registrar, $client_id, intval(getFieldById('domains', $domain_id, 'domain_registrar')));
+    enforceVendorAssignable($webhost, $client_id, intval(getFieldById('domains', $domain_id, 'domain_webhost')));
+    enforceVendorAssignable($dnshost, $client_id, intval(getFieldById('domains', $domain_id, 'domain_dnshost')));
+    enforceVendorAssignable($mailhost, $client_id, intval(getFieldById('domains', $domain_id, 'domain_mailhost')));
 
     // Set/check/lookup expiry date
     if (strtotime($expire)) {

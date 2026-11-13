@@ -29,6 +29,9 @@ if (isset($_POST['add_software_from_template'])) {
     $notes = sanitizeInput($row['software_template_notes']);
     $vendor = intval($_POST['vendor'] ?? 0);
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    enforceVendorAssignable($vendor, $client_id);
+
     // Software add query
     mysqli_query($mysqli,"INSERT INTO software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_license_type = '$license_type', software_notes = '$notes', software_vendor_id = $vendor, software_client_id = $client_id");
 
@@ -77,6 +80,8 @@ if (isset($_POST['add_software'])) {
     $vendor = intval($_POST['vendor'] ?? 0);
 
     enforceClientAccess();
+
+    enforceVendorAssignable($vendor, $client_id);
 
     mysqli_query($mysqli,"INSERT INTO software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_key = '$key', software_license_type = '$license_type', software_seats = $seats, software_purchase_reference = '$purchase_reference', software_purchase = $purchase, software_expire = $expire, software_notes = '$notes', software_vendor_id = $vendor, software_client_id = $client_id");
 
@@ -148,6 +153,7 @@ if (isset($_POST['edit_software'])) {
     enforceClientAccess();
 
     $old_primary_vendor = intval(getFieldById('software', $software_id, 'software_vendor_id'));
+    enforceVendorAssignable($vendor, $client_id, $old_primary_vendor);   // an unchanged vendor always saves (history, a vendor since un-shared)
     mysqli_query($mysqli,"UPDATE software SET software_name = '$name', software_version = '$version', software_description = '$description', software_type = '$type', software_key = '$key', software_license_type = '$license_type', software_seats = $seats, software_purchase_reference = '$purchase_reference', software_purchase = $purchase, software_expire = $expire, software_notes = '$notes', software_vendor_id = $vendor WHERE software_id = $software_id");
     (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('software', $software_id, $old_primary_vendor);
 

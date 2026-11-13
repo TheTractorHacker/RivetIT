@@ -64,7 +64,7 @@ if (isset($_GET['query'])) {
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
             AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%'$vendor_role_clause)
-            $access_permission_query
+            " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_id DESC LIMIT 5"
     );
 
