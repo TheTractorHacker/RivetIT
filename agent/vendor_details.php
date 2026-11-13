@@ -56,6 +56,8 @@ if (isset($_GET['vendor_id'])) {
         }
         $vendor_account_number = '';
         $vendor_notes = '';
+        $vendor_code = '';
+        $vendor_sla = '';
     }
 
     // Vendor Contacts

@@ -38,9 +38,11 @@ $sla = sanitizeInput($row['vendor_sla']);
 $code = sanitizeInput($row['vendor_code']);
 $notes = sanitizeInput($row['vendor_notes']);
 if ($dept_view) {
-    // Central-only fields never reach a department: account number (finance data) and the owner's internal notes
+    // Central-only fields never reach a department: account number (finance data), customer code, SLA terms and the owner's internal notes
     $account_number = '';
     $notes = '';
+    $code = '';
+    $sla = '';
 }
 
 // Generate the HTML form content using output buffering.
