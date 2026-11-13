@@ -87,7 +87,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     Priority <?php if ($sort == 'ticket_priority') { echo $order_icon; } ?>
                                 </a>
                             </th>
-                            <?php if (!empty($config_ticket_csat_enable)) { ?><th>CSAT</th><?php } ?>
+                            <?php if (!empty($config_ticket_csat_enable)) { ?><th class="tk-col-csat">CSAT</th><?php } ?>
                             <th>
                                 <a class="text-dark" href="?<?php echo $url_query_strings_sort; ?>&sort=ticket_status&order=<?php echo sortLinkOrder('ticket_status'); ?>">
                                     Status <?php if ($sort == 'ticket_status') { echo $order_icon; } ?>
@@ -286,7 +286,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                 <!-- Ticket Number -->
                                 <td>
                                     <a href="ticket.php?ticket_id=<?= "$ticket_id$has_client" ?>">
-                                        <span class="badge rounded-pill text-bg-dark tk-num"><?php echo "$ticket_prefix$ticket_number"; ?></span>
+                                        <span class="tk-num"><?php echo "$ticket_prefix$ticket_number"; ?></span>
                                     </a>
                                 </td>
 
@@ -314,8 +314,8 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     $cat_label = $ticket_category_name ?: 'Uncategorized';
                                     if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                                     <div class="dropdown">
-                                        <span class="badge rounded-pill tkt-pill-badge dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
-                                             style="background:<?= htmlspecialchars($cat_color) ?>;color:#fff;cursor:pointer;">
+                                        <span class="badge tkt-pill-badge tk-dot dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
+                                             style="--pill:<?= htmlspecialchars(ticketPillColor($cat_color)) ?>;cursor:pointer;">
                                             <?= $cat_label ?>
                                         </span>
                                         <div class="dropdown-menu shadow-sm" style="min-width:180px;max-height:280px;overflow-y:auto;">
@@ -347,7 +347,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                         </div>
                                     </div>
                                     <?php } else { ?>
-                                    <span class="badge rounded-pill tkt-pill-badge" style="background:<?= htmlspecialchars($cat_color) ?>;color:#fff;">
+                                    <span class="badge tkt-pill-badge tk-dot" style="--pill:<?= htmlspecialchars(ticketPillColor($cat_color)) ?>;">
                                         <?= $cat_label ?>
                                     </span>
                                     <?php } ?>
@@ -365,10 +365,11 @@ foreach ($_cat_subs as $_pid => $_subs) {
 
                                 <!-- Priority -->
                                 <td>
+                                    <?php $_prio_hex = ['danger' => '#d63939', 'warning' => '#f59f00', 'info' => '#2f8fe6'][$ticket_priority_color] ?? '#6c757d'; ?>
                                     <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                                     <div class="dropdown">
-                                        <span class="badge rounded-pill tkt-pill-badge badge-<?= $ticket_priority_color ?> dropdown-toggle"
-                                              data-bs-toggle="dropdown" data-boundary="window" style="cursor:pointer;">
+                                        <span class="badge tkt-pill-badge tk-dot dropdown-toggle"
+                                              data-bs-toggle="dropdown" data-boundary="window" style="--pill:<?= $_prio_hex ?>;cursor:pointer;">
                                             <?= $ticket_priority ?>
                                         </span>
                                         <div class="dropdown-menu shadow-sm" style="min-width:120px;">
@@ -382,7 +383,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                         </div>
                                     </div>
                                     <?php } else { ?>
-                                    <span class="badge rounded-pill tkt-pill-badge badge-<?= $ticket_priority_color ?>">
+                                    <span class="badge tkt-pill-badge tk-dot" style="--pill:<?= $_prio_hex ?>;">
                                         <?= $ticket_priority ?>
                                     </span>
                                     <?php } ?>
@@ -409,7 +410,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
 
                                 <!-- CSAT (column only while CSAT surveys are switched on) -->
                                 <?php if (!empty($config_ticket_csat_enable)) { ?>
-                                <td>
+                                <td class="tk-col-csat">
                                     <?php if ($ticket_csat_rating > 0) { ?>
                                         <span class="csat-face-display" title="<?= csatFaceLabel($ticket_csat_rating) ?>"><?= csatFaceEmoji($ticket_csat_rating) ?></span>
                                     <?php } ?>
@@ -452,9 +453,9 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                     $agent_color = $ticket_assigned_to ? $agent_colors[$ticket_assigned_to % count($agent_colors)] : '#adb5bd';
                                     if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                                     <div class="dropdown">
-                                        <span class="badge rounded-pill tkt-pill-badge dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
-                                             style="background:<?= $agent_color ?>;color:#fff;cursor:pointer;">
-                                            <?= $agent_label ?>
+                                        <span class="badge tkt-pill-badge tk-person dropdown-toggle" data-bs-toggle="dropdown" data-boundary="window"
+                                             style="--pill:<?= $agent_color ?>;cursor:pointer;">
+                                            <span class="tk-av" aria-hidden="true"><?= $agent_name_raw ? nullable_htmlentities(initials($agent_name_raw)) : '&ndash;' ?></span><span class="tk-name"><?= $agent_label ?></span>
                                         </span>
                                         <div class="dropdown-menu shadow-sm" style="min-width:160px;">
                                             <h6 class="dropdown-header">Assign To</h6>
@@ -475,8 +476,8 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                         </div>
                                     </div>
                                     <?php } else { ?>
-                                    <span class="badge rounded-pill tkt-pill-badge" style="background:<?= $agent_color ?>;color:#fff;">
-                                        <?= $agent_label ?>
+                                    <span class="badge tkt-pill-badge tk-person" style="--pill:<?= $agent_color ?>;">
+                                        <span class="tk-av" aria-hidden="true"><?= $agent_name_raw ? nullable_htmlentities(initials($agent_name_raw)) : '&ndash;' ?></span><span class="tk-name"><?= $agent_label ?></span>
                                     </span>
                                     <?php } ?>
                                 </td>
@@ -592,7 +593,7 @@ $(document).on('click', '.quick-cat-item', function(e) {
     $pill.css('opacity', '0.5');
     $.post('post.php', { quick_categorize_ticket: 1, ticket_id: ticketId, category_id: catId, csrf_token: csrf }, function(res) {
         if (res.ok) {
-            $pill.css({'opacity':'1', 'background': catColor}).text(catName);
+            $pill.css('opacity','1')[0].style.setProperty('--pill', catColor); $pill.text(catName);
             $item.closest('.dropdown-menu').find('.active').removeClass('active');
             $item.addClass('active');
             setTimeout(function() { location.reload(); }, 600);
@@ -613,7 +614,7 @@ $(document).on('click', '.quick-priority-item', function(e) {
     $pill.css('opacity', '0.5');
     $.post('post.php', { quick_priority_ticket: 1, ticket_id: ticketId, priority: priority, csrf_token: csrf }, function(res) {
         if (res.ok) {
-            $pill.css('opacity','1').removeClass('text-bg-info text-bg-warning text-bg-danger').addClass('badge-' + color).text(priority);
+            $pill.css('opacity','1')[0].style.setProperty('--pill', {info:'#2f8fe6', warning:'#f59f00', danger:'#d63939'}[color] || '#6c757d'); $pill.text(priority);
             $item.closest('.dropdown-menu').find('.active').removeClass('active');
             $item.addClass('active');
         }
@@ -634,7 +635,7 @@ $(document).on('click', '.quick-status-item', function(e) {
     $pill.css('opacity', '0.5');
     $.post('post.php', { quick_status_ticket: 1, ticket_id: ticketId, ticket_status_id: statusId, csrf_token: csrf }, function(res) {
         if (res.ok) {
-            $pill.css({'opacity':'1', 'background-color': statusColor}).text(statusName);
+            $pill.css('opacity','1')[0].style.setProperty('--pill', statusColor); $pill.text(statusName);
             $item.closest('.dropdown-menu').find('.active').removeClass('active');
             $item.addClass('active');
         }
@@ -655,7 +656,8 @@ $(document).on('click', '.quick-assign-item', function(e) {
     $pill.css('opacity', '0.5');
     $.post('post.php', { quick_assign_ticket: 1, ticket_id: ticketId, assigned_to: userId, csrf_token: csrf }, function(res) {
         if (res.ok) {
-            $pill.css({'opacity':'1', 'background': userColor}).text(userName);
+            $pill.css('opacity','1')[0].style.setProperty('--pill', userColor);
+            $pill.empty().append($('<span class="tk-av" aria-hidden="true"></span>').text(userId ? String(userName).split(' ').map(function (w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase() : '\u2013')).append($('<span class="tk-name"></span>').text(userName));
             $item.closest('.dropdown-menu').find('.active').removeClass('active');
             $item.addClass('active');
         }

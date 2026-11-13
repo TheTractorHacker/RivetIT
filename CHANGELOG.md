@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Ticket list calmer.** Only the status is a pill now; the ticket number is a plain chip, category and priority are a coloured dot and a word, the assignee is initials in the agent's colour and a name (quick-change dropdowns still work and update in place), the grey box around the filter bar is gone, and CSAT and Tags yield below 1500px so the table fits a laptop without sideways scrolling. Changing a status from the list now updates the pill colour immediately.
+
 - **Database 2.6.233 to 2.6.234: repair ticket times stamped in the future by the API.** Tickets and replies created from the mobile app before this release were stored in the database server's time zone, so they read "in 5 hours". The update shifts only values that are provably wrong (a created, updated, first-response or reply time later than now; due dates are never touched) back into the company zone, and does nothing on a server whose zone already matches the company's. Idempotent. Rows stamped in the past by the same bug (a ticket made more than the zone offset ago) are not changed.
 
 - **Credentials: live one-time codes (TOTP).** "Show code" (a click, not a hover) shows the code with a countdown ring to the next change (green, amber under 10 seconds, red under 5), a copy button and a hide button; the next code is fetched by itself when the ring runs out, the countdown comes from the server's clock, and a code hides itself after two minutes or when the tab was hidden for 30 seconds. Works on the credentials list, the credential dialog, asset, contact and department pages.
