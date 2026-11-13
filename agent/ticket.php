@@ -360,22 +360,10 @@ if (isset($_GET['ticket_id'])) {
                 $initial_issue_reply_type = 'Client';
                 $initial_issue_reply_by   = $contact_id;
             } elseif (!$ticket_created_by && $client_id) {
-                // No specific contact captured (e.g. a ticket submitted via the API
-                // using the shared/legacy key, which doesn't send a contact_id) -
-                // fall back to the client's primary contact so this still shows a
-                // real, recognizable name instead of misattributing to whichever
-                // admin the legacy key happens to resolve to.
-                $primary_contact = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_client_id = $client_id AND contact_archived_at IS NULL ORDER BY contact_primary DESC LIMIT 1"));
-                if ($primary_contact) {
-                    $initial_issue_reply_type = 'Client';
-                    $initial_issue_reply_by   = intval($primary_contact['contact_id']);
-                } else {
-                    // Client has no contacts on file at all - nothing real to
-                    // attribute to. The render loop below shows the client's name
-                    // instead of the generic "System" label for this specific row.
-                    $initial_issue_reply_type = 'Internal';
-                    $initial_issue_reply_by   = 0;
-                }
+                // No contact on the ticket (API/legacy key without a contact_id): do NOT guess one. Attribute the initial issue to nobody; the render loop below
+                // shows the client's name for this row instead of the generic "System" label.
+                $initial_issue_reply_type = 'Internal';
+                $initial_issue_reply_by   = 0;
             } else {
                 $initial_issue_reply_type = 'Internal';
                 $initial_issue_reply_by   = $ticket_created_by;

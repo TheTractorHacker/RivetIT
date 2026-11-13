@@ -70,14 +70,8 @@ if ($method === 'POST') {
         api_error(403, 'Access denied');
     }
 
-    // Contact: the client's primary/first contact, like tickets.php (none for an internal, department-less request).
+    // Contact: none unless one is chosen. The request is made by the signed-in user ($uid); it must not be attached to the client's primary or first contact.
     $contact_id = 0;
-    if ($client_id > 0) {
-        $pc = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT contact_id FROM contacts WHERE contact_client_id = $client_id AND contact_archived_at IS NULL
-             ORDER BY contact_primary DESC, contact_id ASC LIMIT 1"));
-        $contact_id = $pc ? intval($pc['contact_id']) : 0;
-    }
 
     // Validation, the ticket, the stored answers, the computed risk and the approval hold all happen in the service, which is also
     // the entry point for chat (Slack / Teams). Access was decided above; the service trusts its caller for that.
