@@ -13013,3 +13013,30 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_lifecycle_okta_token` text DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.233'");
     }
+
+    if ($rivetit_db_version() == '2.6.233') {
+        // DB 2.6.234: repair tickets stamped hours into the future by the API. Until 26.10.86 api/v1/tickets.php ran in the database server's time zone, so a
+        // ticket or reply created from the mobile app was stored ahead of the company clock (UTC stamps in a UTC-5 company read "in 5 hours"). The API now
+        // sets the company zone itself; this step fixes what was already stored, and ONLY what can be proven wrong: a created, updated, first-response or reply
+        // time that is later than now cannot be right (due dates are never touched). Rows stamped in the past stay as they are. Idempotent: once shifted, the
+        // rows are no longer in the future, so running it again changes nothing.
+        $__tz_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1"));
+        $__tz = (string) ($__tz_row['config_timezone'] ?? '');
+        if ($__tz !== '' && in_array($__tz, timezone_identifiers_list(), true)) {
+            $__keep = (string) (mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT @@session.time_zone AS tz"))['tz'] ?? 'SYSTEM');
+            mysqli_query($mysqli, "SET time_zone = @@global.time_zone");
+            $__srv_min = (int) (mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW()) AS m"))['m'] ?? 0);
+            mysqli_query($mysqli, "SET time_zone = '" . mysqli_real_escape_string($mysqli, $__keep) . "'");
+            $__co_min = (int) round((new DateTime('now', new DateTimeZone($__tz)))->getOffset() / 60);
+            $__shift = $__co_min - $__srv_min;   // minutes that turn a stamp in the server's zone into the company's zone
+            if ($__shift < 0 && $__shift >= -1440) {   // company behind the server: its stamps are in the future
+                $__m = intval($__shift);
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_created_at = ticket_created_at + INTERVAL $__m MINUTE WHERE ticket_created_at > NOW()");
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_updated_at = ticket_updated_at + INTERVAL $__m MINUTE WHERE ticket_updated_at > NOW()");
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_first_response_at = ticket_first_response_at + INTERVAL $__m MINUTE WHERE ticket_first_response_at > NOW()");
+                mysqli_query($mysqli, "UPDATE ticket_replies SET ticket_reply_created_at = ticket_reply_created_at + INTERVAL $__m MINUTE WHERE ticket_reply_created_at > NOW()");
+                mysqli_query($mysqli, "UPDATE ticket_replies SET ticket_reply_updated_at = ticket_reply_updated_at + INTERVAL $__m MINUTE WHERE ticket_reply_updated_at > NOW()");
+            }
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.234'");
+    }
