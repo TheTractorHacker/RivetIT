@@ -606,7 +606,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 130,
+        min_height: 88,   // about three lines: a one-line note no longer sits in a 130px box with a hundred pixels of dead space (autoresize grows it as you type)
         max_height: 600,
         promotion: false,
         branding: false,
@@ -742,7 +742,7 @@ function initTinyMCEEditors() {
         browser_spellcheck: true,
         contextmenu: false,
         resize: true,
-        min_height: 130,
+        min_height: 88,   // about three lines: a one-line note no longer sits in a 130px box with a hundred pixels of dead space (autoresize grows it as you type)
         max_height: 600,
         promotion: false,
         branding: false,
