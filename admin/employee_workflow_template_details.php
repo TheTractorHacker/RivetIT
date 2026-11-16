@@ -68,12 +68,13 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
         <form action="post.php" method="post" class="row g-2 align-items-end">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="workflow_template_id" value="<?= $workflow_template_id ?>">
-            <div class="col-md-6">
+            <div class="col-md-6 col-lg-5">
                 <select class="form-select" name="preset" id="presetSelect">
-                    <?php foreach ($presets as $pk => $p) { ?><option value="<?= nullable_htmlentities($pk) ?>"><?= nullable_htmlentities($p['label']) ?> &mdash; <?= nullable_htmlentities($p['description']) ?></option><?php } ?>
+                    <?php foreach ($presets as $pk => $p) { ?><option value="<?= nullable_htmlentities($pk) ?>" data-desc="<?= nullable_htmlentities($p['description']) ?>"><?= nullable_htmlentities($p['label']) ?></option><?php } ?>
                 </select>
             </div>
             <div class="col-md-3"><button type="submit" name="add_workflow_preset" class="btn btn-outline-primary"><i class="fas fa-plus me-2"></i>Add preset tasks</button></div>
+            <div class="col-12" id="presetDesc" style="font-size:.9rem"></div>
             <div class="col-12 small text-muted">Adds ready-made tasks you can then edit. A task with the same title already in the template is not added twice.</div>
         </form>
     </div>
@@ -133,7 +134,7 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
                     <td class="small text-nowrap"><?= $task['due_offset_days'] !== null ? nullable_htmlentities(($task['due_offset_days'] >= 0 ? '+' : '') . $task['due_offset_days'] . ' days from ' . ($anchor_labels[$task['due_anchor']] ?? '')) : '' ?></td>
                     <td><?= $task['required'] ? '<i class="fas fa-check text-success"></i>' : '' ?></td>
                     <td class="text-end text-nowrap">
-                        <button type="button" class="btn btn-sm btn-light ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_task_edit.php?id=<?= intval($task['template_task_id']) ?>" title="Edit task"><i class="fas fa-edit"></i></button>
+                        <button type="button" class="btn btn-sm btn-light ajax-modal" data-modal-url="modals/employee_workflow/employee_workflow_template_task_edit.php?id=<?= intval($task['template_task_id']) ?>" data-modal-size="xl" title="Edit task"><i class="fas fa-edit"></i></button>
                         <form action="post.php" method="post" class="d-inline" data-confirm-submit="Remove this task from the template?">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                             <input type="hidden" name="template_task_id" value="<?= intval($task['template_task_id']) ?>">
@@ -158,5 +159,14 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
         </form>
     </div>
 </div>
+
+<script<?= !empty($csp_nonce) ? ' nonce="' . $csp_nonce . '"' : '' ?>>
+(function () {
+    var sel = document.getElementById('presetSelect'), out = document.getElementById('presetDesc');
+    if (!sel || !out) { return; }
+    function show() { var o = sel.options[sel.selectedIndex]; out.textContent = o ? (o.getAttribute('data-desc') || '') : ''; }
+    sel.addEventListener('change', show); show();
+})();
+</script>
 
 <?php require_once "../includes/footer.php"; ?>
