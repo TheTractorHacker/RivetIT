@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Employee Workflows: one-click "Open an onboarding ticket" / "Open an offboarding ticket" presets** (template page > Add a built-in preset). The workflow opens a ticket in the person's department with the start/last day, manager and checklist name filled in, so you don't need a separate ticket template.
+
 - **Tickets: "New from workflow..."** (arrow next to New Ticket). Agents pick a person and an Employee Workflow template (plus its form questions) without opening the contact first; the workflow starts exactly as from the contact page, so its "Create a ticket" steps open tickets and the other tasks appear on the workflow page. Needs client-edit permission and respects client access.
 
 ## [26.10.87] - 2026-11-16
