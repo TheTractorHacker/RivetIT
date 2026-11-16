@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.87] - 2026-11-16
+
 - **Employee Workflow task editor redesigned.** The Edit Task dialog is wider and its fields flow in a clean responsive grid (they were squeezed into unreadable slivers); Required is a switch; the built-in preset picker shows the short name with the description underneath instead of one clipped line.
 
 - **Asset details: the left card is fixed for assets with a description and photo.** The description no longer wraps one character per line, and the photo is a normal full-width picture under the name instead of a huge oval. **New asset types: Server Room, Rack, UPS/Power and Storage/NAS** (Other no longer needed for these); the RMM asset matcher knows them too.
