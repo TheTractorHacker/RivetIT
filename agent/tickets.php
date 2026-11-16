@@ -634,15 +634,19 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                         <button type="button" class="btn btn-primary ajax-modal" data-modal-url="modals/ticket/ticket_add_v2.php?<?= $client_url ?>" data-modal-size="lg">
                             <i class="fas fa-plus"></i><span class="d-none d-lg-inline ms-2">New Ticket</span>
                         </button>
-                        <?php if ($num_rows[0] > 0) { ?>
-                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" title="More ways to create tickets"></button>
                         <div class="dropdown-menu">
+                            <a class="dropdown-item text-dark ajax-modal" href="#"
+                                data-modal-url="modals/ticket/ticket_from_workflow.php?<?= $client_url ?>" data-modal-size="lg">
+                                <i class="fa fa-fw fa-tasks me-2"></i>New from workflow&hellip;
+                            </a>
+                            <?php if ($num_rows[0] > 0) { ?>
                             <a class="dropdown-item text-dark ajax-modal" href="#"
                                 data-modal-url="modals/ticket/ticket_export.php?<?= $client_url ?>">
                                 <i class="fa fa-fw fa-download me-2"></i>Export
                             </a>
+                            <?php } ?>
                         </div>
-                        <?php } ?>
                     </div>
                 </div>
             <?php } ?>

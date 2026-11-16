@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Tickets: "New from workflow..."** (arrow next to New Ticket). Agents pick a person and an Employee Workflow template (plus its form questions) without opening the contact first; the workflow starts exactly as from the contact page, so its "Create a ticket" steps open tickets and the other tasks appear on the workflow page. Needs client-edit permission and respects client access.
+
 ## [26.10.87] - 2026-11-16
 
 - **Employee Workflow task editor redesigned.** The Edit Task dialog is wider and its fields flow in a clean responsive grid (they were squeezed into unreadable slivers); Required is a switch; the built-in preset picker shows the short name with the description underneath instead of one clipped line.
