@@ -2714,6 +2714,14 @@ function getAssetIcon($asset_type)
         $device_icon = "tv";
     } elseif ($asset_type == 'Virtual Machine') {
         $device_icon = "cloud";
+    } elseif ($asset_type == 'Server Room') {
+        $device_icon = "door-closed";
+    } elseif ($asset_type == 'Rack') {
+        $device_icon = "layer-group";
+    } elseif ($asset_type == 'UPS/Power') {
+        $device_icon = "car-battery";
+    } elseif ($asset_type == 'Storage/NAS') {
+        $device_icon = "hdd";
     } else {
         $device_icon = "tag";
     }

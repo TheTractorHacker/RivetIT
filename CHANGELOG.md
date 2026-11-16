@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Asset details: the left card is fixed for assets with a description and photo.** The description no longer wraps one character per line, and the photo is a normal full-width picture under the name instead of a huge oval. **New asset types: Server Room, Rack, UPS/Power and Storage/NAS** (Other no longer needed for these); the RMM asset matcher knows them too.
+
 - **Ticket statuses: "Counts as closed" toggle (Administration > Ticket Statuses > edit/add).** Tick it on a status such as *Unresolved* (finished without a resolution) and a ticket in that status leaves the open lists and every open count (tiles, sidebar, dashboards) exactly like a Closed ticket, silently: no e-mail to the client, no "closed" entry, no rating request. It works from the list pill, the ticket page, the reply form, the Kanban board and the API; the Reopen button reopens such a ticket. Tickets already in a status are stamped closed (or reopened) when you change its setting. The status list shows an Open/Closed column. **Database 2.6.234 to 2.6.235** (one new column on `ticket_statuses`, off for every status until ticked).
 
 - **Fix: ticket e-mails showed backslashes.** The "ticket created" e-mail (and the new-ticket notice, the scheduled-work and cancelled-work notices and others) read `\"Fw: ...\"` and `[\"https://...\"]View ticket`, with a broken logo: the body was escaped for SQL by the caller and the mail queue already binds parameters, so every quote got a backslash. Callers no longer pre-escape, and the template engine also undoes SQL escaping on values it is given (names, subjects with apostrophes or quotes).
