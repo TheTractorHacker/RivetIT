@@ -175,6 +175,15 @@ if (isset($_POST['add_ticket'])) {
         }
     }
 
+    // A ticket template can carry a worksheet: attach it to the new ticket (Administration > Ticket Templates).
+    if ($ticket_template_id && mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_templates` LIKE 'ticket_template_worksheet_id'")) > 0) {
+        $ws_row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT ticket_template_worksheet_id FROM ticket_templates WHERE ticket_template_id = $ticket_template_id"));
+        $ws_template_id = intval($ws_row[0] ?? 0);
+        if ($ws_template_id > 0 && mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM worksheet_templates WHERE worksheet_template_id = $ws_template_id AND worksheet_template_archived_at IS NULL"))) {
+            mysqli_query($mysqli, "INSERT INTO ticket_worksheets SET worksheet_ticket_id = $ticket_id, worksheet_template_id = $ws_template_id, worksheet_is_outtake = 0, worksheet_created_by = " . intval($session_user_id));
+        }
+    }
+
     // Add Watchers
     if (isset($_POST['watchers'])) {
         foreach ($_POST['watchers'] as $watcher) {

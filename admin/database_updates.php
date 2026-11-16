@@ -13048,3 +13048,50 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_closes_ticket` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
     }
+
+    if ($rivetit_db_version() == '2.6.235') {
+        // DB 2.6.236: onboarding and offboarding become TICKETS. settings.config_workflows_hire_leave (Administration > Employee Workflow Templates)
+        // turns the onboarding/offboarding workflows on or off; it is OFF here, so hiring and leaving are requested from the department portal's
+        // Request something menu ("New hire" and "Leaver" items, which open tickets with the details in the body), while role change and transfer
+        // keep their workflows. Existing workflow runs and templates are untouched. The two catalog items are added once (by name) and can be edited
+        // under Administration > Service Catalog. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_workflows_hire_leave` tinyint(1) NOT NULL DEFAULT 0");
+        // Ticket templates can carry a worksheet that is added to every ticket created from them.
+        mysqli_query($mysqli, "ALTER TABLE `ticket_templates` ADD COLUMN IF NOT EXISTS `ticket_template_worksheet_id` int(11) DEFAULT NULL");
+        $hl_items = [
+            ['New hire', 'Ask IT to set up a new employee: accounts, equipment and access.', 'fa-user-plus', 'New hire setup: ', 'Medium', 10, [
+                ['employee_name', 'New employee full name', 'text', null, 1],
+                ['personal_email', 'Email address (personal or work)', 'text', null, 1],
+                ['start_date', 'Start date', 'date', null, 1],
+                ['job_title', 'Job title', 'text', null, 0],
+                ['manager', 'Manager', 'text', null, 0],
+                ['equipment', 'Equipment needed', 'select', "Laptop\nDesktop\nNo equipment\nNot sure", 0],
+                ['notes', 'Anything else (software, access, phone extension)', 'textarea', null, 0],
+            ]],
+            ['Leaver', 'Tell IT that an employee is leaving: disable accounts and collect equipment.', 'fa-user-minus', 'Leaver: ', 'High', 11, [
+                ['employee_name', 'Employee leaving', 'text', null, 1],
+                ['last_day', 'Last working day', 'date', null, 1],
+                ['manager', 'Manager (who gets their mailbox and files)', 'text', null, 0],
+                ['equipment', 'Equipment to collect', 'text', null, 0],
+                ['notes', 'Anything else (forwarding, shared files, access to keep)', 'textarea', null, 0],
+            ]],
+        ];
+        foreach ($hl_items as [$hl_name, $hl_desc, $hl_icon, $hl_subject, $hl_prio, $hl_sort, $hl_fields]) {
+            $hl_n = mysqli_real_escape_string($mysqli, $hl_name);
+            if (mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM `service_catalog_items` WHERE `name` = '$hl_n' LIMIT 1")) > 0) {
+                continue;
+            }
+            $hl_d = mysqli_real_escape_string($mysqli, $hl_desc);
+            $hl_s = mysqli_real_escape_string($mysqli, $hl_subject);
+            mysqli_query($mysqli, "INSERT INTO `service_catalog_items` (`name`, `description`, `icon`, `ticket_subject_template`, `default_priority`, `is_active`, `sort_order`) VALUES ('$hl_n', '$hl_d', '$hl_icon', '$hl_s', '$hl_prio', 1, $hl_sort)");
+            $hl_id = (int) mysqli_insert_id($mysqli);
+            if ($hl_id > 0) {
+                foreach ($hl_fields as $hl_i => [$hl_key, $hl_label, $hl_type, $hl_opts, $hl_req]) {
+                    $hl_l = mysqli_real_escape_string($mysqli, $hl_label);
+                    $hl_o = $hl_opts === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, $hl_opts) . "'";
+                    mysqli_query($mysqli, "INSERT INTO `service_catalog_fields` (`catalog_item_id`, `field_key`, `label`, `field_type`, `options`, `is_required`, `sort_order`) VALUES ($hl_id, '$hl_key', '$hl_l', '$hl_type', $hl_o, $hl_req, " . ($hl_i * 10) . ")");
+                }
+            }
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
+    }

@@ -812,6 +812,10 @@ if (isset($_POST['submit_hr_request']) || isset($_POST['cancel_hr_request'])) {
     }
 
     $hr_type = (string) ($_POST['type'] ?? '');
+    if (!isset(\ITFlow\Portal\HrRequests::types($mysqli)[$hr_type])) {
+        flash_alert('That kind of request is not available. Use Request something for new hires and leavers.', 'danger');
+        redirect('hr_request.php');
+    }
     $hr_manager_ids = array_map(static fn($m) => intval($m['contact_id']), (new \ITFlow\Portal\EmployeeHome($mysqli))->departmentManagers(intval($session_client_id)));
     if (!$hr_is_admin) {
         $hr_manager_ids = [intval($session_contact_id)];

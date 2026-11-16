@@ -65,6 +65,20 @@ if (isset($_GET['archive_employee_workflow_template'])) {
     redirect("employee_workflow_templates.php");
 }
 
+if (isset($_POST['save_hire_leave_workflows'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    validateAdminRole(); // Old function
+
+    $on = isset($_POST['workflows_hire_leave']) ? 1 : 0;
+    mysqli_query($mysqli, "UPDATE settings SET config_workflows_hire_leave = $on WHERE company_id = 1");
+    logAction("Settings", "Edit", "$session_name turned onboarding/offboarding workflows " . ($on ? 'on' : 'off'));
+    rivetAudit('settings.workflows_hire_leave_changed', (int) $session_user_id, 'settings', 'config_workflows_hire_leave', 'update', 'Onboarding/offboarding workflows turned ' . ($on ? 'on' : 'off'));
+
+    flash_alert('Saved');
+    redirect('employee_workflow_templates.php');
+}
+
 if (isset($_POST['save_lifecycle_settings'])) {
 
     validateCSRFToken($_POST['csrf_token']);

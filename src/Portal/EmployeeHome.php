@@ -169,7 +169,7 @@ class EmployeeHome
      */
     public function canRequestOnboarding(bool $featureOn, int $contactId, int $clientId, bool $isDeptAdmin): bool
     {
-        return $featureOn && $contactId > 0 && ($isDeptAdmin || $this->isManager($contactId, $clientId));
+        return $featureOn && WorkflowService::hireLeaveEnabled($this->db) && $contactId > 0 && ($isDeptAdmin || $this->isManager($contactId, $clientId));
     }
 
     /** Active onboarding template ids/names, for the settings page. @return list<array<string,mixed>> */

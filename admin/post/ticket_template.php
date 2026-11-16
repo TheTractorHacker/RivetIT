@@ -8,6 +8,20 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 require_once '../agent/post/ticket.php';
 require_once '../agent/post/task.php';
 
+/** "ticket_template_worksheet_id = N, " for the INSERT/UPDATE (empty when the column is not there yet, DB < 2.6.236). */
+function ticketTemplateWorksheetSql(mysqli $mysqli): string
+{
+    if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_templates` LIKE 'ticket_template_worksheet_id'")) < 1) {
+        return '';
+    }
+    $id = intval($_POST['worksheet_template_id'] ?? 0);
+    if ($id > 0 && !mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM worksheet_templates WHERE worksheet_template_id = $id AND worksheet_template_archived_at IS NULL"))) {
+        $id = 0;
+    }
+
+    return 'ticket_template_worksheet_id = ' . ($id > 0 ? $id : 'NULL') . ', ';
+}
+
 if (isset($_POST['add_ticket_template'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -17,8 +31,9 @@ if (isset($_POST['add_ticket_template'])) {
     $subject = sanitizeInput($_POST['subject']);
     $details = mysqli_real_escape_string($mysqli, $_POST['details']);
     $project_template_id = intval($_POST['project_template']);
+    $worksheet_sql = ticketTemplateWorksheetSql($mysqli);
 
-    mysqli_query($mysqli, "INSERT INTO ticket_templates SET ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details'");
+    mysqli_query($mysqli, "INSERT INTO ticket_templates SET {$worksheet_sql}ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details'");
 
     $ticket_template_id = mysqli_insert_id($mysqli);
 
@@ -44,7 +59,7 @@ if (isset($_POST['edit_ticket_template'])) {
     $subject = sanitizeInput($_POST['subject']);
     $details = mysqli_real_escape_string($mysqli, $_POST['details']);
 
-    mysqli_query($mysqli, "UPDATE ticket_templates SET ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details' WHERE ticket_template_id = $ticket_template_id");
+    mysqli_query($mysqli, "UPDATE ticket_templates SET " . ticketTemplateWorksheetSql($mysqli) . " ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details' WHERE ticket_template_id = $ticket_template_id");
 
     logAction("Ticket Template", "Edit", "$session_name edited ticket template $name", 0, $ticket_template_id);
 

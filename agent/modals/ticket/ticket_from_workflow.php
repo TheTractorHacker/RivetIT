@@ -10,7 +10,7 @@ if ($client_id) {
     enforceClientAccess($client_id);
 }
 
-$templates = mysqli_fetch_all(mysqli_query($mysqli, "SELECT workflow_template_id, name, type, description, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC"), MYSQLI_ASSOC);
+$templates = mysqli_fetch_all(mysqli_query($mysqli, "SELECT workflow_template_id, name, type, description, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL AND " . \ITFlow\Workflow\WorkflowService::startableTypesSql($mysqli) . " ORDER BY type ASC, name ASC"), MYSQLI_ASSOC);
 
 $client_sql = $client_id ? "AND contact_client_id = $client_id" : '';
 $contacts = mysqli_query($mysqli, "SELECT contact_id, contact_name, contact_title, client_name FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_archived_at IS NULL $client_sql $access_permission_query ORDER BY client_name ASC, contact_name ASC LIMIT 2000");
@@ -28,7 +28,7 @@ ob_start();
     <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
     <div class="modal-body">
         <?php if (!$templates) { ?>
-            <p class="text-muted mb-0">No workflow templates exist yet. An administrator can create them under Administration &gt; Employee Workflow Templates.</p>
+            <p class="text-muted mb-0">No workflow can be started here. <?= \ITFlow\Workflow\WorkflowService::hireLeaveEnabled($mysqli) ? 'An administrator can create templates under Administration &gt; Employee Workflow Templates.' : 'Onboarding and offboarding are requested as tickets now (New Ticket, or the department portal\'s Request something &gt; New hire / Leaver). Only role change and transfer workflows start here.' ?></p>
         <?php } else { ?>
             <p class="text-muted small">Pick a person and a workflow. Its tasks are created for that person, and every "Create a ticket" step opens a ticket in their department. You can follow progress on the workflow page.</p>
             <div class="mb-3">

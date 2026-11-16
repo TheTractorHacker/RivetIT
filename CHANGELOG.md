@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Onboarding and offboarding are tickets now (DB 2.6.236).** New switch under Administration > Employee Workflow Templates, "Use workflows for onboarding and offboarding", **off by default**. Off: onboarding/offboarding templates cannot be started (contact page, Start workflow, event rules, HR request approval all skip them), the portal's "Request onboarding" and the onboarding/offboarding HR request types are hidden, and the department portal's Request something menu gets two items, **New hire** and **Leaver**, with a short form each that opens a ticket (edit them under Service Catalog). Role change and transfer workflows work as before; existing runs and templates are untouched.
+- **Ticket templates can carry a worksheet.** Edit (or create) a ticket template and pick a Worksheet; every ticket an agent creates from that template gets it attached, ready to fill in.
+
 - **Workflows page (Service Desk > Workflows).** One list of every employee workflow with search, status and type filters, a progress bar, and Open / Cancel / Delete (delete needs client-delete permission; tickets already opened are kept), plus Start workflow and (admins) Edit templates. The workflow page links back to it and has a Delete button.
 - **Fix: adding a built-in preset from a template's page showed a blank page.** The page's save handler was never loaded (the same applied to editing or archiving the template from that page); presets, starters and template edit now work there.
 
