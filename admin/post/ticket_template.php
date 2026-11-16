@@ -69,6 +69,39 @@ if (isset($_POST['edit_ticket_template'])) {
 
 }
 
+if (isset($_GET['clone_ticket_template'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    $src_id = intval($_GET['clone_ticket_template']);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM ticket_templates WHERE ticket_template_id = $src_id"));
+    if (!$src) {
+        flash_alert('Ticket template not found', 'error');
+        redirect('ticket_template.php');
+    }
+
+    $copy_name = mb_substr($src['ticket_template_name'], 0, 190) . ' (copy)';
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO ticket_templates (ticket_template_name, ticket_template_description, ticket_template_subject, ticket_template_details) VALUES (?, ?, ?, ?)");
+    mysqli_stmt_bind_param($stmt, 'ssss', $copy_name, $src['ticket_template_description'], $src['ticket_template_subject'], $src['ticket_template_details']);
+    mysqli_stmt_execute($stmt);
+    $new_id = intval(mysqli_insert_id($mysqli));
+    mysqli_stmt_close($stmt);
+
+    if ($new_id > 0) {
+        if (array_key_exists('ticket_template_worksheet_id', $src)) {
+            mysqli_query($mysqli, "UPDATE ticket_templates SET ticket_template_worksheet_id = " . ($src['ticket_template_worksheet_id'] ? intval($src['ticket_template_worksheet_id']) : 'NULL') . " WHERE ticket_template_id = $new_id");
+        }
+        mysqli_query($mysqli, "INSERT INTO task_templates (task_template_name, task_template_order, task_template_completion_estimate, task_template_ticket_template_id)
+            SELECT task_template_name, task_template_order, task_template_completion_estimate, $new_id FROM task_templates WHERE task_template_ticket_template_id = $src_id AND task_template_archived_at IS NULL");
+    }
+
+    logAction("Ticket Template", "Create", "$session_name cloned ticket template {$src['ticket_template_name']}", 0, $new_id);
+    flash_alert('Ticket template cloned. Rename it and adjust the copy.');
+
+    redirect("ticket_template_details.php?ticket_template_id=$new_id");
+
+}
+
 if (isset($_GET['delete_ticket_template'])) {
 
     validateCSRFToken($_GET['csrf_token']);

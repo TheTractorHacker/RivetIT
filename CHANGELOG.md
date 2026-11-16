@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Clone for templates.** Ticket templates (Templates > Ticket Templates, list menu or the template page) and Employee Workflow Templates (list menu or template page) have a **Clone** action. A cloned ticket template copies the subject, body, worksheet and tasks; a cloned workflow template copies its form questions and tasks (with their "waits for" links) and starts inactive until you switch it on.
+
 - **Onboarding and offboarding are tickets now (DB 2.6.236).** New switch under Administration > Employee Workflow Templates, "Use workflows for onboarding and offboarding", **off by default**. Off: onboarding/offboarding templates cannot be started (contact page, Start workflow, event rules, HR request approval all skip them), the portal's "Request onboarding" and the onboarding/offboarding HR request types are hidden, and the department portal's Request something menu gets two items, **New hire** and **Leaver**, with a short form each that opens a ticket (edit them under Service Catalog). Role change and transfer workflows work as before; existing runs and templates are untouched.
 - **Ticket templates can carry a worksheet.** Edit (or create) a ticket template and pick a Worksheet; every ticket an agent creates from that template gets it attached, ready to fill in.
 

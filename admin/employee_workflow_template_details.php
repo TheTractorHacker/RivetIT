@@ -38,6 +38,9 @@ $anchor_labels = ['run' => 'workflow start', 'start' => 'start date', 'end' => '
                 <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/employee_workflow/employee_workflow_template_edit.php?id=<?= $workflow_template_id ?>">
                     <i class="fas fa-fw fa-edit me-2"></i>Edit Template
                 </a>
+                <a class="dropdown-item" href="post.php?clone_employee_workflow_template=<?= $workflow_template_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                        <i class="fas fa-fw fa-clone me-2"></i>Clone
+                    </a>
                 <a class="dropdown-item text-danger confirm-link" href="post.php?archive_employee_workflow_template=<?php echo $workflow_template_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                     <i class="fas fa-fw fa-archive me-2"></i>Archive
                 </a>
