@@ -360,3 +360,11 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 @media (max-width: 575.98px) {
     .user-menu { position: fixed !important; top: 3.6rem !important; left: .75rem !important; right: .75rem !important; transform: none !important; min-width: 0 !important; width: auto; }
 }
+
+/* Header search: the "Ctrl K" chip sat hard against the search button's divider and the box was tight for placeholder + chip. */
+.app-header-search { width: 320px; }
+.app-header-search .btn-navbar { width: 2.6rem; padding-inline: 0; display: inline-flex; align-items: center; justify-content: center; }
+.app-header .form-control-navbar { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-inline-start: .85rem; }
+.app-header-search .btn-navbar { border-top-right-radius: var(--tblr-border-radius, .375rem); border-bottom-right-radius: var(--tblr-border-radius, .375rem); }
+.rvp-chip { right: 3.3rem; }
+.rvp-has-chip .form-control-navbar { padding-right: 6rem; }
