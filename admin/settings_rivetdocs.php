@@ -6,9 +6,14 @@ $csrf = $_SESSION['csrf_token'];
 
 // The two settings are added by database update 2.6.151; until it runs the page explains instead of failing.
 $row = null;
-$res = @mysqli_query($mysqli, "SELECT config_rivetdocs_enabled, config_rivetdocs_url FROM settings WHERE company_id = 1");
-if ($res) {
-    $row = mysqli_fetch_assoc($res) ?: null;
+try {
+    $res = mysqli_query($mysqli, "SELECT config_rivetdocs_enabled, config_rivetdocs_url FROM settings WHERE company_id = 1");
+    if ($res) {
+        $row = mysqli_fetch_assoc($res) ?: null;
+    }
+} catch (\Throwable $e) {
+    // PHP 8.1+ mysqli throws on an unknown column even behind @; the page then explains instead of answering 500.
+    $row = null;
 }
 $schema_ready = is_array($row);
 $enabled = $schema_ready && (int) $row['config_rivetdocs_enabled'] === 1;

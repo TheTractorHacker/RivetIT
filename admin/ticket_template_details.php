@@ -55,6 +55,7 @@ $sql_task_templates = mysqli_query($mysqli, "SELECT * FROM task_templates WHERE 
             <div class="card-header">
                 <h3 class="card-title mt-1"><?php echo $ticket_template_name; ?></h3>
                 <div class="card-tools">
+                    <a class="btn btn-sm btn-light me-1" href="post.php?clone_ticket_template=<?= intval($ticket_template_id) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-clone me-1"></i>Clone</a>
                     <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editTicketTemplateModal">
                         <i class="fas fa-fw fa-edit me-1"></i>Edit template
                     </button>

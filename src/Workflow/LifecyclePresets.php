@@ -18,6 +18,26 @@ final class LifecyclePresets
     public static function all(): array
     {
         return [
+            'ticket_onboarding' => [
+                'label' => 'Open an onboarding ticket',
+                'description' => 'Opens one ticket in the person\'s department as soon as the workflow starts, so the setup shows up in the ticket queue with the start date and manager filled in.',
+                'types' => ['onboarding'],
+                'tasks' => [[
+                    'key' => 'ticket_onboarding', 'title' => 'Open the onboarding ticket', 'category' => 'Ticket', 'default_owner' => 'IT', 'task_type' => 'action',
+                    'action_type' => 'create_ticket',
+                    'action_config' => ['subject' => 'Onboarding: {{employee_name}} starts {{start_date}}', 'priority' => 'Medium', 'details' => 'New hire: {{employee_name}} ({{employee_title}}, {{department}}). Start date: {{start_date}}. Manager: {{manager_name}}. Work through the checklist in {{template_name}}.'],
+                ]],
+            ],
+            'ticket_offboarding' => [
+                'label' => 'Open an offboarding ticket',
+                'description' => 'Opens one ticket in the person\'s department as soon as the workflow starts, with the last day and manager filled in.',
+                'types' => ['offboarding'],
+                'tasks' => [[
+                    'key' => 'ticket_offboarding', 'title' => 'Open the offboarding ticket', 'category' => 'Ticket', 'default_owner' => 'IT', 'task_type' => 'action',
+                    'action_type' => 'create_ticket',
+                    'action_config' => ['subject' => 'Offboarding: {{employee_name}} leaves {{end_date}}', 'priority' => 'High', 'details' => 'Departure: {{employee_name}} ({{employee_title}}, {{department}}). Last day: {{end_date}}. Manager: {{manager_name}}. Work through the checklist in {{template_name}}.'],
+                ]],
+            ],
             'notify_manager' => [
                 'label' => 'Notify the manager',
                 'description' => 'Emails the manager when the checklist starts, and (onboarding) asks them to confirm the first-day plan.',

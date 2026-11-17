@@ -10,6 +10,8 @@ $ticket_status_name = nullable_htmlentities($row['ticket_status_name']);
 $ticket_status_color = nullable_htmlentities($row['ticket_status_color']);
 $ticket_status_pauses_sla = intval($row['ticket_status_pauses_sla'] ?? 0);
 $ticket_status_pauses_sla_available = array_key_exists('ticket_status_pauses_sla', $row);
+$ticket_status_closes_ticket = intval($row['ticket_status_closes_ticket'] ?? 0);
+$ticket_status_closes_ticket_available = array_key_exists('ticket_status_closes_ticket', $row);
 $ticket_status_order = intval($row['ticket_status_order']);
 $ticket_status_active = intval($row['ticket_status_active']);
 
@@ -48,6 +50,16 @@ ob_start();
                 <input type="color" class="form-control form-control-color flex-grow-0" style="width:4rem" title="Pick a colour" name="color" value="<?php echo $ticket_status_color; ?>" required>
             </div>
         </div>
+
+        <?php if ($ticket_status_closes_ticket_available) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="closes_ticket" value="1" id="closes_ticket_edit" <?php if ($ticket_status_closes_ticket) { echo "checked"; } ?>>
+                <label class="form-check-label" for="closes_ticket_edit"><strong>Counts as closed</strong></label>
+            </div>
+            <small class="text-muted">Tick this for a status such as <em>Unresolved</em>: the ticket is finished without being resolved. It leaves the open lists and every open count (tiles, sidebar, dashboards) exactly like Closed, but nothing is e-mailed to the client and no "closed" entry or rating request is created. Moving it back to an open status reopens it.</small> Tickets already in the status are updated when you save.
+        </div>
+        <?php } ?>
 
         <?php if ($ticket_status_pauses_sla_available) { ?>
         <div class="form-group">

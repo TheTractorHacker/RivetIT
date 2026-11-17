@@ -157,7 +157,7 @@ $can_write_task = lookupUserPermission('module_support') >= 2;
     #kanban-board .task.task-accent { box-shadow: inset 0 3px 0 var(--task-accent), var(--if-shadow); }
     #kanban-board .task-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .35rem; }
     #kanban-board .task-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; font-weight: 600; cursor: pointer; }
-    #kanban-board .task-title:hover, #kanban-board .task-title:focus-visible { text-decoration: underline; }
+    #kanban-board .task-title:hover, #kanban-board .task-title:focus-visible { text-decoration: none; }
     #kanban-board .task-tools { display: flex; gap: .1rem; flex: 0 0 auto; margin: -.15rem -.25rem 0 0; }
     #kanban-board .task-tools .btn { padding: .1rem .35rem; line-height: 1.2; min-width: 1.9rem; min-height: 1.9rem; color: var(--bs-secondary-color, #6c757d); }
     #kanban-board .task-meta { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }

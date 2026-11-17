@@ -138,8 +138,14 @@ if ($total_found_rows == 0 && empty($suppress_filter_empty)) {
     }
     echo "<div class='text-center text-muted py-5'>"
        . "<i class='far fa-folder-open fa-2x d-block mb-3 opacity-50'></i>"
-       . "<p class='mb-0'>" . ($empty_filter_applied ? "No results match your filters." : "Nothing here yet.") . "</p>"
-       . "</div>";
+       . "<p class='mb-0'>" . ($empty_filter_applied ? "No results match your filters." : "Nothing here yet.") . "</p>";
+    if (!empty($empty_state_extra)) {
+        echo $empty_state_extra;   // a page can say WHICH filters empty the list and offer the way out (already escaped HTML)
+    } elseif ($empty_filter_applied) {
+        $empty_keep = array_intersect_key($_GET, array_flip(['client_id', 'tab', 'type']));
+        echo "<p class='mt-3 mb-0'><a class='btn btn-sm btn-outline-secondary text-decoration-none' href='?" . htmlspecialchars(http_build_query($empty_keep), ENT_QUOTES) . "'><i class='fas fa-times me-1' aria-hidden='true'></i>Clear filters</a></p>";
+    }
+    echo "</div>";
 }
 
 ?>
