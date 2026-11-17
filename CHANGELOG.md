@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+## [26.10.88] - 2026-11-16
+
 - **Clone for worksheet templates and ticket automation rules.** Worksheet Templates list: Clone in the row menu (copies the fields). Ticket Automation: a Clone button per rule; the copy starts disabled until you edit and enable it.
 
 - **Clone for templates.** Ticket templates (Templates > Ticket Templates, list menu or the template page) and Employee Workflow Templates (list menu or template page) have a **Clone** action. A cloned ticket template copies the subject, body, worksheet and tasks; a cloned workflow template copies its form questions and tasks (with their "waits for" links) and starts inactive until you switch it on.
