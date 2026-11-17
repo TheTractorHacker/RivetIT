@@ -109,7 +109,7 @@ ob_start();
                             $selected = 'selected';
                         }
 
-                        echo "<option value=\"{$folder['folder_id']}\" $selected>$indentation{$folder['folder_name']}</option>";
+                        echo "<option value=\"{$folder['folder_id']}\" $selected>$indentation" . nullable_htmlentities($folder['folder_name']) . "</option>";
 
                         // Add children to the stack
                         if (!empty($folder['children'])) {

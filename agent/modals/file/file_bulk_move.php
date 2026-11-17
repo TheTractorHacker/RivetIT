@@ -107,7 +107,7 @@ ob_start();
 
                         $selected = ($folder['folder_id'] === $current_folder_id) ? 'selected' : '';
 
-                        echo "<option value=\"{$folder['folder_id']}\" $selected>$indentation{$folder['folder_name']}</option>";
+                        echo "<option value=\"{$folder['folder_id']}\" $selected>$indentation" . nullable_htmlentities($folder['folder_name']) . "</option>";
 
                         if (!empty($folder['children'])) {
                             foreach (array_reverse($folder['children']) as $child) {

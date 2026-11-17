@@ -62,7 +62,7 @@ class OdooDirectoryMapper {
         $parentMap = []; // odoo_department_id => parent odoo_department_id|null
 
         foreach ($departments as $dept) {
-            $label = trim((string) ($dept['name'] ?? '')) ?: ('id ' . intval($dept['id'] ?? 0));
+            $label = \ITFlow\Security\PlainText::clean($dept['name'] ?? '') ?: ('id ' . intval($dept['id'] ?? 0));
             try {
                 [$outcome, $clientId] = $this->syncDepartment($dept);
 
@@ -183,7 +183,7 @@ class OdooDirectoryMapper {
         $intg_id = $this->odooIntegrationId;
 
         $odoo_department_id = intval($dept['id'] ?? 0);
-        $name = trim((string) ($dept['name'] ?? ''));
+        $name = \ITFlow\Security\PlainText::clean($dept['name'] ?? '');
 
         if ($odoo_department_id <= 0 || $name === '') {
             return ['skipped', null];
@@ -256,7 +256,7 @@ class OdooDirectoryMapper {
         $intg_id = $this->odooIntegrationId;
 
         $odoo_employee_id = intval($emp['id'] ?? 0);
-        $name = trim((string) ($emp['name'] ?? ''));
+        $name = \ITFlow\Security\PlainText::clean($emp['name'] ?? '');
 
         if ($odoo_employee_id <= 0 || $name === '') {
             return ['skipped', null];
@@ -351,7 +351,7 @@ class OdooDirectoryMapper {
                 continue;
             }
 
-            $value_esc = mysqli_real_escape_string($m, $sourceValues[$sourceField]);
+            $value_esc = mysqli_real_escape_string($m, \ITFlow\Security\PlainText::clean($sourceValues[$sourceField]));
             $assignments[] = "`$targetField`='$value_esc'";
         }
 
