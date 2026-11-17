@@ -542,7 +542,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             if (empty($credential_uri)) {
                                 $credential_uri_display = "-";
                             } else {
-                                $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,20) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
+                                $credential_uri_display = "<span class='cred-cell'><a href='$credential_uri' class='cred-text text-nowrap' title='$credential_uri'>" . truncate($credential_uri,18) . "</a><button class='btn btn-sm cred-btn clipboardjs' type='button' title='Copy URI' data-clipboard-text='$credential_uri'><i class='far fa-copy'></i></button></span>";
                             }
                             $credential_uri_2 = sanitize_url($row['credential_uri_2']);
                             // Nothing is decrypted into this page. Username and password are drawn masked; the eye and copy buttons fetch
@@ -558,7 +558,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             if (empty($credential_otp_secret)) {
                                 $otp_display = "-";
                             } else {
-                                $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover to show</i></span></span>";
+                                $otp_display = "<span class='otp-reveal-trigger' data-credential-id='$credential_id'><span id='otp_$credential_id'><button type='button' class='btn btn-sm btn-outline-secondary totp-show' data-totp-show='$credential_id' title='Show the one-time code'><i class='fas fa-shield-alt me-1' aria-hidden='true'></i>Show code</button></span></span>";
                             }
                             $credential_type = in_array($row['credential_type'] ?? '', ['Login', 'API Key'], true) ? $row['credential_type'] : 'Login';
                             $credential_note = nullable_htmlentities($row['credential_note']);
@@ -646,7 +646,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                         <input class="form-check-input bulk-select" type="checkbox" name="credential_ids[]" value="<?php echo $credential_id ?>">
                                     </div>
                                 </td>
-                                <td style="min-width:10rem;">
+                                <td class="cred-name-cell">
                                 <a class="cred-name-link ajax-modal" href="#" data-modal-url="modals/credential/credential_view.php?id=<?= $credential_id ?>">
                                     <span class="cred-icon"><i class="fa fa-fw fa-lg fa-key"></i></span>
                                     <span class="cred-name-body">
@@ -655,7 +655,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                             <?php if ($credential_favorite) { echo "<i class='fas fa-star text-warning' title='Favorite'></i>"; } ?>
                                             <?php if ($credential_type === 'API Key') { echo "<span class='badge bg-info text-dark cred-type-badge'>API Key</span>"; } ?>
                                         </span>
-                                        <?php if ($credential_description !== '') { ?><span class="cred-desc"><?php echo $credential_description; ?></span><?php } ?>
+                                        <?php if ($credential_description !== '') { ?><span class="cred-desc" title="<?php echo $credential_description; ?>"><?php echo $credential_description; ?></span><?php } ?>
                                     </span>
                                 </a>
                                 <?php if (!empty($credential_tags_display)) { ?><div class="cred-tags"><?php echo $credential_tags_display; ?></div><?php } ?>

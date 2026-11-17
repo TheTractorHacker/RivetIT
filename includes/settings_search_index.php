@@ -27,6 +27,10 @@ function getSettingsSearchIndex(): array {
            $config_module_enable_rmm, $config_module_enable_unifi,
            $config_module_enable_intune, $config_client_portal_enable;
 
+    // Quality and the sign-on provider that serves it exist only while the Quality module is on (Admin > Modules).
+    $quality_on = isset($GLOBALS['mysqli']) && $GLOBALS['mysqli'] instanceof \mysqli && class_exists(\ITFlow\Quality\QualityConfig::class)
+        && \ITFlow\Quality\QualityConfig::moduleOn($GLOBALS['mysqli']);
+
     return [
         ['label' => 'All settings',           'keywords' => ['admin settings', 'configure', 'preferences'],                         'url' => '/admin/settings.php',                    'visible' => true],
         ['label' => 'Tags & categories',       'keywords' => ['tags', 'categories', 'custom links', 'people import', 'workflow templates'], 'url' => '/admin/catalog_setup.php',           'visible' => true],
@@ -102,8 +106,8 @@ function getSettingsSearchIndex(): array {
         ['label' => 'Odoo Integration',        'keywords' => ['odoo', 'erp'],                                                          'url' => '/admin/settings_integrations.php?tab=directorysync', 'visible' => true],
         ['label' => 'Custom Fields',           'keywords' => ['custom field'],                                                         'url' => '/admin/settings_custom_fields.php',      'visible' => true],
         ['label' => 'API Keys',                'keywords' => ['api key', 'api keys', 'api access', 'integration', 'integration client', 'oauth', 'client credentials', 'client id', 'client secret', 'qms', 'machine credentials', 'lms api', 'api scopes', 'rest api', 'service account', 'secret'],  'url' => '/admin/api_keys.php',                    'visible' => true],
-        ['label' => 'Single sign-on provider', 'keywords' => ['sso', 'openid', 'oidc', 'identity provider', 'quality', 'datum', 'qms', 'jwks'],       'url' => '/admin/sso_provider.php',                'visible' => true],
-        ['label' => 'Quality',                 'keywords' => ['quality', 'qms', 'datum', 'quality management', 'corrective action', 'acknowledge', 'events', 'webhook', 'sync health', 'department quality'], 'url' => '/admin/quality.php',                'visible' => true],
+        ['label' => 'Single sign-on provider', 'keywords' => ['sso', 'openid', 'oidc', 'identity provider', 'quality', 'datum', 'qms', 'jwks'],       'url' => '/admin/sso_provider.php',                'visible' => $quality_on],
+        ['label' => 'Quality',                 'keywords' => ['quality', 'qms', 'datum', 'quality management', 'corrective action', 'acknowledge', 'events', 'webhook', 'sync health', 'department quality'], 'url' => '/admin/quality.php',                'visible' => $quality_on],
         ['label' => 'API Documentation',       'keywords' => ['api docs', 'api reference', 'openapi'],                                 'url' => '/admin/api_docs.php',                    'visible' => true],
         ['label' => 'Users',                   'keywords' => ['user', 'technician', 'agent', 'staff'],                                 'url' => '/admin/users.php',                       'visible' => true],
         ['label' => 'Department logins',       'keywords' => ['supervisor', 'manager', 'portal', 'department', 'login', 'training'],  'url' => '/admin/portal_users.php',                'visible' => true],
