@@ -341,30 +341,3 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 @media (max-width: 1439.98px) and (min-width: 992px) {
   .table-tight .tk-av { display: none; }
 }
-
-/* Ticket filter chips: label, count badge and chevron sit in one row with even spacing (the count used to overlap both). */
-.tv-ms-btn { display: inline-flex; align-items: center; gap: .4rem; }
-.tv-ms-btn .tv-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem; margin: 0; line-height: 1; vertical-align: baseline; font-size: .72rem; }
-.tv-ms-btn .tv-count[hidden] { display: none; }
-.tv-ms-btn.dropdown-toggle::after { margin-left: 0; }
-
-/* Date-range picker: the panel is absolutely positioned inside a narrow chip, so it shrank to the chip's width and wrapped "Last year" one letter per line. Size it to its content instead. */
-.drp-panel { width: max-content; min-width: 17rem; }
-.drp-opt-name { white-space: nowrap; }
-.drp-presets { min-width: 16rem; }
-
-/* Account menu: keep a gutter from the screen edge on phones, and a little room between the avatar block and the items. */
-.user-menu { margin-top: .4rem; }
-.user-menu .dropdown-item { padding: .55rem 1.1rem; }
-.user-menu > div:first-child { padding-top: 1.25rem !important; padding-bottom: 1.1rem !important; }
-@media (max-width: 575.98px) {
-    .user-menu { position: fixed !important; top: 3.6rem !important; left: .75rem !important; right: .75rem !important; transform: none !important; min-width: 0 !important; width: auto; }
-}
-
-/* Header search: the "Ctrl K" chip sat hard against the search button's divider and the box was tight for placeholder + chip. */
-.app-header-search { width: 320px; }
-.app-header-search .btn-navbar { width: 2.6rem; padding-inline: 0; display: inline-flex; align-items: center; justify-content: center; }
-.app-header .form-control-navbar { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-inline-start: .85rem; }
-.app-header-search .btn-navbar { border-top-right-radius: var(--tblr-border-radius, .375rem); border-bottom-right-radius: var(--tblr-border-radius, .375rem); }
-.rvp-chip { right: 3.3rem; }
-.rvp-has-chip .form-control-navbar { padding-right: 6rem; }

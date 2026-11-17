@@ -186,7 +186,7 @@ ob_start();
                 <span
                     class="d-none d-md-inline dropdown-toggle"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></span>
             </a>
-            <div class="dropdown-menu dropdown-menu-end p-0 user-menu" style="min-width: 17rem;">
+            <div class="dropdown-menu dropdown-menu-end p-0 acct-menu" style="min-width: 17rem;">
                 <!-- User identity -->
                 <div class="text-center px-3 py-3 border-bottom">
                     <?php if (empty($session_avatar)) { ?>
