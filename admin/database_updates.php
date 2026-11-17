@@ -13015,12 +13015,104 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
     }
 
     if ($rivetit_db_version() == '2.6.233') {
-        // DB 2.6.234: re-run RivetCore migrations (idempotent). Stub on this branch: the real step is carried by the it-sec-ops branch; this only bumps the version so the chain is contiguous.
+        // DB 2.6.234: repair tickets stamped hours into the future by the API. Until 26.10.86 api/v1/tickets.php ran in the database server's time zone, so a
+        // ticket or reply created from the mobile app was stored ahead of the company clock (UTC stamps in a UTC-5 company read "in 5 hours"). The API now
+        // sets the company zone itself; this step fixes what was already stored, and ONLY what can be proven wrong: a created, updated, first-response or reply
+        // time that is later than now cannot be right (due dates are never touched). Rows stamped in the past stay as they are. Idempotent: once shifted, the
+        // rows are no longer in the future, so running it again changes nothing.
+        $__tz_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1"));
+        $__tz = (string) ($__tz_row['config_timezone'] ?? '');
+        if ($__tz !== '' && in_array($__tz, timezone_identifiers_list(), true)) {
+            $__keep = (string) (mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT @@session.time_zone AS tz"))['tz'] ?? 'SYSTEM');
+            mysqli_query($mysqli, "SET time_zone = @@global.time_zone");
+            $__srv_min = (int) (mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW()) AS m"))['m'] ?? 0);
+            mysqli_query($mysqli, "SET time_zone = '" . mysqli_real_escape_string($mysqli, $__keep) . "'");
+            $__co_min = (int) round((new DateTime('now', new DateTimeZone($__tz)))->getOffset() / 60);
+            $__shift = $__co_min - $__srv_min;   // minutes that turn a stamp in the server's zone into the company's zone
+            if ($__shift < 0 && $__shift >= -1440) {   // company behind the server: its stamps are in the future
+                $__m = intval($__shift);
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_created_at = ticket_created_at + INTERVAL $__m MINUTE WHERE ticket_created_at > NOW()");
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_updated_at = ticket_updated_at + INTERVAL $__m MINUTE WHERE ticket_updated_at > NOW()");
+                mysqli_query($mysqli, "UPDATE tickets SET ticket_first_response_at = ticket_first_response_at + INTERVAL $__m MINUTE WHERE ticket_first_response_at > NOW()");
+                mysqli_query($mysqli, "UPDATE ticket_replies SET ticket_reply_created_at = ticket_reply_created_at + INTERVAL $__m MINUTE WHERE ticket_reply_created_at > NOW()");
+                mysqli_query($mysqli, "UPDATE ticket_replies SET ticket_reply_updated_at = ticket_reply_updated_at + INTERVAL $__m MINUTE WHERE ticket_reply_updated_at > NOW()");
+            }
+        }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.234'");
     }
 
     if ($rivetit_db_version() == '2.6.234') {
-        // DB 2.6.235: parked ticket statuses (RivetCore docs/design/parked-ticket-statuses.md). Additive and idempotent.
+        // DB 2.6.235: ticket_statuses.ticket_status_closes_ticket ("Counts as closed", Administration > Ticket Statuses). A ticket in a flagged status (for example
+        // "Unresolved": finished without a resolution) leaves the open lists and every open count like a Closed ticket, silently. Off for every status until an
+        // administrator ticks it. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_closes_ticket` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
+    }
+
+    if ($rivetit_db_version() == '2.6.235') {
+        // DB 2.6.236: onboarding and offboarding become TICKETS. settings.config_workflows_hire_leave (Administration > Employee Workflow Templates)
+        // turns the onboarding/offboarding workflows on or off; it is OFF here, so hiring and leaving are requested from the department portal's
+        // Request something menu ("New hire" and "Leaver" items, which open tickets with the details in the body), while role change and transfer
+        // keep their workflows. Existing workflow runs and templates are untouched. The two catalog items are added once (by name) and can be edited
+        // under Administration > Service Catalog. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_workflows_hire_leave` tinyint(1) NOT NULL DEFAULT 0");
+        // Ticket templates can carry a worksheet that is added to every ticket created from them.
+        mysqli_query($mysqli, "ALTER TABLE `ticket_templates` ADD COLUMN IF NOT EXISTS `ticket_template_worksheet_id` int(11) DEFAULT NULL");
+        $hl_items = [
+            ['New hire', 'Ask IT to set up a new employee: accounts, equipment and access.', 'fa-user-plus', 'New hire setup: ', 'Medium', 10, [
+                ['employee_name', 'New employee full name', 'text', null, 1],
+                ['personal_email', 'Email address (personal or work)', 'text', null, 1],
+                ['start_date', 'Start date', 'date', null, 1],
+                ['job_title', 'Job title', 'text', null, 0],
+                ['manager', 'Manager', 'text', null, 0],
+                ['equipment', 'Equipment needed', 'select', "Laptop\nDesktop\nNo equipment\nNot sure", 0],
+                ['notes', 'Anything else (software, access, phone extension)', 'textarea', null, 0],
+            ]],
+            ['Leaver', 'Tell IT that an employee is leaving: disable accounts and collect equipment.', 'fa-user-minus', 'Leaver: ', 'High', 11, [
+                ['employee_name', 'Employee leaving', 'text', null, 1],
+                ['last_day', 'Last working day', 'date', null, 1],
+                ['manager', 'Manager (who gets their mailbox and files)', 'text', null, 0],
+                ['equipment', 'Equipment to collect', 'text', null, 0],
+                ['notes', 'Anything else (forwarding, shared files, access to keep)', 'textarea', null, 0],
+            ]],
+        ];
+        foreach ($hl_items as [$hl_name, $hl_desc, $hl_icon, $hl_subject, $hl_prio, $hl_sort, $hl_fields]) {
+            $hl_n = mysqli_real_escape_string($mysqli, $hl_name);
+            if (mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM `service_catalog_items` WHERE `name` = '$hl_n' LIMIT 1")) > 0) {
+                continue;
+            }
+            $hl_d = mysqli_real_escape_string($mysqli, $hl_desc);
+            $hl_s = mysqli_real_escape_string($mysqli, $hl_subject);
+            mysqli_query($mysqli, "INSERT INTO `service_catalog_items` (`name`, `description`, `icon`, `ticket_subject_template`, `default_priority`, `is_active`, `sort_order`) VALUES ('$hl_n', '$hl_d', '$hl_icon', '$hl_s', '$hl_prio', 1, $hl_sort)");
+            $hl_id = (int) mysqli_insert_id($mysqli);
+            if ($hl_id > 0) {
+                foreach ($hl_fields as $hl_i => [$hl_key, $hl_label, $hl_type, $hl_opts, $hl_req]) {
+                    $hl_l = mysqli_real_escape_string($mysqli, $hl_label);
+                    $hl_o = $hl_opts === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, $hl_opts) . "'";
+                    mysqli_query($mysqli, "INSERT INTO `service_catalog_fields` (`catalog_item_id`, `field_key`, `label`, `field_type`, `options`, `is_required`, `sort_order`) VALUES ($hl_id, '$hl_key', '$hl_l', '$hl_type', $hl_o, $hl_req, " . ($hl_i * 10) . ")");
+                }
+            }
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
+    }
+
+    if ($rivetit_db_version() == '2.6.236') {
+        // DB 2.6.237: re-run RivetCore's migrations (idempotent). Step 2.6.199 ran CoreMigrations::all() once, against the Core version installed THEN;
+        // a database that took that step before Core 1.0.0-rc.45 to rc.57 were installed never got 0045 to 0048 (compliance framework profiles,
+        // reporting views, audit chain tables) even though the DB version moved on, and its agent check-ins logged "compliance retention floors
+        // unavailable" every few minutes. All additive; the audit chain tables stay unused (RivetIT keeps its own sealed chain).
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.237') {
+        // DB 2.6.238: parked ticket statuses (RivetCore docs/design/parked-ticket-statuses.md). Additive and idempotent.
         // ticket_statuses.ticket_status_parked  1 = tickets in this status stay unresolved but are hidden from dashboards, the default
         //                                        ticket list / board, the open-ticket counts and overdue / breach alerts. Default 0.
         // It is ticked ONCE, for the status named exactly 'On Hold' (never the "Waiting on ..." ones, which still need follow-up), and only
@@ -13034,12 +13126,12 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         try {
             $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
             foreach ($rpt['errors'] as $rpt_error) {
-                error_log('DB 2.6.235 reporting view not created: ' . $rpt_error);
+                error_log('DB 2.6.238 reporting view not created: ' . $rpt_error);
             }
         } catch (\Throwable $e) {
-            error_log('DB 2.6.235 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+            error_log('DB 2.6.238 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
         }
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.235'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.238'");
     }
 
     if ($rivetit_db_version() == '2.6.235') {
@@ -13055,9 +13147,22 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
     }
 
-    if ($rivetit_db_version() == '2.6.236') {
-        // DB 2.6.237: shared central vendors. vendors.vendor_shared = 1 on a central vendor (vendor_client_id = 0) offers it to every department
+    if ($rivetit_db_version() == '2.6.238') {
+        // DB 2.6.239: RivetCore 1.0.0-rc.60. Re-runs CoreMigrations::all() (idempotent) to pick up 0049 (rc.59: endpoint_agent_installer_options.managed_externally,
+        // the "managed by another RMM" installer option). One additive column; no existing token or device changes, nothing is switched on.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.239'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.239') {
+        // DB 2.6.240: shared central vendors. vendors.vendor_shared = 1 on a central vendor (vendor_client_id = 0) offers it to every department
         // (pickers, Vendors tab read-only). Meaningful only for central vendors; every existing vendor stays unshared (default 0). Additive and idempotent.
         mysqli_query($mysqli, "ALTER TABLE `vendors` ADD COLUMN IF NOT EXISTS `vendor_shared` tinyint(1) NOT NULL DEFAULT 0");
-        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.240'");
     }

@@ -816,7 +816,11 @@ if (isset($_POST['import_kb_article_html'])) {
 
     require_once $_SERVER['DOCUMENT_ROOT'] . '/plugins/htmlpurifier/HTMLPurifier.standalone.php';
 
+    require_once $_SERVER['DOCUMENT_ROOT'] . '/plugins/htmlpurifier/rivet_html_policy.php';
+
     $html_purifier_config = HTMLPurifier_Config::createDefault();
+
+    rivet_html_policy_apply($html_purifier_config, 'rich');
     $html_purifier_config->set('Cache.DefinitionImpl', null);
     $html_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
     $html_purifier_config->set('Attr.DefaultImageAlt', '');

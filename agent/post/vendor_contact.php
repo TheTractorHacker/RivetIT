@@ -72,6 +72,8 @@ if (isset($_POST['export_vendor_contacts_csv'])) {
 
     $client_id = intval($_POST['client_id']);
 
+    enforceClientAccess($client_id);
+
     //get records from database
     $sql = mysqli_query($mysqli,"SELECT client_name FROM clients WHERE client_id = $client_id");
     $row = mysqli_fetch_assoc($sql);
@@ -125,6 +127,8 @@ if (isset($_POST["import_vendor_contacts_csv"])) {
 
     $client_id = intval($_POST['client_id']);
     $error = false;
+
+    enforceClientAccess($client_id);
 
     if (!empty($_FILES["file"]["tmp_name"])) {
         $file_name = $_FILES["file"]["tmp_name"];

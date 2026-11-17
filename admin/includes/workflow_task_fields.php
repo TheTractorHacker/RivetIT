@@ -24,8 +24,19 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
     $cond = json_decode((string) ($task['condition_json'] ?? ''), true) ?: [];
     $cond_text = $cond ? \ITFlow\Workflow\TaskCondition::describe($task['condition_json']) : '';
     ?>
-    <div class="row" id="<?= $uid ?>">
-        <div class="col-md-4 form-group">
+    <?php static $wtf_css = false; if (!$wtf_css) { $wtf_css = true; ?>
+    <style<?= !empty($csp_nonce) ? ' nonce="' . $h($csp_nonce) . '"' : '' ?>>
+        .wtf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .25rem 1rem; margin-bottom: .25rem; }
+        .wtf-grid > [class*="col-"] { width: auto; max-width: none; padding: 0; margin: 0; flex: none; min-width: 0; }
+        .wtf-grid > .col-md-12, .wtf-grid > .col-12, .wtf-grid > .col-md-8, .wtf-grid > .wtf-wide { grid-column: 1 / -1; }
+        .wtf-grid .form-group > label:first-child { display: block; font-size: .8rem; font-weight: 600; margin-bottom: .25rem; }
+        .wtf-grid .form-control, .wtf-grid select { width: 100%; }
+        .wtf-grid .pt-4 { padding-top: 0 !important; }
+        @media (min-width: 992px) { .wtf-grid > .wtf-wide { grid-column: span 2; } }
+    </style>
+    <?php } ?>
+    <div class="wtf-grid" id="<?= $uid ?>">
+        <div class="col-md-4 form-group wtf-wide">
             <label>Title <strong class="text-danger">*</strong></label>
             <input type="text" class="form-control" name="title" maxlength="255" required value="<?= $h($task['title'] ?? '') ?>">
         </div>
@@ -37,17 +48,17 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
             <label>Owner label</label>
             <input type="text" class="form-control" name="default_owner" placeholder="e.g. IT" maxlength="100" value="<?= $h($task['default_owner'] ?? '') ?>">
         </div>
-        <div class="col-md-3 form-group">
+        <div class="col-md-3 form-group wtf-wide">
             <label>Instructions</label>
             <input type="text" class="form-control" name="instructions" maxlength="500" value="<?= $h($task['instructions'] ?? '') ?>">
         </div>
         <div class="col-md-1 form-group">
-            <label>Required</label><br>
-            <input type="checkbox" name="required" value="1" <?= !$task || !empty($task['required']) ? 'checked' : '' ?> class="form-check-input mt-2">
+            <label class="d-block">Required</label>
+            <div class="form-check form-switch mt-1"><input type="checkbox" name="required" value="1" id="<?= $uid ?>req" <?= !$task || !empty($task['required']) ? 'checked' : '' ?> class="form-check-input"><label class="form-check-label" for="<?= $uid ?>req">Must be done</label></div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="wtf-grid">
         <div class="col-md-3 form-group">
             <label>Task type</label>
             <select class="form-control" name="task_type" data-wtf-type="<?= $uid ?>">
@@ -88,7 +99,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
         </div>
     </div>
 
-    <div class="row" data-wtf-show="approval" data-wtf-group="<?= $uid ?>">
+    <div class="wtf-grid" data-wtf-show="approval" data-wtf-group="<?= $uid ?>">
         <div class="col-md-3 form-group">
             <label>Approver</label>
             <select class="form-control" name="approver_type">
@@ -118,7 +129,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
         <div class="col-md-12 small text-muted">Until approved the workflow waits at this task. A rejection pauses the workflow and notifies whoever started it. Administrators can always decide; if the manager has no login, only administrators can.</div>
     </div>
 
-    <div class="row" data-wtf-show="action" data-wtf-group="<?= $uid ?>">
+    <div class="wtf-grid" data-wtf-show="action" data-wtf-group="<?= $uid ?>">
         <div class="col-md-4 form-group">
             <label>Action</label>
             <select class="form-control" name="action_type">
@@ -242,7 +253,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
             <input type="text" class="form-control" name="cfg_event" maxlength="110" placeholder="workflow.task_webhook" value="<?= $h($cfg['event'] ?? '') ?>">
         </div>
     </div>
-    <div class="row" data-wtf-show="action" data-wtf-group="<?= $uid ?>">
+    <div class="wtf-grid" data-wtf-show="action" data-wtf-group="<?= $uid ?>">
         <div class="col-md-3 form-group">
             <label>Delay (days)</label>
             <input type="number" class="form-control" name="delay_days" min="0" max="3650" placeholder="none" value="<?= $h($task['delay_days'] ?? '') ?>">
@@ -252,7 +263,7 @@ function workflowTaskFields(mysqli $mysqli, int $workflow_template_id, string $t
 
     <details class="mb-2" <?= $cond_text !== '' ? 'open' : '' ?>>
         <summary class="small text-muted">Only for some people (conditions)<?= $cond_text !== '' ? ': ' . $h($cond_text) : '' ?></summary>
-        <div class="row mt-2">
+        <div class="wtf-grid mt-2">
             <div class="col-md-3 form-group">
                 <label>Departments <span class="text-muted small">(one per line)</span></label>
                 <textarea class="form-control" name="cond_departments" rows="2" maxlength="1000"><?= $h(implode("\n", $cond['departments'] ?? [])) ?></textarea>

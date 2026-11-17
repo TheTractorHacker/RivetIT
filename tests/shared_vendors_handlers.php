@@ -44,7 +44,7 @@ $one = fn(string $sql) => ($r = $db->query($sql)) ? ($r->fetch_row()[0] ?? null)
 foreach (['vendors', 'assets', 'tickets', 'domains', 'software', 'services', 'service_vendors', 'documents', 'vendor_documents', 'clients', 'users', 'user_roles', 'user_role_permissions', 'modules', 'user_client_permissions', 'user_settings', 'asset_vendors', 'software_vendors', 'entity_links', 'logs', 'settings', 'companies'] as $t) { $q("DELETE FROM `$t`"); }
 $q("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS vendor_shared tinyint(1) NOT NULL DEFAULT 0");
 $q("INSERT INTO companies SET company_id = 1, company_name = 'Test Co', company_locale = 'en_US', company_currency = 'USD'");
-$q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.237', config_ticket_prefix = 'T', config_ticket_next_number = 1000");
+$q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.240', config_ticket_prefix = 'T', config_ticket_next_number = 1000");
 foreach (['module_support' => 1, 'module_client' => 2, 'module_assets' => 3, 'module_financial' => 4, 'module_credential' => 5, 'module_kb' => 6] as $m => $id) { $q("INSERT INTO modules SET module_id = $id, module_name = '$m', module_description = 'x'"); }
 $q("INSERT INTO user_roles SET role_id = 92, role_name = 'Tech', role_is_admin = 0, role_type = 1");
 foreach ([1, 2, 3, 6] as $mid) { $q("INSERT INTO user_role_permissions SET user_role_id = 92, module_id = $mid, user_role_permission_level = 2"); }

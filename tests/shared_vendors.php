@@ -2,7 +2,7 @@
 declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 /*
- * Shared central vendors (vendors.vendor_shared, DB 2.6.237), SCRATCH database only (schema from db.sql, no rows copied).
+ * Shared central vendors (vendors.vendor_shared, DB 2.6.240), SCRATCH database only (schema from db.sql, no rows copied).
  *
  *   RIVETIT_TEST_DB=1 RIVETIT_TEST_DB_NAME=rivetit_scratch_sharedvend_x RIVETIT_TEST_DB_USER=... RIVETIT_TEST_DB_PASS=... php tests/shared_vendors.php
  *
@@ -207,24 +207,24 @@ $ok(str_contains(vendorSharedCheckboxHtml(0, true), 'name="vendor_shared"') && s
 
 // ---- 6. the real migration step, idempotent
 $src = (string) file_get_contents("$root/admin/database_updates.php");
-$start = strpos($src, "if (\$rivetit_db_version() == '2.6.236') {\n        // DB 2.6.237");
-$ok($start !== false, 'migration step 2.6.236 -> 2.6.237 present');
+$start = strpos($src, "if (\$rivetit_db_version() == '2.6.239') {\n        // DB 2.6.240");
+$ok($start !== false, 'migration step 2.6.239 -> 2.6.240 present');
 $step = substr($src, (int) $start);
 $stepEnd = strpos($step, "\n    }\n") + 7;
 $step = substr($step, 0, $stepEnd);
 $q("UPDATE vendors SET vendor_shared = 0");
 $q("ALTER TABLE vendors DROP COLUMN vendor_shared");
 $q("CREATE TABLE IF NOT EXISTS settings_probe_unused (x int)"); $q("DROP TABLE settings_probe_unused");
-$q("DELETE FROM settings"); $q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.236'");
-$runStep = function () use ($step, $mysqli) { $rivetit_db_version = fn() => '2.6.236'; eval($step); };
+$q("DELETE FROM settings"); $q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.239'");
+$runStep = function () use ($step, $mysqli) { $rivetit_db_version = fn() => '2.6.239'; eval($step); };
 $runStep();
 $ok($db->error === '' && vendorSharedColumnExists($db, true), 'migration adds vendors.vendor_shared');
 $ok($one("SELECT COUNT(*) FROM vendors WHERE vendor_shared <> 0") === '0' || (int) $one("SELECT COUNT(*) FROM vendors WHERE vendor_shared <> 0") === 0, 'every existing vendor stays unshared');
-$ok($one("SELECT config_current_database_version FROM settings LIMIT 1") === '2.6.237', 'migration sets the version to 2.6.237');
+$ok($one("SELECT config_current_database_version FROM settings LIMIT 1") === '2.6.240', 'migration sets the version to 2.6.240');
 $q("UPDATE vendors SET vendor_shared = 1 WHERE vendor_id = 30");
 $runStep();
 $ok($db->error === '' && (int) $one("SELECT vendor_shared FROM vendors WHERE vendor_id = 30") === 1, 'running the step again is harmless and keeps a shared flag');
-$ok(str_contains((string) file_get_contents("$root/includes/database_version.php"), '"2.6.237"'), 'LATEST_DATABASE_VERSION is 2.6.237');
+$ok(str_contains((string) file_get_contents("$root/includes/database_version.php"), '"2.6.240"'), 'LATEST_DATABASE_VERSION is 2.6.240');
 $ok(str_contains((string) file_get_contents("$root/db.sql"), "`vendor_shared` tinyint(1) NOT NULL DEFAULT 0"), 'db.sql carries the column');
 
 // ---- 7. column absent: nothing errors, nothing is shared

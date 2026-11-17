@@ -16,7 +16,7 @@ final class EndpointAssets implements RmmAssetsInterface, RmmAssetNamesInterface
     // The exact names includes/load_global_settings.php's $asset_types_array offers (keep in sync by hand: that file is session/global-settings
     // scoped and not reachable from this adapter). DeviceTypeClassifier::resolve() falls back to whatever of these it has for a label this
     // edition lacks (we have no "Hypervisor" type, so a Hypervisor-labelled device becomes a Server asset, same as a Virtual Machine).
-    private const ASSET_TYPES = ['Laptop', 'Desktop', 'Server', 'Phone', 'Mobile Phone', 'Tablet', 'Firewall/Router', 'Switch', 'Access Point', 'Printer', 'Display', 'Camera', 'Virtual Machine', 'Other'];
+    private const ASSET_TYPES = ['Laptop', 'Desktop', 'Server', 'Phone', 'Mobile Phone', 'Tablet', 'Firewall/Router', 'Switch', 'Access Point', 'Printer', 'Display', 'Camera', 'Virtual Machine', 'Server Room', 'Rack', 'UPS/Power', 'Storage/NAS', 'Other'];
 
     public function __construct(private DatabaseInterface $database)
     {
