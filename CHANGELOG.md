@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Microsoft 365 mailbox alerts say why.** "could not find or create the ITFlow mail folder" now includes the HTTP status and Graph error code of the lookup and the create call (never a token or response body), so an alert tells you whether it is consent/permission (401/403), the mailbox (404), or Microsoft throttling/an outage (429/503). New `tests/graph_folder_error_detail.php`.
+
 - **PHPMailer's `get_oauth_token.php` is no longer public.** It is PHPMailer's interactive refresh-token helper; nothing in the app calls it. It is removed from the shipped plugin and from the `/plugins/` PHP allow-list in `deploy/templates/rivetit-locations.conf`. The live nginx snippets (`rivetit-locations.conf`, `itflow-locations.conf`) still carry the old allow-list until the web-routes apply procedure is run (docs/WEB_ROUTES.md); with the file gone the old rule only produces a 404.
 
 - **Quality is hidden while its module is off.** The admin side nav entries "Quality" and "Single sign-on provider" (the provider exists only to sign people in to Quality) and their settings-search results appear only when Admin > Modules > Quality is on. Single sign-on to Quality was already refused at `/oidc/authorize` and the "Open Quality" menu item already followed the switch. New `tests/quality_nav_gate.php`.
