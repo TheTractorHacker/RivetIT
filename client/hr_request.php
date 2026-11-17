@@ -29,7 +29,7 @@ $hr_subjects = $hr->subjects(intval($session_contact_id), intval($session_client
 $hr_old = $_SESSION['hr_request_old'] ?? [];
 unset($_SESSION['hr_request_old']);
 $hr_old = is_array($hr_old) ? $hr_old : [];
-$hr_type = isset(\ITFlow\Portal\HrRequests::TYPES[$hr_old['type'] ?? '']) ? (string) $hr_old['type'] : 'onboarding';
+$hr_type = isset(\ITFlow\Portal\HrRequests::types($mysqli)[$hr_old['type'] ?? '']) ? (string) $hr_old['type'] : (string) array_key_first(\ITFlow\Portal\HrRequests::types($mysqli));
 $hr_mine = $hr->mine(intval($session_contact_id), intval($session_client_id));
 $hr_status_badge = ['pending' => 'warning', 'approved' => 'success', 'rejected' => 'danger', 'cancelled' => 'secondary'];
 $hr_status_text = ['pending' => 'Waiting for HR', 'approved' => 'Approved, started', 'rejected' => 'Rejected', 'cancelled' => 'Withdrawn'];
@@ -55,7 +55,7 @@ $hr_status_text = ['pending' => 'Waiting for HR', 'approved' => 'Approved, start
                 <div class="form-group">
                     <label for="hr_type">What do you need? <strong class="text-danger">*</strong></label>
                     <select class="form-control" id="hr_type" name="type">
-                        <?php foreach (\ITFlow\Portal\HrRequests::TYPES as $k => $l) { ?>
+                        <?php foreach (\ITFlow\Portal\HrRequests::types($mysqli) as $k => $l) { ?>
                             <option value="<?= $k ?>"<?= $hr_type === $k ? ' selected' : '' ?>><?= nullable_htmlentities($l) ?></option>
                         <?php } ?>
                     </select>

@@ -65,6 +65,20 @@ if (isset($_GET['archive_employee_workflow_template'])) {
     redirect("employee_workflow_templates.php");
 }
 
+if (isset($_POST['save_hire_leave_workflows'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+    validateAdminRole(); // Old function
+
+    $on = isset($_POST['workflows_hire_leave']) ? 1 : 0;
+    mysqli_query($mysqli, "UPDATE settings SET config_workflows_hire_leave = $on WHERE company_id = 1");
+    logAction("Settings", "Edit", "$session_name turned onboarding/offboarding workflows " . ($on ? 'on' : 'off'));
+    rivetAudit('settings.workflows_hire_leave_changed', (int) $session_user_id, 'settings', 'config_workflows_hire_leave', 'update', 'Onboarding/offboarding workflows turned ' . ($on ? 'on' : 'off'));
+
+    flash_alert('Saved');
+    redirect('employee_workflow_templates.php');
+}
+
 if (isset($_POST['save_lifecycle_settings'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -126,6 +140,61 @@ if (isset($_POST['save_okta_settings'])) {
     logAction("Settings", "Edit", "$session_name saved the Okta workflow settings (actions " . ($on ? 'on' : 'off') . ", token $token_note)");
     flash_alert('Okta settings saved');
     redirect('employee_workflow_templates.php');
+}
+
+if (isset($_GET['clone_employee_workflow_template'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+    enforceUserPermission('module_client', 2);
+
+    $src_id = intval($_GET['clone_employee_workflow_template']);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM workflow_templates WHERE workflow_template_id = $src_id AND archived_at IS NULL"));
+    if (!$src) {
+        flash_alert('Workflow template not found', 'error');
+        redirect('employee_workflow_templates.php');
+    }
+
+    // The copy starts inactive (review it, then switch it on in Edit) and is not a built-in starter, so it never collides with preset_key.
+    $copy_name = mb_substr($src['name'], 0, 190) . ' (copy)';
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO workflow_templates (name, type, description, is_active, created_by, variables_json) VALUES (?, ?, ?, 0, ?, ?)");
+    $by = intval($session_user_id);
+    mysqli_stmt_bind_param($stmt, 'sssis', $copy_name, $src['type'], $src['description'], $by, $src['variables_json']);
+    mysqli_stmt_execute($stmt);
+    $new_id = intval(mysqli_insert_id($mysqli));
+    mysqli_stmt_close($stmt);
+
+    if ($new_id > 0) {
+        // Copy the tasks in order, then point each copy's "waits for" list at the copies of the tasks it waited for.
+        $map = [];
+        $res = mysqli_query($mysqli, "SELECT * FROM workflow_template_tasks WHERE workflow_template_id = $src_id ORDER BY sort_order, template_task_id");
+        $old_rows = mysqli_fetch_all($res, MYSQLI_ASSOC);
+        foreach ($old_rows as $t) {
+            $cols = $t;
+            unset($cols['template_task_id']);
+            $cols['workflow_template_id'] = $new_id;
+            $cols['depends_on'] = null;
+            $names = [];
+            $vals = [];
+            foreach ($cols as $c => $v) {
+                $names[] = '`' . $c . '`';
+                $vals[] = $v === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, (string) $v) . "'";
+            }
+            mysqli_query($mysqli, 'INSERT INTO workflow_template_tasks (' . implode(',', $names) . ') VALUES (' . implode(',', $vals) . ')');
+            $map[(int) $t['template_task_id']] = intval(mysqli_insert_id($mysqli));
+        }
+        foreach ($old_rows as $t) {
+            $deps = \ITFlow\Workflow\DependencyGraph::parse($t['depends_on']);
+            $new_deps = array_values(array_filter(array_map(static fn ($d) => $map[$d] ?? 0, $deps)));
+            $list = \ITFlow\Workflow\DependencyGraph::format($new_deps);
+            if ($list !== null) {
+                mysqli_query($mysqli, "UPDATE workflow_template_tasks SET depends_on = '" . mysqli_real_escape_string($mysqli, $list) . "' WHERE template_task_id = " . intval($map[(int) $t['template_task_id']]));
+            }
+        }
+    }
+
+    logAction("Settings", "Create", "$session_name cloned workflow template {$src['name']}");
+    flash_alert('Template cloned (inactive). Rename it, adjust the tasks, then switch it on in Edit.');
+    redirect("employee_workflow_template_details.php?id=$new_id");
 }
 
 if (isset($_POST['add_workflow_preset'])) {

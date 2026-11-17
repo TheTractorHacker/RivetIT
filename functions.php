@@ -70,6 +70,16 @@ function nullable_htmlentities($unsanitizedInput) {
 }
 
 // Returns 'text-dark' or 'text-light' depending on which gives better contrast against the given hex color
+/**
+ * A colour that is safe to hand to the status pills' --pill CSS variable (.tk-pill in css/itflow_custom.edition.css): a 3, 6 or 8 digit hex value,
+ * or a neutral grey. The pill derives its own light tint and a readable text colour from it, so any status colour (neon green, near-black, pastel pink)
+ * stays legible in light and dark mode.
+ */
+function ticketPillColor($color) {
+    $color = trim((string) html_entity_decode((string) $color, ENT_QUOTES));
+    return preg_match('/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3}([0-9a-fA-F]{2})?)?$/', $color) ? $color : '#6c757d';
+}
+
 function tagTextClass($hex_color) {
     $hex = ltrim((string) $hex_color, '#');
     if (strlen($hex) === 3) {
@@ -2707,6 +2717,14 @@ function getAssetIcon($asset_type)
         $device_icon = "tv";
     } elseif ($asset_type == 'Virtual Machine') {
         $device_icon = "cloud";
+    } elseif ($asset_type == 'Server Room') {
+        $device_icon = "door-closed";
+    } elseif ($asset_type == 'Rack') {
+        $device_icon = "layer-group";
+    } elseif ($asset_type == 'UPS/Power') {
+        $device_icon = "car-battery";
+    } elseif ($asset_type == 'Storage/NAS') {
+        $device_icon = "hdd";
     } else {
         $device_icon = "tag";
     }
@@ -3061,6 +3079,36 @@ function generateReadablePassword($security_level)
     $password .= rand(pow(10, $security_level - 1), pow(10, $security_level) - 1);
 
     return $password;
+}
+
+/**
+ * Sender for bulk mail (contacts / departments). The From address is the company's own identity, never a
+ * request value: a posted mail_from is honoured only when it equals one of the four configured addresses
+ * (the same ones the bulk-mail form offers), anything else falls back to the main configured sender. The
+ * display name always comes from config, so a caller cannot send as "The CEO".
+ * @return array{email: string, name: string}
+ */
+function resolveBulkMailSender($requested_email = ''): array {
+    global $config_mail_from_email, $config_mail_from_name, $config_invoice_from_email, $config_invoice_from_name,
+           $config_quote_from_email, $config_quote_from_name, $config_ticket_from_email, $config_ticket_from_name;
+
+    $identities = [
+        [(string) $config_mail_from_email, (string) $config_mail_from_name],
+        [(string) $config_invoice_from_email, (string) $config_invoice_from_name],
+        [(string) $config_quote_from_email, (string) $config_quote_from_name],
+        [(string) $config_ticket_from_email, (string) $config_ticket_from_name],
+    ];
+    $requested_email = strtolower(trim((string) $requested_email));
+
+    if ($requested_email !== '') {
+        foreach ($identities as [$email, $name]) {
+            if ($email !== '' && strtolower($email) === $requested_email) {
+                return ['email' => $email, 'name' => $name];
+            }
+        }
+    }
+
+    return ['email' => $identities[0][0], 'name' => $identities[0][1]];
 }
 
 function addToMailQueue($data) {
@@ -4340,6 +4388,62 @@ function ticketResolutionColumnExists($mysqli = null): bool {
  * when the ticket really was resolved or closed - dragging an open ticket around a board must not reset anything. It has to come
  * FIRST in the SET list, because MySQL evaluates assignments left to right and the reopen clears the columns it reads.
  */
+/** Does ticket_statuses.ticket_status_closes_ticket exist yet? (False until the database update that adds it has run.) */
+function ticketStatusClosesColumnExists($mysqli = null): bool {
+    static $exists = null;
+    if ($exists === null) {
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        $res = $mysqli ? @mysqli_query($mysqli, "SHOW COLUMNS FROM ticket_statuses LIKE 'ticket_status_closes_ticket'") : false;
+        $exists = (bool) ($res && mysqli_num_rows($res) > 0);
+    }
+
+    return $exists;
+}
+
+/**
+ * Status ids flagged "Counts as closed" (Administration > Ticket Statuses): a ticket in one of them leaves the open lists and every open count exactly like a
+ * Closed ticket ("Unresolved" - closed without a resolution - is the usual one).
+ *
+ * @return list<int>
+ */
+function ticketClosingStatusIds($mysqli = null): array {
+    static $ids = null;
+    if ($ids === null) {
+        $ids = [];
+        $mysqli = $mysqli ?? ($GLOBALS['mysqli'] ?? null);
+        if ($mysqli && ticketStatusClosesColumnExists($mysqli)) {
+            $res = mysqli_query($mysqli, "SELECT ticket_status_id FROM ticket_statuses WHERE ticket_status_closes_ticket = 1");
+            while ($res && ($r = mysqli_fetch_assoc($res))) {
+                $ids[] = intval($r['ticket_status_id']);
+            }
+        }
+    }
+
+    return $ids;
+}
+
+/**
+ * Keep resolved/closed stamps in step with a status change for the "Counts as closed" statuses, silently (no e-mail, no CSAT, no reply entry): moving INTO one
+ * stamps the ticket closed; moving OUT of one (to a status that is not Resolved/Closed or another closing one) reopens it. Returns true when the new status is a
+ * closing one, so callers can skip their own "not closed, so clear the stamps" step.
+ */
+function ticketSyncClosingStatus($mysqli, int $ticket_id, int $old_status_id, int $new_status_id, int $user_id): bool {
+    $closing = ticketClosingStatusIds($mysqli);
+    if (!$closing) {
+        return false;
+    }
+    if (in_array($new_status_id, $closing, true)) {
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = COALESCE(ticket_resolved_at, NOW()), ticket_closed_at = COALESCE(ticket_closed_at, NOW()), ticket_closed_by = IF(ticket_closed_by = 0, " . intval($user_id) . ", ticket_closed_by) WHERE ticket_id = " . intval($ticket_id));
+
+        return true;
+    }
+    if (in_array($old_status_id, $closing, true) && !in_array($new_status_id, [4, 5], true)) {
+        mysqli_query($mysqli, "UPDATE tickets SET " . ticketReopenSql() . "ticket_resolved_at = NULL, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = " . intval($ticket_id));
+    }
+
+    return false;
+}
+
 function ticketReopenSql(): string {
     return ticketResolutionColumnExists()
         ? 'ticket_resolution_started_at = IF(ticket_resolved_at IS NOT NULL OR ticket_closed_at IS NOT NULL, NOW(), ticket_resolution_started_at), '
@@ -4415,6 +4519,9 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
 
     // Clean up the message
     $message = trim($message);
+    // A short plain-text excerpt of what the person sent, for the "ticket created" e-mail (so it shows what was logged instead of an empty box).
+    $mail_excerpt = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(preg_replace('~<(style|script)\b.*?</\1>~is', ' ', $message)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $mail_excerpt = mb_strlen($mail_excerpt) > 500 ? rtrim(mb_substr($mail_excerpt, 0, 500)) . '...' : $mail_excerpt;
     // Remove DOCTYPE and meta tags
     $message = preg_replace('/<!DOCTYPE[^>]*>/i', '', $message);
     $message = preg_replace('/<meta[^>]*>/i', '', $message);
@@ -4517,7 +4624,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             'contact_name' => $contact_name, 'ticket_number' => "$config_ticket_prefix$ticket_number", 'subject' => $subject,
             'status' => 'New', 'portal_link' => "https://$config_base_url/guest/guest_view_ticket.php?ticket_id=$id&url_key=$url_key",
             'company_name' => $company_name, 'company_phone' => $company_phone, 'from_email' => $from_email,
-            'ticket_details' => '',
+            'ticket_details' => $mail_excerpt !== '' ? nl2br(htmlspecialchars($mail_excerpt, ENT_QUOTES, 'UTF-8')) : '',
         ]);
         if ($mt !== null) {
             $data[] = [
@@ -4526,7 +4633,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
                 'recipient' => $contact_email,
                 'recipient_name' => $contact_name,
                 'subject' => $mt['subject'],
-                'body' => mysqli_real_escape_string($mysqli, $mt['body']),
+                'body' => $mt['body'],
                 'ticket_id' => $id
             ];
         }
@@ -4552,7 +4659,7 @@ function addTicket($contact_id, $contact_name, $contact_email, $client_id, $date
             'recipient' => $config_ticket_new_ticket_notification_email,
             'recipient_name' => $from_name,
             'subject' => $email_subject,
-            'body' => mysqli_real_escape_string($mysqli, $email_body)
+            'body' => $email_body
         ];
     }
 
@@ -4660,7 +4767,7 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                     'recipient' => $from_email,
                     'recipient_name' => $from_email,
                     'subject' => $email_subject,
-                    'body' => mysqli_real_escape_string($mysqli, $email_body),
+                    'body' => $email_body,
                     'ticket_id' => $ticket_id
                 ]
             ];
@@ -4764,8 +4871,8 @@ function addReply($from_email, $date, $subject, $ticket_number, $message, $attac
                         'from_name' => $outbound_from_name,
                         'recipient' => $tech_email,
                         'recipient_name' => $tech_name,
-                        'subject' => mysqli_real_escape_string($mysqli, $email_subject),
-                        'body' => mysqli_real_escape_string($mysqli, $email_body),
+                        'subject' => $email_subject,
+                        'body' => $email_body,
                         'ticket_id' => $ticket_id
                     ]
                 ];
@@ -4866,6 +4973,77 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
     }
 
     return $mail_request_id;
+}
+
+/**
+ * Does every contact/asset/location/vendor a ticket is about to reference belong to the ticket's own client?
+ * The ticket's department is already enforced by the handlers, but the referenced ids come straight from the
+ * form: without this a restricted agent could attach another department's contact (name/email/phone then render
+ * on the ticket page) or asset. Mirrors the API (api/v1/tickets.php). 0 / empty = "none", always fine. A vendor may
+ * also be a global one (vendor_client_id 0). Returns the name of the first offending reference, or null.
+ * @param int[] $asset_ids extra assets
+ */
+function ticketReferenceOutsideClient($client_id, $contact_id = 0, $asset_id = 0, $location_id = 0, $vendor_id = 0, array $asset_ids = []): ?string {
+    global $mysqli;
+
+    $client_id = intval($client_id);
+    $checks = [
+        'contact'  => ['contacts', 'contact_id', 'contact_client_id', [intval($contact_id)], false],
+        'asset'    => ['assets', 'asset_id', 'asset_client_id', array_merge([intval($asset_id)], array_map('intval', $asset_ids)), false],
+        'location' => ['locations', 'location_id', 'location_client_id', [intval($location_id)], false],
+        'vendor'   => ['vendors', 'vendor_id', 'vendor_client_id', [intval($vendor_id)], true],
+    ];
+
+    foreach ($checks as $label => [$table, $id_col, $client_col, $ids, $allow_global]) {
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (!$ids) {
+            continue;
+        }
+        $in = implode(',', $ids);
+        $allowed = $allow_global ? "($client_col = $client_id OR $client_col = 0)" : "$client_col = $client_id";
+        $ok_count = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM $table WHERE $id_col IN ($in) AND $allowed"))[0] ?? 0);
+        if ($ok_count !== count($ids)) {
+            return $label;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * " AND (<column> = 0 OR <column> IN (allowed departments))" for a department-restricted agent; '' for an administrator
+ * or an unrestricted agent. For company-wide pages (problems) that list tickets of every department: the same
+ * rule enforceClientAccess() applies, expressed as SQL. $column must be a trusted literal column name.
+ */
+function clientAccessScopeSql(string $column): string {
+    global $client_access_string, $session_is_admin;
+
+    if (!empty($session_is_admin) || !preg_match('/^[a-z_.]+$/i', $column)) {
+        return preg_match('/^[a-z_.]+$/i', $column) ? '' : ' AND 1 = 0';
+    }
+    $ids = array_filter(array_map('intval', explode(',', (string) ($client_access_string ?? ''))));
+    if (!$ids) {
+        return '';   // no per-department restriction rows = access to everything (enforceClientAccess() does the same)
+    }
+    return " AND ($column = 0 OR $column IN (" . implode(',', $ids) . "))";
+}
+
+/**
+ * The department a mail request "belongs to": its mailbox's default client (0 = shared/general inbox, no
+ * department to scope by). Same rule as the Requests list page and the dismiss handler; the view modal and the
+ * convert handler use it with enforceClientAccess() so a restricted agent cannot read or convert a request that
+ * arrived on a mailbox of a department they cannot access.
+ */
+function mailRequestOwnerClientId($mail_request_id): int {
+    global $mysqli;
+
+    $mail_request_id = intval($mail_request_id);
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT m.mailbox_default_client_id
+        FROM mail_requests mr
+        LEFT JOIN mailboxes m ON m.mailbox_id = mr.mail_request_mailbox_id
+        WHERE mr.mail_request_id = $mail_request_id AND mr.mail_request_archived_at IS NULL LIMIT 1"));
+
+    return intval($row['mailbox_default_client_id'] ?? 0);
 }
 
 // Converts a pending mail request into a real ticket via addTicket(), resolving/creating

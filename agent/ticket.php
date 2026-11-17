@@ -26,8 +26,11 @@ require_once "../includes/sla_functions.php";
 
 // Initialize the HTML Purifier to prevent XSS
 require_once "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'strict');
 $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting a non-existent directory or an invalid one
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
@@ -360,22 +363,10 @@ if (isset($_GET['ticket_id'])) {
                 $initial_issue_reply_type = 'Client';
                 $initial_issue_reply_by   = $contact_id;
             } elseif (!$ticket_created_by && $client_id) {
-                // No specific contact captured (e.g. a ticket submitted via the API
-                // using the shared/legacy key, which doesn't send a contact_id) -
-                // fall back to the client's primary contact so this still shows a
-                // real, recognizable name instead of misattributing to whichever
-                // admin the legacy key happens to resolve to.
-                $primary_contact = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_client_id = $client_id AND contact_archived_at IS NULL ORDER BY contact_primary DESC LIMIT 1"));
-                if ($primary_contact) {
-                    $initial_issue_reply_type = 'Client';
-                    $initial_issue_reply_by   = intval($primary_contact['contact_id']);
-                } else {
-                    // Client has no contacts on file at all - nothing real to
-                    // attribute to. The render loop below shows the client's name
-                    // instead of the generic "System" label for this specific row.
-                    $initial_issue_reply_type = 'Internal';
-                    $initial_issue_reply_by   = 0;
-                }
+                // No contact on the ticket (API/legacy key without a contact_id): do NOT guess one. Attribute the initial issue to nobody; the render loop below
+                // shows the client's name for this row instead of the generic "System" label.
+                $initial_issue_reply_type = 'Internal';
+                $initial_issue_reply_by   = 0;
             } else {
                 $initial_issue_reply_type = 'Internal';
                 $initial_issue_reply_by   = $ticket_created_by;
@@ -598,8 +589,8 @@ if (isset($_GET['ticket_id'])) {
 
                         <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                         <div class="dropdown d-inline-block" id="ticketStatusMenu" data-ticket-id="<?= $ticket_id ?>">
-                            <button type="button" id="ticketStatusPill" class="badge rounded-pill tkt-pill-badge border-0 dropdown-toggle <?= tagTextClass($ticket_status_color) ?>"
-                                    style="background-color:<?= $ticket_status_color ?>;cursor:pointer;" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-boundary="window" aria-haspopup="true" aria-expanded="false"
+                            <button type="button" id="ticketStatusPill" class="badge rounded-pill tkt-pill-badge border-0 dropdown-toggle tk-pill"
+                                    style="--pill:<?= ticketPillColor($ticket_status_color) ?>;cursor:pointer;" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-boundary="window" aria-haspopup="true" aria-expanded="false"
                                     aria-label="Ticket status: <?= $ticket_status_name ?>. Change status">
                                 <span class="ticket-status-label"><?= $ticket_status_name ?></span>
                             </button>
@@ -621,7 +612,7 @@ if (isset($_GET['ticket_id'])) {
                             </div>
                         </div>
                         <?php } else { ?>
-                        <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?>" style="background-color:<?= $ticket_status_color ?>;">
+                        <span class="badge rounded-pill tkt-pill-badge tk-pill" style="--pill:<?= ticketPillColor($ticket_status_color) ?>;">
                             <?= $ticket_status_name ?>
                         </span>
                         <?php } ?>

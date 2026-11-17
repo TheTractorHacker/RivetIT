@@ -51,6 +51,21 @@ ob_start();
         </div>
 
         <div class="form-group">
+            <label>Worksheet <span class="text-muted small">(added to every ticket made from this template)</span></label>
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fa fa-fw fa-clipboard-list"></i></span>
+                </div>
+                <select class="form-control select2" name="worksheet_template_id">
+                    <option value="0">- None -</option>
+                    <?php $ws_sel = intval(0); $ws_q = mysqli_query($mysqli, "SELECT worksheet_template_id, worksheet_template_name FROM worksheet_templates WHERE worksheet_template_archived_at IS NULL ORDER BY worksheet_template_name ASC"); while ($ws = mysqli_fetch_assoc($ws_q)) { ?>
+                        <option value="<?= intval($ws['worksheet_template_id']) ?>"<?= $ws_sel === intval($ws['worksheet_template_id']) ? ' selected' : '' ?>><?= nullable_htmlentities($ws['worksheet_template_name']) ?></option>
+                    <?php } ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
             <label>Add it to a Project Template?</label>
             <div class="input-group">
                 <div class="input-group-prepend">

@@ -33,6 +33,16 @@ ob_start();
             </div>
         </div>
 
+        <?php if (ticketStatusClosesColumnExists($mysqli)) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="closes_ticket" value="1" id="closes_ticket_add">
+                <label class="form-check-label" for="closes_ticket_add"><strong>Counts as closed</strong></label>
+            </div>
+            <small class="text-muted">Tick this for a status such as <em>Unresolved</em>: the ticket is finished without being resolved. It leaves the open lists and every open count (tiles, sidebar, dashboards) exactly like Closed, but nothing is e-mailed to the client and no "closed" entry or rating request is created. Moving it back to an open status reopens it.</small>
+        </div>
+        <?php } ?>
+
         <div class="form-group">
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="pauses_sla" value="1" id="pauses_sla_add">

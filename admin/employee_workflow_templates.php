@@ -19,6 +19,23 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
 
 ?>
 
+<?php $hl_ready = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `settings` LIKE 'config_workflows_hire_leave'")) > 0; if ($session_is_admin && $hl_ready) { $hl_on = \ITFlow\Workflow\WorkflowService::hireLeaveEnabled($mysqli); ?>
+<div class="card mb-3">
+    <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-user-plus me-2"></i>Onboarding and offboarding</h5></div>
+    <div class="card-body">
+        <form action="post.php" method="post" class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" name="workflows_hire_leave" value="1" id="workflows_hire_leave" <?= $hl_on ? 'checked' : '' ?>>
+                <label class="form-check-label fw-bold" for="workflows_hire_leave">Use workflows for onboarding and offboarding</label>
+                <div class="text-muted small">Off (recommended): new hires and leavers are requested as tickets from the department portal (Request something &gt; <em>New hire</em> / <em>Leaver</em>, edit them under Service Catalog). Onboarding and offboarding templates cannot be started, and the portal onboarding and HR request types for them are hidden. Role change and transfer workflows keep working either way.</div>
+            </div>
+            <button type="submit" name="save_hire_leave_workflows" class="btn btn-primary"><i class="fas fa-check me-2"></i>Save</button>
+        </form>
+    </div>
+</div>
+<?php } ?>
+
 <?php if ($session_is_admin && $lifecycle_ready) { ?>
 <div class="card mb-3">
     <div class="card-header py-2"><h5 class="card-title mb-0"><i class="fas fa-fw fa-bolt me-2"></i>Start workflows automatically</h5></div>
@@ -105,6 +122,9 @@ $has_preset_col = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `work
                                     <a class="dropdown-item ajax-modal" href="#" data-modal-size="lg"
                                         data-modal-url="modals/employee_workflow/employee_workflow_template_edit.php?id=<?= intval($row['workflow_template_id']) ?>">
                                         <i class="fas fa-fw fa-edit me-2"></i>Edit
+                                    </a>
+                                    <a class="dropdown-item" href="post.php?clone_employee_workflow_template=<?= intval($row['workflow_template_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-clone me-2"></i>Clone
                                     </a>
                                     <a class="dropdown-item text-danger confirm-link"
                                         href="post.php?archive_employee_workflow_template=<?= intval($row['workflow_template_id']) ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">

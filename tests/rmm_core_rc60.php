@@ -2,7 +2,7 @@
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 /*
  * RivetCore 1.0.0-rc.60 adoption (rc.59 features), SCRATCH database only (schema from db.sql, no rows copied), real RivetCore module, real HTTP handler:
- *   - the migration step 2.6.236 (CoreMigrations::all through MigrationRunner): idempotent, same column as db.sql
+ *   - the migration step 2.6.239 (CoreMigrations::all through MigrationRunner): idempotent, same column as db.sql
  *   - "Move to Department": rmm.device.manage required (refused for a technician, also by a hand-written POST), CSRF required, the device and its jobs/patches move,
  *     the same device token still checks in, the Core ActionResult message comes back
  *   - bulk asset transfer: assets with a device go through TechnicianActions::transfer(), assets without one are handed back to the old path; moved/refused reported
@@ -20,7 +20,7 @@ use RivetCore\Rmm\Authz\RmmPrincipal;
 
 // ---------------------------------------------------------------- fixtures
 foreach (['endpoint_agent_jobs', 'endpoint_agent_devices', 'endpoint_agent_installer_options', 'endpoint_agent_enrollment_tokens', 'assets', 'clients', 'locations', 'users', 'user_roles', 'user_client_permissions', 'user_role_permissions', 'modules', 'settings', 'rmm_patch_available'] as $t) { $q("DELETE FROM $t"); }
-$q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.236'");
+$q("INSERT INTO settings SET company_id = 1, config_current_database_version = '2.6.239'");
 $q("INSERT INTO modules SET module_id = 61, module_name = 'module_rmm', module_description = 'x'");
 $q("INSERT INTO modules SET module_id = 62, module_name = 'module_assets', module_description = 'x'");
 $q("INSERT INTO user_roles SET role_id = 91, role_name = 'Admin', role_is_admin = 1, role_type = 1");
@@ -214,29 +214,29 @@ foreach (['move_options', 'move_locations', 'move_department', 'bulk_managed_ext
 }
 $rmm->settings()->set(['enabled' => 1]);
 
-// ---------------------------------------------------------------- 0. migration step 2.6.236
+// ---------------------------------------------------------------- 0. migration step 2.6.239
 $src = (string) file_get_contents("$root/admin/database_updates.php");
-$start = strpos($src, "if (\$rivetit_db_version() == '2.6.235') {");
+$start = strpos($src, "if (\$rivetit_db_version() == '2.6.238') {");
 $end = $start === false ? false : strpos($src, "\n    }\n", $start);
-$ok($start !== false && $end !== false, 'migration step 2.6.235 -> 2.6.236 is present in admin/database_updates.php');
+$ok($start !== false && $end !== false, 'migration step 2.6.238 -> 2.6.239 is present in admin/database_updates.php');
 $step = substr($src, (int) $start, (int) $end - (int) $start + 7);
 $ok(!preg_match('/0049|managed_externally/', preg_replace('~^\s*//.*$~m', '', $step)), 'the step hard-codes no migration id: it runs CoreMigrations::all()');
-$ok(str_contains($step, 'CoreMigrations::all()') && str_contains($step, 'MigrationRunner') && str_contains($step, "'2.6.236'"), 'the step runs CoreMigrations::all() through MigrationRunner and sets 2.6.236');
-$ok(str_contains((string) file_get_contents("$root/includes/database_version.php"), '"2.6.236"'), 'LATEST_DATABASE_VERSION is 2.6.236');
+$ok(str_contains($step, 'CoreMigrations::all()') && str_contains($step, 'MigrationRunner') && str_contains($step, "'2.6.239'"), 'the step runs CoreMigrations::all() through MigrationRunner and sets 2.6.239');
+$ok(str_contains((string) file_get_contents("$root/includes/database_version.php"), '"2.6.239"'), 'LATEST_DATABASE_VERSION is 2.6.239');
 $before = $rows("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_installer_options' ORDER BY ORDINAL_POSITION");
 $q("TRUNCATE endpoint_agent_installer_options");
 $q("ALTER TABLE endpoint_agent_installer_options DROP COLUMN managed_externally");
 $q("DELETE FROM rivet_core_migrations WHERE migration_id = '0049_rmm_installer_managed_externally'");
-$q("UPDATE settings SET config_current_database_version = '2.6.235'");
+$q("UPDATE settings SET config_current_database_version = '2.6.238'");
 // The step text is this repository's own admin/database_updates.php (the same eval pattern as tests/parked_ticket_statuses.php), run against the scratch database only.
 $runStep = function () use ($step, $mysqli) {
-    $rivetit_db_version = fn() => '2.6.235';
+    $rivetit_db_version = fn() => '2.6.238';
     eval($step);
 };
 $runStep();
 $after = $rows("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_installer_options' ORDER BY ORDINAL_POSITION");
 $ok($after === $before, 'the step re-creates endpoint_agent_installer_options.managed_externally exactly as a fresh install has it (type, null, default, position)');
-$ok($one("SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.236', 'the step sets the database version to 2.6.236');
+$ok($one("SELECT config_current_database_version FROM settings WHERE company_id = 1") === '2.6.239', 'the step sets the database version to 2.6.239');
 $ok((int) $one("SELECT COUNT(*) FROM rivet_core_migrations WHERE migration_id = '0049_rmm_installer_managed_externally'") === 1, 'Core recorded migration 0049');
 $runStep();
 $again = $rows("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'endpoint_agent_installer_options' ORDER BY ORDINAL_POSITION");

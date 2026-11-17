@@ -6,6 +6,15 @@
 defined('FROM_API') || die();
 require_once __DIR__ . '/includes/api_permissions.php';
 
+// Stamp times in the company zone, exactly like the web app (includes/inc_set_timezone.php). The API connection otherwise runs in the database server's
+// zone, so a ticket or reply created from the mobile app was stored hours ahead of the company clock and the list read "in 5 hours".
+$_api_tz = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT config_timezone FROM settings WHERE company_id = 1"));
+if (!empty($_api_tz['config_timezone']) && in_array($_api_tz['config_timezone'], timezone_identifiers_list(), true)) {
+    date_default_timezone_set($_api_tz['config_timezone']);
+    mysqli_query($mysqli, "SET time_zone = '" . (new DateTime('now', new DateTimeZone($_api_tz['config_timezone'])))->format('P') . "'");
+}
+unset($_api_tz);
+
 $uid = $api_user_id;
 
 // Gate on the support module permission, mirroring every sibling endpoint
@@ -365,6 +374,7 @@ if ($method === 'POST' && $id !== null && $sub === 'reply') {
         } else {
             $new_status_id = $status_id_raw;
             mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $new_status_id WHERE ticket_id = $id");
+            ticketSyncClosingStatus($mysqli, $id, $sla_old_status_id, $new_status_id, (int) $uid);   // "Counts as closed" statuses
         }
 
         require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
@@ -624,11 +634,7 @@ if ($method === 'POST' && $id === null) {
     // ticket for a client outside their permitted set.
     if (!api_client_scope_ok($client)) api_error(403, 'Access denied');
 
-    // Fall back to the client's primary contact when the caller didn't supply
-    // one - most API callers (e.g. ITPanel Pro's quick-ticket, when its own
-    // contact_id config isn't set) know which client a ticket is for but not
-    // which specific contact, leaving every such ticket contact-less even
-    // though the client is unambiguous. When one IS explicitly submitted, it
+    // No contact is chosen for the caller: a ticket without contact_id has no contact. When one IS explicitly submitted, it
     // must actually belong to the same client - api_client_scope_ok() above
     // only checked the caller's access to $client, it says nothing about
     // whether a caller-supplied contact_id belongs to a completely different
@@ -637,14 +643,9 @@ if ($method === 'POST' && $id === null) {
         $contact_ok = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT contact_id FROM contacts WHERE contact_id = $contact AND contact_client_id = $client LIMIT 1"));
         if (!$contact_ok) api_error(400, 'contact_id does not belong to client_id');
-    } elseif ($client) {
-        $primary_contact = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT contact_id FROM contacts WHERE contact_client_id = $client AND contact_archived_at IS NULL
-             ORDER BY contact_primary DESC, contact_id ASC LIMIT 1"));
-        if ($primary_contact) {
-            $contact = intval($primary_contact['contact_id']);
-        }
     }
+    // No contact submitted = no contact on the ticket. It used to fall back to the client's primary contact and, when none was marked primary, to the first
+    // contact by id, so a ticket nobody assigned ended up on a random person (and their notifications). An integration that wants a contact sends contact_id.
 
     // Same reasoning for contract linkage: leaving ticket_contract_id NULL
     // silently exempts every API-created ticket from included-hours allowance
@@ -813,6 +814,10 @@ if ($method === 'POST' && $id !== null && $sub === 'status') {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW(), ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $closed_by WHERE ticket_id = $id");
         require_once $DOCUMENT_ROOT . '/includes/sla_functions.php';
         slaStampResponseIfMissing($mysqli, $id);
+    } elseif (in_array((int) $status, ticketClosingStatusIds($mysqli), true)) {
+        // A "Counts as closed" status (Administration > Ticket Statuses): stamped closed like Closed, without the Closed bookkeeping.
+        mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $status, ticket_updated_at = NOW() WHERE ticket_id = $id");
+        ticketSyncClosingStatus($mysqli, $id, 0, (int) $status, $closed_by);
     } else {
         // Moving to any non-Closed status reopens the ticket if it was closed.
         // ticket_closed_by is NOT NULL (default 0), unlike the two timestamp columns.

@@ -54,11 +54,19 @@ final class MockClock implements ClockInterface
 
     public function sleep(float|int $seconds): void
     {
-        $now = (float) $this->now->format('Uu') + $seconds * 1e6;
-        $now = substr_replace(\sprintf('@%07.0F', $now), '.', -6, 0);
-        $timezone = $this->now->getTimezone();
+        if (0 >= $seconds) {
+            return;
+        }
 
-        $this->now = DatePoint::createFromInterface(new \DateTimeImmutable($now, $timezone))->setTimezone($timezone);
+        $s = (float) $this->now->format('U') + floor($seconds);
+        $us = (int) $this->now->format('u') + (int) round(fmod($seconds, 1) * 1e6);
+
+        if (1000000 <= $us) {
+            ++$s;
+            $us -= 1000000;
+        }
+
+        $this->now = DatePoint::createFromFormat('U.u', \sprintf('%.0F.%06d', $s, $us))->setTimezone($this->now->getTimezone());
     }
 
     /**
