@@ -33,6 +33,16 @@ ob_start();
             </div>
         </div>
 
+        <?php if (ticketStatusClosesColumnExists($mysqli)) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="closes_ticket" value="1" id="closes_ticket_add">
+                <label class="form-check-label" for="closes_ticket_add"><strong>Counts as closed</strong></label>
+            </div>
+            <small class="text-muted">Tick this for a status such as <em>Unresolved</em>: the ticket is finished without being resolved. It leaves the open lists and every open count (tiles, sidebar, dashboards) exactly like Closed, but nothing is e-mailed to the client and no "closed" entry or rating request is created. Moving it back to an open status reopens it.</small>
+        </div>
+        <?php } ?>
+
         <div class="form-group">
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="pauses_sla" value="1" id="pauses_sla_add">
@@ -40,6 +50,16 @@ ob_start();
             </div>
             <small class="text-muted">Tick this for statuses where the ticket is waiting on someone else, such as Waiting on Customer, Employee or Vendor. While a ticket is in the status its SLA does not run, and it is never shown as breached because of the wait.</small>
         </div>
+
+        <?php require_once '../../../includes/ticket_parked.php'; if (ticketParkedColumnExists($mysqli)) { ?>
+        <div class="form-group">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="parked" value="1" id="parked_add">
+                <label class="form-check-label" for="parked_add"><strong>Parked (hidden from dashboards and metrics)</strong></label>
+            </div>
+            <small class="text-muted">The ticket stays unresolved, but it disappears from the dashboards, the default ticket list and board, the open-ticket counts and the overdue and SLA-breach alerts. It is still found by search, on the client, contact, asset and project ticket tabs, in the &quot;All&quot; view and with &quot;Show parked&quot;. <strong>Parked does not pause the SLA clock</strong>: a parked ticket whose clock keeps running will still breach, so normally tick &quot;Pauses the SLA clock&quot; as well.</small>
+        </div>
+        <?php } ?>
 
     </div>
     <div class="modal-footer">

@@ -5,8 +5,9 @@
 $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('client_id') AS num FROM clients WHERE client_archived_at IS NULL $access_permission_query"));
 $num_active_clients = $row['num'];
 
-// Active Ticket Count
-$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('ticket_id') AS num FROM tickets LEFT JOIN clients ON client_id = ticket_client_id WHERE ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4 $access_permission_query"));
+// Active Ticket Count (Parked statuses are not counted: they are out of the default ticket list)
+require_once dirname(__DIR__, 2) . '/includes/ticket_parked.php';
+$row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT COUNT('ticket_id') AS num FROM tickets LEFT JOIN clients ON client_id = ticket_client_id WHERE ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4 " . ticketNotParkedSql($mysqli) . " $access_permission_query"));
 $num_active_tickets = $row['num'];
 
 // Recurring Ticket Count

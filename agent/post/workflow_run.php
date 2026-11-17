@@ -189,3 +189,21 @@ if (isset($_POST['cancel_workflow_run'])) {
     flash_alert('Workflow cancelled');
     redirect("workflow_run.php?run_id=$run_id");
 }
+
+if (isset($_GET['delete_workflow_run'])) {
+    validateCSRFToken($_GET['csrf_token']);
+    enforceUserPermission('module_client', 3);
+
+    $run_id = intval($_GET['delete_workflow_run']);
+    $run = loadWorkflowRunOrDie($mysqli, $run_id);
+
+    mysqli_query($mysqli, "DELETE l FROM workflow_task_log l JOIN workflow_run_tasks t ON t.run_task_id = l.run_task_id WHERE t.run_id = $run_id");
+    mysqli_query($mysqli, "DELETE FROM workflow_run_tasks WHERE run_id = $run_id");
+    mysqli_query($mysqli, "DELETE FROM workflow_runs WHERE run_id = $run_id");
+
+    \ITFlow\Audit\AuditService::record('workflow.deleted', $session_user_id, 'contact', intval($run['contact_id']), 'deleted', "$session_name deleted a workflow for {$run['contact_name']}");
+    logAction("Contact", "Delete", "$session_name deleted a workflow for {$run['contact_name']}", intval($run['contact_client_id']), intval($run['contact_id']));
+
+    flash_alert('Workflow deleted (tickets it already opened are kept)', 'error');
+    redirect('workflows.php');
+}

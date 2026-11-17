@@ -101,6 +101,9 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     <i class="fas fa-ellipsis-h"></i>
                                 </button>
                                 <div class="dropdown-menu">
+                                    <a class="dropdown-item" href="post.php?clone_ticket_template=<?= $ticket_template_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
+                                        <i class="fas fa-fw fa-clone me-2"></i>Clone
+                                    </a>
                                     <a class="dropdown-item text-danger text-bold confirm-link" href="post.php?delete_ticket_template=<?= $ticket_template_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>">
                                         <i class="fas fa-fw fa-trash me-2"></i>Delete
                                     </a>

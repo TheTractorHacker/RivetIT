@@ -233,15 +233,22 @@ reload_php_fpm() {
     # from before 2026-09-28 is on 8.4, a fresh one now is on 8.5): detect
     # the box's own running php-fpm service the same way deploy/harden.sh
     # already does, via `php -v`'s own major.minor, rather than hardcode one.
-    local php_ver php_fpm_svc
+    local php_ver php_full php_fpm_svc="" cand tried=""
     php_ver="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)"
+    php_full="$(php -r 'echo PHP_VERSION;' 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || true)"
     if [[ -z "${php_ver}" ]]; then
         warn "Could not detect the running PHP version (php -v failed); skipping the php-fpm reload. Reload it yourself: systemctl reload php<version>-fpm."
         return 0
     fi
-    php_fpm_svc="php${php_ver}-fpm"
-    if ! service_is_active "${php_fpm_svc}"; then
-        warn "${php_fpm_svc} is not active; skipping reload (nothing to reload)."
+    # A distro package names its unit php<major.minor>-fpm (php8.5-fpm); a PHP built from source here runs as
+    # php<major.minor.patch>-fpm (php8.5.12-fpm). Try the full-version name first, then the short one, and reload
+    # whichever is actually running.
+    for cand in ${php_full:+"php${php_full}-fpm"} "php${php_ver}-fpm"; do
+        tried+="${tried:+, }${cand}"
+        if service_is_active "${cand}"; then php_fpm_svc="${cand}"; break; fi
+    done
+    if [[ -z "${php_fpm_svc}" ]]; then
+        warn "No active php-fpm unit found (tried: ${tried}); skipping reload (nothing to reload). If PHP-FPM runs under another unit name, reload it yourself so opcache drops the old bytecode."
         return 0
     fi
     announce "Reloading ${php_fpm_svc} to drop any opcache-cached pre-update bytecode."
