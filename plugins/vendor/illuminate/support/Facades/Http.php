@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Factory;
  * @method static \Illuminate\Http\Client\Factory globalRequestMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\Factory globalResponseMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\Factory globalOptions(\Closure|array $options)
+ * @method static mixed withoutGlobalConfiguration(\Closure $callback)
  * @method static \GuzzleHttp\Promise\PromiseInterface response(array|string|null $body = null, int $status = 200, array $headers = [])
  * @method static \GuzzleHttp\Psr7\Response psr7Response(array|string|null $body = null, int $status = 200, array $headers = [])
  * @method static \Illuminate\Http\Client\RequestException failedRequest(array|string|null $body = null, int $status = 200, array $headers = [])
@@ -65,20 +66,23 @@ use Illuminate\Http\Client\Factory;
  * @method static \Illuminate\Http\Client\PendingRequest withMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\PendingRequest withRequestMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\PendingRequest withResponseMiddleware(callable $middleware)
+ * @method static \Illuminate\Http\Client\PendingRequest withAttributes(array $attributes)
  * @method static \Illuminate\Http\Client\PendingRequest beforeSending(callable $callback)
+ * @method static \Illuminate\Http\Client\PendingRequest afterResponse(callable|null $callback)
  * @method static \Illuminate\Http\Client\PendingRequest throw(callable|null $callback = null)
  * @method static \Illuminate\Http\Client\PendingRequest throwIf(callable|bool $condition)
  * @method static \Illuminate\Http\Client\PendingRequest throwUnless(callable|bool $condition)
  * @method static \Illuminate\Http\Client\PendingRequest dump()
  * @method static \Illuminate\Http\Client\PendingRequest dd()
- * @method static \Illuminate\Http\Client\Response get(string $url, array|string|null $query = null)
- * @method static \Illuminate\Http\Client\Response head(string $url, array|string|null $query = null)
- * @method static \Illuminate\Http\Client\Response post(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
- * @method static \Illuminate\Http\Client\Response patch(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
- * @method static \Illuminate\Http\Client\Response put(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
- * @method static \Illuminate\Http\Client\Response delete(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
- * @method static array pool(callable $callback)
- * @method static \Illuminate\Http\Client\Response send(string $method, string $url, array $options = [])
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface get(string $url, array|string|null $query = null)
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface head(string $url, array|string|null $query = null)
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface post(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface patch(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface put(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
+ * @method static \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface delete(string $url, array|\JsonSerializable|\Illuminate\Contracts\Support\Arrayable $data = [])
+ * @method static array pool(callable $callback, int|null $concurrency = null)
+ * @method static \Illuminate\Http\Client\Batch batch(callable $callback)
+ * @method static \Illuminate\Http\Client\Response|\Illuminate\Http\Client\Promises\LazyPromise send(string $method, string $url, array $options = [])
  * @method static \GuzzleHttp\Client buildClient()
  * @method static \GuzzleHttp\Client createClient(\GuzzleHttp\HandlerStack $handlerStack)
  * @method static \GuzzleHttp\HandlerStack buildHandlerStack()
@@ -86,7 +90,7 @@ use Illuminate\Http\Client\Factory;
  * @method static \Closure buildBeforeSendingHandler()
  * @method static \Closure buildRecorderHandler()
  * @method static \Closure buildStubHandler()
- * @method static \GuzzleHttp\Psr7\RequestInterface runBeforeSendingCallbacks(\GuzzleHttp\Psr7\RequestInterface $request, array $options)
+ * @method static \Psr\Http\Message\RequestInterface runBeforeSendingCallbacks(\Psr\Http\Message\RequestInterface $request, array $options)
  * @method static array mergeOptions(array ...$options)
  * @method static \Illuminate\Http\Client\PendingRequest stub(callable $callback)
  * @method static bool isAllowedRequestUrl(string $url)
@@ -117,7 +121,7 @@ class Http extends Facade
     /**
      * Register a stub callable that will intercept requests and be able to return stub responses.
      *
-     * @param  \Closure|array  $callback
+     * @param  \Closure|array|null  $callback
      * @return \Illuminate\Http\Client\Factory
      */
     public static function fake($callback = null)
