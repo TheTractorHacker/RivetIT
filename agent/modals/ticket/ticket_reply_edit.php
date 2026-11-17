@@ -49,7 +49,7 @@ ob_start();
         </div>
 
         <div class="form-group">
-            <textarea class="form-control tinymce" name="ticket_reply"><?php echo $ticket_reply; ?></textarea>
+            <textarea class="form-control tinymceTicket" name="ticket_reply"><?php echo $ticket_reply; ?></textarea>
         </div>
 
         <?php if (!empty($ticket_reply_time_worked)) { ?>

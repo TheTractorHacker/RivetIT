@@ -80,11 +80,40 @@ class WorkflowService
      * (in progress or paused) of this template; the check and the insert happen under a lock on the person's row, so two
      * events arriving together cannot start two runs.
      */
+    /**
+     * Whether onboarding and offboarding run as employee workflows (Administration > Employee Workflow Templates). Off by default since
+     * DB 2.6.236: hiring and leaving are requested as tickets (Request something > New hire / Leaver), while role change and transfer
+     * keep their workflows. A database without the column yet keeps the old behaviour (on).
+     */
+    public static function hireLeaveEnabled(\mysqli $mysqli): bool
+    {
+        static $memo = [];
+        $key = spl_object_id($mysqli);
+        if (!isset($memo[$key])) {
+            $r = @mysqli_query($mysqli, 'SELECT config_workflows_hire_leave FROM settings WHERE company_id = 1');
+            $row = $r ? mysqli_fetch_row($r) : null;
+            $memo[$key] = $row === null ? true : ((int) $row[0] === 1);
+        }
+
+        return $memo[$key];
+    }
+
+    /** SQL fragment limiting a workflow_templates query to the types that may be started (pass the table alias, or '' for none). */
+    public static function startableTypesSql(\mysqli $mysqli, string $alias = ''): string
+    {
+        $col = ($alias !== '' ? $alias . '.' : '') . 'type';
+
+        return self::hireLeaveEnabled($mysqli) ? '1=1' : "$col NOT IN ('onboarding','offboarding')";
+    }
+
     public function startRun(int $templateId, int $contactId, ?int $startedByUserId, bool $onlyIfNone = false, array $variables = []): int
     {
         $template = $this->one('SELECT * FROM workflow_templates WHERE workflow_template_id = ?', 'i', [$templateId]);
         if (!$template) {
             throw new \InvalidArgumentException("Workflow template $templateId not found");
+        }
+        if (in_array($template['type'], ['onboarding', 'offboarding'], true) && !self::hireLeaveEnabled($this->mysqli)) {
+            throw new \InvalidArgumentException('Onboarding and offboarding workflows are turned off. Use Request something > New hire / Leaver (tickets), or turn them on under Administration > Employee Workflow Templates.');
         }
         // The onboarding form. A person starting the run must answer the required questions; automation (onlyIfNone) cannot ask, so it
         // takes the defaults. Checked before anything is written.

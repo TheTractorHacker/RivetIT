@@ -49,11 +49,11 @@ $ok($db->error === '', 'column absent: no SQL error raised');
 
 // ---- 2. the real migration step: On Hold ticked once, never overriding an admin
 $src = (string) file_get_contents("$root/admin/database_updates.php");
-$start = strpos($src, "if (\$rivetit_db_version() == '2.6.234') {");
-$ok($start !== false, 'migration step 2.6.234 -> 2.6.235 present');
+$start = strpos($src, "if (\$rivetit_db_version() == '2.6.237') {");
+$ok($start !== false, 'migration step 2.6.237 -> 2.6.238 present');
 $step = substr($src, (int) $start);
 $runStep = function () use ($step, $mysqli) {
-    $rivetit_db_version = fn() => '2.6.234';
+    $rivetit_db_version = fn() => '2.6.237';
     eval($step);
 };
 $runStep();

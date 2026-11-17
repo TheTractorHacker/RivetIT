@@ -76,7 +76,7 @@ if (isset($_GET['contact_id'])) {
 
     // Master-plan Phase 9: employee lifecycle workflows for this person
     $sql_workflow_runs = mysqli_query($mysqli, "SELECT * FROM workflow_runs WHERE contact_id = $contact_id ORDER BY started_at DESC");
-    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
+    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL AND " . \ITFlow\Workflow\WorkflowService::startableTypesSql($mysqli) . " ORDER BY type ASC, name ASC");
 
     // Master-plan Phase 2: per-person change history. Merges the two logging
     // systems that already record events against a contact rather than adding
@@ -850,7 +850,7 @@ if (isset($_GET['contact_id'])) {
                                 if (empty($credential_otp_secret)) {
                                     $otp_display = "-";
                                 } else {
-                                    $otp_display = "<span data-otp-credential-id='$credential_id'><i class='far fa-clock'></i> <span id='otp_$credential_id'><i>Hover..</i></span></span>";
+                                    $otp_display = "<span data-otp-credential-id='$credential_id'><span id='otp_$credential_id'><button type='button' class='btn btn-sm btn-outline-secondary totp-show' data-totp-show='$credential_id' title='Show the one-time code'><i class='fas fa-shield-alt me-1' aria-hidden='true'></i>Show code</button></span></span>";
                                 }
                                 $credential_note = nullable_htmlentities($row['credential_note']);
                                 $credential_favorite = intval($row['credential_favorite']);
@@ -1167,7 +1167,7 @@ if (isset($_GET['contact_id'])) {
                                     <td><a href="ticket.php?client_id=<?php echo $client_id; ?>&ticket_id=<?php echo $ticket_id; ?>"><span class="badge rounded-pill text-bg-secondary p-3"><?php echo "$ticket_prefix$ticket_number"; ?></span></a></td>
                                     <td><a href="ticket.php?client_id=<?php echo $client_id; ?>&ticket_id=<?php echo $ticket_id; ?>"><?php echo $ticket_subject; ?></a></td>
                                     <td><?php echo $ticket_priority_display; ?></td>
-                                    <td><span class='badge rounded-pill <?php echo tagTextClass($ticket_status_color); ?> p-2' style="background-color: <?php echo $ticket_status_color; ?>"><?php echo $ticket_status_name; ?></span></td>
+                                    <td><span class='badge rounded-pill tk-pill p-2' style="--pill:<?php echo ticketPillColor($ticket_status_color); ?>"><?php echo $ticket_status_name; ?></span></td>
                                     <td><?php echo $ticket_assigned_to_display; ?></td>
                                     <td><?php echo $ticket_updated_at_display; ?></td>
                                     <td><?php echo $ticket_created_at; ?></td>

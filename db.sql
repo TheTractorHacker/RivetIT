@@ -5137,6 +5137,7 @@ CREATE TABLE `settings` (
   `config_audit_retention_days` int(11) NOT NULL DEFAULT 365,
   `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
   `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0,
+  `config_workflows_hire_leave` tinyint(1) NOT NULL DEFAULT 0,
   `config_vault_v3_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_vault_dek_wrap` text DEFAULT NULL,
   `config_vault_v3_prepared_at` datetime DEFAULT NULL,
@@ -5917,6 +5918,7 @@ CREATE TABLE `ticket_statuses` (
   `ticket_status_active` tinyint(1) NOT NULL DEFAULT 1,
   `ticket_status_order` int(11) NOT NULL DEFAULT 0,
   `ticket_status_pauses_sla` tinyint(1) NOT NULL DEFAULT 0,
+  `ticket_status_closes_ticket` tinyint(1) NOT NULL DEFAULT 0,
   `ticket_status_parked` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ticket_status_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -5952,6 +5954,7 @@ CREATE TABLE `ticket_templates` (
   `ticket_template_description` text DEFAULT NULL,
   `ticket_template_subject` varchar(500) DEFAULT NULL,
   `ticket_template_details` longtext DEFAULT NULL,
+  `ticket_template_worksheet_id` int(11) DEFAULT NULL,
   `ticket_template_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `ticket_template_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `ticket_template_archived_at` datetime DEFAULT NULL,

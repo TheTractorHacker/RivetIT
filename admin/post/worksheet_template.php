@@ -67,6 +67,34 @@ if (isset($_POST['edit_worksheet_field'])) {
     redirect();
 }
 
+if (isset($_GET['clone_worksheet_template'])) {
+    validateCSRFToken($_GET['csrf_token']);
+    enforceUserPermission('admin', 2);
+
+    $src_id = intval($_GET['clone_worksheet_template']);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM worksheet_templates WHERE worksheet_template_id = $src_id AND worksheet_template_archived_at IS NULL"));
+    if (!$src) {
+        flash_alert('Worksheet template not found', 'error');
+        header("Location: worksheet_template.php");
+        exit;
+    }
+    $copy_name = mb_substr($src['worksheet_template_name'], 0, 190) . ' (copy)';
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO worksheet_templates (worksheet_template_name, worksheet_template_description, worksheet_template_created_by) VALUES (?, ?, ?)");
+    $by = intval($session_user_id);
+    mysqli_stmt_bind_param($stmt, 'ssi', $copy_name, $src['worksheet_template_description'], $by);
+    mysqli_stmt_execute($stmt);
+    $new_id = intval(mysqli_insert_id($mysqli));
+    mysqli_stmt_close($stmt);
+    if ($new_id > 0) {
+        mysqli_query($mysqli, "INSERT INTO worksheet_template_fields (field_template_id, field_name, field_type, field_options, field_order, field_required)
+            SELECT $new_id, field_name, field_type, field_options, field_order, field_required FROM worksheet_template_fields WHERE field_template_id = $src_id");
+    }
+    logAction("Worksheet Template", "Create", "$session_name cloned worksheet template {$src['worksheet_template_name']}", 0, $new_id);
+    flash_alert('Worksheet template cloned. Rename it and adjust the copy.');
+    header("Location: worksheet_template_details.php?id=$new_id");
+    exit;
+}
+
 if (isset($_GET['delete_worksheet_template'])) {
     validateCSRFToken($_GET['csrf_token']);
     enforceUserPermission('admin', 3);
