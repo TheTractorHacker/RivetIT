@@ -76,3 +76,6 @@
 .acct-menu .acct-id-text { min-width: 0; line-height: 1.25; }
 .acct-menu .dropdown-item { padding: .5rem 1rem; }
 .acct-menu > .py-1 { padding: .35rem 0 !important; }
+
+/* Gap between the header bar and the account menu (the menu used to touch the bar's bottom edge). */
+.navbar-nav > .user-menu > .dropdown-menu.acct-menu { margin-top: 1rem !important; }
