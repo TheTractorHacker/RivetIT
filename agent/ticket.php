@@ -26,8 +26,11 @@ require_once "../includes/sla_functions.php";
 
 // Initialize the HTML Purifier to prevent XSS
 require_once "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'strict');
 $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting a non-existent directory or an invalid one
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
@@ -598,8 +601,8 @@ if (isset($_GET['ticket_id'])) {
 
                         <?php if (lookupUserPermission("module_support") >= 2 && empty($ticket_closed_at)) { ?>
                         <div class="dropdown d-inline-block" id="ticketStatusMenu" data-ticket-id="<?= $ticket_id ?>">
-                            <button type="button" id="ticketStatusPill" class="badge rounded-pill tkt-pill-badge border-0 dropdown-toggle <?= tagTextClass($ticket_status_color) ?>"
-                                    style="background-color:<?= $ticket_status_color ?>;cursor:pointer;" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-boundary="window" aria-haspopup="true" aria-expanded="false"
+                            <button type="button" id="ticketStatusPill" class="badge rounded-pill tkt-pill-badge border-0 dropdown-toggle tk-pill"
+                                    style="--pill:<?= ticketPillColor($ticket_status_color) ?>;cursor:pointer;" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-boundary="window" aria-haspopup="true" aria-expanded="false"
                                     aria-label="Ticket status: <?= $ticket_status_name ?>. Change status">
                                 <span class="ticket-status-label"><?= $ticket_status_name ?></span>
                             </button>
@@ -621,7 +624,7 @@ if (isset($_GET['ticket_id'])) {
                             </div>
                         </div>
                         <?php } else { ?>
-                        <span class="badge rounded-pill tkt-pill-badge <?= tagTextClass($ticket_status_color) ?>" style="background-color:<?= $ticket_status_color ?>;">
+                        <span class="badge rounded-pill tkt-pill-badge tk-pill" style="--pill:<?= ticketPillColor($ticket_status_color) ?>;">
                             <?= $ticket_status_name ?>
                         </span>
                         <?php } ?>

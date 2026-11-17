@@ -4,6 +4,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Server\RequestContext;
 
 require_once __DIR__ . '/../includes/module_access.php';
+require_once __DIR__ . '/../includes/ticket_parked.php';
 
 /** Raised inside a tool body when the requested record does not exist or is outside the caller's scope. */
 final class McpNotFound extends \RivetCore\Mcp\NotFoundException {}
@@ -163,6 +164,11 @@ final class RivetITMcpReadTools
             $types = 'ii';
             $params = [$uid, $uid];
             if ($openOnly) $where[] = 't.ticket_resolved_at IS NULL';
+            // The "recent open tickets" queue (no search text) leaves out Parked statuses; a search by text finds them.
+            if ($openOnly && trim($query) === '') {
+                $notParked = ticketNotParkedSql($this->db, 't.ticket_status');
+                if ($notParked !== '') $where[] = substr($notParked, 5);
+            }
             if (trim($query) !== '') {
                 $where[] = "(t.ticket_subject LIKE ? OR t.ticket_details LIKE ? OR CONCAT(IFNULL(t.ticket_prefix,''), t.ticket_number) LIKE ?)";
                 $like = self::like($query);

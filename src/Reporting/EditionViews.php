@@ -23,7 +23,7 @@ final class EditionViews
         'rpt_sites' => ['site_id', 'client_id', 'site_name', 'archived_at'],
         'rpt_assets' => ['asset_id', 'client_id', 'site_id', 'asset_type', 'asset_name', 'asset_status', 'created_at', 'archived_at'],
         'rpt_tickets' => ['ticket_id', 'client_id', 'site_id', 'asset_id', 'priority', 'status_name', 'is_open', 'created_at', 'first_response_at', 'resolved_at', 'closed_at',
-            'sla_applies', 'sla_response_due_at', 'sla_resolution_due_at', 'sla_response_met', 'sla_resolution_met', 'first_response_s', 'resolution_s', 'csat_rating'],
+            'sla_applies', 'sla_response_due_at', 'sla_resolution_due_at', 'sla_response_met', 'sla_resolution_met', 'first_response_s', 'resolution_s', 'csat_rating', 'is_parked'],
         'rpt_alert_tickets' => ['alert_id', 'client_id', 'ticket_id'],
         'rpt_sla' => ['policy_id', 'policy_name', 'low_response_min', 'low_resolution_min', 'medium_response_min', 'medium_resolution_min', 'high_response_min', 'high_resolution_min'],
     ];
@@ -69,7 +69,7 @@ final class EditionViews
                 . 't.ticket_counts_sla, '
                 . 'CASE WHEN t.ticket_counts_sla = 1 THEN ' . $ts('t.ticket_sla_response_due') . ' END, CASE WHEN t.ticket_counts_sla = 1 THEN ' . $ts('t.ticket_sla_resolution_due') . ' END, '
                 . 'CASE WHEN t.ticket_counts_sla = 1 THEN t.ticket_sla_response_met END, CASE WHEN t.ticket_counts_sla = 1 THEN t.ticket_sla_resolution_met END, '
-                . 'TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_first_response_at), TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_resolved_at), t.ticket_csat_rating '
+                . 'TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_first_response_at), TIMESTAMPDIFF(SECOND, t.ticket_created_at, t.ticket_resolved_at), t.ticket_csat_rating, COALESCE(s.ticket_status_parked, 0) '
                 . 'FROM tickets t LEFT JOIN ticket_statuses s ON s.ticket_status_id = t.ticket_status WHERE t.ticket_archived_at IS NULL',
             'rpt_alert_tickets' => 'CREATE OR REPLACE VIEW rpt_alert_tickets (alert_id, client_id, ticket_id) AS SELECT id, client_id, ticket_id FROM rmm_alerts WHERE ticket_id IS NOT NULL',
             'rpt_sla' => 'CREATE OR REPLACE VIEW rpt_sla (' . implode(', ', self::COLUMNS['rpt_sla']) . ') AS SELECT policy_id, policy_name, policy_low_response, policy_low_resolution, policy_medium_response, policy_medium_resolution, policy_high_response, policy_high_resolution '

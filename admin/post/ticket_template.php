@@ -8,6 +8,20 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 require_once '../agent/post/ticket.php';
 require_once '../agent/post/task.php';
 
+/** "ticket_template_worksheet_id = N, " for the INSERT/UPDATE (empty when the column is not there yet, DB < 2.6.236). */
+function ticketTemplateWorksheetSql(mysqli $mysqli): string
+{
+    if (mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_templates` LIKE 'ticket_template_worksheet_id'")) < 1) {
+        return '';
+    }
+    $id = intval($_POST['worksheet_template_id'] ?? 0);
+    if ($id > 0 && !mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM worksheet_templates WHERE worksheet_template_id = $id AND worksheet_template_archived_at IS NULL"))) {
+        $id = 0;
+    }
+
+    return 'ticket_template_worksheet_id = ' . ($id > 0 ? $id : 'NULL') . ', ';
+}
+
 if (isset($_POST['add_ticket_template'])) {
 
     validateCSRFToken($_POST['csrf_token']);
@@ -17,8 +31,9 @@ if (isset($_POST['add_ticket_template'])) {
     $subject = sanitizeInput($_POST['subject']);
     $details = mysqli_real_escape_string($mysqli, $_POST['details']);
     $project_template_id = intval($_POST['project_template']);
+    $worksheet_sql = ticketTemplateWorksheetSql($mysqli);
 
-    mysqli_query($mysqli, "INSERT INTO ticket_templates SET ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details'");
+    mysqli_query($mysqli, "INSERT INTO ticket_templates SET {$worksheet_sql}ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details'");
 
     $ticket_template_id = mysqli_insert_id($mysqli);
 
@@ -44,13 +59,46 @@ if (isset($_POST['edit_ticket_template'])) {
     $subject = sanitizeInput($_POST['subject']);
     $details = mysqli_real_escape_string($mysqli, $_POST['details']);
 
-    mysqli_query($mysqli, "UPDATE ticket_templates SET ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details' WHERE ticket_template_id = $ticket_template_id");
+    mysqli_query($mysqli, "UPDATE ticket_templates SET " . ticketTemplateWorksheetSql($mysqli) . " ticket_template_name = '$name', ticket_template_description = '$description', ticket_template_subject = '$subject', ticket_template_details = '$details' WHERE ticket_template_id = $ticket_template_id");
 
     logAction("Ticket Template", "Edit", "$session_name edited ticket template $name", 0, $ticket_template_id);
 
     flash_alert("Ticket Template <strong>$name</strong> edited");
 
     redirect();
+
+}
+
+if (isset($_GET['clone_ticket_template'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    $src_id = intval($_GET['clone_ticket_template']);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM ticket_templates WHERE ticket_template_id = $src_id"));
+    if (!$src) {
+        flash_alert('Ticket template not found', 'error');
+        redirect('ticket_template.php');
+    }
+
+    $copy_name = mb_substr($src['ticket_template_name'], 0, 190) . ' (copy)';
+    $stmt = mysqli_prepare($mysqli, "INSERT INTO ticket_templates (ticket_template_name, ticket_template_description, ticket_template_subject, ticket_template_details) VALUES (?, ?, ?, ?)");
+    mysqli_stmt_bind_param($stmt, 'ssss', $copy_name, $src['ticket_template_description'], $src['ticket_template_subject'], $src['ticket_template_details']);
+    mysqli_stmt_execute($stmt);
+    $new_id = intval(mysqli_insert_id($mysqli));
+    mysqli_stmt_close($stmt);
+
+    if ($new_id > 0) {
+        if (array_key_exists('ticket_template_worksheet_id', $src)) {
+            mysqli_query($mysqli, "UPDATE ticket_templates SET ticket_template_worksheet_id = " . ($src['ticket_template_worksheet_id'] ? intval($src['ticket_template_worksheet_id']) : 'NULL') . " WHERE ticket_template_id = $new_id");
+        }
+        mysqli_query($mysqli, "INSERT INTO task_templates (task_template_name, task_template_order, task_template_completion_estimate, task_template_ticket_template_id)
+            SELECT task_template_name, task_template_order, task_template_completion_estimate, $new_id FROM task_templates WHERE task_template_ticket_template_id = $src_id AND task_template_archived_at IS NULL");
+    }
+
+    logAction("Ticket Template", "Create", "$session_name cloned ticket template {$src['ticket_template_name']}", 0, $new_id);
+    flash_alert('Ticket template cloned. Rename it and adjust the copy.');
+
+    redirect("ticket_template_details.php?ticket_template_id=$new_id");
 
 }
 
