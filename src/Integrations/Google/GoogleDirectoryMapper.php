@@ -195,7 +195,7 @@ class GoogleDirectoryMapper
     {
         $m = $this->mysqli;
 
-        $name = trim((string) ($ou['name'] ?? ''));
+        $name = \ITFlow\Security\PlainText::clean($ou['name'] ?? '');
         $path = trim((string) ($ou['orgUnitPath'] ?? ''));
 
         if ($name === '' || $path === '') {
@@ -253,7 +253,7 @@ class GoogleDirectoryMapper
             return 'skipped';
         }
 
-        $fullName = trim((string) ($user['name']['fullName'] ?? ''));
+        $fullName = \ITFlow\Security\PlainText::clean($user['name']['fullName'] ?? '');
         if ($fullName === '') {
             // Sparse fixture/edge-case fallback so a record with no display
             // name still gets a usable contact_name instead of being skipped
@@ -392,7 +392,7 @@ class GoogleDirectoryMapper
                 continue;
             }
 
-            $value = $this->extractSourceValue($user, $sourceField);
+            $value = \ITFlow\Security\PlainText::clean($this->extractSourceValue($user, $sourceField));
             if ($value !== '') {
                 $targets[$targetField] = $value;
             }

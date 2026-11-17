@@ -202,10 +202,23 @@ final class WidgetRegistry
 
     private const OPEN = 'ticket_closed_at IS NULL AND ticket_resolved_at IS NULL AND ticket_archived_at IS NULL';
 
+    /** The "open ticket" condition every dashboard widget uses: unresolved, not archived, and not in a Parked status. */
+    private static function open(\mysqli $db): string
+    {
+        return self::OPEN . self::notParked($db, 'ticket_status');
+    }
+
+    /** " AND <col> NOT IN (parked status ids)", or '' when no status is parked (or the column is not there yet). */
+    private static function notParked(\mysqli $db, string $col): string
+    {
+        require_once dirname(__DIR__, 3) . '/includes/ticket_parked.php';
+        return \ticketNotParkedSql($db, $col);
+    }
+
     private static function ticketsByStatus(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT COALESCE(s.ticket_status_name, 'Unknown') AS n, COUNT(*) AS c FROM tickets t LEFT JOIN ticket_statuses s ON s.ticket_status_id = t.ticket_status
-            WHERE t.ticket_closed_at IS NULL AND t.ticket_resolved_at IS NULL AND t.ticket_archived_at IS NULL" . $ctx->scope('t.ticket_client_id') . " GROUP BY n ORDER BY c DESC");
+            WHERE t.ticket_closed_at IS NULL AND t.ticket_resolved_at IS NULL AND t.ticket_archived_at IS NULL" . self::notParked($db, 't.ticket_status') . $ctx->scope('t.ticket_client_id') . " GROUP BY n ORDER BY c DESC");
         $items = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
@@ -215,7 +228,7 @@ final class WidgetRegistry
 
     private static function ticketsByPriority(\mysqli $db, WidgetContext $ctx): array
     {
-        $res = mysqli_query($db, "SELECT COALESCE(NULLIF(ticket_priority, ''), 'None') AS n, COUNT(*) AS c FROM tickets WHERE " . self::OPEN . $ctx->scope('ticket_client_id') . " GROUP BY n ORDER BY FIELD(n, 'High', 'Medium', 'Low', 'None'), n");
+        $res = mysqli_query($db, "SELECT COALESCE(NULLIF(ticket_priority, ''), 'None') AS n, COUNT(*) AS c FROM tickets WHERE " . self::open($db) . $ctx->scope('ticket_client_id') . " GROUP BY n ORDER BY FIELD(n, 'High', 'Medium', 'Low', 'None'), n");
         $items = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
@@ -227,7 +240,7 @@ final class WidgetRegistry
     {
         require_once dirname(__DIR__, 3) . '/includes/sla_functions.php';
         $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_sla_resolution_due FROM tickets
-            WHERE " . self::OPEN . " AND ticket_sla_resolution_due IS NOT NULL AND ticket_sla_paused_at IS NULL AND ticket_sla_resolution_due <= NOW() + INTERVAL 4 HOUR"
+            WHERE " . self::open($db) . " AND ticket_sla_resolution_due IS NOT NULL AND ticket_sla_paused_at IS NULL AND ticket_sla_resolution_due <= NOW() + INTERVAL 4 HOUR"
             . \slaCountsClause($db) . $ctx->scope('ticket_client_id') . " ORDER BY ticket_sla_resolution_due ASC LIMIT 10");
         $rows = [];
         while ($r = mysqli_fetch_assoc($res)) {
@@ -239,7 +252,7 @@ final class WidgetRegistry
     private static function myTickets(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_priority FROM tickets
-            WHERE " . self::OPEN . " AND ticket_assigned_to = " . (int) $ctx->userId . $ctx->scope('ticket_client_id') . " ORDER BY ticket_updated_at DESC, ticket_id DESC LIMIT 10");
+            WHERE " . self::open($db) . " AND ticket_assigned_to = " . (int) $ctx->userId . $ctx->scope('ticket_client_id') . " ORDER BY ticket_updated_at DESC, ticket_id DESC LIMIT 10");
         $rows = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $rows[] = ['cells' => [$r['ticket_prefix'] . $r['ticket_number'], $r['ticket_subject'], (string) $r['ticket_priority']], 'href' => '/agent/ticket.php?ticket_id=' . (int) $r['ticket_id']];
@@ -420,7 +433,7 @@ final class WidgetRegistry
     private static function projectTasksDue(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_due_at FROM tickets
-            WHERE " . self::OPEN . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at <= NOW() + INTERVAL 7 DAY"
+            WHERE " . self::open($db) . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at <= NOW() + INTERVAL 7 DAY"
             . $ctx->scope('ticket_client_id') . " ORDER BY ticket_due_at ASC LIMIT 10");
         $rows = [];
         while ($r = mysqli_fetch_assoc($res)) {
@@ -432,7 +445,7 @@ final class WidgetRegistry
     private static function projectTasksOverdue(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_due_at FROM tickets
-            WHERE " . self::OPEN . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at < NOW()"
+            WHERE " . self::open($db) . " AND ticket_project_id <> 0 AND ticket_due_at IS NOT NULL AND ticket_due_at < NOW()"
             . $ctx->scope('ticket_client_id') . " ORDER BY ticket_due_at ASC LIMIT 10");
         $rows = [];
         while ($r = mysqli_fetch_assoc($res)) {
@@ -455,7 +468,7 @@ final class WidgetRegistry
     {
         $items = [];
         if ($ctx->can('module_support')) {
-            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE " . self::OPEN . " AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . $ctx->scope('ticket_client_id')));
+            $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets WHERE " . self::open($db) . " AND (ticket_assigned_to IS NULL OR ticket_assigned_to = 0)" . $ctx->scope('ticket_client_id')));
             $items[] = ['label' => 'Unassigned tickets', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/tickets.php?assigned=0'];
             $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM domains WHERE domain_expire IS NOT NULL AND domain_expire > CURDATE() AND domain_expire < CURDATE() + INTERVAL 30 DAY AND domain_archived_at IS NULL" . $ctx->scope('domain_client_id')));
             $items[] = ['label' => 'Domains expiring (30d)', 'value' => (int) ($row['n'] ?? 0), 'href' => '/agent/domains.php?sort=domain_expire&order=ASC'];
@@ -539,7 +552,7 @@ final class WidgetRegistry
         // A ticket counts when its status has either of those names OR is flagged "waiting on someone else" (pauses the SLA clock),
         // so an install that named the status differently still gets a number.
         $row = mysqli_fetch_assoc(mysqli_query($db, "SELECT COUNT(*) AS n FROM tickets LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NULL AND (ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer') OR ticket_status_pauses_sla = 1)"));
+            WHERE 1 = 1" . $ctx->scope('ticket_client_id') . " AND ticket_closed_at IS NULL" . self::notParked($db, 'ticket_status') . " AND (ticket_status_name IN ('Waiting on Employee', 'Waiting on Customer') OR ticket_status_pauses_sla = 1)"));
         $n = (int) ($row['n'] ?? 0);
         return ['type' => 'stat', 'value' => (string) $n, 'caption' => 'open tickets waiting on someone else'];
     }
@@ -560,7 +573,7 @@ final class WidgetRegistry
     private static function ticketsByCategory(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT COALESCE(category_name, 'Uncategorized') AS n, COUNT(*) AS c FROM tickets LEFT JOIN categories ON ticket_category = category_id
-            WHERE " . self::OPEN . $ctx->scope('ticket_client_id') . " GROUP BY n ORDER BY c DESC LIMIT 8");
+            WHERE " . self::open($db) . $ctx->scope('ticket_client_id') . " GROUP BY n ORDER BY c DESC LIMIT 8");
         $items = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];
@@ -571,7 +584,7 @@ final class WidgetRegistry
     private static function ticketsByTechnicianOpen(\mysqli $db, WidgetContext $ctx): array
     {
         $res = mysqli_query($db, "SELECT user_name AS n, COUNT(*) AS c FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id
-            WHERE " . self::OPEN . $ctx->scope('ticket_client_id') . " AND ticket_assigned_to > 0 GROUP BY n ORDER BY c DESC LIMIT 8");
+            WHERE " . self::open($db) . $ctx->scope('ticket_client_id') . " AND ticket_assigned_to > 0 GROUP BY n ORDER BY c DESC LIMIT 8");
         $items = [];
         while ($r = mysqli_fetch_assoc($res)) {
             $items[] = ['label' => $r['n'], 'value' => (int) $r['c']];

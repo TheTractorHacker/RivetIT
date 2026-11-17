@@ -55,6 +55,10 @@ $status_badge = [
             <span class="badge <?= ['onboarding' => 'text-bg-success', 'offboarding' => 'text-bg-danger'][$run['type']] ?? 'text-bg-info' ?> ms-2"><?= ucwords(str_replace('_', ' ', $run['type'])) ?></span>
             <span class="badge <?= $status_badge ?>"><?= ucfirst(str_replace('_', ' ', $run['status'])) ?></span>
         </h3>
+        <a href="workflows.php" class="btn btn-sm btn-default me-2"><i class="fas fa-list me-1"></i>All workflows</a>
+        <?php if (lookupUserPermission('module_client') >= 3) { ?>
+        <a href="post.php?delete_workflow_run=<?= $run_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-danger me-2 confirm-link"><i class="fas fa-trash me-1"></i>Delete</a>
+        <?php } ?>
         <a href="contact_details.php?contact_id=<?= intval($run['contact_id']) ?>&client_id=<?= $client_id ?>" class="btn btn-sm btn-default"><i class="fas fa-arrow-left me-1"></i>Back to Contact</a>
     </div>
     <div class="card-body py-2 text-muted small">

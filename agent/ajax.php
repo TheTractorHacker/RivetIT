@@ -18,6 +18,12 @@ require_once "../plugins/totp/totp.php";
 require_once "../includes/sla_functions.php";
 ob_end_clean();
 
+// IT-WEB-2: every branch is JSON unless it says otherwise. PHP's default Content-Type is text/html, which turned a JSON
+// response carrying a stored value like <img onerror=...> into a reflected-XSS page when opened as a top-level navigation.
+// The few HTML-fragment branches below (AI text, summaries, Comet panel) send their own text/html header, which overrides this.
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+
 /*
  * Live global-search dropdown (top nav). Read-only GET, no CSRF needed (mirrors
  * certificate_fetch_parse_json_details below). Auth already enforced by check_login.php above.
@@ -1121,8 +1127,18 @@ if (isset($_GET['get_totp_token_via_id'])) {
 
     enforceClientAccess();
 
+    if (trim((string) $totp_secret) === '') {
+        http_response_code(404);
+        echo json_encode(['error' => 'No one-time code is set for this credential']);
+        exit;
+    }
     $otp = TokenAuth6238::getTokenCode(strtoupper($totp_secret));
-    echo json_encode($otp);
+    if (isset($_GET['detail'])) {
+        // The code AND how long it still lives (the 30 second step is counted on the server, so the browser's clock does not matter).
+        echo json_encode(['code' => (string) $otp, 'remaining' => 30 - (time() % 30), 'period' => 30]);
+    } else {
+        echo json_encode($otp);
+    }
 
     // Logging
     //  Only log the TOTP view if the user hasn't already viewed this specific login entry recently, this prevents logs filling if a user hovers across an entry a few times
@@ -1350,6 +1366,7 @@ if (isset($_POST['update_kanban_ticket'])) {
             } else {
                 // If the ticket was moved from any status to another status
                 mysqli_query($mysqli, "UPDATE tickets SET ticket_order = $kanban, ticket_status = $status, ticket_closed_at = NULL, ticket_closed_by = 0 WHERE ticket_id = $ticket_id");
+                ticketSyncClosingStatus($mysqli, $ticket_id, (int) $oldStatus, (int) $status, (int) $session_user_id);   // "Counts as closed" statuses
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/sla_functions.php'; slaSyncPause($mysqli, $ticket_id);
                 customAction('ticket_update', $ticket_id);
             }
@@ -1704,8 +1721,10 @@ if (isset($_GET['ai_ticket_summary'])) {
 
             if (!class_exists('HTMLPurifier')) {
                 require_once __DIR__ . '/../plugins/htmlpurifier/HTMLPurifier.standalone.php';
+                require_once __DIR__ . '/../plugins/htmlpurifier/rivet_html_policy.php';
             }
             $purifier_config = HTMLPurifier_Config::createDefault();
+            rivet_html_policy_apply($purifier_config, 'strict');
             $purifier_config->set('Cache.DefinitionImpl', null);
             $purifier_config->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
             $purifier = new HTMLPurifier($purifier_config);

@@ -969,6 +969,7 @@ try {
 
 require_once dirname(__DIR__) . '/includes/automation_functions.php';
 require_once dirname(__DIR__) . '/includes/sla_functions.php'; // slaStatus() for SLA %-consumed escalation conditions
+require_once dirname(__DIR__) . '/includes/ticket_parked.php'; // parked statuses stay out of the schedule-rule (overdue / escalation) pass
 
 $automation_rules = [];
 $sql_rules = mysqli_query($mysqli,
@@ -1048,7 +1049,7 @@ if (!empty($automation_rules)) {
              LEFT JOIN ticket_statuses ts ON t.ticket_status = ts.ticket_status_id
              LEFT JOIN users u ON t.ticket_assigned_to = u.user_id
              WHERE t.ticket_archived_at IS NULL
-               AND t.ticket_resolved_at IS NULL"
+               AND t.ticket_resolved_at IS NULL" . ticketNotParkedSql($mysqli, 't.ticket_status') // parked tickets are not escalated or announced as overdue
         );
 
         while ($ticket = mysqli_fetch_assoc($sql_open)) {

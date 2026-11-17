@@ -133,7 +133,7 @@ $available_changes = mysqli_query(
                                     <div class="text-muted small"><?= nullable_htmlentities($t['client_name']) ?></div>
                                 </td>
                                 <td class="text-nowrap">
-                                    <span class="badge" style="background-color: <?= nullable_htmlentities($t['ticket_status_color'] ?: '#6c757d') ?>;"><?= nullable_htmlentities($t['ticket_status_name']) ?></span>
+                                    <span class="badge tk-pill" style="--pill:<?= ticketPillColor($t['ticket_status_color']) ?>;"><?= nullable_htmlentities($t['ticket_status_name']) ?></span>
                                 </td>
                                 <td class="text-end">
                                     <form action="post.php" method="post">

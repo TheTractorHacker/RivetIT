@@ -30,7 +30,9 @@ if (!lookupUserPermission('module_rmm')) {
 $action         = sanitizeInput($_POST['action'] ?? 'sync');
 $integration_id = intval($_POST['integration_id'] ?? $config_rmm_default_integration_id);
 
-if ($integration_id <= 0) {
+// Assigning a department is a local change to the asset: it needs no integration, so it must not fail on an install that has no default one
+// (the Assets page sends no integration_id for it, which made every single and bulk assignment answer "No integration configured").
+if ($integration_id <= 0 && $action !== 'assign_client') {
     echo json_encode(['success' => false, 'error' => 'No integration configured']);
     exit;
 }

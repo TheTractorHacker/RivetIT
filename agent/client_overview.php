@@ -59,7 +59,7 @@ $sql_open_tickets = mysqli_query($mysqli,
             ticket_updated_at, ticket_status_name, ticket_status_color
      FROM tickets
      LEFT JOIN ticket_statuses ON ticket_status = ticket_status_id
-     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4 $co_support_sql
+     WHERE ticket_client_id = $client_id AND ticket_archived_at IS NULL AND ticket_closed_at IS NULL AND ticket_status != 4" . ticketNotParkedSql($mysqli) . " $co_support_sql
      ORDER BY ticket_updated_at DESC LIMIT 6");
 
 /*
@@ -105,7 +105,7 @@ $sql_shared_items = mysqli_query($mysqli,
 $sql_stale_tickets = mysqli_query($mysqli,
     "SELECT ticket_id, ticket_prefix, ticket_number, ticket_subject, ticket_updated_at FROM tickets
      WHERE ticket_client_id = $client_id AND ticket_updated_at < CURRENT_DATE - INTERVAL 7 DAY $co_support_sql
-       AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL
+       AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL AND ticket_archived_at IS NULL" . ticketNotParkedSql($mysqli) . "
      ORDER BY ticket_updated_at ASC");
 
 // Expiring (45 day window)
@@ -642,7 +642,7 @@ if ($has_fav_assets || $has_fav_creds):
                         ? "$credential_username<button class='btn btn-sm clipboardjs p-1' type='button' data-clipboard-text='$credential_username'><i class='far fa-copy text-secondary'></i></button>"
                         : '-';
                     $otp_display = $credential_otp_secret
-                        ? "<small class='text-secondary'><span data-otp-credential-id='$credential_id'><i class='far fa-clock text-dark'></i> <span id='otp_$credential_id'><i>Hover…</i></span></span></small>"
+                        ? "<small class='text-secondary'><span data-otp-credential-id='$credential_id'><span id='otp_$credential_id'><button type='button' class='btn btn-sm btn-outline-secondary totp-show' data-totp-show='$credential_id' title='Show the one-time code'><i class='fas fa-shield-alt me-1' aria-hidden='true'></i>Show code</button></span></span></small>"
                         : '';
                 ?>
                 <tr>

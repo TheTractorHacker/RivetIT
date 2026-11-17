@@ -32,9 +32,14 @@ require_once __DIR__ . '/modal_permissions.php';
 itflow_modal_check($_SERVER['SCRIPT_NAME'] ?? '');
 
 header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
 
-// Check for the 'id' parameter
-//if (!isset($_GET['id'])) {
-//    echo json_encode(['error' => 'ID missing.']);
-//    exit;
-//}
+// IT-WEB-1: per-response script token. js/ajax_modal.js re-runs a pop-up's <script> elements (innerHTML-inserted scripts are inert)
+// with the page CSP nonce, and ONLY those stamped with this response's token, which it reads from the X-Rivet-Modal-Token header.
+// A static file (an upload) or any other same-origin response cannot carry the header, so it can never get its scripts executed.
+// The stamping happens in an output callback so every pop-up that ends in json_encode(['content' => ...]) is covered, whether it
+// uses modal_footer.php or not; any data-modal-script the content already carried is removed first.
+$GLOBALS['rivet_modal_script_token'] = bin2hex(random_bytes(16));
+header('X-Rivet-Modal-Token: ' . $GLOBALS['rivet_modal_script_token']);
+require_once __DIR__ . '/modal_script_token.php';
+ob_start(static fn (string $out): string => rivet_modal_stamp_scripts($out, $GLOBALS['rivet_modal_script_token']));
