@@ -6,6 +6,51 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **PHPMailer's `get_oauth_token.php` is no longer public.** It is PHPMailer's interactive refresh-token helper; nothing in the app calls it. It is removed from the shipped plugin and from the `/plugins/` PHP allow-list in `deploy/templates/rivetit-locations.conf`. The live nginx snippets (`rivetit-locations.conf`, `itflow-locations.conf`) still carry the old allow-list until the web-routes apply procedure is run (docs/WEB_ROUTES.md); with the file gone the old rule only produces a 404.
+
+- **Quality is hidden while its module is off.** The admin side nav entries "Quality" and "Single sign-on provider" (the provider exists only to sign people in to Quality) and their settings-search results appear only when Admin > Modules > Quality is on. Single sign-on to Quality was already refused at `/oidc/authorize` and the "Open Quality" menu item already followed the switch. New `tests/quality_nav_gate.php`.
+
+- **Parked ticket statuses.** An administrator can mark a ticket status (On Hold is ticked once on upgrade) as Parked in Administration, Ticket Statuses (DB 2.6.238). Tickets in it stay unresolved but leave the dashboards, the default ticket list and board, the stat cards, the open-ticket counts and the SLA warning / breach events and overdue rule pass. They stay in search, the client ticket tab, single-ticket views, the All view, a Status filter that picks the status, and a new Show parked toggle. Parking does not pause the SLA or change time or billing. The `rpt_tickets` reporting view gains a trailing `is_parked` column; `is_open` is unchanged, so "open and not parked" is `is_open = 1 AND is_parked = 0`. The nightly backlog rollup (`ticket_metrics_daily.backlog_open`) no longer counts parked tickets from the first run after the update; older rows keep the old definition, so the backlog trend steps down on that date.
+
+- **Fix: beta log noise and missing compliance tables.** `includes/rmm_bootstrap.php` only reads the compliance retention floors when the compliance tables exist (every check-in on a database without Core migration 0046 logged "compliance retention floors unavailable" every few minutes). New DB step 2.6.237 re-runs RivetCore's migrations (idempotent), so a database whose step 2.6.199 ran against an older Core now gets 0045 to 0048.
+
+- **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
+
+## [26.10.88] - 2026-11-16
+
+- **Clone for worksheet templates and ticket automation rules.** Worksheet Templates list: Clone in the row menu (copies the fields). Ticket Automation: a Clone button per rule; the copy starts disabled until you edit and enable it.
+
+- **Clone for templates.** Ticket templates (Templates > Ticket Templates, list menu or the template page) and Employee Workflow Templates (list menu or template page) have a **Clone** action. A cloned ticket template copies the subject, body, worksheet and tasks; a cloned workflow template copies its form questions and tasks (with their "waits for" links) and starts inactive until you switch it on.
+
+- **Onboarding and offboarding are tickets now (DB 2.6.236).** New switch under Administration > Employee Workflow Templates, "Use workflows for onboarding and offboarding", **off by default**. Off: onboarding/offboarding templates cannot be started (contact page, Start workflow, event rules, HR request approval all skip them), the portal's "Request onboarding" and the onboarding/offboarding HR request types are hidden, and the department portal's Request something menu gets two items, **New hire** and **Leaver**, with a short form each that opens a ticket (edit them under Service Catalog). Role change and transfer workflows work as before; existing runs and templates are untouched.
+- **Ticket templates can carry a worksheet.** Edit (or create) a ticket template and pick a Worksheet; every ticket an agent creates from that template gets it attached, ready to fill in.
+
+- **Workflows page (Service Desk > Workflows).** One list of every employee workflow with search, status and type filters, a progress bar, and Open / Cancel / Delete (delete needs client-delete permission; tickets already opened are kept), plus Start workflow and (admins) Edit templates. The workflow page links back to it and has a Delete button.
+- **Fix: adding a built-in preset from a template's page showed a blank page.** The page's save handler was never loaded (the same applied to editing or archiving the template from that page); presets, starters and template edit now work there.
+
+- **Employee Workflows: one-click "Open an onboarding ticket" / "Open an offboarding ticket" presets** (template page > Add a built-in preset). The workflow opens a ticket in the person's department with the start/last day, manager and checklist name filled in, so you don't need a separate ticket template.
+
+- **Tickets: "New from workflow..."** (arrow next to New Ticket). Agents pick a person and an Employee Workflow template (plus its form questions) without opening the contact first; the workflow starts exactly as from the contact page, so its "Create a ticket" steps open tickets and the other tasks appear on the workflow page. Needs client-edit permission and respects client access.
+
+## [26.10.87] - 2026-11-16
+
+- **Employee Workflow task editor redesigned.** The Edit Task dialog is wider and its fields flow in a clean responsive grid (they were squeezed into unreadable slivers); Required is a switch; the built-in preset picker shows the short name with the description underneath instead of one clipped line.
+
+- **Asset details: the left card is fixed for assets with a description and photo.** The description no longer wraps one character per line, and the photo is a normal full-width picture under the name instead of a huge oval. **New asset types: Server Room, Rack, UPS/Power and Storage/NAS** (Other no longer needed for these); the RMM asset matcher knows them too.
+
+- **Ticket statuses: "Counts as closed" toggle (Administration > Ticket Statuses > edit/add).** Tick it on a status such as *Unresolved* (finished without a resolution) and a ticket in that status leaves the open lists and every open count (tiles, sidebar, dashboards) exactly like a Closed ticket, silently: no e-mail to the client, no "closed" entry, no rating request. It works from the list pill, the ticket page, the reply form, the Kanban board and the API; the Reopen button reopens such a ticket. Tickets already in a status are stamped closed (or reopened) when you change its setting. The status list shows an Open/Closed column. **Database 2.6.234 to 2.6.235** (one new column on `ticket_statuses`, off for every status until ticked).
+
+- **Fix: ticket e-mails showed backslashes.** The "ticket created" e-mail (and the new-ticket notice, the scheduled-work and cancelled-work notices and others) read `\"Fw: ...\"` and `[\"https://...\"]View ticket`, with a broken logo: the body was escaped for SQL by the caller and the mail queue already binds parameters, so every quote got a backslash. Callers no longer pre-escape, and the template engine also undoes SQL escaping on values it is given (names, subjects with apostrophes or quotes).
+- **Better "ticket created" e-mail for tickets that arrive by e-mail:** it now quotes the first 500 characters of what the person sent (it was an empty grey box), and an empty quote box is no longer sent at all.
+
+## [26.10.86] - 2026-11-13
+
+Database 2.6.233 to 2.6.234 (repairs ticket times the mobile API stamped in the future). Requires RivetCore 1.0.0-rc.60.
+
+- **Ticket list calmer.** Only the status is a pill now; the ticket number is a plain chip, category and priority are a coloured dot and a word, the assignee is initials in the agent's colour and a name (quick-change dropdowns still work and update in place), the grey box around the filter bar is gone, and CSAT and Tags yield below 1500px so the table fits a laptop without sideways scrolling. Changing a status from the list now updates the pill colour immediately.
+
+- **Database 2.6.233 to 2.6.234: repair ticket times stamped in the future by the API.** Tickets and replies created from the mobile app before this release were stored in the database server's time zone, so they read "in 5 hours". The update shifts only values that are provably wrong (a created, updated, first-response or reply time later than now; due dates are never touched) back into the company zone, and does nothing on a server whose zone already matches the company's. Idempotent. Rows stamped in the past by the same bug (a ticket made more than the zone offset ago) are not changed.
+
 - **Credentials: live one-time codes (TOTP).** "Show code" (a click, not a hover) shows the code with a countdown ring to the next change (green, amber under 10 seconds, red under 5), a copy button and a hide button; the next code is fetched by itself when the ring runs out, the countdown comes from the server's clock, and a code hides itself after two minutes or when the tab was hidden for 30 seconds. Works on the credentials list, the credential dialog, asset, contact and department pages.
 - **Credentials list is tighter:** the description is one line (full text on hover) so rows are two lines tall instead of five, the name column has a fixed comfortable width, and the Linked column yields below 1440px so the table fits.
 

@@ -9,6 +9,9 @@ $uid = $api_user_id;
 // Roles audit P1g/F8: ticket numbers need Tickets/assets/docs. Without it every ticket count is 0 and the
 // queue is empty (the response keeps its shape so the app's home screen still renders).
 $dash_tickets_sql = api_has_module_permission($mysqli, $uid, 'module_support') ? '' : ' AND 1 = 0';
+// Every count and the queue below are attention surfaces: tickets in a Parked status are left out (they stay in search and the ticket list).
+require_once dirname(__DIR__, 2) . '/includes/ticket_parked.php';
+$dash_tickets_sql .= ticketNotParkedSql($mysqli, 'ticket_status');
 // The unread count follows the same notification rules as the bell (includes/module_access.php).
 $dash_notif_sql = itflow_notification_type_sql(intval($uid));
 

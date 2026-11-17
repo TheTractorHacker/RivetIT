@@ -681,6 +681,11 @@ if (isset($_GET['asset_id'])) {
             #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools { margin: 0; float: none; display: flex; align-items: center; gap: .35rem; }
             #asset-details-content .asset-main .card > .card-header:not(.p-0) .card-tools > .btn, #asset-details-content .asset-main .card > .card-header .card-tools .btn-group > .btn { padding: .2rem .6rem; font-size: .8125rem; white-space: nowrap; }
             #asset-details-content .asset-side > .card:first-child .card-header .btn.float-end { order: 2; margin-left: auto; float: none !important; }
+            #asset-details-content .asset-side > .card:first-child > .asset-head { display: block; }
+            .asset-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+            .asset-head-row .asset-name { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+            .asset-head .asset-desc { margin-top: .35rem; overflow-wrap: anywhere; }
+            .asset-head .asset-photo { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: .5rem; margin-top: .75rem; }
             .asset-facts { display: grid; grid-template-columns: max-content 1fr; gap: .5rem .9rem; align-items: baseline; }
             .asset-facts dt { font-weight: 500; font-size: .8rem; color: var(--if-muted, #6c757d); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
             .asset-facts dd { margin: 0; min-width: 0; overflow-wrap: break-word; font-weight: 600; }
@@ -695,19 +700,21 @@ if (isset($_GET['asset_id'])) {
             <div class="asset-side col-12 col-lg-4 col-xxl-3">
 
                 <div class="card">
-                    <div class="card-header">
-                        <button type="button" class="btn btn-light float-end ajax-modal"
-                            data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>">
-                            <i class="fas fa-fw fa-edit"></i>
-                        </button>
-                        <h4 class="text-bold asset-name"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= str_replace('-', "\u{2011}", $asset_name); ?>
-                            <?php if ($asset_favorite) { ?><i class="fas fa-fw text-warning fa-star" title="Favorite"></i><?php } ?>
-                        </h4>
-                        <?php if ($asset_photo) { ?>
-                            <img class="img-fluid img-circle p-3" alt="asset_photo" src="<?= "../uploads/clients/$client_id/$asset_photo"; ?>">
-                        <?php } ?>
+                    <div class="card-header asset-head">
+                        <div class="asset-head-row">
+                            <h4 class="text-bold asset-name"><i class="fa fa-fw text-secondary fa-<?= $device_icon; ?> me-2"></i><?= str_replace('-', "\u{2011}", $asset_name); ?>
+                                <?php if ($asset_favorite) { ?><i class="fas fa-fw text-warning fa-star" title="Favorite"></i><?php } ?>
+                            </h4>
+                            <button type="button" class="btn btn-light ajax-modal"
+                                data-modal-url="modals/asset/asset_edit.php?id=<?= $asset_id ?>">
+                                <i class="fas fa-fw fa-edit"></i>
+                            </button>
+                        </div>
                         <?php if ($asset_description) { ?>
-                            <div class="text-secondary"><?= $asset_description; ?></div>
+                            <div class="text-secondary asset-desc"><?= $asset_description; ?></div>
+                        <?php } ?>
+                        <?php if ($asset_photo) { ?>
+                            <img class="asset-photo" alt="asset_photo" src="<?= "../uploads/clients/$client_id/$asset_photo"; ?>">
                         <?php } ?>
                     </div>
                     <div class="card-body">

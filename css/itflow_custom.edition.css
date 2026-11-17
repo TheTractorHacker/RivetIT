@@ -319,3 +319,25 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 .cred-compact .cred-desc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .cred-compact .cred-tags { margin-top: .2rem; }
 @media (max-width: 1439.98px) and (min-width: 992px) { .cred-compact th:nth-child(7), .cred-compact td:nth-child(7) { display: none; } }
+
+/* Ticket list, round 3: ONE kind of pill (the status, which is the thing you scan for); everything else is quiet text. The ticket number is a plain chip, category and
+   priority are a coloured dot and a word, the assignee is initials in the agent's colour and a name. Fewer shapes and colours competing, so the eye lands on status
+   and subject. The toolbar loses its grey inset box and the dead strip under it. */
+.table-tight .tk-num { display: inline-block; padding: .15rem .5rem; border-radius: 6px; background: var(--tblr-bg-surface-secondary, #eef2f5); color: var(--tblr-body-color); font-weight: 600; font-size: .78rem; letter-spacing: .02em; white-space: nowrap; }
+.tkt-pill-badge.tk-dot, .tkt-pill-badge.tk-person { background: transparent !important; border: 0; padding: 0; color: var(--tblr-body-color) !important; font-weight: 400 !important; font-size: .875rem; display: inline-flex; align-items: center; gap: .45rem; max-width: 9rem; }
+.tkt-pill-badge.tk-dot::before { content: ""; flex: 0 0 .6rem; width: .6rem; height: .6rem; border-radius: 50%; background: var(--pill, #6c757d); }
+.tk-av { flex: 0 0 auto; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--pill, #6c757d); color: #fff; font-size: .66rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.tk-name { overflow: hidden; text-overflow: ellipsis; }
+.ticket-filter-bar .filter-toolbar { background: transparent !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; margin: 0 0 .5rem !important; }
+.ticket-filter-bar .collapse:not(.show) { margin: 0 !important; }
+.card-body > .ticket-filter-bar { margin-bottom: 0; }
+/* The ticket list must fit a laptop: CSAT and Tags yield below 1500px (they are in the ticket itself) and the dot/avatar columns stay narrow. */
+@media (max-width: 1499.98px) and (min-width: 992px) {
+  .table-tight .tk-col-csat { display: none; }
+  .table-tight thead th:nth-last-child(3), .table-tight tbody tr:not(.ticket-group-header) > td:nth-last-child(3) { display: none; }
+  .table-tight .tkt-pill-badge.tk-dot, .table-tight .tkt-pill-badge.tk-person { max-width: 7rem; }
+  .table-tight .tk-col-subject { min-width: 150px; }
+}
+@media (max-width: 1439.98px) and (min-width: 992px) {
+  .table-tight .tk-av { display: none; }
+}

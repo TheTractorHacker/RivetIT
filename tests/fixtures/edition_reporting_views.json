@@ -42,7 +42,8 @@
             "sla_resolution_met",
             "first_response_s",
             "resolution_s",
-            "csat_rating"
+            "csat_rating",
+            "is_parked"
         ],
         "rpt_alert_tickets": [
             "alert_id",

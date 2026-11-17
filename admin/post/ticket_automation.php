@@ -180,6 +180,32 @@ if (isset($_GET['toggle'])) {
     redirect("/admin/ticket_automation.php");
 }
 
+// Clone: the copy is created DISABLED so it cannot fire before it has been edited.
+if (isset($_GET['clone'])) {
+    validateCSRFToken($_GET['csrf_token']);
+    enforceUserPermission('user_type', 1);
+    $id = intval($_GET['clone']);
+    $src = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT * FROM ticket_automation_rules WHERE rule_id = $id"));
+    if (!$src) {
+        flash_alert('Rule not found.', 'error');
+        redirect("/admin/ticket_automation.php");
+    }
+    $cols = $src;
+    unset($cols['rule_id'], $cols['rule_created_at']);
+    $cols['rule_name'] = mb_substr((string) $src['rule_name'], 0, 190) . ' (copy)';
+    $cols['rule_enabled'] = 0;
+    $names = [];
+    $vals = [];
+    foreach ($cols as $c => $v) {
+        $names[] = '`' . $c . '`';
+        $vals[] = $v === null ? 'NULL' : "'" . mysqli_real_escape_string($mysqli, (string) $v) . "'";
+    }
+    mysqli_query($mysqli, 'INSERT INTO ticket_automation_rules (' . implode(',', $names) . ') VALUES (' . implode(',', $vals) . ')');
+    logAction("Automation", "Create", "Cloned ticket automation rule #$id");
+    flash_alert('Rule cloned and switched off. Edit it, then enable it.');
+    redirect("/admin/ticket_automation.php");
+}
+
 // Delete
 if (isset($_GET['delete'])) {
     validateCSRFToken($_GET['csrf_token']);
