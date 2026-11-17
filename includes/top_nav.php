@@ -186,17 +186,18 @@ ob_start();
                 <span
                     class="d-none d-md-inline dropdown-toggle"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></span>
             </a>
-            <div class="dropdown-menu dropdown-menu-end p-0 acct-menu" style="min-width: 17rem;">
+            <div class="dropdown-menu dropdown-menu-end p-0 acct-menu" style="min-width: 15rem;">
                 <!-- User identity -->
-                <div class="text-center px-3 py-3 border-bottom">
+                <div class="acct-id border-bottom">
                     <?php if (empty($session_avatar)) { ?>
-                    <i class="fas fa-user-circle fa-4x text-muted"></i>
+                    <i class="fas fa-user-circle acct-avatar-icon text-muted"></i>
                     <?php }else{ ?>
-
-                    <img src="<?php echo "/uploads/users/$session_user_id/$session_avatar"; ?>" class="rounded-circle" width="72" height="72" alt="">
+                    <img src="<?php echo "/uploads/users/$session_user_id/$session_avatar"; ?>" class="rounded-circle acct-avatar" width="44" height="44" alt="">
                     <?php } ?>
-                    <div class="mt-2 fw-semibold"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></div>
-                    <div class="small text-muted"><?php echo nullable_htmlentities($session_user_role_display); ?></div>
+                    <div class="acct-id-text">
+                        <div class="fw-semibold text-truncate"><?php echo stripslashes(nullable_htmlentities($session_name)); ?></div>
+                        <div class="small text-muted text-truncate"><?php echo nullable_htmlentities($session_user_role_display); ?></div>
+                    </div>
                 </div>
                 <!-- Menu Footer-->
                 <div class="py-1">

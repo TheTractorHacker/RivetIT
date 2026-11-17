@@ -67,3 +67,12 @@
 
 /* Account menu was see-through: the ticket buttons and stat cards behind it bled through the panel. Make it solid. */
 .navbar-nav > .user-menu > .dropdown-menu.acct-menu { background-color: #2b3038 !important; opacity: 1 !important; backdrop-filter: none; box-shadow: 0 12px 32px rgba(0,0,0,.45); z-index: 1100; }
+
+/* Account menu, compact: small avatar beside the name instead of a 90px photo stacked above it. */
+.navbar-nav > .user-menu > .dropdown-menu.acct-menu { min-width: 15rem !important; width: 15rem; margin-top: .5rem; }
+.acct-menu .acct-id { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; }
+.acct-menu .acct-avatar { width: 44px !important; height: 44px !important; flex: 0 0 44px; object-fit: cover; }
+.acct-menu .acct-avatar-icon { font-size: 44px; flex: 0 0 44px; line-height: 1; }
+.acct-menu .acct-id-text { min-width: 0; line-height: 1.25; }
+.acct-menu .dropdown-item { padding: .5rem 1rem; }
+.acct-menu > .py-1 { padding: .35rem 0 !important; }
