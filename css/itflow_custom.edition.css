@@ -341,3 +341,9 @@ html[data-bs-theme="dark"] .portal-ui footer.footer p {
 @media (max-width: 1439.98px) and (min-width: 992px) {
   .table-tight .tk-av { display: none; }
 }
+
+/* Ticket filter chips: label, count badge and chevron sit in one row with even spacing (the count used to overlap both). */
+.tv-ms-btn { display: inline-flex; align-items: center; gap: .4rem; }
+.tv-ms-btn .tv-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem; margin: 0; line-height: 1; vertical-align: baseline; font-size: .72rem; }
+.tv-ms-btn .tv-count[hidden] { display: none; }
+.tv-ms-btn.dropdown-toggle::after { margin-left: 0; }
