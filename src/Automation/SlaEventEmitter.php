@@ -57,9 +57,12 @@ final class SlaEventEmitter
             require_once dirname(__DIR__, 2) . '/includes/sla_functions.php';
         }
         $sent = 0;
+        // A ticket in a Parked status is not announced (SLA warning / breach webhooks and event rules); the breach itself is still
+        // recorded on the ticket and in the SLA reports (docs/design/parked-ticket-statuses.md, items 4 and 7).
+        require_once dirname(__DIR__, 2) . '/includes/ticket_parked.php';
         $res = mysqli_query($mysqli,
             'SELECT * FROM tickets WHERE ticket_archived_at IS NULL AND ticket_resolved_at IS NULL AND ticket_closed_at IS NULL
-               AND (ticket_sla_response_due IS NOT NULL OR ticket_sla_resolution_due IS NOT NULL)' . slaCountsClause($mysqli) . ' ORDER BY ticket_id DESC LIMIT ' . max(1, (int) $limit));
+               AND (ticket_sla_response_due IS NOT NULL OR ticket_sla_resolution_due IS NOT NULL)' . slaCountsClause($mysqli) . \ticketNotParkedSql($mysqli) . ' ORDER BY ticket_id DESC LIMIT ' . max(1, (int) $limit));
         while ($res && ($t = mysqli_fetch_assoc($res))) {
             $status = slaStatus($t, []);
             foreach (['response', 'resolution'] as $clock) {

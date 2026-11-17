@@ -338,9 +338,20 @@ function renderMailTemplate($mysqli, string $event, array $vars): ?array {
     $subjectTpl = $row['mail_template_subject'] ?? $defaults['subject'];
     $bodyTpl = $row['mail_template_body'] ?? $defaults['body'];
 
+    // Many callers still hand over values that were run through sanitizeInput() / mysqli_real_escape_string() for an earlier SQL statement, which leaves a
+    // backslash before every quote ("O\'Brien", an HTML attribute written \"...\") in the e-mail. The template engine escapes for HTML itself, so undo the SQL
+    // escaping here, once, for every value that is not already finished HTML.
+    foreach ($vars as $k => $v) {
+        if (is_string($v) && !in_array($k, MAIL_TEMPLATE_RAW_KEYS, true)) {
+            $vars[$k] = mailTemplateUndoSqlEscape($v);
+        }
+    }
+
     $branding = mailTemplateBranding($mysqli);
     $vars['mt_accent'] = $branding['accent'];
     $body = mailTemplateApplyPlaceholders($bodyTpl, $vars, 'html');
+    // A quote box whose placeholder came out empty (no details, no reply text) is dropped instead of sent as an empty grey bar.
+    $body = preg_replace('~<div style="background-color:#f8f9fa;border-left:3px solid [^"]*;border-radius:6px;[^"]*">\s*</div>~', '', $body);
     $subject = mailTemplateApplyPlaceholders($subjectTpl, $vars, 'text');
 
     $hf = mailTemplateHeaderFooter($mysqli);
@@ -348,6 +359,15 @@ function renderMailTemplate($mysqli, string $event, array $vars): ?array {
     $body = mailTemplateWrapShell($body, $companyName, $hf['header'], $hf['footer'], $branding['accent'], $branding['logo_url']);
 
     return ['subject' => $subject, 'body' => $body];
+}
+
+/** Reverses mysqli_real_escape_string() for the characters that show up in a message: \\' \\" \\\\ and the escaped line breaks. A string that was never escaped is returned unchanged unless it really contains such a sequence. */
+function mailTemplateUndoSqlEscape(string $s): string {
+    if (strpos($s, '\\') === false) {
+        return $s;
+    }
+
+    return strtr($s, ["\\\\" => "\\", "\\'" => "'", '\\"' => '"', "\\r\\n" => "\n", "\\n" => "\n", "\\r" => "", "\\0" => "", "\\Z" => "\x1a"]);
 }
 
 /** Reset one event's stored row back to mailTemplateDefaults(). False only when the event key or the row itself is unknown. */

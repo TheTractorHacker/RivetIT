@@ -25,7 +25,9 @@ final class TicketBacklogReport
         $now = $now !== null && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $now) ? $now : date('Y-m-d H:i:s');
         $scope = ReportScope::clause('t.ticket_client_id');
         $base  = "t.ticket_archived_at IS NULL" . $scope;
-        $open  = "$base AND t.ticket_resolved_at IS NULL AND t.ticket_closed_at IS NULL";
+        // Parked statuses are unresolved but not backlog (docs/design/parked-ticket-statuses.md). The weekly trend below is history and is not rewritten.
+        require_once dirname(__DIR__, 3) . '/includes/ticket_parked.php';
+        $open  = "$base AND t.ticket_resolved_at IS NULL AND t.ticket_closed_at IS NULL" . \ticketNotParkedSql($db, 't.ticket_status');
         $age   = "TIMESTAMPDIFF(HOUR, t.ticket_created_at, '$now')";
 
         $row = mysqli_fetch_assoc(mysqli_query($db,
