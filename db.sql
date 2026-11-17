@@ -1636,6 +1636,7 @@ CREATE TABLE `endpoint_agent_installer_options` (
   `install_mesh_agent` tinyint(1) NOT NULL DEFAULT 0,
   `device_type` varchar(20) NOT NULL DEFAULT 'auto',
   `created_at` datetime NOT NULL,
+  `managed_externally` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`token_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

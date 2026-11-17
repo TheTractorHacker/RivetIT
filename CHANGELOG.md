@@ -6,6 +6,12 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **RivetCore 1.0.0-rc.60** (DB 2.6.239, one additive column: `endpoint_agent_installer_options.managed_externally`; take a database dump first, then Administration > Update > Update Database). A device moved to another department now takes its alerts, jobs, patch, package and deployment state with it (Core fix); shared design CSS re-installed from Core (no link underline on hover, sticky table header).
+
+- **Move to Department.** On the asset edit modal, the RMM panel of the asset page and the legacy device page, for assets with an endpoint device and users holding `rmm.device.manage`: pick a department (and optionally a site), confirm, and Core's `TechnicianActions::transfer()` moves the device and its asset; the agent's credential is untouched, so it keeps reporting without reinstalling. The bulk Assets "Transfer to Department" now sends every asset that has an endpoint device through the same call (the asset keeps its id; it is no longer copied and archived) and reports which were refused and why; assets without a device behave as before.
+
+- **Managed by another RMM.** A check box on Download installer, Show deployment commands and Create enrollment token (off by default): computers enrolled with it start with automation off. The Bulk Action menu on RMM Assets gains Mark / Clear as managed by another RMM (up to 500 computers; computers you cannot manage, that have no RivetIT agent or that no longer exist are listed together as not changed).
+
 - **Microsoft 365 mailbox alerts say why.** "could not find or create the ITFlow mail folder" now includes the HTTP status and Graph error code of the lookup and the create call (never a token or response body), so an alert tells you whether it is consent/permission (401/403), the mailbox (404), or Microsoft throttling/an outage (429/503). New `tests/graph_folder_error_detail.php`.
 
 - **PHPMailer's `get_oauth_token.php` is no longer public.** It is PHPMailer's interactive refresh-token helper; nothing in the app calls it. It is removed from the shipped plugin and from the `/plugins/` PHP allow-list in `deploy/templates/rivetit-locations.conf`. The live nginx snippets (`rivetit-locations.conf`, `itflow-locations.conf`) still carry the old allow-list until the web-routes apply procedure is run (docs/WEB_ROUTES.md); with the file gone the old rule only produces a 404.

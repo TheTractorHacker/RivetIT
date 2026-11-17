@@ -760,6 +760,7 @@ echo rivetAgentFeedCard($mysqli, $rmm, ['csrf' => $csrf, 'module_on' => $moduleO
             <div class="col-12" id="dp_mesh_col"><div class="form-check"><input class="form-check-input" type="checkbox" id="dp_mesh" name="install_mesh_agent" value="1" aria-describedby="dp_mesh_help"><label class="form-check-label" for="dp_mesh">Also install the MeshCentral agent (after the device is approved)</label></div>
                 <div class="form-text" id="dp_mesh_help"><?= $depMesh['ready'] ? ('The Mesh agent installs after you approve the device: once it is linked, ' . htmlspecialchars(APP_NAME) . ' pushes it from your own Mesh server and device group. A Mesh failure never affects the ' . htmlspecialchars(APP_NAME) . ' agent. The installer and its commands carry nothing of Mesh.') : 'Not ready yet: ' . $h($depMesh['hint']) . ' <a href="#mesh">Open the MeshCentral settings below</a>.' ?></div></div>
             <?php } ?>
+            <?= rivetRmmManagedExternallyField('dp_managed') ?>
             <div class="col-12 small text-muted" id="dp_format_help" aria-live="polite">The .exe is the default. The MSI is a stamped copy of the published MSI template for Intune, Group Policy or any tool that installs .msi packages. <?= $msiCur['amd64'] === null ? 'No MSI template is published for x64 yet (<a href="#msi-templates">upload one under MSI template</a>).' : 'Current x64 template: ' . $h($msiCur['amd64']) . '.' ?></div>
             <div class="col-12 d-flex flex-wrap gap-2 mt-2">
                 <button type="submit" name="download_installer" class="btn btn-primary"><i class="fas fa-download me-1"></i>Download installer</button>
@@ -854,6 +855,7 @@ $hvNum = static fn (string $key, int $def): int => (int) ($hvLim[$key] ?? $def);
             <div class="col-lg-1"><label class="form-label" for="et_ttl">Hours</label><input type="number" class="form-control" id="et_ttl" name="ttl_hours" min="1" max="<?= (int) $cfg['enroll_max_ttl_h'] ?>" value="24"></div>
             <div class="col-lg-1"><label class="form-label" for="et_uses">Uses</label><input type="number" class="form-control" id="et_uses" name="max_uses" min="1" max="5000" value="1"></div>
             <div class="col-lg-2"><label class="form-label" for="et_label">Label</label><input type="text" class="form-control" id="et_label" name="label" maxlength="100"></div>
+            <?= rivetRmmManagedExternallyField('et_managed') ?>
             <div class="col-lg-1"><button type="submit" name="create_enroll_token" class="btn btn-primary w-100">Create</button></div>
         </form>
         <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">

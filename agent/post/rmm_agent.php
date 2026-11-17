@@ -13,6 +13,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_global_settings.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_user_session.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_device_actions.php';
 
 use RivetCore\Rmm\Technician\ActionResult;
 
@@ -42,6 +43,66 @@ $rmm = rivetRmmModule();
 $tech = $rmm->technician();
 $who = rivetRmmPrincipal($uid, (string) $session_name);
 
+// RivetCore 1.0.0-rc.60: "Move to Department" (dialog data, then the move) and the bulk "managed by another RMM" switch. Each re-checks rmm.device.manage on the server
+// (rivetRmmMoveDevice() / rivetRmmBulkManagedExternally() ask first, Core asks again per device); the CSRF token was checked above. JSON only; never HTML.
+$json = static function (int $http, array $body): void {
+    http_response_code($http);
+    echo json_encode($body);
+    exit;
+};
+$posted_ids = static function (string $key): array {
+    $raw = $_POST[$key] ?? [];
+    $ids = [];
+    foreach (is_array($raw) ? $raw : [] as $v) {
+        if (is_scalar($v) && ctype_digit(trim((string) $v))) {
+            $ids[] = (int) trim((string) $v);
+        }
+    }
+
+    return $ids;
+};
+if (in_array($action, ['move_options', 'move_locations'], true) && !$rmm->enabled()) {
+    $json(404, ['success' => false, 'code' => 'module_off', 'error' => RIVET_RMM_MODULE_OFF_MESSAGE]);
+}
+switch ($action) {
+    case 'move_options':
+        $dev = $tech->visibleDevice($uid, $device_id);
+        if ($dev === null) {
+            $json(404, ['success' => false, 'code' => 'not_found', 'error' => 'Device not found.']);
+        }
+        if (!rivetRmmCanManageDevices($rmm, $uid, (int) $dev['client_id'])) {
+            $json(403, ['success' => false, 'code' => 'forbidden', 'error' => 'You do not have permission to move computers out of this department.']);
+        }
+        $json(200, ['success' => true, 'current_client_id' => (int) $dev['client_id'], 'departments' => rivetRmmMoveTargets($mysqli, $rmm, $uid, (int) $dev['client_id'])]);
+    case 'move_locations':
+        $dev = $tech->visibleDevice($uid, $device_id);
+        if ($dev === null || !rivetRmmCanManageDevices($rmm, $uid, (int) $dev['client_id'])) {
+            $json(403, ['success' => false, 'code' => 'forbidden', 'error' => 'Not allowed.']);
+        }
+        $json(200, ['success' => true, 'locations' => rivetRmmMoveLocations($mysqli, $rmm, $uid, intval($_POST['client_id'] ?? 0))]);
+    case 'move_department':
+        $mv = rivetRmmMoveDevice($mysqli, $rmm, $who, $device_id, intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0));
+        if (!$mv['ok']) {
+            $json($mv['http'], ['success' => false, 'code' => $mv['code'], 'error' => $mv['message']]);
+        }
+        $to = (int) $mv['client_id'];
+        $asset = (int) $mv['asset_id'];
+        if ($asset > 0 && $to !== (int) $mv['from_client_id']) {
+            // What Core does not know about: the asset's photo folder and the asset's own log line (the same two things the asset edit modal does when it moves an asset).
+            if (function_exists('moveAssetPhotoToClient')) {
+                moveAssetPhotoToClient($asset, (int) $mv['from_client_id'], $to);
+            }
+            $mv_name = sanitizeInput(getFieldById('assets', $asset, 'asset_name'));
+            $mv_to = sanitizeInput(getFieldById('clients', $to, 'client_name'));
+            logAction('Asset', 'Edit', "$session_name moved asset $mv_name to department $mv_to (Move to Department)", $to, $asset);
+        }
+        flash_alert(nullable_htmlentities($mv['message']));   // shown in the page's normal flash area after the reload
+        $json(200, ['success' => true, 'code' => $mv['code'], 'message' => $mv['message'],
+            'redirect' => $asset > 0 ? '/agent/asset_details.php?client_id=' . $to . '&asset_id=' . $asset . '#rmm-overview' : '/agent/rmm_agent_device.php?device_id=' . $device_id]);
+    case 'bulk_managed_externally':
+        $bm = rivetRmmBulkManagedExternally($mysqli, $rmm, $who, $posted_ids('asset_ids'), !empty($_POST['disabled']));
+        $json($bm['http'], ['success' => $bm['ok'], 'code' => $bm['code'], ($bm['ok'] ? 'message' : 'error') => $bm['message'], 'counts' => $bm['counts'], 'changed' => $bm['changed'], 'unchanged' => $bm['unchanged'], 'skipped' => $bm['skipped']]);
+}
 switch ($action) {
     case 'submit_job':
         $in = [

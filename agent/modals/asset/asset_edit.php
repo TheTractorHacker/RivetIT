@@ -72,6 +72,7 @@ enforceClientAccess();
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_bootstrap.php';   // rivetRmmEnabled(), rivetRmmModule()
 $rmm_automation_device_id = null;
 $rmm_automation_disabled = false;
+$rmm_move_device_id = null;
 if (rivetRmmEnabled($mysqli)) {
     require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_ui.php';
     $deviceId = rivetRmmUiDeviceIdForAsset($mysqli, $asset_id);
@@ -79,6 +80,11 @@ if (rivetRmmEnabled($mysqli)) {
         $rmmMod = rivetRmmModule($mysqli);
         $rmmAuthz = $rmmMod->authorizer();
         $rmmIsAdmin = $rmmAuthz->allowed((int) $session_user_id, \RivetCore\Rmm\Authz\RmmAbility::ADMIN, $client_id) || !empty($session_is_admin);
+        // RivetCore 1.0.0-rc.60: "Move to Department" - only for an asset with an endpoint device and a user who holds rmm.device.manage (the server checks again).
+        if ($rmmAuthz->allowed((int) $session_user_id, \RivetCore\Rmm\Authz\RmmAbility::DEVICE_MANAGE, $client_id)) {
+            require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_device_actions.php';
+            $rmm_move_device_id = $deviceId;
+        }
         if ($rmmIsAdmin) {
             $rmmDev = $rmmMod->technician()->visibleDevice((int) $session_user_id, $deviceId);
             if ($rmmDev !== null) {
@@ -258,6 +264,14 @@ ob_start();
                         <input type="text" class="form-control" name="description" placeholder="Description of the asset" maxlength="255" value="<?= $asset_description ?>">
                     </div>
                 </div>
+
+                <?php if ($rmm_move_device_id !== null) { ?>
+                <div class="form-group border-top pt-3 mt-3">
+                    <label class="d-block">Department</label>
+                    <?= rivetRmmMoveButton((int) $rmm_move_device_id, html_entity_decode((string) $asset_name, ENT_QUOTES, 'UTF-8'), '') ?>
+                    <div class="form-text">Moves this computer's agent, history and asset to another department without reinstalling the agent.</div>
+                </div>
+                <?php } ?>
 
                 <?php if ($rmm_automation_device_id !== null) { ?>
                 <div class="form-group border-top pt-3 mt-3">
@@ -647,6 +661,7 @@ ob_start();
     </div>
 </form>
 
+<?php if ($rmm_move_device_id !== null) { ?><script src="/js/rmm_device_move.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/js/rmm_device_move.js') ?>"></script><?php } ?>
 <script src="/agent/js/asset_edit_modal.js?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/agent/js/asset_edit_modal.js') ?>"></script>
 
 <script src="/agent/js/modal_form_ux.js"></script>

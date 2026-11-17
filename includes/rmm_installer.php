@@ -13,6 +13,7 @@
 
 require_once __DIR__ . '/rmm_bootstrap.php';
 require_once __DIR__ . '/rmm_auto_install_ui.php';
+require_once __DIR__ . '/rmm_device_actions.php';   // rc.60: the "Managed by another RMM" check box
 
 use RivetCore\Rmm\Authz\RmmAbility;
 
@@ -400,6 +401,7 @@ function rivetRmmInstallerModal(array $ctx): string
         . '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="rmm-inst-multi"><label class="form-check-label" for="rmm-inst-multi">I am installing on several PCs with this one file</label></div>'
         . $lead('Off: the file works for one PC. On: it works for up to <span id="rmm-inst-multi-n">25</span> PCs until it expires.') . '</div>'
         . $meshField
+        . rivetRmmManagedExternallyField('rmm-inst-managed')
         . $appsField
         . '</div>'
         . '<details class="mt-3" id="rmm-inst-adv"><summary class="small fw-bold">Advanced</summary><div class="row g-3 mt-0 pt-2">'
