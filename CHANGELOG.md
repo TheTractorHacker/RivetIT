@@ -26,6 +26,15 @@ continues unchanged.
 
 - **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
 
+## [Unreleased]
+
+### Changed
+- Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
+- Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
+
+### Added
+- Notifications: "Clear all dismissed" permanently deletes your dismissed notifications.
+
 ## [26.10.88] - 2026-11-16
 
 - **Clone for worksheet templates and ticket automation rules.** Worksheet Templates list: Clone in the row menu (copies the fields). Ticket Automation: a Clone button per rule; the copy starts disabled until you edit and enable it.

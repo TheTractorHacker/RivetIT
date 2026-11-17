@@ -79,3 +79,8 @@
 
 /* Gap between the header bar and the account menu (the menu used to touch the bar's bottom edge). */
 .navbar-nav > .user-menu > .dropdown-menu.acct-menu { margin-top: 1rem !important; }
+
+/* Sidebar rows: the hover/open row and the active row touched each other with no gap. Give every row the same inset, radius and a little air. */
+.navbar-vertical .navbar-nav > .nav-item { margin-block: 1px; }
+.navbar-vertical .navbar-nav > .nav-item > .nav-link { margin-inline: .5rem; border-radius: .5rem; }
+.navbar-vertical .navbar-nav > .nav-item + .nav-item { margin-top: 3px; }
