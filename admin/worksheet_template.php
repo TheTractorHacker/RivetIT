@@ -60,6 +60,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 </button>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item" href="worksheet_template_details.php?id=<?= $tmpl_id ?>"><i class="fas fa-fw fa-edit me-2"></i>Edit</a>
+                                    <a class="dropdown-item" href="post.php?clone_worksheet_template=<?= $tmpl_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-clone me-2"></i>Clone</a>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item text-danger confirm-link" href="post.php?delete_worksheet_template=<?= $tmpl_id ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>"><i class="fas fa-fw fa-trash-alt me-2"></i>Delete</a>
                                 </div>
