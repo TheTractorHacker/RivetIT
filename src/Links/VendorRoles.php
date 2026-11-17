@@ -102,7 +102,7 @@ final class VendorRoles
     /** @return array{ok:true}|array{ok:false,error:string,message:string} */
     public function remove(LinkActor $actor, string $kind, int $id, int $vendorId, string $role): array
     {
-        $chk = $this->check($actor, $kind, $id, $vendorId, $role);
+        $chk = $this->check($actor, $kind, $id, $vendorId, $role, true);
         if (!$chk['ok']) {
             return $chk;
         }
@@ -121,7 +121,7 @@ final class VendorRoles
     }
 
     /** @return array{ok:true,name:string,vendor:string}|array{ok:false,error:string,message:string} */
-    private function check(LinkActor $actor, string $kind, int $id, int $vendorId, string $role): array
+    private function check(LinkActor $actor, string $kind, int $id, int $vendorId, string $role, bool $removing = false): array
     {
         $k = self::KINDS[$kind] ?? null;
         if ($k === null || !in_array($role, EntityTypes::VENDOR_ROLES, true)) {
@@ -140,6 +140,11 @@ final class VendorRoles
             return ['ok' => false, 'error' => 'forbidden', 'message' => 'You do not have access to that department.'];
         }
         if ($ven['client_id'] > 0 && $rec['client_id'] > 0 && $ven['client_id'] !== $rec['client_id']) {
+            return ['ok' => false, 'error' => 'cross_client', 'message' => 'The vendor belongs to another department.'];
+        }
+        // A central vendor (no department) is usable by a department's record only while it is shared (includes/vendor_sharing.php).
+        // Removing a link is always allowed (a vendor toggled off keeps its history and can still be unlinked).
+        if (!$removing && $ven['client_id'] === 0 && $rec['client_id'] > 0 && !vendorIsSharedCentral($this->db, $vendorId)) {
             return ['ok' => false, 'error' => 'cross_client', 'message' => 'The vendor belongs to another department.'];
         }
 

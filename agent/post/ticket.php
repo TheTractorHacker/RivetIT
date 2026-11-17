@@ -50,10 +50,12 @@ if (isset($_POST['add_ticket'])) {
     enforceClientAccess();
 
     // The contact / asset / location / vendor must belong to this ticket's department
-    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, 0)) {
         flash_alert("That $bad_ref does not belong to this department", 'error');
         redirect();
     }
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    enforceVendorAssignable($vendor_id, $client_id);
 
     // Raised from Request Something? Re-read the active item and validate its request form BEFORE a ticket number is used.
     // Items with no form and no approval add nothing here (the ticket is just remembered as coming from the item).
@@ -342,10 +344,12 @@ if (isset($_POST['edit_ticket'])) {
     }
 
     // The contact / asset / location / vendor must belong to this ticket's department
-    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, 0)) {
         flash_alert("That $bad_ref does not belong to this ticket's department", 'error');
         redirect();
     }
+    // A vendor already on the ticket keeps saving (history, a vendor since un-shared); a changed one must be assignable to the ticket's department.
+    enforceVendorAssignable($vendor_id, $client_id, intval(getFieldById('tickets', $ticket_id, 'ticket_vendor_id')));
 
     // Per-category SLA-exempt / Non-billable (DB 2.6.205): snapshot the OLD category/billable state before the UPDATE.
     $old_ticket_row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT ticket_category, ticket_billable" . (ticketBillableOverrideColumnExists($mysqli) ? ", ticket_billable_overridden" : "") . " FROM tickets WHERE ticket_id = $ticket_id LIMIT 1"));
@@ -995,6 +999,8 @@ if (isset($_POST['edit_ticket_vendor'])) {
     if ($client_id) {
         enforceClientAccess();
     }
+
+    enforceVendorAssignable($vendor_id, $client_id, intval(getFieldById('tickets', $ticket_id, 'ticket_vendor_id')));
 
     mysqli_query($mysqli, "UPDATE tickets SET ticket_vendor_id = $vendor_id WHERE ticket_id = $ticket_id");
 

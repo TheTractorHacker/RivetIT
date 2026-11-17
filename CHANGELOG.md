@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Shared central vendors** (DB 2.6.240, one additive column: `vendors.vendor_shared`, default 0, so every existing vendor stays as it is; take a database dump first, then Administration > Update > Update Database). On a central vendor (added in Vendors without a department) tick **Available to all departments**: every department then offers it in its pickers (tickets, assets, services, software, domains, document links, relationships) and lists it, read-only and marked Central, in its Vendors tab. The central list gets a Shared badge and a Shared filter, and each toggle is written to the audit log (who, vendor, old -> new). Unticking it later only stops it being offered for new use; records that already use it keep showing its name. The department view shows only the vendor's own contact fields (no account number, no internal notes, no links to other departments' records). The server refuses to store another department's vendor or an unshared central vendor on a department record. **Behaviour change:** the domain Registrar / Web host / DNS host / Mail host pickers used to offer every central vendor; they now offer only the shared ones (domains already linked to a central vendor keep it and keep saving).
+
 - **RivetCore 1.0.0-rc.60** (DB 2.6.239, one additive column: `endpoint_agent_installer_options.managed_externally`; take a database dump first, then Administration > Update > Update Database). A device moved to another department now takes its alerts, jobs, patch, package and deployment state with it (Core fix); shared design CSS re-installed from Core (no link underline on hover, sticky table header).
 
 - **Move to Department.** On the asset edit modal, the RMM panel of the asset page and the legacy device page, for assets with an endpoint device and users holding `rmm.device.manage`: pick a department (and optionally a site), confirm, and Core's `TechnicianActions::transfer()` moves the device and its asset; the agent's credential is untouched, so it keeps reporting without reinstalling. The bulk Assets "Transfer to Department" now sends every asset that has an endpoint device through the same call (the asset keeps its id; it is no longer copied and archived) and reports which were refused and why; assets without a device behave as before.
@@ -738,7 +740,6 @@ New integration, modelled on the Microsoft Intune one, for iPads and Android tab
 - **Tests**: `tests/manageengine_mdm_client.php`, `tests/manageengine_mdm_sync.php`, `tests/manageengine_mdm_web.php` against a local mock (`tests/mock/manageengine_mdm_mock.php`).
 - **Not verified**: it has not been run against a live ManageEngine tenant; the docs left several facts open (device-list paging parameters, `exclude_removed`, storage units, the accounts host of some data centers). They are listed in `docs/MANAGEENGINE_MDM.md`.
 
-
 ## [26.10.45] RivetIT — one Run script dialog, one Scripts area
 
 No database step. Fixes the asset page's **Run script** dialog, which listed only "PowerShell text" (the RivetCore script library was reachable only from a separate card on the Jobs tab, and Linux devices had no Run script at all), and merges the two script menus.
@@ -1098,7 +1099,6 @@ and the Go agent `endpoint-agent/` with its workflow were removed from this repo
   class names as forwards for their in-process helpers), plus `tests/endpoint_agent_golden.php`, `tests/endpoint_agent_module.php` and the Core adapter
   conformance kit for the eight adapters (`tests/core/Endpoint*ConformanceTest.php`).
 
-
 ## [26.10.26] RivetIT — built-in endpoint agent (beta) with a per-department installer, findings round-up, security fixes
 
 Database migrations 2.6.143 to 2.6.146 apply with **Update Database**. Requires rivet-core 1.0.0-rc.3 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). The endpoint agent is **off by default** (Administration > Endpoint agent) and is a **beta**: the Windows agent builds, passes its tests and has been run end to end on Linux against a real server, but it has not yet run on a real Windows machine. Pilot it on one PC first. The agent exes are built by the `Endpoint agent` GitHub workflow and are unsigned.
@@ -1178,7 +1178,6 @@ product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
 
 - Icons that Font Awesome 5.15 does not have (for example the Job queue icon) are replaced; `tests/fa_icons.php` guards it.
 
-
 ### Webhooks: a guided four-step Add, a tabbed Edit, a clearer list
 
 - **Add webhook is a real stepper** (Platform, Connect, Events, Review & test) on its own page, with a progress bar, one focus per step, a sticky Continue / Back footer (Enter continues, Esc goes back), each step checked before you move on (inline messages, no error dump at the end) and a link per step (`webhook_new.php?dest=n8n&step=events`). The platform step is a compact searchable grid with category chips, a Popular row (n8n, Slack, Discord, Teams, ntfy, Home Assistant, Generic JSON) and a "Recently used" row remembered in this browser.
@@ -1208,7 +1207,6 @@ product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
 ### Fixes
 
 - SLA warning/breach events now fire from cron (the emitter no longer needs a helper from the rule engine file); the server-status page reads the required database version from `includes/database_version.php`.
-
 
 Database migration 2.6.142 applies with **Update Database**. Requires rivet-core 0.21.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this).
 
@@ -2576,7 +2574,6 @@ Training module is on.
 
 
 
-
 ## [25.10.1]
 - Deprecation Notice: `/scripts/cron_mail_queue.php` , `/scripts/cron_ticket_email_parser.php` , `/scripts/cron.php` `/scripts/cron_domain_refresher.php`, `/scripts/cron_certificate_refresher.php` are being phased out. Please transition to `/cron/mail_queue.php` , `/cron/ticket_email_parser.php`, `/cron/cron.php`, `/cron/domain_refresher.php`, `/cron/certificate_refresher.php` These older scripts will be removed in the November 25.11 release—update accordingly. 25.10.1 installs have the script already configured.
 
@@ -2637,7 +2634,6 @@ We will provide example code with directory structure for each custom directory 
 
 ### Other notes
 - Major releases will happen on the first week of every Month.
-
 
 ## [25.09.2]
 
@@ -2762,7 +2758,6 @@ We will provide example code with directory structure for each custom directory 
 - Replaced legacy code with newer functions like `redirect()`, `getFieldById()`, and `flash_alert()`.
 - Significantly improved performance of queries used for filter selection boxes.
 
-
 ## [25.06.1]
 
 ### Fixed
@@ -2804,7 +2799,6 @@ We will provide example code with directory structure for each custom directory 
 - Addressed multiple minor reported security vulnerabilities.
 - Tickets with open tasks are no longer resolved in bulk; a warning is shown along with a count of affected tickets.
 
-
 ## [25.05.1]
 
 ### Added / Changed
@@ -2815,7 +2809,6 @@ We will provide example code with directory structure for each custom directory 
 ### Fixed
 - Add Payment not showing in Invoice.
 - Updated Client Overview Entities to not show archived client's Entities even though the entity may not be archived.
-
 
 ## [25.05]
 
@@ -2842,7 +2835,6 @@ We will provide example code with directory structure for each custom directory 
 - Bump tinyMCE from 7.7.1 to 7.9.0.
 - Bump phpMailer from 6.9.2 to 6.10.0.
 - Bump stripe-php from 16.4.0 to 17.2.1.
-
 
 ### Fixed
 - "None" option for SMTP encryption now functions correctly.
@@ -2881,7 +2873,6 @@ We will provide example code with directory structure for each custom directory 
 - Add Purchase Reference to copy asset.
 - Add Link to asset details from the global search.
 - Fix Bulk assign ticket only showing contacts instead of ITFlow users.
-
 
 ## [25.03.3]
 

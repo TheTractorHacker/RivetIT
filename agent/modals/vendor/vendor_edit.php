@@ -24,6 +24,7 @@ $vendor_sla = nullable_htmlentities($row['vendor_sla']);
 $vendor_code = nullable_htmlentities($row['vendor_code']);
 $vendor_notes = nullable_htmlentities($row['vendor_notes']);
 $vendor_template_id = intval($row['vendor_template_id']);
+$vendor_shared = !empty($row['vendor_shared']);
 
 // Generate the HTML form content using output buffering.
 ob_start();
@@ -208,6 +209,8 @@ ob_start();
             </div>
 
         </div>
+
+        <?php echo vendorSharedCheckboxHtml($client_id, $vendor_shared); ?>
 
     </div>
     <div class="modal-footer">

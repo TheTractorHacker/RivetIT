@@ -24,6 +24,9 @@ if (isset($_POST['add_asset'])) {
 
     enforceClientAccess();
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    enforceVendorAssignable($vendor, $client_id);
+
     $alert_extended = "";
 
     mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id");
@@ -133,6 +136,8 @@ if (isset($_POST['edit_asset'])) {
     }
 
     $old_primary_vendor = intval(getFieldById('assets', $asset_id, 'asset_vendor_id'));
+    // Leaving the vendor as it is always saves (history, a vendor since un-shared); a changed vendor must be assignable to the final department.
+    enforceVendorAssignable($vendor, $client_id, $client_id === $original_client_id ? $old_primary_vendor : 0);
     mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id WHERE asset_id = $asset_id");
     (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('asset', $asset_id, $old_primary_vendor);
     if ($client_id !== $original_client_id) {

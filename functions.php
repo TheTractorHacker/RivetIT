@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/mail_templates.php';
 require_once __DIR__ . '/includes/module_access.php';
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
+require_once __DIR__ . '/includes/vendor_sharing.php';   // shared central vendors: vendorVisibleSql() and the assignment checks
 require_once __DIR__ . '/includes/ticket_parked.php';   // parked ticket statuses: ticketParkedStatusIds() and the SQL fragment builders
 
 // Role check failed wording
@@ -4991,8 +4992,11 @@ function ticketReferenceOutsideClient($client_id, $contact_id = 0, $asset_id = 0
         'contact'  => ['contacts', 'contact_id', 'contact_client_id', [intval($contact_id)], false],
         'asset'    => ['assets', 'asset_id', 'asset_client_id', array_merge([intval($asset_id)], array_map('intval', $asset_ids)), false],
         'location' => ['locations', 'location_id', 'location_client_id', [intval($location_id)], false],
-        'vendor'   => ['vendors', 'vendor_id', 'vendor_client_id', [intval($vendor_id)], true],
     ];
+    // A vendor is the department's own or a shared central one (includes/vendor_sharing.php), not any vendor with client 0.
+    if (intval($vendor_id) > 0 && !vendorAssignableToClient($mysqli, intval($vendor_id), $client_id)) {
+        return 'vendor';
+    }
 
     foreach ($checks as $label => [$table, $id_col, $client_col, $ids, $allow_global]) {
         $ids = array_values(array_unique(array_filter($ids)));
