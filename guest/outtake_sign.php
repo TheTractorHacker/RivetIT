@@ -4,6 +4,7 @@ require_once "../config.php";
 require_once "../functions.php";
 require_once "../includes/load_global_settings.php";
 require_once "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 session_start();
 require_once "../includes/inc_set_timezone.php";
@@ -43,6 +44,7 @@ $ticket_id     = intval($row['ticket_id']);
 $ticket_num    = nullable_htmlentities($row['ticket_prefix']) . intval($row['ticket_number']);
 $ticket_subj   = nullable_htmlentities($row['ticket_subject']);
 $_purifier_cfg = HTMLPurifier_Config::createDefault();
+rivet_html_policy_apply($_purifier_cfg, 'strict');
 $_purifier_cfg->set('Cache.DefinitionImpl', null);
 $_purifier_cfg->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
 $_purifier     = new HTMLPurifier($_purifier_cfg);

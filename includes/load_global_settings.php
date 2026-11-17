@@ -302,6 +302,10 @@ $asset_types_array = array (
     'Display'=>'fa-tv',
     'Camera'=>'fa-video',
     'Virtual Machine'=>'fa-cloud',
+    'Server Room'=>'fa-door-closed',
+    'Rack'=>'fa-layer-group',
+    'UPS/Power'=>'fa-car-battery',
+    'Storage/NAS'=>'fa-hdd',
     'Other'=>'fa-tag'
 );
 

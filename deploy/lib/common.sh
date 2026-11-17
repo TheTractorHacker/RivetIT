@@ -257,9 +257,8 @@ read_manifest_dir() {
     local enc="${dir}/backup-manifest.json.enc"
     local manifest_file=""
 
-    if [[ -f "${plain}" ]]; then
-        manifest_file="${plain}"
-    elif [[ -f "${enc}" ]]; then
+    # An encrypted manifest always wins; a plaintext one next to it is ignored (it could only be tampering). IT-WEB-4.
+    if [[ -f "${enc}" ]]; then
         [[ -n "${passphrase_file}" ]] || die "This backup's manifest (${enc}) is encrypted, but no --passphrase-file was given. Supply the passphrase that was set in Admin > Backup when this backup was taken."
         [[ -f "${passphrase_file}" ]] || die "--passphrase-file '${passphrase_file}' does not exist."
         local tmp_decrypted
@@ -270,6 +269,8 @@ read_manifest_dir() {
             die "Failed to decrypt ${enc} with --passphrase-file. Wrong passphrase, or the file is corrupt."
         fi
         manifest_file="${tmp_decrypted}"
+    elif [[ -f "${plain}" ]]; then
+        manifest_file="${plain}"
     else
         warn "No backup-manifest.json or backup-manifest.json.enc found in ${dir} — this backup predates manifest capture. The target's config_settings_enc_key will be left as-is, which will NOT match what encrypted this backup's SMTP/IMAP passwords, RMM/webhook secrets, and wrapped vault master key — those will need to be re-entered manually after this restore completes."
         return 0
@@ -296,6 +297,12 @@ read_manifest_dir() {
     MANIFEST_DB_NAME="${m_lines[2]:-}"
     MANIFEST_BACKUP_TIMESTAMP="${m_lines[3]:-}"
     MANIFEST_SETTINGS_ENC_KEY_FINGERPRINT="${m_lines[4]:-}"
+
+    # The key is later written into config.php (PHP code): refuse anything that is not plain hex. IT-WEB-4.
+    if [[ -n "${MANIFEST_SETTINGS_ENC_KEY}" && ! "${MANIFEST_SETTINGS_ENC_KEY}" =~ ^[0-9a-fA-F]{32,128}$ ]]; then
+        warn "${manifest_file##*/} has a settings_enc_key that is not a hex string (tampered or corrupt manifest); ignoring it. config_settings_enc_key will be left as-is."
+        MANIFEST_SETTINGS_ENC_KEY=""
+    fi
 
     if [[ -z "${MANIFEST_SETTINGS_ENC_KEY}" ]]; then
         # Manifests written since the key moved out of the archive hold a fingerprint only. The operator supplies the key.
@@ -377,6 +384,12 @@ apply_settings_enc_key() {
 
     if ! grep -q '^\$config_settings_enc_key = ' "${config_file}"; then
         warn "${config_file} has no \$config_settings_enc_key line to replace; leaving it untouched. This instance's config.php may predate that setting — investigate before trusting restored SMTP/IMAP/RMM/webhook secrets."
+        return 0
+    fi
+
+    # Defence in depth (callers validate too): the key becomes PHP source, so it must be plain hex. IT-WEB-4.
+    if [[ ! "${key}" =~ ^[0-9a-fA-F]{32,128}$ ]]; then
+        warn "Refusing to write a settings-encryption key that is not a hex string into ${config_file}; leaving it untouched."
         return 0
     fi
 

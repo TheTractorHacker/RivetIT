@@ -76,7 +76,7 @@ if (isset($_GET['contact_id'])) {
 
     // Master-plan Phase 9: employee lifecycle workflows for this person
     $sql_workflow_runs = mysqli_query($mysqli, "SELECT * FROM workflow_runs WHERE contact_id = $contact_id ORDER BY started_at DESC");
-    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL ORDER BY type ASC, name ASC");
+    $sql_workflow_templates = mysqli_query($mysqli, "SELECT workflow_template_id, name, type, variables_json FROM workflow_templates WHERE is_active = 1 AND archived_at IS NULL AND " . \ITFlow\Workflow\WorkflowService::startableTypesSql($mysqli) . " ORDER BY type ASC, name ASC");
 
     // Master-plan Phase 2: per-person change history. Merges the two logging
     // systems that already record events against a contact rather than adding

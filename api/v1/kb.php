@@ -318,7 +318,9 @@ if ($sub === 'articles') {
          * agent page agree on what an article may contain; a root-relative path
          * is not a scheme and is unaffected by it either way. */
         require_once __DIR__ . '/../../plugins/htmlpurifier/HTMLPurifier.standalone.php';
+        require_once __DIR__ . '/../../plugins/htmlpurifier/rivet_html_policy.php';
         $kb_purifier_config = HTMLPurifier_Config::createDefault();
+        rivet_html_policy_apply($kb_purifier_config, 'rich');
         $kb_purifier_config->set('Cache.DefinitionImpl', null);
         $kb_purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
         $kb_purifier_config->set('Attr.DefaultImageAlt', '');

@@ -79,6 +79,13 @@ if (isset($_POST['link_problem_ticket'])) {
         redirect("problem_details.php?id=$problem_id");
     }
 
+    // Problems are company-wide (client 0), so the only department that can apply is the ticket's own:
+    // linking a ticket the agent cannot access would put its subject/number/client on a page they can open.
+    $link_ticket_client_id = intval(getFieldById('tickets', $ticket_id, 'ticket_client_id'));
+    if ($link_ticket_client_id) {
+        enforceClientAccess($link_ticket_client_id);
+    }
+
     (new \ITFlow\ITSM\ProblemService($mysqli))->linkTicket($problem_id, $ticket_id);
 
     logAction("Support", "Edit", "$session_name linked ticket #$ticket_id to problem #$problem_id", 0, $problem_id);

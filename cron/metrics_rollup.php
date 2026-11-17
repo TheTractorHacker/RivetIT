@@ -70,11 +70,14 @@ foreach ($rollup_dates as $rollup_date) {
 
     // Backlog = tickets open at the END of that day: created on/before day-end and either
     // never closed or closed after day-end. This makes historical rows point-in-time correct.
+    // Parked tickets (a status marked Parked, DB 2.6.235) are not counted: they are open but set aside. Only the two days this job
+    // recomputes (yesterday and today) use the CURRENT status, so rows older than the first run after that update keep the old
+    // definition, and the trend shows a step down on that date; no history is rewritten.
     $backlog = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT COUNT(ticket_id) AS c FROM tickets
          WHERE ticket_created_at <= '$day_end'
            AND (ticket_closed_at IS NULL OR ticket_closed_at > '$day_end')
-           AND ticket_archived_at IS NULL"))['c']);
+           AND ticket_archived_at IS NULL" . ticketNotParkedSql($mysqli)))['c']);
 
     mysqli_query($mysqli,
         "INSERT INTO ticket_metrics_daily (metric_date, company_id, opened, resolved, closed, backlog_open)

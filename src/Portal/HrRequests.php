@@ -17,6 +17,12 @@ use ITFlow\Workflow\WorkflowService;
  */
 final class HrRequests
 {
+    /** The request types on offer: onboarding/offboarding only while their workflows are on (otherwise they are tickets via Request something). */
+    public static function types(\mysqli $db): array
+    {
+        return WorkflowService::hireLeaveEnabled($db) ? self::TYPES : array_diff_key(self::TYPES, ['onboarding' => 1, 'offboarding' => 1]);
+    }
+
     public const TYPES = ['onboarding' => 'Onboarding (new hire)', 'offboarding' => 'Offboarding (leaver)', 'role_change' => 'Role change'];
     /** A request can ask for at most this long ahead / back. */
     private const WINDOW_BACK = 30;

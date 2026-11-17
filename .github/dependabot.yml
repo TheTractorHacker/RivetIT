@@ -11,3 +11,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  # Nested project for webklex/php-imap (plugins/composer.json, tracked plugins/vendor); DEP-04.
+  - package-ecosystem: "composer"
+    directory: "/plugins"
+    schedule:
+      interval: "weekly"

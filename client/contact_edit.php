@@ -88,7 +88,7 @@ if ($row) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-envelope"></i></span>
                     </div>
-                    <input type="email" class="form-control" name="contact_email" value="<?php echo $contact_email ?>" required maxlength="200">
+                    <input type="email" class="form-control" name="contact_email" value="<?php echo $contact_email ?>" required maxlength="200"<?php if ($session_contact_primary != 1) { echo ' readonly'; } ?>>
                 </div>
             </div>
 
@@ -118,7 +118,8 @@ if ($row) {
                     <div class="input-group-prepend">
                         <span class="input-group-text"><i class="fa fa-fw fa-user-circle"></i></span>
                     </div>
-                    <select class="form-select pe-5 authMethod" name="contact_auth_method">
+                    <?php if ($session_contact_primary != 1) { /* login identity is the primary contact's to change; the server ignores these values for anyone else */ ?><input type="hidden" name="contact_auth_method" value="<?php echo $contact_auth_method; ?>"><?php } ?>
+                    <select class="form-select pe-5 authMethod"<?php if ($session_contact_primary != 1) { echo ' disabled'; } else { echo ' name="contact_auth_method"'; } ?>>
                         <option value="">No portal access</option>
                         <option value="local" <?php if ($contact_auth_method == "local") { echo "selected"; } ?>>Local (Email and password)</option>
                         <?php if (!empty($config_azure_client_id)) { ?>
@@ -126,6 +127,7 @@ if ($row) {
                         <?php } ?>
                     </select>
                 </div>
+                <?php if ($session_contact_primary != 1) { ?><div class="form-text small text-secondary">Only the primary contact can change a person's email or portal sign-in method.</div><?php } ?>
                 <div class="form-text small text-secondary">With "Local", they can sign in once they choose a password with "Forgot password" on the sign-in page (needs outgoing email to be set up). "No portal access" keeps them as a contact only.</div>
             </div>
 

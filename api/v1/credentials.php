@@ -145,6 +145,32 @@ if ($cred_client_id > 0 && !api_client_scope_ok($cred_client_id)) {
     api_error(403, 'Access denied');
 }
 
+// IT-INJ-6: the same per-user reveal limit and audit trail as the web vault (includes/vault_reveal.php). The count is
+// shared with web reveals (both are 'vault.credential_revealed' events), so the API is not a way around the web limit.
+require_once $DOCUMENT_ROOT . '/includes/security_policy.php';
+require_once $DOCUMENT_ROOT . '/includes/vault_reveal.php';
+$_rv_limit = secSettingInt('vault_reveal_limit', $mysqli);
+if (vaultRevealCount($mysqli, (int) $api_user_id) >= $_rv_limit) {
+    $_rv_already = mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM audit_events WHERE event_type = 'vault.reveal_rate_limited' AND actor_user_id = " . (int) $api_user_id . ' AND created_at > (NOW() - INTERVAL ' . VAULT_REVEAL_WINDOW_SECONDS . ' SECOND)'));
+    if ((int) ($_rv_already[0] ?? 0) === 0) {
+        \ITFlow\Audit\AuditService::record('vault.reveal_rate_limited', (int) $api_user_id, 'user', (int) $api_user_id, 'blocked', "$session_name exceeded $_rv_limit credential reveals in 10 minutes (API)", ['limit' => $_rv_limit, 'via' => 'api']);
+        logAction('Credential', 'Reveal Limit', "$session_name exceeded $_rv_limit credential reveals in 10 minutes and was blocked (API)", $cred_client_id, $id);
+        vaultNotifyRateLimited($mysqli, (int) $api_user_id, (string) $session_name, $_rv_limit);
+    }
+    header('Retry-After: ' . VAULT_REVEAL_WINDOW_SECONDS);
+    api_error(429, 'Credential reveal limit reached. Try again later.');
+}
+\ITFlow\Audit\AuditService::record(
+    'vault.credential_revealed',
+    (int) $api_user_id,
+    'credential',
+    (int) $id,
+    'reveal',
+    "$session_name revealed credential " . $row['credential_name'] . ' through the API',
+    ['mode' => 'reveal', 'client_id' => $cred_client_id, 'via' => 'api']
+);
+logAction('Credential', 'Reveal', "$session_name revealed credential " . $row['credential_name'] . ' through the API', $cred_client_id, $id);
+
 api_response(200, [
     'id'         => intval($row['credential_id']),
     'name'       => $row['credential_name'],
