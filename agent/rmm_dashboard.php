@@ -102,7 +102,7 @@ $sql_patch_pending_raw = mysqli_query($mysqli,
 $patch_pending_rows = rmm_dedupe_by_asset($sql_patch_pending_raw, $config_rmm_prefer_tactical, 12);
 
 $open_tickets = intval(mysqli_fetch_assoc(mysqli_query($mysqli,
-    "SELECT COUNT(*) as c FROM tickets WHERE ticket_archived_at IS NULL AND ticket_resolved_at IS NULL"
+    "SELECT COUNT(*) as c FROM tickets WHERE ticket_archived_at IS NULL AND ticket_resolved_at IS NULL" . ticketNotParkedSql($mysqli)
     . ($rmm_scoped ? " AND ticket_client_id IN ($client_access_string)" : '')
 ))['c']);
 
@@ -167,7 +167,7 @@ $sql_clients = mysqli_query($mysqli,
        SUM(arl.rmm_status='offline') as offline,
        COUNT(arl.id)                 as total,
        (SELECT COUNT(*) FROM rmm_alerts al WHERE al.client_id = c.client_id AND al.status='new') as alerts,
-       (SELECT COUNT(*) FROM tickets t WHERE t.ticket_client_id = c.client_id AND t.ticket_archived_at IS NULL AND t.ticket_resolved_at IS NULL) as open_tickets
+       (SELECT COUNT(*) FROM tickets t WHERE t.ticket_client_id = c.client_id AND t.ticket_archived_at IS NULL AND t.ticket_resolved_at IS NULL" . ticketNotParkedSql($mysqli, 't.ticket_status') . ") as open_tickets
      FROM clients c
      JOIN assets a ON a.asset_client_id = c.client_id
      JOIN asset_rmm_links arl ON arl.asset_id = a.asset_id
