@@ -91,6 +91,15 @@ $cur_role_id = intval($row['user_role_id']);
             <?php if (!empty($row['user_oidc_issuer'])) { ?><small class="form-text text-muted">Currently linked issuer: <?= nullable_htmlentities($row['user_oidc_issuer']) ?></small><?php } ?>
         </div>
 
+        <?php $azure_tid = ($row['user_auth_method'] === 'azure' && preg_match('#/([0-9a-f-]{36})/v2\.0$#i', (string) ($row['user_oidc_issuer'] ?? ''), $azm)) ? $azm[1] : ''; ?>
+        <div class="form-group" id="pu_edit_azure_group<?= $user_id ?>"<?= $row['user_auth_method'] === 'azure' ? '' : ' hidden' ?>>
+            <label for="pu_edit_azure_tenant<?= $user_id ?>">Microsoft Entra tenant ID</label>
+            <input class="form-control" id="pu_edit_azure_tenant<?= $user_id ?>" name="azure_tenant" value="<?= nullable_htmlentities($azure_tid) ?>" maxlength="36" autocomplete="off" placeholder="00000000-0000-0000-0000-000000000000">
+            <label class="mt-2" for="pu_edit_azure_object<?= $user_id ?>">Entra object ID <span class="text-muted">(optional)</span></label>
+            <input class="form-control" id="pu_edit_azure_object<?= $user_id ?>" name="azure_object" value="<?= nullable_htmlentities($row['user_auth_method'] === 'azure' ? ($row['user_oidc_subject'] ?? '') : '') ?>" maxlength="36" autocomplete="off">
+            <small class="form-text text-muted">Sign-in is tied to the customer's tenant and the person's object ID, not to the email address. With only the tenant, the first sign-in from that tenant using this login's email binds the object ID. Without a tenant this login cannot sign in with Entra.</small>
+        </div>
+
         <div class="form-group">
             <label for="pu_edit_title<?= $user_id ?>">Title</label>
             <input type="text" class="form-control" id="pu_edit_title<?= $user_id ?>" name="title" value="<?= $title ?>" maxlength="200">
@@ -146,8 +155,9 @@ $cur_role_id = intval($row['user_role_id']);
     // The OpenID subject only matters for OpenID sign-in; hide it for every other method.
     var authSel = document.getElementById('pu_edit_auth<?= $user_id ?>');
     var subjGroup = document.getElementById('pu_edit_subject_group<?= $user_id ?>');
+    var azureGroup = document.getElementById('pu_edit_azure_group<?= $user_id ?>');
     if (authSel && subjGroup) {
-        authSel.addEventListener('change', function () { subjGroup.hidden = authSel.value !== 'oidc'; });
+        authSel.addEventListener('change', function () { subjGroup.hidden = authSel.value !== 'oidc'; if (azureGroup) { azureGroup.hidden = authSel.value !== 'azure'; } });
     }
     if (window.rivetPortalUserModalWired) { return; }
     window.rivetPortalUserModalWired = true;

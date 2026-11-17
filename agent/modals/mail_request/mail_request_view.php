@@ -15,6 +15,12 @@ if (!$row) {
     exit;
 }
 
+// Same scope as the Requests list: a request on another department's mailbox is not ours to read.
+$mr_owner_client_id = mailRequestOwnerClientId($mail_request_id);
+if ($mr_owner_client_id > 0) {
+    enforceClientAccess($mr_owner_client_id);
+}
+
 $attachments_sql = mysqli_query($mysqli, "SELECT mail_request_attachment_name, mail_request_attachment_reference_name FROM mail_request_attachments WHERE mail_request_attachment_mail_request_id = $mail_request_id");
 
 // Initialize the HTML Purifier to prevent XSS — mail_request_body is the raw HTML body
