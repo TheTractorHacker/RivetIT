@@ -883,7 +883,7 @@ body.modal-open .tr-tray { visibility: hidden; }
 .tr-course-table__thumb:not(.tr-cover-art) { background: linear-gradient(135deg, color-mix(in srgb, var(--tr-cover) 16%, var(--if-surface)), color-mix(in srgb, var(--tr-cover) 32%, var(--if-surface))); }
 .tr-course-table__thumb > img { width: 100%; height: 100%; object-fit: cover; }
 .tr-course-table__title { font-weight: 600; color: var(--if-ink); text-decoration: none; }
-.tr-course-table__title:hover { text-decoration: underline; }
+.tr-course-table__title:hover { text-decoration: none; }
 .tr-course-table__sub { font-size: 12px; color: var(--if-muted); }
 
 /* ---- New course modal ----------------------------------------------------------- */

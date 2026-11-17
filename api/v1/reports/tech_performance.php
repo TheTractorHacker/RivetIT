@@ -10,13 +10,16 @@ $year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 // see another client's (or the whole company's) technician workload - an unrestricted key
 // keeps the same company-wide behavior as before.
 $client_where = api_key_client_filter('ticket_client_id');
+// Open-ticket metrics leave out Parked statuses (resolved-time metrics below keep using $client_where alone).
+require_once dirname(__DIR__, 3) . '/includes/ticket_parked.php';
+$open_not_parked = ticketNotParkedSql($mysqli, 'ticket_status');
 
 $techs = [];
 
 $sql_open = mysqli_query($mysqli,
     "SELECT user_name, COUNT(ticket_id) AS c
      FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id
-     WHERE ticket_closed_at IS NULL AND ticket_assigned_to > 0$client_where
+     WHERE ticket_closed_at IS NULL AND ticket_assigned_to > 0$client_where$open_not_parked
      GROUP BY user_name
      ORDER BY c DESC
      LIMIT 8"
@@ -30,7 +33,7 @@ while ($row = mysqli_fetch_assoc($sql_open)) {
 $sql_resolved = mysqli_query($mysqli,
     "SELECT user_name, COUNT(ticket_id) AS c
      FROM tickets LEFT JOIN users ON ticket_assigned_to = user_id
-     WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year AND ticket_assigned_to > 0$client_where
+     WHERE ticket_closed_at IS NOT NULL AND YEAR(ticket_closed_at) = $year AND ticket_assigned_to > 0$client_where$open_not_parked
      GROUP BY user_name
      ORDER BY c DESC
      LIMIT 8"

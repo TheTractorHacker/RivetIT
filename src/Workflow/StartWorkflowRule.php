@@ -113,6 +113,10 @@ class StartWorkflowRule
             throw new \RuntimeException("the template type does not fit the event $event");
         }
 
+        if (in_array($template['type'], ['onboarding', 'offboarding'], true) && !WorkflowService::hireLeaveEnabled($mysqli)) {
+            return 'skipped: onboarding/offboarding workflows are turned off (Administration > Employee Workflow Templates)';
+        }
+
         $gateway ??= new LiveActionGateway($mysqli);
         $service = new WorkflowService($mysqli, $gateway);
         $runId = $service->startRunIfNone($templateId, $contactId, null);

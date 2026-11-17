@@ -212,6 +212,10 @@ function ticket_automation_actions(array $rule): array {
                            class="btn btn-sm btn-<?php echo $enabled ? 'warning' : 'success'; ?> ta-toggle">
                             <?php echo $enabled ? 'Disable' : 'Enable'; ?>
                         </a>
+                        <a href="post.php?clone=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
+                           class="btn btn-sm btn-secondary" aria-label="Clone <?php echo $name; ?>" title="Clone rule (copy starts disabled)">
+                            <i class="fas fa-clone"></i>
+                        </a>
                         <a href="post.php?delete=<?php echo $rule_id; ?>&csrf_token=<?php echo $_SESSION['csrf_token']; ?>"
                            class="btn btn-sm btn-danger confirm-link" aria-label="Delete <?php echo $name; ?>" title="Delete rule">
                             <i class="fas fa-trash"></i>

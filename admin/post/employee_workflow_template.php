@@ -4,6 +4,11 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
 
 require_once __DIR__ . '/../includes/workflow_task_fields.php';
 
+// The template page (employee_workflow_template_details.php) posts here, because admin/post.php picks the handler from the page name
+// with "_details" removed. Presets, starters and template edit/archive are handled in the list page's file, so load it too
+// (their field names do not overlap). Without this, adding a preset from the template page returned a blank page.
+require_once __DIR__ . '/employee_workflow_templates.php';
+
 if (isset($_POST['add_employee_workflow_template_task'])) {
 
     validateCSRFToken($_POST['csrf_token']);

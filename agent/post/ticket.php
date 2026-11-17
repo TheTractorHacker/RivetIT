@@ -49,6 +49,12 @@ if (isset($_POST['add_ticket'])) {
 
     enforceClientAccess();
 
+    // The contact / asset / location / vendor must belong to this ticket's department
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+        flash_alert("That $bad_ref does not belong to this department", 'error');
+        redirect();
+    }
+
     // Raised from Request Something? Re-read the active item and validate its request form BEFORE a ticket number is used.
     // Items with no form and no approval add nothing here (the ticket is just remembered as coming from the item).
     require_once $_SERVER['DOCUMENT_ROOT'] . '/src/ITSM/ServiceCatalogService.php';
@@ -172,6 +178,15 @@ if (isset($_POST['add_ticket'])) {
 
                 mysqli_query($mysqli,"INSERT INTO tasks SET task_name = '$task_name', task_order = $task_order, task_completion_estimate = $task_completion_estimate, task_ticket_id = $ticket_id");
             }
+        }
+    }
+
+    // A ticket template can carry a worksheet: attach it to the new ticket (Administration > Ticket Templates).
+    if ($ticket_template_id && mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_templates` LIKE 'ticket_template_worksheet_id'")) > 0) {
+        $ws_row = mysqli_fetch_row(mysqli_query($mysqli, "SELECT ticket_template_worksheet_id FROM ticket_templates WHERE ticket_template_id = $ticket_template_id"));
+        $ws_template_id = intval($ws_row[0] ?? 0);
+        if ($ws_template_id > 0 && mysqli_num_rows(mysqli_query($mysqli, "SELECT 1 FROM worksheet_templates WHERE worksheet_template_id = $ws_template_id AND worksheet_template_archived_at IS NULL"))) {
+            mysqli_query($mysqli, "INSERT INTO ticket_worksheets SET worksheet_ticket_id = $ticket_id, worksheet_template_id = $ws_template_id, worksheet_is_outtake = 0, worksheet_created_by = " . intval($session_user_id));
         }
     }
 
@@ -324,6 +339,12 @@ if (isset($_POST['edit_ticket'])) {
     // Don't Enforce Client Access if Ticket doesn't have an assigned client
     if ($client_id) {
         enforceClientAccess();
+    }
+
+    // The contact / asset / location / vendor must belong to this ticket's department
+    if ($bad_ref = ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, $location_id, $vendor_id)) {
+        flash_alert("That $bad_ref does not belong to this ticket's department", 'error');
+        redirect();
     }
 
     // Per-category SLA-exempt / Non-billable (DB 2.6.205): snapshot the OLD category/billable state before the UPDATE.
@@ -535,6 +556,8 @@ if (isset($_POST['edit_ticket_status'])) {
     if ($new_status_id == 5) {
         mysqli_query($mysqli, "UPDATE tickets SET ticket_resolved_at = NOW(), ticket_closed_at = NOW(), ticket_closed_by = $session_user_id WHERE ticket_id = $ticket_id AND ticket_resolved_at IS NULL");
         slaStampResponseIfMissing($mysqli, $ticket_id);
+    } elseif (ticketSyncClosingStatus($mysqli, $ticket_id, $old_status_id, $new_status_id, (int) $session_user_id)) {
+        // A "Counts as closed" status: stamped closed above, silently.
     } else {
         // Moving a ticket to any non-Closed status must clear these, or the ticket
         // page (which gates the reply form / edit controls on ticket_closed_at, not
@@ -601,6 +624,11 @@ if (isset($_POST['edit_ticket_contact'])) {
     // Don't Enforce Client Access if Ticket doesn't have an assigned client
     if ($client_id) {
         enforceClientAccess();
+    }
+
+    if (ticketReferenceOutsideClient($client_id, $contact_id)) {
+        flash_alert("That contact does not belong to this ticket's department", 'error');
+        redirect();
     }
 
     // Update the contact
@@ -910,6 +938,11 @@ if (isset($_POST['edit_ticket_asset'])) {
         enforceClientAccess();
     }
 
+    if (ticketReferenceOutsideClient($client_id, 0, $asset_id, 0, 0, array_map('intval', (array) ($_POST['additional_assets'] ?? [])))) {
+        flash_alert("That asset does not belong to this ticket's department", 'error');
+        redirect();
+    }
+
     mysqli_query($mysqli, "UPDATE tickets SET ticket_asset_id = $asset_id WHERE ticket_id = $ticket_id");
 
     // Add Additional Assets
@@ -1139,6 +1172,8 @@ if (isset($_POST['quick_status_ticket'])) {
         mysqli_query($mysqli, "INSERT INTO ticket_replies SET ticket_reply = 'Ticket closed.', ticket_reply_type = 'System', ticket_reply_time_worked = '00:00:00', ticket_reply_by = $session_user_id, ticket_reply_ticket_id = $ticket_id");
         logAction("Ticket", "Closed", "$session_name closed ticket $ticket_prefix$ticket_number via quick status", $client_id, $ticket_id);
         customAction('ticket_close', $ticket_id);
+    } elseif (ticketSyncClosingStatus($mysqli, $ticket_id, $old_status_id, $new_status_id, (int) $session_user_id)) {
+        // A "Counts as closed" status (Administration > Ticket Statuses): stamped closed above, silently.
     } else {
         // Moving a ticket to any non-Closed status must clear these, or the ticket
         // page (which gates the reply form / edit controls on ticket_closed_at, not
@@ -2262,6 +2297,7 @@ if (isset($_POST['add_ticket_reply'])) {
 
     // Update Ticket Status & updated at (in case status didn't change)
     mysqli_query($mysqli, "UPDATE tickets SET ticket_status = $ticket_status, ticket_updated_at = NOW() WHERE ticket_id = $ticket_id");
+    ticketSyncClosingStatus($mysqli, $ticket_id, $sla_old_status_id, (int) $ticket_status, (int) $session_user_id);   // "Counts as closed" statuses
 
     // Resolve the ticket, if set
     if ($ticket_status == 4) {
@@ -3221,7 +3257,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
             'recipient' => $contact_email,
             'recipient_name' => $contact_name,
             'subject' => "Ticket Scheduled - [$ticket_prefix$ticket_number] - $ticket_subject",
-            'body' => mysqli_escape_string($mysqli, "<div class='header'>
+            'body' => "<div class='header'>
                                 Hello, $contact_name
                             </div>
                             Your ticket regarding $ticket_subject has been scheduled for $email_datetime.
@@ -3241,7 +3277,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
                             </div>
                             <div class='no-reply'>
                                 This is an automated message. Please do not reply directly to this email.
-                            </div>"),
+                            </div>",
             'cal_str' => $cal_str
         ];
 
@@ -3256,7 +3292,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
                 'recipient' => $watcher_email,
                 'recipient_name' => $watcher_email,
                 'subject' => "Ticket Scheduled - [$ticket_prefix$ticket_number] - $ticket_subject",
-                'body' => mysqli_escape_string($mysqli, nullable_htmlentities("<div class='header'>
+                'body' => nullable_htmlentities("<div class='header'>
             Hello,
         </div>
         The ticket regarding $ticket_subject has been scheduled for $email_datetime.
@@ -3277,7 +3313,7 @@ if (isset($_POST['edit_ticket_schedule'])) {
         </div>
         <div class='no-reply'>
             This is an automated message. Please do not reply directly to this email.
-        </div>")),
+        </div>"),
                 'cal_str' => $cal_str
             ];
         }
@@ -3391,7 +3427,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
             'recipient' => $contact_email,
             'recipient_name' => $contact_name,
             'subject' => "Ticket Schedule Cancelled - [$ticket_prefix$ticket_number] - $ticket_subject",
-            'body' => mysqli_escape_string($mysqli, "<div class='header'>
+            'body' => "<div class='header'>
                                 Hello, $contact_name
                             </div>
                             Scheduled work for your ticket regarding $ticket_subject has been cancelled.
@@ -3411,7 +3447,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
                             </div>
                             <div class='no-reply'>
                                 This is an automated message. Please do not reply directly to this email.
-                            </div>"),
+                            </div>",
             'cal_str' => $cal_str
         ];
 
@@ -3425,7 +3461,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
                 'recipient' => $watcher_email,
                 'recipient_name' => $watcher_email,
                 'subject' => "Ticket Schedule Cancelled - [$ticket_prefix$ticket_number] - $ticket_subject",
-                'body' => mysqli_escape_string($mysqli, nullable_htmlentities("<div class='header'>
+                'body' => nullable_htmlentities("<div class='header'>
             Hello,
         </div>
         Scheduled work for the ticket regarding $ticket_subject has been cancelled.
@@ -3446,7 +3482,7 @@ if (isset($_GET['cancel_ticket_schedule'])) {
         </div>
         <div class='no-reply'>
             This is an automated message. Please do not reply directly to this email.
-        </div>")),
+        </div>"),
                 'cal_str' => $cal_str
             ];
         }
