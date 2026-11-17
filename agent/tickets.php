@@ -641,6 +641,9 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
             </h3>
             <?php if (lookupUserPermission("module_support") >= 2) { ?>
                 <div class="card-tools d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center" id="ticketFilterToggle" aria-pressed="false" title="Collapse the stat cards and filters so the ticket list gets the space">
+                        <i class="fas fa-fw fa-filter me-1"></i><span class="filter-toggle-label">Hide filters</span>
+                    </button>
                     <?php if (!$client_url) { ?>
                     <button type="button" class="btn btn-outline-secondary d-none d-lg-inline-flex align-items-center" id="ticketRailToggle" aria-pressed="false" aria-controls="ticketViewsRail" title="Hide the saved views panel to give the table the full width">
                         <i class="fas fa-fw fa-columns me-1"></i><span class="rail-toggle-label">Hide views</span>
@@ -667,7 +670,7 @@ $sql_ticket_tags_filter = mysqli_query($mysqli, "SELECT * FROM tags WHERE tag_ty
                 </div>
             <?php } ?>
         </div>
-        <div class="card-body">
+        <div class="card-body" id="ticketFilterBody">
             <form autocomplete="off" class="ticket-filter-bar">
                 <?php if ($client_url) { ?>
                     <input type="hidden" name="client_id" value="<?= $client_id ?>">
@@ -957,6 +960,25 @@ if (isset($_GET["view"])) {
     </div>
 
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
+// Collapsible stat cards + filter bar (remembered per browser).
+(function () {
+    var btn = document.getElementById('ticketFilterToggle'), body = document.getElementById('ticketFilterBody'), stats = document.querySelector('.ticket-stat-row');
+    if (!btn || !body) return;
+    function apply(hidden) {
+        body.classList.toggle('d-none', hidden);
+        if (stats) stats.classList.toggle('d-none', hidden);
+        btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+        btn.querySelector('.filter-toggle-label').textContent = hidden ? 'Show filters' : 'Hide filters';
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('ticketFiltersHidden'); } catch (e) {}
+    apply(saved === '1');
+    btn.addEventListener('click', function () {
+        var hide = !body.classList.contains('d-none');
+        apply(hide);
+        try { localStorage.setItem('ticketFiltersHidden', hide ? '1' : '0'); } catch (e) {}
+    });
+})();
 // Collapsible saved-views rail: the ticket table gets the full width when the rail is hidden (remembered per browser).
 (function () {
     var btn = document.getElementById('ticketRailToggle'), rail = document.getElementById('ticketViewsRail'), main = document.getElementById('ticketMainCol');
