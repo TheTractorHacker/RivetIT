@@ -6,6 +6,8 @@ continues unchanged.
 
 ## [Unreleased]
 
+- **Fix: beta log noise and missing compliance tables.** `includes/rmm_bootstrap.php` only reads the compliance retention floors when the compliance tables exist (every check-in on a database without Core migration 0046 logged "compliance retention floors unavailable" every few minutes). New DB step 2.6.237 re-runs RivetCore's migrations (idempotent), so a database whose step 2.6.199 ran against an older Core now gets 0045 to 0048.
+
 - **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
 
 ## [26.10.88] - 2026-11-16

@@ -13095,3 +13095,18 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
     }
+
+    if ($rivetit_db_version() == '2.6.236') {
+        // DB 2.6.237: re-run RivetCore's migrations (idempotent). Step 2.6.199 ran CoreMigrations::all() once, against the Core version installed THEN;
+        // a database that took that step before Core 1.0.0-rc.45 to rc.57 were installed never got 0045 to 0048 (compliance framework profiles,
+        // reporting views, audit chain tables) even though the DB version moved on, and its agent check-ins logged "compliance retention floors
+        // unavailable" every few minutes. All additive; the audit chain tables stay unused (RivetIT keeps its own sealed chain).
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+        }
+    }
