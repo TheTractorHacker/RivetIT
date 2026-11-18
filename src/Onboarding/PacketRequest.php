@@ -54,6 +54,23 @@ final class PacketRequest
         return $r;
     }
 
+    /**
+     * The new hire's name typed into the packet when there is no contact record (a ticket with no contact).
+     * Plain text, required, at most MAX_FIELD characters; invalid UTF-8 and control characters are refused,
+     * never repaired. Throws \InvalidArgumentException with a user-safe message.
+     */
+    public static function personName(mixed $v): string
+    {
+        $s = self::text($v, "New hire's name");
+        if ($s === '') {
+            throw new \InvalidArgumentException("Enter the new hire's name.");
+        }
+        if (!mb_check_encoding($s, 'UTF-8') || preg_match('/[\x00-\x1F\x7F]/', $s) === 1) {
+            throw new \InvalidArgumentException("New hire's name is not valid.");
+        }
+        return $s;
+    }
+
     /** Returns null for a blank line (every field empty). */
     private static function line(string $kind, string $label, array $in): ?array
     {

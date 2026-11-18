@@ -5,23 +5,31 @@ require_once '../../../includes/modal_header.php';
 enforceUserPermission('module_client', 1);
 enforceUserPermission('module_credential', 2);
 
-$contact_id = intval($_GET['id'] ?? 0);
-
-$sql = mysqli_query($mysqli, "SELECT contact_name, contact_client_id, client_name FROM contacts
-    LEFT JOIN clients ON client_id = contact_client_id
-    WHERE contact_id = $contact_id AND contact_archived_at IS NULL
-    LIMIT 1"
-);
-$row = mysqli_fetch_assoc($sql);
-if (!$row) {
+// Two modes, resolved from database rows only (the department never comes from the request):
+//   ticket mode  (?ticket_id=): a new hire with no contact yet, in the ticket's department. The name is typed in; the
+//                ticket's contact is usually the manager who asked, so it only prefills the Manager field.
+//   contact mode (?id=, from the person's page): that contact, read-only.
+$ticket_id = intval($_GET['ticket_id'] ?? 0);
+$contact_id = $ticket_id > 0 ? 0 : intval($_GET['id'] ?? 0);
+if ($ticket_id > 0) {
+    enforceUserPermission('module_support', 1);
+}
+$ctx = \ITFlow\Onboarding\PacketContext::resolve($mysqli, $contact_id, $ticket_id, (int) $session_user_id, (bool) ($session_is_admin ?? false));
+if ($ctx === null) {
+    // Unknown, archived, department-less or department-denied: one shape.
     http_response_code(404);
     exit;
 }
-$client_id = intval($row['contact_client_id']);
+$client_id = $ctx->clientId;
 enforceClientAccess($client_id);
 
-$contact_name = nullable_htmlentities($row['contact_name']);
-$client_name = nullable_htmlentities($row['client_name']);
+$ticket_mode = $ctx->ticket !== null;
+$contact_name = nullable_htmlentities($ctx->personName);
+$client_name = nullable_htmlentities($ctx->clientName);
+$manager_prefill = $ticket_mode ? nullable_htmlentities($ctx->ticketContactName) : '';
+$ticket_label = $ticket_mode ? nullable_htmlentities($ctx->ticket['prefix'] . $ctx->ticket['number']) : '';
+// Same gate as the ticket page's Upload Attachment: Support edit access and an open ticket.
+$attach_ok = $ticket_mode && !$ctx->ticket['closed'] && lookupUserPermission('module_support') >= 2;
 $max_software = 25;
 
 ob_start();
@@ -35,19 +43,30 @@ ob_start();
 </div>
 <form action="onboarding_packet_pdf.php" method="post" autocomplete="off" id="obpk-form">
     <input type="hidden" name="csrf_token" value="<?= nullable_htmlentities($_SESSION['csrf_token'] ?? '') ?>">
-    <input type="hidden" name="contact_id" value="<?= $contact_id ?>">
+    <?php if ($ticket_mode) { ?>
+    <input type="hidden" name="ticket_id" value="<?= intval($ctx->ticket['id']) ?>">
+    <?php } else { ?>
+    <input type="hidden" name="contact_id" value="<?= intval($ctx->contactId) ?>">
+    <?php } ?>
 
     <div class="modal-body">
 
         <div class="alert alert-info">
             <i class="fa fa-fw fa-info-circle me-1"></i>
             The PDF downloads; passwords are not stored unless Save to Logins is ticked. Delete the PDF after printing.
+            <?php if ($ticket_mode) { ?>
+            Logins saved from a ticket go to the department (not to a contact), named after the new hire.
+            <?php } ?>
         </div>
 
         <div class="row">
             <div class="form-group col-md-6">
                 <label>Person</label>
+                <?php if ($ticket_mode) { ?>
+                <input type="text" class="form-control" name="person_name" maxlength="200" required autocomplete="off" placeholder="New hire's name">
+                <?php } else { ?>
                 <input type="text" class="form-control" value="<?= $contact_name ?>" readonly>
+                <?php } ?>
             </div>
             <div class="form-group col-md-6">
                 <label>Department</label>
@@ -61,7 +80,7 @@ ob_start();
             </div>
             <div class="form-group col-md-6">
                 <label>Manager</label>
-                <input type="text" class="form-control" name="manager_name" maxlength="200" placeholder="Manager name">
+                <input type="text" class="form-control" name="manager_name" maxlength="200" placeholder="Manager name" value="<?= $manager_prefill ?>">
             </div>
         </div>
 
@@ -149,6 +168,21 @@ ob_start();
         <div id="obpk-software-rows"></div>
         <button type="button" class="btn btn-sm btn-secondary" id="obpk-add-software"><i class="fa fa-plus me-1"></i>Add software</button>
         <small class="text-muted ms-2">Up to <?= $max_software ?> lines. Blank lines are ignored.</small>
+
+        <?php if ($attach_ok) { ?>
+        <div class="border rounded p-2 mt-3" id="obpk-ticket-attach">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="attach_ticket" id="obpk-attach-ticket" value="1" checked>
+                <label class="form-check-label" for="obpk-attach-ticket">Attach a copy to this ticket (<?= $ticket_label ?>)</label>
+            </div>
+            <div class="form-check ms-3">
+                <input type="checkbox" class="form-check-input" name="attach_passwords" id="obpk-attach-passwords" value="1">
+                <label class="form-check-label" for="obpk-attach-passwords">Include passwords in the attached copy</label>
+            </div>
+            <small class="text-danger d-block ms-3"><i class="fa fa-fw fa-exclamation-triangle me-1"></i>Anyone who can open the ticket can read attached passwords.</small>
+            <small class="text-muted d-block">Your download always has the passwords. The attached copy hides them unless you tick the box above. Ticket attachments also show in the client portal to anyone there who can see this ticket.</small>
+        </div>
+        <?php } ?>
 
     </div>
     <div class="modal-footer">
@@ -298,6 +332,17 @@ ob_start();
         }
         same.addEventListener('change', syncSame);
         syncSame();
+
+        // "Include passwords" only means something while "Attach a copy" is ticked (the server ignores it otherwise).
+        var attach = form.querySelector('#obpk-attach-ticket');
+        var attachPw = form.querySelector('#obpk-attach-passwords');
+        function syncAttach() {
+            if (!attach || !attachPw) { return; }
+            attachPw.disabled = !attach.checked;
+            if (!attach.checked) { attachPw.checked = false; }
+        }
+        if (attach) { attach.addEventListener('change', syncAttach); }
+        syncAttach();
         refresh();
     })();
 </script>

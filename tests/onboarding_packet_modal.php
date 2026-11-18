@@ -50,7 +50,7 @@ foreach (['name', 'username', 'password', 'uri', 'note', 'change', 'save'] as $f
 foreach (['name', 'username', 'password', 'uri', 'note', 'change', 'save'] as $f) { chk("PacketRequest reads \$in['$f']", str_contains($pr, "\$in['$f']")); }
 foreach (["\$post['computer']", "\$post['email']", "\$post['software']"] as $k) { chk("PacketRequest reads $k", str_contains($pr, $k)); }
 // Every posted key is one the validator knows.
-$known = ['csrf_token', 'contact_id', 'start_date', 'manager_name', 'email_same'];
+$known = ['csrf_token', 'contact_id', 'ticket_id', 'person_name', 'attach_ticket', 'attach_passwords', 'start_date', 'manager_name', 'email_same'];
 $bad = [];
 foreach ($posted as $n) {
     if (in_array($n, $known, true)) { continue; }
@@ -66,8 +66,42 @@ chk('double-submit: ticked save boxes unticked and disabled', str_contains($m, '
 chk('double-submit: disable only inside setTimeout', strpos($m, 'submitBtn.disabled = true') > strpos($m, 'setTimeout('));
 chk('double-submit: notes shown', str_contains($m, "won\\'t save again") && str_contains($m, 'Close this window to start another, to avoid saving duplicate Logins.'));
 $tk = (string) @file_get_contents("$root/agent/ticket.php");
-chk('ticket page: Onboarding Packet item gated on contact and modal permission', str_contains($tk, "if (\$contact_id && itflow_modal_allowed('contact/contact_onboarding_packet.php'))"));
-chk('ticket page: item opens the packet modal for the ticket contact', str_contains($tk, 'modals/contact/contact_onboarding_packet.php?id=<?= intval($contact_id) ?>'));
+chk('ticket page: item shown whenever the ticket has a department (not only with a contact)', str_contains($tk, "if (\$client_id && itflow_modal_allowed('contact/contact_onboarding_packet.php'))") && !str_contains($tk, "if (\$contact_id && itflow_modal_allowed('contact/contact_onboarding_packet.php'))"));
+chk('ticket page: link is ?ticket_id=<ticket id>', str_contains($tk, 'data-modal-url="modals/contact/contact_onboarding_packet.php?ticket_id=<?= intval($ticket_id) ?>"'));
+chk('ticket page: the ticket contact (the manager) is not passed as the person', preg_match('/contact_onboarding_packet\.php\?[^"]*\bid=/', $tk) === 0);
+
+// ---- Ticket mode in the modal.
+$seg = static function (string $src, string $open, string $needle): bool {
+    // $needle sits inside the template block that starts at $open (before that block's closing brace tag).
+    $a = strpos($src, $open);
+    if ($a === false) { return false; }
+    $b = strpos($src, '<?php } ?>', $a);
+    $c = strpos($src, '<?php } else { ?>', $a);
+    $end = ($c !== false && ($b === false || $c < $b)) ? $c : $b;
+    $n = strpos($src, $needle, $a);
+    return $n !== false && $end !== false && $n < $end;
+};
+chk('modal: ticket_id read; contact id ignored in ticket mode', str_contains($m, "\$ticket_id = intval(\$_GET['ticket_id'] ?? 0);") && str_contains($m, "\$contact_id = \$ticket_id > 0 ? 0 : intval(\$_GET['id'] ?? 0);"));
+chk('modal: ticket mode needs Support read', preg_match("/if \(\\\$ticket_id > 0\) \{\s*enforceUserPermission\('module_support', 1\);/", $m) === 1);
+chk('modal: shared resolver, 404 on null, department from the context', str_contains($m, 'PacketContext::resolve($mysqli, $contact_id, $ticket_id,') && preg_match('/if \(\$ctx === null\) \{.*?http_response_code\(404\);/s', $m) === 1 && str_contains($m, '$client_id = $ctx->clientId;') && strpos($m, '$client_id = $ctx->clientId;') < strpos($m, 'enforceClientAccess($client_id);'));
+chk('modal: permissions before the lookup', strpos($m, "enforceUserPermission('module_credential', 2)") < strpos($m, 'PacketContext::resolve(') && strpos($m, "enforceUserPermission('module_client', 1)") < strpos($m, 'PacketContext::resolve('));
+chk('modal: hidden ticket_id only in ticket mode, contact_id only in contact mode', $seg($m, '<?php if ($ticket_mode) { ?>', 'name="ticket_id" value="<?= intval($ctx->ticket[\'id\']) ?>"') && preg_match('/<\?php \} else \{ \?>\s*<input type="hidden" name="contact_id" value="<\?= intval\(\$ctx->contactId\) \?>">/', $m) === 1);
+chk("modal: ticket mode person is a required typed person_name (max 200, placeholder)", str_contains($m, '<input type="text" class="form-control" name="person_name" maxlength="200" required autocomplete="off" placeholder="New hire\'s name">'));
+chk('modal: person_name only in ticket mode; read-only contact name otherwise', preg_match('/<label>Person<\/label>\s*<\?php if \(\$ticket_mode\) \{ \?>\s*<input[^>]*name="person_name"[^>]*>\s*<\?php \} else \{ \?>\s*<input type="text" class="form-control" value="<\?= \$contact_name \?>" readonly>/', $m) === 1 && substr_count($m, 'name="person_name"') === 1);
+chk('modal: manager prefilled from the ticket contact (escaped), blank otherwise', str_contains($m, "\$manager_prefill = \$ticket_mode ? nullable_htmlentities(\$ctx->ticketContactName) : '';") && str_contains($m, 'name="manager_name" maxlength="200" placeholder="Manager name" value="<?= $manager_prefill ?>"'));
+chk('modal: ticket-mode note about where Logins go', str_contains($m, 'Logins saved from a ticket go to the department (not to a contact), named after the new hire.'));
+
+// ---- Attach section.
+chk('attach: shown only for an open ticket with Support edit access', str_contains($m, "\$attach_ok = \$ticket_mode && !\$ctx->ticket['closed'] && lookupUserPermission('module_support') >= 2;"));
+chk('attach: section absent without a ticket (inside if ($attach_ok))', $seg($m, '<?php if ($attach_ok) { ?>', 'name="attach_ticket"') && $seg($m, '<?php if ($attach_ok) { ?>', 'name="attach_passwords"') && $seg($m, '<?php if ($attach_ok) { ?>', 'Anyone who can open the ticket can read attached passwords.') && substr_count($m, 'name="attach_ticket"') === 1 && substr_count($m, 'name="attach_passwords"') === 1);
+chk('attach: "Attach a copy to this ticket" ticked by default', preg_match('/name="attach_ticket" id="obpk-attach-ticket" value="1" checked>/', $m) === 1 && str_contains($m, 'Attach a copy to this ticket'));
+chk('attach: "Include passwords in the attached copy" unticked by default', preg_match('/name="attach_passwords" id="obpk-attach-passwords" value="1">/', $m) === 1 && str_contains($m, 'Include passwords in the attached copy'));
+chk('attach: warning text', str_contains($m, 'Anyone who can open the ticket can read attached passwords.'));
+chk('attach: passwords box enabled only while attach is ticked', str_contains($m, 'attachPw.disabled = !attach.checked;') && str_contains($m, 'if (!attach.checked) { attachPw.checked = false; }') && str_contains($m, "attach.addEventListener('change', syncAttach)") && preg_match('/syncAttach\(\);\s*refresh\(\);/', $m) === 1);
+chk('attach: JS tolerates the section being absent', str_contains($m, 'if (!attach || !attachPw) { return; }') && str_contains($m, 'if (attach) {'));
+chk('modal: no client_id from the request', preg_match('/\$_(GET|POST|REQUEST)\s*\[\s*[\'"]client_id/', $m) === 0);
+exec('php -l ' . escapeshellarg("$root/src/Onboarding/PacketContext.php") . ' 2>&1', $oc, $rcc);
+chk('php -l PacketContext', $rcc === 0);
 exec('php -l ' . escapeshellarg("$root/agent/ticket.php") . ' 2>&1', $ot, $rct);
 chk('php -l ticket.php', $rct === 0);
 exec('php -l ' . escapeshellarg("$root/agent/modals/contact/contact_onboarding_packet.php") . ' 2>&1', $o, $rc);

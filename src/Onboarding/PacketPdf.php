@@ -45,7 +45,15 @@ final class PacketPdf
 {
     private const SECTIONS = ['computer' => '1. Your computer', 'email' => '2. Your email', 'software' => '3. Software and accounts'];
 
-    public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true): string
+    /** Printed in place of every password when $maskPasswords is on. Fixed length, so it says nothing about the real one. */
+    public const MASK = "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}";
+    public const MASK_NOTE = 'Passwords hidden in this copy';
+
+    /**
+     * $maskPasswords: the copy kept on a ticket. Every password prints as MASK (the real value never reaches TCPDF)
+     * and the page says so; usernames, links, notes and the change-on-first-sign-in lines print as normal.
+     */
+    public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true, bool $maskPasswords = false): string
     {
         // Only PNG/JPEG that PHP itself can parse ever reach TCPDF.
         $logo = null;
@@ -57,20 +65,20 @@ final class PacketPdf
         }
         if ($logo !== null) {
             try {
-                return self::build($req, $personName, $clientName, $supportContact, $logo, $compress);
+                return self::build($req, $personName, $clientName, $supportContact, $logo, $compress, $maskPasswords);
             } catch (\Throwable $e) {
                 // TCPDF destroys its document before throwing, so it cannot be continued: rebuild from scratch without the logo.
             }
         }
-        return self::build($req, $personName, $clientName, $supportContact, null, $compress);
+        return self::build($req, $personName, $clientName, $supportContact, null, $compress, $maskPasswords);
     }
 
-    private static function build(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes, bool $compress): string
+    private static function build(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes, bool $compress, bool $mask): string
     {
         $pdf = new PacketPdfDocument();
         $pdf->SetCompression($compress);
         $pdf->SetCreator(defined('APP_NAME') ? APP_NAME : 'RivetIT');
-        $pdf->SetTitle('Welcome to ' . $clientName);
+        $pdf->SetTitle('Welcome to ' . $clientName . ', ' . $personName);
         $pdf->SetMargins(18, 18, 18);
         $pdf->SetAutoPageBreak(true, 18);
         $pdf->footerText = 'Confidential - contains sign-in details. ' . ($supportContact !== '' ? 'Questions? ' . $supportContact . '. ' : '') . 'Generated ' . date('Y-m-d H:i');
@@ -93,6 +101,11 @@ final class PacketPdf
         if ($req->managerName !== '') {
             $pdf->MultiCell($w, 6, 'Manager: ' . $req->managerName, 0, 'L', false, 1);
         }
+        if ($mask) {
+            $pdf->SetFont('dejavusans', 'I', 9);
+            $pdf->SetTextColor(150, 70, 30);
+            $pdf->MultiCell($w, 5, self::MASK_NOTE, 0, 'L', false, 1);
+        }
         $pdf->Ln(4);
 
         foreach (self::SECTIONS as $kind => $title) {
@@ -107,7 +120,7 @@ final class PacketPdf
             $pdf->SetTextColor(20, 30, 40);
             $pdf->MultiCell($w, 8, $title, 0, 'L', false, 1);
             foreach ($lines as $l) {
-                self::line($pdf, $l, $w);
+                self::line($pdf, $l, $w, $mask);
             }
             $pdf->Ln(3);
         }
@@ -116,7 +129,7 @@ final class PacketPdf
     }
 
     /** @param array{kind:string,name:string,username:string,password:string,uri:string,note:string,change:bool,save:bool} $l */
-    private static function line(PacketPdfDocument $pdf, array $l, float $w): void
+    private static function line(PacketPdfDocument $pdf, array $l, float $w, bool $mask): void
     {
         if ($pdf->GetY() > 245) {
             $pdf->AddPage();
@@ -137,7 +150,7 @@ final class PacketPdf
             $pdf->MultiCell($w, 5, 'Password:', 0, 'L', false, 1);
             $pdf->SetFont('dejavusansmono', '', 10);
             $pdf->SetFillColor(240, 243, 246);
-            $pdf->MultiCell($w, 7, $l['password'], 1, 'L', true, 1, '', '', true, 0, false, true, 0, 'M');
+            $pdf->MultiCell($w, 7, $mask ? self::MASK : $l['password'], 1, 'L', true, 1, '', '', true, 0, false, true, 0, 'M');
             $pdf->SetFont('dejavusans', '', 9.5);
         }
         if ($l['note'] !== '') {

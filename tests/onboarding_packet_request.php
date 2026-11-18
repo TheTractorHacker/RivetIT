@@ -61,5 +61,21 @@ restore_error_handler();
 $ok($warned === [], 'array-posted change/save raises no warning' . ($warned ? ' (' . implode('; ', $warned) . ')' : ''));
 $ok($r->lines[0]['change'] === true && $r->lines[0]['save'] === false && $r->lines[1]['save'] === false, 'array-posted change/save yield defaults (change true, save false)');
 
+// person_name (ticket mode: the new hire has no contact record, so the name is typed in).
+$pn = function ($v, string $needle = '') {
+    try { PacketRequest::personName($v); } catch (\InvalidArgumentException $e) { return $needle === '' || str_contains($e->getMessage(), $needle); }
+    return false;
+};
+$ok(PacketRequest::personName("  Jane Smith \n") === 'Jane Smith', 'person_name: trimmed');
+$ok(PacketRequest::personName("Zo\u{eb} O'Brien <Jr> & Co") === "Zo\u{eb} O'Brien <Jr> & Co", 'person_name: plain text kept verbatim (no escaping, non-ASCII ok)');
+$ok($pn('', "Enter the new hire's name"), 'person_name: empty refused');
+$ok($pn("   \t "), 'person_name: whitespace-only refused');
+$ok($pn(null, "Enter the new hire's name"), 'person_name: missing refused');
+$ok($pn(['Jane']), 'person_name: array refused');
+$ok($pn(str_repeat('a', 201), 'too long'), 'person_name: 201 chars refused');
+$ok(PacketRequest::personName(str_repeat("\u{e9}", 200)) === str_repeat("\u{e9}", 200), 'person_name: 200 multibyte chars allowed (counted as characters)');
+$ok($pn("Jane\x00Smith", 'not valid') && $pn("Jane\nSmith", 'not valid') && $pn("Jane\x7FSmith", 'not valid'), 'person_name: control characters refused');
+$ok($pn("Jane \xC3\x28", 'not valid'), 'person_name: invalid UTF-8 refused');
+
 echo $fail ? "\n$fail FAILED\n" : "\nALL PASS\n";
 exit($fail ? 1 : 0);

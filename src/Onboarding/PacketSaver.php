@@ -34,43 +34,79 @@ final class PacketSaver
         return trim(strip_tags($v));
     }
 
-    /** @return list<array{id:int,name:string,client_id:int}> the credentials saved (count() is the number saved); never includes secrets */
-    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId): array
+    /** credentials.credential_name is varchar(200). */
+    public const MAX_NAME = 200;
+
+    /**
+     * The saved Login's name: the line's name (or Computer/Email/Software), prefixed "<person> - " when $person is
+     * given (ticket mode, where the Login is not linked to a contact and must still say whose it is). The line name
+     * is never cut; only the person prefix is shortened to keep the whole within MAX_NAME.
+     */
+    public static function credentialName(string $lineName, string $kind, string $person = ''): string
+    {
+        $name = self::clean($lineName) !== '' ? self::clean($lineName) : (self::DEFAULT_NAMES[$kind] ?? 'Login');
+        $person = self::clean($person);
+        if ($person === '') {
+            return $name;
+        }
+        $room = self::MAX_NAME - 3 - mb_strlen($name, 'UTF-8');
+        if ($room <= 0) {
+            return $name;
+        }
+        return rtrim(mb_substr($person, 0, $room, 'UTF-8')) . ' - ' . $name;
+    }
+
+    /**
+     * @param callable(\mysqli):void|null $inTransaction runs after the Logins are inserted and before COMMIT, inside the
+     *        same transaction (the endpoint stores the ticket attachment there). If it throws, nothing is committed.
+     * @param string $personPrefix ticket mode: the new hire's name, prefixed to each Login's name (see credentialName)
+     * @return list<array{id:int,name:string,client_id:int}> the credentials saved (count() is the number saved); never includes secrets
+     */
+    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId, ?callable $inTransaction = null, string $personPrefix = ''): array
     {
         $lines = array_values(array_filter($req->lines, static fn(array $l): bool => $l['save']));
-        if (!$lines) {
+        if (!$lines && $inTransaction === null) {
             return [];
         }
 
-        self::preflight($req);
-        if (\ITFlow\Crypto\VaultV3::sessionMaster() === null) {
-            throw new \RuntimeException('No session encryption key; refusing to store an undecryptable password.');
+        if ($lines) {
+            self::preflight($req);
+            if (\ITFlow\Crypto\VaultV3::sessionMaster() === null) {
+                throw new \RuntimeException('No session encryption key; refusing to store an undecryptable password.');
+            }
         }
 
         $db->begin_transaction();
         try {
-            $stmt = $db->prepare(
-                "INSERT INTO credentials SET credential_type = 'Login', credential_name = ?, credential_description = '', credential_uri = ?, credential_uri_2 = '',"
-                . ' credential_username = ?, credential_password = ?, credential_otp_secret = \'\', credential_note = ?, credential_favorite = 0,'
-                . ' credential_folder_id = 0, credential_contact_id = ?, credential_asset_id = 0, credential_client_id = ?, credential_rotation_due_at = NULL'
-            );
             $saved = [];
-            foreach ($lines as $l) {
-                $name = self::clean($l['name']) !== '' ? self::clean($l['name']) : (self::DEFAULT_NAMES[$l['kind']] ?? 'Login');
-                $uri = self::clean($l['uri']);
-                $username = \encryptCredentialEntry($l['username']);
-                $password = \encryptCredentialEntry($l['password']);
-                $note = self::clean($l['note']);
-                $stmt->bind_param('sssssii', $name, $uri, $username, $password, $note, $contactId, $clientId);
-                if (!$stmt->execute()) {
-                    throw new \RuntimeException('Could not save a login.');
+            if ($lines) {
+                $stmt = $db->prepare(
+                    "INSERT INTO credentials SET credential_type = 'Login', credential_name = ?, credential_description = '', credential_uri = ?, credential_uri_2 = '',"
+                    . ' credential_username = ?, credential_password = ?, credential_otp_secret = \'\', credential_note = ?, credential_favorite = 0,'
+                    . ' credential_folder_id = 0, credential_contact_id = ?, credential_asset_id = 0, credential_client_id = ?, credential_rotation_due_at = NULL'
+                );
+                foreach ($lines as $l) {
+                    $name = self::credentialName($l['name'], $l['kind'], $personPrefix);
+                    $uri = self::clean($l['uri']);
+                    $username = \encryptCredentialEntry($l['username']);
+                    $password = \encryptCredentialEntry($l['password']);
+                    $note = self::clean($l['note']);
+                    $stmt->bind_param('sssssii', $name, $uri, $username, $password, $note, $contactId, $clientId);
+                    if (!$stmt->execute()) {
+                        throw new \RuntimeException('Could not save a login.');
+                    }
+                    $id = (int) $db->insert_id;
+                    \ITFlow\Crypto\VaultV3::finalizeCredential($db, $id);
+                    $saved[] = ['id' => $id, 'name' => $name, 'client_id' => $clientId];
                 }
-                $id = (int) $db->insert_id;
-                \ITFlow\Crypto\VaultV3::finalizeCredential($db, $id);
-                $saved[] = ['id' => $id, 'name' => $name, 'client_id' => $clientId];
+                $stmt->close();
             }
-            $stmt->close();
-            $db->commit();
+            if ($inTransaction !== null) {
+                $inTransaction($db);
+            }
+            if (!$db->commit()) {
+                throw new \RuntimeException('Could not commit.');
+            }
             return $saved;
         } catch (\Throwable $e) {
             $db->rollback();

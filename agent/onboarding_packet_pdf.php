@@ -3,13 +3,19 @@
 /*
  * Onboarding packet PDF.
  *
- *   POST /agent/onboarding_packet_pdf.php   (csrf_token, contact_id, packet fields - see PacketRequest)
+ *   POST /agent/onboarding_packet_pdf.php   (csrf_token, packet fields - see PacketRequest, and ONE of:)
+ *     contact mode: contact_id                    - the person is that contact; Logins are linked to them.
+ *     ticket mode:  ticket_id, person_name        - a new hire with no contact yet (the ticket's contact is usually
+ *                   [attach_ticket, attach_passwords]   the manager). Department = the ticket's; Logins get no contact
+ *                                                  and are named "<person> - <line>". Any contact_id is ignored.
  *
- * POST only: passwords never travel in a URL. Order: method -> CSRF -> module_credential >= 2 (read-only
- * roles refused) -> strict contact id -> contact + client -> client access -> validate input -> build the
- * PDF in memory -> save ticked lines to Credentials in one transaction -> audit (counts only) -> stream.
- * The PDF is built before anything is saved, so a render failure saves nothing, and a save failure streams
- * nothing. Nothing is written to disk; passwords are never logged or put in the session.
+ * POST only: passwords never travel in a URL. Order: method -> CSRF -> module_credential >= 2 (read-only roles
+ * refused) -> mode + strict ids -> ticket permissions -> context from DB rows (department 404) -> client access ->
+ * validate input -> attach checks -> build the PDF in memory (and the ticket copy, passwords masked unless
+ * attach_passwords=1) -> ONE transaction: ticked Logins + the ticket attachment file and row -> audit (counts and
+ * names only) -> stream. Everything is built before anything is saved, so a render failure saves nothing, and a
+ * save or attach failure rolls back, removes the file and streams nothing. The download is never written to disk;
+ * passwords are never logged or put in the session. The department never comes from the request.
  */
 
 ob_start();
@@ -20,9 +26,11 @@ ob_end_clean();
 // Buffer everything from here so a stray PHP warning can never land in the PDF body or break headers.
 ob_start();
 
+use ITFlow\Onboarding\PacketContext;
 use ITFlow\Onboarding\PacketPdf;
 use ITFlow\Onboarding\PacketRequest;
 use ITFlow\Onboarding\PacketSaver;
+use ITFlow\Onboarding\PacketTicketAttachment;
 
 function obpk_text(int $code, string $msg): never
 {
@@ -37,6 +45,16 @@ function obpk_text(int $code, string $msg): never
     exit;
 }
 
+/** A strictly positive int id from POST; 0 when absent or empty; null when present but malformed. */
+function obpk_id(string $key): ?int
+{
+    $raw = $_POST[$key] ?? null;
+    if ($raw === null || $raw === '') {
+        return 0;
+    }
+    return is_string($raw) && preg_match('/^[1-9][0-9]{0,9}$/D', $raw) === 1 && (int) $raw <= 2147483647 ? (int) $raw : null;
+}
+
 if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
     header('Allow: POST');
     obpk_text(405, 'Method not allowed.');
@@ -46,44 +64,65 @@ validateCSRFToken($_POST['csrf_token'] ?? null);
 enforceUserPermission('module_credential', 2);
 enforceUserPermission('module_client', 1);
 
-$obpk_raw = $_POST['contact_id'] ?? null;
-$contact_id = is_string($obpk_raw) && preg_match('/^[1-9][0-9]{0,9}$/D', $obpk_raw) === 1 && (int) $obpk_raw <= 2147483647 ? (int) $obpk_raw : 0;
-if ($contact_id === 0) {
+// Exactly one mode. Ticket mode wins and ignores any posted contact_id (the ticket's contact is the manager, not the
+// new hire). The department is always read from the ticket or contact row, never from the request.
+$obpk_ticket_id = obpk_id('ticket_id');
+$contact_id = $obpk_ticket_id === 0 ? obpk_id('contact_id') : 0;
+if ($obpk_ticket_id === null || $contact_id === null || ($obpk_ticket_id === 0 && $contact_id === 0)) {
     obpk_text(404, 'Not found.');
 }
+$obpk_ticket_mode = $obpk_ticket_id > 0;
 
-$obpk_st = $mysqli->prepare('SELECT contact_name, contact_client_id, client_name FROM contacts LEFT JOIN clients ON client_id = contact_client_id WHERE contact_id = ? AND contact_archived_at IS NULL');
-$obpk_st->bind_param('i', $contact_id);
-$obpk_st->execute();
-$obpk_row = $obpk_st->get_result()->fetch_assoc();
-$obpk_st->close();
-if (!$obpk_row) {
+// Attaching only exists in ticket mode, and the unmasked copy is an explicit opt-in that means nothing without it:
+// attach_passwords=1 without attach_ticket=1 is ignored.
+$obpk_attach = ($_POST['attach_ticket'] ?? null) === '1';
+if ($obpk_attach && !$obpk_ticket_mode) {
+    obpk_text(422, 'There is no ticket to attach the packet to.');
+}
+$obpk_attach_pw = $obpk_attach && ($_POST['attach_passwords'] ?? null) === '1';
+
+if ($obpk_ticket_mode) {
+    enforceUserPermission('module_support', 1);
+}
+if ($obpk_attach) {
+    // Same permission agent/post/ticket.php's upload_ticket_attachment requires.
+    enforceUserPermission('module_support', 2);
+}
+
+// A department-denied user gets the same plain 404 as an unknown id (enforceClientAccess would redirect with a
+// flash, which would let ids be probed). It stays as the backstop.
+$obpk_ctx = PacketContext::resolve($mysqli, $contact_id, $obpk_ticket_id, (int) $session_user_id, (bool) ($session_is_admin ?? false));
+if ($obpk_ctx === null) {
     obpk_text(404, 'Not found.');
 }
-$client_id = (int) $obpk_row['contact_client_id'];
-$person = (string) $obpk_row['contact_name'];
-$client_name = (string) ($obpk_row['client_name'] ?? '');
+$client_id = $obpk_ctx->clientId;
+$contact_id = $obpk_ctx->contactId; // 0 in ticket mode: Logins are never linked to the ticket's contact
+$client_name = $obpk_ctx->clientName;
+$obpk_ticket = $obpk_ctx->ticket;
+enforceClientAccess($client_id);
 
-// A department-denied user gets the same plain 404 as an unknown contact (enforceClientAccess would
-// redirect with a flash, which would let contact ids be probed). It stays as the backstop.
-if (!($session_is_admin ?? false) && $client_id > 0) {
-    $obpk_uid = (int) $session_user_id;
-    $obpk_ac = $mysqli->prepare('SELECT COUNT(*) AS total, SUM(client_id = ?) AS hit FROM user_client_permissions WHERE user_id = ?');
-    $obpk_ac->bind_param('ii', $client_id, $obpk_uid);
-    $obpk_ac->execute();
-    $obpk_acr = $obpk_ac->get_result()->fetch_assoc();
-    $obpk_ac->close();
-    if ((int) ($obpk_acr['total'] ?? 0) > 0 && (int) ($obpk_acr['hit'] ?? 0) === 0) {
-        obpk_text(404, 'Not found.');
+if ($obpk_attach) {
+    // Same-department by construction (ticket mode takes the department from this ticket); checked anyway so a
+    // later change can never attach one department's packet to another department's ticket.
+    if ($obpk_ticket === null || $obpk_ticket['client_id'] !== $client_id) {
+        obpk_text(422, "The packet can only be attached to a ticket in the person's department.");
+    }
+    enforceClientAccess($obpk_ticket['client_id']);
+    // The ticket page offers attachments only while the ticket is open.
+    if ($obpk_ticket['closed']) {
+        obpk_text(422, 'That ticket is closed. Reopen it to attach the packet.');
     }
 }
-enforceClientAccess($client_id);
 
 try {
     $obpk_req = PacketRequest::fromPost($_POST);
+    // Contact mode: the contact's name (a posted person_name is ignored). Ticket mode: the typed, validated name.
+    $person = $obpk_ctx->personFromContact ? $obpk_ctx->personName : PacketRequest::personName($_POST['person_name'] ?? '');
 } catch (\InvalidArgumentException $e) {
     obpk_text(422, $e->getMessage());
 }
+// Plain text for audit lines.
+$obpk_person_log = trim(strip_tags($person));
 try {
     PacketSaver::preflight($obpk_req);
 } catch (\InvalidArgumentException $e) {
@@ -121,16 +160,38 @@ if (ini_get('memory_limit') !== '-1' && (int) ini_get('memory_limit') < 256) {
 
 try {
     $obpk_pdf = PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo);
+    $obpk_att_pdf = null;
+    if ($obpk_attach) {
+        // The ticket copy: passwords masked unless explicitly opted in. The download always has the real passwords.
+        $obpk_att_pdf = $obpk_attach_pw ? $obpk_pdf : PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo, true, true);
+    }
 } catch (\Throwable $e) {
     error_log('Onboarding packet render failed: ' . get_class($e));
     obpk_text(500, 'Could not build the packet.');
 }
 
+// The ticket attachment is written and recorded INSIDE the Logins transaction: if anything fails (the file, its
+// row, a Login, the commit) the transaction rolls back and the file is removed, so nothing is left behind.
+$obpk_att_path = null;
+$obpk_att_id = 0;
+$obpk_in_tx = null;
+if ($obpk_att_pdf !== null) {
+    $obpk_att_name = PacketTicketAttachment::displayName($person);
+    $obpk_att_ticket = $obpk_ticket['id'];
+    $obpk_in_tx = static function (\mysqli $db) use ($obpk_att_ticket, $obpk_att_name, $obpk_att_pdf, &$obpk_att_path, &$obpk_att_id): void {
+        $obpk_att_id = PacketTicketAttachment::store($db, dirname(__DIR__) . '/uploads', $obpk_att_ticket, $obpk_att_name, $obpk_att_pdf, $obpk_att_path);
+    };
+}
+
 try {
-    $obpk_saved = PacketSaver::save($mysqli, $obpk_req, $client_id, $contact_id);
+    $obpk_saved = PacketSaver::save($mysqli, $obpk_req, $client_id, $contact_id, $obpk_in_tx, $obpk_ticket_mode ? $person : '');
 } catch (\Throwable $e) {
+    // Rolled back: no Logins and no attachment row. Remove the attachment file if one was written.
+    if ($obpk_att_path !== null && is_file($obpk_att_path)) {
+        @unlink($obpk_att_path);
+    }
     error_log('Onboarding packet save failed: ' . get_class($e));
-    obpk_text(500, 'Could not save the logins, so no packet was produced. Nothing was saved.');
+    obpk_text(500, ($obpk_attach ? 'Could not save the logins or attach the packet to the ticket' : 'Could not save the logins') . ', so no packet was produced. Nothing was saved.');
 }
 
 // The transaction has committed; audit each saved Login (names only, never passwords).
@@ -138,7 +199,13 @@ foreach ($obpk_saved as $obpk_cred) {
     logAction("Credential", "Create", "$session_name created credential " . $obpk_cred['name'] . " (onboarding packet)", $obpk_cred['client_id'], $obpk_cred['id']);
 }
 
-logAction('Onboarding Packet', 'Generate', "$session_name generated an onboarding packet for $person (" . count($obpk_req->lines) . " lines, " . count($obpk_saved) . " saved)", $client_id, $contact_id);
+$obpk_ticket_ref = $obpk_ticket !== null ? $obpk_ticket['prefix'] . $obpk_ticket['number'] : '';
+if ($obpk_att_id > 0) {
+    $obpk_copy_label = $obpk_attach_pw ? 'passwords included in the attached copy' : 'passwords hidden in the attached copy';
+    logAction('Ticket', 'Attachment', "$session_name attached an onboarding packet for $obpk_person_log to ticket $obpk_ticket_ref ($obpk_copy_label)", $obpk_ticket['client_id'], $obpk_ticket['id']);
+}
+
+logAction('Onboarding Packet', 'Generate', "$session_name generated an onboarding packet for $obpk_person_log" . ($obpk_ticket_ref !== '' ? " from ticket $obpk_ticket_ref" : '') . " (" . count($obpk_req->lines) . " lines, " . count($obpk_saved) . " saved)", $client_id, $contact_id);
 
 $obpk_slug = trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $person), '-');
 $obpk_filename = 'Onboarding-' . ($obpk_slug !== '' ? $obpk_slug : 'person') . '-' . date('Y-m-d') . '.pdf';
