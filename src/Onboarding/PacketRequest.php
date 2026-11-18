@@ -23,7 +23,7 @@ final class PacketRequest
     {
         $r = new self();
         $r->startDate = self::text($post['start_date'] ?? '', 'Start date');
-        $r->managerName = self::text($post['manager_name'] ?? '', 'Manager name');
+        $r->managerName = self::cleanName(self::text($post['manager_name'] ?? '', 'Manager name'), 'Manager name');
 
         $computer = self::line('computer', 'Computer', is_array($post['computer'] ?? null) ? $post['computer'] : []);
         if ($computer !== null) {
@@ -61,14 +61,30 @@ final class PacketRequest
      */
     public static function personName(mixed $v): string
     {
-        $s = self::text($v, "New hire's name");
+        $s = self::cleanName(self::text($v, "New hire's name"), "New hire's name");
         if ($s === '') {
             throw new \InvalidArgumentException("Enter the new hire's name.");
         }
-        if (!mb_check_encoding($s, 'UTF-8') || preg_match('/[\x00-\x1F\x7F]/', $s) === 1) {
-            throw new \InvalidArgumentException("New hire's name is not valid.");
-        }
         return $s;
+    }
+
+    /**
+     * Display-name cleaning: invalid UTF-8 is refused; control characters (C0, DEL, C1) and line/paragraph separators
+     * become a space, invisible and direction-changing characters (U+200B-200F, U+202A-202E, U+2060-2064, U+FEFF)
+     * are removed, whitespace runs collapse to one space, outer whitespace is trimmed. Accented letters are kept.
+     */
+    public static function cleanName(string $s, string $label = 'Name'): string
+    {
+        if ($s === '') {
+            return '';
+        }
+        $a = preg_replace('/[\x{0000}-\x{001F}\x{007F}-\x{009F}\x{2028}\x{2029}]+/u', ' ', $s);
+        $b = $a === null ? null : preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{FEFF}]+/u', '', $a);
+        $c = $b === null ? null : preg_replace('/\s+/u', ' ', $b);
+        if ($c === null) {
+            throw new \InvalidArgumentException("$label is not valid.");
+        }
+        return trim($c);
     }
 
     /** Returns null for a blank line (every field empty). */

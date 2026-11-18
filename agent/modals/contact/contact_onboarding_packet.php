@@ -179,8 +179,8 @@ ob_start();
                 <input type="checkbox" class="form-check-input" name="attach_passwords" id="obpk-attach-passwords" value="1">
                 <label class="form-check-label" for="obpk-attach-passwords">Include passwords in the attached copy</label>
             </div>
-            <small class="text-danger d-block ms-3"><i class="fa fa-fw fa-exclamation-triangle me-1"></i>Anyone who can open the ticket can read attached passwords.</small>
-            <small class="text-muted d-block">Your download always has the passwords. The attached copy hides them unless you tick the box above. Ticket attachments also show in the client portal to anyone there who can see this ticket.</small>
+            <div class="alert alert-warning mt-2 mb-2 d-none" id="obpk-attach-pw-warning" role="alert"><i class="fa fa-fw fa-exclamation-triangle me-1"></i>The attached file is stored on the server and can be opened by anyone with its link (no sign-in needed), by technicians who can view tickets but not Credentials, and by every primary or technical portal contact of this client. Passwords in it cannot be taken back later by changing the Login.</div>
+            <small class="text-muted d-block">The copy hides passwords by default; usernames, links and notes are not hidden.</small>
         </div>
         <?php } ?>
 
@@ -340,7 +340,10 @@ ob_start();
             if (!attach || !attachPw) { return; }
             attachPw.disabled = !attach.checked;
             if (!attach.checked) { attachPw.checked = false; }
+            var warn = form.querySelector('#obpk-attach-pw-warning');
+            if (warn) { warn.classList.toggle('d-none', !(attach.checked && attachPw.checked)); }
         }
+        if (attachPw) { attachPw.addEventListener('change', syncAttach); }
         if (attach) { attach.addEventListener('change', syncAttach); }
         syncAttach();
         refresh();

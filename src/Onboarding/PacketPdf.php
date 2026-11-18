@@ -73,7 +73,7 @@ final class PacketPdf
 {
     /** Printed in place of every password when $maskPasswords is on. Fixed length, so it says nothing about the real one. */
     public const MASK = "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}";
-    public const MASK_NOTE = 'Passwords hidden in this copy';
+    public const MASK_NOTE = 'Passwords and notes hidden in this copy';
     public const CHANGE_TAG = 'Change on first sign-in';
     public const CHANGE_HINT = "\u{2014} you will be asked to set a new password";
     public const FOOTER = "Confidential \u{2014} contains sign-in details";
@@ -112,7 +112,7 @@ final class PacketPdf
 
     /**
      * $maskPasswords: the copy kept on a ticket. Every password prints as MASK (the real value never reaches TCPDF)
-     * and the page says so; usernames, links, notes and the change-on-first-sign-in lines print as normal.
+     * and the page says so; notes print as ******** (the label stays); usernames, links and the change-on-first-sign-in lines print as normal.
      */
     public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true, bool $maskPasswords = false): string
     {
@@ -374,7 +374,7 @@ final class PacketPdf
             $rows[] = ['Link', $l['uri'], 'link'];
         }
         if ($l['note'] !== '') {
-            $rows[] = ['Notes', $l['note'], 'text'];
+            $rows[] = ['Notes', $mask ? '********' : $l['note'], 'text'];
         }
         // A change-on-first-sign-in line with no password still gets its tag (on its own row).
         if ($l['change'] && $l['password'] === '') {

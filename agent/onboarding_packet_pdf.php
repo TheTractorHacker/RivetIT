@@ -184,14 +184,21 @@ if ($obpk_att_pdf !== null) {
 }
 
 try {
-    $obpk_saved = PacketSaver::save($mysqli, $obpk_req, $client_id, $contact_id, $obpk_in_tx, $obpk_ticket_mode ? $person : '');
+    $obpk_committed = false;
+    $obpk_saved = PacketSaver::save($mysqli, $obpk_req, $client_id, $contact_id, $obpk_in_tx, $obpk_ticket_mode ? $person : '', $obpk_committed);
 } catch (\Throwable $e) {
-    // Rolled back: no Logins and no attachment row. Remove the attachment file if one was written.
-    if ($obpk_att_path !== null && is_file($obpk_att_path)) {
-        @unlink($obpk_att_path);
+    if ($obpk_committed) {
+        // COMMIT already succeeded: the Logins and the attachment row are real, so keep the file and still hand over the PDF.
+        error_log('Onboarding packet post-commit failure: ' . get_class($e));
+        $obpk_saved = [];
+    } else {
+        // Rolled back: no Logins and no attachment row. Remove the attachment file if one was written.
+        if ($obpk_att_path !== null && is_file($obpk_att_path)) {
+            @unlink($obpk_att_path);
+        }
+        error_log('Onboarding packet save failed: ' . get_class($e));
+        obpk_text(500, ($obpk_attach ? 'Could not save the logins or attach the packet to the ticket' : 'Could not save the logins') . ', so no packet was produced. Nothing was saved.');
     }
-    error_log('Onboarding packet save failed: ' . get_class($e));
-    obpk_text(500, ($obpk_attach ? 'Could not save the logins or attach the packet to the ticket' : 'Could not save the logins') . ', so no packet was produced. Nothing was saved.');
 }
 
 // The transaction has committed; audit each saved Login (names only, never passwords).

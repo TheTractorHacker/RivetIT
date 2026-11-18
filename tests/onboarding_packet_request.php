@@ -74,7 +74,14 @@ $ok($pn(null, "Enter the new hire's name"), 'person_name: missing refused');
 $ok($pn(['Jane']), 'person_name: array refused');
 $ok($pn(str_repeat('a', 201), 'too long'), 'person_name: 201 chars refused');
 $ok(PacketRequest::personName(str_repeat("\u{e9}", 200)) === str_repeat("\u{e9}", 200), 'person_name: 200 multibyte chars allowed (counted as characters)');
-$ok($pn("Jane\x00Smith", 'not valid') && $pn("Jane\nSmith", 'not valid') && $pn("Jane\x7FSmith", 'not valid'), 'person_name: control characters refused');
+$ok(PacketRequest::personName("Jane\x00Smith") === 'JaneSmith' || PacketRequest::personName("Jane\x00Smith") === 'Jane Smith', 'person_name: NUL does not survive');
+$ok(PacketRequest::personName("Jane\nSmith\t\x7F") === 'Jane Smith', 'person_name: newline/tab/DEL cleaned, whitespace collapsed');
+$ok(PacketRequest::personName("Bob\u{202E}exe.txt") === 'Bobexe.txt', 'person_name: RLO U+202E removed');
+$ok(PacketRequest::personName("Ja\u{200B}ne\u{FEFF} \u{2060}Smith\u{80}") === 'Jane Smith', 'person_name: zero-width, BOM, word joiner, C1 removed');
+$ok(PacketRequest::personName("Jos\u{e9}  M\u{fc}ller") === "Jos\u{e9} M\u{fc}ller", 'person_name: accented names preserved, runs collapsed');
+$ok($pn("\u{200B}\u{202E}", "Enter the new hire's name"), 'person_name: only invisible characters refused as empty');
+$ok(PacketRequest::fromPost(['manager_name' => "Pat\u{202E}\nLee", 'computer' => ['username' => 'u']])->managerName === 'Pat Lee', 'manager_name: cleaned the same way');
+$ok($throws(['manager_name' => "Pat \xC3\x28", 'computer' => ['username' => 'u']]), 'manager_name: invalid UTF-8 refused');
 $ok($pn("Jane \xC3\x28", 'not valid'), 'person_name: invalid UTF-8 refused');
 
 echo $fail ? "\n$fail FAILED\n" : "\nALL PASS\n";

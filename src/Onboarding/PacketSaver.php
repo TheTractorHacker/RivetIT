@@ -45,7 +45,11 @@ final class PacketSaver
     public static function credentialName(string $lineName, string $kind, string $person = ''): string
     {
         $name = self::clean($lineName) !== '' ? self::clean($lineName) : (self::DEFAULT_NAMES[$kind] ?? 'Login');
-        $person = self::clean($person);
+        try {
+            $person = PacketRequest::cleanName(self::clean($person));
+        } catch (\InvalidArgumentException $e) {
+            $person = '';
+        }
         if ($person === '') {
             return $name;
         }
@@ -60,9 +64,10 @@ final class PacketSaver
      * @param callable(\mysqli):void|null $inTransaction runs after the Logins are inserted and before COMMIT, inside the
      *        same transaction (the endpoint stores the ticket attachment there). If it throws, nothing is committed.
      * @param string $personPrefix ticket mode: the new hire's name, prefixed to each Login's name (see credentialName)
+     * @param bool|null $committed set true the moment COMMIT succeeds (callers must not undo side effects after that)
      * @return list<array{id:int,name:string,client_id:int}> the credentials saved (count() is the number saved); never includes secrets
      */
-    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId, ?callable $inTransaction = null, string $personPrefix = ''): array
+    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId, ?callable $inTransaction = null, string $personPrefix = '', ?bool &$committed = null): array
     {
         $lines = array_values(array_filter($req->lines, static fn(array $l): bool => $l['save']));
         if (!$lines && $inTransaction === null) {
@@ -76,6 +81,7 @@ final class PacketSaver
             }
         }
 
+        $committed = false;
         $db->begin_transaction();
         try {
             $saved = [];
@@ -107,9 +113,12 @@ final class PacketSaver
             if (!$db->commit()) {
                 throw new \RuntimeException('Could not commit.');
             }
+            $committed = true;
             return $saved;
         } catch (\Throwable $e) {
-            $db->rollback();
+            if (!$committed) {
+                $db->rollback();
+            }
             throw $e;
         }
     }

@@ -115,9 +115,11 @@ foreach ($secrets as $label => $secret) {
 // software username 'jd' cannot pass by matching inside 'jdoe'.
 $run = static fn(string $d, string $s): bool => str_contains($d, '[(' . mb_convert_encoding($s, 'UTF-16BE', 'UTF-8') . ')] TJ');
 check('masked: usernames present', $run($masked, 'Username') && $run($masked, 'jdoe') && $run($masked, 'jdoe@example.com') && $run($masked, 'jd'));
-check('masked: note "Passwords hidden in this copy" present', $has($masked, PacketPdf::MASK_NOTE) && PacketPdf::MASK_NOTE === 'Passwords hidden in this copy');
+check('masked: banner "Passwords and notes hidden in this copy" present', $has($masked, PacketPdf::MASK_NOTE) && PacketPdf::MASK_NOTE === 'Passwords and notes hidden in this copy');
 check('masked: mask glyphs present', $has($masked, PacketPdf::MASK) && PacketPdf::MASK === str_repeat("\u{2022}", 8));
-check('masked: link, note, heading still print', $has($masked, 'https://crm.example.com') && $has($masked, 'Ask IT') && $has($masked, 'Welcome to Acme Corp'));
+check('masked: link and heading still print; note text does not, label and stars do', $has($masked, 'https://crm.example.com') && $has($masked, 'Welcome to Acme Corp') && !$has($masked, 'Ask IT') && $has($masked, '********') && $has($masked, 'Notes'));
+$pinReq = PacketRequest::fromPost(['computer' => ['username' => 'u', 'password' => 'pw9', 'note' => 'PIN 4821']]);
+check('notes: unmasked contains PIN 4821, masked (plain and compressed) does not', $has(PacketPdf::render($pinReq, $person, 'Acme Corp', '', null, false), 'PIN 4821') && !$has(PacketPdf::render($pinReq, $person, 'Acme Corp', '', null, false, true), 'PIN 4821') && !$has($inflate(PacketPdf::render($pinReq, $person, 'Acme Corp', '', null, true, true)), 'PIN 4821') && $has($inflate(PacketPdf::render($pinReq, $person, 'Acme Corp', '', null, true)), 'PIN 4821'));
 check('masked: change-on-first-sign-in lines still print (2)', (substr_count($masked, 'Change on first sign-in') + substr_count($masked, mb_convert_encoding('Change on first sign-in', 'UTF-16BE', 'UTF-8'))) === 2);
 check('unmasked (default arg): no hidden-passwords note, no mask glyphs', !$has($plain, PacketPdf::MASK_NOTE) && !$has($plain, PacketPdf::MASK));
 check('unmasked (explicit false) has no note either', !$has(PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', null, false, false), PacketPdf::MASK_NOTE));
