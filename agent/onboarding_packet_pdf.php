@@ -39,6 +39,7 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
 
 validateCSRFToken($_POST['csrf_token'] ?? null);
 enforceUserPermission('module_credential', 2);
+enforceUserPermission('module_client', 1);
 
 $obpk_raw = $_POST['contact_id'] ?? null;
 $contact_id = is_string($obpk_raw) && preg_match('/^[1-9][0-9]{0,9}$/D', $obpk_raw) === 1 && (int) $obpk_raw <= 2147483647 ? (int) $obpk_raw : 0;
@@ -58,10 +59,28 @@ $client_id = (int) $obpk_row['contact_client_id'];
 $person = (string) $obpk_row['contact_name'];
 $client_name = (string) ($obpk_row['client_name'] ?? '');
 
+// A department-denied user gets the same plain 404 as an unknown contact (enforceClientAccess would
+// redirect with a flash, which would let contact ids be probed). It stays as the backstop.
+if (!($session_is_admin ?? false) && $client_id > 0) {
+    $obpk_uid = (int) $session_user_id;
+    $obpk_ac = $mysqli->prepare('SELECT COUNT(*) AS total, SUM(client_id = ?) AS hit FROM user_client_permissions WHERE user_id = ?');
+    $obpk_ac->bind_param('ii', $client_id, $obpk_uid);
+    $obpk_ac->execute();
+    $obpk_acr = $obpk_ac->get_result()->fetch_assoc();
+    $obpk_ac->close();
+    if ((int) ($obpk_acr['total'] ?? 0) > 0 && (int) ($obpk_acr['hit'] ?? 0) === 0) {
+        obpk_text(404, 'Not found.');
+    }
+}
 enforceClientAccess($client_id);
 
 try {
     $obpk_req = PacketRequest::fromPost($_POST);
+} catch (\InvalidArgumentException $e) {
+    obpk_text(422, $e->getMessage());
+}
+try {
+    PacketSaver::preflight($obpk_req);
 } catch (\InvalidArgumentException $e) {
     obpk_text(422, $e->getMessage());
 }

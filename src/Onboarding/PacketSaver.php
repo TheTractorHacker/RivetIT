@@ -12,12 +12,39 @@ final class PacketSaver
 {
     private const DEFAULT_NAMES = ['computer' => 'Computer', 'email' => 'Email', 'software' => 'Software'];
 
+    public const MAX_PASSWORD_BYTES = 1000;
+
+    /** Throws \InvalidArgumentException (user-safe) if any line to be saved cannot be stored; touches nothing. */
+    public static function preflight(PacketRequest $req): void
+    {
+        foreach ($req->lines as $i => $l) {
+            if ($l['save'] && strlen($l['password']) > self::MAX_PASSWORD_BYTES) {
+                $label = $l['name'] !== '' ? $l['name'] : (self::DEFAULT_NAMES[$l['kind']] ?? 'Login');
+                throw new \InvalidArgumentException($label . ': password too long to save.');
+            }
+        }
+    }
+
+    /** Same cleaning as credential_model.php (encoding fix, strip tags, trim) without the SQL escape: we bind parameters. */
+    private static function clean(string $v): string
+    {
+        if ($v !== '' && !mb_check_encoding($v, 'UTF-8')) {
+            $v = mb_convert_encoding($v, 'UTF-8', 'Windows-1252');
+        }
+        return trim(strip_tags($v));
+    }
+
     /** @return int number of credentials saved */
     public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId): int
     {
         $lines = array_values(array_filter($req->lines, static fn(array $l): bool => $l['save']));
         if (!$lines) {
             return 0;
+        }
+
+        self::preflight($req);
+        if (\ITFlow\Crypto\VaultV3::sessionMaster() === null) {
+            throw new \RuntimeException('No session encryption key; refusing to store an undecryptable password.');
         }
 
         $db->begin_transaction();
@@ -29,11 +56,11 @@ final class PacketSaver
             );
             $saved = 0;
             foreach ($lines as $l) {
-                $name = $l['name'] !== '' ? $l['name'] : (self::DEFAULT_NAMES[$l['kind']] ?? 'Login');
-                $uri = $l['uri'];
+                $name = self::clean($l['name']) !== '' ? self::clean($l['name']) : (self::DEFAULT_NAMES[$l['kind']] ?? 'Login');
+                $uri = self::clean($l['uri']);
                 $username = \encryptCredentialEntry($l['username']);
                 $password = \encryptCredentialEntry($l['password']);
-                $note = $l['note'];
+                $note = self::clean($l['note']);
                 $stmt->bind_param('sssssii', $name, $uri, $username, $password, $note, $contactId, $clientId);
                 if (!$stmt->execute()) {
                     throw new \RuntimeException('Could not save a login.');

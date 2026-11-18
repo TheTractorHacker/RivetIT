@@ -34,5 +34,19 @@ foreach (['agent/onboarding_packet_pdf.php', 'src/Onboarding/PacketSaver.php'] a
     exec('php -l ' . escapeshellarg("$root/$f") . ' 2>&1', $o, $rc);
     chk("php -l $f", $rc === 0);
 }
+$pos = static fn(string $n, string $h = '') => strpos($h !== '' ? $h : $GLOBALS['ep'], $n);
+chk('CSRF before permission', $pos('validateCSRFToken(') < $pos("enforceUserPermission('module_credential'"));
+chk('module_client >= 1 enforced', str_contains($ep, "enforceUserPermission('module_client', 1)"));
+chk('enforceClientAccess uses contact client var', str_contains($ep, 'enforceClientAccess($client_id)') && str_contains($ep, "\$client_id = (int) \$obpk_row['contact_client_id']"));
+chk("no \$_POST['client_id']", !str_contains($ep, "\$_POST['client_id']") && !str_contains($ep, '$_POST["client_id"]'));
+chk('department-denied is a 404', preg_match('/hit.*?obpk_text\(404/s', $ep) === 1);
+chk('render before save', $pos('PacketPdf::render(') < $pos('PacketSaver::save('));
+chk('save before logAction', $pos('PacketSaver::save(') < $pos("logAction('Onboarding Packet'"));
+chk('logAction before PDF header', $pos("logAction('Onboarding Packet'") < $pos("header('Content-Type: application/pdf')"));
+chk('preflight 422 before render', $pos('PacketSaver::preflight(') < $pos('PacketPdf::render('));
+chk('saver: preflight before begin_transaction', strpos($sv, 'self::preflight') < strpos($sv, 'begin_transaction'));
+chk('saver: 1000-byte limit', str_contains($sv, 'strlen($l[\'password\']) > self::MAX_PASSWORD_BYTES') && str_contains($sv, '= 1000'));
+chk('saver: refuses without session master', str_contains($sv, 'sessionMaster() === null') && strpos($sv, 'sessionMaster') < strpos($sv, 'begin_transaction'));
+chk('saver: sanitises name/uri/note', substr_count($sv, 'self::clean(') >= 3 && str_contains($sv, 'strip_tags'));
 echo $fail ? "\n$fail FAILED\n" : "\nALL PASSED\n";
 exit($fail ? 1 : 0);
