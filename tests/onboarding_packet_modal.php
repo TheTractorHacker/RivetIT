@@ -27,6 +27,8 @@ chk('null-guarded form', str_contains($m, 'if (!form) { return; }'));
 chk('eye toggle on 3 password groups + template', substr_count($m, 'btn btn-default obpk-eye') === 3 && str_contains($m, "pi.type = pi.type === 'password' ? 'text' : 'password'"));
 chk('generate shows value as text', str_contains($m, "input.type = 'text'"));
 chk('.fail handler on generator', str_contains($m, '.fail(function') && str_contains($m, 'Could not generate a password'));
+// agent/ajax.php answers application/json (IT-WEB-2): jQuery has already parsed the bare string, so a second JSON.parse throws.
+chk('generator uses the parsed reply (no second JSON.parse)', !str_contains($m, 'JSON.parse(') && str_contains($m, "}, 'json').done(function (data)"));
 chk('save-without-password validity', str_contains($m, 'setCustomValidity'));
 chk('no window-stays-open promise', !str_contains($m, 'stays open'));
 chk('no inline onclick', !str_contains($m, 'onclick='));

@@ -278,9 +278,13 @@ ob_start();
                 var input = group.querySelector('input');
                 var old = group.parentNode.querySelector('.obpk-gen-err');
                 if (old) { old.remove(); }
+                // ajax.php answers application/json, so jQuery hands over the already-parsed string: use it as is,
+                // never parse it a second time. dataType 'json' also turns a non-JSON reply into a failure.
                 jQuery.get('ajax.php', { get_readable_pass: 'true' }, function (data) {
-                    try { input.value = JSON.parse(data); input.type = 'text'; checkSave(); }
-                    catch (ex) { showGenErr(group); }
+                    if (typeof data === 'string' && data !== '') { input.value = data; input.type = 'text'; }
+                }, 'json').done(function (data) {
+                    if (typeof data !== 'string' || data === '') { showGenErr(group); }
+                    checkSave();
                 }).fail(function () { showGenErr(group); });
             }
         });
