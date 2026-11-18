@@ -530,6 +530,11 @@ if (isset($_GET['ticket_id'])) {
                                     <a class="dropdown-item js-create-outtake" href="#" data-ticket-id="<?= $ticket_id ?>" data-client-id="<?= $client_id ?: 0 ?>" data-csrf-token="<?= $_SESSION['csrf_token'] ?>">
                                         <i class="fas fa-fw fa-file-signature me-2"></i>Add Outtake Form
                                     </a>
+                                    <?php if ($contact_id && itflow_modal_allowed('contact/contact_onboarding_packet.php')) { ?>
+                                    <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/contact/contact_onboarding_packet.php?id=<?= intval($contact_id) ?>" data-modal-size="lg">
+                                        <i class="fas fa-fw fa-file-pdf me-2"></i>Onboarding Packet
+                                    </a>
+                                    <?php } ?>
                                 </div>
                             </div>
 

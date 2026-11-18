@@ -65,6 +65,11 @@ chk('double-submit: submit button disabled', str_contains($m, 'submitBtn.disable
 chk('double-submit: ticked save boxes unticked and disabled', str_contains($m, 'cb.checked = false;') && str_contains($m, 'cb.disabled = true;'));
 chk('double-submit: disable only inside setTimeout', strpos($m, 'submitBtn.disabled = true') > strpos($m, 'setTimeout('));
 chk('double-submit: notes shown', str_contains($m, "won\\'t save again") && str_contains($m, 'Close this window to start another, to avoid saving duplicate Logins.'));
+$tk = (string) @file_get_contents("$root/agent/ticket.php");
+chk('ticket page: Onboarding Packet item gated on contact and modal permission', str_contains($tk, "if (\$contact_id && itflow_modal_allowed('contact/contact_onboarding_packet.php'))"));
+chk('ticket page: item opens the packet modal for the ticket contact', str_contains($tk, 'modals/contact/contact_onboarding_packet.php?id=<?= intval($contact_id) ?>'));
+exec('php -l ' . escapeshellarg("$root/agent/ticket.php") . ' 2>&1', $ot, $rct);
+chk('php -l ticket.php', $rct === 0);
 exec('php -l ' . escapeshellarg("$root/agent/modals/contact/contact_onboarding_packet.php") . ' 2>&1', $o, $rc);
 chk('php -l modal', $rc === 0);
 exec('php -l ' . escapeshellarg("$root/agent/contact_details.php") . ' 2>&1', $o2, $rc2);
