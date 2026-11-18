@@ -483,6 +483,12 @@ if (isset($_GET['contact_id'])) {
                         </a>
                         <div class="dropdown-divider"></div>
                         <?php } ?>
+                        <?php if (itflow_modal_allowed('contact/contact_onboarding_packet.php')) { ?>
+                        <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/contact/contact_onboarding_packet.php?id=<?= $contact_id ?>" data-modal-size="lg">
+                            <i class="fa fa-fw fa-file-pdf me-2"></i>Onboarding Packet
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <?php } ?>
                         <?php if (itflow_modal_allowed('document/document_add.php')) { ?>
                         <a class="dropdown-item text-dark ajax-modal" href="#" data-modal-url="modals/document/document_add.php?<?= $client_url ?>&contact_id=<?= $contact_id ?>" data-modal-size="lg">
                             <i class="fa fa-fw fa-file-alt me-2"></i>New Document
