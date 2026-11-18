@@ -47,6 +47,26 @@ final class PacketPdf
 
     public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true): string
     {
+        // Only PNG/JPEG that PHP itself can parse ever reach TCPDF.
+        $logo = null;
+        if ($logoBytes !== null && $logoBytes !== '') {
+            $info = @getimagesizefromstring($logoBytes);
+            if (is_array($info) && in_array($info[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) {
+                $logo = $logoBytes;
+            }
+        }
+        if ($logo !== null) {
+            try {
+                return self::build($req, $personName, $clientName, $supportContact, $logo, $compress);
+            } catch (\Throwable $e) {
+                // TCPDF destroys its document before throwing, so it cannot be continued: rebuild from scratch without the logo.
+            }
+        }
+        return self::build($req, $personName, $clientName, $supportContact, null, $compress);
+    }
+
+    private static function build(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes, bool $compress): string
+    {
         $pdf = new PacketPdfDocument();
         $pdf->SetCompression($compress);
         $pdf->SetCreator('RivetIT');
@@ -57,13 +77,9 @@ final class PacketPdf
         $pdf->AddPage();
         $w = $pdf->getPageWidth() - 36;
 
-        if ($logoBytes !== null && $logoBytes !== '') {
-            try {
-                $pdf->Image('@' . $logoBytes, 18, 14, 0, 16);
-                $pdf->SetY(34);
-            } catch (\Throwable $e) {
-                // an unreadable logo must not block the packet
-            }
+        if ($logoBytes !== null) {
+            $pdf->Image('@' . $logoBytes, 18, 14, 0, 16);
+            $pdf->SetY(34);
         }
 
         $pdf->SetFont('dejavusans', 'B', 18);

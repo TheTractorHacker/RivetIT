@@ -27,6 +27,7 @@ check('no Powered by TCPDF', !str_contains($pdf, 'Powered by TCPDF'));
 
 // TCPDF's dejavusans/UTF-8 text is emitted as UTF-16BE inside [( ... )] TJ in the uncompressed stream
 // (e.g. U+00E4 -> bytes 00 E4), so needles are matched both as plain bytes and as UTF-16BE.
+$probe2 = static fn(string $d, string $n): bool => str_contains($d, $n) || str_contains($d, mb_convert_encoding($n, 'UTF-16BE', 'UTF-8'));
 // Direct probe of how the bytes look
 $probe = static function (string $needle) use ($pdf): bool {
     return str_contains($pdf, $needle)
@@ -34,7 +35,8 @@ $probe = static function (string $needle) use ($pdf): bool {
         || str_contains($pdf, bin2hex($needle));
 };
 check('person name present', $probe($person) || $probe('Jane Q'));
-check('ASCII tail of password present', $probe("rd<b>&'\"%") || $probe('crmpw1'));
+check('ASCII tail of password present', $probe("rd<b>&'\"%"));
+check('software password present', $probe('crmpw1'));
 check('non-ASCII password verbatim', $probe($pw));
 check('Welcome heading', $probe('Welcome to Acme Corp'));
 check('support contact present', $probe('help@msp.example'));
@@ -54,6 +56,23 @@ for ($i = 1; $i <= 25; $i++) { $many['software'][] = ['name' => "App $i", 'uri' 
 $ok = true;
 try { $big = PacketPdf::render(PacketRequest::fromPost($many), $person, 'Acme Corp', 'help@msp.example'); $ok = str_starts_with($big, '%PDF-') && substr_count($big, '/Type /Page') > 2; } catch (\Throwable $e) { $ok = false; echo $e->getMessage() . "\n"; }
 check('25 software lines paginate', $ok);
+
+$png = (static function (): string { $im = imagecreatetruecolor(4, 4); ob_start(); imagepng($im); return (string) ob_get_clean(); })();
+$withLogo = PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $png, false);
+check('valid PNG logo -> valid PDF with image', str_starts_with($withLogo, '%PDF-') && str_contains($withLogo, '/Subtype /Image'));
+foreach (['notanimage' => 'notanimage', 'png header + garbage' => "\x89PNG\r\n\x1a\n" . str_repeat("\x07garbage", 20), 'php code' => '<?php echo 1;'] as $label => $bytes) {
+    $ok = false;
+    try {
+        $g = PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $bytes, false);
+        $ok = str_starts_with($g, '%PDF-') && $probe2($g, $pw);
+    } catch (\Throwable $e) { echo $e->getMessage() . "\n"; }
+    check("garbage logo ($label) -> valid PDF with password", $ok);
+}
+// A PNG PHP accepts but TCPDF cannot decode must fall back to a fresh logo-less build.
+$trunc = substr($png, 0, 40);
+$ok = false;
+try { $g = PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $trunc, false); $ok = str_starts_with($g, '%PDF-') && $probe2($g, $pw); } catch (\Throwable $e) { echo $e->getMessage() . "\n"; }
+check('truncated PNG logo -> valid PDF with password', $ok);
 
 echo $fail === 0 ? "ALL PASS\n" : "$fail FAILED\n";
 exit($fail === 0 ? 0 : 1);
