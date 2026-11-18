@@ -21,7 +21,7 @@ function fetchSSL(type)
         {certificate_fetch_parse_json_details: 'TRUE', domain: domain},
         function(data) {
             //If we get a response from post.php, parse it as JSON
-            const ssl_data = JSON.parse(data);
+            const ssl_data = (typeof data === "string" ? JSON.parse(data) : data);
 
             if (ssl_data.success == "TRUE") {
                 // Fill the form fields with the cert data

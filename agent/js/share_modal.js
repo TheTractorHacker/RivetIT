@@ -51,7 +51,7 @@ function generateShareLink() {
             function(data) {
 
                 // If we get a response from ajax.php, parse it as JSON
-                const response = JSON.parse(data);
+                const response = (typeof data === "string" ? JSON.parse(data) : data);
 
                 // Hide the div/form & button used to generate the link
                 document.getElementById("div_share_link_form").hidden = true;
