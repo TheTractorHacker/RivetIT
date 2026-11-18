@@ -17,6 +17,8 @@ require_once "../config.php";
 require_once "../functions.php";
 require_once "../includes/check_login.php";
 ob_end_clean();
+// Buffer everything from here so a stray PHP warning can never land in the PDF body or break headers.
+ob_start();
 
 use ITFlow\Onboarding\PacketPdf;
 use ITFlow\Onboarding\PacketRequest;
@@ -24,6 +26,9 @@ use ITFlow\Onboarding\PacketSaver;
 
 function obpk_text(int $code, string $msg): never
 {
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
     http_response_code($code);
     header('Content-Type: text/plain; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
@@ -128,11 +133,19 @@ try {
     obpk_text(500, 'Could not save the logins, so no packet was produced. Nothing was saved.');
 }
 
-logAction('Onboarding Packet', 'Generate', "$session_name generated an onboarding packet for $person (" . count($obpk_req->lines) . " lines, $obpk_saved saved)", $client_id, $contact_id);
+// The transaction has committed; audit each saved Login (names only, never passwords).
+foreach ($obpk_saved as $obpk_cred) {
+    logAction("Credential", "Create", "$session_name created credential " . $obpk_cred['name'] . " (onboarding packet)", $obpk_cred['client_id'], $obpk_cred['id']);
+}
+
+logAction('Onboarding Packet', 'Generate', "$session_name generated an onboarding packet for $person (" . count($obpk_req->lines) . " lines, " . count($obpk_saved) . " saved)", $client_id, $contact_id);
 
 $obpk_slug = trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $person), '-');
 $obpk_filename = 'Onboarding-' . ($obpk_slug !== '' ? $obpk_slug : 'person') . '-' . date('Y-m-d') . '.pdf';
 
+while (ob_get_level()) {
+    ob_end_clean();
+}
 header('Content-Type: application/pdf');
 header('Cache-Control: private, no-store');
 header('X-Content-Type-Options: nosniff');

@@ -48,5 +48,16 @@ chk('saver: preflight before begin_transaction', strpos($sv, 'self::preflight') 
 chk('saver: 1000-byte limit', str_contains($sv, 'strlen($l[\'password\']) > self::MAX_PASSWORD_BYTES') && str_contains($sv, '= 1000'));
 chk('saver: refuses without session master', str_contains($sv, 'sessionMaster() === null') && strpos($sv, 'sessionMaster') < strpos($sv, 'begin_transaction'));
 chk('saver: sanitises name/uri/note', substr_count($sv, 'self::clean(') >= 3 && str_contains($sv, 'strip_tags'));
+// Audit: per-row Credential/Create log after commit, before Generate log; names only.
+chk('saver returns a list', str_contains($sv, '): array') && str_contains($sv, "'client_id' => \$clientId") && str_contains($sv, 'return $saved;'));
+chk('saver commit before return of list', strpos($sv, '$db->commit()') < strpos($sv, 'return $saved;'));
+chk('endpoint logs Credential Create per row', str_contains($ep, 'foreach ($obpk_saved as $obpk_cred)') && str_contains($ep, '(onboarding packet)') && str_contains($ep, 'logAction("Credential", "Create"'));
+chk('order: save -> credential logAction -> Generate logAction -> headers', $pos('PacketSaver::save(') < $pos('logAction("Credential", "Create"') && $pos('logAction("Credential", "Create"') < $pos("logAction('Onboarding Packet'") && $pos("logAction('Onboarding Packet'") < $pos("header('Content-Type: application/pdf')"));
+chk('count derived via count()', str_contains($ep, 'count($obpk_saved)'));
+chk('credential log has no password', !preg_match('/logAction\("Credential"[^;]*pass/i', $ep));
+// Output buffering.
+chk('ob_start after bootstrap ob_end_clean', preg_match('/check_login\.php";\s*ob_end_clean\(\);.*?\nob_start\(\);/s', $ep) === 1);
+chk('buffers cleaned before PDF headers', preg_match('/while \(ob_get_level\(\)\) \{\s*ob_end_clean\(\);\s*\}\s*header\(\'Content-Type: application\/pdf\'\)/', $ep) === 1);
+chk('buffers cleaned in obpk_text', preg_match('/function obpk_text[^{]*\{\s*while \(ob_get_level\(\)\) \{\s*ob_end_clean\(\);\s*\}\s*http_response_code/', $ep) === 1);
 echo $fail ? "\n$fail FAILED\n" : "\nALL PASSED\n";
 exit($fail ? 1 : 0);

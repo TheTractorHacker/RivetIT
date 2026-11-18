@@ -34,12 +34,12 @@ final class PacketSaver
         return trim(strip_tags($v));
     }
 
-    /** @return int number of credentials saved */
-    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId): int
+    /** @return list<array{id:int,name:string,client_id:int}> the credentials saved (count() is the number saved); never includes secrets */
+    public static function save(\mysqli $db, PacketRequest $req, int $clientId, int $contactId): array
     {
         $lines = array_values(array_filter($req->lines, static fn(array $l): bool => $l['save']));
         if (!$lines) {
-            return 0;
+            return [];
         }
 
         self::preflight($req);
@@ -54,7 +54,7 @@ final class PacketSaver
                 . ' credential_username = ?, credential_password = ?, credential_otp_secret = \'\', credential_note = ?, credential_favorite = 0,'
                 . ' credential_folder_id = 0, credential_contact_id = ?, credential_asset_id = 0, credential_client_id = ?, credential_rotation_due_at = NULL'
             );
-            $saved = 0;
+            $saved = [];
             foreach ($lines as $l) {
                 $name = self::clean($l['name']) !== '' ? self::clean($l['name']) : (self::DEFAULT_NAMES[$l['kind']] ?? 'Login');
                 $uri = self::clean($l['uri']);
@@ -67,7 +67,7 @@ final class PacketSaver
                 }
                 $id = (int) $db->insert_id;
                 \ITFlow\Crypto\VaultV3::finalizeCredential($db, $id);
-                $saved++;
+                $saved[] = ['id' => $id, 'name' => $name, 'client_id' => $clientId];
             }
             $stmt->close();
             $db->commit();

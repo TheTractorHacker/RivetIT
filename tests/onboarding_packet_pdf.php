@@ -74,5 +74,8 @@ $ok = false;
 try { $g = PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $trunc, false); $ok = str_starts_with($g, '%PDF-') && $probe2($g, $pw); } catch (\Throwable $e) { echo $e->getMessage() . "\n"; }
 check('truncated PNG logo -> valid PDF with password', $ok);
 
+$__src = (string) file_get_contents(__DIR__ . '/../src/Onboarding/PacketPdf.php');
+check('creator uses APP_NAME with fallback', str_contains($__src, "defined('APP_NAME') ? APP_NAME : 'RivetIT'"));
+
 echo $fail === 0 ? "ALL PASS\n" : "$fail FAILED\n";
 exit($fail === 0 ? 0 : 1);

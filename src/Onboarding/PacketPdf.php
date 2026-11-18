@@ -69,7 +69,7 @@ final class PacketPdf
     {
         $pdf = new PacketPdfDocument();
         $pdf->SetCompression($compress);
-        $pdf->SetCreator('RivetIT');
+        $pdf->SetCreator(defined('APP_NAME') ? APP_NAME : 'RivetIT');
         $pdf->SetTitle('Welcome to ' . $clientName);
         $pdf->SetMargins(18, 18, 18);
         $pdf->SetAutoPageBreak(true, 18);

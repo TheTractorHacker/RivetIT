@@ -50,5 +50,16 @@ $pw = "Pässw0rd<b>&'\"%";
 $p = $base; $p['computer']['password'] = "  $pw \n";
 $ok(PacketRequest::fromPost($p)->lines[0]['password'] === $pw, 'password round-trips unchanged; outer whitespace trimmed');
 
+// Non-scalar change/save: defaults, no warning.
+$warned = [];
+set_error_handler(function ($no, $str) use (&$warned) { $warned[] = $str; return true; });
+$oldEr = error_reporting(E_ALL);
+$p = $base; $p['computer']['change'] = ['x']; $p['computer']['save'] = ['1']; $p['email']['save'] = ['a' => 'b'];
+$r = PacketRequest::fromPost($p);
+error_reporting($oldEr);
+restore_error_handler();
+$ok($warned === [], 'array-posted change/save raises no warning' . ($warned ? ' (' . implode('; ', $warned) . ')' : ''));
+$ok($r->lines[0]['change'] === true && $r->lines[0]['save'] === false && $r->lines[1]['save'] === false, 'array-posted change/save yield defaults (change true, save false)');
+
 echo $fail ? "\n$fail FAILED\n" : "\nALL PASS\n";
 exit($fail ? 1 : 0);

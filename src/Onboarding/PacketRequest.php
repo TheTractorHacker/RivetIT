@@ -64,8 +64,8 @@ final class PacketRequest
             'password' => self::text($in['password'] ?? '', "$label password", self::MAX_PASSWORD),
             'uri' => self::text($in['uri'] ?? '', "$label link"),
             'note' => self::text($in['note'] ?? '', "$label note"),
-            'change' => !(isset($in['change']) && (string) $in['change'] === '0'),
-            'save' => !empty($in['save']) && (string) $in['save'] !== '0',
+            'change' => !(isset($in['change']) && is_scalar($in['change']) && (string) $in['change'] === '0'),
+            'save' => isset($in['save']) && is_scalar($in['save']) && !empty($in['save']) && (string) $in['save'] !== '0',
         ];
         if ($line['name'] === '' && $line['username'] === '' && $line['password'] === '' && $line['uri'] === '' && $line['note'] === '') {
             return null;

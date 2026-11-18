@@ -41,7 +41,7 @@ ob_start();
 
         <div class="alert alert-info">
             <i class="fa fa-fw fa-info-circle me-1"></i>
-            The PDF downloads; passwords are not stored unless Save to Logins is ticked.
+            The PDF downloads; passwords are not stored unless Save to Logins is ticked. Delete the PDF after printing.
         </div>
 
         <div class="row">
@@ -152,6 +152,7 @@ ob_start();
 
     </div>
     <div class="modal-footer">
+        <small class="text-success me-auto d-none" id="obpk-done-note"><i class="fa fa-fw fa-check me-1"></i>Packet generated. Close this window to start another, to avoid saving duplicate Logins.</small>
         <button type="submit" class="btn btn-primary text-bold"><i class="fa fa-file-pdf me-2"></i>Generate PDF</button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Close</button>
     </div>
@@ -268,6 +269,24 @@ ob_start();
                 pw.setCustomValidity(needs ? 'Enter or generate a password to save this line to Logins.' : '');
             });
         }
+        // Double-submit guard. Disabling a control before the browser serialises the form drops its value,
+        // so the lock runs on a zero-delay timer, after the submit event has been serialised. Only reached when
+        // validity passed (a failed validity check never fires 'submit').
+        var submitBtn = form.querySelector('button[type=submit]');
+        var doneNote = form.querySelector('#obpk-done-note');
+        form.addEventListener('submit', function () {
+            var savedBoxes = Array.prototype.filter.call(form.querySelectorAll('input[type=checkbox][name$="[save]"]'), function (cb) { return cb.checked; });
+            setTimeout(function () {
+                if (submitBtn) { submitBtn.disabled = true; }
+                savedBoxes.forEach(function (cb) {
+                    cb.checked = false;
+                    cb.disabled = true;
+                    var lbl = cb.closest('label');
+                    if (lbl) { lbl.appendChild(document.createTextNode(' - Saved to Logins, won\'t save again')); }
+                });
+                if (doneNote) { doneNote.classList.remove('d-none'); }
+            }, 0);
+        });
         form.addEventListener('input', checkSave);
         form.addEventListener('change', checkSave);
 

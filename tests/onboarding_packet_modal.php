@@ -59,6 +59,12 @@ foreach ($posted as $n) {
 }
 chk('no unknown posted field names: ' . implode(',', $bad), $bad === []);
 
+chk('info text updated', str_contains($m, 'passwords are not stored unless Save to Logins is ticked. Delete the PDF after printing.'));
+chk('double-submit: setTimeout(0) after serialisation', str_contains($m, "addEventListener('submit'") && str_contains($m, '}, 0);') && strpos($m, "addEventListener('submit'") < strpos($m, 'setTimeout('));
+chk('double-submit: submit button disabled', str_contains($m, 'submitBtn.disabled = true'));
+chk('double-submit: ticked save boxes unticked and disabled', str_contains($m, 'cb.checked = false;') && str_contains($m, 'cb.disabled = true;'));
+chk('double-submit: disable only inside setTimeout', strpos($m, 'submitBtn.disabled = true') > strpos($m, 'setTimeout('));
+chk('double-submit: notes shown', str_contains($m, "won\\'t save again") && str_contains($m, 'Close this window to start another, to avoid saving duplicate Logins.'));
 exec('php -l ' . escapeshellarg("$root/agent/modals/contact/contact_onboarding_packet.php") . ' 2>&1', $o, $rc);
 chk('php -l modal', $rc === 0);
 exec('php -l ' . escapeshellarg("$root/agent/contact_details.php") . ' 2>&1', $o2, $rc2);
