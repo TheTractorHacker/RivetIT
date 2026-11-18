@@ -41,8 +41,7 @@ ob_start();
 
         <div class="alert alert-info">
             <i class="fa fa-fw fa-info-circle me-1"></i>
-            Submitting downloads a PDF. The passwords you enter are not stored unless "Save to Logins" is ticked on that line.
-            This window stays open after the download.
+            The PDF downloads; passwords are not stored unless Save to Logins is ticked.
         </div>
 
         <div class="row">
@@ -79,7 +78,10 @@ ob_start();
             <div class="form-group col-md-4">
                 <label>Password</label>
                 <div class="input-group">
-                    <input type="password" class="form-control" data-toggle="password" name="computer[password]" maxlength="500" autocomplete="new-password">
+                    <input type="password" class="form-control" name="computer[password]" maxlength="500" autocomplete="new-password">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-default obpk-eye" title="Show / hide password"><i class="fa fa-fw fa-eye"></i></button>
+                    </div>
                     <div class="input-group-append">
                         <button type="button" class="btn btn-default obpk-gen" title="Generate password"><i class="fa fa-fw fa-question"></i></button>
                     </div>
@@ -116,7 +118,10 @@ ob_start();
             <div class="form-group col-md-4">
                 <label>Password</label>
                 <div class="input-group">
-                    <input type="password" class="form-control obpk-email-cred" data-toggle="password" name="email[password]" maxlength="500" autocomplete="new-password">
+                    <input type="password" class="form-control obpk-email-cred" name="email[password]" maxlength="500" autocomplete="new-password">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-default obpk-eye obpk-email-cred" title="Show / hide password"><i class="fa fa-fw fa-eye"></i></button>
+                    </div>
                     <div class="input-group-append">
                         <button type="button" class="btn btn-default obpk-gen obpk-email-cred" title="Generate password"><i class="fa fa-fw fa-question"></i></button>
                     </div>
@@ -168,6 +173,9 @@ ob_start();
                 <div class="input-group">
                     <input type="password" class="form-control" name="software[__I__][password]" maxlength="500" autocomplete="new-password">
                     <div class="input-group-append">
+                        <button type="button" class="btn btn-default obpk-eye" title="Show / hide password"><i class="fa fa-fw fa-eye"></i></button>
+                    </div>
+                    <div class="input-group-append">
                         <button type="button" class="btn btn-default obpk-gen" title="Generate password"><i class="fa fa-fw fa-question"></i></button>
                     </div>
                 </div>
@@ -198,7 +206,8 @@ ob_start();
 <script nonce="<?= htmlspecialchars($csp_nonce ?? '') ?>">
     (function () {
         var MAX = <?= $max_software ?>;
-        var form = document.currentScript.closest('.modal, body').querySelector('#obpk-form');
+        var scope = (document.currentScript && document.currentScript.closest('.modal')) || document;
+        var form = scope.querySelector('#obpk-form');
         if (!form) { return; }
         var rows = form.querySelector('#obpk-software-rows');
         var tpl = document.getElementById('obpk-software-template');
@@ -222,19 +231,51 @@ ob_start();
         form.addEventListener('click', function (e) {
             var rm = e.target.closest('.obpk-remove');
             if (rm) { rm.closest('.obpk-software-row').remove(); refresh(); return; }
+            var eye = e.target.closest('.obpk-eye');
+            if (eye && !eye.disabled) {
+                var pi = eye.closest('.input-group').querySelector('input');
+                pi.type = pi.type === 'password' ? 'text' : 'password';
+                return;
+            }
             var gen = e.target.closest('.obpk-gen');
             if (gen && !gen.disabled) {
-                var input = gen.closest('.input-group').querySelector('input');
+                var group = gen.closest('.input-group');
+                var input = group.querySelector('input');
+                var old = group.parentNode.querySelector('.obpk-gen-err');
+                if (old) { old.remove(); }
                 jQuery.get('ajax.php', { get_readable_pass: 'true' }, function (data) {
-                    try { input.value = JSON.parse(data); } catch (err) {}
-                });
+                    try { input.value = JSON.parse(data); input.type = 'text'; checkSave(); }
+                    catch (ex) { showGenErr(group); }
+                }).fail(function () { showGenErr(group); });
             }
         });
+        function showGenErr(group) {
+            var m = document.createElement('small');
+            m.className = 'text-danger obpk-gen-err';
+            m.textContent = 'Could not generate a password';
+            group.parentNode.appendChild(m);
+        }
+
+        // Save to Logins needs a password on that line (the server enforces this too).
+        function checkSave() {
+            form.querySelectorAll('input[type=checkbox][name$="[save]"]').forEach(function (cb) {
+                var pw = null;
+                form.querySelectorAll('input[type=password], input[type=text]').forEach(function (el) {
+                    if (el.name === cb.name.replace(/\[save\]$/, '[password]')) { pw = el; }
+                });
+                if (!pw) { return; }
+                var needs = cb.checked && !pw.disabled && pw.value.trim() === '';
+                pw.setCustomValidity(needs ? 'Enter or generate a password to save this line to Logins.' : '');
+            });
+        }
+        form.addEventListener('input', checkSave);
+        form.addEventListener('change', checkSave);
 
         // "Same as computer": the endpoint ignores the email username/password then; disable them.
         var same = form.querySelector('#obpk-email-same');
         function syncSame() {
             form.querySelectorAll('.obpk-email-cred').forEach(function (el) { el.disabled = same.checked; });
+            checkSave();
         }
         same.addEventListener('change', syncSame);
         syncSame();

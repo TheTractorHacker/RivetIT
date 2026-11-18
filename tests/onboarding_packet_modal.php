@@ -21,6 +21,14 @@ chk('hidden 0 precedes change checkbox', strpos($m, 'name="software[__I__][chang
 chk('hidden 0 precedes save checkbox', strpos($m, 'name="software[__I__][save]" value="0"') < strpos($m, 'name="software[__I__][save]" value="1"'));
 chk('no pre-rendered software rows', substr_count($m, 'name="software[') === substr_count(substr($m, (int) strpos($m, '<template'), (int) strpos($m, '</template>') - (int) strpos($m, '<template')), 'name="software['));
 chk('cap of 25', str_contains($m, '$max_software = 25') && str_contains($m, 'rows.children.length >= MAX'));
+chk('currentScript guard', str_contains($m, "|| document;") && str_contains($m, "var scope = (document.currentScript && document.currentScript.closest('.modal'))"));
+chk("old closest('.modal, body') gone", !str_contains($m, "closest('.modal, body')"));
+chk('null-guarded form', str_contains($m, 'if (!form) { return; }'));
+chk('eye toggle on 3 password groups + template', substr_count($m, 'btn btn-default obpk-eye') === 3 && str_contains($m, "pi.type = pi.type === 'password' ? 'text' : 'password'"));
+chk('generate shows value as text', str_contains($m, "input.type = 'text'"));
+chk('.fail handler on generator', str_contains($m, '.fail(function') && str_contains($m, 'Could not generate a password'));
+chk('save-without-password validity', str_contains($m, 'setCustomValidity'));
+chk('no window-stays-open promise', !str_contains($m, 'stays open'));
 chk('no inline onclick', !str_contains($m, 'onclick='));
 chk('contact_details gate', str_contains($cd, "itflow_modal_allowed('contact/contact_onboarding_packet.php')") && str_contains($cd, 'modals/contact/contact_onboarding_packet.php?id=<?= $contact_id ?>'));
 chk('contact_details gate comes after Credential item', strpos($cd, "itflow_modal_allowed('contact/contact_onboarding_packet.php')") > strpos($cd, "itflow_modal_allowed('credential/credential_add.php')"));
