@@ -40,6 +40,7 @@ check('software password present', $probe('crmpw1'));
 check('non-ASCII password verbatim', $probe($pw));
 check('Welcome heading', $probe('Welcome to Acme Corp'));
 check('support contact present', $probe('help@msp.example'));
+check('"Need help?" box and confidential footer present', $probe('Need help?') && $probe("Confidential \u{2014} contains sign-in details"));
 
 $count = static fn(string $n): int => substr_count($pdf, $n) + substr_count($pdf, mb_convert_encoding($n, 'UTF-16BE', 'UTF-8'));
 check('change text once for computer + software (2 lines with change=true)', $count('Change on first sign-in') === 2);
@@ -73,6 +74,13 @@ $trunc = substr($png, 0, 40);
 $ok = false;
 try { $g = PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $trunc, false); $ok = str_starts_with($g, '%PDF-') && $probe2($g, $pw); } catch (\Throwable $e) { echo $e->getMessage() . "\n"; }
 check('truncated PNG logo -> valid PDF with password', $ok);
+check('truncated PNG logo -> no image embedded (no empty logo tile)', $ok && !str_contains($g, '/Subtype /Image'));
+// Too big for the in-memory GD pre-check, so it reaches TCPDF, which cannot draw it: the fresh logo-less rebuild runs.
+$ihdr = 'IHDR' . pack('NN', 3001, 3001) . "\x08\x06\x00\x00\x00";
+$bigBad = "\x89PNG\r\n\x1a\n" . pack('N', 13) . $ihdr . pack('N', crc32($ihdr)) . str_repeat('junk', 30);
+$ok = false;
+try { $g = @PacketPdf::render($req, $person, 'Acme Corp', 'help@msp.example', $bigBad, false); $ok = str_starts_with($g, '%PDF-') && $probe2($g, $pw) && !str_contains($g, '/Subtype /Image'); } catch (\Throwable $e) { echo $e->getMessage() . "\n"; }
+check('undecodable PNG past the GD pre-check -> logo-less rebuild with password', $ok);
 
 $__src = (string) file_get_contents(__DIR__ . '/../src/Onboarding/PacketPdf.php');
 check('creator uses APP_NAME with fallback', str_contains($__src, "defined('APP_NAME') ? APP_NAME : 'RivetIT'"));
@@ -103,7 +111,10 @@ foreach ($secrets as $label => $secret) {
     check("unmasked control: $label present", $has($plain, $secret));
     check("masked: $label absent", !$has($masked, $secret));
 }
-check('masked: usernames present', $has($masked, 'jdoe') && $has($masked, 'jdoe@example.com') && $has($masked, 'Username: jd'));
+// Usernames print in their own grid cell beside a "Username" label. Match whole text runs ([(<UTF-16BE>)] TJ) so the
+// software username 'jd' cannot pass by matching inside 'jdoe'.
+$run = static fn(string $d, string $s): bool => str_contains($d, '[(' . mb_convert_encoding($s, 'UTF-16BE', 'UTF-8') . ')] TJ');
+check('masked: usernames present', $run($masked, 'Username') && $run($masked, 'jdoe') && $run($masked, 'jdoe@example.com') && $run($masked, 'jd'));
 check('masked: note "Passwords hidden in this copy" present', $has($masked, PacketPdf::MASK_NOTE) && PacketPdf::MASK_NOTE === 'Passwords hidden in this copy');
 check('masked: mask glyphs present', $has($masked, PacketPdf::MASK) && PacketPdf::MASK === str_repeat("\u{2022}", 8));
 check('masked: link, note, heading still print', $has($masked, 'https://crm.example.com') && $has($masked, 'Ask IT') && $has($masked, 'Welcome to Acme Corp'));
