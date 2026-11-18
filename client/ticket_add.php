@@ -76,7 +76,7 @@ if ($catalog_item) {
 
     <div class="portal-pagehead">
         <div>
-            <h2 class="portal-pagehead-title">Raise a new ticket</h2>
+            <h2 class="portal-pagehead-title">Submit a new ticket</h2>
             <p class="text-secondary mb-0">Tell us what is going on and the IT team will pick it up.</p>
         </div>
     </div>
@@ -145,7 +145,7 @@ if ($catalog_item) {
                                 $category_name = nullable_htmlentities($row['category_name']);
 
                                 ?>
-                                <option value="<?php echo $category_id; ?>"<?php if ($category_id === $prefill_category) { echo ' selected'; } ?>><?php echo $category_name; ?></option>
+                                <option value="<?php echo $category_id; ?>"<?php if ($category_id === ($prefill_category ?: resolveTicketCategory(0))) { echo ' selected'; } ?>><?php echo $category_name; ?></option>
                             <?php } ?>
 
                         </select>
@@ -190,7 +190,7 @@ if ($catalog_item) {
                 <textarea class="form-control tinymce" name="details"><?= nullable_htmlentities($prefill_details) ?></textarea>
             </div>
 
-            <button class="btn btn-primary" name="add_ticket"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Raise ticket</button>
+            <button class="btn btn-primary" name="add_ticket"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Submit ticket</button>
             <a href="<?= $catalog_item ? 'service_catalog.php' : 'index.php' ?>" class="btn btn-link text-secondary">Cancel</a>
 
         </form>

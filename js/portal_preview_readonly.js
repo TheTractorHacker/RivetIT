@@ -99,7 +99,7 @@
            A submit that never fires cannot be intercepted, and on a form with
            required fields it never does: the browser runs constraint validation
            first and shows "Please fill in this field" instead. Measured on
-           client/ticket_add.php - clicking "Raise ticket" produced no submit
+           client/ticket_add.php - clicking "Submit ticket" produced no submit
            event at all. Catching the click means the answer is always the same
            one ("read-only preview") rather than a validation prompt for a form
            that could not have been saved regardless. */

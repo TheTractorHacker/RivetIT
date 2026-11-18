@@ -80,7 +80,7 @@ if (isset($kb_groups['Uncategorized'])) {
         </form>
 
         <?php if (empty($kb_groups)) { ?>
-            <p class="text-muted text-center py-4"><?= $q !== '' ? 'No articles match your search. Try different words, or ' : 'No articles are available yet.' ?><?= $q !== '' ? '<a href="ticket_add.php">raise a ticket</a>.' : '' ?></p>
+            <p class="text-muted text-center py-4"><?= $q !== '' ? 'No articles match your search. Try different words, or ' : 'No articles are available yet.' ?><?= $q !== '' ? '<a href="ticket_add.php">submit a ticket</a>.' : '' ?></p>
         <?php } ?>
 
         <?php foreach ($kb_groups as $group_name => $articles) { ?>

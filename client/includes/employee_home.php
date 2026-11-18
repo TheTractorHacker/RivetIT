@@ -51,7 +51,7 @@ if ($eh_show('catalog')) {
             <div class="portal-help-box">
                 <i class="fas fa-search" aria-hidden="true"></i>
                 <input type="search" class="form-control form-control-lg" name="q" maxlength="100" placeholder="e.g. my laptop won't connect to Wi-Fi, new starter, reset my password" aria-label="Describe what you need help with" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="portalHelpResults">
-                <a href="ticket_add.php" id="portalHelpRaise" class="btn btn-primary portal-help-raise"><i class="fas fa-ticket-alt me-2" aria-hidden="true"></i>Raise a ticket</a>
+                <a href="ticket_add.php" id="portalHelpRaise" class="btn btn-primary portal-help-raise"><i class="fas fa-ticket-alt me-2" aria-hidden="true"></i>Submit a ticket</a>
                 <div class="portal-help-results" id="portalHelpResults" role="listbox" aria-label="Suggestions" hidden></div>
             </div>
         </form>

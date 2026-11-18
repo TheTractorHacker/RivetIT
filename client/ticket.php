@@ -114,7 +114,7 @@ if (isset($_GET['id']) && intval($_GET['id'])) {
                 <div class="card-tools">
                     <?php
                     if (empty($ticket_resolved_at) && $task_count == $completed_task_count) { ?>
-                        <a href="post.php?resolve_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-success float-end text-white confirm-link" data-confirm-message="Mark this ticket as resolved? It will be closed. Raise a new ticket if the problem comes back."><i class="fas fa-fw fa-check text-success"></i> Resolve ticket</a>
+                        <a href="post.php?resolve_ticket=<?php echo $ticket_id; ?>&csrf_token=<?= $_SESSION['csrf_token'] ?>" class="btn btn-sm btn-outline-success float-end text-white confirm-link" data-confirm-message="Mark this ticket as resolved? It will be closed. Submit a new ticket if the problem comes back."><i class="fas fa-fw fa-check text-success"></i> Resolve ticket</a>
                     <?php } ?>
                 </div>
             </div>

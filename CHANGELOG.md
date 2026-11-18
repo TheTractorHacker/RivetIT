@@ -32,6 +32,7 @@ continues unchanged.
 ## [Unreleased]
 
 ### Changed
+- Portal: "Raise a ticket" is now "Submit a ticket" everywhere; the form button reads "Submit ticket". New tickets (portal form and the agent New Ticket window) start with the Remote category selected unless a default category is set under Settings > Tickets.
 - Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
 - Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
 

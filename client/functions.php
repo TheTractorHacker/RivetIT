@@ -137,7 +137,7 @@ function portal_expiry_summary(array $dates, string $noun): string
     $parts = [];
     if ($bad) { $parts[] = $bad . ' expired'; }
     if ($warn) { $parts[] = $warn . ' expiring within 30 days'; }
-    return ucfirst(implode(', ', $parts)) . '. Raise a ticket and IT will renew the ' . $noun . '.';
+    return ucfirst(implode(', ', $parts)) . '. Submit a ticket and IT will renew the ' . $noun . '.';
 }
 
 /* Bootstrap badge class for a ticket status name (resolved/closed green, hold/waiting amber, otherwise neutral). */
