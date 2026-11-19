@@ -31,12 +31,20 @@ final class PacketRequest
         }
 
         $emailIn = is_array($post['email'] ?? null) ? $post['email'] : [];
-        if (!empty($post['email_same'])) {
-            // The computer value wins; a posted email password is ignored.
-            $emailIn['username'] = $computer['username'] ?? '';
+        // The email address IS the username, so there is no separate username field.
+        $emailIn['username'] = $emailIn['name'] ?? '';
+        $emailSame = !empty($post['email_same']);
+        if ($emailSame) {
+            // The computer password wins; a posted email password is ignored.
             $emailIn['password'] = $computer['password'] ?? '';
         }
         $email = self::line('email', 'Email', $emailIn);
+        if ($email !== null && $emailSame && $email['save'] && $computer !== null && $computer['save']) {
+            // Email and computer share one password and both are being saved: store ONE Login (the computer's) and note the email address on it.
+            $computer['also_email'] = $email['username'];
+            $r->lines[0] = $computer;
+            $email['save'] = false;
+        }
         if ($email !== null) {
             $r->lines[] = $email;
         }

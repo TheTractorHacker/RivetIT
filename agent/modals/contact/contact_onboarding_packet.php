@@ -123,16 +123,12 @@ ob_start();
         <h6 class="mt-2"><i class="fa fa-fw fa-envelope me-2"></i>Email</h6>
         <div class="form-check mb-2">
             <input type="checkbox" class="form-check-input" name="email_same" id="obpk-email-same" value="1">
-            <label class="form-check-label" for="obpk-email-same">Same username and password as the computer</label>
+            <label class="form-check-label" for="obpk-email-same">Same password as the computer login</label>
         </div>
         <div class="row">
             <div class="form-group col-md-4">
-                <label>Address / name</label>
+                <label>Email address <span class="text-muted fw-normal small">(also the username)</span></label>
                 <input type="text" class="form-control" name="email[name]" maxlength="200" placeholder="Email address">
-            </div>
-            <div class="form-group col-md-4">
-                <label>Username</label>
-                <input type="text" class="form-control obpk-email-cred" name="email[username]" maxlength="200" autocomplete="off">
             </div>
             <div class="form-group col-md-4">
                 <label>Password</label>
@@ -161,6 +157,7 @@ ob_start();
                 <label class="mb-1"><input type="checkbox" name="email[change]" value="1" checked> Change on first sign-in</label>
                 <input type="hidden" name="email[save]" value="0">
                 <label class="mb-1"><input type="checkbox" name="email[save]" value="1"> Save to Logins</label>
+                <small class="text-muted" id="obpk-merge-hint" hidden>Computer and email are saved as one Login.</small>
             </div>
         </div>
 
@@ -175,12 +172,7 @@ ob_start();
                 <input type="checkbox" class="form-check-input" name="attach_ticket" id="obpk-attach-ticket" value="1" checked>
                 <label class="form-check-label" for="obpk-attach-ticket">Attach a copy to this ticket (<?= $ticket_label ?>)</label>
             </div>
-            <div class="form-check ms-3">
-                <input type="checkbox" class="form-check-input" name="attach_passwords" id="obpk-attach-passwords" value="1">
-                <label class="form-check-label" for="obpk-attach-passwords">Include passwords in the attached copy</label>
-            </div>
-            <div class="alert alert-warning mt-2 mb-2 d-none" id="obpk-attach-pw-warning" role="alert"><i class="fa fa-fw fa-exclamation-triangle me-1"></i>The attached file is stored on the server and can be opened by anyone with its link (no sign-in needed), by technicians who can view tickets but not Credentials, and by every primary or technical portal contact of this client. Passwords in it cannot be taken back later by changing the Login.</div>
-            <small class="text-muted d-block">The copy hides passwords by default; usernames, links and notes are not hidden.</small>
+            <small class="text-muted d-block">Passwords are never included in the attached copy, so they never show on the department portal. Usernames, links and notes are not hidden.</small>
         </div>
         <?php } ?>
 
@@ -334,6 +326,13 @@ ob_start();
             form.querySelectorAll('.obpk-email-cred').forEach(function (el) { el.disabled = same.checked; });
             checkSave();
         }
+        var mergeHint = form.querySelector('#obpk-merge-hint');
+        function syncMerge() {
+            var cs = form.querySelector('input[type=checkbox][name="computer[save]"]'), es = form.querySelector('input[type=checkbox][name="email[save]"]');
+            if (mergeHint && cs && es) { mergeHint.hidden = !(same.checked && cs.checked && es.checked); }
+        }
+        form.addEventListener('change', syncMerge);
+        same.addEventListener('change', syncMerge);
         same.addEventListener('change', syncSame);
         syncSame();
 

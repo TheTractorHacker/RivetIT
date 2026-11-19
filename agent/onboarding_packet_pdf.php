@@ -79,7 +79,8 @@ $obpk_attach = ($_POST['attach_ticket'] ?? null) === '1';
 if ($obpk_attach && !$obpk_ticket_mode) {
     obpk_text(422, 'There is no ticket to attach the packet to.');
 }
-$obpk_attach_pw = $obpk_attach && ($_POST['attach_passwords'] ?? null) === '1';
+// Passwords are never put in the copy attached to a ticket (portal contacts can open ticket attachments): owner decision 2026-11-19.
+$obpk_attach_pw = false;
 
 if ($obpk_ticket_mode) {
     enforceUserPermission('module_support', 1);

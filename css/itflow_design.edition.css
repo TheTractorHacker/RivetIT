@@ -84,3 +84,9 @@
 .navbar-vertical .navbar-nav > .nav-item { margin-block: 1px; }
 .navbar-vertical .navbar-nav > .nav-item > .nav-link { margin-inline: .5rem; border-radius: .5rem; }
 .navbar-vertical .navbar-nav > .nav-item + .nav-item { margin-top: 3px; }
+
+/* Department portal's dark nav menus: the hovered/focused row took the light-theme body colour (dark text) on the dark panel, so the label vanished. Keep it light. */
+.client-portal-nav .dropdown-menu .dropdown-item { color: #e9eef0; }
+.client-portal-nav .dropdown-menu .dropdown-item:hover,
+.client-portal-nav .dropdown-menu .dropdown-item:focus,
+.client-portal-nav .dropdown-menu .dropdown-item.active { color: #fff !important; background: rgba(255,255,255,.12); }

@@ -97,6 +97,9 @@ final class PacketSaver
                     $username = \encryptCredentialEntry($l['username']);
                     $password = \encryptCredentialEntry($l['password']);
                     $note = self::clean($l['note']);
+                    if (!empty($l['also_email'])) {
+                        $note = trim($note . ' Also the email login: ' . self::clean((string) $l['also_email']));
+                    }
                     $stmt->bind_param('sssssii', $name, $uri, $username, $password, $note, $contactId, $clientId);
                     if (!$stmt->execute()) {
                         throw new \RuntimeException('Could not save a login.');

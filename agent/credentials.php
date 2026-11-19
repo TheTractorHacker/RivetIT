@@ -490,6 +490,42 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         <?php } ?>
         <?php } ?>
 
+        <?php
+        // All-departments view: departments are shown as folders; open one to see its credentials. A search, tag/type filter, archive view,
+        // a chosen department or ?all=1 shows the plain list instead.
+        $dept_folder_view = !$client_url && empty($client) && empty($q) && empty($tag_query) && $type_filter === '' && !$archived && !isset($_GET['all']) && !isset($_GET['scope']);
+        if ($dept_folder_view) {
+            $sql_dept_folders = mysqli_query($mysqli, "SELECT clients.client_id, clients.client_name, COUNT(c.credential_id) AS num FROM credentials c
+                LEFT JOIN clients ON client_id = c.credential_client_id
+                WHERE $archive_query $access_permission_query
+                GROUP BY clients.client_id, clients.client_name ORDER BY clients.client_name ASC");
+            ?>
+            <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                .cred-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem; }
+                .cred-folder { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--tblr-border-color, #dce1e7); border-radius: .6rem; text-decoration: none; color: inherit; background: var(--tblr-bg-surface, transparent); }
+                .cred-folder:hover { border-color: var(--tblr-primary, #206bc4); background: var(--tblr-bg-surface-secondary, rgba(128,128,128,.08)); }
+                .cred-folder .fa-folder { font-size: 1.5rem; color: #f0b429; }
+                .cred-folder-name { font-weight: 600; line-height: 1.2; }
+                .cred-folder-count { margin-left: auto; }
+            </style>
+            <div class="cred-folders mt-3">
+                <?php while ($f = mysqli_fetch_assoc($sql_dept_folders)) {
+                    $f_id = intval($f['client_id']);
+                    $f_name = $f_id ? nullable_htmlentities($f['client_name']) : 'No department';
+                    $f_href = $f_id ? '?client=' . $f_id : '?all=1'; ?>
+                    <a class="cred-folder" href="<?= $f_href ?>">
+                        <i class="fas fa-folder" aria-hidden="true"></i>
+                        <span class="cred-folder-name"><?= $f_name ?></span>
+                        <span class="badge bg-secondary rounded-pill cred-folder-count"><?= intval($f['num']) ?></span>
+                    </a>
+                <?php } ?>
+            </div>
+            <div class="mt-3"><a href="?all=1" class="small text-muted"><i class="fas fa-list me-1"></i>Show every credential in one list</a></div>
+        <?php } else if (!$client_url && !empty($client)) { ?>
+            <div class="mt-3"><a href="credentials.php" class="small"><i class="fas fa-folder-open me-1"></i>All department folders</a></div>
+        <?php } ?>
+
+        <?php if (empty($dept_folder_view)) { ?>
         <?php require_once "includes/inc_org_helpers.php"; orgListStyle(); ?>
         <hr class="mt-3">
         <form id="bulkActions" action="post.php" method="post">
@@ -769,6 +805,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
             </div>
         </form>
         <?php require_once "../includes/filter_footer.php"; ?>
+        <?php } ?>
     </div>
 </div>
 

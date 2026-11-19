@@ -32,6 +32,9 @@ continues unchanged.
 ## [Unreleased]
 
 ### Changed
+- Onboarding Packet: the email address is the username (no separate username line); "Same password as the computer login" still copies the PC password. Ticking Save to Logins on both computer and email (same password) now saves ONE Login. Passwords are never included in the copy attached to a ticket, so they never reach the department portal.
+- Credentials (all departments): departments show as folders with counts; open one to see its credentials ("Show every credential in one list" keeps the old view; search and filters still use the list).
+- Department portal: the hovered row in the IT resources menu no longer goes blank (dark text on the dark panel).
 - Portal: "Raise a ticket" is now "Submit a ticket" everywhere; the form button reads "Submit ticket". New tickets (portal form and the agent New Ticket window) start with the Remote category selected unless a default category is set under Settings > Tickets.
 - Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
 - Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
