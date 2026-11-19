@@ -18,6 +18,9 @@ final class PacketTemplate
         'private'      => ['Privacy line (bold, under the intro)', 'Keep this page private.', 160, 1],
         'help_heading' => ['Help box heading', 'Need help?', 60, 1],
         'help_text'    => ['Help box text', "If you cannot sign in, or something here doesn't work, get in touch:", 300, 3],
+        'it_name'      => ['IT department name', '', 100, 1],
+        'it_phone'     => ['IT department phone', '', 40, 1],
+        'it_email'     => ['IT department email', '', 120, 1],
         'footer'       => ['Footer on every page', "Confidential \u{2014} contains sign-in details", 120, 1],
     ];
 
@@ -73,6 +76,13 @@ final class PacketTemplate
             }
         }
         return json_encode($out, JSON_UNESCAPED_UNICODE) ?: '{}';
+    }
+
+    /** The "get in touch" line for the help box from the IT department fields ('' when none are set, so the caller falls back to the company details). */
+    public static function itContactLine(array $tpl): string
+    {
+        $parts = array_filter([trim($tpl['it_name'] ?? ''), trim($tpl['it_phone'] ?? ''), trim($tpl['it_email'] ?? '')], static fn(string $p): bool => $p !== '');
+        return implode(' | ', $parts);
     }
 
     /** Fills the placeholders. Unknown braces are left alone. */

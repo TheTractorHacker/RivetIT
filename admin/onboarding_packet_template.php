@@ -28,6 +28,11 @@ $accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_cust
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <?php foreach (\ITFlow\Onboarding\PacketTemplate::FIELDS as $key => [$label, $default, $max, $rows]) { ?>
+                <?php if ($key === 'it_name') { ?>
+                    <hr>
+                    <h5 class="mb-1"><i class="fas fa-fw fa-headset me-2"></i>IT department contact</h5>
+                    <p class="text-muted small">Shown in the packet's help box instead of the company details. Leave all three blank to show the company name, phone and email (Company Details).</p>
+                <?php } ?>
                 <div class="mb-3">
                     <label class="form-label" for="opt-<?= $key ?>"><?= nullable_htmlentities($label) ?></label>
                     <?php if ($rows > 1) { ?>
@@ -35,7 +40,7 @@ $accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_cust
                     <?php } else { ?>
                         <input type="text" class="form-control" id="opt-<?= $key ?>" name="<?= $key ?>" maxlength="<?= $max ?>" value="<?= nullable_htmlentities($tpl[$key]) ?>">
                     <?php } ?>
-                    <div class="form-text">Default: <?= nullable_htmlentities($default) ?></div>
+                    <?php if ($default !== '') { ?><div class="form-text">Default: <?= nullable_htmlentities($default) ?></div><?php } ?>
                 </div>
             <?php } ?>
             <button type="submit" name="save_onboarding_packet_template" class="btn btn-primary" <?= $col_ready ? '' : 'disabled' ?>><i class="fas fa-check me-2"></i>Save</button>

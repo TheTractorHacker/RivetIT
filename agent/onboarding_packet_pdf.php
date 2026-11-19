@@ -185,6 +185,11 @@ require_once dirname(__DIR__) . '/includes/theme_accent.php';
 $obpk_accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_custom ?? null);
 $obpk_accent = $obpk_accent !== '' ? $obpk_accent : null;
 $obpk_tpl = \ITFlow\Onboarding\PacketTemplate::load($mysqli);
+// The help box shows the IT department's own contact details when they are set (Administration > Templates > Onboarding packet); otherwise the company's.
+$obpk_it_line = \ITFlow\Onboarding\PacketTemplate::itContactLine($obpk_tpl);
+if ($obpk_it_line !== '') {
+    $obpk_support = $obpk_it_line;
+}
 
 try {
     $obpk_pdf = PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo, true, false, $obpk_accent, $obpk_tpl);

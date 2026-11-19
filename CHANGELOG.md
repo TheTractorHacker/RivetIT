@@ -32,7 +32,7 @@ continues unchanged.
 ## [Unreleased]
 
 ### Changed
-- Onboarding Packet PDF: uses the company accent colour (Appearance) for the header band, badges and tints; the wording (title, intro, privacy line, help box, footer) is editable under Administration > Templates > Onboarding packet (DB 2.6.241; blank = built-in text); the Department is now a dropdown in the packet window (Logins save under the chosen department; a copy can only be attached to the ticket in its own department).
+- Onboarding Packet PDF: uses the company accent colour (Appearance) for the header band, badges and tints; the wording (title, intro, privacy line, help box, footer) is editable under Administration > Templates > Onboarding packet (DB 2.6.241; blank = built-in text), including an IT department name/phone/email that the help box shows instead of the company details; the Department is now a dropdown in the packet window (Logins save under the chosen department; a copy can only be attached to the ticket in its own department).
 - Onboarding Packet: the email address is the username (no separate username line); "Same password as the computer login" still copies the PC password. Ticking Save to Logins on both computer and email (same password) now saves ONE Login. Passwords are never included in the copy attached to a ticket, so they never reach the department portal.
 - Credentials (all departments): departments show as folders with counts; open one to see its credentials ("Show every credential in one list" keeps the old view; search and filters still use the list).
 - Department portal: the hovered row in the IT resources menu no longer goes blank (dark text on the dark panel).
