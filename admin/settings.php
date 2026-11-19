@@ -31,6 +31,7 @@ $settings_groups = [
         'description' => 'Set up the organization, appearance, and everyday defaults.',
         'items' => [
             ['Company details', 'Business identity, address, and contact details.', 'settings_company.php', 'fa-briefcase', true, null, $st['company']],
+            ['IT department details', 'Who people contact for IT help (shown on the onboarding packet).', 'settings_it_department.php', 'fa-headset'],
             ['Language & region', 'Time zone, currency, and date formats.', 'settings_localization.php', 'fa-globe', true, null, $st['locale']],
             ['Theme', 'Colors, light and dark mode, and favicon.', 'settings_theme.php', 'fa-paint-brush'],
             ['Appearance', 'Branding and display options.', 'settings_appearance.php', 'fa-palette'],

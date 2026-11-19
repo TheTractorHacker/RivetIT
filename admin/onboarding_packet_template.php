@@ -21,6 +21,9 @@ $accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_cust
         <p class="text-muted">The wording of the new-hire sign-in packet (PDF) that agents generate from a ticket or a person. Leave a field blank to use the built-in text. Plain text only.
             Placeholders: <code>{first_name}</code> <code>{name}</code> <code>{department}</code> <code>{company}</code>.</p>
         <p class="small">
+            <i class="fas fa-fw fa-headset me-1"></i>The help box shows the contact from <a href="settings_it_department.php">IT department details</a> (falls back to Company Details when that is empty).
+        </p>
+        <p class="small">
             <i class="fas fa-fw fa-palette me-1"></i>Colours follow your company accent
             <?php if ($accent !== '') { ?><span class="badge" style="background:<?= nullable_htmlentities($accent) ?>;color:#fff;"><?= nullable_htmlentities($accent) ?></span><?php } else { ?>(none set, so the default navy is used)<?php } ?>.
             Change it under <a href="settings_appearance.php">Appearance</a>.
@@ -28,11 +31,6 @@ $accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_cust
         <form action="post.php" method="post" autocomplete="off">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <?php foreach (\ITFlow\Onboarding\PacketTemplate::FIELDS as $key => [$label, $default, $max, $rows]) { ?>
-                <?php if ($key === 'it_name') { ?>
-                    <hr>
-                    <h5 class="mb-1"><i class="fas fa-fw fa-headset me-2"></i>IT department contact</h5>
-                    <p class="text-muted small">Shown in the packet's help box instead of the company details. Leave all three blank to show the company name, phone and email (Company Details).</p>
-                <?php } ?>
                 <div class="mb-3">
                     <label class="form-label" for="opt-<?= $key ?>"><?= nullable_htmlentities($label) ?></label>
                     <?php if ($rows > 1) { ?>

@@ -13160,3 +13160,13 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_onboarding_packet_template` text DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.241'");
     }
+
+    if ($rivetit_db_version() == '2.6.241') {
+        // DB 2.6.242: IT department details next to Company Details (Administration > Settings > IT department details): who people contact for IT help.
+        // Four optional text columns on the companies row (name, phone, email, hours); empty = not set, nothing changes until an administrator fills them in.
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_name` varchar(100) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_phone` varchar(40) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_email` varchar(200) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_hours` varchar(200) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
+    }

@@ -27,6 +27,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/app_version.php';
 $admin_settings_page = basename($_SERVER['PHP_SELF']);
 $admin_settings_labels = [
     'settings_company.php' => 'Company details',
+    'settings_it_department.php' => 'IT department details',
     'settings_localization.php' => 'Language & region',
     'settings_theme.php' => 'Theme',
     'settings_appearance.php' => 'Appearance',

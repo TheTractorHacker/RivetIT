@@ -822,6 +822,10 @@ CREATE TABLE `companies` (
   `company_default_email_domain` varchar(200) DEFAULT NULL,
   `company_security_contact_email` varchar(200) DEFAULT NULL,
   `company_hr_contact_email` varchar(200) DEFAULT NULL,
+  `company_it_name` varchar(100) DEFAULT NULL,
+  `company_it_phone` varchar(40) DEFAULT NULL,
+  `company_it_email` varchar(200) DEFAULT NULL,
+  `company_it_hours` varchar(200) DEFAULT NULL,
   `company_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `company_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`company_id`)
