@@ -102,11 +102,32 @@ $client_name = $obpk_ctx->clientName;
 $obpk_ticket = $obpk_ctx->ticket;
 enforceClientAccess($client_id);
 
+// The department can be changed in the form (the packet heading and the department the Logins are saved under). It must be a real, active,
+// non-lead department the user may access; a Login saved under a different department is never linked to the original contact.
+$obpk_dept = obpk_id('department_id');
+if ($obpk_dept === null) {
+    obpk_text(422, 'Department is not valid.');
+}
+if ($obpk_dept > 0 && $obpk_dept !== $client_id) {
+    $obpk_dst = $mysqli->prepare('SELECT client_name FROM clients WHERE client_id = ? AND client_lead = 0 AND client_archived_at IS NULL');
+    $obpk_dst->bind_param('i', $obpk_dept);
+    $obpk_dst->execute();
+    $obpk_drow = $obpk_dst->get_result()->fetch_assoc();
+    $obpk_dst->close();
+    if (!$obpk_drow || PacketContext::departmentDenied($mysqli, $obpk_dept, (int) $session_user_id, (bool) ($session_is_admin ?? false))) {
+        obpk_text(422, 'Choose a department you have access to.');
+    }
+    enforceClientAccess($obpk_dept);
+    $client_id = $obpk_dept;
+    $client_name = (string) $obpk_drow['client_name'];
+    $contact_id = 0;
+}
+
 if ($obpk_attach) {
     // Same-department by construction (ticket mode takes the department from this ticket); checked anyway so a
     // later change can never attach one department's packet to another department's ticket.
     if ($obpk_ticket === null || $obpk_ticket['client_id'] !== $client_id) {
-        obpk_text(422, "The packet can only be attached to a ticket in the person's department.");
+        obpk_text(422, "The packet can only be attached to a ticket in the ticket's own department. Untick \"Attach a copy\" or keep the ticket's department.");
     }
     enforceClientAccess($obpk_ticket['client_id']);
     // The ticket page offers attachments only while the ticket is open.
@@ -159,12 +180,18 @@ if (ini_get('memory_limit') !== '-1' && (int) ini_get('memory_limit') < 256) {
 }
 @set_time_limit(60);
 
+// Company colour scheme (Administration > Settings > Appearance accent) and the editable wording (Administration > Templates > Onboarding packet).
+require_once dirname(__DIR__) . '/includes/theme_accent.php';
+$obpk_accent = itflow_theme_accent_hex($config_theme ?? '', $config_theme_accent_custom ?? null);
+$obpk_accent = $obpk_accent !== '' ? $obpk_accent : null;
+$obpk_tpl = \ITFlow\Onboarding\PacketTemplate::load($mysqli);
+
 try {
-    $obpk_pdf = PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo);
+    $obpk_pdf = PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo, true, false, $obpk_accent, $obpk_tpl);
     $obpk_att_pdf = null;
     if ($obpk_attach) {
         // The ticket copy: passwords masked unless explicitly opted in. The download always has the real passwords.
-        $obpk_att_pdf = $obpk_attach_pw ? $obpk_pdf : PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo, true, true);
+        $obpk_att_pdf = $obpk_attach_pw ? $obpk_pdf : PacketPdf::render($obpk_req, $person, $client_name, $obpk_support, $obpk_logo, true, true, $obpk_accent, $obpk_tpl);
     }
 } catch (\Throwable $e) {
     error_log('Onboarding packet render failed: ' . get_class($e));

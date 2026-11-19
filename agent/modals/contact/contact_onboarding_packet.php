@@ -70,7 +70,15 @@ ob_start();
             </div>
             <div class="form-group col-md-6">
                 <label>Department</label>
-                <input type="text" class="form-control" value="<?= $client_name ?>" readonly>
+                <select class="form-control select2" name="department_id" id="obpk-department">
+                    <?php
+                    $obpk_sql_depts = mysqli_query($mysqli, "SELECT client_id, client_name FROM clients WHERE client_lead = 0 AND client_archived_at IS NULL $access_permission_query ORDER BY client_name ASC");
+                    while ($obpk_d = mysqli_fetch_assoc($obpk_sql_depts)) {
+                        $obpk_did = intval($obpk_d['client_id']); ?>
+                        <option value="<?= $obpk_did ?>" <?= $obpk_did === intval($client_id) ? 'selected' : '' ?>><?= nullable_htmlentities($obpk_d['client_name']) ?></option>
+                    <?php } ?>
+                </select>
+                <?php if ($ticket_mode) { ?><small class="text-muted">Changing it moves the saved Logins to that department; the copy can only be attached to this ticket in the ticket's own department.</small><?php } ?>
             </div>
         </div>
         <div class="row">
@@ -349,6 +357,15 @@ ob_start();
         if (attachPw) { attachPw.addEventListener('change', syncAttach); }
         if (attach) { attach.addEventListener('change', syncAttach); }
         syncAttach();
+        var dept = form.querySelector('#obpk-department'), origDept = dept ? dept.value : '';
+        function syncDept() {
+            if (!dept || !attach) { return; }
+            var changed = dept.value !== origDept;
+            attach.disabled = changed;
+            if (changed) { attach.checked = false; }
+            syncAttach();
+        }
+        if (dept) { dept.addEventListener('change', syncDept); }
         refresh();
     })();
 </script>

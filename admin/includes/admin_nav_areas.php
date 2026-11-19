@@ -14,7 +14,7 @@ function itflowAdminNavAreas(): array
         ],
         'template_library' => [
             'title' => 'Templates', 'icon' => 'fa-copy',
-            'pages' => ['template_library.php', 'contract_template.php', 'contract_template_details.php', 'project_template.php', 'project_template_details.php', 'onboarding_templates.php', 'onboarding_template_details.php', 'ticket_template.php', 'ticket_template_details.php', 'service_catalog.php', 'canned_responses.php', 'worksheet_template.php', 'worksheet_template_details.php', 'vendor_template.php', 'software_template.php', 'document_template.php', 'document_template_details.php'],
+            'pages' => ['template_library.php', 'contract_template.php', 'contract_template_details.php', 'project_template.php', 'project_template_details.php', 'onboarding_templates.php', 'onboarding_template_details.php', 'ticket_template.php', 'ticket_template_details.php', 'service_catalog.php', 'canned_responses.php', 'worksheet_template.php', 'worksheet_template_details.php', 'onboarding_packet_template.php', 'vendor_template.php', 'software_template.php', 'document_template.php', 'document_template_details.php'],
         ],
         'maintenance' => [
             'title' => 'Maintenance', 'icon' => 'fa-tools',

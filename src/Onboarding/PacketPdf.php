@@ -93,6 +93,11 @@ final class PacketPdf
     private const AMBER_RULE = [214, 158, 46];
     private const AMBER_INK = [120, 72, 8];
 
+    /** @var array<string,array{0:int,1:int,2:int}> the palette in use for the packet being built (company colours when supplied; see applyPalette) */
+    private static array $p = [];
+    /** @var array<string,string> the wording in use (PacketTemplate fields, placeholders already filled) */
+    private static array $t = [];
+
     private const M = 16.0;          // page side margin
     private const TOP = 20.0;        // content top on pages after the first (below the running head)
     private const BOTTOM = 22.0;     // content stops this far above the page bottom (footer zone)
@@ -114,8 +119,10 @@ final class PacketPdf
      * $maskPasswords: the copy kept on a ticket. Every password prints as MASK (the real value never reaches TCPDF)
      * and the page says so; notes print as ******** (the label stays); usernames, links and the change-on-first-sign-in lines print as normal.
      */
-    public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true, bool $maskPasswords = false): string
+    public static function render(PacketRequest $req, string $personName, string $clientName, string $supportContact, ?string $logoBytes = null, bool $compress = true, bool $maskPasswords = false, ?string $accentHex = null, array $template = []): string
     {
+        self::applyPalette($accentHex);
+        self::$t = $template + \ITFlow\Onboarding\PacketTemplate::defaults();
         // Only PNG/JPEG that PHP itself can parse ever reach TCPDF.
         $logo = null;
         if ($logoBytes !== null && $logoBytes !== '') {
@@ -149,8 +156,8 @@ final class PacketPdf
         $pdf->SetTitle('Welcome to ' . $clientName . ', ' . $personName);
         $pdf->SetMargins(self::M, self::TOP, self::M);
         $pdf->SetAutoPageBreak(false);
-        $pdf->accent = self::ACCENT;
-        $pdf->footerText = self::FOOTER;
+        $pdf->accent = self::$p['accent'];
+        $pdf->footerText = self::fillT('footer', $personName, $clientName);
         $pdf->runningHead = $personName . ($clientName !== '' ? " \u{00b7} " . $clientName : '');
         $pdf->AddPage();
 
@@ -165,9 +172,8 @@ final class PacketPdf
         $w = $pdf->getPageWidth() - 2 * self::M;
         $y = self::header($pdf, $meter, $req, $personName, $clientName, $logoBytes) + 8;
 
-        $intro = ($clientName !== '' ? 'Welcome to ' . $clientName . '! ' : 'Welcome! ')
-            . 'Here are the sign-in details for your new accounts.';
-        $private = 'Keep this page private.';
+        $intro = self::fillT('intro', $personName, $clientName);
+        $private = self::fillT('private', $personName, $clientName);
         self::text($pdf, self::F_BODY, self::INK, self::M, $y, $w, $intro);
         $y += self::textH($meter, self::F_BODY, $w, $intro) + 0.6;
         self::text($pdf, ['dejavusans', 'B', 10.5], self::INK, self::M, $y, $w, $private);
@@ -205,6 +211,36 @@ final class PacketPdf
         return $pdf->Output('', 'S');
     }
 
+    /** A template field with its placeholders filled. */
+    private static function fillT(string $key, string $personName, string $clientName): string
+    {
+        $company = defined('APP_NAME') ? (string) APP_NAME : '';
+        return \ITFlow\Onboarding\PacketTemplate::fill(self::$t[$key] ?? '', $personName, $clientName, $company);
+    }
+
+    /**
+     * Builds the palette. With a '#RRGGBB' company accent every colour is derived from it (header band and badges are darkened until white
+     * text on them stays readable; the tints are the same hue mixed toward white); otherwise the built-in navy palette is used.
+     */
+    private static function applyPalette(?string $hex): void
+    {
+        self::$p = ['accent' => self::ACCENT, 'accent_soft' => self::ACCENT_SOFT, 'chip' => self::CHIP, 'tint' => self::TINT, 'link' => self::LINK];
+        if ($hex === null || preg_match('/^#[0-9A-Fa-f]{6}$/D', $hex) !== 1) {
+            return;
+        }
+        $a = [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
+        $lum = static function (array $c): float {
+            $f = static function (int $v): float { $v /= 255; return $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4; };
+            return 0.2126 * $f($c[0]) + 0.7152 * $f($c[1]) + 0.0722 * $f($c[2]);
+        };
+        // White text needs contrast >= 4.5 against the band: (1.05) / (L + 0.05) >= 4.5  =>  L <= 0.1833.
+        for ($i = 0; $i < 20 && $lum($a) > 0.18; $i++) {
+            $a = [(int) round($a[0] * 0.9), (int) round($a[1] * 0.9), (int) round($a[2] * 0.9)];
+        }
+        $mix = static fn(array $c, float $t): array => [(int) round($c[0] + (255 - $c[0]) * $t), (int) round($c[1] + (255 - $c[1]) * $t), (int) round($c[2] + (255 - $c[2]) * $t)];
+        self::$p = ['accent' => $a, 'accent_soft' => $mix($a, 0.78), 'chip' => $mix($a, 0.14), 'tint' => $mix($a, 0.92), 'link' => $a];
+    }
+
     /** Header band on page 1. Returns its bottom edge. */
     private static function header(PacketPdfDocument $pdf, PacketPdfDocument $meter, PacketRequest $req, string $personName, string $clientName, ?string $logoBytes): float
     {
@@ -214,7 +250,7 @@ final class PacketPdf
         $leftW = $pw - 2 * self::M - $rightW - 8;
 
         $first = preg_split('/\s+/u', trim($personName), 2)[0] ?? '';
-        $title = 'Welcome' . ($first !== '' ? ', ' . $first : '');
+        $title = self::fillT('title', $personName, $clientName);
         $showFull = trim($personName) !== '' && trim($personName) !== $first;
 
         // Measure the left column.
@@ -262,22 +298,22 @@ final class PacketPdf
         }
 
         $bandH = max($ly, $rBottom) + 9;
-        $pdf->Rect(0, 0, $pw, $bandH, 'F', [], self::ACCENT);
+        $pdf->Rect(0, 0, $pw, $bandH, 'F', [], self::$p['accent']);
 
         $pdf->setFontSpacing(0.5);
-        self::text($pdf, ['dejavusans', 'B', 7.5], self::ACCENT_SOFT, $x, $eyebrowY, $leftW, 'ONBOARDING PACKET');
+        self::text($pdf, ['dejavusans', 'B', 7.5], self::$p['accent_soft'], $x, $eyebrowY, $leftW, self::fillT('eyebrow', $personName, $clientName));
         $pdf->setFontSpacing(0);
         self::text($pdf, self::F_TITLE, [255, 255, 255], $x, $titleY, $leftW, $title);
         if ($showFull) {
-            self::text($pdf, self::F_NAME, self::ACCENT_SOFT, $x, $nameY, $leftW, $personName);
+            self::text($pdf, self::F_NAME, self::$p['accent_soft'], $x, $nameY, $leftW, $personName);
         }
         foreach ($chipPlan as $c) {
             if ($c['wrap']) {
                 self::text($pdf, ['dejavusans', '', 8], [255, 255, 255], $c['x'], $c['y'], $c['w'], $c['label'] . ': ' . $c['value']);
                 continue;
             }
-            $pdf->RoundedRect($c['x'], $c['y'], $c['w'], $c['h'], 1.6, '1111', 'F', [], self::CHIP);
-            self::text($pdf, ['dejavusans', '', 7.5], self::ACCENT_SOFT, $c['x'] + 3, $c['y'] + 1.55, $c['lw'] + 1, $c['label']);
+            $pdf->RoundedRect($c['x'], $c['y'], $c['w'], $c['h'], 1.6, '1111', 'F', [], self::$p['chip']);
+            self::text($pdf, ['dejavusans', '', 7.5], self::$p['accent_soft'], $c['x'] + 3, $c['y'] + 1.55, $c['lw'] + 1, $c['label']);
             self::text($pdf, ['dejavusans', 'B', 8], [255, 255, 255], $c['x'] + 3 + $c['lw'] + 1.8, $c['y'] + 1.4, $c['vw'] + 1, $c['value']);
         }
 
@@ -423,7 +459,7 @@ final class PacketPdf
 
         // Frame, strip and number badge.
         $pdf->RoundedRect($x, $y, $w, $total, 2, '1111', 'F', [], [255, 255, 255]);
-        $pdf->RoundedRect($x, $y, $w, $stripH, 2, $bodyH > 0 ? '1100' : '1111', 'F', [], self::TINT);
+        $pdf->RoundedRect($x, $y, $w, $stripH, 2, $bodyH > 0 ? '1100' : '1111', 'F', [], self::$p['tint']);
         if ($bodyH > 0) {
             $pdf->Line($x, $y + $stripH, $x + $w, $y + $stripH, ['width' => 0.25, 'color' => self::RULE]);
         }
@@ -431,12 +467,12 @@ final class PacketPdf
         $firstLine = $lineH(self::F_CARD);
         $ty = $y + ($stripH - $titleH) / 2;
         $cy = $ty + $firstLine / 2;
-        $pdf->Circle($x + 4 + $badge / 2, $cy, $badge / 2, 0, 360, 'F', [], self::ACCENT);
+        $pdf->Circle($x + 4 + $badge / 2, $cy, $badge / 2, 0, 360, 'F', [], self::$p['accent']);
         $pdf->SetFont('dejavusans', 'B', $n > 9 ? 7 : 8);
         $pdf->SetTextColor(255, 255, 255);
         $pdf->SetXY($x + 4, $cy - $badge / 2);
         $pdf->Cell($badge, $badge, (string) $n, 0, 0, 'C', false, '', 0, false, 'T', 'M');
-        self::text($pdf, self::F_CARD, self::ACCENT, $tx, $ty, $tw, $title);
+        self::text($pdf, self::F_CARD, self::$p['accent'], $tx, $ty, $tw, $title);
 
         // Label / value grid.
         $ry = $y + $stripH + self::BODY_PAD;
@@ -455,7 +491,7 @@ final class PacketPdf
             } else {
                 $valueLine = $lineH(self::F_VALUE);
                 self::text($pdf, self::F_LABEL, self::MUTED, $x + $pad, $ry + ($valueLine - $labelLine) / 2, $labelW, $p['label']);
-                self::text($pdf, self::F_VALUE, $p['kind'] === 'link' ? self::LINK : self::INK, $vx, $ry, $vw, $p['value']);
+                self::text($pdf, self::F_VALUE, $p['kind'] === 'link' ? self::$p['link'] : self::INK, $vx, $ry, $vw, $p['value']);
             }
             $ry += $p['h'] + self::ROW_GAP;
         }
@@ -485,9 +521,9 @@ final class PacketPdf
     {
         $tx = $x + 7;
         $tw = $w - 7 - 5;
-        $head = 'Need help?';
+        $head = self::$t['help_heading'];
         $sub = $support !== ''
-            ? "If you cannot sign in, or something here doesn't work, get in touch:"
+            ? self::$t['help_text']
             : "If you cannot sign in, or something here doesn't work, ask your manager or IT team.";
         $prepared = 'Packet prepared ' . date('F j, Y');
         $h1 = self::textH($meter, ['dejavusans', 'B', 11], $tw, $head);
@@ -499,9 +535,9 @@ final class PacketPdf
             return $total;
         }
         $pdf->RoundedRect($x, $y, $w, $total, 2, '1111', 'DF', ['width' => 0.3, 'color' => self::RULE], [243, 246, 250]);
-        $pdf->Rect($x, $y + 1.5, 1.4, $total - 3, 'F', [], self::ACCENT);
+        $pdf->Rect($x, $y + 1.5, 1.4, $total - 3, 'F', [], self::$p['accent']);
         $cy = $y + 4.5;
-        self::text($pdf, ['dejavusans', 'B', 11], self::ACCENT, $tx, $cy, $tw, $head);
+        self::text($pdf, ['dejavusans', 'B', 11], self::$p['accent'], $tx, $cy, $tw, $head);
         $cy += $h1 + 1.2;
         self::text($pdf, ['dejavusans', '', 9.5], self::INK, $tx, $cy, $tw, $sub);
         $cy += $h2;

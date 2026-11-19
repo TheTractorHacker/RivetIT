@@ -5139,6 +5139,7 @@ CREATE TABLE `settings` (
   `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
   `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0,
   `config_workflows_hire_leave` tinyint(1) NOT NULL DEFAULT 0,
+  `config_onboarding_packet_template` text DEFAULT NULL,
   `config_vault_v3_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_vault_dek_wrap` text DEFAULT NULL,
   `config_vault_v3_prepared_at` datetime DEFAULT NULL,

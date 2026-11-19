@@ -13153,3 +13153,10 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `vendors` ADD COLUMN IF NOT EXISTS `vendor_shared` tinyint(1) NOT NULL DEFAULT 0");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.240'");
     }
+
+    if ($rivetit_db_version() == '2.6.240') {
+        // DB 2.6.241: editable Onboarding Packet template (Administration > Templates). settings.config_onboarding_packet_template holds a JSON object of
+        // the packet's wording; NULL = built-in defaults, so nothing changes until an administrator edits it. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_onboarding_packet_template` text DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.241'");
+    }
