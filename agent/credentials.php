@@ -385,8 +385,13 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                     data-bulk="true">
                                     <i class="fas fa-fw fa-exchange-alt me-2"></i>Move
                                 </a>
-                                <div class="dropdown-divider"></div>
                                 <?php } ?>
+                                <a class="dropdown-item ajax-modal" href="#"
+                                    data-modal-url="modals/credential/credential_department_move.php"
+                                    data-bulk="true">
+                                    <i class="fas fa-fw fa-folder-open me-2"></i>Move to department
+                                </a>
+                                <div class="dropdown-divider"></div>
                                 <button class="dropdown-item"
                                     type="submit" form="bulkActions" name="bulk_favorite_credentials">
                                     <i class="fas fa-fw fa-star text-warning me-2"></i>Favorite
@@ -812,6 +817,10 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                                 <a class="dropdown-item ajax-modal" href="#"
                                                     data-modal-url="modals/credential/credential_move.php?id=<?= $credential_id ?>">
                                                     <i class="fas fa-fw fa-exchange-alt me-2"></i>Move
+                                                </a>
+                                                <a class="dropdown-item ajax-modal" href="#"
+                                                    data-modal-url="modals/credential/credential_department_move.php?credential_ids[]=<?= $credential_id ?>">
+                                                    <i class="fas fa-fw fa-folder-open me-2"></i>Move to department
                                                 </a>
                                                 <?php } ?>
                                                 <div class="dropdown-divider"></div>

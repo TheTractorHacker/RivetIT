@@ -182,6 +182,47 @@ if (isset($_POST['move_credential'])) {
 
 }
 
+if (isset($_POST['move_credentials_department'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_credential', 2);
+
+    $target_id = intval($_POST['department_id'] ?? 0);
+    $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['credential_ids'] ?? [])))));
+
+    // Target must be a real, active, non-lead department the user may access
+    $target = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT client_name FROM clients WHERE client_id = $target_id AND client_lead = 0 AND client_archived_at IS NULL"));
+    if (!$target_id || !$target || !$ids) {
+        flash_alert("Choose a department and at least one credential", 'error');
+        redirect();
+    }
+    enforceClientAccess($target_id);
+    $target_name = sanitizeInput($target['client_name']);
+
+    $moved = 0;
+    foreach ($ids as $credential_id) {
+        $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT credential_name, credential_client_id FROM credentials WHERE credential_id = $credential_id"));
+        if (!$row) { continue; }
+        $from_id = intval($row['credential_client_id']);
+        if ($from_id === $target_id) { continue; }
+        enforceClientAccess($from_id);
+        $credential_name = sanitizeInput($row['credential_name']);
+
+        mysqli_query($mysqli, "UPDATE credentials SET credential_client_id = $target_id, credential_folder_id = 0, credential_contact_id = 0, credential_asset_id = 0, credential_vendor_id = 0, credential_updated_at = credential_updated_at WHERE credential_id = $credential_id");
+        mysqli_query($mysqli, "DELETE FROM asset_credentials WHERE credential_id = $credential_id");
+        mysqli_query($mysqli, "DELETE FROM contact_credentials WHERE credential_id = $credential_id");
+
+        logAction("Credential", "Move", "$session_name moved credential $credential_name to department $target_name", $target_id, $credential_id);
+        $moved++;
+    }
+
+    flash_alert("Moved <strong>$moved</strong> credential(s) to <strong>$target_name</strong>");
+
+    redirect();
+
+}
+
 if (isset($_POST['bulk_move_credentials'])) {
 
     validateCSRFToken($_POST['csrf_token']);
