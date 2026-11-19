@@ -495,34 +495,85 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
         // a chosen department or ?all=1 shows the plain list instead.
         $dept_folder_view = !$client_url && empty($client) && empty($q) && empty($tag_query) && $type_filter === '' && !$archived && !isset($_GET['all']) && !isset($_GET['scope']);
         if ($dept_folder_view) {
-            $sql_dept_folders = mysqli_query($mysqli, "SELECT clients.client_id, clients.client_name, COUNT(c.credential_id) AS num FROM credentials c
+            $sql_dept_folders = mysqli_query($mysqli, "SELECT clients.client_id, clients.client_name, COUNT(c.credential_id) AS num,
+                MAX(COALESCE(c.credential_updated_at, c.credential_created_at)) AS last_change FROM credentials c
                 LEFT JOIN clients ON client_id = c.credential_client_id
                 WHERE $archive_query $access_permission_query
                 GROUP BY clients.client_id, clients.client_name ORDER BY clients.client_name ASC");
+            $dept_folders = [];
+            $dept_total = 0;
+            while ($f = mysqli_fetch_assoc($sql_dept_folders)) { $dept_folders[] = $f; $dept_total += intval($f['num']); }
             ?>
             <style nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
-                .cred-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem; }
-                .cred-folder { display: flex; align-items: center; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--tblr-border-color, #dce1e7); border-radius: .6rem; text-decoration: none; color: inherit; background: var(--tblr-bg-surface, transparent); }
-                .cred-folder:hover { border-color: var(--tblr-primary, #206bc4); background: var(--tblr-bg-surface-secondary, rgba(128,128,128,.08)); }
-                .cred-folder .fa-folder { font-size: 1.5rem; color: #f0b429; }
-                .cred-folder-name { font-weight: 600; line-height: 1.2; }
-                .cred-folder-count { margin-left: auto; }
+                .cred-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
+                .cred-folder { position: relative; display: flex; align-items: center; gap: .85rem; padding: 1rem 1.1rem; border: 1px solid var(--tblr-border-color, #dce1e7); border-radius: .75rem; text-decoration: none; color: inherit; background: var(--tblr-bg-surface, transparent); transition: border-color .15s, box-shadow .15s, transform .15s; }
+                .cred-folder:hover { border-color: var(--tblr-primary, #206bc4); box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); color: inherit; }
+                .cred-folder-icon { flex: 0 0 2.75rem; height: 2.75rem; border-radius: .6rem; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; background: rgba(240,180,41,.18); color: #d99a0b; }
+                .cred-folder-body { min-width: 0; flex: 1 1 auto; }
+                .cred-folder-name { font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .cred-folder-meta { font-size: .8rem; opacity: .65; }
+                .cred-folder-arrow { opacity: 0; transition: opacity .15s; }
+                .cred-folder:hover .cred-folder-arrow { opacity: .6; }
+                .cred-folders-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
             </style>
-            <div class="cred-folders mt-3">
-                <?php while ($f = mysqli_fetch_assoc($sql_dept_folders)) {
+            <div class="cred-folders-bar mt-3 mb-3">
+                <div class="input-group" style="max-width:20rem">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="search" class="form-control" id="credFolderFilter" placeholder="Find a department" autocomplete="off">
+                </div>
+                <div class="btn-group" role="group" aria-label="Sort folders">
+                    <button type="button" class="btn btn-outline-secondary btn-sm active" data-cred-sort="name">A-Z</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-cred-sort="count">Most logins</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-cred-sort="recent">Recently changed</button>
+                </div>
+                <span class="text-muted small ms-auto"><?= count($dept_folders) ?> folder<?= count($dept_folders) === 1 ? '' : 's' ?> &middot; <?= $dept_total ?> login<?= $dept_total === 1 ? '' : 's' ?></span>
+            </div>
+            <div class="cred-folders" id="credFolders">
+                <?php foreach ($dept_folders as $f) {
                     $f_id = intval($f['client_id']);
                     $f_name = $f_id ? nullable_htmlentities($f['client_name']) : 'No department';
-                    $f_href = $f_id ? '?client=' . $f_id : '?all=1'; ?>
-                    <a class="cred-folder" href="<?= $f_href ?>">
-                        <i class="fas fa-folder" aria-hidden="true"></i>
-                        <span class="cred-folder-name"><?= $f_name ?></span>
-                        <span class="badge bg-secondary rounded-pill cred-folder-count"><?= intval($f['num']) ?></span>
+                    $f_href = $f_id ? '?client=' . $f_id : '?all=1';
+                    $f_num = intval($f['num']);
+                    $f_ts = $f['last_change'] ? strtotime($f['last_change']) : 0; ?>
+                    <a class="cred-folder" href="<?= $f_href ?>" data-name="<?= strtolower($f_name) ?>" data-count="<?= $f_num ?>" data-recent="<?= $f_ts ?>">
+                        <span class="cred-folder-icon"><i class="fas fa-folder" aria-hidden="true"></i></span>
+                        <span class="cred-folder-body">
+                            <div class="cred-folder-name" title="<?= $f_name ?>"><?= $f_name ?></div>
+                            <div class="cred-folder-meta"><?= $f_num ?> login<?= $f_num === 1 ? '' : 's' ?><?= $f_ts ? ' &middot; changed ' . htmlspecialchars(timeAgo(date('Y-m-d H:i:s', $f_ts))) : '' ?></div>
+                        </span>
+                        <i class="fas fa-chevron-right cred-folder-arrow" aria-hidden="true"></i>
                     </a>
                 <?php } ?>
+                <?php if (!$dept_folders) { ?><div class="text-muted">No credentials yet.</div><?php } ?>
             </div>
+            <div class="text-muted mt-3" id="credFolderNone" hidden>No department matches.</div>
             <div class="mt-3"><a href="?all=1" class="small text-muted"><i class="fas fa-list me-1"></i>Show every credential in one list</a></div>
+            <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+            (function () {
+                var box = document.getElementById('credFolders'), q = document.getElementById('credFolderFilter');
+                var none = document.getElementById('credFolderNone');
+                var cards = Array.prototype.slice.call(box.querySelectorAll('.cred-folder'));
+                function filter() {
+                    var t = q.value.trim().toLowerCase(), shown = 0;
+                    cards.forEach(function (c) { var ok = !t || c.dataset.name.indexOf(t) !== -1; c.hidden = !ok; if (ok) shown++; });
+                    none.hidden = shown !== 0 || !cards.length;
+                }
+                q.addEventListener('input', filter);
+                document.querySelectorAll('[data-cred-sort]').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        var k = b.dataset.credSort;
+                        document.querySelectorAll('[data-cred-sort]').forEach(function (x) { x.classList.toggle('active', x === b); });
+                        cards.sort(function (a, c) {
+                            if (k === 'count') return c.dataset.count - a.dataset.count || a.dataset.name.localeCompare(c.dataset.name);
+                            if (k === 'recent') return c.dataset.recent - a.dataset.recent;
+                            return a.dataset.name.localeCompare(c.dataset.name);
+                        }).forEach(function (c) { box.appendChild(c); });
+                    });
+                });
+            })();
+            </script>
         <?php } else if (!$client_url && !empty($client)) { ?>
-            <div class="mt-3"><a href="credentials.php" class="small"><i class="fas fa-folder-open me-1"></i>All department folders</a></div>
+            <nav class="mt-3 small" aria-label="breadcrumb"><a href="credentials.php"><i class="fas fa-folder-open me-1"></i>All department folders</a> <span class="text-muted mx-1">/</span> <span class="fw-semibold"><?php $crumb = mysqli_fetch_assoc(mysqli_query($mysqli, 'SELECT client_name FROM clients WHERE client_id = ' . intval($client))); echo nullable_htmlentities($crumb['client_name'] ?? ''); ?></span></nav>
         <?php } ?>
 
         <?php if (empty($dept_folder_view)) { ?>
