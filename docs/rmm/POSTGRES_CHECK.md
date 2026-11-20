@@ -30,9 +30,11 @@ defines 1 as warning, so 2 is used here.
 
 1. `pg_isready` reports the server is accepting connections.
 2. Client connections in `pg_stat_activity` against `max_connections`: fails at 90% or more.
-3. On a replica (`pg_is_in_recovery()`), fails when replay lag is over 60 seconds. Lag is measured as
-   `now() - pg_last_xact_replay_timestamp()`, so on a replica whose primary is idle for a long time the value grows although nothing is
-   wrong; if that is your case, raise `LAG_MAX_S` or remove check 3.
+3. On a replica (`pg_is_in_recovery()`), fails when replay lag is over 60 seconds. Lag is 0 when the replica has replayed all the WAL it
+   has received (`pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn()`), so a caught-up replica of an idle primary does not alarm. Otherwise
+   it is `now() - pg_last_xact_replay_timestamp()`. Remaining limit: lag is not measured while no WAL is being received; a replica whose
+   connection to the primary is broken but which has replayed everything it got reports 0 here (watch replication state separately). With
+   no walreceiver the receive LSN is NULL and the lag is computed from the replay timestamp.
 4. Fails when any client transaction has been open for more than 15 minutes (`state <> 'idle'` and `xact_start` older than 15 minutes).
    This script's own session is excluded.
 
@@ -88,7 +90,7 @@ fi
 # 3. Replica replay lag
 rec=$(q "select pg_is_in_recovery()") || fail "cannot read recovery state"
 if [ "$rec" = "t" ]; then
-  lag=$(q "select coalesce(extract(epoch from now() - pg_last_xact_replay_timestamp())::bigint, 0)") \
+  lag=$(q "select case when pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() then 0 else coalesce(extract(epoch from now() - pg_last_xact_replay_timestamp())::bigint, 0) end") \
     || fail "cannot read replay lag"
   case "$lag" in ''|*[!0-9]*) lag=0 ;; esac
   [ "$lag" -le "$LAG_MAX_S" ] || fail "replica replay lag ${lag}s (> ${LAG_MAX_S}s)"
@@ -121,7 +123,8 @@ socket in a private directory, `max_connections=20`, peer authentication, nothin
 | Connection limit lowered to 1% | `PostgreSQL FAIL: 2/20 connections (>= 1%)`, exit 2 |
 | Nothing listening on the port | `PostgreSQL FAIL: not accepting connections`, exit 2 |
 
-**Not run on a real server:** the replica branch (check 3) was never run on an actual replica; only the lag SQL expression was run on a
-primary, where it returns 0 and the branch is skipped. The `runuser` / `sudo -n -u postgres` paths and the agent's check runner (how the
+**Not run on a real server:** the replica branch (check 3) was never run on an actual replica; only the lag SQL expression (the `case when
+pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() ...` form) was evaluated directly on a primary to prove it parses and returns a value, and
+there the replica branch is skipped. The `runuser` / `sudo -n -u postgres` paths and the agent's check runner (how the
 agent invokes the text, as which user, with which shell) were not exercised, and nothing was run through RivetIT. The 90% and 15 minute
 limits were only proven by lowering them. Try it by hand as root on a real server (`bash script.sh; echo $?`) before putting it in a policy.
