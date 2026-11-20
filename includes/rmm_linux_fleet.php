@@ -148,6 +148,29 @@ function rivetLinuxFleetCluster(string $name, array $nodes): array
 
 const RIVET_LINUX_FLEET_CAP = 60;
 
+/* Devices whose listed os_version says Windows or macOS never reach the per-device fetch, so they cannot use up the cap. An empty os_version is kept: the patch scan can still tell. */
+function rivetLinuxFleetNotOtherOs(array $summaries): array
+{
+    return array_values(array_filter($summaries, fn($s) => preg_match('/windows|macos|darwin/i', (string) ($s['os_version'] ?? '')) !== 1));
+}
+
+/**
+ * Which groups to list. $visible is the caller's visible client ids, null = unrestricted. A group with no visible device is dropped for a restricted caller (its name and size must not leak); an unrestricted caller sees it, empty.
+ *
+ * @param list<array<string,mixed>> $all
+ * @return list<array{group_id:int,name:string}>
+ */
+function rivetLinuxFleetPickGroups(array $all, ?array $visible, int $only): array
+{
+    $out = [];
+    foreach ($all as $g) {
+        if (($visible === null || (int) ($g['device_count'] ?? 0) > 0) && ($only === 0 || (int) $g['group_id'] === $only)) {
+            $out[] = ['group_id' => (int) $g['group_id'], 'name' => (string) $g['name']];
+        }
+    }
+    return $out;
+}
+
 /**
  * Pure assembly over injected data.
  *
@@ -195,7 +218,7 @@ function rivetLinuxFleetBuild(array $groups, array $membersByGroup, callable $fe
             continue;
         }
         $nodes = [];
-        foreach ($membersByGroup[$gid] ?? [] as $s) {
+        foreach (rivetLinuxFleetNotOtherOs($membersByGroup[$gid] ?? []) as $s) {
             $n = $load($s);
             if ($n !== false) {
                 $nodes[] = $n;
@@ -241,22 +264,17 @@ function rivetLinuxFleetView(array $ctx, array $get): array
     $group = ctype_digit((string) ($get['group'] ?? '')) ? (int) $get['group'] : 0;
     $show = ($get['show'] ?? '') === 'attention' ? 'attention' : 'all';
     $vm = ['error' => '', 'clusters' => [], 'totals' => ['nodes' => 0, 'healthy' => 0, 'attention' => 0, 'down' => 0, 'security_pending' => 0],
-        'capped' => false, 'skipped' => 0, 'filters' => ['group' => $group, 'show' => $show]];
+        'capped' => false, 'skipped' => 0, 'groups' => [], 'filters' => ['group' => $group, 'show' => $show]];
     try {
         $rmm = rivetRmmModule($ctx['mysqli']);
         $visible = $rmm->authorizer()->visibleClientIds($ctx['uid']);
         $read = $rmm->readModel();
-        $groups = [];
-        foreach ($read->groups($visible) as $g) {
-            // A group none of whose devices the user may see is not listed: its name and size must not leak.
-            if ((int) ($g['device_count'] ?? 0) > 0 && ($group === 0 || (int) $g['group_id'] === $group)) {
-                $groups[] = ['group_id' => (int) $g['group_id'], 'name' => (string) $g['name']];
-            }
-        }
+        $vm['groups'] = rivetLinuxFleetPickGroups($read->groups($visible), $visible, 0);   // the filter's options
+        $groups = $group === 0 ? $vm['groups'] : array_values(array_filter($vm['groups'], fn($g) => $g['group_id'] === $group));
         $members = [];
         $inGroup = [];
         foreach ($groups as $g) {
-            $l = $read->listDevices(['group' => $g['group_id'], 'retired' => 'hide'], $visible, RIVET_LINUX_FLEET_CAP + 1, 0);
+            $l = $read->listDevices(['group' => $g['group_id'], 'retired' => 'hide'], $visible, 500, 0);   // wide on purpose: Windows/macOS rows are dropped in Build before the cap counts
             $members[$g['group_id']] = rivetRmmExcludePanelDevices($l['items']);
             foreach ($members[$g['group_id']] as $d) {
                 $inGroup[(int) $d['device_id']] = true;
@@ -269,7 +287,7 @@ function rivetLinuxFleetView(array $ctx, array $get): array
             if ((int) ($all['total'] ?? 0) > 500) {
                 $vm['capped'] = true;
             }
-            foreach (rivetRmmExcludePanelDevices($all['items']) as $d) {
+            foreach (rivetLinuxFleetNotOtherOs(rivetRmmExcludePanelDevices($all['items'])) as $d) {
                 if (!isset($inGroup[(int) $d['device_id']])) {
                     $members[0][] = $d;
                 }
@@ -293,4 +311,80 @@ function rivetLinuxFleetView(array $ctx, array $get): array
         $vm['error'] = 'The Linux fleet could not be read.';
     }
     return $vm;
+}
+
+/**
+ * The page. Every value is escaped here with rmmH(); the markup carries no script and no inline handler.
+ *
+ * @param array<string,mixed> $vm rivetLinuxFleetView()
+ */
+function rivetLinuxFleetPage(array $vm): string
+{
+    require_once __DIR__ . '/rmm_pat_ui.php';
+    $links = '<a class="btn btn-sm btn-outline-secondary" href="/agent/rmm_patches.php"><i class="fas fa-shield-alt me-1" aria-hidden="true"></i>Patch compliance</a>';
+    $o = rivetRmmAutoHeader('Linux fleet', 'server', $links, 'Linux servers by group: which are up, which need attention, and what they are missing. Read-only; groups are the clusters.');
+    if (($vm['error'] ?? '') !== '') {
+        return $o . '<div class="alert alert-danger" role="alert">' . rmmH($vm['error']) . '</div>';
+    }
+    $f = (array) ($vm['filters'] ?? []);
+    $t = (array) ($vm['totals'] ?? []);
+
+    $groups = '';
+    foreach ((array) ($vm['groups'] ?? []) as $g) {
+        $groups .= '<option value="' . (int) $g['group_id'] . '"' . ((int) ($f['group'] ?? 0) === (int) $g['group_id'] ? ' selected' : '') . '>' . rmmH($g['name']) . '</option>';
+    }
+    $o .= '<form method="get" action="/agent/rmm_linux_fleet.php" class="card card-dark mb-3"><div class="card-body"><div class="row g-2 align-items-end">'
+        . '<div class="col-md-4"><label class="form-label" for="lf_group">Group</label><select class="form-select" id="lf_group" name="group"><option value="0">All groups</option>' . $groups . '</select></div>'
+        . '<div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="lf_show" name="show" value="attention"' . (($f['show'] ?? '') === 'attention' ? ' checked' : '') . '><label class="form-check-label" for="lf_show">Needs attention only</label></div></div>'
+        . '<div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Apply</button></div></div></div></form>';
+
+    $n = static fn(string $k): int => (int) ($t[$k] ?? 0);
+    $o .= '<div class="row g-2 mb-3">'
+        . rivetRmmPatKpi('Servers', number_format($n('nodes')))
+        . rivetRmmPatKpi('Healthy', number_format($n('healthy')), $n('healthy') > 0 && $n('attention') + $n('down') === 0 ? 'success' : '')
+        . rivetRmmPatKpi('Need attention', number_format($n('attention')), $n('attention') > 0 ? 'warning' : '')
+        . rivetRmmPatKpi('Down', number_format($n('down')), $n('down') > 0 ? 'danger' : '')
+        . rivetRmmPatKpi('Security updates pending', number_format($n('security_pending')), $n('security_pending') > 0 ? 'warning' : '')
+        . '</div>';
+    if (!empty($vm['capped'])) {
+        $o .= '<div class="alert alert-info" role="status">Showing the first ' . RIVET_LINUX_FLEET_CAP . ' servers.</div>';
+    }
+
+    foreach ((array) ($vm['clusters'] ?? []) as $c) {
+        $kind = (int) $c['down'] > 0 ? 'crit' : ((int) $c['attention'] > 0 ? 'warn' : 'ok');
+        $badge = rivetRmmUiPill($kind, (int) $c['healthy'] . ' of ' . (int) $c['total'] . ' healthy');
+        $body = '';
+        foreach ((array) $c['flags'] as $flag) {
+            $body .= '<div class="alert alert-warning mx-3 mt-3 mb-0 py-2" role="status">' . rmmH($flag) . '</div>';
+        }
+        if ((array) $c['nodes'] === []) {
+            $body .= rivetRmmUiEmpty('fas fa-server', 'No Linux servers in this group');
+        } else {
+            $rows = '';
+            foreach ((array) $c['nodes'] as $nd) {
+                $host = rmmH($nd['hostname']) . (($nd['os_version'] ?? '') !== '' ? '<div class="small text-muted">' . rmmH($nd['os_version']) . '</div>' : '');
+                if ((int) ($nd['asset_id'] ?? 0) > 0) {
+                    $host = '<a href="/agent/rmm_asset.php?asset_id=' . (int) $nd['asset_id'] . '">' . rmmH($nd['hostname']) . '</a>'
+                        . (($nd['os_version'] ?? '') !== '' ? '<div class="small text-muted">' . rmmH($nd['os_version']) . '</div>' : '');
+                }
+                $state = (string) ($nd['health']['state'] ?? 'healthy');
+                $pill = $state === 'down' ? rivetRmmUiPill('crit', 'Down') : ($state === 'attention' ? rivetRmmUiPill('warn', 'Attention') : rivetRmmUiPill('ok', 'Healthy'));
+                $upd = !empty($nd['scanned']) ? rmmH((int) $nd['sec_count'] . ' security / ' . (int) $nd['other_count'] . ' other') : '<span class="text-muted">Never scanned</span>';
+                $scan = !empty($nd['scanned']) ? rmmH((int) $nd['scan_age_days'] . 'd ago') : '<span class="text-muted">—</span>';
+                $checks = ($nd['failing_checks'] ?? []) === [] ? 'OK' : rmmH(implode(', ', (array) $nd['failing_checks']));
+                $pg = (string) ($nd['postgres']['state'] ?? 'none');
+                $pgCell = $pg === 'fail' ? rmmH('Failing: ' . (string) ($nd['postgres']['detail'] ?? '')) : ($pg === 'ok' ? 'OK' : '<span class="text-muted">—</span>');
+                $why = rmmH(implode('; ', (array) ($nd['health']['reasons'] ?? [])));
+                $rows .= '<tr><td class="ps-3">' . $host . '</td><td>' . $pill . '</td><td>' . $upd . '</td><td>' . (!empty($nd['reboot_pending']) ? 'Pending' : '<span class="text-muted">No</span>')
+                    . '</td><td>' . $scan . '</td><td>' . $checks . '</td><td>' . $pgCell . '</td><td>' . $why . '</td></tr>';
+            }
+            $body .= '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Linux servers in ' . rmmH($c['name']) . '</caption>'
+                . rivetRmmUiThead(['Server', 'Status', 'Updates', 'Restart', 'Last scan', 'Checks', 'PostgreSQL', 'Why']) . '<tbody>' . $rows . '</tbody></table></div>';
+        }
+        $o .= rivetRmmUiCard(rmmH($c['name']), 'server', $body, '', $badge, true);
+    }
+    if ((array) ($vm['clusters'] ?? []) === []) {
+        $o .= rivetRmmUiEmpty('fas fa-server', 'No Linux servers to show', 'Linux servers appear here once they are enrolled and approved.');
+    }
+    return $o;
 }

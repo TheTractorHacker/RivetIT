@@ -53,5 +53,20 @@ $names = array_column($r['clusters'], 'name');
 $ok($names === ['pg'] && count($r['clusters'][0]['nodes']) === 1 && $r['clusters'][0]['nodes'][0]['hostname'] === 'b', 'show=attention drops healthy nodes and emptied clusters');
 $ok($r['totals']['nodes'] === 3, 'totals still describe the whole fleet under show=attention');
 
+/* carry-over a: group visibility */
+$gs = [['group_id' => 1, 'name' => 'full', 'device_count' => 2], ['group_id' => 2, 'name' => 'hidden', 'device_count' => 0]];
+$ok(array_column(rivetLinuxFleetPickGroups($gs, null, 0), 'name') === ['full', 'hidden'], 'unrestricted caller sees a zero-device group');
+$ok(array_column(rivetLinuxFleetPickGroups($gs, [5], 0), 'name') === ['full'], 'restricted caller does not see a zero-device group (no scope leak)');
+$ok(array_column(rivetLinuxFleetPickGroups($gs, null, 2), 'name') === ['hidden'] && rivetLinuxFleetPickGroups($gs, [5], 2) === [], 'group filter honoured in both modes');
+
+/* carry-over b: Windows/macOS rows do not consume cap slots */
+$mix = [];
+for ($i = 1; $i <= 70; $i++) { $mix[] = $dev(200 + $i, 'w' . $i, 'online', $i % 3 === 0 ? 'macOS 14' : ($i % 3 === 1 ? 'Microsoft Windows 11' : 'Darwin 23')); }
+for ($i = 1; $i <= 5; $i++) { $mix[] = $dev(300 + $i, 'L' . $i); }
+$r = rivetLinuxFleetBuild([['group_id' => 1, 'name' => 'mixed']], [1 => $mix], $fetch(), $NOW);
+$ok($r['capped'] === false && $r['totals']['nodes'] === 5 && count($r['clusters'][0]['nodes']) === 5, '70 Windows/macOS + 5 Linux: not capped, 5 nodes');
+$kept = rivetLinuxFleetNotOtherOs([$dev(1, 'a', 'online', ''), $dev(2, 'b', 'online', 'Windows 10'), $dev(3, 'c', 'online', 'Debian 12')]);
+$ok(array_column($kept, 'hostname') === ['a', 'c'], 'empty os_version kept, Windows dropped');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll passed\n";
 exit($fail ? 1 : 0);
