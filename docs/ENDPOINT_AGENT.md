@@ -519,11 +519,12 @@ sudo /path/to/app/deploy/setup-build-host.sh --uninstall [--purge-docker]
 `patching` sub-switch, and what a viewer sees follows the abilities and department scope Core applies to the signed-in user. It is read-only: it starts no job, approves nothing and
 changes no device.
 
-**What it shows.** One row per Linux server and a card per cluster. A cluster is an RMM group; a server in no group is listed under "No cluster". At most 60 servers are
-shown; beyond that the page says so instead of paging. Per server: online state, pending updates (overdue critical and security updates stand out), restart pending,
-failing checks, and a PostgreSQL column.
+**What it shows.** One row per Linux server and a card per cluster. A cluster is an RMM group; a server in no group is listed under "Ungrouped". The page reads at most 60 servers per
+view, servers that are not online first; devices past that are marked "not loaded" in their cluster, left out of the totals, and a warning says how many (choose a group in the
+filter to see them). Per server: online state, pending updates, restart pending, last scan, failing checks, a PostgreSQL column and a Why column that names the reasons
+(including overdue critical and security updates).
 
-**What Healthy means.** A server is healthy when it is online, has no overdue critical or security update, has no failing check, and its PostgreSQL check passes where one is
+**What Healthy means.** A server is healthy when it is online, has been scanned at least once, has no overdue critical or security update, has no failing check, and its PostgreSQL check passes where one is
 deployed. A restart pending is not healthy: it is shown as needs attention. A cluster is healthy only when every server in it is. The PostgreSQL column comes from any
 device check whose key contains `postgres` or `pg_`; a script for it is in `docs/rmm/POSTGRES_CHECK.md`.
 

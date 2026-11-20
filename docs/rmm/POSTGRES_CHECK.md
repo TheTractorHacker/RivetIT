@@ -1,7 +1,7 @@
 # PostgreSQL health check for the Linux fleet page
 
 The **Linux fleet** page (RMM > Patching & software > Linux fleet) shows a PostgreSQL column for any device check whose key contains
-`postgres` or `pg_` (case-insensitive). A check status other than ok or unknown makes the node fail, and the check's detail text (first
+`postgres` or `pg_` (case-insensitive). A check status other than ok or unknown marks the server as needing attention, and the check's detail text (first
 120 characters, control characters removed) is shown beside it. This page gives a read-only script you can use as that check.
 
 ## How to add it
@@ -22,9 +22,8 @@ Linux), so keep it read-only; this one is.
 
 Exit codes (the existing convention, from `ChecksValidator`, the policy form text and the starter pack docs, which agree): **0 is ok, 1 is
 a warning, anything else is critical.** The first line the script prints becomes the detail. This script exits 0 when healthy and 2 when
-anything is wrong (critical). The Linux fleet page treats warning and critical the same (the node fails), so use 1 instead of 2 in the
-`fail()` function if you prefer the check to show as a warning on the device page. The design notes for this task said "exit 1"; Core
-defines 1 as warning, so 2 is used here.
+anything is wrong (critical). The Linux fleet page treats warning and critical the same (the server needs attention), so use 1 instead of 2 in the
+`fail()` function if you prefer the check to show as a warning on the device page.
 
 ## What it checks
 
@@ -33,8 +32,9 @@ defines 1 as warning, so 2 is used here.
 3. On a replica (`pg_is_in_recovery()`), fails when replay lag is over 60 seconds. Lag is 0 when the replica has replayed all the WAL it
    has received (`pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn()`), so a caught-up replica of an idle primary does not alarm. Otherwise
    it is `now() - pg_last_xact_replay_timestamp()`. Remaining limit: lag is not measured while no WAL is being received; a replica whose
-   connection to the primary is broken but which has replayed everything it got reports 0 here (watch replication state separately). With
-   no walreceiver the receive LSN is NULL and the lag is computed from the replay timestamp.
+   connection to the primary is broken but which has replayed everything it got reports 0 here (watch replication state separately). The
+   receive LSN is NULL only when streaming has not started since the standby started (for example a log-shipping replica); the lag then comes from the last replayed
+   transaction time, so an idle primary can make it alarm.
 4. Fails when any client transaction has been open for more than 15 minutes (`state <> 'idle'` and `xact_start` older than 15 minutes).
    This script's own session is excluded.
 
