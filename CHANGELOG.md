@@ -6,6 +6,9 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Added
+- **Linux fleet page** (no database change). RMM > Patching & software > Linux fleet shows Linux servers grouped by RMM group (cluster): online, overdue critical and security updates, restart pending, failing checks and a PostgreSQL column (any check whose key contains `postgres` or `pg_`). Read-only, up to 60 servers, needs the RMM module and the `patching` sub-switch. Only apt scanning is proven (dnf, yum, zypper unverified); RivetMSP does not include it yet. A read-only PostgreSQL check script to use as a script check is in `docs/rmm/POSTGRES_CHECK.md`.
+
 ## [26.10.89] - 2026-11-20
 
 ### Fixed
