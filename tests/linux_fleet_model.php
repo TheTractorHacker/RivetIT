@@ -89,7 +89,52 @@ $ok($c['total'] === 3 && $c['healthy'] === 1 && $c['attention'] === 2 && $c['dow
 $c = rivetLinuxFleetCluster('x', [$mk('h', 'online', false, 'U1'), $mk('z', 'online', true, 'U1'), $mk('d', 'offline', false, 'U1'), $mk('a', 'online', true, 'U1')]);
 $order = array_map(fn($x) => $x['hostname'], $c['nodes']);
 $ok($order === ['d', 'a', 'z', 'h'], 'sort: down, attention (by hostname), healthy');
-$ok($c['flags'] === ['2 nodes need a restart'], 'single OS version and offline node reboot not counted extra');
+$ok($c['flags'] === ['2 nodes need a restart'], 'single OS version: no drift flag');
+
+/* finding 5: one PostgreSQL matcher; the reason is not doubled */
+$pgn2 = rivetLinuxFleetNode($sum, ['checks' => [['key' => 'postgres_health', 'status' => 'crit', 'detail' => 'down']]], $scanned, $NOW);
+$ok($pgn2['failing_checks'] === [] && rivetLinuxFleetHealth($pgn2)['reasons'] === ['PostgreSQL failing'], 'failing postgres check: not in failing_checks, one reason');
+$pgn3 = rivetLinuxFleetNode($sum, ['checks' => [['key' => 'pg_up', 'status' => 'crit', 'detail' => 'x']]], $scanned, $NOW);
+$ok($pgn3['failing_checks'] === [] && $pgn3['postgres']['state'] === 'fail', 'pg_ key handled by the same matcher');
+$po = $scanned; $po['overdue']['critical_or_security'] = 3;
+$hh = rivetLinuxFleetHealth(rivetLinuxFleetNode($sum, ['checks' => [['key' => 'patch.compliance', 'status' => 'warn', 'detail' => '']]], $po, $NOW));
+$ok(!in_array('Check failing: patch.compliance', $hh['reasons'], true) && in_array('3 security updates overdue', $hh['reasons'], true), 'overdue > 0: patch.compliance check not repeated');
+$hh = rivetLinuxFleetHealth(rivetLinuxFleetNode($sum, ['checks' => [['key' => 'patch.compliance', 'status' => 'warn', 'detail' => '']]], $scanned, $NOW));
+$ok(in_array('Check failing: patch.compliance', $hh['reasons'], true), 'overdue 0: patch.compliance warning kept (stale scan)');
+$hh = rivetLinuxFleetHealth(rivetLinuxFleetNode($sum, ['checks' => [['key' => 'patch.install_failed', 'status' => 'warn', 'detail' => '']]], $po, $NOW));
+$ok(in_array('Check failing: patch.install_failed', $hh['reasons'], true), 'patch.install_failed always kept');
+
+/* finding 4: query-string filters */
+set_error_handler(function ($no, $str) { throw new ErrorException($str); });
+try {
+    $ok(rivetLinuxFleetFilters(['group' => ['1'], 'show' => ['attention']]) === ['group' => 0, 'show' => 'all'], 'array query params -> defaults, no warning');
+    $ok(rivetLinuxFleetFilters(['group' => '7', 'show' => 'attention']) === ['group' => 7, 'show' => 'attention'], 'valid params parsed');
+    $ok(rivetLinuxFleetFilters([]) === ['group' => 0, 'show' => 'all'], 'no params -> defaults');
+    $ok(rivetLinuxFleetFilters(['group' => '-1x', 'show' => 'nope'])['group'] === 0, 'junk group -> 0');
+} catch (ErrorException $e) { $ok(false, 'filters raised ' . $e->getMessage()); }
+restore_error_handler();
+
+/* finding 2: paged lists */
+$mkPager = function (int $total, array &$calls) {
+    return function (int $off) use ($total, &$calls) {
+        $calls[] = $off;
+        $items = [];
+        for ($i = $off; $i < min($total, $off + 500); $i++) { $items[] = ['device_id' => $i + 1]; }
+        return ['items' => $items, 'total' => $total];
+    };
+};
+$calls = [];
+$r = rivetLinuxFleetListAll($mkPager(1234, $calls));
+$ok(count($r['items']) === 1234 && $r['complete'] === true && $calls === [0, 500, 1000], 'pager: 1,234 rows all returned, offsets 0/500/1000');
+$calls = [];
+$r = rivetLinuxFleetListAll($mkPager(6000, $calls));
+$ok(count($r['items']) === 5000 && $r['complete'] === false, 'pager: 6,000 rows -> 5,000 and incomplete');
+$calls = [];
+$r = rivetLinuxFleetListAll($mkPager(0, $calls));
+$ok($r['items'] === [] && $r['complete'] === true && $calls === [0], 'pager: empty list');
+$calls = [];
+$r = rivetLinuxFleetListAll($mkPager(5000, $calls));
+$ok(count($r['items']) === 5000 && $r['complete'] === true, 'pager: exactly 5,000 is complete');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll passed\n";
 exit($fail ? 1 : 0);

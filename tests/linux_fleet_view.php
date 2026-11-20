@@ -43,10 +43,38 @@ $ok($r['skipped'] === 1 && $r['totals']['nodes'] === 1, 'fetch returning null is
 $names = array_column($r['clusters'], 'name');
 $ok(!in_array('Ungrouped', $names, true), 'empty Ungrouped is not shown');
 
+/* finding 1: above the cap, honest counts. Load ids are chosen before any fetch, not-online first. */
+$bulk = [];
+for ($i = 1; $i <= 60; $i++) { $bulk[] = $dev(1000 + $i, sprintf('b%02d', $i)); }
+$gcap = [['group_id' => 1, 'name' => 'a-bulk'], ['group_id' => 2, 'name' => 'prod'], ['group_id' => 3, 'name' => 'staging']];
+$mcap = [1 => $bulk, 2 => [$dev(2001, 'p1', 'offline'), $dev(2002, 'p2'), $dev(2003, 'p3')], 3 => [$dev(3001, 's1'), $dev(3002, 's2'), $dev(3003, 's3')], 0 => [$dev(4001, 'u1')]];
+$calls = [];
+$cf = function (int $id) use ($fetch, &$calls) { $calls[] = $id; return $fetch()($id); };
+$r = rivetLinuxFleetBuild($gcap, $mcap, $cf, $NOW);
+$cb = []; foreach ($r['clusters'] as $c) { $cb[$c['name']] = $c; }
+$ok($r['capped'] === true && $r['totals']['nodes'] === 60 && $r['totals']['unloaded'] === 7, 'cap: capped, 60 nodes, 7 unloaded');
+$ok($r['totals']['down'] === 1, 'cap: the offline server is read first, Down is 1');
+$ok(count($calls) === 60 && in_array(2001, $calls, true), 'cap: exactly 60 fetches, offline one among them');
+$ok($cb['staging']['nodes'] === [] && $cb['staging']['unloaded'] === 3, 'cap: staging shows 0 nodes, 3 unloaded');
+$ok($cb['prod']['unloaded'] === 2 && $cb['prod']['total'] === 1 && $cb['prod']['down'] === 1, 'cap: prod 1 loaded (down), 2 unloaded');
+$ok(isset($cb['Ungrouped']) && $cb['Ungrouped']['unloaded'] === 1 && $cb['Ungrouped']['nodes'] === [], 'cap: Ungrouped present with 1 unloaded');
+$r = rivetLinuxFleetBuild($gcap, $mcap, $fetch(), $NOW, 'attention');
+$cb = []; foreach ($r['clusters'] as $c) { $cb[$c['name']] = $c; }
+$ok(isset($cb['staging']) && isset($cb['Ungrouped']) && isset($cb['prod']) && isset($cb['a-bulk']), 'attention + cap: unloaded clusters stay (a-bulk has 1 unloaded)');
+$ok($cb['staging']['unloaded'] === 3 && $cb['Ungrouped']['unloaded'] === 1, 'attention + cap: unloaded counts kept');
+$r = rivetLinuxFleetBuild([['group_id' => 1, 'name' => 'g']], [1 => [$dev(1, 'a'), $dev(2, 'b')]], $fetch(), $NOW);
+$ok($r['capped'] === false && $r['totals']['unloaded'] === 0 && $r['clusters'][0]['unloaded'] === 0, 'under the cap: unloaded 0');
 $many = [];
 for ($i = 1; $i <= 61; $i++) { $many[] = $dev(100 + $i, sprintf('n%02d', $i)); }
 $r = rivetLinuxFleetBuild([['group_id' => 1, 'name' => 'big']], [1 => $many], $fetch(), $NOW);
-$ok($r['capped'] === true && $r['totals']['nodes'] === 60 && $r['clusters'][0]['total'] === 60, '61 devices -> capped, 60 nodes');
+$ok($r['capped'] === true && $r['totals']['nodes'] === 60 && $r['clusters'][0]['total'] === 60 && $r['clusters'][0]['unloaded'] === 1, '61 devices -> capped, 60 nodes, 1 unloaded');
+
+/* finding 6: revoked devices are never fetched and are absent */
+$calls = [];
+$cf = function (int $id) use ($fetch, &$calls) { $calls[] = $id; return $fetch()($id); };
+$rev = ['revoked' => true] + $dev(7, 'gone', 'offline');
+$r = rivetLinuxFleetBuild([['group_id' => 1, 'name' => 'g']], [1 => [$dev(1, 'a'), $rev]], $cf, $NOW);
+$ok(!in_array(7, $calls, true) && $r['clusters'][0]['total'] === 1 && $r['totals']['down'] === 0 && $r['totals']['unloaded'] === 0, 'revoked device: not fetched, not in cluster, not Down');
 
 $r = rivetLinuxFleetBuild($groups, [1 => [$dev(1, 'a'), $dev(2, 'b')], 2 => [], 3 => [$dev(4, 'd')], 0 => []], $fetch([2]), $NOW, 'attention');
 $names = array_column($r['clusters'], 'name');

@@ -1,5 +1,5 @@
 <?php
-/* Linux Fleet: pure model for the read-only cluster-health page. No DB, no includes. */
+/* Linux Fleet: read-only cluster-health page. The top of this file is the pure model (no DB, loadable alone); rivetLinuxFleetView() reads through RivetCore and the renderer builds the HTML, both loading rmm_pat_ui.php lazily. */
 
 /* Free text from a device is untrusted: drop control bytes (ASCII only, so safe on any byte string), drop invalid UTF-8, truncate. */
 function rivetLinuxFleetClean(string $s, int $max): string
@@ -32,13 +32,53 @@ function rivetLinuxFleetCheckFails(array $c): bool
     return $s !== '' && $s !== 'ok' && $s !== 'unknown';
 }
 
+/* The one place that decides a check key is a PostgreSQL check. */
+function rivetLinuxFleetIsPgKey(string $key): bool
+{
+    $key = strtolower($key);
+    return str_contains($key, 'postgres') || str_contains($key, 'pg_');
+}
+
+/* Query string to filters; anything that is not a plain digit string / the literal "attention" falls back to the default. */
+function rivetLinuxFleetFilters(array $get): array
+{
+    $g = $get['group'] ?? null;
+    return ['group' => is_string($g) && ctype_digit($g) ? (int) $g : 0, 'show' => ($get['show'] ?? null) === 'attention' ? 'attention' : 'all'];
+}
+
+/**
+ * Page through a device list, 500 per page, up to $max rows.
+ *
+ * @param callable(int):array{items:list<array>,total:int} $page rows from an offset
+ * @return array{items:list<array>,complete:bool}
+ */
+function rivetLinuxFleetListAll(callable $page, int $max = 5000): array
+{
+    $items = [];
+    $off = 0;
+    while (true) {
+        $l = $page($off);
+        $rows = (array) ($l['items'] ?? []);
+        $total = (int) ($l['total'] ?? 0);
+        foreach ($rows as $r) {
+            $items[] = $r;
+        }
+        $off += 500;
+        if ($rows === [] || $off >= $total) {
+            return ['items' => array_slice($items, 0, $max), 'complete' => $total <= $max];
+        }
+        if ($off >= $max) {
+            return ['items' => array_slice($items, 0, $max), 'complete' => false];
+        }
+    }
+}
+
 function rivetLinuxFleetPostgres(array $checks): array
 {
     $state = 'none';
     $detail = '';
     foreach ($checks as $c) {
-        $key = strtolower((string) ($c['key'] ?? ''));
-        if (!str_contains($key, 'postgres') && !str_contains($key, 'pg_')) {
+        if (!rivetLinuxFleetIsPgKey((string) ($c['key'] ?? ''))) {
             continue;
         }
         if (rivetLinuxFleetCheckFails($c)) {
@@ -66,7 +106,7 @@ function rivetLinuxFleetNode(array $summary, array $detail, array $patch, ?int $
     $checks = is_array($detail['checks'] ?? null) ? $detail['checks'] : [];
     $failing = [];
     foreach ($checks as $c) {
-        if (rivetLinuxFleetCheckFails($c)) {
+        if (rivetLinuxFleetCheckFails($c) && !rivetLinuxFleetIsPgKey((string) ($c['key'] ?? ''))) {
             $failing[] = rivetLinuxFleetClean((string) ($c['key'] ?? ''), 60);
         }
     }
@@ -107,6 +147,9 @@ function rivetLinuxFleetHealth(array $node): array
         $r[] = 'Restart pending';
     }
     foreach ($node['failing_checks'] ?? [] as $k) {
+        if ($k === 'patch.compliance' && ($node['overdue'] ?? 0) > 0) {
+            continue;   // already named above; with overdue 0 it is Core's stale-scan warning and stays
+        }
         $r[] = 'Check failing: ' . $k;
     }
     if (($node['postgres']['state'] ?? '') === 'fail') {
@@ -182,20 +225,40 @@ function rivetLinuxFleetPickGroups(array $all, ?array $visible, int $only): arra
 function rivetLinuxFleetBuild(array $groups, array $membersByGroup, callable $fetch, ?int $now = null, string $show = 'all'): array
 {
     $now ??= time();
+    $named = $groups;
+    $named[] = ['group_id' => 0, 'name' => 'Ungrouped'];
+    // Decide what to read before reading anything: unique non-revoked, non-Windows/macOS devices, not-online first, then the cap.
+    $candidates = [];
+    foreach ($named as $g) {
+        foreach (rivetLinuxFleetNotOtherOs($membersByGroup[(int) $g['group_id']] ?? []) as $s) {
+            $id = (int) ($s['device_id'] ?? 0);
+            if (!empty($s['revoked']) || isset($candidates[$id])) {
+                continue;
+            }
+            $candidates[$id] = $s;
+        }
+    }
+    $ordered = array_values($candidates);
+    usort($ordered, fn($a, $b) => (($a['status'] ?? '') !== 'online' ? 0 : 1) <=> (($b['status'] ?? '') !== 'online' ? 0 : 1));
+    $loadIds = [];
+    foreach (array_slice($ordered, 0, RIVET_LINUX_FLEET_CAP) as $s) {
+        $loadIds[(int) $s['device_id']] = true;
+    }
+    $unloaded = count($candidates) - count($loadIds);
+
     $cache = [];      // device_id => node|false (false = skipped or not Linux)
-    $fetched = 0;
     $skipped = 0;
-    $capped = false;
-    $load = function (array $s) use (&$cache, &$fetched, &$skipped, &$capped, $fetch, $now) {
+    $load = function (array $s) use (&$cache, &$skipped, $loadIds, $fetch, $now) {
         $id = (int) ($s['device_id'] ?? 0);
+        if (!empty($s['revoked'])) {
+            return false;
+        }
+        if (!isset($loadIds[$id])) {
+            return null;   // not loaded: over the cap
+        }
         if (array_key_exists($id, $cache)) {
             return $cache[$id];
         }
-        if ($fetched >= RIVET_LINUX_FLEET_CAP) {
-            $capped = true;
-            return $cache[$id] = false;
-        }
-        $fetched++;
         $f = $fetch($id);
         if ($f === null) {
             $skipped++;
@@ -209,27 +272,27 @@ function rivetLinuxFleetBuild(array $groups, array $membersByGroup, callable $fe
         }
         return $cache[$id] = rivetLinuxFleetNode($sum, $detail, $patch, $now);
     };
-    $named = $groups;
-    $named[] = ['group_id' => 0, 'name' => 'Ungrouped'];
     $clusters = [];
     foreach ($named as $g) {
         $gid = (int) $g['group_id'];
-        if ($gid === 0 && ($membersByGroup[0] ?? []) === []) {
-            continue;
-        }
         $nodes = [];
+        $notLoaded = 0;
         foreach (rivetLinuxFleetNotOtherOs($membersByGroup[$gid] ?? []) as $s) {
             $n = $load($s);
-            if ($n !== false) {
+            if ($n === null) {
+                $notLoaded++;
+            } elseif ($n !== false) {
                 $nodes[] = $n;
             }
         }
-        if ($gid === 0 && $nodes === []) {
+        if ($gid === 0 && $nodes === [] && $notLoaded === 0) {
             continue;
         }
-        $clusters[] = rivetLinuxFleetCluster((string) $g['name'], $nodes);
+        $cl = rivetLinuxFleetCluster((string) $g['name'], $nodes);
+        $cl['unloaded'] = $notLoaded;
+        $clusters[] = $cl;
     }
-    $totals = ['nodes' => 0, 'healthy' => 0, 'attention' => 0, 'down' => 0, 'security_pending' => 0];
+    $totals = ['nodes' => 0, 'healthy' => 0, 'attention' => 0, 'down' => 0, 'security_pending' => 0, 'unloaded' => $unloaded];
     foreach ($cache as $n) {
         if ($n === false) {
             continue;
@@ -242,13 +305,13 @@ function rivetLinuxFleetBuild(array $groups, array $membersByGroup, callable $fe
         $kept = [];
         foreach ($clusters as $c) {
             $c['nodes'] = array_values(array_filter($c['nodes'], fn($n) => $n['health']['state'] !== 'healthy'));
-            if ($c['nodes'] !== []) {
+            if ($c['nodes'] !== [] || $c['unloaded'] > 0) {
                 $kept[] = $c;
             }
         }
         $clusters = $kept;
     }
-    return ['clusters' => $clusters, 'totals' => $totals, 'capped' => $capped, 'skipped' => $skipped];
+    return ['clusters' => $clusters, 'totals' => $totals, 'capped' => $unloaded > 0, 'skipped' => $skipped];
 }
 
 /**
@@ -261,10 +324,9 @@ function rivetLinuxFleetBuild(array $groups, array $membersByGroup, callable $fe
 function rivetLinuxFleetView(array $ctx, array $get): array
 {
     require_once __DIR__ . '/rmm_pat_ui.php';
-    $group = ctype_digit((string) ($get['group'] ?? '')) ? (int) $get['group'] : 0;
-    $show = ($get['show'] ?? '') === 'attention' ? 'attention' : 'all';
-    $vm = ['error' => '', 'clusters' => [], 'totals' => ['nodes' => 0, 'healthy' => 0, 'attention' => 0, 'down' => 0, 'security_pending' => 0],
-        'capped' => false, 'skipped' => 0, 'groups' => [], 'filters' => ['group' => $group, 'show' => $show]];
+    ['group' => $group, 'show' => $show] = rivetLinuxFleetFilters($get);
+    $vm = ['error' => '', 'clusters' => [], 'totals' => ['nodes' => 0, 'healthy' => 0, 'attention' => 0, 'down' => 0, 'security_pending' => 0, 'unloaded' => 0],
+        'capped' => false, 'list_incomplete' => false, 'skipped' => 0, 'groups' => [], 'filters' => ['group' => $group, 'show' => $show]];
     try {
         $rmm = rivetRmmModule($ctx['mysqli']);
         $visible = $rmm->authorizer()->visibleClientIds($ctx['uid']);
@@ -274,7 +336,8 @@ function rivetLinuxFleetView(array $ctx, array $get): array
         $members = [];
         $inGroup = [];
         foreach ($groups as $g) {
-            $l = $read->listDevices(['group' => $g['group_id'], 'retired' => 'hide'], $visible, 500, 0);   // wide on purpose: Windows/macOS rows are dropped in Build before the cap counts
+            $l = rivetLinuxFleetListAll(fn(int $off) => $read->listDevices(['group' => $g['group_id'], 'retired' => 'hide'], $visible, 500, $off, false));   // wide on purpose: Windows/macOS rows are dropped in Build before the cap counts
+            $vm['list_incomplete'] = $vm['list_incomplete'] || !$l['complete'];
             $members[$g['group_id']] = rivetRmmExcludePanelDevices($l['items']);
             foreach ($members[$g['group_id']] as $d) {
                 $inGroup[(int) $d['device_id']] = true;
@@ -283,10 +346,8 @@ function rivetLinuxFleetView(array $ctx, array $get): array
         $members[0] = [];
         if ($group === 0) {
             // Devices in no group. A device is "ungrouped" only if it appeared in no listed group.
-            $all = $read->listDevices(['retired' => 'hide'], $visible, 500, 0);
-            if ((int) ($all['total'] ?? 0) > 500) {
-                $vm['capped'] = true;
-            }
+            $all = rivetLinuxFleetListAll(fn(int $off) => $read->listDevices(['retired' => 'hide'], $visible, 500, $off, false));
+            $vm['list_incomplete'] = $vm['list_incomplete'] || !$all['complete'];
             foreach (rivetLinuxFleetNotOtherOs(rivetRmmExcludePanelDevices($all['items'])) as $d) {
                 if (!isset($inGroup[(int) $d['device_id']])) {
                     $members[0][] = $d;
@@ -306,7 +367,6 @@ function rivetLinuxFleetView(array $ctx, array $get): array
         };
         $built = rivetLinuxFleetBuild($groups, $members, $fetch, null, $show);
         $vm = $built + $vm;
-        $vm['capped'] = $built['capped'] || $vm['capped'];
     } catch (\Throwable $e) {
         $vm['error'] = 'The Linux fleet could not be read.';
     }
@@ -339,26 +399,39 @@ function rivetLinuxFleetPage(array $vm): string
         . '<div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Apply</button></div></div></div></form>';
 
     $n = static fn(string $k): int => (int) ($t[$k] ?? 0);
+    $capped = !empty($vm['capped']);
     $o .= '<div class="row g-2 mb-3">'
-        . rivetRmmPatKpi('Servers', number_format($n('nodes')))
-        . rivetRmmPatKpi('Healthy', number_format($n('healthy')), $n('healthy') > 0 && $n('attention') + $n('down') === 0 ? 'success' : '')
+        . rivetRmmPatKpi('Servers', number_format($n('nodes')), '', $capped ? 'first ' . RIVET_LINUX_FLEET_CAP . ' read' : '')
+        . rivetRmmPatKpi('Healthy', number_format($n('healthy')), !$capped && $n('healthy') > 0 && $n('attention') + $n('down') === 0 ? 'success' : '')
         . rivetRmmPatKpi('Need attention', number_format($n('attention')), $n('attention') > 0 ? 'warning' : '')
         . rivetRmmPatKpi('Down', number_format($n('down')), $n('down') > 0 ? 'danger' : '')
         . rivetRmmPatKpi('Security updates pending', number_format($n('security_pending')), $n('security_pending') > 0 ? 'warning' : '')
         . '</div>';
-    if (!empty($vm['capped'])) {
-        $o .= '<div class="alert alert-info" role="status">Showing the first ' . RIVET_LINUX_FLEET_CAP . ' servers.</div>';
+    if ($capped) {
+        $o .= '<div class="alert alert-warning" role="status">Read the first ' . RIVET_LINUX_FLEET_CAP . ' servers (servers that are not online first). ' . number_format($n('unloaded')) . ' more devices were not loaded and are not in the counts above.'
+            . ((int) ($f['group'] ?? 0) === 0 ? ' Choose a group to see them.' : '') . '</div>';
+    }
+    if (!empty($vm['list_incomplete'])) {
+        $o .= '<div class="alert alert-warning" role="status">More than 5,000 devices: those past the first 5,000 by hostname were not checked.</div>';
+    }
+    if ((int) ($vm['skipped'] ?? 0) > 0) {
+        $o .= '<p class="small text-muted">' . (int) $vm['skipped'] . ' servers could not be read and are not counted.</p>';
     }
 
     foreach ((array) ($vm['clusters'] ?? []) as $c) {
         $kind = (int) $c['down'] > 0 ? 'crit' : ((int) $c['attention'] > 0 ? 'warn' : 'ok');
-        $badge = rivetRmmUiPill($kind, (int) $c['healthy'] . ' of ' . (int) $c['total'] . ' healthy');
+        $un = (int) ($c['unloaded'] ?? 0);
+        $badge = (int) $c['total'] === 0
+            ? rivetRmmUiPill('off', $un > 0 ? 'Not loaded' : 'No Linux servers')
+            : rivetRmmUiPill($kind, (int) $c['healthy'] . ' of ' . (int) $c['total'] . ' healthy') . ($un > 0 ? ' ' . rivetRmmUiPill('off', $un . ' not loaded') : '');
         $body = '';
         foreach ((array) $c['flags'] as $flag) {
             $body .= '<div class="alert alert-warning mx-3 mt-3 mb-0 py-2" role="status">' . rmmH($flag) . '</div>';
         }
         if ((array) $c['nodes'] === []) {
-            $body .= rivetRmmUiEmpty('fas fa-server', 'No Linux servers in this group');
+            $body .= $un > 0
+                ? rivetRmmUiEmpty('fas fa-server', $un . ' devices not loaded', 'Over the ' . RIVET_LINUX_FLEET_CAP . '-server limit for one view. Choose this group in the filter to see them.')
+                : rivetRmmUiEmpty('fas fa-server', 'No Linux servers in this group');
         } else {
             $rows = '';
             foreach ((array) $c['nodes'] as $nd) {
@@ -370,15 +443,15 @@ function rivetLinuxFleetPage(array $vm): string
                 $state = (string) ($nd['health']['state'] ?? 'healthy');
                 $pill = $state === 'down' ? rivetRmmUiPill('crit', 'Down') : ($state === 'attention' ? rivetRmmUiPill('warn', 'Attention') : rivetRmmUiPill('ok', 'Healthy'));
                 $upd = !empty($nd['scanned']) ? rmmH((int) $nd['sec_count'] . ' security / ' . (int) $nd['other_count'] . ' other') : '<span class="text-muted">Never scanned</span>';
-                $scan = !empty($nd['scanned']) ? rmmH((int) $nd['scan_age_days'] . 'd ago') : '<span class="text-muted">—</span>';
+                $scan = !empty($nd['scanned']) ? rmmH((int) $nd['scan_age_days'] === 0 ? 'Today' : (int) $nd['scan_age_days'] . 'd ago') : '<span class="text-muted">—</span>';
                 $checks = ($nd['failing_checks'] ?? []) === [] ? 'OK' : rmmH(implode(', ', (array) $nd['failing_checks']));
                 $pg = (string) ($nd['postgres']['state'] ?? 'none');
-                $pgCell = $pg === 'fail' ? rmmH('Failing: ' . (string) ($nd['postgres']['detail'] ?? '')) : ($pg === 'ok' ? 'OK' : '<span class="text-muted">—</span>');
+                $pgCell = $pg === 'fail' ? rmmH('Failing' . ((string) ($nd['postgres']['detail'] ?? '') !== '' ? ': ' . (string) $nd['postgres']['detail'] : '')) : ($pg === 'ok' ? 'OK' : '<span class="text-muted">—</span>');
                 $why = rmmH(implode('; ', (array) ($nd['health']['reasons'] ?? [])));
                 $rows .= '<tr><td class="ps-3">' . $host . '</td><td>' . $pill . '</td><td>' . $upd . '</td><td>' . (!empty($nd['reboot_pending']) ? 'Pending' : '<span class="text-muted">No</span>')
-                    . '</td><td>' . $scan . '</td><td>' . $checks . '</td><td>' . $pgCell . '</td><td>' . $why . '</td></tr>';
+                    . '</td><td>' . $scan . '</td><td>' . $checks . '</td><td>' . $pgCell . '</td><td class="rmmx-msg">' . $why . '</td></tr>';
             }
-            $body .= '<div class="table-responsive"><table class="table table-sm mb-0"><caption class="visually-hidden">Linux servers in ' . rmmH($c['name']) . '</caption>'
+            $body .= '<div class="table-responsive"><table class="table table-sm mb-0 rmmx-table"><caption class="visually-hidden">Linux servers in ' . rmmH($c['name']) . '</caption>'
                 . rivetRmmUiThead(['Server', 'Status', 'Updates', 'Restart', 'Last scan', 'Checks', 'PostgreSQL', 'Why']) . '<tbody>' . $rows . '</tbody></table></div>';
         }
         $o .= rivetRmmUiCard(rmmH($c['name']), 'server', $body, '', $badge, true);
