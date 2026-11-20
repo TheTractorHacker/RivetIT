@@ -909,7 +909,9 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
     }
 
     $graph_base = "https://graph.microsoft.com/v1.0/users/" . rawurlencode($user);
-    $folder_id = graphFindOrCreateItflowFolder($graph_base, $access_token);
+    // Resolved lazily: an empty inbox (almost every one-minute poll) needs no folder, and the lookup was an extra Graph
+    // call per poll that tripped ErrorDirectoryConcurrencyLimit (HTTP 503) for no reason.
+    $folder_id = null;
 
     $processed_count = 0;
     $unprocessed_count = 0;
@@ -930,6 +932,10 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
         $resp = microsoftGraphRequest('GET', $url, $access_token);
         if (!$resp['ok']) {
             throw new \RuntimeException("Microsoft Graph: failed to list messages (HTTP {$resp['code']}): " . ($resp['json']['error']['message'] ?? $resp['error'] ?? 'unknown error'));
+        }
+
+        if ($folder_id === null && !empty($resp['json']['value'])) {
+            $folder_id = graphFindOrCreateItflowFolder($graph_base, $access_token);
         }
 
         foreach (($resp['json']['value'] ?? []) as $msg) {
