@@ -15,6 +15,12 @@ $never = ['scan' => ['state' => 'never', 'scanned_at' => null, 'manager' => '', 
     'counts' => ['missing_by_kind' => [], 'missing' => 0, 'reboot_required' => 0], 'overdue' => ['days' => 7, 'critical_or_security' => 0]];
 
 $ok(rivetLinuxFleetIsLinux([], ['scan' => ['manager' => 'apt']]) === true, 'apt manager is Linux');
+$ok(rivetLinuxFleetIsLinux([], [], 'Rocky Linux 9') === true, 'summary os_version used when detail has none');
+$ok(rivetLinuxFleetIsLinux(['os_version' => 'Windows 11'], [], 'Ubuntu') === false, 'detail os_version wins over summary');
+$ok(rivetLinuxFleetIsLinux(['os_version' => 'FreeBSD 14'], []) === false, 'FreeBSD is not Linux');
+$ok(rivetLinuxFleetIsLinux(['os_version' => 'VMware ESXi 8'], []) === false, 'ESXi is not Linux');
+$ok(rivetLinuxFleetIsLinux(['os_version' => 'macOS 14'], []) === false, 'macOS is not Linux');
+$ok(rivetLinuxFleetIsLinux(['os_version' => 'Debian GNU/Linux 12'], []) === true, 'Debian by os_version');
 $ok(rivetLinuxFleetIsLinux(['os_version' => 'Windows 11'], ['scan' => ['manager' => 'wua']]) === false, 'Windows 11 / wua is not Linux');
 
 $n = rivetLinuxFleetNode($sum, ['pending_reboot' => false, 'uptime_s' => 100, 'checks' => []], $scanned, $NOW);
@@ -41,6 +47,18 @@ $ok(in_array('Restart pending', $h['reasons'], true), 'pending_reboot -> "Restar
 $pr = $scanned; $pr['scan']['reboot_pending'] = true;
 $ok(rivetLinuxFleetNode($sum, ['checks' => []], $pr, $NOW)['reboot_pending'] === true, 'patch scan reboot_pending counts');
 
+foreach ([1, '1', true] as $v) {
+    $ok(rivetLinuxFleetNode($sum, ['pending_reboot' => $v, 'checks' => []], $scanned, $NOW)['reboot_pending'] === true, 'detail pending_reboot ' . var_export($v, true) . ' is true');
+    $pv = $scanned; $pv['scan']['reboot_pending'] = $v;
+    $ok(rivetLinuxFleetNode($sum, ['checks' => []], $pv, $NOW)['reboot_pending'] === true, 'scan reboot_pending ' . var_export($v, true) . ' is true');
+}
+foreach ([0, '0', false, null, ''] as $v) {
+    $ok(rivetLinuxFleetNode($sum, ['pending_reboot' => $v, 'checks' => []], $scanned, $NOW)['reboot_pending'] === false, 'pending_reboot ' . var_export($v, true) . ' is false');
+}
+$ck = rivetLinuxFleetNode($sum, ['checks' => [['key' => "d\x07isk" . str_repeat('k', 100), 'status' => 'crit', 'detail' => '']]], $scanned, $NOW);
+$ok(!preg_match('/[\x00-\x1f\x7f]/', $ck['failing_checks'][0]) && mb_strlen($ck['failing_checks'][0]) === 60, 'failing check key: control chars stripped, 60 chars');
+$ck2 = rivetLinuxFleetNode($sum, ['checks' => [['key' => "x\xff\xfey", 'status' => 'crit', 'detail' => '']]], $scanned, $NOW);
+$ok(mb_check_encoding($ck2['failing_checks'][0], 'UTF-8') && $ck2['failing_checks'][0] !== '', 'failing check key with invalid UTF-8 is valid');
 $pgn = rivetLinuxFleetNode($sum, ['checks' => [['key' => 'postgres_ready', 'status' => 'crit', 'detail' => 'no response']]], $scanned, $NOW);
 $ok($pgn['postgres']['state'] === 'fail', 'postgres_ready crit -> postgres fail');
 $ok(in_array('PostgreSQL failing', rivetLinuxFleetHealth($pgn)['reasons'], true), 'reason "PostgreSQL failing"');
@@ -50,7 +68,9 @@ $pg = rivetLinuxFleetPostgres([['key' => 'PG_conn', 'status' => 'fail', 'detail'
 $ok($pg['state'] === 'fail' && !preg_match('/[\x00-\x1f\x7f]/', $pg['detail']) && strlen($pg['detail']) <= 120, 'postgres detail: control chars gone, <=120');
 $ok(rivetLinuxFleetPostgres([])['state'] === 'none', 'no postgres checks -> none');
 $ok(rivetLinuxFleetPostgres([['key' => 'pg_up', 'status' => 'ok', 'detail' => '']])['state'] === 'ok', 'ok postgres check -> ok');
-$ok(rivetLinuxFleetPostgres([['key' => 'postgres', 'status' => 'unknown', 'detail' => '']])['state'] === 'none' || rivetLinuxFleetPostgres([['key' => 'postgres', 'status' => 'unknown', 'detail' => '']])['state'] === 'ok', 'never-reported postgres check does not fail');
+$ok(rivetLinuxFleetPostgres([['key' => 'postgres', 'status' => 'unknown', 'detail' => '']])['state'] === 'none', 'never-reported postgres check is exactly none');
+$bad = rivetLinuxFleetPostgres([['key' => 'postgres', 'status' => 'crit', 'detail' => "conn \xff\xfe refused\x07 caf\xc3\xa9"]]);
+$ok($bad['state'] === 'fail' && $bad['detail'] !== '' && str_contains($bad['detail'], 'refused') && mb_check_encoding($bad['detail'], 'UTF-8') && !preg_match('/[\x00-\x1f\x7f]/', $bad['detail']), 'invalid UTF-8 in postgres detail: kept, valid, no control bytes');
 
 $dn = rivetLinuxFleetNode($sum, ['checks' => [['key' => 'disk', 'status' => 'warn', 'detail' => '91%'], ['key' => 'cpu', 'status' => 'ok', 'detail' => '']]], $scanned, $NOW);
 $ok($dn['failing_checks'] === ['disk'], 'failing_checks lists non-ok keys');
