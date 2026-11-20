@@ -90,3 +90,22 @@
 .client-portal-nav .dropdown-menu .dropdown-item:hover,
 .client-portal-nav .dropdown-menu .dropdown-item:focus,
 .client-portal-nav .dropdown-menu .dropdown-item.active { color: #fff !important; background: rgba(255,255,255,.12); }
+/* ---- Pills: the shared 11px chip read as squished next to table text (status / provider / priority pills) ---- */
+.badge { font-size: .8rem; padding: .4em .85em; line-height: 1.25; }
+.table .badge, .card .badge.rounded-pill { font-size: .8rem; padding: .4em .85em; }
+.btn .badge, .nav-link .badge, .dropdown-item .badge { font-size: .72rem; padding: .3em .6em; }
+.navbar-vertical .badge, .app-sidebar .badge { font-size: .72rem; padding: .3em .6em; }
+.badge.text-bg-info, .badge.bg-info { color: #06222f !important; }
+/* ---- Tickets list: breathing room (it read as squished on wide monitors) ---- */
+.ticket-stat-row { gap: .9rem; margin-bottom: 1.1rem !important; }
+.ticket-stat-box { padding: .85rem 1rem; }
+.card .table.table-tight > :not(caption) > * > * { padding: .8rem .6rem; }
+.card .table.table-tight > thead > tr > * { padding-top: .7rem; padding-bottom: .7rem; }
+.card .table.table-tight .badge { font-size: .8rem; padding: .35em .75em; }
+.card-body > .ticket-filter-bar .filter-toolbar { margin-bottom: .75rem; padding: .85rem 1rem .5rem; }
+.card-body > .ticket-filter-bar { margin-top: 0; }
+.ticket-saved-views .nav-link { padding: .5rem .65rem; }
+/* Empty band under the filters: the bulk-action row has nothing in it until rows are ticked, and the closed "More filters" panel kept its top margin */
+.ticket-filter-bar > .row.mt-1:has(#bulkActionButton[hidden]) { display: none; }
+.ticket-filter-bar > .collapse.mt-3:not(.show) { margin-top: 0 !important; }
+
