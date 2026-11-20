@@ -168,6 +168,11 @@ try {
     $can_bulk_managed = false;
 }
 $can_bulk_assign = lookupUserPermission('module_rmm_sync') >= 1;
+$locations_by_client = [];
+if ($can_bulk_assign) {
+    $sql_locs = mysqli_query($mysqli, "SELECT location_id, location_name, location_client_id FROM locations WHERE location_archived_at IS NULL AND location_client_id > 0 ORDER BY location_name ASC");
+    while ($lc = mysqli_fetch_assoc($sql_locs)) { $locations_by_client[(int) $lc['location_client_id']][] = $lc; }
+}
 
 $base_q = array_filter(['q' => $f_q, 'integration_id' => $f_intg ?: null, 'status' => $f_status, 'client_id' => $f_client ?: null, 'seen' => $f_seen, 'os' => $f_os, 'remote' => $f_remote,
     'archived' => $f_arch, 'make' => $f_make, 'model' => $f_model, 'health' => $f_health ?: null, 'per_page' => $per_page !== 50 ? $per_page : null], static fn ($v) => $v !== '' && $v !== null);
@@ -307,6 +312,9 @@ $th = static function (string $key, string $label) use ($f_sort, $f_order, $self
                 <a class="dropdown-item" href="#" id="bulkAssignOpen">
                     <i class="fas fa-fw fa-arrow-right me-2"></i>Assign department...
                 </a>
+                <a class="dropdown-item" href="#" id="bulkLocationOpen">
+                    <i class="fas fa-fw fa-map-marker-alt me-2"></i>Set location...
+                </a>
                 <?php endif; ?>
                 <?php if ($can_bulk_managed): ?>
                 <a class="dropdown-item" href="#" id="bulkManagedOn" data-disabled-value="1">
@@ -327,6 +335,21 @@ $th = static function (string $key, string $label) use ($f_sort, $f_order, $self
                 <?php endforeach; ?>
             </select>
             <button type="button" class="btn btn-sm btn-primary" id="bulkAssignGo" disabled>Apply to selected</button>
+        </span>
+        <span id="bulkLocationRow" class="d-flex flex-wrap align-items-center gap-2" hidden>
+            <select class="form-control form-control-sm w-auto" id="bulkLocationSel" aria-label="Location to set">
+                <option value="">Choose location...</option>
+                <option value="0">No location (clear)</option>
+                <?php foreach ($clients_list as $cl): if (empty($locations_by_client[(int) $cl['client_id']])) { continue; } ?>
+                <optgroup label="<?= nullable_htmlentities($cl['client_name']) ?>">
+                    <?php foreach ($locations_by_client[(int) $cl['client_id']] as $lc): ?>
+                    <option value="<?= intval($lc['location_id']) ?>"><?= nullable_htmlentities($lc['location_name']) ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <?php endforeach; ?>
+            </select>
+            <button type="button" class="btn btn-sm btn-primary" id="bulkLocationGo" disabled>Apply to selected</button>
+            <span class="small text-muted">Only devices in that location's department are changed.</span>
         </span>
         <?php endif; ?>
         <?php else: ?>
@@ -604,6 +627,44 @@ document.querySelectorAll('.assign-client-select').forEach(function (sel) {
             RivetDialog.alert('Network error assigning department.');
             go.disabled = false;
             go.textContent = 'Apply to selected';
+        });
+    });
+})();
+
+// Bulk "Set location": same per-asset pattern as Assign department. A location belongs to one department, so a device in another
+// department is skipped by the server and counted in the message.
+(function () {
+    var sel = document.getElementById('bulkLocationSel'), go = document.getElementById('bulkLocationGo');
+    if (!sel || !go) { return; }
+    document.getElementById('bulkLocationOpen').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.getElementById('bulkAssignRow').hidden = true;
+        document.getElementById('bulkLocationRow').hidden = false;
+        sel.focus();
+    });
+    var assignOpen = document.getElementById('bulkAssignOpen');
+    if (assignOpen) { assignOpen.addEventListener('click', function () { document.getElementById('bulkLocationRow').hidden = true; }); }
+    sel.addEventListener('change', function () { go.disabled = sel.value === ''; });
+    go.addEventListener('click', function () {
+        var ids = getBulkCheckboxes().filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+        if (sel.value === '' || ids.length === 0) { return; }
+        go.disabled = true;
+        go.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Setting...';
+        Promise.all(ids.map(function (assetId) {
+            return fetch('/agent/post/rmm_sync.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'csrf_token=<?= $_SESSION['csrf_token'] ?>&action=set_location&asset_id=' + encodeURIComponent(assetId) + '&location_id=' + encodeURIComponent(sel.value)
+            }).then(function (r) { return r.json(); });
+        })).then(function (results) {
+            var bad = results.filter(function (d) { return !d.success; });
+            if (bad.length) {
+                RivetDialog.alert((ids.length - bad.length) + ' of ' + ids.length + ' updated. ' + bad.length + ' skipped. ' + (bad[0].error ? 'First: ' + bad[0].error + '.' : ''));
+                go.disabled = false; go.textContent = 'Apply to selected';
+            } else { location.reload(); }
+        }).catch(function () {
+            RivetDialog.alert('Network error setting location.');
+            go.disabled = false; go.textContent = 'Apply to selected';
         });
     });
 })();

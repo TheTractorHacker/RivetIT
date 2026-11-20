@@ -109,3 +109,11 @@
 .ticket-filter-bar > .row.mt-1:has(#bulkActionButton[hidden]) { display: none; }
 .ticket-filter-bar > .collapse.mt-3:not(.show) { margin-top: 0 !important; }
 
+
+/* RMM Assets row actions: the "..." button is a plain icon button, no caret, same height and weight as Open / Connect */
+.rmm-actions .btn-group > .btn.dropdown-toggle[aria-label="More actions"]::after { display: none; }
+.rmm-actions .btn-group > .btn.dropdown-toggle[aria-label="More actions"] { min-width: 2.25rem; padding-left: .6rem; padding-right: .6rem; background-color: #5b6573; border-color: #5b6573; color: #fff; }
+.rmm-actions .btn-group > .btn.dropdown-toggle[aria-label="More actions"]:hover { background-color: #4a5360; border-color: #4a5360; }
+
+/* RMM Assets bulk bar: the department / location pickers carry d-flex, which beat the hidden attribute and showed both at once */
+#bulkAssignRow[hidden], #bulkLocationRow[hidden] { display: none !important; }

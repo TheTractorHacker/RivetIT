@@ -32,7 +32,7 @@ $integration_id = intval($_POST['integration_id'] ?? $config_rmm_default_integra
 
 // Assigning a department is a local change to the asset: it needs no integration, so it must not fail on an install that has no default one
 // (the Assets page sends no integration_id for it, which made every single and bulk assignment answer "No integration configured").
-if ($integration_id <= 0 && $action !== 'assign_client') {
+if ($integration_id <= 0 && !in_array($action, ['assign_client', 'set_location'], true)) {
     echo json_encode(['success' => false, 'error' => 'No integration configured']);
     exit;
 }
@@ -137,6 +137,36 @@ if ($action === 'assign_client') {
         "$session_name assigned RMM asset {$asset_row['asset_name']} to client {$client_row['client_name']}",
         $target_client_id, $asset_id);
 
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// ---- Set an asset's location (local change; the location must belong to the asset's department) ----
+if ($action === 'set_location') {
+    if (!lookupUserPermission('module_rmm_sync')) {
+        echo json_encode(['success' => false, 'error' => 'No sync permission']);
+        exit;
+    }
+    $asset_id    = intval($_POST['asset_id'] ?? 0);
+    $location_id = intval($_POST['location_id'] ?? 0);
+    $asset_row = $asset_id ? mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT asset_name, asset_client_id FROM assets WHERE asset_id=$asset_id")) : null;
+    if (!$asset_row) {
+        echo json_encode(['success' => false, 'error' => 'Asset not found']);
+        exit;
+    }
+    $asset_client = intval($asset_row['asset_client_id']);
+    enforceClientAccess($asset_client);
+    $loc_name = 'no location';
+    if ($location_id > 0) {
+        $loc = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name FROM locations WHERE location_id=$location_id AND location_client_id=$asset_client AND location_archived_at IS NULL"));
+        if (!$loc) {
+            echo json_encode(['success' => false, 'error' => $asset_row['asset_name'] . ': that location belongs to a different department']);
+            exit;
+        }
+        $loc_name = $loc['location_name'];
+    }
+    mysqli_query($mysqli, "UPDATE assets SET asset_location_id=$location_id WHERE asset_id=$asset_id");
+    logAction('RMM', 'Asset Location', "$session_name set RMM asset {$asset_row['asset_name']} location to $loc_name", $asset_client, $asset_id);
     echo json_encode(['success' => true]);
     exit;
 }
