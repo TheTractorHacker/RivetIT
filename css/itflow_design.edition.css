@@ -118,15 +118,17 @@
 /* RMM Assets bulk bar: the department / location pickers carry d-flex, which beat the hidden attribute and showed both at once */
 #bulkAssignRow[hidden], #bulkLocationRow[hidden] { display: none !important; }
 
-/* ---- Project details: header + summary read as one panel, not three loose boxes ---- */
-.project-header-card { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.project-summary-group { display: grid; grid-template-columns: minmax(16rem, 1.3fr) minmax(14rem, 1fr) minmax(18rem, 1.5fr); margin-top: 0; border: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); border-top: 0; border-radius: 0 0 var(--tblr-border-radius, .5rem) var(--tblr-border-radius, .5rem); overflow: hidden; background: var(--tblr-bg-surface, var(--if-surface, transparent)); }
-.project-summary-group > .card.card-body { border: 0; border-radius: 0; box-shadow: none; background: transparent; margin: 0; padding: 1.1rem 1.5rem; gap: .45rem; justify-content: center; font-size: .9rem; }
-.project-summary-group > .card.card-body + .card.card-body { border-inline-start: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
-.project-summary-group > .card.card-body > h5 { font-size: 1.1rem; }
-.project-summary-group > .card.card-body small { font-size: .85rem; line-height: 1.5; }
-.project-summary-group .progress { height: .7rem !important; border-radius: 999px; }
-@media (max-width: 991.98px) {
-  .project-summary-group { grid-template-columns: 1fr; }
-  .project-summary-group > .card.card-body + .card.card-body { border-inline-start: 0; border-top: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
-}
+/* ---- Project details: header + one summary panel ---- */
+.project-header-card { margin-bottom: 0 !important; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.project-summary-group { margin-top: 0 !important; border-top: 1px solid var(--tblr-border-color, rgba(0,0,0,.08)) !important; border-top: 0; border-radius: 0 0 var(--tblr-border-radius, .5rem) var(--tblr-border-radius, .5rem); }
+.project-summary-group .ps-top { display: flex; flex-wrap: wrap; gap: 1.25rem 3rem; align-items: flex-start; justify-content: space-between; padding: 1.25rem 1.5rem; }
+.project-summary-group .ps-main { flex: 1 1 22rem; min-width: 0; max-width: 60rem; }
+.project-summary-group .ps-title { font-size: 1.25rem; font-weight: 600; margin: 0 0 .35rem; }
+.project-summary-group .ps-desc { color: var(--tblr-secondary-color, var(--if-ink-muted, #667085)); font-size: .95rem; line-height: 1.55; }
+.project-summary-group .ps-facts { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; }
+.project-summary-group .ps-fact { display: flex; flex-direction: column; gap: .2rem; min-width: 7rem; }
+.project-summary-group .ps-label { font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--tblr-secondary-color, var(--if-ink-muted, #667085)); }
+.project-summary-group .ps-value { font-size: 1rem; font-weight: 500; }
+.project-summary-group .ps-progress { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2.5rem; padding: 1rem 1.5rem 1.25rem; border-top: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
+.project-summary-group .ps-bar { display: flex; flex-direction: column; gap: .25rem; font-size: .95rem; }
+.project-summary-group .progress { height: .75rem !important; border-radius: 999px; }
