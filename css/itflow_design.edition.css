@@ -117,3 +117,16 @@
 
 /* RMM Assets bulk bar: the department / location pickers carry d-flex, which beat the hidden attribute and showed both at once */
 #bulkAssignRow[hidden], #bulkLocationRow[hidden] { display: none !important; }
+
+/* ---- Project details: header + summary read as one panel, not three loose boxes ---- */
+.project-header-card { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.project-summary-group { display: grid; grid-template-columns: minmax(16rem, 1.3fr) minmax(14rem, 1fr) minmax(18rem, 1.5fr); margin-top: 0; border: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); border-top: 0; border-radius: 0 0 var(--tblr-border-radius, .5rem) var(--tblr-border-radius, .5rem); overflow: hidden; background: var(--tblr-bg-surface, var(--if-surface, transparent)); }
+.project-summary-group > .card.card-body { border: 0; border-radius: 0; box-shadow: none; background: transparent; margin: 0; padding: 1.1rem 1.5rem; gap: .45rem; justify-content: center; font-size: .9rem; }
+.project-summary-group > .card.card-body + .card.card-body { border-inline-start: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
+.project-summary-group > .card.card-body > h5 { font-size: 1.1rem; }
+.project-summary-group > .card.card-body small { font-size: .85rem; line-height: 1.5; }
+.project-summary-group .progress { height: .7rem !important; border-radius: 999px; }
+@media (max-width: 991.98px) {
+  .project-summary-group { grid-template-columns: 1fr; }
+  .project-summary-group > .card.card-body + .card.card-body { border-inline-start: 0; border-top: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
+}
