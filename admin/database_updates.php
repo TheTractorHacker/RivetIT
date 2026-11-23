@@ -13176,3 +13176,9 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_wan_ip` varchar(255) DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
     }
+
+    if ($rivetit_db_version() == '2.6.243') {
+        // DB 2.6.244: the public (WAN) IP an RMM device reports (Tactical sends public_ip), shown on the asset and compared with the location's WAN IP.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD COLUMN IF NOT EXISTS `asset_public_ip` varchar(64) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.244'");
+    }

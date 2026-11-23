@@ -1373,6 +1373,13 @@ if (isset($_GET['asset_id'])) {
                             </div>
                         </div>
                     </div>
+                    <?php $asset_public = \ITFlow\Assets\PublicIp::forAsset($mysqli, $asset_id); if ($asset_public) { ?>
+                    <div class="px-3 pt-2 small text-muted">
+                        <i class="fa fa-fw fa-globe me-1" aria-hidden="true"></i>Public IP
+                        <code class="user-select-all ms-1"><?= nullable_htmlentities($asset_public['ip']) ?></code>
+                        <span class="ms-1">(reported by <?= $asset_public['source'] === 'agent' ? 'the RivetIT agent' : 'the RMM' ?>)</span>
+                    </div>
+                    <?php } ?>
                     <form id="bulkActions" action="post.php" method="post">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <div class="table-responsive-sm">

@@ -87,6 +87,41 @@ if(isset($_POST['add_location'])){
 
 }
 
+if (isset($_POST['use_seen_wan_ip'])) {
+
+    validateCSRFToken($_POST['csrf_token']);
+
+    enforceUserPermission('module_client', 2);
+
+    $location_id = intval($_POST['location_id'] ?? 0);
+    $seen_ip = trim((string) ($_POST['seen_ip'] ?? ''));
+
+    $loc = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT location_name, location_client_id, location_wan_ip FROM locations WHERE location_id = $location_id"));
+    if (!$loc) {
+        flash_alert("Location not found", 'error');
+        redirect();
+    }
+    $client_id = intval($loc['location_client_id']);
+    enforceClientAccess();
+
+    // Only an address the location's own devices really report can be adopted (not whatever the request says).
+    $seen_now = \ITFlow\Assets\PublicIp::seenAtLocation($mysqli, $location_id);
+    if (!isset($seen_now[$seen_ip])) {
+        flash_alert("No device at this location reports that IP any more", 'error');
+        redirect();
+    }
+    $list = \ITFlow\Assets\PublicIp::parseList((string) $loc['location_wan_ip']);
+    if (!in_array($seen_ip, $list, true)) { $list[] = $seen_ip; }
+    $new_value = sanitizeInput(implode(', ', $list));
+    $loc_name = sanitizeInput($loc['location_name']);
+
+    mysqli_query($mysqli, "UPDATE locations SET location_wan_ip = '$new_value' WHERE location_id = $location_id");
+    logAction("Location", "Edit", "$session_name added WAN IP $seen_ip to location $loc_name (reported by its devices)", $client_id, $location_id);
+    flash_alert("WAN IP <strong>" . htmlspecialchars($seen_ip) . "</strong> added to <strong>$loc_name</strong>");
+    redirect();
+
+}
+
 if(isset($_POST['edit_location'])){
 
     validateCSRFToken($_POST['csrf_token']);

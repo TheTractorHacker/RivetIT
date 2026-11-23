@@ -438,6 +438,7 @@ CREATE TABLE `assets` (
   `asset_location_id` int(11) NOT NULL DEFAULT 0,
   `asset_contact_id` int(11) NOT NULL DEFAULT 0,
   `asset_client_id` int(11) NOT NULL DEFAULT 0,
+  `asset_public_ip` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`asset_id`),
   KEY `idx_assets_client_archived` (`asset_client_id`,`asset_archived_at`),
   KEY `idx_assets_serial` (`asset_serial`)
