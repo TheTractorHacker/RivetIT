@@ -137,3 +137,11 @@
    non-breaking space, which a flex dropdown-item squeezed into tall ovals. */
 .tk-swatch { display: inline-block; flex: 0 0 .85rem; width: .85rem; height: .85rem; border-radius: 50%; background: var(--sw, #6c757d); margin-right: .6rem; vertical-align: -.1rem; }
 .dropdown-item.active .tk-swatch, .dropdown-item:active .tk-swatch { box-shadow: 0 0 0 2px rgba(255,255,255,.55); }
+
+/* Ticket Views panel: hover and the open view looked the same (both pink), so two rows read as selected. The open view keeps the tint and an accent edge;
+   hover is a neutral grey. The "Default for all" badge stays on the name's line instead of wrapping under it. */
+.ticket-saved-views .nav-link { display: flex; align-items: center; gap: .5rem; border-left: 3px solid transparent; }
+.ticket-saved-views .nav-link > span { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
+.ticket-saved-views .nav-link:not(.active):hover, .ticket-saved-views .nav-link:not(.active):focus-visible { background: rgba(128,128,128,.14) !important; color: inherit; }
+.ticket-saved-views .nav-link.active { border-left-color: var(--tblr-primary, #d63939); font-weight: 600; }
+.ticket-saved-views .nav-link .badge { white-space: nowrap; font-weight: 500; }
