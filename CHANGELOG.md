@@ -9,6 +9,25 @@ continues unchanged.
 ### Added
 - **Linux fleet page** (no database change). RMM > Patching & software > Linux fleet shows Linux servers grouped by RMM group (cluster): online, overdue critical and security updates, restart pending, failing checks and a PostgreSQL column (any check whose key contains `postgres` or `pg_`). Read-only, reads up to 60 servers per view (not-online first; the rest are marked not loaded), needs the RMM module and the `patching` sub-switch. Only apt scanning is proven (dnf, yum, zypper unverified); RivetMSP does not include it yet. A read-only PostgreSQL check script to use as a script check is in `docs/rmm/POSTGRES_CHECK.md`.
 
+### Changed
+- Tickets: the quick-set menus (category, priority, status, assign) show a small round colour dot beside each choice instead of the tall grey ovals.
+- Locations: a WAN IP address field (one or more public IPs, comma separated, for example a primary and a backup line) in the Add and Edit forms and as a column on the Locations list. Needs database update 2.6.243.
+- Public IP: the RMM sync now saves the public (WAN) IP Tactical reports for each device (DB 2.6.244), and a RivetIT agent device counts by the address its last check-in came from. The asset page shows it under Interfaces. The Locations list compares it with the WAN IP entered: an address the location's devices report but nobody entered shows as "Seen: x" with a Use button that adds it. Private/reserved addresses are ignored.
+- Relationships: the Relationships card is no longer shown at the bottom of every details page. It is a Relationships button in the Edit pop-up of assets, contacts, domains, certificates, documents, vendors and KB articles. The asset page has a Network card with the public (WAN) IP (copy button, source, whether it matches the location's WAN IP) and the LAN IP, instead of the small line under Interfaces.
+- Credentials: the department folders are now cards with a login count and last-changed time, a "Find a department" box, sorting (A-Z, most logins, recently changed) and a breadcrumb back to all folders when you open one.
+- Credentials: move a login to another department folder, one at a time (row menu, Move to department) or several at once (Bulk Action). It lands at the top level of the new department and clears links to people, devices and vendors of the old one.
+- RMM Assets: Bulk Action > Set location for the ticked devices (a device in a different department than the location is skipped and reported); the row "..." button is now a plain icon button instead of a button with a caret; the department and location pickers in the bulk bar no longer both show before you choose one.
+- Onboarding Packet PDF: uses the company accent colour (Appearance) for the header band, badges and tints; the wording (title, intro, privacy line, help box, footer) is editable under Administration > Templates > Onboarding packet (DB 2.6.241; blank = built-in text); new Administration > Settings > IT department details (name, phone, email, hours; DB 2.6.242) next to Company Details, shown in the packet's help box instead of the company details when set; the Department is now a dropdown in the packet window (Logins save under the chosen department; a copy can only be attached to the ticket in its own department).
+- Onboarding Packet: the email address is the username (no separate username line); "Same password as the computer login" still copies the PC password. Ticking Save to Logins on both computer and email (same password) now saves ONE Login. Passwords are never included in the copy attached to a ticket, so they never reach the department portal.
+- Credentials (all departments): departments show as folders with counts; open one to see its credentials ("Show every credential in one list" keeps the old view; search and filters still use the list).
+- Department portal: the hovered row in the IT resources menu no longer goes blank (dark text on the dark panel).
+- Portal: "Raise a ticket" is now "Submit a ticket" everywhere; the form button reads "Submit ticket". New tickets (portal form and the agent New Ticket window) start with the Remote category selected unless a default category is set under Settings > Tickets.
+- Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
+- Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
+
+### Added
+- Notifications: "Clear all dismissed" permanently deletes your dismissed notifications.
+
 ## [26.10.89] - 2026-11-20
 
 ### Fixed
@@ -34,24 +53,6 @@ continues unchanged.
 
 - **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
 
-### Changed
-- Tickets: the quick-set menus (category, priority, status, assign) show a small round colour dot beside each choice instead of the tall grey ovals.
-- Locations: a WAN IP address field (one or more public IPs, comma separated, for example a primary and a backup line) in the Add and Edit forms and as a column on the Locations list. Needs database update 2.6.243.
-- Public IP: the RMM sync now saves the public (WAN) IP Tactical reports for each device (DB 2.6.244), and a RivetIT agent device counts by the address its last check-in came from. The asset page shows it under Interfaces. The Locations list compares it with the WAN IP entered: an address the location's devices report but nobody entered shows as "Seen: x" with a Use button that adds it. Private/reserved addresses are ignored.
-- Relationships: the Relationships card is no longer shown at the bottom of every details page. It is a Relationships button in the Edit pop-up of assets, contacts, domains, certificates, documents, vendors and KB articles. The asset page has a Network card with the public (WAN) IP (copy button, source, whether it matches the location's WAN IP) and the LAN IP, instead of the small line under Interfaces.
-- Credentials: the department folders are now cards with a login count and last-changed time, a "Find a department" box, sorting (A-Z, most logins, recently changed) and a breadcrumb back to all folders when you open one.
-- Credentials: move a login to another department folder, one at a time (row menu, Move to department) or several at once (Bulk Action). It lands at the top level of the new department and clears links to people, devices and vendors of the old one.
-- RMM Assets: Bulk Action > Set location for the ticked devices (a device in a different department than the location is skipped and reported); the row "..." button is now a plain icon button instead of a button with a caret; the department and location pickers in the bulk bar no longer both show before you choose one.
-- Onboarding Packet PDF: uses the company accent colour (Appearance) for the header band, badges and tints; the wording (title, intro, privacy line, help box, footer) is editable under Administration > Templates > Onboarding packet (DB 2.6.241; blank = built-in text); new Administration > Settings > IT department details (name, phone, email, hours; DB 2.6.242) next to Company Details, shown in the packet's help box instead of the company details when set; the Department is now a dropdown in the packet window (Logins save under the chosen department; a copy can only be attached to the ticket in its own department).
-- Onboarding Packet: the email address is the username (no separate username line); "Same password as the computer login" still copies the PC password. Ticking Save to Logins on both computer and email (same password) now saves ONE Login. Passwords are never included in the copy attached to a ticket, so they never reach the department portal.
-- Credentials (all departments): departments show as folders with counts; open one to see its credentials ("Show every credential in one list" keeps the old view; search and filters still use the list).
-- Department portal: the hovered row in the IT resources menu no longer goes blank (dark text on the dark panel).
-- Portal: "Raise a ticket" is now "Submit a ticket" everywhere; the form button reads "Submit ticket". New tickets (portal form and the agent New Ticket window) start with the Remote category selected unless a default category is set under Settings > Tickets.
-- Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
-- Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
-
-### Added
-- Notifications: "Clear all dismissed" permanently deletes your dismissed notifications.
 
 ## [26.10.88] - 2026-11-16
 
