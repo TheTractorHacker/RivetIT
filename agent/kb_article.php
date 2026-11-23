@@ -266,7 +266,6 @@ $sql_attachments = mysqli_query(
                     <?php echo $kb_article_content; ?>
                 </div>
             </div>
-            <?php $rel_type = 'kb_article'; $rel_id = $kb_article_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
         </div>
 
         <div class="col-md-3 d-print-none">

@@ -114,14 +114,6 @@ ob_start();
     </div>
     <?php } ?>
 
-    <?php
-    // Relationships card: this pop-up is the vendor's details view (agent/vendor_details.php is a retired page), so the Link item form is inline.
-    // Not for a department's read-only view: a central vendor's links reach records of other departments.
-    if (!$dept_view) {
-        $rel_type = 'vendor'; $rel_id = $vendor_id; $rel_in_modal = true;
-        require __DIR__ . '/../../../includes/relationships_card.php';
-    }
-    ?>
 
 </div>
 

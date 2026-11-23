@@ -800,6 +800,48 @@ if (isset($_GET['asset_id'])) {
                 <?php endif; ?>
 
 
+                <?php
+                // Network: the address this device reaches the internet from (RMM / agent), compared with the location's WAN IP, plus its LAN IP.
+                $asset_public = \ITFlow\Assets\PublicIp::forAsset($mysqli, $asset_id);
+                $net_lan = (!empty($asset_ip) && filter_var(html_entity_decode((string) $asset_ip), FILTER_VALIDATE_IP)) ? $asset_ip : '';
+                if ($asset_public || $net_lan) {
+                    $net_loc_wan = [];
+                    $net_loc = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT l.location_wan_ip FROM assets a JOIN locations l ON l.location_id = a.asset_location_id WHERE a.asset_id = $asset_id"));
+                    if ($net_loc) { $net_loc_wan = \ITFlow\Assets\PublicIp::parseList((string) ($net_loc['location_wan_ip'] ?? '')); }
+                ?>
+                <div class="card card-dark">
+                    <div class="card-header">
+                        <h5 class="card-title">Network</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($asset_public) { $net_pub = nullable_htmlentities($asset_public['ip']); ?>
+                            <div class="text-muted small text-uppercase" style="letter-spacing:.4px"><i class="fa fa-fw fa-globe me-1"></i>Public (WAN) IP</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <code class="fs-5 user-select-all"><?= $net_pub ?></code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 net-copy" data-copy="<?= $net_pub ?>" title="Copy" aria-label="Copy public IP"><i class="fa fa-fw fa-copy"></i></button>
+                            </div>
+                            <div class="small text-muted mt-1">Reported by <?= $asset_public['source'] === 'agent' ? 'the RivetIT agent' : 'the RMM' ?>.
+                            <?php if ($net_loc_wan) {
+                                if (in_array($asset_public['ip'], $net_loc_wan, true)) { ?>
+                                    <span class="text-success"><i class="fa fa-fw fa-check-circle"></i>Matches the location's WAN IP.</span>
+                                <?php } else { ?>
+                                    <span class="text-warning"><i class="fa fa-fw fa-exclamation-triangle"></i>Not the location's WAN IP (<?= nullable_htmlentities(implode(', ', $net_loc_wan)) ?>).</span>
+                                <?php }
+                            } ?></div>
+                        <?php } ?>
+                        <?php if ($net_lan) { ?>
+                            <div class="text-muted small text-uppercase<?= $asset_public ? ' mt-3' : '' ?>" style="letter-spacing:.4px"><i class="fa fa-fw fa-network-wired me-1"></i>LAN IP</div>
+                            <code class="user-select-all"><?= $net_lan ?></code>
+                        <?php } ?>
+                    </div>
+                </div>
+                <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                document.querySelectorAll('.net-copy').forEach(function (b) {
+                    b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.copy); b.innerHTML = '<i class="fa fa-fw fa-check"></i>'; });
+                });
+                </script>
+                <?php } ?>
+
                 <div class="card card-dark">
                     <div class="card-header">
                         <h5 class="card-title">Assignment</h5>
@@ -1373,13 +1415,6 @@ if (isset($_GET['asset_id'])) {
                             </div>
                         </div>
                     </div>
-                    <?php $asset_public = \ITFlow\Assets\PublicIp::forAsset($mysqli, $asset_id); if ($asset_public) { ?>
-                    <div class="px-3 pt-2 small text-muted">
-                        <i class="fa fa-fw fa-globe me-1" aria-hidden="true"></i>Public IP
-                        <code class="user-select-all ms-1"><?= nullable_htmlentities($asset_public['ip']) ?></code>
-                        <span class="ms-1">(reported by <?= $asset_public['source'] === 'agent' ? 'the RivetIT agent' : 'the RMM' ?>)</span>
-                    </div>
-                    <?php } ?>
                     <form id="bulkActions" action="post.php" method="post">
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                         <div class="table-responsive-sm">
@@ -2096,8 +2131,6 @@ if (isset($_GET['asset_id'])) {
             </div>
 
         </div><!-- /#asset-details-content -->
-
-        <?php $rel_type = 'asset'; $rel_id = $asset_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
 
         <?php
 

@@ -130,6 +130,7 @@ ob_start();
 
     </div>
     <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary me-auto ajax-modal" data-modal-url="modals/relationships/relationships.php?type=kb_article&id=<?php echo $kb_article_id; ?>"><i class="fas fa-fw fa-project-diagram me-2"></i>Relationships</button>
         <button type="submit" name="edit_kb_article" class="btn btn-primary text-bold"><i class="fa fa-check me-2"></i>Save Changes</button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>
