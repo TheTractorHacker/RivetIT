@@ -35,6 +35,7 @@ continues unchanged.
 - **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
 
 ### Changed
+- Tickets: the quick-set menus (category, priority, status, assign) show a small round colour dot beside each choice instead of the tall grey ovals.
 - Credentials: the department folders are now cards with a login count and last-changed time, a "Find a department" box, sorting (A-Z, most logins, recently changed) and a breadcrumb back to all folders when you open one.
 - Credentials: move a login to another department folder, one at a time (row menu, Move to department) or several at once (Bulk Action). It lands at the top level of the new department and clears links to people, devices and vendors of the old one.
 - RMM Assets: Bulk Action > Set location for the ticked devices (a device in a different department than the location is skipped and reported); the row "..." button is now a plain icon button instead of a button with a caret; the department and location pickers in the bulk bar no longer both show before you choose one.

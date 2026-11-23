@@ -132,3 +132,8 @@
 .project-summary-group .ps-progress { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2.5rem; padding: 1rem 1.5rem 1.25rem; border-top: 1px solid var(--tblr-border-color, var(--if-border, rgba(0,0,0,.1))); }
 .project-summary-group .ps-bar { display: flex; flex-direction: column; gap: .25rem; font-size: .95rem; }
 .project-summary-group .progress { height: .75rem !important; border-radius: 999px; }
+
+/* Ticket quick-set menus (category / priority / status / assign): a small round colour dot. These were pill badges holding a
+   non-breaking space, which a flex dropdown-item squeezed into tall ovals. */
+.tk-swatch { display: inline-block; flex: 0 0 .85rem; width: .85rem; height: .85rem; border-radius: 50%; background: var(--sw, #6c757d); margin-right: .6rem; vertical-align: -.1rem; }
+.dropdown-item.active .tk-swatch, .dropdown-item:active .tk-swatch { box-shadow: 0 0 0 2px rgba(255,255,255,.55); }

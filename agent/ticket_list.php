@@ -322,7 +322,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                             <h6 class="dropdown-header">Set Category</h6>
                                             <a class="dropdown-item quick-cat-item <?= !$ticket_category_id ? 'active' : '' ?>"
                                                href="#" data-ticket-id="<?= $ticket_id ?>" data-cat-id="0" data-cat-name="Uncategorized" data-cat-color="#6c757d">
-                                               <span class="badge rounded-pill me-2" style="background:#6c757d;color:#fff;">None</span>Uncategorized
+                                               <span class="tk-swatch" style="--sw:#6c757d"></span>Uncategorized
                                             </a>
                                             <div class="dropdown-divider"></div>
                                             <?php foreach ($_cat_groups as $_g) {
@@ -334,13 +334,13 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                                     foreach ($_cat_subs[$_gid] as $_s) {
                                                         $active = intval($_s['category_id']) === $ticket_category_id ? ' active' : '';
                                                         echo '<a class="dropdown-item quick-cat-item' . $active . '" href="#" data-ticket-id="' . $ticket_id . '" data-cat-id="' . intval($_s['category_id']) . '" data-cat-name="' . nullable_htmlentities($_s['category_name']) . '" data-cat-color="' . htmlspecialchars($_gcolor) . '">'
-                                                           . '<span class="badge rounded-pill me-2" style="background:' . htmlspecialchars($_gcolor) . ';color:#fff;">&nbsp;</span>' . nullable_htmlentities($_s['category_name'])
+                                                           . '<span class="tk-swatch" style="--sw:' . htmlspecialchars($_gcolor) . '"></span>' . nullable_htmlentities($_s['category_name'])
                                                            . '</a>';
                                                     }
                                                 } else {
                                                     $active = $_gid === $ticket_category_id ? ' active' : '';
                                                     echo '<a class="dropdown-item quick-cat-item' . $active . '" href="#" data-ticket-id="' . $ticket_id . '" data-cat-id="' . $_gid . '" data-cat-name="' . $_gname . '" data-cat-color="' . htmlspecialchars($_gcolor) . '">'
-                                                       . '<span class="badge rounded-pill me-2" style="background:' . htmlspecialchars($_gcolor) . ';color:#fff;">&nbsp;</span>' . $_gname
+                                                       . '<span class="tk-swatch" style="--sw:' . htmlspecialchars($_gcolor) . '"></span>' . $_gname
                                                        . '</a>';
                                                 }
                                             } ?>
@@ -377,7 +377,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                             <?php foreach (['Low'=>'info','Medium'=>'warning','High'=>'danger'] as $_p=>$_pc) {
                                                 $active = $ticket_priority === $_p ? ' active' : '';
                                                 echo '<a class="dropdown-item quick-priority-item' . $active . '" href="#" data-ticket-id="' . $ticket_id . '" data-priority="' . $_p . '" data-color="' . $_pc . '">'
-                                                   . '<span class="badge rounded-pill badge-' . $_pc . ' me-2">&nbsp;</span>' . $_p
+                                                   . '<span class="tk-swatch" style="--sw:' . (['danger' => '#d63939', 'warning' => '#f59f00', 'info' => '#2f8fe6'][$_pc] ?? '#6c757d') . '"></span>' . $_p
                                                    . '</a>';
                                             } ?>
                                         </div>
@@ -431,7 +431,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                             <?php foreach ($_statuses_list as $_st) {
                                                 $active = intval($_st['ticket_status_id']) === $ticket_status_id ? ' active' : '';
                                                 echo '<a class="dropdown-item quick-status-item' . $active . '" href="#" data-ticket-id="' . $ticket_id . '" data-status-id="' . intval($_st['ticket_status_id']) . '" data-status-name="' . nullable_htmlentities($_st['ticket_status_name']) . '" data-status-color="' . htmlspecialchars($_st['ticket_status_color']) . '">'
-                                                   . '<span class="badge rounded-pill me-2" style="background:' . htmlspecialchars($_st['ticket_status_color']) . ';color:#fff;">&nbsp;</span>' . nullable_htmlentities($_st['ticket_status_name'])
+                                                   . '<span class="tk-swatch" style="--sw:' . htmlspecialchars($_st['ticket_status_color']) . '"></span>' . nullable_htmlentities($_st['ticket_status_name'])
                                                    . '</a>';
                                             } ?>
                                         </div>
@@ -461,7 +461,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                             <h6 class="dropdown-header">Assign To</h6>
                                             <a class="dropdown-item quick-assign-item <?= !$ticket_assigned_to ? 'active' : '' ?>"
                                                href="#" data-ticket-id="<?= $ticket_id ?>" data-user-id="0" data-user-name="Unassigned" data-user-color="#adb5bd">
-                                               <span class="badge rounded-pill me-2" style="background:#adb5bd;color:#fff;">&nbsp;</span>Unassigned
+                                               <span class="tk-swatch" style="--sw:#adb5bd"></span>Unassigned
                                             </a>
                                             <div class="dropdown-divider"></div>
                                             <?php foreach ($_techs_list as $_t) {
@@ -470,7 +470,7 @@ foreach ($_cat_subs as $_pid => $_subs) {
                                                 $_ucolor = $agent_colors[$_uid % count($agent_colors)];
                                                 $active = $_uid === $ticket_assigned_to ? ' active' : '';
                                                 echo '<a class="dropdown-item quick-assign-item' . $active . '" href="#" data-ticket-id="' . $ticket_id . '" data-user-id="' . $_uid . '" data-user-name="' . $_uname . '" data-user-color="' . $_ucolor . '">'
-                                                   . '<span class="badge rounded-pill me-2" style="background:' . $_ucolor . ';color:#fff;">&nbsp;</span>' . $_uname
+                                                   . '<span class="tk-swatch" style="--sw:' . $_ucolor . '"></span>' . $_uname
                                                    . '</a>';
                                             } ?>
                                         </div>
