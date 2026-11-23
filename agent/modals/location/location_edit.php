@@ -22,6 +22,7 @@ $location_extension = nullable_htmlentities($row['location_phone_extension']);
 $location_fax_country_code = nullable_htmlentities($row['location_fax_country_code']);
 $location_fax = nullable_htmlentities(formatPhoneNumber($row['location_fax'], $location_fax_country_code));
 $location_hours = nullable_htmlentities($row['location_hours']);
+$location_wan_ip = nullable_htmlentities($row['location_wan_ip'] ?? '');
 $location_photo = nullable_htmlentities($row['location_photo']);
 $location_notes = nullable_htmlentities($row['location_notes']);
 $location_created_at = nullable_htmlentities($row['location_created_at']);
@@ -281,6 +282,18 @@ ob_start();
                         </div>
                         <input type="tel" class="form-control phone-country-code" name="fax_country_code" value="<?php echo $location_fax_country_code; ?>" placeholder="+" maxlength="4" aria-label="Fax country code">
                         <input type="tel" class="form-control phone-number-format" id="location_fax<?php echo $location_id; ?>" name="fax" value="<?php echo $location_fax; ?>" placeholder="Fax Number" maxlength="200">
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
+                <div class="form-group">
+                    <label class="form-label" for="location_wan_ip<?php echo $location_id; ?>">WAN IP address</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="location_wan_ip<?php echo $location_id; ?>" name="wan_ip" value="<?php echo $location_wan_ip; ?>" placeholder="e.g. 203.0.113.10 (add a backup line after a comma)" maxlength="255">
                     </div>
                 </div>
 

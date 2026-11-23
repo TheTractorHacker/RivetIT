@@ -27,6 +27,16 @@ foreach ($hours_day_labels as $hours_day_key => $hours_day_label) {
 }
 $hours = implode(', ', $hours_parts);
 
+// WAN IP address(es): one or more public IPs for the site's internet connection (comma or space separated, e.g. a primary and a backup line).
+$wan_ip_in = preg_split('/[\s,;]+/', trim((string) ($_POST['wan_ip'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+foreach ($wan_ip_in as $wan_ip_one) {
+    if (filter_var($wan_ip_one, FILTER_VALIDATE_IP) === false) {
+        flash_alert("<strong>" . htmlspecialchars($wan_ip_one) . "</strong> is not a valid IP address. Location not saved.", 'error');
+        redirect();
+    }
+}
+$wan_ip = sanitizeInput(implode(', ', array_values(array_unique($wan_ip_in))));
+
 $notes = sanitizeInput($_POST['notes']);
 $contact = intval($_POST['contact'] ?? 0);
 $location_primary = intval($_POST['location_primary'] ?? 0);

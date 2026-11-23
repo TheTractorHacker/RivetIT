@@ -33,7 +33,7 @@ if(isset($_POST['add_location'])){
     $location_latitude_sql = $geocoded ? $geocoded[0] : 'NULL';
     $location_longitude_sql = $geocoded ? $geocoded[1] : 'NULL';
 
-    mysqli_query($mysqli,"INSERT INTO locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip', location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension', location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact, location_client_id = $client_id");
+    mysqli_query($mysqli,"INSERT INTO locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip', location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension', location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_wan_ip = '$wan_ip', location_notes = '$notes', location_contact_id = $contact, location_client_id = $client_id");
 
     $location_id = mysqli_insert_id($mysqli);
 
@@ -134,7 +134,7 @@ if(isset($_POST['edit_location'])){
         $location_longitude_sql = $geocoded ? $geocoded[1] : 'NULL';
     }
 
-    mysqli_query($mysqli,"UPDATE locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip',  location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension',  location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_notes = '$notes', location_contact_id = $contact WHERE location_id = $location_id");
+    mysqli_query($mysqli,"UPDATE locations SET location_name = '$name', location_description = '$description', location_country = '$country', location_latitude = $location_latitude_sql, location_longitude = $location_longitude_sql, location_address = '$address', location_city = '$city', location_state = '$state', location_zip = '$zip',  location_phone_country_code = '$phone_country_code', location_phone = '$phone', location_phone_extension = '$extension',  location_fax_country_code = '$fax_country_code', location_fax = '$fax', location_hours = '$hours', location_wan_ip = '$wan_ip', location_notes = '$notes', location_contact_id = $contact WHERE location_id = $location_id");
 
     // Update Primay location in clients if primary location is checked
     if ($location_primary == 1) {

@@ -36,6 +36,7 @@ continues unchanged.
 
 ### Changed
 - Tickets: the quick-set menus (category, priority, status, assign) show a small round colour dot beside each choice instead of the tall grey ovals.
+- Locations: a WAN IP address field (one or more public IPs, comma separated, for example a primary and a backup line) in the Add and Edit forms and as a column on the Locations list. Needs database update 2.6.243.
 - Credentials: the department folders are now cards with a login count and last-changed time, a "Find a department" box, sorting (A-Z, most logins, recently changed) and a breadcrumb back to all folders when you open one.
 - Credentials: move a login to another department folder, one at a time (row menu, Move to department) or several at once (Bulk Action). It lands at the top level of the new department and clears links to people, devices and vendors of the old one.
 - RMM Assets: Bulk Action > Set location for the ticked devices (a device in a different department than the location is skipped and reported); the row "..." button is now a plain icon button instead of a button with a caret; the department and location pickers in the bulk bar no longer both show before you choose one.

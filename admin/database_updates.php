@@ -13170,3 +13170,9 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_hours` varchar(200) DEFAULT NULL");
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
     }
+
+    if ($rivetit_db_version() == '2.6.242') {
+        // DB 2.6.243: WAN IP address(es) on locations (the site's public internet address, with room for a backup line). Optional text; empty = not set.
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_wan_ip` varchar(255) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
+    }
