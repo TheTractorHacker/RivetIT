@@ -834,12 +834,12 @@ if (isset($_GET['asset_id'])) {
                             <code class="user-select-all"><?= $net_lan ?></code>
                         <?php } ?>
                     </div>
-                </div>
                 <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
                 document.querySelectorAll('.net-copy').forEach(function (b) {
                     b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.copy); b.innerHTML = '<i class="fa fa-fw fa-check"></i>'; });
                 });
                 </script>
+                </div>
                 <?php } ?>
 
                 <div class="card card-dark">
