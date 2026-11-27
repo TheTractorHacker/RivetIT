@@ -468,20 +468,20 @@ if (isset($_GET['asset_id'])) {
                             || $rmm_link['rmm_needs_reboot'] || $rmm_link['rmm_maintenance_mode'] || $rmm_link['rmm_patches_pending']);
                         $rmm_meter = function ($label, $val) {
                             if ($val === null || $val === '') return '';
-                            $val = intval($val);
+                            $val = max(0, min(100, intval($val)));
                             $col = $val >= 90 ? 'danger' : ($val >= 75 ? 'warning' : 'success');
-                            return "<span class='me-3' style='white-space:nowrap'><span class='text-muted'>$label</span> <span class='badge badge-$col'>$val%</span></span>";
+                            return "<div class='dev-meter dev-meter-$col'><span class='dev-meter-label'>$label</span><span class='dev-meter-val'>$val%</span><span class='dev-meter-bar'><i style='width:$val%'></i></span></div>";
                         };
                         if ($rmm_has_health): ?>
-                        <div class="mt-2 small d-flex flex-wrap align-items-center">
+                        <div class="dev-health">
                             <?= $rmm_meter('CPU', $hcpu) ?>
                             <?= $rmm_meter('RAM', $hram) ?>
                             <?= $rmm_meter('Disk', $hdisk) ?>
-                            <?php if ($rmm_link['rmm_needs_reboot']): ?><span class="badge text-bg-warning me-2"><i class="fas fa-power-off me-1"></i>Reboot required</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_maintenance_mode']): ?><span class="badge text-bg-info me-2"><i class="fas fa-tools me-1"></i>Maintenance</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_patches_pending']): ?><span class="badge text-bg-secondary me-2"><i class="fas fa-download me-1"></i>Updates pending</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_last_boot']): ?><span class="text-muted me-2" style="font-size:10px"><i class="fas fa-clock me-1"></i>Booted <?= nullable_htmlentities(substr($rmm_link['rmm_last_boot'], 0, 16)) ?></span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_health_updated_at']): ?><span class="text-muted" style="font-size:10px">as of <?= nullable_htmlentities(substr($rmm_link['rmm_health_updated_at'], 0, 16)) ?></span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_needs_reboot']): ?><span class="badge text-bg-warning"><i class="fas fa-power-off me-1"></i>Reboot required</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_maintenance_mode']): ?><span class="badge text-bg-info"><i class="fas fa-tools me-1"></i>Maintenance</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_patches_pending']): ?><span class="badge text-bg-secondary"><i class="fas fa-download me-1"></i>Updates pending</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_last_boot']): ?><span class="dev-health-note"><i class="fas fa-clock me-1"></i>Booted <?= nullable_htmlentities(substr($rmm_link['rmm_last_boot'], 0, 16)) ?></span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_health_updated_at']): ?><span class="dev-health-note">as of <?= nullable_htmlentities(substr($rmm_link['rmm_health_updated_at'], 0, 16)) ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>

@@ -145,3 +145,23 @@
 .ticket-saved-views .nav-link:not(.active):hover, .ticket-saved-views .nav-link:not(.active):focus-visible { background: rgba(128,128,128,.14) !important; color: inherit; }
 .ticket-saved-views .nav-link.active { border-left-color: var(--tblr-primary, #d63939); font-weight: 600; }
 .ticket-saved-views .nav-link .badge { white-space: nowrap; font-weight: 500; }
+
+/* ---- Asset page RMM strip: CPU / RAM / Disk as proper meters, flags as pills, readable meta ---- */
+.asset-devstrip .dev-seg .text-muted.small { font-size: .85rem !important; }
+.asset-devstrip .dev-health { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; margin-top: .75rem; }
+.asset-devstrip .dev-meter { display: grid; grid-template-columns: auto auto; grid-template-areas: "l v" "b b"; column-gap: .6rem; row-gap: .3rem; align-items: baseline; min-width: 8.5rem; padding: .45rem .7rem; border: 1px solid var(--tblr-border-color, rgba(0,0,0,.1)); border-radius: .5rem; background: var(--tblr-bg-surface-secondary, transparent); }
+.asset-devstrip .dev-meter-label { grid-area: l; font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--tblr-secondary-color, #667085); }
+.asset-devstrip .dev-meter-val { grid-area: v; justify-self: end; font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.asset-devstrip .dev-meter-bar { grid-area: b; display: block; height: .35rem; border-radius: 999px; background: rgba(127,127,127,.2); overflow: hidden; }
+.asset-devstrip .dev-meter-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--tblr-success, #2fb344); }
+.asset-devstrip .dev-meter-warning .dev-meter-bar > i { background: var(--tblr-warning, #f59f00); }
+.asset-devstrip .dev-meter-danger .dev-meter-bar > i { background: var(--tblr-danger, #d63939); }
+.asset-devstrip .dev-meter-danger .dev-meter-val { color: var(--tblr-danger, #d63939); }
+.asset-devstrip .dev-health .badge { font-size: .8rem; padding: .45em .8em; }
+.asset-devstrip .dev-health-note { font-size: .8rem; color: var(--tblr-secondary-color, #667085); }
+.asset-devstrip .dev-seg .card-body { padding: 1rem 1.25rem !important; }
+
+/* RMM Overview tab: label/value rows sized like the rest of the page, not 1.1rem body text */
+#rdt-overview .table td { font-size: .9rem; padding: .5rem .6rem; vertical-align: middle; border-bottom: 1px solid var(--tblr-border-color, rgba(0,0,0,.08)); }
+#rdt-overview .table td.text-muted { font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+#rdt-overview .table tr:last-child td { border-bottom: 0; }
