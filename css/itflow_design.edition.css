@@ -165,3 +165,21 @@
 #rdt-overview .table td { font-size: .9rem; padding: .5rem .6rem; vertical-align: middle; border-bottom: 1px solid var(--tblr-border-color, rgba(0,0,0,.08)); }
 #rdt-overview .table td.text-muted { font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 #rdt-overview .table tr:last-child td { border-bottom: 0; }
+
+
+/* ---- RMM device header strip (rivetRmmUiStrip): meter tiles instead of "CPU [2%]" text + badge, remote hint on its own line ---- */
+.rmm-strip .rmm-live-meters { gap: .6rem 1rem; margin-top: .85rem !important; }
+.rmm-strip .dev-meter { display: grid; grid-template-columns: auto auto; grid-template-areas: "l v" "b b"; column-gap: .6rem; row-gap: .3rem; align-items: baseline; min-width: 8.5rem; padding: .45rem .7rem; border: 1px solid var(--tblr-border-color, rgba(0,0,0,.1)); border-radius: .5rem; background: var(--tblr-bg-surface-secondary, transparent); }
+.rmm-strip .dev-meter-label { grid-area: l; font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--tblr-secondary-color, #667085); }
+.rmm-strip .dev-meter-val { grid-area: v; justify-self: end; font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rmm-strip .dev-meter-bar { grid-area: b; display: block; height: .35rem; border-radius: 999px; background: rgba(127,127,127,.2); overflow: hidden; }
+.rmm-strip .dev-meter-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--tblr-success, #2fb344); }
+.rmm-strip .dev-meter-warning .dev-meter-bar > i { background: var(--tblr-warning, #f59f00); }
+.rmm-strip .dev-meter-danger .dev-meter-bar > i { background: var(--tblr-danger, #d63939); }
+.rmm-strip .dev-meter-secondary .dev-meter-bar > i { background: var(--tblr-secondary, #6b7280); }
+.rmm-strip .dev-meter-danger .dev-meter-val { color: var(--tblr-danger, #d63939); }
+.rmm-strip .rmm-more-vols { font-size: .85rem; }
+.rmm-strip .rmm-live .badge { font-size: .8rem; padding: .45em .8em; }
+.rmm-strip .rmm-remote-hint { margin-top: .75rem; padding: .55rem .8rem; border-radius: .5rem; font-size: .875rem; color: var(--tblr-secondary-color, #667085); background: var(--tblr-bg-surface-secondary, rgba(127,127,127,.08)); border: 1px solid var(--tblr-border-color, rgba(0,0,0,.08)); max-width: 52rem; }
+.rmm-strip .rmm-tags { margin-top: .75rem !important; }
+.rmm-strip .card-body { padding: 1rem 1.25rem !important; }

@@ -149,6 +149,15 @@ function rivetRmmUiTrendCell(string $key, ?array $t, bool $offline): string
         . '<caption class="visually-hidden">Recorded results of ' . rmmH($key) . ', newest first</caption>' . rivetRmmUiThead(['When', 'Status', 'Detail']) . '<tbody>' . $rows . '</tbody></table></div></details></div>';
 }
 
+/** One CPU / RAM / Disk meter tile: label, large value, bar (a null percentage reads "no data" with an empty bar). */
+function rivetRmmUiMeter(string $label, ?float $pct, string $kind): string
+{
+    $v = $pct === null ? null : max(0, min(100, (int) round($pct)));
+
+    return '<div class="dev-meter dev-meter-' . rmmH($kind) . '"><span class="dev-meter-label">' . rmmH($label) . '</span><span class="dev-meter-val">' . ($v === null ? 'no data' : $v . '%')
+        . '</span><span class="dev-meter-bar"><i style="width:' . (int) ($v ?? 0) . '%"></i></span></div>';
+}
+
 // ------------------------------------------------------------------ strip
 
 /**
@@ -287,12 +296,11 @@ function rivetRmmUiStrip(array $vm): string
     // it was never one-per-volume, so it is kept exactly where it always was, only once the agent actually reports it.
     $live = '';
     if (!$never) {
-        $live = '<div class="mt-2 small d-flex flex-wrap align-items-center rmm-live' . ($vm['offline'] ? ' rmm-dim' : '') . '">';
+        $live = '<div class="mt-2 small d-flex flex-wrap align-items-center rmm-live rmm-live-meters' . ($vm['offline'] ? ' rmm-dim' : '') . '">';
         $chip = static function (string $label, array $g): string {
             $bk = rivetRmmUiKind($g['band'])[0];
 
-            return '<span class="me-' . ($label === '' ? '1' : '3') . ' text-nowrap"><span class="text-muted">' . rmmH($label !== '' ? $label : $g['label']) . '</span> <span class="badge text-bg-' . $bk . '">'
-                . ($g['value'] === null ? 'no data' : (int) round($g['value']) . '%') . '</span></span>';
+            return rivetRmmUiMeter($label !== '' ? $label : (string) $g['label'], $g['value'] === null ? null : (float) $g['value'], $bk);
         };
         foreach ($vm['gauges'] as $g) {
             if ($g['id'] === 'cpu') {
@@ -312,7 +320,7 @@ function rivetRmmUiStrip(array $vm): string
             $live .= $chip('', $mainDisk);
             $live .= $otherDisks > 0
                 ? '<button type="button" class="btn btn-link btn-sm p-0 me-3" id="rmm-act-more-disks" data-bs-toggle="modal" data-bs-target="#rmmDisksModal">+' . $otherDisks . ' more</button>'
-                : '<span class="me-3"></span>';
+                : '';
         }
         $live .= '<span class="text-muted me-3 text-nowrap"><i class="fas fa-power-off me-1" aria-hidden="true"></i>'
             . ($vm['offline'] || $vm['uptime_s'] === null ? 'uptime unknown' : 'Up ' . rmmH(rivetRmmUiDuration((int) $vm['uptime_s']))) . '</span>';
