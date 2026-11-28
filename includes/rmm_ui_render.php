@@ -149,6 +149,15 @@ function rivetRmmUiTrendCell(string $key, ?array $t, bool $offline): string
         . '<caption class="visually-hidden">Recorded results of ' . rmmH($key) . ', newest first</caption>' . rivetRmmUiThead(['When', 'Status', 'Detail']) . '<tbody>' . $rows . '</tbody></table></div></details></div>';
 }
 
+/** One CPU / RAM / Disk meter tile: label, large value, bar (a null percentage reads "no data" with an empty bar). */
+function rivetRmmUiMeter(string $label, ?float $pct, string $kind): string
+{
+    $v = $pct === null ? null : max(0, min(100, (int) round($pct)));
+
+    return '<div class="dev-meter dev-meter-' . rmmH($kind) . '"><span class="dev-meter-label">' . rmmH($label) . '</span><span class="dev-meter-val">' . ($v === null ? 'no data' : $v . '%')
+        . '</span><span class="dev-meter-bar"><i style="width:' . (int) ($v ?? 0) . '%"></i></span></div>';
+}
+
 // ------------------------------------------------------------------ strip
 
 /**
@@ -287,12 +296,11 @@ function rivetRmmUiStrip(array $vm): string
     // it was never one-per-volume, so it is kept exactly where it always was, only once the agent actually reports it.
     $live = '';
     if (!$never) {
-        $live = '<div class="mt-2 small d-flex flex-wrap align-items-center rmm-live' . ($vm['offline'] ? ' rmm-dim' : '') . '">';
+        $live = '<div class="mt-2 small d-flex flex-wrap align-items-center rmm-live rmm-live-meters' . ($vm['offline'] ? ' rmm-dim' : '') . '">';
         $chip = static function (string $label, array $g): string {
             $bk = rivetRmmUiKind($g['band'])[0];
 
-            return '<span class="me-' . ($label === '' ? '1' : '3') . ' text-nowrap"><span class="text-muted">' . rmmH($label !== '' ? $label : $g['label']) . '</span> <span class="badge text-bg-' . $bk . '">'
-                . ($g['value'] === null ? 'no data' : (int) round($g['value']) . '%') . '</span></span>';
+            return rivetRmmUiMeter($label !== '' ? $label : (string) $g['label'], $g['value'] === null ? null : (float) $g['value'], $bk);
         };
         foreach ($vm['gauges'] as $g) {
             if ($g['id'] === 'cpu') {
@@ -312,7 +320,7 @@ function rivetRmmUiStrip(array $vm): string
             $live .= $chip('', $mainDisk);
             $live .= $otherDisks > 0
                 ? '<button type="button" class="btn btn-link btn-sm p-0 me-3" id="rmm-act-more-disks" data-bs-toggle="modal" data-bs-target="#rmmDisksModal">+' . $otherDisks . ' more</button>'
-                : '<span class="me-3"></span>';
+                : '';
         }
         $live .= '<span class="text-muted me-3 text-nowrap"><i class="fas fa-power-off me-1" aria-hidden="true"></i>'
             . ($vm['offline'] || $vm['uptime_s'] === null ? 'uptime unknown' : 'Up ' . rmmH(rivetRmmUiDuration((int) $vm['uptime_s']))) . '</span>';
@@ -613,6 +621,22 @@ function rivetRmmUiAutomationCard(array $vm): string
         . ($on ? rivetRmmUiPill('off', 'Disabled here') : rivetRmmUiPill('ok', 'Managed by RivetCore')) . '</div>' . $body . '</section></div>';
 }
 
+/**
+ * "Move to Department" (RivetCore 1.0.0-rc.60): only for a user who holds rmm.device.manage. The move itself, and the permission, are checked again by
+ * agent/post/rmm_agent.php and Core's TechnicianActions::transfer(); this only draws the button.
+ */
+function rivetRmmUiMoveCard(array $vm): string
+{
+    if (empty($vm['perm']['manage'])) {
+        return '';
+    }
+    require_once __DIR__ . '/rmm_device_actions.php';
+
+    return '<div class="col-lg-6"><section class="card card-dark mb-3" id="rmm-move"><div class="card-header py-2"><h6 class="mb-0"><i class="fas fa-exchange-alt me-2 text-secondary" aria-hidden="true"></i>Department</h6></div>'
+        . '<div class="card-body py-2"><p class="small text-muted mb-2">Move this computer, its agent and its history to another department. The agent keeps reporting without being reinstalled.</p>'
+        . rivetRmmMoveButton((int) $vm['device_id'], (string) ($vm['hostname'] ?? ''), '') . '</div></section></div>';
+}
+
 function rivetRmmUiChecksCard(array $vm): string
 {
     $c = $vm['check_counts'];
@@ -651,7 +675,7 @@ function rivetRmmUiOverview(array $vm, string $performanceHtml, string $performa
     } elseif ($performanceNote !== '') {
         $o .= '<h6 class="ifm-family mt-3">Performance</h6><div class="card card-dark mb-3"><div class="card-body">' . $performanceNote . '</div></div>';
     }
-    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . rivetRmmUiAutomationCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
+    $o .= '<div class="row mt-2">' . rivetRmmUiAlertsCard($vm) . rivetRmmUiRemoteCard($vm) . rivetRmmUiAutomationCard($vm) . rivetRmmUiMoveCard($vm) . '</div>' . rivetRmmUiChecksCard($vm);
 
     return $o;
 }

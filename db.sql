@@ -438,6 +438,7 @@ CREATE TABLE `assets` (
   `asset_location_id` int(11) NOT NULL DEFAULT 0,
   `asset_contact_id` int(11) NOT NULL DEFAULT 0,
   `asset_client_id` int(11) NOT NULL DEFAULT 0,
+  `asset_public_ip` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`asset_id`),
   KEY `idx_assets_client_archived` (`asset_client_id`,`asset_archived_at`),
   KEY `idx_assets_serial` (`asset_serial`)
@@ -822,6 +823,10 @@ CREATE TABLE `companies` (
   `company_default_email_domain` varchar(200) DEFAULT NULL,
   `company_security_contact_email` varchar(200) DEFAULT NULL,
   `company_hr_contact_email` varchar(200) DEFAULT NULL,
+  `company_it_name` varchar(100) DEFAULT NULL,
+  `company_it_phone` varchar(40) DEFAULT NULL,
+  `company_it_email` varchar(200) DEFAULT NULL,
+  `company_it_hours` varchar(200) DEFAULT NULL,
   `company_created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `company_updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`company_id`)
@@ -1636,6 +1641,7 @@ CREATE TABLE `endpoint_agent_installer_options` (
   `install_mesh_agent` tinyint(1) NOT NULL DEFAULT 0,
   `device_type` varchar(20) NOT NULL DEFAULT 'auto',
   `created_at` datetime NOT NULL,
+  `managed_externally` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`token_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2248,6 +2254,7 @@ CREATE TABLE `locations` (
   `location_fax_country_code` varchar(10) DEFAULT NULL,
   `location_fax` varchar(200) DEFAULT NULL,
   `location_hours` text DEFAULT NULL,
+  `location_wan_ip` varchar(255) DEFAULT NULL,
   `location_emergency_contacts` text DEFAULT NULL,
   `location_shipping_instructions` text DEFAULT NULL,
   `location_photo` varchar(200) DEFAULT NULL,
@@ -5138,6 +5145,7 @@ CREATE TABLE `settings` (
   `config_release_channel` varchar(12) NOT NULL DEFAULT 'production',
   `config_lifecycle_auto_start` tinyint(1) NOT NULL DEFAULT 0,
   `config_workflows_hire_leave` tinyint(1) NOT NULL DEFAULT 0,
+  `config_onboarding_packet_template` text DEFAULT NULL,
   `config_vault_v3_enabled` tinyint(1) NOT NULL DEFAULT 0,
   `config_vault_dek_wrap` text DEFAULT NULL,
   `config_vault_v3_prepared_at` datetime DEFAULT NULL,
@@ -5919,6 +5927,7 @@ CREATE TABLE `ticket_statuses` (
   `ticket_status_order` int(11) NOT NULL DEFAULT 0,
   `ticket_status_pauses_sla` tinyint(1) NOT NULL DEFAULT 0,
   `ticket_status_closes_ticket` tinyint(1) NOT NULL DEFAULT 0,
+  `ticket_status_parked` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ticket_status_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -8292,6 +8301,7 @@ CREATE TABLE `vendors` (
   `vendor_accessed_at` datetime DEFAULT NULL,
   `vendor_client_id` int(11) NOT NULL DEFAULT 0,
   `vendor_template_id` int(11) NOT NULL DEFAULT 0,
+  `vendor_shared` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`vendor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

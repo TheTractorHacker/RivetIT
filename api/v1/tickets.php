@@ -114,6 +114,12 @@ if ($method === 'GET' && $id === null && $resource === 'tickets') {
         api_client_scope_sql('t.ticket_client_id'),
     ];
     if ($status === 'open')   $where[] = 't.ticket_resolved_at IS NULL';
+    // The default open queue leaves out Parked statuses. A lookup (a search term, one client or contact) or show_parked=1 includes them.
+    if ($status === 'open' && !$search && !$contact_id && !$client_id && ($_GET['show_parked'] ?? '') !== '1') {
+        require_once __DIR__ . '/../../includes/ticket_parked.php';
+        $api_not_parked = ticketNotParkedSql($mysqli, 't.ticket_status');
+        if ($api_not_parked !== '') $where[] = substr($api_not_parked, 5); // drop the leading " AND "
+    }
     if ($status === 'closed') $where[] = 't.ticket_resolved_at IS NOT NULL';
     if ($mine)                $where[] = "t.ticket_assigned_to = $uid";
     if ($search)              $where[] = "(t.ticket_subject LIKE '%$search%' OR t.ticket_number LIKE '%$search%')";
@@ -628,11 +634,7 @@ if ($method === 'POST' && $id === null) {
     // ticket for a client outside their permitted set.
     if (!api_client_scope_ok($client)) api_error(403, 'Access denied');
 
-    // Fall back to the client's primary contact when the caller didn't supply
-    // one - most API callers (e.g. ITPanel Pro's quick-ticket, when its own
-    // contact_id config isn't set) know which client a ticket is for but not
-    // which specific contact, leaving every such ticket contact-less even
-    // though the client is unambiguous. When one IS explicitly submitted, it
+    // No contact is chosen for the caller: a ticket without contact_id has no contact. When one IS explicitly submitted, it
     // must actually belong to the same client - api_client_scope_ok() above
     // only checked the caller's access to $client, it says nothing about
     // whether a caller-supplied contact_id belongs to a completely different
@@ -641,14 +643,9 @@ if ($method === 'POST' && $id === null) {
         $contact_ok = mysqli_fetch_assoc(mysqli_query($mysqli,
             "SELECT contact_id FROM contacts WHERE contact_id = $contact AND contact_client_id = $client LIMIT 1"));
         if (!$contact_ok) api_error(400, 'contact_id does not belong to client_id');
-    } elseif ($client) {
-        $primary_contact = mysqli_fetch_assoc(mysqli_query($mysqli,
-            "SELECT contact_id FROM contacts WHERE contact_client_id = $client AND contact_archived_at IS NULL
-             ORDER BY contact_primary DESC, contact_id ASC LIMIT 1"));
-        if ($primary_contact) {
-            $contact = intval($primary_contact['contact_id']);
-        }
     }
+    // No contact submitted = no contact on the ticket. It used to fall back to the client's primary contact and, when none was marked primary, to the first
+    // contact by id, so a ticket nobody assigned ended up on a random person (and their notifications). An integration that wants a contact sends contact_id.
 
     // Same reasoning for contract linkage: leaving ticket_contract_id NULL
     // silently exempts every API-created ticket from included-hours allowance

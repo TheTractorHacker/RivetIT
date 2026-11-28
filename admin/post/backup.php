@@ -31,6 +31,9 @@ function backup_build_throttle_wait(int $userId): int {
     return $r['allowed'] ? 0 : max(1, (int) $r['retry_after']);
 }
 
+/** Tables whose structure is backed up but whose rows are not: raw, rebuildable telemetry. */
+const BACKUP_SKIP_DATA_TABLES = ['device_metric_samples'];
+
 function fwrite_ln($fh, string $s): void {
     fwrite($fh, $s . PHP_EOL);
 }
@@ -78,6 +81,14 @@ function dump_database_streaming(mysqli $mysqli, string $sqlFile, ?array &$ledge
         fwrite_ln($fh, "DROP TABLE IF EXISTS `{$table}`;");
         fwrite_ln($fh, $createSQL . ";");
         fwrite_ln($fh, "");
+        // Raw telemetry is rebuildable and huge (device_metric_samples: ~11M rows / ~1 GB on a busy install). Reading it
+        // held a PHP worker for minutes and starved the pool (Cloudflare 524), so the dump keeps the table's structure
+        // and skips its rows. Restores bring the table back empty; agents repopulate it on their next check-in.
+        if (in_array($table, BACKUP_SKIP_DATA_TABLES, true)) {
+            fwrite_ln($fh, "-- rows of `{$table}` are intentionally not backed up (raw telemetry)");
+            fwrite_ln($fh, "");
+            continue;
+        }
         $dr = $mysqli->query("SELECT * FROM `{$mysqli->real_escape_string($table)}`", MYSQLI_USE_RESULT);
         if ($dr) {
             while ($row = $dr->fetch_assoc()) {

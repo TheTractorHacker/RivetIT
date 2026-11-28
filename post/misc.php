@@ -63,6 +63,22 @@ if (isset($_GET['dismiss_all_notifications'])) {
 
 }
 
+// Permanently delete this user's dismissed notifications (the Dismissed list's "Clear all").
+if (isset($_GET['clear_dismissed_notifications'])) {
+
+    validateCSRFToken($_GET['csrf_token']);
+
+    mysqli_query($mysqli,"DELETE FROM notifications WHERE notification_user_id = $session_user_id AND notification_dismissed_at IS NOT NULL");
+    $num_deleted = mysqli_affected_rows($mysqli);
+
+    logAction("Notification", "Delete", "$session_name cleared $num_deleted dismissed notifications");
+
+    $_SESSION['alert_message'] = "<strong>$num_deleted</strong> Dismissed Notifications Deleted";
+
+    redirect('notifications.php?dismissed');
+
+}
+
 require_once __DIR__ . '/../includes/firebase.php';
 
 // Push a single in-app notification to mobile devices

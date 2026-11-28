@@ -77,7 +77,7 @@ if ($catalog_has_tiles) {
             <div class="portal-empty">
                 <i class="fas fa-concierge-bell" aria-hidden="true"></i>
                 Nothing is on the request menu yet.
-                <div class="mt-3"><a href="ticket_add.php" class="btn btn-primary"><i class="fas fa-plus me-2" aria-hidden="true"></i>Raise a ticket</a></div>
+                <div class="mt-3"><a href="ticket_add.php" class="btn btn-primary"><i class="fas fa-plus me-2" aria-hidden="true"></i>Submit a ticket</a></div>
             </div>
         </div>
     <?php } else { ?>
@@ -161,7 +161,7 @@ if ($catalog_has_tiles) {
         <div class="card portal-card d-none" data-portal-filter-empty>
             <div class="portal-empty">
                 <i class="fas fa-search" aria-hidden="true"></i>
-                No requests match. <a href="ticket_add.php">Raise a ticket</a> and tell us what you need.
+                No requests match. <a href="ticket_add.php">Submit a ticket</a> and tell us what you need.
             </div>
         </div>
 

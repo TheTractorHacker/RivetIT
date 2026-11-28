@@ -223,6 +223,18 @@ ob_start();
 
                 <hr class="my-3">
 
+                <div class="form-group">
+                    <label class="form-label" for="location_add_wan_ip">WAN IP address</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fa fa-fw fa-globe"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="location_add_wan_ip" name="wan_ip" value="" placeholder="e.g. 203.0.113.10 (add a backup line after a comma)" maxlength="255">
+                    </div>
+                </div>
+
+                <hr class="my-3">
+
                 <h6 class="text-uppercase text-muted mb-2" style="font-size:.75rem;letter-spacing:.05em">
                     <i class="fa fa-fw fa-clock me-1"></i>Hours of Operation
                 </h6>

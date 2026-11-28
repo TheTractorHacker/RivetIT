@@ -152,7 +152,7 @@ ob_start();
                     <label for="vendors">Select related vendors</label>
                     <select class="form-control select2" id="vendors" name="vendors[]" multiple>
                         <?php
-                        $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND vendor_client_id = $client_id");
+                        $sql = mysqli_query($mysqli, "SELECT * FROM vendors WHERE vendor_archived_at IS NULL AND " . vendorVisibleSql($client_id) . "");
                         while ($row = mysqli_fetch_assoc($sql)) {
                             $vendor_id = intval($row['vendor_id']);
                             $vendor_name = nullable_htmlentities($row['vendor_name']);

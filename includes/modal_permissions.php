@@ -119,6 +119,7 @@ function itflow_modal_permission_map(): array {
             'contact/contact_link_file.php'       => ['module_client' => 1, 'module_support' => 1],
             'contact/contact_link_service.php'    => ['module_client' => 1, 'module_support' => 1],
             'contact/contact_link_software.php'   => ['module_client' => 1, 'module_support' => 1],
+            'contact/contact_onboarding_packet.php' => ['module_client' => 1, 'module_credential' => 2],   // endpoint creates Logins
 
             // Write-only forms whose buttons are already hidden from view-only roles.
             'client/client_add.php'             => ['module_client' => 2],

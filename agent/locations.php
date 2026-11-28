@@ -282,6 +282,11 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             </a>
                         </th>
                         <th>
+                            <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=location_wan_ip&order=<?php echo sortLinkOrder('location_wan_ip'); ?>">
+                                WAN IP <?php if ($sort == 'location_wan_ip') { echo $order_icon; } ?>
+                            </a>
+                        </th>
+                        <th>
                             <a class="text-secondary" href="?<?php echo $url_query_strings_sort; ?>&sort=location_hours&order=<?php echo sortLinkOrder('location_hours'); ?>">
                                 Hours <?php if ($sort == 'location_hours') { echo $order_icon; } ?>
                             </a>
@@ -325,6 +330,7 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                             $location_fax_display = '';
                         }
                         $location_hours_display = formatLocationHoursDisplay($row['location_hours']);
+                        $location_wan_ip_raw = (string) ($row['location_wan_ip'] ?? '');
                         if ($location_hours_display === '') {
                             $location_hours_display = "-";
                         }
@@ -426,6 +432,24 @@ $num_rows = mysqli_fetch_row(mysqli_query($mysqli, "SELECT FOUND_ROWS()"));
                                 <?php echo $location_phone_display; ?>
                                 <?php echo $location_fax_display; ?>
                             </td>
+                            <td class="text-nowrap"><?php
+                                $wan_list = array_filter(array_map('trim', explode(',', $location_wan_ip_raw)));
+                                if ($wan_list) { foreach ($wan_list as $wan_one) { $wan_one = nullable_htmlentities($wan_one); echo "<div><code class='user-select-all'>$wan_one</code></div>"; } } else { echo '-'; }
+                                // What the devices at this location report as their public address, compared with what was entered.
+                                $wan_seen = \ITFlow\Assets\PublicIp::seenAtLocation($mysqli, $location_id);
+                                $wan_new = array_values(array_diff(array_keys($wan_seen), $wan_list));
+                                if ($wan_new) {
+                                    $wan_tip = $wan_list ? 'Devices here report a different public IP than the one entered' : 'Devices here report this public IP';
+                                    foreach ($wan_new as $wan_n) {
+                                        $wan_n_h = nullable_htmlentities($wan_n);
+                                        echo "<div class='small mt-1' title='" . nullable_htmlentities($wan_tip) . " (" . intval($wan_seen[$wan_n]) . " device(s))'><span class='badge " . ($wan_list ? 'text-bg-warning' : 'text-bg-info') . "'><i class='fa fa-fw fa-satellite-dish me-1'></i>Seen: $wan_n_h</span>";
+                                        if (lookupUserPermission('module_client') >= 2) {
+                                            echo " <form action='post.php' method='post' class='d-inline'><input type='hidden' name='csrf_token' value='" . $_SESSION['csrf_token'] . "'><input type='hidden' name='location_id' value='" . $location_id . "'><input type='hidden' name='seen_ip' value='$wan_n_h'><button type='submit' name='use_seen_wan_ip' class='btn btn-link btn-sm p-0 align-baseline'>Use</button></form>";
+                                        }
+                                        echo '</div>';
+                                    }
+                                }
+                            ?></td>
                             <td><?php echo $location_hours_display; ?></td>
                             <?php if (!$client_url) { ?>
                             <td><?php echo $location_departments_display ?: '-'; ?></td>

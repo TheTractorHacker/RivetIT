@@ -383,6 +383,13 @@ class RmmAssetMapper {
             $this->backfillClientId($asset_id, intval($matched_row['asset_client_id']), $resolved_client_id);
         }
 
+        // The public (WAN) address the device reports (Tactical sends public_ip). Stored only when it really is a public address.
+        $public_ip = trim($str($agent['public_ip'] ?? ''));
+        if ($public_ip !== '' && \ITFlow\Assets\PublicIp::isPublic($public_ip)) {
+            $public_ip_sql = mysqli_real_escape_string($m, $public_ip);
+            mysqli_query($m, "UPDATE assets SET asset_public_ip='$public_ip_sql' WHERE asset_id=$asset_id");
+        }
+
         // ----- Step 4: Insert or update the link row -----
         // The asset we matched (by serial/MAC/hostname) may already have a
         // link row for this integration under a *different* tactical_agent_id

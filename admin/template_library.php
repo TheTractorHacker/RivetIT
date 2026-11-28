@@ -11,6 +11,7 @@ renderAdminDirectory('Templates', 'Create and manage reusable content.', 'fa-cop
             ['Service catalog', 'Manage available request types.', 'service_catalog.php', 'fa-th-large'],
             ['Canned responses', 'Reuse common ticket replies.', 'canned_responses.php', 'fa-comment-dots', true, ['url' => '/admin/modals/canned_response/canned_response_add.php', 'size' => 'lg']],
             ['Worksheet templates', 'Reuse task checklists.', 'worksheet_template.php', 'fa-clipboard-list', true, ['url' => '/admin/modals/worksheet_template/worksheet_template_add.php', 'size' => 'lg']],
+            ['Onboarding packet', 'Edit the wording of the new-hire sign-in PDF.', 'onboarding_packet_template.php', 'fa-file-pdf'],
         ],
     ],
     'documents' => [

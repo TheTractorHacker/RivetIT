@@ -205,8 +205,8 @@ ob_start();
                                     <span class="input-group-text"><i class="fa fa-fw fa-layer-group"></i></span>
                                 </div>
                                 <select class="form-control select2" id="ticketCategory" name="category_id">
-                                    <option value="0" <?php if (empty($config_ticket_default_category_id)) { echo "selected"; } ?>>- Not Categorized -</option>
-                                    <?php echo ticketCategoryOptions($mysqli, $config_ticket_default_category_id); ?>
+                                    <option value="0">- Not Categorized -</option>
+                                    <?php echo ticketCategoryOptions($mysqli, resolveTicketCategory(0)); ?>
                                 </select>
                                 <div class="input-group-append">
                                     <button class="btn btn-secondary ajax-modal" type="button"

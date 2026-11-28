@@ -18,6 +18,12 @@ require_once "../plugins/totp/totp.php";
 require_once "../includes/sla_functions.php";
 ob_end_clean();
 
+// IT-WEB-2: every branch is JSON unless it says otherwise. PHP's default Content-Type is text/html, which turned a JSON
+// response carrying a stored value like <img onerror=...> into a reflected-XSS page when opened as a top-level navigation.
+// The few HTML-fragment branches below (AI text, summaries, Comet panel) send their own text/html header, which overrides this.
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+
 /*
  * Live global-search dropdown (top nav). Read-only GET, no CSRF needed (mirrors
  * certificate_fetch_parse_json_details below). Auth already enforced by check_login.php above.
@@ -186,7 +192,7 @@ if (isset($_GET['global_search_live'])) {
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
             AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%')
-            $access_permission_query
+            " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_id DESC LIMIT 5"
     );
     $rows = [];
@@ -366,6 +372,8 @@ if (isset($_POST['client_set_notes'])) {
     $client_id = intval($_POST['client_id']);
     $notes = sanitizeInput($_POST['notes']);
 
+    enforceClientAccess($client_id);
+
     // Update notes
     mysqli_query($mysqli, "UPDATE clients SET client_notes = '$notes' WHERE client_id = $client_id");
 
@@ -391,6 +399,8 @@ if (isset($_POST['contact_set_notes'])) {
     $contact_name = sanitizeInput($row['contact_name']);
     $client_id = intval($row['contact_client_id']);
 
+    enforceClientAccess($client_id);
+
     // Update notes
     mysqli_query($mysqli, "UPDATE contacts SET contact_notes = '$notes' WHERE contact_id = $contact_id");
 
@@ -415,6 +425,8 @@ if (isset($_POST['asset_set_notes'])) {
     $row = mysqli_fetch_assoc($sql);
     $asset_name = sanitizeInput($row['asset_name']);
     $client_id = intval($row['asset_client_id']);
+
+    enforceClientAccess($client_id);
 
     // Update notes
     mysqli_query($mysqli, "UPDATE assets SET asset_notes = '$notes' WHERE asset_id = $asset_id");
@@ -1085,8 +1097,8 @@ if (isset($_GET['get_client_vendors'])) {
         $mysqli,
         "SELECT vendor_id, vendor_name FROM vendors
         LEFT JOIN clients on vendor_client_id = client_id
-        WHERE vendors.vendor_archived_at IS NULL AND vendor_client_id = $client_id
-        $access_permission_query
+        WHERE vendors.vendor_archived_at IS NULL AND " . vendorVisibleSql($client_id, 'vendors') . "
+        " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_name ASC"
     );
 
@@ -1709,8 +1721,10 @@ if (isset($_GET['ai_ticket_summary'])) {
 
             if (!class_exists('HTMLPurifier')) {
                 require_once __DIR__ . '/../plugins/htmlpurifier/HTMLPurifier.standalone.php';
+                require_once __DIR__ . '/../plugins/htmlpurifier/rivet_html_policy.php';
             }
             $purifier_config = HTMLPurifier_Config::createDefault();
+            rivet_html_policy_apply($purifier_config, 'strict');
             $purifier_config->set('Cache.DefinitionImpl', null);
             $purifier_config->set('URI.AllowedSchemes', ['http' => true, 'https' => true]);
             $purifier = new HTMLPurifier($purifier_config);

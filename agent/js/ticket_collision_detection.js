@@ -21,7 +21,7 @@ function ticket_collision_detection() {
         {ticket_query_views: 'true', ticket_id: ticket_id, _bg: '1'},
         function(data) {
             //If we get a response from ajax.php, parse it as JSON
-            const ticket_view_data = JSON.parse(data);
+            const ticket_view_data = (typeof data === "string" ? JSON.parse(data) : data);
             document.getElementById("ticket_collision_viewing").innerHTML = ticket_view_data.message;
         }
     );

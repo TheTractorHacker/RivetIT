@@ -69,7 +69,9 @@ function rivetRmmModule($mysqli = null): RmmModule
     ];
     // RivetCore 1.0.0-rc.44 customizable frameworks: the selected profile's retention minimums. Lazy and tolerant: no profile selected, or the compliance tables
     // not installed yet, means no minimum (RetentionFloors treats a failed read as "none"); it adds nothing until an administrator selects a framework.
-    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class)) {
+    // profilesReady() first: on a database that has not run Core migration 0046 the store read throws (table compliance_profile_selection missing)
+    // and every check-in logged "compliance retention floors unavailable" (cron.php already guards the same way).
+    if (class_exists(\RivetCore\Compliance\Profile\FrameworkProfileStore::class) && \ITFlow\Compliance\ComplianceService::profilesReady($mysqli)) {
         $options['retention_floors'] = \RivetCore\Compliance\Profile\RetentionFloors::fromStore(\ITFlow\Compliance\ComplianceService::profiles($mysqli));
     }
     if (defined('EA_BINARY_MAX_BYTES')) {
@@ -248,6 +250,7 @@ function rivetRmmAutoNav(?int $userId = null): array
         // viewers read-only and lets whoever has rmm.patch.manage change them; the page and every handler check again.
         ['patching', '/agent/rmm_patches.php', 'Patch compliance', 'fa-shield-alt', ['rmm_patches.php'], 'patching'],
         ['patching', '/agent/rmm_patch_updates.php', 'Patch approvals', 'fa-check-double', ['rmm_patch_updates.php'], 'patching'],
+        ['patching', '/agent/rmm_linux_fleet.php', 'Linux fleet', 'fa-server', ['rmm_linux_fleet.php'], 'patching'],
         ['patching', '/agent/rmm_patch_policies.php', 'Patch policies', 'fa-calendar-check', ['rmm_patch_policies.php'], 'patching'],
         // RMM Phase 5 (RivetCore 1.0.0-rc.21), sub-switch `software_deploy` (off by default): the catalog, the assignments and the deployed-versus-expected report need the software-view
         // ability (any RMM viewer sees them read-only; the buttons need rmm.software.manage / deploy). The pages and every handler check again.
@@ -261,6 +264,7 @@ function rivetRmmAutoNav(?int $userId = null): array
     $abilities = ['/agent/rmm_logs.php' => \RivetCore\Rmm\Authz\RmmAbility::JOB_RUN_SAVED, '/agent/rmm_log_rules.php' => \RivetCore\Rmm\Authz\RmmAbility::ALERT_MANAGE,
         '/agent/rmm_starter_pack.php' => \RivetCore\Rmm\Authz\RmmAbility::ADMIN,
         '/agent/rmm_patches.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW, '/agent/rmm_patch_updates.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW, '/agent/rmm_patch_policies.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW,
+        '/agent/rmm_linux_fleet.php' => \RivetCore\Rmm\Authz\RmmAbility::PATCH_VIEW,
         '/agent/rmm_software.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_assignments.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW, '/agent/rmm_software_report.php' => \RivetCore\Rmm\Authz\RmmAbility::SOFTWARE_VIEW,
         '/agent/rmm_hypervisors.php' => \RivetCore\Rmm\Authz\RmmAbility::HYPERVISOR_VIEW];
     $out = [];

@@ -909,7 +909,9 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
     }
 
     $graph_base = "https://graph.microsoft.com/v1.0/users/" . rawurlencode($user);
-    $folder_id = graphFindOrCreateItflowFolder($graph_base, $access_token);
+    // Resolved lazily: an empty inbox (almost every one-minute poll) needs no folder, and the lookup was an extra Graph
+    // call per poll that tripped ErrorDirectoryConcurrencyLimit (HTTP 503) for no reason.
+    $folder_id = null;
 
     $processed_count = 0;
     $unprocessed_count = 0;
@@ -930,6 +932,10 @@ function pollMailboxMicrosoftGraph(array $mailbox): array {
         $resp = microsoftGraphRequest('GET', $url, $access_token);
         if (!$resp['ok']) {
             throw new \RuntimeException("Microsoft Graph: failed to list messages (HTTP {$resp['code']}): " . ($resp['json']['error']['message'] ?? $resp['error'] ?? 'unknown error'));
+        }
+
+        if ($folder_id === null && !empty($resp['json']['value'])) {
+            $folder_id = graphFindOrCreateItflowFolder($graph_base, $access_token);
         }
 
         foreach (($resp['json']['value'] ?? []) as $msg) {
@@ -989,7 +995,15 @@ function graphFindOrCreateItflowFolder(string $graph_base, string $access_token,
         return $create['json']['id'];
     }
 
-    throw new \RuntimeException("Microsoft Graph: could not find or create the $name mail folder.");
+    // Say WHY (HTTP status and Graph error code of both calls, never a token or the response body) so the mailbox alert is actionable:
+    // 401/403 = consent or permission, 404 ErrorInvalidUser/MailboxNotEnabledForRESTAPI = mailbox, 429/503 = Microsoft throttling or an outage.
+    $why = static function (array $r): string {
+        $code = (string) ($r['code'] ?? 0);
+        $gc = is_array($r['json'] ?? null) ? (string) ($r['json']['error']['code'] ?? '') : '';
+        $net = ($r['code'] ?? 0) == 0 && !empty($r['error']) ? ' network: ' . substr(preg_replace('/[^\x20-\x7e]/', '', (string) $r['error']), 0, 80) : '';
+        return 'HTTP ' . $code . ($gc !== '' ? ' ' . preg_replace('/[^A-Za-z0-9_.-]/', '', $gc) : '') . $net;
+    };
+    throw new \RuntimeException("Microsoft Graph: could not find or create the $name mail folder (lookup: " . $why($resp) . "; create: " . $why($create) . ").");
 }
 
 // Fetches, normalizes, classifies, and marks read/moves (or flags) a single Graph message.

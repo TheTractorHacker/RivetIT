@@ -10,8 +10,11 @@ enforceUserPermission('module_kb');
 
 // Initialize the HTML Purifier to prevent XSS
 require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'rich');
 $purifier_config->set('Cache.DefinitionImpl', null);
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 /* KB media URLs carry their parameters in a query string, and HTMLPurifier
@@ -263,7 +266,6 @@ $sql_attachments = mysqli_query(
                     <?php echo $kb_article_content; ?>
                 </div>
             </div>
-            <?php $rel_type = 'kb_article'; $rel_id = $kb_article_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
         </div>
 
         <div class="col-md-3 d-print-none">

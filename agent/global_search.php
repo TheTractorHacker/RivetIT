@@ -4,8 +4,11 @@ require_once "includes/inc_all.php";
 
 // Initialize the HTML Purifier to prevent XSS
 require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'strict');
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
 
@@ -64,7 +67,7 @@ if (isset($_GET['query'])) {
         LEFT JOIN clients ON vendor_client_id = client_id
         WHERE vendor_archived_at IS NULL
             AND (vendor_name LIKE '%$query%' OR vendor_phone LIKE '%$phone_query%'$vendor_role_clause)
-            $access_permission_query
+            " . vendorAccessScopeSql($access_permission_query) . "
         ORDER BY vendor_id DESC LIMIT 5"
     );
 

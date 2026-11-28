@@ -8,6 +8,8 @@ require_once __DIR__ . '/includes/mail_templates.php';
 require_once __DIR__ . '/includes/module_access.php';
 require_once __DIR__ . '/includes/modal_permissions.php';   // pop-up map; pages use itflow_modal_allowed() to hide triggers it would refuse
 require_once __DIR__ . '/includes/ui/components.php';
+require_once __DIR__ . '/includes/vendor_sharing.php';   // shared central vendors: vendorVisibleSql() and the assignment checks
+require_once __DIR__ . '/includes/ticket_parked.php';   // parked ticket statuses: ticketParkedStatusIds() and the SQL fragment builders
 
 // Role check failed wording
 DEFINE("WORDING_ROLECHECK_FAILED", "You are not permitted to do that!");
@@ -1762,7 +1764,9 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
     }
 
     // --- Open-ticket aging buckets (point-in-time snapshot of all open tickets) ---
-    $open_open = "ticket_closed_at IS NULL AND ticket_archived_at IS NULL$client_clause";
+    // Parked tickets are unresolved but not part of the open-ticket metrics (docs/design/parked-ticket-statuses.md).
+    require_once __DIR__ . '/includes/ticket_parked.php';
+    $open_open = "ticket_closed_at IS NULL AND ticket_archived_at IS NULL$client_clause" . ticketNotParkedSql($mysqli);
     $aging = mysqli_fetch_assoc(mysqli_query($mysqli,
         "SELECT
             SUM(CASE WHEN TIMESTAMPDIFF(HOUR, ticket_created_at, NOW()) < 24  THEN 1 ELSE 0 END) AS b0,
@@ -1846,7 +1850,7 @@ function getServiceDeskReport(mysqli $mysqli, $date_from, $date_to, $client_id =
     $res = mysqli_query($mysqli,
         "SELECT t.ticket_assigned_to AS uid, u.user_name, COUNT(t.ticket_id) AS c
          FROM tickets t LEFT JOIN users u ON u.user_id = t.ticket_assigned_to
-         WHERE t.ticket_closed_at IS NULL AND t.ticket_archived_at IS NULL AND t.ticket_assigned_to > 0$client_clause_t
+         WHERE t.ticket_closed_at IS NULL AND t.ticket_archived_at IS NULL AND t.ticket_assigned_to > 0$client_clause_t" . ticketNotParkedSql($mysqli, 't.ticket_status') . "
          GROUP BY t.ticket_assigned_to, u.user_name");
     while ($row = mysqli_fetch_assoc($res)) {
         $uid = intval($row['uid']);
@@ -3076,6 +3080,36 @@ function generateReadablePassword($security_level)
     $password .= rand(pow(10, $security_level - 1), pow(10, $security_level) - 1);
 
     return $password;
+}
+
+/**
+ * Sender for bulk mail (contacts / departments). The From address is the company's own identity, never a
+ * request value: a posted mail_from is honoured only when it equals one of the four configured addresses
+ * (the same ones the bulk-mail form offers), anything else falls back to the main configured sender. The
+ * display name always comes from config, so a caller cannot send as "The CEO".
+ * @return array{email: string, name: string}
+ */
+function resolveBulkMailSender($requested_email = ''): array {
+    global $config_mail_from_email, $config_mail_from_name, $config_invoice_from_email, $config_invoice_from_name,
+           $config_quote_from_email, $config_quote_from_name, $config_ticket_from_email, $config_ticket_from_name;
+
+    $identities = [
+        [(string) $config_mail_from_email, (string) $config_mail_from_name],
+        [(string) $config_invoice_from_email, (string) $config_invoice_from_name],
+        [(string) $config_quote_from_email, (string) $config_quote_from_name],
+        [(string) $config_ticket_from_email, (string) $config_ticket_from_name],
+    ];
+    $requested_email = strtolower(trim((string) $requested_email));
+
+    if ($requested_email !== '') {
+        foreach ($identities as [$email, $name]) {
+            if ($email !== '' && strtolower($email) === $requested_email) {
+                return ['email' => $email, 'name' => $name];
+            }
+        }
+    }
+
+    return ['email' => $identities[0][0], 'name' => $identities[0][1]];
 }
 
 function addToMailQueue($data) {
@@ -4940,6 +4974,80 @@ function createMailRequestFromInbound(int $mailbox_id, string $from_email, strin
     }
 
     return $mail_request_id;
+}
+
+/**
+ * Does every contact/asset/location/vendor a ticket is about to reference belong to the ticket's own client?
+ * The ticket's department is already enforced by the handlers, but the referenced ids come straight from the
+ * form: without this a restricted agent could attach another department's contact (name/email/phone then render
+ * on the ticket page) or asset. Mirrors the API (api/v1/tickets.php). 0 / empty = "none", always fine. A vendor may
+ * also be a global one (vendor_client_id 0). Returns the name of the first offending reference, or null.
+ * @param int[] $asset_ids extra assets
+ */
+function ticketReferenceOutsideClient($client_id, $contact_id = 0, $asset_id = 0, $location_id = 0, $vendor_id = 0, array $asset_ids = []): ?string {
+    global $mysqli;
+
+    $client_id = intval($client_id);
+    $checks = [
+        'contact'  => ['contacts', 'contact_id', 'contact_client_id', [intval($contact_id)], false],
+        'asset'    => ['assets', 'asset_id', 'asset_client_id', array_merge([intval($asset_id)], array_map('intval', $asset_ids)), false],
+        'location' => ['locations', 'location_id', 'location_client_id', [intval($location_id)], false],
+    ];
+    // A vendor is the department's own or a shared central one (includes/vendor_sharing.php), not any vendor with client 0.
+    if (intval($vendor_id) > 0 && !vendorAssignableToClient($mysqli, intval($vendor_id), $client_id)) {
+        return 'vendor';
+    }
+
+    foreach ($checks as $label => [$table, $id_col, $client_col, $ids, $allow_global]) {
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (!$ids) {
+            continue;
+        }
+        $in = implode(',', $ids);
+        $allowed = $allow_global ? "($client_col = $client_id OR $client_col = 0)" : "$client_col = $client_id";
+        $ok_count = intval(mysqli_fetch_row(mysqli_query($mysqli, "SELECT COUNT(*) FROM $table WHERE $id_col IN ($in) AND $allowed"))[0] ?? 0);
+        if ($ok_count !== count($ids)) {
+            return $label;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * " AND (<column> = 0 OR <column> IN (allowed departments))" for a department-restricted agent; '' for an administrator
+ * or an unrestricted agent. For company-wide pages (problems) that list tickets of every department: the same
+ * rule enforceClientAccess() applies, expressed as SQL. $column must be a trusted literal column name.
+ */
+function clientAccessScopeSql(string $column): string {
+    global $client_access_string, $session_is_admin;
+
+    if (!empty($session_is_admin) || !preg_match('/^[a-z_.]+$/i', $column)) {
+        return preg_match('/^[a-z_.]+$/i', $column) ? '' : ' AND 1 = 0';
+    }
+    $ids = array_filter(array_map('intval', explode(',', (string) ($client_access_string ?? ''))));
+    if (!$ids) {
+        return '';   // no per-department restriction rows = access to everything (enforceClientAccess() does the same)
+    }
+    return " AND ($column = 0 OR $column IN (" . implode(',', $ids) . "))";
+}
+
+/**
+ * The department a mail request "belongs to": its mailbox's default client (0 = shared/general inbox, no
+ * department to scope by). Same rule as the Requests list page and the dismiss handler; the view modal and the
+ * convert handler use it with enforceClientAccess() so a restricted agent cannot read or convert a request that
+ * arrived on a mailbox of a department they cannot access.
+ */
+function mailRequestOwnerClientId($mail_request_id): int {
+    global $mysqli;
+
+    $mail_request_id = intval($mail_request_id);
+    $row = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT m.mailbox_default_client_id
+        FROM mail_requests mr
+        LEFT JOIN mailboxes m ON m.mailbox_id = mr.mail_request_mailbox_id
+        WHERE mr.mail_request_id = $mail_request_id AND mr.mail_request_archived_at IS NULL LIMIT 1"));
+
+    return intval($row['mailbox_default_client_id'] ?? 0);
 }
 
 // Converts a pending mail request into a real ticket via addTicket(), resolving/creating

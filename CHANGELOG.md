@@ -6,6 +6,54 @@ continues unchanged.
 
 ## [Unreleased]
 
+### Added
+- **Linux fleet page** (no database change). RMM > Patching & software > Linux fleet shows Linux servers grouped by RMM group (cluster): online, overdue critical and security updates, restart pending, failing checks and a PostgreSQL column (any check whose key contains `postgres` or `pg_`). Read-only, reads up to 60 servers per view (not-online first; the rest are marked not loaded), needs the RMM module and the `patching` sub-switch. Only apt scanning is proven (dnf, yum, zypper unverified); RivetMSP does not include it yet. A read-only PostgreSQL check script to use as a script check is in `docs/rmm/POSTGRES_CHECK.md`.
+
+### Changed
+- Tickets: the quick-set menus (category, priority, status, assign) show a small round colour dot beside each choice instead of the tall grey ovals.
+- Locations: a WAN IP address field (one or more public IPs, comma separated, for example a primary and a backup line) in the Add and Edit forms and as a column on the Locations list. Needs database update 2.6.243.
+- Public IP: the RMM sync now saves the public (WAN) IP Tactical reports for each device (DB 2.6.244), and a RivetIT agent device counts by the address its last check-in came from. The asset page shows it under Interfaces. The Locations list compares it with the WAN IP entered: an address the location's devices report but nobody entered shows as "Seen: x" with a Use button that adds it. Private/reserved addresses are ignored.
+- Relationships: the Relationships card is no longer shown at the bottom of every details page. It is a Relationships button in the Edit pop-up of assets, contacts, domains, certificates, documents, vendors and KB articles. The asset page has a Network card with the public (WAN) IP (copy button, source, whether it matches the location's WAN IP) and the LAN IP, instead of the small line under Interfaces.
+- Credentials: the department folders are now cards with a login count and last-changed time, a "Find a department" box, sorting (A-Z, most logins, recently changed) and a breadcrumb back to all folders when you open one.
+- Credentials: move a login to another department folder, one at a time (row menu, Move to department) or several at once (Bulk Action). It lands at the top level of the new department and clears links to people, devices and vendors of the old one.
+- RMM Assets: Bulk Action > Set location for the ticked devices (a device in a different department than the location is skipped and reported); the row "..." button is now a plain icon button instead of a button with a caret; the department and location pickers in the bulk bar no longer both show before you choose one.
+- Onboarding Packet PDF: uses the company accent colour (Appearance) for the header band, badges and tints; the wording (title, intro, privacy line, help box, footer) is editable under Administration > Templates > Onboarding packet (DB 2.6.241; blank = built-in text); new Administration > Settings > IT department details (name, phone, email, hours; DB 2.6.242) next to Company Details, shown in the packet's help box instead of the company details when set; the Department is now a dropdown in the packet window (Logins save under the chosen department; a copy can only be attached to the ticket in its own department).
+- Onboarding Packet: the email address is the username (no separate username line); "Same password as the computer login" still copies the PC password. Ticking Save to Logins on both computer and email (same password) now saves ONE Login. Passwords are never included in the copy attached to a ticket, so they never reach the department portal.
+- Credentials (all departments): departments show as folders with counts; open one to see its credentials ("Show every credential in one list" keeps the old view; search and filters still use the list).
+- Department portal: the hovered row in the IT resources menu no longer goes blank (dark text on the dark panel).
+- Portal: "Raise a ticket" is now "Submit a ticket" everywhere; the form button reads "Submit ticket". New tickets (portal form and the agent New Ticket window) start with the Remote category selected unless a default category is set under Settings > Tickets.
+- Tickets: the filter chips' count badge no longer overlaps the label; the date-range panel no longer wraps labels; a "Hide filters" button collapses the stat cards and filter bar.
+- Account menu is compact (small avatar beside the name), solid, and sits clear of the header; header search "Ctrl K" chip spacing; sidebar rows no longer touch each other.
+
+### Added
+- Notifications: "Clear all dismissed" permanently deletes your dismissed notifications.
+
+## [26.10.89] - 2026-11-20
+
+### Fixed
+- New Ticket: contacts, assets, locations and vendors were empty after choosing a department (and contact search failed). The ajax endpoint now answers as JSON and the modal scripts tried to parse it a second time; they now accept either. Same fix for asset edit, share, SSL fetch, ticket collision, password generator and OTP scripts.
+
+- **Shared central vendors** (DB 2.6.240, one additive column: `vendors.vendor_shared`, default 0, so every existing vendor stays as it is; take a database dump first, then Administration > Update > Update Database). On a central vendor (added in Vendors without a department) tick **Available to all departments**: every department then offers it in its pickers (tickets, assets, services, software, domains, document links, relationships) and lists it, read-only and marked Central, in its Vendors tab. The central list gets a Shared badge and a Shared filter, and each toggle is written to the audit log (who, vendor, old -> new). Unticking it later only stops it being offered for new use; records that already use it keep showing its name. The department view shows only the vendor's own contact fields (no account number, no internal notes, no links to other departments' records). The server refuses to store another department's vendor or an unshared central vendor on a department record. **Behaviour change:** the domain Registrar / Web host / DNS host / Mail host pickers used to offer every central vendor; they now offer only the shared ones (domains already linked to a central vendor keep it and keep saving).
+
+- **RivetCore 1.0.0-rc.60** (DB 2.6.239, one additive column: `endpoint_agent_installer_options.managed_externally`; take a database dump first, then Administration > Update > Update Database). A device moved to another department now takes its alerts, jobs, patch, package and deployment state with it (Core fix); shared design CSS re-installed from Core (no link underline on hover, sticky table header).
+
+- **Move to Department.** On the asset edit modal, the RMM panel of the asset page and the legacy device page, for assets with an endpoint device and users holding `rmm.device.manage`: pick a department (and optionally a site), confirm, and Core's `TechnicianActions::transfer()` moves the device and its asset; the agent's credential is untouched, so it keeps reporting without reinstalling. The bulk Assets "Transfer to Department" now sends every asset that has an endpoint device through the same call (the asset keeps its id; it is no longer copied and archived) and reports which were refused and why; assets without a device behave as before.
+
+- **Managed by another RMM.** A check box on Download installer, Show deployment commands and Create enrollment token (off by default): computers enrolled with it start with automation off. The Bulk Action menu on RMM Assets gains Mark / Clear as managed by another RMM (up to 500 computers; computers you cannot manage, that have no RivetIT agent or that no longer exist are listed together as not changed).
+
+- **Microsoft 365 mailbox alerts say why.** "could not find or create the ITFlow mail folder" now includes the HTTP status and Graph error code of the lookup and the create call (never a token or response body), so an alert tells you whether it is consent/permission (401/403), the mailbox (404), or Microsoft throttling/an outage (429/503). New `tests/graph_folder_error_detail.php`.
+
+- **PHPMailer's `get_oauth_token.php` is no longer public.** It is PHPMailer's interactive refresh-token helper; nothing in the app calls it. It is removed from the shipped plugin and from the `/plugins/` PHP allow-list in `deploy/templates/rivetit-locations.conf`. The live nginx snippets (`rivetit-locations.conf`, `itflow-locations.conf`) still carry the old allow-list until the web-routes apply procedure is run (docs/WEB_ROUTES.md); with the file gone the old rule only produces a 404.
+
+- **Quality is hidden while its module is off.** The admin side nav entries "Quality" and "Single sign-on provider" (the provider exists only to sign people in to Quality) and their settings-search results appear only when Admin > Modules > Quality is on. Single sign-on to Quality was already refused at `/oidc/authorize` and the "Open Quality" menu item already followed the switch. New `tests/quality_nav_gate.php`.
+
+- **Parked ticket statuses.** An administrator can mark a ticket status (On Hold is ticked once on upgrade) as Parked in Administration, Ticket Statuses (DB 2.6.238). Tickets in it stay unresolved but leave the dashboards, the default ticket list and board, the stat cards, the open-ticket counts and the SLA warning / breach events and overdue rule pass. They stay in search, the client ticket tab, single-ticket views, the All view, a Status filter that picks the status, and a new Show parked toggle. Parking does not pause the SLA or change time or billing. The `rpt_tickets` reporting view gains a trailing `is_parked` column; `is_open` is unchanged, so "open and not parked" is `is_open = 1 AND is_parked = 0`. The nightly backlog rollup (`ticket_metrics_daily.backlog_open`) no longer counts parked tickets from the first run after the update; older rows keep the old definition, so the backlog trend steps down on that date.
+
+- **Fix: beta log noise and missing compliance tables.** `includes/rmm_bootstrap.php` only reads the compliance retention floors when the compliance tables exist (every check-in on a database without Core migration 0046 logged "compliance retention floors unavailable" every few minutes). New DB step 2.6.237 re-runs RivetCore's migrations (idempotent), so a database whose step 2.6.199 ran against an older Core now gets 0045 to 0048.
+
+- **Update script reloads the right PHP-FPM unit.** `deploy/update.sh` now tries `php<major.minor.patch>-fpm` (a PHP built from source, for example `php8.5.12-fpm`) before `php<major.minor>-fpm` and reloads whichever is running; before, a source build skipped the reload with a warning. New `tests/update_fpm_unit.php`. `deploy/harden.sh` picks its PHP-FPM unit the same way.
+
+
 ## [26.10.88] - 2026-11-16
 
 - **Clone for worksheet templates and ticket automation rules.** Worksheet Templates list: Clone in the row menu (copies the fields). Ticket Automation: a Clone button per rule; the copy starts disabled until you edit and enable it.
@@ -720,7 +768,6 @@ New integration, modelled on the Microsoft Intune one, for iPads and Android tab
 - **Tests**: `tests/manageengine_mdm_client.php`, `tests/manageengine_mdm_sync.php`, `tests/manageengine_mdm_web.php` against a local mock (`tests/mock/manageengine_mdm_mock.php`).
 - **Not verified**: it has not been run against a live ManageEngine tenant; the docs left several facts open (device-list paging parameters, `exclude_removed`, storage units, the accounts host of some data centers). They are listed in `docs/MANAGEENGINE_MDM.md`.
 
-
 ## [26.10.45] RivetIT — one Run script dialog, one Scripts area
 
 No database step. Fixes the asset page's **Run script** dialog, which listed only "PowerShell text" (the RivetCore script library was reachable only from a separate card on the Jobs tab, and Linux devices had no Run script at all), and merges the two script menus.
@@ -1080,7 +1127,6 @@ and the Go agent `endpoint-agent/` with its workflow were removed from this repo
   class names as forwards for their in-process helpers), plus `tests/endpoint_agent_golden.php`, `tests/endpoint_agent_module.php` and the Core adapter
   conformance kit for the eight adapters (`tests/core/Endpoint*ConformanceTest.php`).
 
-
 ## [26.10.26] RivetIT — built-in endpoint agent (beta) with a per-department installer, findings round-up, security fixes
 
 Database migrations 2.6.143 to 2.6.146 apply with **Update Database**. Requires rivet-core 1.0.0-rc.3 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this). The endpoint agent is **off by default** (Administration > Endpoint agent) and is a **beta**: the Windows agent builds, passes its tests and has been run end to end on Linux against a real server, but it has not yet run on a real Windows machine. Pilot it on one PC first. The agent exes are built by the `Endpoint agent` GitHub workflow and are unsigned.
@@ -1160,7 +1206,6 @@ product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
 
 - Icons that Font Awesome 5.15 does not have (for example the Job queue icon) are replaced; `tests/fa_icons.php` guards it.
 
-
 ### Webhooks: a guided four-step Add, a tabbed Edit, a clearer list
 
 - **Add webhook is a real stepper** (Platform, Connect, Events, Review & test) on its own page, with a progress bar, one focus per step, a sticky Continue / Back footer (Enter continues, Esc goes back), each step checked before you move on (inline messages, no error dump at the end) and a link per step (`webhook_new.php?dest=n8n&step=events`). The platform step is a compact searchable grid with category chips, a Popular row (n8n, Slack, Discord, Teams, ntfy, Home Assistant, Generic JSON) and a "Recently used" row remembered in this browser.
@@ -1190,7 +1235,6 @@ product decisions with how to reverse them: `docs/FINDINGS-DECISIONS.md`.
 ### Fixes
 
 - SLA warning/breach events now fire from cron (the emitter no longer needs a helper from the rule engine file); the server-status page reads the required database version from `includes/database_version.php`.
-
 
 Database migration 2.6.142 applies with **Update Database**. Requires rivet-core 0.21.0 (`composer install --no-dev`; the in-app Update and `deploy/update.sh` do this).
 
@@ -2558,7 +2602,6 @@ Training module is on.
 
 
 
-
 ## [25.10.1]
 - Deprecation Notice: `/scripts/cron_mail_queue.php` , `/scripts/cron_ticket_email_parser.php` , `/scripts/cron.php` `/scripts/cron_domain_refresher.php`, `/scripts/cron_certificate_refresher.php` are being phased out. Please transition to `/cron/mail_queue.php` , `/cron/ticket_email_parser.php`, `/cron/cron.php`, `/cron/domain_refresher.php`, `/cron/certificate_refresher.php` These older scripts will be removed in the November 25.11 release—update accordingly. 25.10.1 installs have the script already configured.
 
@@ -2619,7 +2662,6 @@ We will provide example code with directory structure for each custom directory 
 
 ### Other notes
 - Major releases will happen on the first week of every Month.
-
 
 ## [25.09.2]
 
@@ -2744,7 +2786,6 @@ We will provide example code with directory structure for each custom directory 
 - Replaced legacy code with newer functions like `redirect()`, `getFieldById()`, and `flash_alert()`.
 - Significantly improved performance of queries used for filter selection boxes.
 
-
 ## [25.06.1]
 
 ### Fixed
@@ -2786,7 +2827,6 @@ We will provide example code with directory structure for each custom directory 
 - Addressed multiple minor reported security vulnerabilities.
 - Tickets with open tasks are no longer resolved in bulk; a warning is shown along with a count of affected tickets.
 
-
 ## [25.05.1]
 
 ### Added / Changed
@@ -2797,7 +2837,6 @@ We will provide example code with directory structure for each custom directory 
 ### Fixed
 - Add Payment not showing in Invoice.
 - Updated Client Overview Entities to not show archived client's Entities even though the entity may not be archived.
-
 
 ## [25.05]
 
@@ -2824,7 +2863,6 @@ We will provide example code with directory structure for each custom directory 
 - Bump tinyMCE from 7.7.1 to 7.9.0.
 - Bump phpMailer from 6.9.2 to 6.10.0.
 - Bump stripe-php from 16.4.0 to 17.2.1.
-
 
 ### Fixed
 - "None" option for SMTP encryption now functions correctly.
@@ -2863,7 +2901,6 @@ We will provide example code with directory structure for each custom directory 
 - Add Purchase Reference to copy asset.
 - Add Link to asset details from the global search.
 - Fix Bulk assign ticket only showing contacts instead of ITFlow users.
-
 
 ## [25.03.3]
 

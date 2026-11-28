@@ -26,8 +26,11 @@ require_once "../includes/sla_functions.php";
 
 // Initialize the HTML Purifier to prevent XSS
 require_once "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'strict');
 $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting a non-existent directory or an invalid one
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
@@ -233,6 +236,11 @@ if (isset($_GET['ticket_id'])) {
         $vendor_sla = nullable_htmlentities($row['vendor_sla']);
         $vendor_code = nullable_htmlentities($row['vendor_code']);
         $vendor_notes = nullable_htmlentities($row['vendor_notes']);
+        // A central vendor on a department's ticket: the central-only / financial fields never reach the department page
+        // (includes/vendor_sharing.php). The vendor's own contact fields stay.
+        if ($vendor_id && intval($row['vendor_client_id'] ?? 0) === 0) {
+            $vendor_account_number = $vendor_code = $vendor_sla = $vendor_notes = '';
+        }
 
         $location_id = intval($row['location_id']);
         $location_name = nullable_htmlentities($row['location_name']);
@@ -360,22 +368,10 @@ if (isset($_GET['ticket_id'])) {
                 $initial_issue_reply_type = 'Client';
                 $initial_issue_reply_by   = $contact_id;
             } elseif (!$ticket_created_by && $client_id) {
-                // No specific contact captured (e.g. a ticket submitted via the API
-                // using the shared/legacy key, which doesn't send a contact_id) -
-                // fall back to the client's primary contact so this still shows a
-                // real, recognizable name instead of misattributing to whichever
-                // admin the legacy key happens to resolve to.
-                $primary_contact = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT contact_id FROM contacts WHERE contact_client_id = $client_id AND contact_archived_at IS NULL ORDER BY contact_primary DESC LIMIT 1"));
-                if ($primary_contact) {
-                    $initial_issue_reply_type = 'Client';
-                    $initial_issue_reply_by   = intval($primary_contact['contact_id']);
-                } else {
-                    // Client has no contacts on file at all - nothing real to
-                    // attribute to. The render loop below shows the client's name
-                    // instead of the generic "System" label for this specific row.
-                    $initial_issue_reply_type = 'Internal';
-                    $initial_issue_reply_by   = 0;
-                }
+                // No contact on the ticket (API/legacy key without a contact_id): do NOT guess one. Attribute the initial issue to nobody; the render loop below
+                // shows the client's name for this row instead of the generic "System" label.
+                $initial_issue_reply_type = 'Internal';
+                $initial_issue_reply_by   = 0;
             } else {
                 $initial_issue_reply_type = 'Internal';
                 $initial_issue_reply_by   = $ticket_created_by;
@@ -534,6 +530,12 @@ if (isset($_GET['ticket_id'])) {
                                     <a class="dropdown-item js-create-outtake" href="#" data-ticket-id="<?= $ticket_id ?>" data-client-id="<?= $client_id ?: 0 ?>" data-csrf-token="<?= $_SESSION['csrf_token'] ?>">
                                         <i class="fas fa-fw fa-file-signature me-2"></i>Add Outtake Form
                                     </a>
+                                    <?php // A packet for a new hire in this ticket's department; the ticket contact is usually the manager, so it is not passed as the person. ?>
+                                    <?php if ($client_id && itflow_modal_allowed('contact/contact_onboarding_packet.php')) { ?>
+                                    <a class="dropdown-item ajax-modal" href="#" data-modal-url="modals/contact/contact_onboarding_packet.php?ticket_id=<?= intval($ticket_id) ?>" data-modal-size="lg">
+                                        <i class="fas fa-fw fa-file-pdf me-2"></i>Onboarding Packet
+                                    </a>
+                                    <?php } ?>
                                 </div>
                             </div>
 

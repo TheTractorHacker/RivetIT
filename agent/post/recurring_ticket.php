@@ -18,6 +18,12 @@ if (isset($_POST['add_recurring_ticket'])) {
 
     enforceClientAccess();
 
+    // The contact / assets must belong to this department (same rule as tickets: the ids come straight from the form)
+    if (ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, 0, 0, array_map('intval', (array) ($_POST['additional_assets'] ?? [])))) {
+        flash_alert("That contact or asset does not belong to this department", 'error');
+        redirect();
+    }
+
     $start_date = sanitizeInput($_POST['start_date']);
 
     mysqli_query($mysqli, "INSERT INTO recurring_tickets SET recurring_ticket_subject = '$subject', recurring_ticket_details = '$details', recurring_ticket_priority = '$priority', recurring_ticket_frequency = '$frequency', recurring_ticket_billable = $billable, recurring_ticket_start_date = '$start_date', recurring_ticket_next_run = '$start_date', recurring_ticket_assigned_to = $assigned_to, recurring_ticket_created_by = $session_user_id, recurring_ticket_client_id = $client_id, recurring_ticket_contact_id = $contact_id, recurring_ticket_asset_id = $asset_id, recurring_ticket_category = $category_id");
@@ -54,6 +60,12 @@ if (isset($_POST['edit_recurring_ticket'])) {
     $client_id = intval(getFieldById('recurring_tickets', $recurring_ticket_id, 'recurring_ticket_client_id'));
 
     enforceClientAccess();
+
+    // The contact / assets must belong to this department (same rule as tickets: the ids come straight from the form)
+    if (ticketReferenceOutsideClient($client_id, $contact_id, $asset_id, 0, 0, array_map('intval', (array) ($_POST['additional_assets'] ?? [])))) {
+        flash_alert("That contact or asset does not belong to this department", 'error');
+        redirect();
+    }
 
     mysqli_query($mysqli, "UPDATE recurring_tickets SET recurring_ticket_subject = '$subject', recurring_ticket_details = '$details', recurring_ticket_priority = '$priority', recurring_ticket_frequency = '$frequency', recurring_ticket_billable = $billable, recurring_ticket_next_run = '$next_run_date', recurring_ticket_assigned_to = $assigned_to, recurring_ticket_asset_id = $asset_id, recurring_ticket_contact_id = $contact_id, recurring_ticket_category = $category_id WHERE recurring_ticket_id = $recurring_ticket_id");
 

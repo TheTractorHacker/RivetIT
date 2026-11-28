@@ -468,20 +468,20 @@ if (isset($_GET['asset_id'])) {
                             || $rmm_link['rmm_needs_reboot'] || $rmm_link['rmm_maintenance_mode'] || $rmm_link['rmm_patches_pending']);
                         $rmm_meter = function ($label, $val) {
                             if ($val === null || $val === '') return '';
-                            $val = intval($val);
+                            $val = max(0, min(100, intval($val)));
                             $col = $val >= 90 ? 'danger' : ($val >= 75 ? 'warning' : 'success');
-                            return "<span class='me-3' style='white-space:nowrap'><span class='text-muted'>$label</span> <span class='badge badge-$col'>$val%</span></span>";
+                            return "<div class='dev-meter dev-meter-$col'><span class='dev-meter-label'>$label</span><span class='dev-meter-val'>$val%</span><span class='dev-meter-bar'><i style='width:$val%'></i></span></div>";
                         };
                         if ($rmm_has_health): ?>
-                        <div class="mt-2 small d-flex flex-wrap align-items-center">
+                        <div class="dev-health">
                             <?= $rmm_meter('CPU', $hcpu) ?>
                             <?= $rmm_meter('RAM', $hram) ?>
                             <?= $rmm_meter('Disk', $hdisk) ?>
-                            <?php if ($rmm_link['rmm_needs_reboot']): ?><span class="badge text-bg-warning me-2"><i class="fas fa-power-off me-1"></i>Reboot required</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_maintenance_mode']): ?><span class="badge text-bg-info me-2"><i class="fas fa-tools me-1"></i>Maintenance</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_patches_pending']): ?><span class="badge text-bg-secondary me-2"><i class="fas fa-download me-1"></i>Updates pending</span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_last_boot']): ?><span class="text-muted me-2" style="font-size:10px"><i class="fas fa-clock me-1"></i>Booted <?= nullable_htmlentities(substr($rmm_link['rmm_last_boot'], 0, 16)) ?></span><?php endif; ?>
-                            <?php if ($rmm_link['rmm_health_updated_at']): ?><span class="text-muted" style="font-size:10px">as of <?= nullable_htmlentities(substr($rmm_link['rmm_health_updated_at'], 0, 16)) ?></span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_needs_reboot']): ?><span class="badge text-bg-warning"><i class="fas fa-power-off me-1"></i>Reboot required</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_maintenance_mode']): ?><span class="badge text-bg-info"><i class="fas fa-tools me-1"></i>Maintenance</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_patches_pending']): ?><span class="badge text-bg-secondary"><i class="fas fa-download me-1"></i>Updates pending</span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_last_boot']): ?><span class="dev-health-note"><i class="fas fa-clock me-1"></i>Booted <?= nullable_htmlentities(substr($rmm_link['rmm_last_boot'], 0, 16)) ?></span><?php endif; ?>
+                            <?php if ($rmm_link['rmm_health_updated_at']): ?><span class="dev-health-note">as of <?= nullable_htmlentities(substr($rmm_link['rmm_health_updated_at'], 0, 16)) ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -799,6 +799,48 @@ if (isset($_GET['asset_id'])) {
                 </div>
                 <?php endif; ?>
 
+
+                <?php
+                // Network: the address this device reaches the internet from (RMM / agent), compared with the location's WAN IP, plus its LAN IP.
+                $asset_public = \ITFlow\Assets\PublicIp::forAsset($mysqli, $asset_id);
+                $net_lan = (!empty($asset_ip) && filter_var(html_entity_decode((string) $asset_ip), FILTER_VALIDATE_IP)) ? $asset_ip : '';
+                if ($asset_public || $net_lan) {
+                    $net_loc_wan = [];
+                    $net_loc = mysqli_fetch_assoc(mysqli_query($mysqli, "SELECT l.location_wan_ip FROM assets a JOIN locations l ON l.location_id = a.asset_location_id WHERE a.asset_id = $asset_id"));
+                    if ($net_loc) { $net_loc_wan = \ITFlow\Assets\PublicIp::parseList((string) ($net_loc['location_wan_ip'] ?? '')); }
+                ?>
+                <div class="card card-dark">
+                    <div class="card-header">
+                        <h5 class="card-title">Network</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($asset_public) { $net_pub = nullable_htmlentities($asset_public['ip']); ?>
+                            <div class="text-muted small text-uppercase" style="letter-spacing:.4px"><i class="fa fa-fw fa-globe me-1"></i>Public (WAN) IP</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <code class="fs-5 user-select-all"><?= $net_pub ?></code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 net-copy" data-copy="<?= $net_pub ?>" title="Copy" aria-label="Copy public IP"><i class="fa fa-fw fa-copy"></i></button>
+                            </div>
+                            <div class="small text-muted mt-1">Reported by <?= $asset_public['source'] === 'agent' ? 'the RivetIT agent' : 'the RMM' ?>.
+                            <?php if ($net_loc_wan) {
+                                if (in_array($asset_public['ip'], $net_loc_wan, true)) { ?>
+                                    <span class="text-success"><i class="fa fa-fw fa-check-circle"></i>Matches the location's WAN IP.</span>
+                                <?php } else { ?>
+                                    <span class="text-warning"><i class="fa fa-fw fa-exclamation-triangle"></i>Not the location's WAN IP (<?= nullable_htmlentities(implode(', ', $net_loc_wan)) ?>).</span>
+                                <?php }
+                            } ?></div>
+                        <?php } ?>
+                        <?php if ($net_lan) { ?>
+                            <div class="text-muted small text-uppercase<?= $asset_public ? ' mt-3' : '' ?>" style="letter-spacing:.4px"><i class="fa fa-fw fa-network-wired me-1"></i>LAN IP</div>
+                            <code class="user-select-all"><?= $net_lan ?></code>
+                        <?php } ?>
+                    </div>
+                <script nonce="<?= htmlspecialchars($csp_nonce ?? '', ENT_QUOTES) ?>">
+                document.querySelectorAll('.net-copy').forEach(function (b) {
+                    b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.copy); b.innerHTML = '<i class="fa fa-fw fa-check"></i>'; });
+                });
+                </script>
+                </div>
+                <?php } ?>
 
                 <div class="card card-dark">
                     <div class="card-header">
@@ -2089,8 +2131,6 @@ if (isset($_GET['asset_id'])) {
             </div>
 
         </div><!-- /#asset-details-content -->
-
-        <?php $rel_type = 'asset'; $rel_id = $asset_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
 
         <?php
 

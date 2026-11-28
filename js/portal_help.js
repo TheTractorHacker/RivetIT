@@ -49,7 +49,7 @@
             cat.forEach(function (c) { add(panel, 'fa-concierge-bell', c.name, c.description, c.url); });
         }
         panel.appendChild(el('div', 'ph-section', kb.length || cat.length ? 'Still stuck?' : 'No ready answer found'));
-        add(panel, 'fa-ticket-alt', 'Raise a ticket: “' + q + '”', 'Opens the form with this as the subject', ticketUrl(q), 'ph-raise');
+        add(panel, 'fa-ticket-alt', 'Submit a ticket: “' + q + '”', 'Opens the form with this as the subject', ticketUrl(q), 'ph-raise');
         panel.hidden = false; input.setAttribute('aria-expanded', 'true');
         setActive(0);
     }

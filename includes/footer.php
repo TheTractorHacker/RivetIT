@@ -143,6 +143,11 @@ if (!empty($rmm_ui_scripts)) {
     $__rmm_js = __DIR__ . '/../js/rmm_panel.js';
     echo '<script src="/js/rmm_panel.js?v=' . (file_exists($__rmm_js) ? filemtime($__rmm_js) : time()) . '" defer></script>' . "\n";
 }
+// js/rmm_device_move.js ("Move to Department", RivetCore 1.0.0-rc.60): the asset page's RMM panel draws the button, so it loads with the panel script.
+if (!empty($rmm_ui_scripts) || !empty($rmm_move_scripts)) {
+    $__rmm_move_js = __DIR__ . '/../js/rmm_device_move.js';
+    echo '<script src="/js/rmm_device_move.js?v=' . (file_exists($__rmm_move_js) ? filemtime($__rmm_move_js) : time()) . '" defer></script>' . "\n";
+}
 // js/rmm_launch.js (opening a remote session in a tab opened inside the click): the pages that launch one (the asset panel, the agent device page, the Remote tab, the
 // legacy asset page) all load it before their own script. Pages that do not launch a session never request it.
 if (!empty($rmm_ui_scripts) || !empty($rmm_rem_scripts) || !empty($rmm_launch_scripts)) {

@@ -186,7 +186,7 @@ function initContactSearchSelect() {
                 function (data) {
                     let response;
                     try {
-                        response = JSON.parse(data);
+                        response = (typeof data === "string" ? JSON.parse(data) : data);
                     } catch (e) {
                         callback();
                         return;
@@ -271,7 +271,7 @@ function populateContactsDropdown(client_id) {
         function(data) {
 
             // If we get a response from ajax.php, parse it as JSON
-            const response = JSON.parse(data);
+            const response = (typeof data === "string" ? JSON.parse(data) : data);
 
             // Access the data for contacts (multiple)
             const contacts = response.contacts || [];
@@ -300,7 +300,7 @@ function populateAssetsDropdown(client_id) {
         function(data) {
 
             // If we get a response from ajax.php, parse it as JSON
-            const response = JSON.parse(data);
+            const response = (typeof data === "string" ? JSON.parse(data) : data);
 
             // Access the data for assets (multiple)
             const assets = response.assets || [];
@@ -327,7 +327,7 @@ function populateLocationsDropdown(client_id) {
         function(data) {
 
             // If we get a response from ajax.php, parse it as JSON
-            const response = JSON.parse(data);
+            const response = (typeof data === "string" ? JSON.parse(data) : data);
 
             // Access the data for locations (multiple)
             const locations = response.locations || [];
@@ -348,7 +348,7 @@ function populateVendorsDropdown(client_id) {
         function(data) {
 
             // If we get a response from ajax.php, parse it as JSON
-            const response = JSON.parse(data);
+            const response = (typeof data === "string" ? JSON.parse(data) : data);
 
             // Access the data for vendors (multiple)
             const vendors = response.vendors || [];

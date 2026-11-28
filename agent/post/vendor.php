@@ -79,6 +79,11 @@ if (isset($_POST['add_vendor'])) {
 
     $vendor_id = mysqli_insert_id($mysqli);
 
+    // "Available to all departments": central vendors only (vendor_client_id = 0); audited (includes/vendor_sharing.php)
+    if ($client_id === 0 && !empty($_POST['vendor_shared'])) {
+        vendorSetShared($mysqli, intval($vendor_id), true, intval($session_user_id), (string) $session_name);
+    }
+
     logAction("Vendor", "Create", "$session_name created vendor $name", $client_id, $vendor_id);
 
     flash_alert("Vendor <strong>" . htmlspecialchars(stripslashes($name)) . "</strong> created");
@@ -108,6 +113,11 @@ if (isset($_POST['edit_vendor'])) {
     }
 
     mysqli_query($mysqli,"UPDATE vendors SET vendor_name = '$name', vendor_description = '$description', vendor_contact_name = '$contact_name', vendor_phone_country_code = '$phone_country_code', vendor_phone = '$phone', vendor_extension = '$extension', vendor_email = '$email', vendor_website = '$website', vendor_hours = '$hours', vendor_sla = '$sla', vendor_code = '$code',vendor_account_number = '$account_number', vendor_notes = '$notes', vendor_template_id = $vendor_template_id WHERE vendor_id = $vendor_id");
+
+    // "Available to all departments": central vendors only. The checkbox is only on the central form, so a post without it means unticked.
+    if ($client_id === 0) {
+        vendorSetShared($mysqli, $vendor_id, !empty($_POST['vendor_shared']), intval($session_user_id), (string) $session_name);
+    }
 
     logAction("Vendor", "Edit", "$session_name edited vendor $name", $client_id, $vendor_id);
 

@@ -51,7 +51,7 @@ new TomSelect(contactSelectEl, {
             function (data) {
                 let response;
                 try {
-                    response = JSON.parse(data);
+                    response = (typeof data === "string" ? JSON.parse(data) : data);
                 } catch (e) {
                     callback();
                     return;

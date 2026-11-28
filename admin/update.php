@@ -252,7 +252,7 @@ $changelog_link = APP_CHANGELOG_URL !== ''
                     A VM snapshot is the safest rollback if you can take one.
                 </p>
 
-                <label class="alert alert-secondary upd-backup mb-0 d-flex align-items-start gap-2" for="updBackup">
+                <label class="alert alert-secondary upd-backup mb-0 d-flex flex-nowrap align-items-start gap-2" for="updBackup">
                     <input type="checkbox" class="form-check-input mt-1 flex-shrink-0" id="updBackup" checked>
                     <span class="min-w-0">
                         <strong>Back up first</strong> <span class="badge text-bg-success ms-1">Recommended</span>

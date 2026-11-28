@@ -24,6 +24,9 @@ if (isset($_POST['add_asset'])) {
 
     enforceClientAccess();
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    enforceVendorAssignable($vendor, $client_id);
+
     $alert_extended = "";
 
     mysqli_query($mysqli,"INSERT INTO assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id");
@@ -133,6 +136,8 @@ if (isset($_POST['edit_asset'])) {
     }
 
     $old_primary_vendor = intval(getFieldById('assets', $asset_id, 'asset_vendor_id'));
+    // Leaving the vendor as it is always saves (history, a vendor since un-shared); a changed vendor must be assignable to the final department.
+    enforceVendorAssignable($vendor, $client_id, $client_id === $original_client_id ? $old_primary_vendor : 0);
     mysqli_query($mysqli,"UPDATE assets SET asset_name = '$name', asset_tag = '$asset_tag', asset_description = '$description', asset_type = '$type', asset_make = '$make', asset_model = '$model', asset_serial = '$serial', asset_pin = '$pin', asset_os = '$os', asset_uri = '$uri', asset_uri_2 = '$uri_2', asset_uri_client = '$uri_client', asset_anydesk_id = '$anydesk_id', asset_location_id = $location, asset_vendor_id = $vendor, asset_contact_id = $contact, asset_status = '$status', asset_purchase_reference = '$purchase_reference', asset_purchase_date = $purchase_date, asset_warranty_expire = $warranty_expire, asset_install_date = $install_date, asset_physical_location = '$physical_location', asset_notes = '$notes', asset_favorite = $favorite, asset_client_id = $client_id WHERE asset_id = $asset_id");
     (new \ITFlow\Links\VendorRoles($mysqli))->mirrorPrimary('asset', $asset_id, $old_primary_vendor);
     if ($client_id !== $original_client_id) {
@@ -430,6 +435,22 @@ if (isset($_POST['bulk_transfer_client_asset'])) {
     // Transfer selected asset to new client
     if (isset($_POST['asset_ids'])) {
 
+        // RivetCore 1.0.0-rc.60: an asset that has an endpoint device (agent) is NOT copied and archived: the copy would be a new asset and the device would stay linked to the
+        // archived original, its agent state orphaned in the old department. Each such asset goes through TechnicianActions::transfer() (rmm.device.manage on the old and the new
+        // department, checked by Core), which moves the device and the asset together and keeps the agent's credential. Assets without a device take the path below, unchanged.
+        require_once dirname(__DIR__, 2) . '/includes/rmm_device_actions.php';
+        $device_asset_ids = array_values(array_filter(array_map('intval', (array) $_POST['asset_ids']), static fn (int $i): bool => $i > 0));
+        $device_move = rivetRmmBulkTransferAssets($mysqli, rivetRmmModule($mysqli), rivetRmmPrincipal((int) $session_user_id, (string) $session_name), $device_asset_ids, $new_client_id);
+        $new_client_name = sanitizeInput(getFieldById('clients', $new_client_id, 'client_name'));
+        foreach ($device_move['moved'] as $moved_dev) {
+            $moved_name = sanitizeInput(getFieldById('assets', $moved_dev['asset_id'], 'asset_name'));
+            if ($moved_dev['from_client_id'] !== $new_client_id) {
+                moveAssetPhotoToClient($moved_dev['asset_id'], $moved_dev['from_client_id'], $new_client_id);
+                logAction("Asset", "Transfer", "$session_name moved asset $moved_name (with its endpoint agent) to department $new_client_name", $new_client_id, $moved_dev['asset_id']);
+            }
+        }
+        $_POST['asset_ids'] = $device_move['without_device'];
+
         // Get Count
         $asset_count = count($_POST['asset_ids']);
 
@@ -498,9 +519,26 @@ if (isset($_POST['bulk_transfer_client_asset'])) {
 
         } // End Transfer to Client Loop
 
-        logAction("Asset", "Bulk Transfer", "$session_name transferred $asset_count assets to $new_client_name", $new_client_id);
+        if ($asset_count > 0) {
+            logAction("Asset", "Bulk Transfer", "$session_name transferred $asset_count assets to $new_client_name", $new_client_id);
+            flash_alert("Transferred <strong>$asset_count</strong> assets to <strong>$new_client_name</strong>.");
+        }
 
-        flash_alert("Transferred <strong>$asset_count</strong> assets to <strong>$new_client_name</strong>.");
+        if ($device_move['moved'] || $device_move['refused']) {
+            $moved_n = count($device_move['moved']);
+            logAction("Asset", "Bulk Transfer", "$session_name moved $moved_n assets with an endpoint agent to $new_client_name; " . count($device_move['refused']) . " refused", $new_client_id);
+            if ($moved_n > 0) {
+                flash_alert("Moved <strong>$moved_n</strong> computers with an agent to <strong>$new_client_name</strong> (agent, history and asset together).");
+            }
+            if ($device_move['refused']) {
+                $refused_lines = [];
+                foreach ($device_move['refused'] as $refused) {
+                    $refused_name = nullable_htmlentities((string) getFieldById('assets', $refused['asset_id'], 'asset_name', 'raw'));
+                    $refused_lines[] = "<strong>$refused_name</strong>: " . nullable_htmlentities($refused['reason']);
+                }
+                flash_alert("Not moved (" . count($refused_lines) . "): " . implode('; ', $refused_lines), 'error');
+            }
+        }
     }
 
     redirect();
@@ -529,16 +567,28 @@ if (isset($_POST['bulk_assign_asset_contact'])) {
         // Get Selected Contacts Count
         $asset_count = count($_POST['asset_ids']);
 
+        // Validate EVERY asset first (access + same department as the contact), only then update any of them,
+        // so a mismatch part-way through never leaves a half-applied change.
+        $valid_assets = [];
         foreach($_POST['asset_ids'] as $asset_id) {
             $asset_id = intval($asset_id);
 
-            // Get Asset Details for Logging
             $sql = mysqli_query($mysqli,"SELECT asset_name, asset_client_id FROM assets WHERE asset_id = $asset_id");
             $row = mysqli_fetch_assoc($sql);
-            $asset_name = sanitizeInput($row['asset_name']);
-            $asset_client_id = intval($row['asset_client_id']);
+            $asset_client_id = intval($row['asset_client_id'] ?? 0);
 
             enforceClientAccess($asset_client_id);
+
+            // The contact must belong to the same department as the asset (no cross-department assignment)
+            if (!$row || $asset_client_id !== $client_id) {
+                flash_alert("Asset #$asset_id is not in the contact's department - nothing was changed", 'error');
+                redirect();
+            }
+
+            $valid_assets[$asset_id] = sanitizeInput($row['asset_name']);
+        }
+
+        foreach($valid_assets as $asset_id => $asset_name) {
 
             mysqli_query($mysqli,"UPDATE assets SET asset_contact_id = $contact_id WHERE asset_id = $asset_id");
 

@@ -15,8 +15,11 @@ enforceUserPermission('module_support');
 
 //Initialize the HTML Purifier to prevent XSS
 require "../plugins/htmlpurifier/HTMLPurifier.standalone.php";
+require_once "../plugins/htmlpurifier/rivet_html_policy.php";
 
 $purifier_config = HTMLPurifier_Config::createDefault();
+
+rivet_html_policy_apply($purifier_config, 'rich');
 $purifier_config->set('Cache.DefinitionImpl', null); // Disable cache by setting a non-existent directory or an invalid one
 $purifier_config->set('URI.AllowedSchemes', ['data' => true, 'src' => true, 'http' => true, 'https' => true]);
 $purifier = new HTMLPurifier($purifier_config);
@@ -450,7 +453,6 @@ $page_title = $row['document_name'];
 
 </div>
 
-<?php $rel_type = 'document'; $rel_id = $document_id; require __DIR__ . '/../includes/relationships_card.php'; ?>
 
 <script src="../js/pretty_content.js"></script>
 

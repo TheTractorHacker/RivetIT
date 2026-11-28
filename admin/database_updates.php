@@ -13095,3 +13095,90 @@ if (version_compare(LATEST_DATABASE_VERSION, CURRENT_DATABASE_VERSION, '>')) {
         }
         mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.236'");
     }
+
+    if ($rivetit_db_version() == '2.6.236') {
+        // DB 2.6.237: re-run RivetCore's migrations (idempotent). Step 2.6.199 ran CoreMigrations::all() once, against the Core version installed THEN;
+        // a database that took that step before Core 1.0.0-rc.45 to rc.57 were installed never got 0045 to 0048 (compliance framework profiles,
+        // reporting views, audit chain tables) even though the DB version moved on, and its agent check-ins logged "compliance retention floors
+        // unavailable" every few minutes. All additive; the audit chain tables stay unused (RivetIT keeps its own sealed chain).
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.237'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.237') {
+        // DB 2.6.238: parked ticket statuses (RivetCore docs/design/parked-ticket-statuses.md). Additive and idempotent.
+        // ticket_statuses.ticket_status_parked  1 = tickets in this status stay unresolved but are hidden from dashboards, the default
+        //                                        ticket list / board, the open-ticket counts and overdue / breach alerts. Default 0.
+        // It is ticked ONCE, for the status named exactly 'On Hold' (never the "Waiting on ..." ones, which still need follow-up), and only
+        // when this step adds the column: after that only an administrator changes it, and a re-run never overrides their choice.
+        $parked_new = mysqli_num_rows(mysqli_query($mysqli, "SHOW COLUMNS FROM `ticket_statuses` LIKE 'ticket_status_parked'")) === 0;
+        mysqli_query($mysqli, "ALTER TABLE `ticket_statuses` ADD COLUMN IF NOT EXISTS `ticket_status_parked` tinyint(1) NOT NULL DEFAULT 0");
+        if ($parked_new) {
+            mysqli_query($mysqli, "UPDATE `ticket_statuses` SET `ticket_status_parked` = 1 WHERE `ticket_status_name` = 'On Hold'");
+        }
+        // rpt_tickets gains a trailing is_parked column (is_open keeps its meaning). CREATE OR REPLACE, nothing else changes.
+        try {
+            $rpt = \ITFlow\Reporting\EditionViews::install($mysqli);
+            foreach ($rpt['errors'] as $rpt_error) {
+                error_log('DB 2.6.238 reporting view not created: ' . $rpt_error);
+            }
+        } catch (\Throwable $e) {
+            error_log('DB 2.6.238 reporting views: ' . get_class($e) . ': ' . $e->getMessage());
+        }
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.238'");
+    }
+
+    if ($rivetit_db_version() == '2.6.238') {
+        // DB 2.6.239: RivetCore 1.0.0-rc.60. Re-runs CoreMigrations::all() (idempotent) to pick up 0049 (rc.59: endpoint_agent_installer_options.managed_externally,
+        // the "managed by another RMM" installer option). One additive column; no existing token or device changes, nothing is switched on.
+        if (class_exists(\RivetCore\Migration\MigrationRunner::class)) {
+            (new \RivetCore\Migration\MigrationRunner(
+                new \ITFlow\Core\Adapter\Database\MysqliDatabaseAdapter($mysqli),
+                \RivetCore\Migration\CoreMigrations::all(),
+                new \RivetCore\Support\SystemClock()
+            ))->run();
+            mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.239'");
+        }
+    }
+
+    if ($rivetit_db_version() == '2.6.239') {
+        // DB 2.6.240: shared central vendors. vendors.vendor_shared = 1 on a central vendor (vendor_client_id = 0) offers it to every department
+        // (pickers, Vendors tab read-only). Meaningful only for central vendors; every existing vendor stays unshared (default 0). Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `vendors` ADD COLUMN IF NOT EXISTS `vendor_shared` tinyint(1) NOT NULL DEFAULT 0");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.240'");
+    }
+
+    if ($rivetit_db_version() == '2.6.240') {
+        // DB 2.6.241: editable Onboarding Packet template (Administration > Templates). settings.config_onboarding_packet_template holds a JSON object of
+        // the packet's wording; NULL = built-in defaults, so nothing changes until an administrator edits it. Additive and idempotent.
+        mysqli_query($mysqli, "ALTER TABLE `settings` ADD COLUMN IF NOT EXISTS `config_onboarding_packet_template` text DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.241'");
+    }
+
+    if ($rivetit_db_version() == '2.6.241') {
+        // DB 2.6.242: IT department details next to Company Details (Administration > Settings > IT department details): who people contact for IT help.
+        // Four optional text columns on the companies row (name, phone, email, hours); empty = not set, nothing changes until an administrator fills them in.
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_name` varchar(100) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_phone` varchar(40) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_email` varchar(200) DEFAULT NULL");
+        mysqli_query($mysqli, "ALTER TABLE `companies` ADD COLUMN IF NOT EXISTS `company_it_hours` varchar(200) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.242'");
+    }
+
+    if ($rivetit_db_version() == '2.6.242') {
+        // DB 2.6.243: WAN IP address(es) on locations (the site's public internet address, with room for a backup line). Optional text; empty = not set.
+        mysqli_query($mysqli, "ALTER TABLE `locations` ADD COLUMN IF NOT EXISTS `location_wan_ip` varchar(255) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.243'");
+    }
+
+    if ($rivetit_db_version() == '2.6.243') {
+        // DB 2.6.244: the public (WAN) IP an RMM device reports (Tactical sends public_ip), shown on the asset and compared with the location's WAN IP.
+        mysqli_query($mysqli, "ALTER TABLE `assets` ADD COLUMN IF NOT EXISTS `asset_public_ip` varchar(64) DEFAULT NULL");
+        mysqli_query($mysqli, "UPDATE `settings` SET `config_current_database_version` = '2.6.244'");
+    }

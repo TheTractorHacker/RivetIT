@@ -69,6 +69,12 @@ $push_device_count = intval(mysqli_fetch_assoc($sql_push_devices)['cnt']);
                 <i class="fas fa-check-double me-1"></i>Dismiss All
             </a>
             <?php } ?>
+            <?php if ($dismissed_filter && $num_rows[0] > 0) { ?>
+            <a href="post.php?clear_dismissed_notifications&csrf_token=<?= $_SESSION['csrf_token'] ?>"
+               class="btn btn-sm btn-outline-danger confirm-link" title="Delete all dismissed notifications" data-confirm="Permanently delete all your dismissed notifications? This cannot be undone.">
+                <i class="fas fa-trash-alt me-1"></i>Clear all dismissed
+            </a>
+            <?php } ?>
             <?php if ($dismissed_filter) { ?>
             <a href="notifications.php" class="btn btn-sm btn-primary"><i class="fas fa-bell me-1"></i>Active</a>
             <?php } else { ?>

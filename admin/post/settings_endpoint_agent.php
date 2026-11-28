@@ -8,6 +8,7 @@ defined('FROM_POST_HANDLER') || die("Direct file access is not allowed");
  * settings, binaries, releases, installers and signing key, TechnicianActions for devices and enrollment tokens.
  */
 
+require_once dirname(__DIR__, 2) . '/includes/rmm_device_actions.php';   // rc.60: rivetRmmManagedExternallyPosted()
 require_once dirname(__DIR__, 2) . '/includes/rmm_bootstrap.php';
 require_once dirname(__DIR__, 2) . '/includes/rmm_check_schedule.php';
 require_once dirname(__DIR__, 2) . '/includes/rmm_mesh_cards.php';   // RIVET_RMM_MESH_PLATFORMS (26.10.53)
@@ -835,7 +836,8 @@ if (isset($_POST['download_installer']) || isset($_POST['show_deploy_commands'])
         ea_flash_result(ActionResult::fail(422, 'invalid', 'Choose the installer format: exe or msi.'));
     }
     $args = [intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'), ea_post_int('ttl_hours', 1, 720, 72),
-        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, ($_POST['install_mesh_agent'] ?? '') === '1', $format];   // last two: also install the MeshCentral agent (rc.12), the installer format (rc.16)
+        ea_post_int('max_uses', 1, 5000, 25), trim((string) ($_POST['label'] ?? '')), $arch, ($_POST['install_mesh_agent'] ?? '') === '1', $format,   // also install the MeshCentral agent (rc.12), the installer format (rc.16)
+        [], 'auto', rivetRmmManagedExternallyPosted($_POST)];   // no catalog apps, automatic device type; last: "managed by another RMM" (rc.59, off unless ticked)
     if (isset($_POST['show_deploy_commands'])) {
         $r = $ea_admin->deploymentCommands($ea_who, ...$args);
         if (!$r->ok) {
@@ -875,7 +877,7 @@ if (isset($_POST['rotate_signing_key'])) {
 if (isset($_POST['create_enroll_token'])) {
     validateCSRFToken($_POST['csrf_token']);
     $r = $ea_tech->createToken($ea_who, intval($_POST['client_id'] ?? 0), intval($_POST['location_id'] ?? 0), (string) ($_POST['ring'] ?? 'stable'),
-        ea_post_int('ttl_hours', 1, 720, 24), ea_post_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')));
+        ea_post_int('ttl_hours', 1, 720, 24), ea_post_int('max_uses', 1, 5000, 1), trim((string) ($_POST['label'] ?? '')), rivetRmmManagedExternallyPosted($_POST));
     if ($r->ok) {
         $_SESSION['ea_new_token'] = ['token' => $r->data['token'], 'id' => $r->data['token_id']];   // shown once, on the next page load
     }

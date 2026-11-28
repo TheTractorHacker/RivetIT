@@ -24,6 +24,7 @@ $vendor_sla = nullable_htmlentities($row['vendor_sla']);
 $vendor_code = nullable_htmlentities($row['vendor_code']);
 $vendor_notes = nullable_htmlentities($row['vendor_notes']);
 $vendor_template_id = intval($row['vendor_template_id']);
+$vendor_shared = !empty($row['vendor_shared']);
 
 // Generate the HTML form content using output buffering.
 ob_start();
@@ -209,8 +210,11 @@ ob_start();
 
         </div>
 
+        <?php echo vendorSharedCheckboxHtml($client_id, $vendor_shared); ?>
+
     </div>
     <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary me-auto ajax-modal" data-modal-url="modals/relationships/relationships.php?type=vendor&id=<?php echo $vendor_id; ?>"><i class="fas fa-fw fa-project-diagram me-2"></i>Relationships</button>
         <button type="submit" name="edit_vendor" class="btn btn-primary text-bold"><i class="fas fa-check me-2"></i>Save</button>
         <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-2"></i>Cancel</button>
     </div>

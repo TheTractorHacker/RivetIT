@@ -513,6 +513,23 @@ sudo /path/to/app/deploy/setup-build-host.sh --uninstall [--purge-docker]
 
 **Linux enrollment.** Core's `DeviceValidator` admits `os=linux` only when the edition passes `allow_linux`. `includes/rmm_bootstrap.php` now passes the administrator's switch "Allow Linux devices to enroll" (Overview tab, `platform_settings.rmm_allow_linux`, default on, read once per request with the module; audit entries "Linux Enrollment Allowed" / "Linux Enrollment Blocked") OR the config.php constant `EA_ALLOW_NON_WINDOWS = true` (an override that forces it on). Off refuses a new Linux device with Core's existing 422 `device.os is invalid`; enrolled Linux devices keep working. Test: `tests/rmm_rc25_linux.php` (run with `EA_TEST_NO_FORCE=1` so the scratch config does not force the constant).
 
+## 26. Linux fleet page (no database change)
+
+**Where.** RMM > Patching & software > Linux fleet (`agent/rmm_linux_fleet.php`, data in `includes/rmm_linux_fleet.php`). It needs the RMM module and the
+`patching` sub-switch, and what a viewer sees follows the abilities and department scope Core applies to the signed-in user. It is read-only: it starts no job, approves nothing and
+changes no device.
+
+**What it shows.** One row per Linux server and a card per cluster. A cluster is an RMM group; a server in no group is listed under "Ungrouped". The page reads at most 60 servers per
+view, servers that are not online first; devices past that are marked "not loaded" in their cluster, left out of the totals, and a warning says how many (choose a group in the
+filter to see them). Per server: online state, pending updates, restart pending, last scan, failing checks, a PostgreSQL column and a Why column that names the reasons
+(including overdue critical and security updates).
+
+**What Healthy means.** A server is healthy when it is online, has been scanned at least once, has no overdue critical or security update, has no failing check, and its PostgreSQL check passes where one is
+deployed. A restart pending is not healthy: it is shown as needs attention. A cluster is healthy only when every server in it is. The PostgreSQL column comes from any
+device check whose key contains `postgres` or `pg_`; a script for it is in `docs/rmm/POSTGRES_CHECK.md`.
+
+**Not proven / not included.** Only apt scanning has been proven on real servers; dnf, yum and zypper results are unverified. RivetMSP does not have the page yet.
+
 ## Running behind a WAF (Cloudflare managed rules, ModSecurity / OWASP CRS)
 
 Agent traffic is script and command text by design, so a generic WAF reads it as an attack. Seen in practice on Cloudflare (log action "would block"):

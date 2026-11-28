@@ -16,6 +16,8 @@ if (defined('FROM_POST_HANDLER')) return;
  *   The Linux answer (RivetIT 26.10.52) is a self-contained command when the Linux files of an agent release are recorded (Administration > Endpoint agent > Agent updates): it downloads
  *   install-linux.sh and the agent, checks both against the SHA-256 recorded on this server and installs; otherwise Core's own text (unpack the tarball first). It also lists the packages.
  *
+ *   All three take the optional managed_externally=1 ("Managed by another RMM", off by default, RivetCore rc.59/rc.60): the trailing bool of the Core calls.
+ *
  * POST with the session CSRF token only. Hiding the button is cosmetic; every decision is Core's.
  */
 
@@ -26,6 +28,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_global_settings.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/load_user_session.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php';
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_installer.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_device_actions.php';
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
@@ -141,6 +144,9 @@ if ($deviceType === '') {
     $deviceType = 'auto';
 }
 $args[] = $deviceType;
+// RivetCore 1.0.0-rc.60: the "Managed by another RMM" tick-box, the new optional LAST argument of RmmAdmin::downloadInstaller() / deploymentCommands() (and createToken() on the Linux
+// fallback). Off unless the form sent exactly "1"; the machines enrolled with the token start with Core automation off. Core stores it by token, never in the installer file.
+$args[] = rivetRmmManagedExternallyPosted($_POST);
 require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
 
 /**
@@ -151,7 +157,7 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/rmm_agent_feed.php';
  */
 function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm\Authz\RmmPrincipal $who, \mysqli $mysqli, array $args, string $actor)
 {
-    [$clientId, $locationId, $ring, $ttl, $uses, $label, $arch, $mesh, $appIds, $deviceType] = $args;
+    [$clientId, $locationId, $ring, $ttl, $uses, $label, $arch, $mesh, $appIds, $deviceType, $managedExternally] = $args;
     $summary = $rmm->readModel()->settingsSummary();
     if ($summary['service_base'] === null) {
         return 'Set the service URL to an https:// address first.';
@@ -178,7 +184,7 @@ function inst_linux_without_binary(\RivetCore\Rmm\RmmModule $rmm, \RivetCore\Rmm
     if ($deviceType !== 'auto' && !\RivetCore\Rmm\Assets\DeviceTypeClassifier::validLabel($deviceType)) {
         return 'Choose a device type from the list, or leave it on automatic detection.';
     }
-    $t = $rmm->technician()->createToken($who, $clientId, $locationId, $ring, $ttl, $uses, $label !== '' ? $label : 'Linux install ' . bin2hex(random_bytes(3)));
+    $t = $rmm->technician()->createToken($who, $clientId, $locationId, $ring, $ttl, $uses, $label !== '' ? $label : 'Linux install ' . bin2hex(random_bytes(3)), (bool) $managedExternally);
     if (!$t->ok) {
         return $t->message;
     }

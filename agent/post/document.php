@@ -441,6 +441,13 @@ if (isset($_POST['link_vendor_to_document'])) {
 
     enforceClientAccess();
 
+    // Tenant isolation: the department's own vendors and shared central vendors only (includes/vendor_sharing.php)
+    if ($vendor_id <= 0) {
+        flash_alert('That vendor is not available for this department.', 'error');
+        redirect();
+    }
+    enforceVendorAssignable($vendor_id, $client_id);
+
     // Get Vendor Name for logging
     $vendor_name = sanitizeInput(getFieldById('vendors', $vendor_id, 'vendor_name'));
 
